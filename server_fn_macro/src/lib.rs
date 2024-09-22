@@ -242,6 +242,11 @@ pub fn server_macro_impl(
                 #server_fn_path::codec::Json
             }
         });
+
+    let (impl_generics, ty_generics, where_clause) =
+        body.generics.split_for_impl();
+    let turbofish_ty_generics = ty_generics.as_turbofish();
+
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -253,15 +258,15 @@ pub fn server_macro_impl(
 
     // struct name, wrapped in any custom-encoding newtype wrapper
     let wrapped_struct_name = if let Some(wrapper) = custom_wrapper.as_ref() {
-        quote! { #wrapper<#struct_name> }
+        quote! { #wrapper::<#struct_name #ty_generics> }
     } else {
-        quote! { #struct_name }
+        quote! { #struct_name #ty_generics }
     };
     let wrapped_struct_name_turbofish =
         if let Some(wrapper) = custom_wrapper.as_ref() {
-            quote! { #wrapper::<#struct_name> }
+            quote! { #wrapper::<#struct_name #ty_generics> }
         } else {
-            quote! { #struct_name }
+            quote! { #struct_name #ty_generics }
         };
 
     // build struct for type
@@ -301,16 +306,16 @@ pub fn server_macro_impl(
             let field = first_field.unwrap();
             let (name, ty) = field;
             quote! {
-                impl From<#struct_name> for #ty {
-                    fn from(value: #struct_name) -> Self {
-                        let #struct_name { #name } = value;
+                impl #impl_generics From<#struct_name #ty_generics> for #ty #where_clause {
+                    fn from(value: #struct_name #ty_generics) -> Self {
+                        let #struct_name #turbofish_ty_generics { #name } = value;
                         #name
                     }
                 }
 
-                impl From<#ty> for #struct_name {
+                impl #impl_generics From<#ty> for #struct_name #ty_generics #where_clause {
                     fn from(#name: #ty) -> Self {
-                        #struct_name { #name }
+                        #struct_name #turbofish_ty_generics { #name }
                     }
                 }
             }
@@ -386,11 +391,11 @@ pub fn server_macro_impl(
     let run_body = if cfg!(feature = "ssr") {
         let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
             quote! {
-                let #wrapper(#struct_name { #(#field_names),* }) = self;
+                let #wrapper(#struct_name #turbofish_ty_generics { #(#field_names),* }) = self;
             }
         } else {
             quote! {
-                let #struct_name { #(#field_names),* } = self;
+                let #struct_name #turbofish_ty_generics { #(#field_names),* } = self;
             }
         };
 
@@ -439,7 +444,7 @@ pub fn server_macro_impl(
         quote! {
             #docs
             #(#attrs)*
-            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+            #vis async fn #fn_name #ty_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
                 #dummy_name(#(#field_names),*).await
             }
         }
@@ -447,18 +452,18 @@ pub fn server_macro_impl(
         let restructure = if let Some(custom_wrapper) = custom_wrapper.as_ref()
         {
             quote! {
-                let data = #custom_wrapper(#struct_name { #(#field_names),* });
+                let data = #custom_wrapper(#struct_name #turbofish_ty_generics { #(#field_names),* });
             }
         } else {
             quote! {
-                let data = #struct_name { #(#field_names),* };
+                let data = #struct_name #turbofish_ty_generics { #(#field_names),* };
             }
         };
         quote! {
             #docs
             #(#attrs)*
             #[allow(unused_variables)]
-            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+            #vis async fn #fn_name #ty_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
                 use #server_fn_path::ServerFn;
                 #restructure
                 data.run_on_client().await
@@ -628,18 +633,18 @@ pub fn server_macro_impl(
         quote! { vec![] }
     };
 
-    Ok(quote::quote! {
+    let quote = quote::quote! {
         #args_docs
         #docs
         #[derive(Debug, #derives)]
         #addl_path
-        pub struct #struct_name {
+        pub struct #struct_name #ty_generics #where_clause {
             #(#fields),*
         }
 
         #from_impl
 
-        impl #server_fn_path::ServerFn for #wrapped_struct_name {
+        impl #impl_generics #server_fn_path::ServerFn for #wrapped_struct_name #where_clause {
             const PATH: &'static str = #path;
 
             type Client = #client;
@@ -662,7 +667,13 @@ pub fn server_macro_impl(
         #func
 
         #dummy
-    })
+    };
+
+    if !ty_generics.into_token_stream().is_empty() {
+        println!("{}", quote);
+    }
+
+    Ok(quote)
 }
 
 fn type_from_ident(ident: Ident) -> Type {
@@ -1045,7 +1056,7 @@ impl Parse for ServerFnBody {
 
         let fn_token = input.parse()?;
         let ident = input.parse()?;
-        let generics: Generics = input.parse()?;
+        let mut generics = input.parse::<Generics>()?;
 
         let content;
         let _paren_token = syn::parenthesized!(content in input);
@@ -1054,6 +1065,7 @@ impl Parse for ServerFnBody {
 
         let output_arrow = input.parse()?;
         let return_ty = input.parse()?;
+        generics.where_clause = input.parse()?;
 
         let block = input.parse()?;
 

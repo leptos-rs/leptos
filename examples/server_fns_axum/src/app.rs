@@ -12,12 +12,12 @@ use server_fn::{
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, Res},
 };
-use std::future::Future;
 #[cfg(feature = "ssr")]
 use std::sync::{
     atomic::{AtomicU8, Ordering},
     Mutex,
 };
+use std::{fmt::Display, future::Future};
 use strum::{Display, EnumString};
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
@@ -780,6 +780,19 @@ where
 pub struct WhyNotResult {
     original: String,
     modified: String,
+}
+
+#[server]
+pub async fn test_fn<S>(
+    first: S,
+    second: S,
+) -> Result<WhyNotResult, ServerFnError>
+where
+    S: Display + Send + DeserializeOwned + Serialize + 'static,
+{
+    let original = first.to_string();
+    let modified = format!("{original}{second}");
+    Ok(WhyNotResult { original, modified })
 }
 
 #[server(
