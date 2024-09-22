@@ -1,6 +1,6 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, Storage, SyncStorage},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Writeable,
     },
@@ -28,7 +28,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`] instead.
+/// > value. If you want a non-reactive container, used [`ArenaItem`] instead.
 ///
 /// ## Examples
 /// ```
@@ -54,7 +54,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 pub struct WriteSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcWriteSignal<T>, S>,
+    pub(crate) inner: ArenaItem<ArcWriteSignal<T>, S>,
 }
 
 impl<T, S> Dispose for WriteSignal<T, S> {
@@ -145,6 +145,8 @@ where
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        self.inner.with_value(|n| n.try_write_untracked())
+        self.inner
+            .try_with_value(|n| n.try_write_untracked())
+            .flatten()
     }
 }

@@ -124,7 +124,7 @@ pub mod sandboxed {
     }
 
     impl<T> Sandboxed<T> {
-        /// Wraps the given [`Future`], ensuring that any [`StoredValue`] created while it is being
+        /// Wraps the given [`Future`], ensuring that any [`ArenaItem`] created while it is being
         /// polled will be associated with the same arena that was active when this was called.
         pub fn new(inner: T) -> Self {
             let arena = MAP.with_borrow(|current| {

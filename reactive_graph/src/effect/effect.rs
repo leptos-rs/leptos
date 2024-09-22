@@ -5,7 +5,7 @@ use crate::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
     },
-    owner::{LocalStorage, Owner, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Owner, Storage, SyncStorage},
     traits::Dispose,
 };
 use any_spawner::Executor;
@@ -40,7 +40,7 @@ use std::{
 /// # use reactive_graph::signal::*;
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::effect::Effect;
-/// # use reactive_graph::owner::StoredValue;
+/// # use reactive_graph::owner::ArenaItem;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
 /// # any_spawner::Executor::init_tokio();
@@ -78,7 +78,7 @@ use std::{
 ///    If you need an effect to run on the server, use [`Effect::new_isomorphic`].
 #[derive(Debug, Clone, Copy)]
 pub struct Effect<S> {
-    inner: Option<StoredValue<StoredEffect, S>>,
+    inner: Option<ArenaItem<StoredEffect, S>>,
 }
 
 type StoredEffect = Option<Arc<RwLock<EffectInner>>>;
@@ -165,7 +165,7 @@ impl Effect<LocalStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -334,7 +334,7 @@ impl Effect<LocalStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -383,7 +383,7 @@ impl Effect<SyncStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -430,7 +430,7 @@ impl Effect<SyncStorage> {
         crate::spawn(task);
 
         Self {
-            inner: Some(StoredValue::new_with_storage(Some(inner))),
+            inner: Some(ArenaItem::new_with_storage(Some(inner))),
         }
     }
 
@@ -498,7 +498,7 @@ impl Effect<SyncStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }

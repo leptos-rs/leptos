@@ -1,6 +1,6 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
@@ -102,7 +102,7 @@ where
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcMemo<T, S>, S>,
+    inner: ArenaItem<ArcMemo<T, S>, S>,
 }
 
 impl<T, S> Dispose for Memo<T, S>
@@ -123,7 +123,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -137,7 +137,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -177,7 +177,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new(fun)),
+            inner: ArenaItem::new_with_storage(ArcMemo::new(fun)),
         }
     }
 
@@ -202,7 +202,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new_with_compare(
+            inner: ArenaItem::new_with_storage(ArcMemo::new_with_compare(
                 fun, changed,
             )),
         }
@@ -229,7 +229,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new_owning(fun)),
+            inner: ArenaItem::new_with_storage(ArcMemo::new_owning(fun)),
         }
     }
 }

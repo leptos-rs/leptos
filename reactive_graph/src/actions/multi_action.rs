@@ -1,6 +1,6 @@
 use crate::{
     diagnostics::is_suppressing_resource_load,
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
@@ -45,7 +45,7 @@ use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 /// # });
 /// ```
 pub struct MultiAction<I, O, S = SyncStorage> {
-    inner: StoredValue<ArcMultiAction<I, O>, S>,
+    inner: ArenaItem<ArcMultiAction<I, O>, S>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -129,9 +129,7 @@ where
         Fut: Future<Output = O> + Send + 'static,
     {
         Self {
-            inner: StoredValue::new_with_storage(ArcMultiAction::new(
-                action_fn,
-            )),
+            inner: ArenaItem::new_with_storage(ArcMultiAction::new(action_fn)),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -189,7 +187,7 @@ where
     /// ```
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
-            self.inner.with_value(|inner| inner.dispatch(input));
+            self.inner.try_with_value(|inner| inner.dispatch(input));
         }
     }
 
@@ -232,7 +230,8 @@ where
     /// # });
     /// ```
     pub fn dispatch_sync(&self, value: O) {
-        self.inner.with_value(|inner| inner.dispatch_sync(value));
+        self.inner
+            .try_with_value(|inner| inner.dispatch_sync(value));
     }
 }
 

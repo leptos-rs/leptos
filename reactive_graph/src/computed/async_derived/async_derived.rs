@@ -4,7 +4,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
@@ -85,7 +85,7 @@ use std::{future::Future, ops::DerefMut, panic::Location};
 pub struct AsyncDerived<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcAsyncDerived<T>, S>,
+    pub(crate) inner: ArenaItem<ArcAsyncDerived<T>, S>,
 }
 
 impl<T, S> Dispose for AsyncDerived<T, S> {
@@ -104,7 +104,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at,
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -119,7 +119,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at,
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -141,7 +141,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new(fun)),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new(fun)),
         }
     }
 
@@ -159,7 +159,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_with_initial(initial_value, fun),
             ),
         }
@@ -176,9 +176,7 @@ impl<T> AsyncDerived<SendWrapper<T>> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_mock(
-                fun,
-            )),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
         }
     }
 }
@@ -200,7 +198,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_unsync(
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_unsync(
                 fun,
             )),
         }
@@ -221,7 +219,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_unsync_with_initial(initial_value, fun),
             ),
         }

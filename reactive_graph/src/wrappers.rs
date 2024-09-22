@@ -4,7 +4,7 @@
 pub mod read {
     use crate::{
         computed::{ArcMemo, Memo},
-        owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+        owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::{DefinedAt, Dispose, Get, With, WithUntracked},
         untrack, unwrap_signal,
@@ -279,7 +279,7 @@ pub mod read {
     {
         #[cfg(debug_assertions)]
         defined_at: &'static Location<'static>,
-        inner: StoredValue<SignalTypes<T, S>, S>,
+        inner: ArenaItem<SignalTypes<T, S>, S>,
     }
 
     impl<T, S> Dispose for Signal<T, S>
@@ -425,9 +425,9 @@ pub mod read {
             };
 
             Self {
-                inner: StoredValue::new_with_storage(
-                    SignalTypes::DerivedSignal(Arc::new(derived_signal)),
-                ),
+                inner: ArenaItem::new_with_storage(SignalTypes::DerivedSignal(
+                    Arc::new(derived_signal),
+                )),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -452,7 +452,7 @@ pub mod read {
             };
 
             Self {
-                inner: StoredValue::new_local(SignalTypes::DerivedSignal(
+                inner: ArenaItem::new_local(SignalTypes::DerivedSignal(
                     Arc::new(derived_signal),
                 )),
                 #[cfg(debug_assertions)]
@@ -515,7 +515,7 @@ pub mod read {
             Signal {
                 #[cfg(debug_assertions)]
                 defined_at: Location::caller(),
-                inner: StoredValue::new(value.inner),
+                inner: ArenaItem::new(value.inner),
             }
         }
     }
@@ -529,7 +529,7 @@ pub mod read {
             Signal {
                 #[cfg(debug_assertions)]
                 defined_at: Location::caller(),
-                inner: StoredValue::new_local(value.inner),
+                inner: ArenaItem::new_local(value.inner),
             }
         }
     }
@@ -558,7 +558,7 @@ pub mod read {
         #[track_caller]
         fn from(value: ReadSignal<T>) -> Self {
             Self {
-                inner: StoredValue::new(SignalTypes::ReadSignal(value.into())),
+                inner: ArenaItem::new(SignalTypes::ReadSignal(value.into())),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -572,7 +572,7 @@ pub mod read {
         #[track_caller]
         fn from(value: ReadSignal<T, LocalStorage>) -> Self {
             Self {
-                inner: StoredValue::new_local(SignalTypes::ReadSignal(
+                inner: ArenaItem::new_local(SignalTypes::ReadSignal(
                     value.into(),
                 )),
                 #[cfg(debug_assertions)]
@@ -588,7 +588,7 @@ pub mod read {
         #[track_caller]
         fn from(value: RwSignal<T>) -> Self {
             Self {
-                inner: StoredValue::new(SignalTypes::ReadSignal(
+                inner: ArenaItem::new(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
                 #[cfg(debug_assertions)]
@@ -604,7 +604,7 @@ pub mod read {
         #[track_caller]
         fn from(value: RwSignal<T, LocalStorage>) -> Self {
             Self {
-                inner: StoredValue::new_local(SignalTypes::ReadSignal(
+                inner: ArenaItem::new_local(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
                 #[cfg(debug_assertions)]
@@ -620,7 +620,7 @@ pub mod read {
         #[track_caller]
         fn from(value: Memo<T>) -> Self {
             Self {
-                inner: StoredValue::new(SignalTypes::Memo(value.into())),
+                inner: ArenaItem::new(SignalTypes::Memo(value.into())),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -634,7 +634,7 @@ pub mod read {
         #[track_caller]
         fn from(value: Memo<T, LocalStorage>) -> Self {
             Self {
-                inner: StoredValue::new_local(SignalTypes::Memo(value.into())),
+                inner: ArenaItem::new_local(SignalTypes::Memo(value.into())),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -1246,7 +1246,7 @@ pub mod read {
 /// Types that abstract over the ability to update a signal.
 pub mod write {
     use crate::{
-        owner::{Storage, StoredValue, SyncStorage},
+        owner::{ArenaItem, Storage, SyncStorage},
         signal::{ArcRwSignal, ArcWriteSignal, RwSignal, WriteSignal},
         traits::Set,
     };
@@ -1341,7 +1341,7 @@ pub mod write {
                 SignalSetterTypes::Default => {}
                 SignalSetterTypes::Write(w) => w.set(new_value),
                 SignalSetterTypes::Mapped(s) => {
-                    s.with_value(|setter| setter(new_value))
+                    s.try_with_value(|setter| setter(new_value));
                 }
             }
         }
@@ -1371,9 +1371,9 @@ pub mod write {
         #[track_caller]
         pub fn map(mapped_setter: impl Fn(T) + Send + Sync + 'static) -> Self {
             Self {
-                inner: SignalSetterTypes::Mapped(
-                    StoredValue::new_with_storage(Box::new(mapped_setter)),
-                ),
+                inner: SignalSetterTypes::Mapped(ArenaItem::new_with_storage(
+                    Box::new(mapped_setter),
+                )),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -1411,7 +1411,7 @@ pub mod write {
         T: 'static,
     {
         Write(WriteSignal<T, S>),
-        Mapped(StoredValue<Box<dyn Fn(T) + Send + Sync>, S>),
+        Mapped(ArenaItem<Box<dyn Fn(T) + Send + Sync>, S>),
         Default,
     }
 

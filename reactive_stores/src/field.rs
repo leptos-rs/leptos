@@ -5,7 +5,7 @@ use crate::{
     StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, Storage, SyncStorage},
     traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
     unwrap_signal,
 };
@@ -17,7 +17,7 @@ where
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcField<T>, S>,
+    inner: ArenaItem<ArcField<T>, S>,
 }
 
 impl<T, S> StoreField for Field<T, S>
@@ -68,7 +68,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }
@@ -86,7 +86,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }
@@ -109,7 +109,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }
