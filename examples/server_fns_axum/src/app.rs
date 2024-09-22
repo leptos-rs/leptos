@@ -788,7 +788,7 @@ pub async fn test_fn<S>(
     second: S,
 ) -> Result<WhyNotResult, ServerFnError>
 where
-    S: Display + Send + DeserializeOwned + Serialize + 'static,
+    S: Display,
 {
     let original = first.to_string();
     let modified = format!("{original}{second}");

@@ -247,6 +247,94 @@ pub fn server_macro_impl(
         body.generics.split_for_impl();
     let turbofish_ty_generics = ty_generics.as_turbofish();
 
+    // For the struct declaration, add a where clause where serde::Serialize + serde::DeserializeOwned is not required
+    let struct_decl_where_clause =
+        where_clause.cloned().map(|mut where_clause| {
+            where_clause.predicates = where_clause
+                .predicates
+                .into_iter()
+                .map(|predicate| {
+                    if let WherePredicate::Type(mut t) = predicate {
+                        // Check if the type is used in the struct
+                        let is_type_used =
+                            body.inputs.iter().any(|f| match f {
+                                FnArg::Receiver(_) => false,
+                                FnArg::Typed(typed) => {
+                                    *typed.ty == t.bounded_ty
+                                }
+                            });
+
+                        if is_type_used {
+                            // If the type is used in the struct, add the bounds
+                            t.bounds.push(TypeParamBound::Trait(TraitBound {
+                                paren_token: None,
+                                modifier: TraitBoundModifier::None,
+                                lifetimes: None,
+                                path: syn::parse_quote!(Send),
+                            }));
+                            t.bounds.push(TypeParamBound::Lifetime(
+                                syn::parse_quote!('static),
+                            ));
+                        }
+                        WherePredicate::Type(t)
+                    } else {
+                        predicate
+                    }
+                })
+                .collect();
+            where_clause
+        });
+
+    // Add a `: Serialize + for<'leptos_lifetime_param> Deserialize<'leptos_lifetime_param> + Send + 'static` bound to all types that are used in the struct
+    let where_clause = where_clause.cloned().map(|mut where_clause| {
+        where_clause.predicates = where_clause
+            .predicates
+            .into_iter()
+            .map(|predicate| {
+                if let WherePredicate::Type(mut t) = predicate {
+                    // Check if the type is used in the struct
+                    let is_type_used = body.inputs.iter().any(|f| match f {
+                        FnArg::Receiver(_) => false,
+                        FnArg::Typed(typed) => *typed.ty == t.bounded_ty,
+                    });
+
+                    if is_type_used {
+                        // If the type is used in the struct, add the bounds
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: syn::parse_quote!(
+                                #server_fn_path::serde::Serialize
+                            ),
+                        }));
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: Some(syn::parse_quote!(for<'leptos_param_lifetime>)),
+                            path: syn::parse_quote!(
+                                #server_fn_path::serde::Deserialize::<'leptos_param_lifetime>
+                            ),
+                        }));
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: syn::parse_quote!(Send),
+                        }));
+                        t.bounds.push(TypeParamBound::Lifetime(
+                            syn::parse_quote!('static),
+                        ));
+                    }
+                    WherePredicate::Type(t)
+                } else {
+                    predicate
+                }
+            })
+            .collect();
+        where_clause
+    });
+
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -264,9 +352,9 @@ pub fn server_macro_impl(
     };
     let wrapped_struct_name_turbofish =
         if let Some(wrapper) = custom_wrapper.as_ref() {
-            quote! { #wrapper::<#struct_name #ty_generics> }
+            quote! { #wrapper::<#struct_name #turbofish_ty_generics> }
         } else {
-            quote! { #struct_name #ty_generics }
+            quote! { #struct_name #turbofish_ty_generics }
         };
 
     // build struct for type
@@ -638,7 +726,7 @@ pub fn server_macro_impl(
         #docs
         #[derive(Debug, #derives)]
         #addl_path
-        pub struct #struct_name #ty_generics #where_clause {
+        pub struct #struct_name #ty_generics #struct_decl_where_clause {
             #(#fields),*
         }
 
@@ -668,10 +756,6 @@ pub fn server_macro_impl(
 
         #dummy
     };
-
-    if !ty_generics.into_token_stream().is_empty() {
-        println!("{}", quote);
-    }
 
     Ok(quote)
 }
@@ -1133,10 +1217,11 @@ impl ServerFnBody {
             block,
             ..
         } = &self;
+        let where_clause = generics.where_clause.as_ref();
         quote! {
             #[doc(hidden)]
             #(#attrs)*
-            #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty
+            #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty #where_clause
             #block
         }
     }
