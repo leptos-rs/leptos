@@ -2,13 +2,10 @@
 use super::MarkBranch;
 use super::{
     add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml, WrappedView,
+    RenderHtml,
 };
 use crate::{
-    html::attribute::{
-        any_attribute::{AnyAttribute, IntoAnyAttribute},
-        Attribute,
-    },
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
@@ -54,6 +51,7 @@ where
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
+    #[allow(unused)]
     add_any_attr: fn(Box<dyn Any>, AnyAttribute<R>) -> AnyView<R>,
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
@@ -347,18 +345,16 @@ impl<R> AddAnyAttr<R> for AnyView<R>
 where
     R: Renderer + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> = WrappedView<AnyView<R>>;
+    type Output<SomeNewAttr: Attribute<R>> = AnyView<R>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        let attr = attr.into_cloneable_owned().into_any_attr();
-        let new = (self.add_any_attr)(self.value, attr).into_any();
-        WrappedView::new(new)
+        todo!()
     }
 }
 
