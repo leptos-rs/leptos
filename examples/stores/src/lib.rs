@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::{Local, NaiveDate};
 use leptos::prelude::*;
-use reactive_stores::{Field, Store};
-use reactive_stores_macro::Store;
+use reactive_stores::{Field, Patch, Store};
+use reactive_stores_macro::{Patch, Store};
 use serde::{Deserialize, Serialize};
 
 // ID starts higher than 0 because we have a few starting todos by default
@@ -11,9 +11,15 @@ static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
 #[derive(Debug, Store, Serialize, Deserialize)]
 struct Todos {
-    user: String,
+    user: User,
     #[store(key: usize = |todo| todo.id)]
     todos: Vec<Todo>,
+}
+
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
+struct User {
+    name: String,
+    email: String,
 }
 
 #[derive(Debug, Store, Serialize, Deserialize)]
@@ -58,7 +64,10 @@ impl Todo {
 
 fn data() -> Todos {
     Todos {
-        user: "Bob".to_string(),
+        user: User {
+            name: "Bob".to_string(),
+            email: "lawblog@bobloblaw.com".into(),
+        },
         todos: vec![
             Todo {
                 id: 0,
@@ -86,7 +95,9 @@ pub fn App() -> impl IntoView {
     let input_ref = NodeRef::new();
 
     view! {
-        <p>"Hello, " {move || store.user().get()}</p>
+        <p>"Hello, " {move || store.user().name().get()}</p>
+        <UserForm user=store.user()/>
+        <hr/>
         <form on:submit=move |ev| {
             ev.prevent_default();
             store.todos().write().push(Todo::new(input_ref.get().unwrap().value()));
@@ -98,12 +109,47 @@ pub fn App() -> impl IntoView {
             // because `todos` is a keyed field, `store.todos()` returns a struct that
             // directly implements IntoIterator, so we can use it in <For/> and
             // it will manage reactivity for the store fields correctly
-            <For each=move || store.todos() key=|row| row.id().get() let:todo>
+            <For
+                each=move || {
+                    leptos::logging::log!("RERUNNING FOR CALCULATION");
+                    store.todos()
+                }
+
+                key=|row| row.id().get()
+                let:todo
+            >
                 <TodoRow store todo/>
             </For>
 
         </ol>
         <pre>{move || serde_json::to_string_pretty(&*store.read())}</pre>
+    }
+}
+
+#[component]
+fn UserForm(#[prop(into)] user: Field<User>) -> impl IntoView {
+    let error = RwSignal::new(None);
+
+    view! {
+        {move || error.get().map(|n| view! { <p>{n}</p> })}
+        <form on:submit:target=move |ev| {
+            ev.prevent_default();
+            match User::from_event(&ev) {
+                Ok(new_user) => {
+                    error.set(None);
+                    user.patch(new_user);
+                }
+                Err(e) => error.set(Some(e.to_string())),
+            }
+        }>
+            <label>
+                "Name" <input type="text" name="name" prop:value=move || user.name().get()/>
+            </label>
+            <label>
+                "Email" <input type="email" name="email" prop:value=move || user.email().get()/>
+            </label>
+            <input type="submit"/>
+        </form>
     }
 }
 

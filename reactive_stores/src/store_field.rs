@@ -85,7 +85,7 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(Default::default());
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
-        Some(WriteGuard::new(trigger.this, guard))
+        Some(WriteGuard::new(trigger.children, guard))
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -225,6 +225,7 @@ where
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.notify();
+        trigger.children.notify();
     }
 }
 

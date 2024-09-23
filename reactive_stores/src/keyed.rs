@@ -229,6 +229,7 @@ where
         // now that the write lock is release, we can get a read lock to refresh this keyed field
         // based on the new value
         self.inner.update_keys();
+        self.inner.notify();
 
         // reactive updates happen on the next tick
     }
@@ -272,6 +273,7 @@ where
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
@@ -285,9 +287,13 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn track(&self) {
-        self.inner.track();
+        let inner = self
+            .inner
+            .get_trigger(self.inner.path().into_iter().collect());
+        inner.this.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.track();
+        trigger.children.track();
     }
 }
 
@@ -530,6 +536,7 @@ where
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
@@ -636,7 +643,6 @@ where
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.track();
-        trigger.children.track();
 
         // get the current length of the field by accessing slice
         let reader = self
