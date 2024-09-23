@@ -1,6 +1,6 @@
 [package]
 name = "throw_error"
-version = "0.2.0-beta5"
+version = "0.2.0-beta6"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
