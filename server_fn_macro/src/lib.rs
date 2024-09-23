@@ -456,27 +456,8 @@ pub fn server_macro_impl(
         .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
         .collect::<TokenStream2>();
 
-    // auto-registration with inventory
-    let inventory = if cfg!(feature = "ssr") {
-        quote! {
-            #server_fn_path::inventory::submit! {{
-                use #server_fn_path::{ServerFn, codec::Encoding};
-                #server_fn_path::ServerFnTraitObj::new(
-                    #wrapped_struct_name_turbofish::PATH,
-                    <#wrapped_struct_name as ServerFn>::InputEncoding::METHOD,
-                    |req| {
-                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
-                    },
-                    #wrapped_struct_name_turbofish::middlewares
-                )
-            }}
-        }
-    } else {
-        quote! {}
-    };
-
     // run_body in the trait implementation
-    let run_body = if cfg!(feature = "ssr") {
+    let (run_body_lint_supressor, run_body) = if cfg!(feature = "ssr") {
         let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
             quote! {
                 let #wrapper(#struct_name #turbofish_ty_generics { #(#field_names),* }) = self;
@@ -499,32 +480,35 @@ pub fn server_macro_impl(
             #destructure
             #dummy_name(#(#field_names),*).await
         };
-        let body = if cfg!(feature = "actix") {
+        (
             quote! {
-                #server_fn_path::actix::SendWrapper::new(async move {
+                // we need this for Actix, for the SendWrapper to count as impl Future
+                // but non-Actix will have a clippy warning otherwise
+                #[allow(clippy::manual_async_fn)]
+            },
+            if cfg!(feature = "actix") {
+                quote! {
+                    #server_fn_path::actix::SendWrapper::new(async move {
+                        #body
+                    })
+                }
+            } else {
+                quote! { async move {
                     #body
-                })
-            }
-        } else {
-            quote! { async move {
-                #body
-            }}
-        };
-        quote! {
-            // we need this for Actix, for the SendWrapper to count as impl Future
-            // but non-Actix will have a clippy warning otherwise
-            #[allow(clippy::manual_async_fn)]
-            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
-                #body
-            }
-        }
+                }}
+            },
+        )
     } else {
-        quote! {
-            #[allow(unused_variables)]
-            async fn run_body(self) -> #return_ty {
-                unreachable!()
-            }
-        }
+        (
+            quote! {
+                #[allow(unused_variables, clippy::manual_async_fn)]
+            },
+            quote! {
+                async move {
+                    unreachable!()
+                }
+            },
+        )
     };
 
     // the actual function definition
@@ -721,6 +705,25 @@ pub fn server_macro_impl(
         quote! { vec![] }
     };
 
+    // auto-registration with inventory
+    let inventory = if cfg!(feature = "ssr") {
+        quote! {
+            #server_fn_path::inventory::submit! {{
+                use #server_fn_path::{ServerFn, codec::Encoding};
+                #server_fn_path::ServerFnTraitObj::new(
+                    #path,
+                    #input::METHOD,
+                    |req| {
+                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
+                    },
+                    #middlewares
+                )
+            }}
+        }
+    } else {
+        quote! {}
+    };
+
     let quote = quote::quote! {
         #args_docs
         #docs
@@ -733,8 +736,6 @@ pub fn server_macro_impl(
         #from_impl
 
         impl #impl_generics #server_fn_path::ServerFn for #wrapped_struct_name #where_clause {
-            const PATH: &'static str = #path;
-
             type Client = #client;
             type ServerRequest = #req;
             type ServerResponse = #res;
@@ -743,11 +744,18 @@ pub fn server_macro_impl(
             type OutputEncoding = #output;
             type Error = #error_ty;
 
+            fn url() -> &'static str {
+                #path
+            }
+
             fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<#req, #res>>> {
                 #middlewares
             }
 
-            #run_body
+            #run_body_lint_supressor
+            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
+                #run_body
+            }
         }
 
         #inventory

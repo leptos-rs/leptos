@@ -191,9 +191,6 @@ where
             Self::Error,
         >,
 {
-    /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
-    const PATH: &'static str;
-
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
@@ -227,9 +224,7 @@ where
     type Error: FromStr + Display;
 
     /// Returns [`Self::PATH`].
-    fn url() -> &'static str {
-        Self::PATH
-    }
+    fn url() -> &'static str;
 
     /// Middleware that should be applied to this server function.
     fn middlewares(
@@ -265,7 +260,7 @@ where
                 .map(|res| (res, None))
                 .unwrap_or_else(|e| {
                     (
-                        Self::ServerResponse::error_response(Self::PATH, &e),
+                        Self::ServerResponse::error_response(Self::url(), &e),
                         Some(e),
                     )
                 });
@@ -275,7 +270,7 @@ where
             if accepts_html {
                 // if it had an error, encode that error in the URL
                 if let Some(err) = err {
-                    if let Ok(url) = ServerFnUrlError::new(Self::PATH, err)
+                    if let Ok(url) = ServerFnUrlError::new(Self::url(), err)
                         .to_url(referer.as_deref().unwrap_or("/"))
                     {
                         referer = Some(url.to_string());
@@ -303,7 +298,7 @@ where
         async move {
             // create and send request on client
             let req =
-                self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
+                self.into_req(Self::url(), Self::OutputEncoding::CONTENT_TYPE)?;
             Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
                 .await
         }
@@ -489,9 +484,9 @@ pub mod axum {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
+            (T::url().into(), T::InputEncoding::METHOD),
             ServerFnTraitObj::new(
-                T::PATH,
+                T::url(),
                 T::InputEncoding::METHOD,
                 |req| Box::pin(T::run_on_server(req)),
                 T::middlewares,
@@ -577,9 +572,9 @@ pub mod actix {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
+            (T::url().into(), T::InputEncoding::METHOD),
             ServerFnTraitObj::new(
-                T::PATH,
+                T::url(),
                 T::InputEncoding::METHOD,
                 |req| Box::pin(T::run_on_server(req)),
                 T::middlewares,
