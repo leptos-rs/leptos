@@ -506,7 +506,7 @@ mod stable {
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml, WrappedView,
+            RenderHtml,
         },
     };
     use reactive_graph::{
@@ -551,8 +551,7 @@ mod stable {
                 V::State: 'static,
                 R: Renderer + 'static,
             {
-                // WrappedView is necessary here for compiler reasons I don't completely understand
-                type Output<SomeNewAttr: Attribute<R>> = WrappedView<$sig<V>>;
+                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
@@ -561,7 +560,7 @@ mod stable {
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
                 {
-                    WrappedView::new(self)
+                    todo!()
                 }
             }
 
@@ -727,8 +726,7 @@ mod stable {
                 V::State: 'static,
                 R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> =
-                    WrappedView<$sig<V, S>>;
+                type Output<SomeNewAttr: Attribute<R>> = $sig<V, S>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
@@ -737,7 +735,7 @@ mod stable {
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
                 {
-                    WrappedView::new(self)
+                    todo!()
                 }
             }
 

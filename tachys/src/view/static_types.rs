@@ -1,6 +1,6 @@
 use super::{
     add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml, ToTemplate, WrappedView,
+    RenderHtml, ToTemplate,
 };
 use crate::{
     html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
@@ -216,7 +216,7 @@ impl<R, const V: &'static str> AddAnyAttr<R> for Static<V>
 where
     R: Renderer,
 {
-    type Output<SomeNewAttr: Attribute<R>> = WrappedView<Static<V>>;
+    type Output<SomeNewAttr: Attribute<R>> = Static<V>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
@@ -225,7 +225,7 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        WrappedView::new(self)
+        todo!()
     }
 }
 
