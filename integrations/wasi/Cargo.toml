@@ -1,0 +1,29 @@
+[package]
+name = "leptos_wasi"
+authors = ["Enzo Nocera"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "WASI integrations for the Leptos web framework."
+version = { workspace = true }
+rust-version.workspace = true
+edition.workspace = true
+
+[dependencies]
+any_spawner = { workspace = true, features = ["futures-executor"] }
+hydration_context = { workspace = true }
+futures = "0.3.30"
+leptos = { workspace = true, features = ["nonce", "ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
+leptos_integration_utils = { workspace = true }
+once_cell = "1"
+serde_json = "1.0"
+wit-bindgen = "0.32.0"
+http = "1.1.0"
+parking_lot = "0.12.3"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.cargo-all-features]
+denylist = ["tracing"]
