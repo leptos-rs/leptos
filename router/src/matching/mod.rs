@@ -143,7 +143,7 @@ mod tests {
         WildcardSegment,
     };
     use either_of::Either;
-    use tachys::renderer::dom::Dom;
+    
 
     #[test]
     pub fn matches_single_root_route() {
