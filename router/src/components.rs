@@ -211,7 +211,7 @@ pub fn Routes<Defs, FallbackFn, Fallback>(
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
-    Defs: MatchNestedRoutes<Dom> + Clone + Send + 'static,
+    Defs: MatchNestedRoutes + Clone + Send + 'static,
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
@@ -243,7 +243,6 @@ where
             current_url: current_url.clone(),
             base: base.clone(),
             fallback: fallback.clone(),
-            rndr: PhantomData,
             set_is_routing,
         }
     }
@@ -255,7 +254,7 @@ pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
-    Defs: MatchNestedRoutes<Dom> + Clone + Send + 'static,
+    Defs: MatchNestedRoutes + Clone + Send + 'static,
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
@@ -301,9 +300,9 @@ pub fn Route<Segments, View>(
     path: Segments,
     view: View,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, (), (), View, Dom>
+) -> NestedRoute<Segments, (), (), View>
 where
-    View: ChooseView<Dom>,
+    View: ChooseView,
 {
     NestedRoute::new(path, view).ssr_mode(ssr)
 }
@@ -314,9 +313,9 @@ pub fn ParentRoute<Segments, View, Children>(
     view: View,
     children: RouteChildren<Children>,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, Children, (), View, Dom>
+) -> NestedRoute<Segments, Children, (), View>
 where
-    View: ChooseView<Dom>,
+    View: ChooseView,
 {
     let children = children.into_inner();
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
@@ -329,7 +328,7 @@ pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
     condition: C,
     redirect_path: PathFn,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView<Dom> + Send + Clone, Dom>
+) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
     View: IntoView + 'static,
@@ -372,13 +371,7 @@ pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
     redirect_path: PathFn,
     children: RouteChildren<Children>,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<
-    Segments,
-    Children,
-    (),
-    impl Fn() -> AnyView<Dom> + Send + Clone,
-    Dom,
->
+) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
     View: IntoView + 'static,

@@ -1,24 +1,23 @@
 use crate::{
     html::{
         attribute::{Attr, *},
-        element::{CreateElement, ElementType, HtmlElement},
+        element::{ElementType, HtmlElement},
     },
+    renderer::Rndr,
     view::{add_attr::AddAnyAttr, RenderHtml},
 };
 
 /// Applies ARIA attributes to an HTML element.
 pub trait AriaAttributes<Rndr, V>
 where
-    Self: Sized + AddAnyAttr<Rndr>,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    Self: Sized + AddAnyAttr,
+    V: AttributeValue,
 {
     /// Identifies the currently active descendant of a composite widget.
     fn aria_activedescendant(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaActivedescendant, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaActivedescendant, V>> {
         self.add_any_attr(aria_activedescendant(value))
     }
 
@@ -26,7 +25,7 @@ where
     fn aria_atomic(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaAtomic, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaAtomic, V>> {
         self.add_any_attr(aria_atomic(value))
     }
 
@@ -34,8 +33,7 @@ where
     fn aria_autocomplete(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaAutocomplete, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaAutocomplete, V>> {
         self.add_any_attr(aria_autocomplete(value))
     }
 
@@ -43,7 +41,7 @@ where
     fn aria_busy(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaBusy, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaBusy, V>> {
         self.add_any_attr(aria_busy(value))
     }
 
@@ -51,7 +49,7 @@ where
     fn aria_checked(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaChecked, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaChecked, V>> {
         self.add_any_attr(aria_checked(value))
     }
 
@@ -59,7 +57,7 @@ where
     fn aria_colcount(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaColcount, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaColcount, V>> {
         self.add_any_attr(aria_colcount(value))
     }
 
@@ -67,7 +65,7 @@ where
     fn aria_colindex(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaColindex, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaColindex, V>> {
         self.add_any_attr(aria_colindex(value))
     }
 
@@ -75,7 +73,7 @@ where
     fn aria_colspan(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaColspan, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaColspan, V>> {
         self.add_any_attr(aria_colspan(value))
     }
 
@@ -83,7 +81,7 @@ where
     fn aria_controls(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaControls, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaControls, V>> {
         self.add_any_attr(aria_controls(value))
     }
 
@@ -91,7 +89,7 @@ where
     fn aria_current(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaCurrent, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaCurrent, V>> {
         self.add_any_attr(aria_current(value))
     }
 
@@ -99,8 +97,7 @@ where
     fn aria_describedby(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaDescribedby, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaDescribedby, V>> {
         self.add_any_attr(aria_describedby(value))
     }
 
@@ -108,8 +105,7 @@ where
     fn aria_description(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaDescription, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaDescription, V>> {
         self.add_any_attr(aria_description(value))
     }
 
@@ -117,7 +113,7 @@ where
     fn aria_details(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaDetails, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaDetails, V>> {
         self.add_any_attr(aria_details(value))
     }
 
@@ -125,7 +121,7 @@ where
     fn aria_disabled(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaDisabled, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaDisabled, V>> {
         self.add_any_attr(aria_disabled(value))
     }
 
@@ -133,7 +129,7 @@ where
     fn aria_dropeffect(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaDropeffect, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaDropeffect, V>> {
         self.add_any_attr(aria_dropeffect(value))
     }
 
@@ -141,8 +137,7 @@ where
     fn aria_errormessage(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaErrormessage, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaErrormessage, V>> {
         self.add_any_attr(aria_errormessage(value))
     }
 
@@ -150,7 +145,7 @@ where
     fn aria_expanded(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaExpanded, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaExpanded, V>> {
         self.add_any_attr(aria_expanded(value))
     }
 
@@ -158,7 +153,7 @@ where
     fn aria_flowto(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaFlowto, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaFlowto, V>> {
         self.add_any_attr(aria_flowto(value))
     }
 
@@ -166,7 +161,7 @@ where
     fn aria_grabbed(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaGrabbed, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaGrabbed, V>> {
         self.add_any_attr(aria_grabbed(value))
     }
 
@@ -174,7 +169,7 @@ where
     fn aria_haspopup(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaHaspopup, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaHaspopup, V>> {
         self.add_any_attr(aria_haspopup(value))
     }
 
@@ -182,7 +177,7 @@ where
     fn aria_hidden(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaHidden, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaHidden, V>> {
         self.add_any_attr(aria_hidden(value))
     }
 
@@ -190,7 +185,7 @@ where
     fn aria_invalid(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaInvalid, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaInvalid, V>> {
         self.add_any_attr(aria_invalid(value))
     }
 
@@ -198,8 +193,7 @@ where
     fn aria_keyshortcuts(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaKeyshortcuts, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaKeyshortcuts, V>> {
         self.add_any_attr(aria_keyshortcuts(value))
     }
 
@@ -207,7 +201,7 @@ where
     fn aria_label(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaLabel, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaLabel, V>> {
         self.add_any_attr(aria_label(value))
     }
 
@@ -215,7 +209,7 @@ where
     fn aria_labelledby(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaLabelledby, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaLabelledby, V>> {
         self.add_any_attr(aria_labelledby(value))
     }
 
@@ -223,7 +217,7 @@ where
     fn aria_live(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaLive, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaLive, V>> {
         self.add_any_attr(aria_live(value))
     }
 
@@ -231,7 +225,7 @@ where
     fn aria_modal(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaModal, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaModal, V>> {
         self.add_any_attr(aria_modal(value))
     }
 
@@ -239,7 +233,7 @@ where
     fn aria_multiline(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaMultiline, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaMultiline, V>> {
         self.add_any_attr(aria_multiline(value))
     }
 
@@ -247,8 +241,7 @@ where
     fn aria_multiselectable(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaMultiselectable, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaMultiselectable, V>> {
         self.add_any_attr(aria_multiselectable(value))
     }
 
@@ -256,8 +249,7 @@ where
     fn aria_orientation(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaOrientation, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaOrientation, V>> {
         self.add_any_attr(aria_orientation(value))
     }
 
@@ -265,7 +257,7 @@ where
     fn aria_owns(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaOwns, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaOwns, V>> {
         self.add_any_attr(aria_owns(value))
     }
 
@@ -273,8 +265,7 @@ where
     fn aria_placeholder(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaPlaceholder, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaPlaceholder, V>> {
         self.add_any_attr(aria_placeholder(value))
     }
 
@@ -282,7 +273,7 @@ where
     fn aria_posinset(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaPosinset, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaPosinset, V>> {
         self.add_any_attr(aria_posinset(value))
     }
 
@@ -290,7 +281,7 @@ where
     fn aria_pressed(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaPressed, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaPressed, V>> {
         self.add_any_attr(aria_pressed(value))
     }
 
@@ -298,7 +289,7 @@ where
     fn aria_readonly(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaReadonly, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaReadonly, V>> {
         self.add_any_attr(aria_readonly(value))
     }
 
@@ -306,7 +297,7 @@ where
     fn aria_relevant(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRelevant, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRelevant, V>> {
         self.add_any_attr(aria_relevant(value))
     }
 
@@ -314,7 +305,7 @@ where
     fn aria_required(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRequired, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRequired, V>> {
         self.add_any_attr(aria_required(value))
     }
 
@@ -322,8 +313,7 @@ where
     fn aria_roledescription(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRoledescription, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRoledescription, V>> {
         self.add_any_attr(aria_roledescription(value))
     }
 
@@ -331,7 +321,7 @@ where
     fn aria_rowcount(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRowcount, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRowcount, V>> {
         self.add_any_attr(aria_rowcount(value))
     }
 
@@ -339,7 +329,7 @@ where
     fn aria_rowindex(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRowindex, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRowindex, V>> {
         self.add_any_attr(aria_rowindex(value))
     }
 
@@ -347,7 +337,7 @@ where
     fn aria_rowspan(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaRowspan, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaRowspan, V>> {
         self.add_any_attr(aria_rowspan(value))
     }
 
@@ -355,7 +345,7 @@ where
     fn aria_selected(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaSelected, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaSelected, V>> {
         self.add_any_attr(aria_selected(value))
     }
 
@@ -363,7 +353,7 @@ where
     fn aria_setsize(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaSetsize, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaSetsize, V>> {
         self.add_any_attr(aria_setsize(value))
     }
 
@@ -371,7 +361,7 @@ where
     fn aria_sort(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaSort, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaSort, V>> {
         self.add_any_attr(aria_sort(value))
     }
 
@@ -379,7 +369,7 @@ where
     fn aria_valuemax(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaValuemax, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaValuemax, V>> {
         self.add_any_attr(aria_valuemax(value))
     }
 
@@ -387,7 +377,7 @@ where
     fn aria_valuemin(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaValuemin, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaValuemin, V>> {
         self.add_any_attr(aria_valuemin(value))
     }
 
@@ -395,7 +385,7 @@ where
     fn aria_valuenow(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaValuenow, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaValuenow, V>> {
         self.add_any_attr(aria_valuenow(value))
     }
 
@@ -403,18 +393,16 @@ where
     fn aria_valuetext(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<AriaValuetext, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<AriaValuetext, V>> {
         self.add_any_attr(aria_valuetext(value))
     }
 }
 
-impl<El, At, Ch, Rndr, V> AriaAttributes<Rndr, V>
-    for HtmlElement<El, At, Ch, Rndr>
+impl<El, At, Ch, V> AriaAttributes<Rndr, V> for HtmlElement<El, At, Ch>
 where
-    El: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    El: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
+    V: AttributeValue,
 {
 }

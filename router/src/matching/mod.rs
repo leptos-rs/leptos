@@ -17,13 +17,12 @@ use tachys::{
 pub use vertical::*;
 
 #[derive(Debug)]
-pub struct Routes<Children, Rndr> {
+pub struct Routes<Children> {
     base: Option<Cow<'static, str>>,
     children: Children,
-    ty: PhantomData<Rndr>,
 }
 
-impl<Children, Rndr> Clone for Routes<Children, Rndr>
+impl<Children> Clone for Routes<Children>
 where
     Children: Clone,
 {
@@ -31,17 +30,15 @@ where
         Self {
             base: self.base.clone(),
             children: self.children.clone(),
-            ty: PhantomData,
         }
     }
 }
 
-impl<Children, Rndr> Routes<Children, Rndr> {
+impl<Children> Routes<Children> {
     pub fn new(children: Children) -> Self {
         Self {
             base: None,
             children,
-            ty: PhantomData,
         }
     }
 
@@ -52,15 +49,13 @@ impl<Children, Rndr> Routes<Children, Rndr> {
         Self {
             base: Some(base.into()),
             children,
-            ty: PhantomData,
         }
     }
 }
 
-impl<Children, Rndr> Routes<Children, Rndr>
+impl<Children> Routes<Children>
 where
-    Rndr: Renderer + 'static,
-    Children: MatchNestedRoutes<Rndr>,
+    Children: MatchNestedRoutes,
 {
     pub fn match_route(&self, path: &str) -> Option<Children::Match> {
         let path = match &self.base {
@@ -101,12 +96,9 @@ where
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u16);
 
-pub trait MatchInterface<R>
-where
-    R: Renderer + 'static,
-{
-    type Child: MatchInterface<R> + MatchParams + 'static;
-    type View: Render<R> + RenderHtml<R> + Send + 'static;
+pub trait MatchInterface {
+    type Child: MatchInterface + MatchParams + 'static;
+    type View: Render + RenderHtml + Send + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 
@@ -114,7 +106,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (impl ChooseView<R, Output = Self::View>, Option<Self::Child>);
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>);
 }
 
 pub trait MatchParams {
@@ -123,13 +115,10 @@ pub trait MatchParams {
     fn to_params(&self) -> Self::Params;
 }
 
-pub trait MatchNestedRoutes<R>
-where
-    R: Renderer + 'static,
-{
+pub trait MatchNestedRoutes {
     type Data;
     type View;
-    type Match: MatchInterface<R> + MatchParams;
+    type Match: MatchInterface + MatchParams;
 
     fn match_nested<'a>(
         &'a self,

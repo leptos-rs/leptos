@@ -53,14 +53,14 @@ struct HtmlView<At> {
 
 struct HtmlViewState<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     attributes: At::State,
 }
 
-impl<At> Render<Dom> for HtmlView<At>
+impl<At> Render for HtmlView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     type State = HtmlViewState<At>;
 
@@ -79,19 +79,19 @@ where
     }
 }
 
-impl<At> AddAnyAttr<Dom> for HtmlView<At>
+impl<At> AddAnyAttr for HtmlView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
-    type Output<SomeNewAttr: Attribute<Dom>> =
-        HtmlView<<At as NextAttribute<Dom>>::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute> =
+        HtmlView<<At as NextAttribute>::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         HtmlView {
             attributes: self.attributes.add_any_attr(attr),
@@ -99,9 +99,9 @@ where
     }
 }
 
-impl<At> RenderHtml<Dom> for HtmlView<At>
+impl<At> RenderHtml for HtmlView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     type AsyncOutput = HtmlView<At::AsyncOutput>;
 
@@ -135,7 +135,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<Dom>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
         let el = document()
@@ -148,22 +148,22 @@ where
     }
 }
 
-impl<At> Mountable<Dom> for HtmlViewState<At>
+impl<At> Mountable for HtmlViewState<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     fn unmount(&mut self) {}
 
     fn mount(
         &mut self,
-        _parent: &<Dom as Renderer>::Element,
-        _marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &leptos::tachys::renderer::types::Element,
+        _marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
         // <Html> only sets attributes
         // the <html> tag doesn't need to be mounted anywhere, of course
     }
 
-    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
 }

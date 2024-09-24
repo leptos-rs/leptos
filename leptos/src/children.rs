@@ -17,31 +17,31 @@ use tachys::{
 ///
 /// This does not support iterating over individual nodes within the children.
 /// To iterate over children, use [`ChildrenFragment`].
-pub type Children = Box<dyn FnOnce() -> AnyView<Dom> + Send>;
+pub type Children = Box<dyn FnOnce() -> AnyView + Send>;
 
 /// A type for the `children` property on components that can be called only once,
 /// and provides a collection of all the children passed to this component.
-pub type ChildrenFragment = Box<dyn FnOnce() -> Fragment<Dom> + Send>;
+pub type ChildrenFragment = Box<dyn FnOnce() -> Fragment + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once.
-pub type ChildrenFn = Arc<dyn Fn() -> AnyView<Dom> + Send + Sync>;
+pub type ChildrenFn = Arc<dyn Fn() -> AnyView + Send + Sync>;
 
 /// A type for the `children` property on components that can be called more than once,
 /// and provides a collection of all the children passed to this component.
-pub type ChildrenFragmentFn = Arc<dyn Fn() -> Fragment<Dom> + Send>;
+pub type ChildrenFragmentFn = Arc<dyn Fn() -> Fragment + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView<Dom> + Send>;
+pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView + Send>;
 
 /// A type for the `children` property on components that can be called more than once,
 /// but may mutate the children, and provides a collection of all the children
 /// passed to this component.
-pub type ChildrenFragmentMut = Box<dyn FnMut() -> Fragment<Dom> + Send>;
+pub type ChildrenFragmentMut = Box<dyn FnMut() -> Fragment + Send>;
 
 // This is to still support components that accept `Box<dyn Fn() -> AnyView>` as a children.
-type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom> + Send>;
+type BoxedChildrenFn = Box<dyn Fn() -> AnyView + Send>;
 
 /// This trait can be used when constructing a component that takes children without needing
 /// to know exactly what children type the component expects. This is used internally by the
@@ -97,7 +97,7 @@ pub trait ToChildren<F> {
 impl<F, C> ToChildren<F> for Children
 where
     F: FnOnce() -> C + Send + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -108,7 +108,7 @@ where
 impl<F, C> ToChildren<F> for ChildrenFn
 where
     F: Fn() -> C + Send + Sync + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -119,7 +119,7 @@ where
 impl<F, C> ToChildren<F> for ChildrenFnMut
 where
     F: Fn() -> C + Send + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -130,7 +130,7 @@ where
 impl<F, C> ToChildren<F> for BoxedChildrenFn
 where
     F: Fn() -> C + Send + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -141,7 +141,7 @@ where
 impl<F, C> ToChildren<F> for ChildrenFragment
 where
     F: FnOnce() -> C + Send + 'static,
-    C: IntoFragment<Dom>,
+    C: IntoFragment,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -152,7 +152,7 @@ where
 impl<F, C> ToChildren<F> for ChildrenFragmentFn
 where
     F: Fn() -> C + Send + 'static,
-    C: IntoFragment<Dom>,
+    C: IntoFragment,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -163,7 +163,7 @@ where
 impl<F, C> ToChildren<F> for ChildrenFragmentMut
 where
     F: FnMut() -> C + Send + 'static,
-    C: IntoFragment<Dom>,
+    C: IntoFragment,
 {
     #[inline]
     fn to_children(mut f: F) -> Self {
@@ -174,7 +174,7 @@ where
 /// New-type wrapper for a function that returns a view with `From` and `Default` traits implemented
 /// to enable optional props in for example `<Show>` and `<Suspense>`.
 #[derive(Clone)]
-pub struct ViewFn(Arc<dyn Fn() -> AnyView<Dom> + Send + Sync + 'static>);
+pub struct ViewFn(Arc<dyn Fn() -> AnyView + Send + Sync + 'static>);
 
 impl Default for ViewFn {
     fn default() -> Self {
@@ -185,7 +185,7 @@ impl Default for ViewFn {
 impl<F, C> From<F> for ViewFn
 where
     F: Fn() -> C + Send + Sync + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     fn from(value: F) -> Self {
         Self(Arc::new(move || value().into_any()))
@@ -194,14 +194,14 @@ where
 
 impl ViewFn {
     /// Execute the wrapped function
-    pub fn run(&self) -> AnyView<Dom> {
+    pub fn run(&self) -> AnyView {
         (self.0)()
     }
 }
 
 /// New-type wrapper for a function, which will only be called once and returns a view with `From` and
 /// `Default` traits implemented to enable optional props in for example `<Show>` and `<Suspense>`.
-pub struct ViewFnOnce(Box<dyn FnOnce() -> AnyView<Dom> + Send + 'static>);
+pub struct ViewFnOnce(Box<dyn FnOnce() -> AnyView + Send + 'static>);
 
 impl Default for ViewFnOnce {
     fn default() -> Self {
@@ -212,7 +212,7 @@ impl Default for ViewFnOnce {
 impl<F, C> From<F> for ViewFnOnce
 where
     F: FnOnce() -> C + Send + 'static,
-    C: RenderHtml<Dom> + Send + 'static,
+    C: RenderHtml + Send + 'static,
 {
     fn from(value: F) -> Self {
         Self(Box::new(move || value().into_any()))
@@ -221,7 +221,7 @@ where
 
 impl ViewFnOnce {
     /// Execute the wrapped function
-    pub fn run(self) -> AnyView<Dom> {
+    pub fn run(self) -> AnyView {
         (self.0)()
     }
 }

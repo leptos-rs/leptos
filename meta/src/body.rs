@@ -56,14 +56,14 @@ struct BodyView<At> {
 
 struct BodyViewState<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     attributes: At::State,
 }
 
-impl<At> Render<Dom> for BodyView<At>
+impl<At> Render for BodyView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     type State = BodyViewState<At>;
 
@@ -79,19 +79,19 @@ where
     }
 }
 
-impl<At> AddAnyAttr<Dom> for BodyView<At>
+impl<At> AddAnyAttr for BodyView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
-    type Output<SomeNewAttr: Attribute<Dom>> =
-        BodyView<<At as NextAttribute<Dom>>::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute> =
+        BodyView<<At as NextAttribute>::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         BodyView {
             attributes: self.attributes.add_any_attr(attr),
@@ -99,9 +99,9 @@ where
     }
 }
 
-impl<At> RenderHtml<Dom> for BodyView<At>
+impl<At> RenderHtml for BodyView<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     type AsyncOutput = BodyView<At::AsyncOutput>;
 
@@ -135,7 +135,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<Dom>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
@@ -145,20 +145,20 @@ where
     }
 }
 
-impl<At> Mountable<Dom> for BodyViewState<At>
+impl<At> Mountable for BodyViewState<At>
 where
-    At: Attribute<Dom>,
+    At: Attribute,
 {
     fn unmount(&mut self) {}
 
     fn mount(
         &mut self,
-        _parent: &<Dom as Renderer>::Element,
-        _marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &leptos::tachys::renderer::types::Element,
+        _marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
     }
 
-    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
 }

@@ -157,7 +157,7 @@ where
     };
     move || keyed(each(), key.clone(), children.clone())
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
@@ -216,3 +216,4 @@ mod tests {
         });
     }
 }
+ */

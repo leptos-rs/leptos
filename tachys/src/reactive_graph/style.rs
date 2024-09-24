@@ -1,18 +1,23 @@
 use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
-use crate::{html::style::IntoStyle, renderer::DomRenderer};
+use crate::{
+    html::style::IntoStyle,
+    renderer::{DomRenderer, Rndr},
+};
 use any_spawner::Executor;
 use futures::FutureExt;
 use reactive_graph::effect::RenderEffect;
 use std::{borrow::Cow, cell::RefCell, future::Future, rc::Rc};
 
-impl<F, S, R> IntoStyle<R> for (&'static str, F)
+impl<F, S> IntoStyle for (&'static str, F)
 where
     F: ReactiveFunction<Output = S>,
     S: Into<Cow<'static, str>> + 'static,
-    R: DomRenderer,
 {
     type AsyncOutput = Self;
-    type State = RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+    type State = RenderEffect<(
+        crate::renderer::types::CssStyleDeclaration,
+        Cow<'static, str>,
+    )>;
     type Cloneable = (&'static str, SharedReactiveFunction<S>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<S>);
 
@@ -25,20 +30,23 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         let (name, mut f) = self;
-        let name = R::intern(name);
+        let name = Rndr::intern(name);
         // TODO FROM_SERVER vs template
-        let style = R::style(el);
+        let style = Rndr::style(el);
         RenderEffect::new(move |prev| {
             let value = f.invoke().into();
             if let Some(mut state) = prev {
                 let (style, prev): &mut (
-                    R::CssStyleDeclaration,
+                    crate::renderer::types::CssStyleDeclaration,
                     Cow<'static, str>,
                 ) = &mut state;
                 if &value != prev {
-                    R::set_css_property(style, name, &value);
+                    Rndr::set_css_property(style, name, &value);
                 }
                 *prev = value;
                 state
@@ -46,32 +54,32 @@ where
                 // only set the style in template mode
                 // in server mode, it's already been set
                 if !FROM_SERVER {
-                    R::set_css_property(&style, name, &value);
+                    Rndr::set_css_property(&style, name, &value);
                 }
                 (style.clone(), value)
             }
         })
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, mut f) = self;
-        let name = R::intern(name);
-        let style = R::style(el);
+        let name = Rndr::intern(name);
+        let style = Rndr::style(el);
         RenderEffect::new(move |prev| {
             let value = f.invoke().into();
             if let Some(mut state) = prev {
                 let (style, prev): &mut (
-                    R::CssStyleDeclaration,
+                    crate::renderer::types::CssStyleDeclaration,
                     Cow<'static, str>,
                 ) = &mut state;
                 if &value != prev {
-                    R::set_css_property(style, name, &value);
+                    Rndr::set_css_property(style, name, &value);
                 }
                 *prev = value;
                 state
             } else {
                 // always set the style initially without checking
-                R::set_css_property(&style, name, &value);
+                Rndr::set_css_property(&style, name, &value);
                 (style.clone(), value)
             }
         })
@@ -86,7 +94,7 @@ where
                 if let Some(mut state) = prev {
                     let (style, prev) = &mut state;
                     if &value != prev {
-                        R::set_css_property(style, name, &value);
+                        Rndr::set_css_property(style, name, &value);
                     }
                     *prev = value;
                     state
@@ -115,12 +123,11 @@ where
     }
 }
 
-impl<F, C, R> IntoStyle<R> for F
+impl<F, C> IntoStyle for F
 where
     F: ReactiveFunction<Output = C>,
-    C: IntoStyle<R> + 'static,
+    C: IntoStyle + 'static,
     C::State: 'static,
-    R: DomRenderer,
 {
     type AsyncOutput = C::AsyncOutput;
     type State = RenderEffect<C::State>;
@@ -134,7 +141,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        el: &R::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         // TODO FROM_SERVER vs template
         let el = el.clone();
@@ -149,7 +156,7 @@ where
         })
     }
 
-    fn build(mut self, el: &R::Element) -> Self::State {
+    fn build(mut self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.clone();
         RenderEffect::new(move |prev| {
             let value = self.invoke();
@@ -199,12 +206,11 @@ where
 mod stable {
     macro_rules! style_signal {
         ($sig:ident) => {
-            impl<C, R> IntoStyle<R> for $sig<C>
+            impl<C> IntoStyle for $sig<C>
             where
                 $sig<C>: Get<Value = C>,
-                C: IntoStyle<R> + Clone + Send + Sync + 'static,
+                C: IntoStyle + Clone + Send + Sync + 'static,
                 C::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
@@ -218,12 +224,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 
@@ -246,44 +255,42 @@ mod stable {
                 }
             }
 
-            impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
+            impl<S> IntoStyle for (&'static str, $sig<S>)
             where
                 $sig<S>: Get<Value = S>,
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
-                type State =
-                    RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+                type State = RenderEffect<(
+                    crate::renderer::types::CssStyleDeclaration,
+                    Cow<'static, str>,
+                )>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    IntoStyle::<R>::to_html(
-                        (self.0, move || self.1.get()),
-                        style,
-                    )
+                    IntoStyle::to_html((self.0, move || self.1.get()), style)
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoStyle::<R>::hydrate::<FROM_SERVER>(
+                    IntoStyle::hydrate::<FROM_SERVER>(
                         (self.0, move || self.1.get()),
                         el,
                     )
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
-                    IntoStyle::<R>::build((self.0, move || self.1.get()), el)
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    IntoStyle::build((self.0, move || self.1.get()), el)
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::<R>::rebuild(
-                        (self.0, move || self.1.get()),
-                        state,
-                    )
+                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -305,14 +312,13 @@ mod stable {
 
     macro_rules! style_signal_arena {
         ($sig:ident) => {
-            impl<C, R, S> IntoStyle<R> for $sig<C, S>
+            impl<C, S> IntoStyle for $sig<C, S>
             where
                 $sig<C, S>: Get<Value = C>,
                 S: Storage<C> + Storage<Option<C>>,
                 S: Send + Sync + 'static,
-                C: IntoStyle<R> + Send + Sync + Clone + 'static,
+                C: IntoStyle + Send + Sync + Clone + 'static,
                 C::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
@@ -326,12 +332,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 
@@ -354,46 +363,44 @@ mod stable {
                 }
             }
 
-            impl<R, S, St> IntoStyle<R> for (&'static str, $sig<S, St>)
+            impl<S, St> IntoStyle for (&'static str, $sig<S, St>)
             where
                 $sig<S, St>: Get<Value = S>,
                 St: Send + Sync + 'static,
                 St: Storage<S> + Storage<Option<S>>,
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
-                type State =
-                    RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+                type State = RenderEffect<(
+                    crate::renderer::types::CssStyleDeclaration,
+                    Cow<'static, str>,
+                )>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    IntoStyle::<R>::to_html(
-                        (self.0, move || self.1.get()),
-                        style,
-                    )
+                    IntoStyle::to_html((self.0, move || self.1.get()), style)
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoStyle::<R>::hydrate::<FROM_SERVER>(
+                    IntoStyle::hydrate::<FROM_SERVER>(
                         (self.0, move || self.1.get()),
                         el,
                     )
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
-                    IntoStyle::<R>::build((self.0, move || self.1.get()), el)
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    IntoStyle::build((self.0, move || self.1.get()), el)
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::<R>::rebuild(
-                        (self.0, move || self.1.get()),
-                        state,
-                    )
+                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -435,14 +442,13 @@ mod stable {
     style_signal!(ArcSignal);
 }
 
-impl<Fut, Rndr> IntoStyle<Rndr> for Suspend<Fut>
+impl<Fut> IntoStyle for Suspend<Fut>
 where
     Fut: Clone + Future + Send + 'static,
-    Fut::Output: IntoStyle<Rndr>,
-    Rndr: DomRenderer + 'static,
+    Fut::Output: IntoStyle,
 {
     type AsyncOutput = Fut::Output;
-    type State = Rc<RefCell<Option<<Fut::Output as IntoStyle<Rndr>>::State>>>;
+    type State = Rc<RefCell<Option<<Fut::Output as IntoStyle>::State>>>;
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -456,7 +462,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<Rndr>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
@@ -471,7 +477,7 @@ where
         state
     }
 
-    fn build(self, el: &<Rndr>::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
         Executor::spawn_local({

@@ -195,13 +195,12 @@ mod view_implementations {
         },
     };
 
-    impl<T, R, Ser> Render<R> for Resource<T, Ser>
+    impl<T, Ser> Render for Resource<T, Ser>
     where
-        T: Render<R> + Send + Sync + Clone,
+        T: Render + Send + Sync + Clone,
         Ser: Send + 'static,
-        R: Renderer,
     {
-        type State = RenderEffectState<SuspendState<T, R>>;
+        type State = RenderEffectState<SuspendState<T>>;
 
         fn build(self) -> Self::State {
             (move || Suspend::new(async move { self.await })).build()
@@ -212,19 +211,18 @@ mod view_implementations {
         }
     }
 
-    impl<T, R, Ser> AddAnyAttr<R> for Resource<T, Ser>
+    impl<T, Ser> AddAnyAttr for Resource<T, Ser>
     where
-        T: RenderHtml<R> + Send + Sync + Clone,
+        T: RenderHtml + Send + Sync + Clone,
         Ser: Send + 'static,
-        R: Renderer,
     {
-        type Output<SomeNewAttr: Attribute<R>> = Box<
+        type Output<SomeNewAttr: Attribute> = Box<
             dyn FnMut() -> Suspend<
                     Pin<
                         Box<
                             dyn Future<
-                                    Output = <T as AddAnyAttr<R>>::Output<
-                                        <SomeNewAttr::CloneableOwned as Attribute<R>>::CloneableOwned,
+                                    Output = <T as AddAnyAttr>::Output<
+                                        <SomeNewAttr::CloneableOwned as Attribute>::CloneableOwned,
                                     >,
                                 > + Send,
                         >,
@@ -232,22 +230,21 @@ mod view_implementations {
                 > + Send,
         >;
 
-        fn add_any_attr<NewAttr: Attribute<R>>(
+        fn add_any_attr<NewAttr: Attribute>(
             self,
             attr: NewAttr,
         ) -> Self::Output<NewAttr>
         where
-            Self::Output<NewAttr>: RenderHtml<R>,
+            Self::Output<NewAttr>: RenderHtml,
         {
             (move || Suspend::new(async move { self.await })).add_any_attr(attr)
         }
     }
 
-    impl<T, R, Ser> RenderHtml<R> for Resource<T, Ser>
+    impl<T, Ser> RenderHtml for Resource<T, Ser>
     where
-        T: RenderHtml<R> + Send + Sync + Clone,
+        T: RenderHtml + Send + Sync + Clone,
         Ser: Send + 'static,
-        R: Renderer,
     {
         type AsyncOutput = Option<T>;
 
@@ -296,7 +293,7 @@ mod view_implementations {
 
         fn hydrate<const FROM_SERVER: bool>(
             self,
-            cursor: &Cursor<R>,
+            cursor: &Cursor,
             position: &PositionState,
         ) -> Self::State {
             (move || Suspend::new(async move { self.await }))

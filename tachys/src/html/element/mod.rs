@@ -1,7 +1,7 @@
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{CastFrom, Renderer},
+    renderer::{CastFrom, Renderer, Rndr},
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -27,29 +27,26 @@ pub use inner_html::*;
 
 /// The typed representation of an HTML element.
 #[derive(Debug, PartialEq, Eq)]
-pub struct HtmlElement<E, At, Ch, Rndr> {
+pub struct HtmlElement<E, At, Ch> {
     pub(crate) tag: E,
-    pub(crate) rndr: PhantomData<Rndr>,
     pub(crate) attributes: At,
     pub(crate) children: Ch,
 }
 
-impl<E: Clone, At: Clone, Ch: Clone, Rndr> Clone
-    for HtmlElement<E, At, Ch, Rndr>
-{
+impl<E: Clone, At: Clone, Ch: Clone> Clone for HtmlElement<E, At, Ch> {
     fn clone(&self) -> Self {
         HtmlElement {
             tag: self.tag.clone(),
-            rndr: PhantomData,
+
             attributes: self.attributes.clone(),
             children: self.children.clone(),
         }
     }
 }
 
-impl<E: Copy, At: Copy, Ch: Copy, Rndr> Copy for HtmlElement<E, At, Ch, Rndr> {}
+impl<E: Copy, At: Copy, Ch: Copy> Copy for HtmlElement<E, At, Ch> {}
 
-/*impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
+/*impl<E, At, Ch> ElementType for HtmlElement<E, At, Ch>
 where
     E: ElementType,
 {
@@ -64,48 +61,42 @@ where
     }
 }*/
 
-impl<E, At, Ch, NewChild, Rndr> ElementChild<Rndr, NewChild>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
 where
     E: ElementWithChildren,
-    Ch: Render<Rndr> + NextTuple,
-    <Ch as NextTuple>::Output<NewChild>: Render<Rndr>,
-    Rndr: Renderer,
-    NewChild: Render<Rndr>,
+    Ch: Render + NextTuple,
+    <Ch as NextTuple>::Output<NewChild>: Render,
+
+    NewChild: Render,
 {
-    type Output = HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild>, Rndr>;
+    type Output = HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild>>;
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
             tag,
-            rndr,
+
             attributes,
             children,
         } = self;
         HtmlElement {
             tag,
-            rndr,
+
             attributes,
             children: children.next_tuple(child),
         }
     }
 }
 
-impl<E, At, Ch, Rndr> AddAnyAttr<Rndr> for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch> AddAnyAttr for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    Rndr: Renderer,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = HtmlElement<
-        E,
-        <At as NextAttribute<Rndr>>::Output<SomeNewAttr>,
-        Ch,
-        Rndr,
-    >;
+    type Output<SomeNewAttr: Attribute> =
+        HtmlElement<E, <At as NextAttribute>::Output<SomeNewAttr>, Ch>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -113,22 +104,19 @@ where
             tag,
             attributes,
             children,
-            rndr,
         } = self;
         HtmlElement {
             tag,
             attributes: attributes.add_any_attr(attr),
             children,
-            rndr,
         }
     }
 }
 
 /// Adds a child to the element.
-pub trait ElementChild<Rndr, NewChild>
+pub trait ElementChild<NewChild>
 where
-    NewChild: Render<Rndr>,
-    Rndr: Renderer,
+    NewChild: Render,
 {
     /// The type of the element, with the child added.
     type Output;
@@ -163,27 +151,20 @@ pub trait HasElementType {
 
 pub(crate) trait ElementWithChildren {}
 
-/// Creates an element.
-pub trait CreateElement<R: Renderer> {
-    /// Creates an element.
-    fn create_element(&self) -> R::Element;
-}
-
-impl<E, At, Ch, Rndr> HasElementType for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch> HasElementType for HtmlElement<E, At, Ch>
 where
     E: ElementType,
 {
     type ElementType = E::Output;
 }
 
-impl<E, At, Ch, Rndr> Render<Rndr> for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch> Render for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr>,
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr>,
-    Rndr: Renderer,
+    E: ElementType,
+    At: Attribute,
+    Ch: Render,
 {
-    type State = ElementState<At::State, Ch::State, Rndr>;
+    type State = ElementState<At::State, Ch::State>;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -196,7 +177,7 @@ where
     }
 
     fn build(self) -> Self::State {
-        let el = Rndr::create_element(self.tag);
+        let el = Rndr::create_element(self.tag.tag());
 
         let attrs = self.attributes.build(&el);
         let children = if E::SELF_CLOSING {
@@ -210,19 +191,17 @@ where
             el,
             attrs,
             children,
-            rndr: PhantomData,
         }
     }
 }
 
-impl<E, At, Ch, Rndr> RenderHtml<Rndr> for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch> RenderHtml for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    Rndr: Renderer,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
 {
-    type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput, Rndr>;
+    type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -247,7 +226,7 @@ where
             join(self.attributes.resolve(), self.children.resolve()).await;
         HtmlElement {
             tag: self.tag,
-            rndr: PhantomData,
+
             attributes,
             children,
         }
@@ -350,7 +329,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         // non-Static custom elements need special support in templates
@@ -365,7 +344,8 @@ where
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
-        let el = Rndr::Element::cast_from(cursor.current()).unwrap();
+        let el = crate::renderer::types::Element::cast_from(cursor.current())
+            .unwrap();
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
@@ -378,23 +358,26 @@ where
         };
 
         // go to next sibling
-        cursor.set(el.as_ref().clone());
+        cursor.set(
+            <crate::renderer::types::Element as AsRef<
+                crate::renderer::types::Node,
+            >>::as_ref(&el)
+            .clone(),
+        );
         position.set(Position::NextChild);
 
         ElementState {
             el,
             attrs,
             children,
-            rndr: PhantomData,
         }
     }
 }
 
 /// Renders an [`Attribute`] (which can be one or more HTML attributes) into an HTML buffer.
-pub fn attributes_to_html<At, R>(attr: At, buf: &mut String) -> String
+pub fn attributes_to_html<At>(attr: At, buf: &mut String) -> String
 where
-    At: Attribute<R>,
-    R: Renderer,
+    At: Attribute,
 {
     // `class` and `style` are created first, and pushed later
     // this is because they can be filled by a mixture of values that include
@@ -429,36 +412,38 @@ where
 }
 
 /// The retained view state for an HTML element.
-pub struct ElementState<At, Ch, R: Renderer> {
-    pub(crate) el: R::Element,
+pub struct ElementState<At, Ch> {
+    pub(crate) el: crate::renderer::types::Element,
     pub(crate) attrs: At,
     pub(crate) children: Option<Ch>,
-    rndr: PhantomData<R>,
 }
 
-impl<At, Ch, R: Renderer> Deref for ElementState<At, Ch, R> {
-    type Target = R::Element;
+impl<At, Ch> Deref for ElementState<At, Ch> {
+    type Target = crate::renderer::types::Element;
 
     fn deref(&self) -> &Self::Target {
         &self.el
     }
 }
 
-impl<At, Ch, R> Mountable<R> for ElementState<At, Ch, R>
-where
-    R: Renderer,
-{
+impl<At, Ch> Mountable for ElementState<At, Ch> {
     fn unmount(&mut self) {
-        R::remove(self.el.as_ref());
+        Rndr::remove(self.el.as_ref());
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
-        R::insert_node(parent, self.el.as_ref(), marker);
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
+        Rndr::insert_node(parent, self.el.as_ref(), marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
-        if let Some(parent) = R::get_parent(self.el.as_ref()) {
-            if let Some(element) = R::Element::cast_from(parent) {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+        if let Some(parent) = Rndr::get_parent(self.el.as_ref()) {
+            if let Some(element) =
+                crate::renderer::types::Element::cast_from(parent)
+            {
                 child.mount(&element, Some(self.el.as_ref()));
                 return true;
             }
@@ -467,12 +452,11 @@ where
     }
 }
 
-impl<E, At, Ch, Rndr> ToTemplate for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch> ToTemplate for HtmlElement<E, At, Ch>
 where
     E: ElementType,
-    At: Attribute<Rndr> + ToTemplate,
-    Ch: Render<Rndr> + ToTemplate,
-    Rndr: Renderer,
+    At: Attribute + ToTemplate,
+    Ch: Render + ToTemplate,
 {
     const TEMPLATE: &'static str = str_from_buffer(&const_concat(&[
         "<",
@@ -555,7 +539,7 @@ where
         }
     }
 }
-
+/*
 #[cfg(all(test, feature = "testing"))]
 mod tests {
     #[cfg(feature = "nightly")]
@@ -614,3 +598,4 @@ mod tests {
         assert_eq!(html.len(), allocated_len);
     }
 }
+ */

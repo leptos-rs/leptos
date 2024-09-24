@@ -14,11 +14,11 @@ macro_rules! attributes {
             $(
                 #[$meta]
                 #[track_caller]
-                pub fn $key<V, Rndr>(value: V) -> Attr<[<$key:camel>], V, Rndr>
-				where V: AttributeValue<Rndr>,
-                  Rndr: Renderer
+                pub fn $key<V>(value: V) -> Attr<[<$key:camel>], V>
+				where V: AttributeValue,
+
                 {
-                    Attr([<$key:camel>], value, PhantomData)
+                    Attr([<$key:camel>], value)
                 }
 
                 #[$meta]

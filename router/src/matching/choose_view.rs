@@ -5,10 +5,9 @@ use tachys::{
     view::{any_view::AnyView, Render},
 };
 
-pub trait ChooseView<R>
+pub trait ChooseView
 where
     Self: Send + Clone + 'static,
-    R: Renderer + 'static,
 {
     type Output;
 
@@ -17,11 +16,10 @@ where
     fn preload(&self) -> impl Future<Output = ()>;
 }
 
-impl<F, View, R> ChooseView<R> for F
+impl<F, View> ChooseView for F
 where
     F: Fn() -> View + Send + Clone + 'static,
-    View: Render<R> + Send,
-    R: Renderer + 'static,
+    View: Render + Send,
 {
     type Output = View;
 
@@ -32,12 +30,11 @@ where
     async fn preload(&self) {}
 }
 
-impl<T, R> ChooseView<R> for Lazy<T>
+impl<T> ChooseView for Lazy<T>
 where
-    T: LazyRoute<R>,
-    R: Renderer + 'static,
+    T: LazyRoute,
 {
-    type Output = AnyView<R>;
+    type Output = AnyView;
 
     async fn choose(self) -> Self::Output {
         T::data().view().await
@@ -48,13 +45,10 @@ where
     }
 }
 
-pub trait LazyRoute<R>: Send + 'static
-where
-    R: Renderer,
-{
+pub trait LazyRoute: Send + 'static {
     fn data() -> Self;
 
-    fn view(self) -> impl Future<Output = AnyView<R>>;
+    fn view(self) -> impl Future<Output = AnyView>;
 }
 
 #[derive(Debug)]
@@ -82,10 +76,7 @@ impl<T> Default for Lazy<T> {
     }
 }
 
-impl<R> ChooseView<R> for ()
-where
-    R: Renderer + 'static,
-{
+impl ChooseView for () {
     type Output = ();
 
     async fn choose(self) -> Self::Output {}
@@ -93,11 +84,10 @@ where
     async fn preload(&self) {}
 }
 
-impl<A, B, Rndr> ChooseView<Rndr> for Either<A, B>
+impl<A, B> ChooseView for Either<A, B>
 where
-    A: ChooseView<Rndr>,
-    B: ChooseView<Rndr>,
-    Rndr: Renderer + 'static,
+    A: ChooseView,
+    B: ChooseView,
 {
     type Output = Either<A::Output, B::Output>;
 
@@ -118,10 +108,9 @@ where
 
 macro_rules! tuples {
     ($either:ident => $($ty:ident),*) => {
-        impl<$($ty,)* Rndr> ChooseView<Rndr> for $either<$($ty,)*>
+        impl<$($ty,)*> ChooseView for $either<$($ty,)*>
         where
-            $($ty: ChooseView<Rndr>,)*
-            Rndr: Renderer + 'static,
+            $($ty: ChooseView,)*
         {
             type Output = $either<$($ty::Output,)*>;
 

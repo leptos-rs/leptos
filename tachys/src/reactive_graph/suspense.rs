@@ -130,39 +130,40 @@ impl<Fut> Debug for Suspend<Fut> {
 }
 
 /// Retained view state for [`Suspend`].
-pub struct SuspendState<T, Rndr>
+pub struct SuspendState<T>
 where
-    T: Render<Rndr>,
-    Rndr: Renderer,
+    T: Render,
 {
-    inner: Rc<RefCell<OptionState<T, Rndr>>>,
+    inner: Rc<RefCell<OptionState<T>>>,
 }
 
-impl<T, Rndr> Mountable<Rndr> for SuspendState<T, Rndr>
+impl<T> Mountable for SuspendState<T>
 where
-    T: Render<Rndr>,
-    Rndr: Renderer,
+    T: Render,
 {
     fn unmount(&mut self) {
         self.inner.borrow_mut().unmount();
     }
 
-    fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         self.inner.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.inner.borrow_mut().insert_before_this(child)
     }
 }
 
-impl<Fut, Rndr> Render<Rndr> for Suspend<Fut>
+impl<Fut> Render for Suspend<Fut>
 where
     Fut: Future + 'static,
-    Fut::Output: Render<Rndr>,
-    Rndr: Renderer + 'static,
+    Fut::Output: Render,
 {
-    type State = SuspendState<Fut::Output, Rndr>;
+    type State = SuspendState<Fut::Output>;
 
     // TODO cancelation if it fires multiple times
     fn build(self) -> Self::State {
@@ -235,17 +236,16 @@ where
     }
 }
 
-impl<Fut, Rndr> AddAnyAttr<Rndr> for Suspend<Fut>
+impl<Fut> AddAnyAttr for Suspend<Fut>
 where
     Fut: Future + Send + 'static,
-    Fut::Output: AddAnyAttr<Rndr>,
-    Rndr: Renderer + 'static,
+    Fut::Output: AddAnyAttr,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = Suspend<
+    type Output<SomeNewAttr: Attribute> = Suspend<
         Pin<
             Box<
                 dyn Future<
-                        Output = <Fut::Output as AddAnyAttr<Rndr>>::Output<
+                        Output = <Fut::Output as AddAnyAttr>::Output<
                             SomeNewAttr::CloneableOwned,
                         >,
                     > + Send,
@@ -253,12 +253,12 @@ where
         >,
     >;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
         Suspend::new(Box::pin(async move {
@@ -268,11 +268,10 @@ where
     }
 }
 
-impl<Fut, Rndr> RenderHtml<Rndr> for Suspend<Fut>
+impl<Fut> RenderHtml for Suspend<Fut>
 where
     Fut: Future + Send + 'static,
-    Fut::Output: RenderHtml<Rndr>,
-    Rndr: Renderer + 'static,
+    Fut::Output: RenderHtml,
 {
     type AsyncOutput = Option<Fut::Output>;
 
@@ -329,7 +328,7 @@ where
                     // wrapped by suspense markers
                     if OUT_OF_ORDER {
                         let mut fallback_position = *position;
-                        buf.push_fallback::<(), Rndr>(
+                        buf.push_fallback::<()>(
                             (),
                             &mut fallback_position,
                             mark_branches,
@@ -364,7 +363,7 @@ where
     // TODO cancellation
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let Self { subscriber, inner } = self;

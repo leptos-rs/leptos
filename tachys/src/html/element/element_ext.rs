@@ -31,17 +31,17 @@ pub trait ElementExt {
     /// Adds an attribute to the element, at runtime.
     fn attr<At>(&self, attribute: At) -> At::State
     where
-        At: Attribute<Dom>;
+        At: Attribute;
 
     /// Adds a class to the element, at runtime.
     fn class<C>(&self, class: C) -> C::State
     where
-        C: IntoClass<Dom>;
+        C: IntoClass;
 
     /// Adds a style to the element, at runtime.
     fn style<S>(&self, style: S) -> S::State
     where
-        S: IntoStyle<Dom>;
+        S: IntoStyle;
 
     /// Adds an event listener to the element, at runtime.
     fn on<E>(
@@ -58,18 +58,17 @@ pub trait ElementExt {
 impl<T> ElementExt for T
 where
     T: AsRef<Element>,
-    Dom: DomRenderer,
 {
     fn attr<At>(&self, attribute: At) -> At::State
     where
-        At: Attribute<Dom>,
+        At: Attribute,
     {
         attribute.build(self.as_ref())
     }
 
     fn class<C>(&self, class: C) -> C::State
     where
-        C: IntoClass<Dom>,
+        C: IntoClass,
     {
         class.build(self.as_ref())
     }
@@ -84,12 +83,12 @@ where
         E::EventType: 'static,
         E::EventType: From<JsValue>,
     {
-        on::<E, _, Dom>(ev, cb).attach(self.as_ref())
+        on::<E, _>(ev, cb).attach(self.as_ref())
     }
 
     fn style<S>(&self, style: S) -> S::State
     where
-        S: IntoStyle<Dom>,
+        S: IntoStyle,
     {
         style.build(self.as_ref())
     }

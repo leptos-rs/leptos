@@ -222,7 +222,7 @@ impl RouteList {
 
     pub fn generate<T, Rndr>(app: impl FnOnce() -> T) -> Option<Self>
     where
-        T: RenderHtml<Rndr>,
+        T: RenderHtml,
         Rndr: Renderer,
         Rndr::Node: Clone,
         Rndr::Element: Clone,
