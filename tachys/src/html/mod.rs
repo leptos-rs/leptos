@@ -3,10 +3,10 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::AddAnyAttr,
-    renderer::{CastFrom, DomRenderer, Renderer},
+    renderer::{CastFrom, Rndr},
     view::{Position, PositionState, Render, RenderHtml},
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::borrow::Cow;
 
 /// Types for HTML attributes.
 pub mod attribute;
@@ -28,20 +28,16 @@ pub mod property;
 pub mod style;
 
 /// A `<!DOCTYPE>` declaration.
-pub struct Doctype<R: Renderer> {
+pub struct Doctype {
     value: &'static str,
-    rndr: PhantomData<R>,
 }
 
 /// Creates a `<!DOCTYPE>`.
-pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
-    Doctype {
-        value,
-        rndr: PhantomData,
-    }
+pub fn doctype(value: &'static str) -> Doctype {
+    Doctype { value }
 }
 
-impl<R: Renderer> Render<R> for Doctype<R> {
+impl Render for Doctype {
     type State = ();
 
     fn build(self) -> Self::State {}
@@ -49,12 +45,9 @@ impl<R: Renderer> Render<R> for Doctype<R> {
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-no_attrs!(Doctype<R>);
+no_attrs!(Doctype);
 
-impl<R> RenderHtml<R> for Doctype<R>
-where
-    R: Renderer + Send,
-{
+impl RenderHtml for Doctype {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
@@ -79,7 +72,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<R>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
     }
@@ -97,11 +90,8 @@ impl InertElement {
     }
 }
 
-impl<Rndr> Render<Rndr> for InertElement
-where
-    Rndr: DomRenderer,
-{
-    type State = Rndr::Element;
+impl Render for InertElement {
+    type State = crate::renderer::types::Element;
 
     fn build(self) -> Self::State {
         Rndr::create_element_from_html(&self.html)
@@ -110,18 +100,15 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-impl<Rndr> AddAnyAttr<Rndr> for InertElement
-where
-    Rndr: DomRenderer,
-{
-    type Output<SomeNewAttr: Attribute<Rndr>> = Self;
+impl AddAnyAttr for InertElement {
+    type Output<SomeNewAttr: Attribute> = Self;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         panic!(
             "InertElement does not support adding attributes. It should only \
@@ -130,10 +117,7 @@ where
     }
 }
 
-impl<Rndr> RenderHtml<Rndr> for InertElement
-where
-    Rndr: DomRenderer,
-{
+impl RenderHtml for InertElement {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -161,7 +145,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let curr_position = position.get();
@@ -170,7 +154,8 @@ where
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
-        let el = Rndr::Element::cast_from(cursor.current()).unwrap();
+        let el = crate::renderer::types::Element::cast_from(cursor.current())
+            .unwrap();
         position.set(Position::NextChild);
         el
     }

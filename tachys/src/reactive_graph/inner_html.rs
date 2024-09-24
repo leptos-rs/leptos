@@ -1,16 +1,12 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
-use crate::{
-    html::element::InnerHtmlValue,
-    renderer::{DomRenderer, Renderer},
-};
+use crate::html::element::InnerHtmlValue;
 use reactive_graph::effect::RenderEffect;
 
-impl<F, V, R> InnerHtmlValue<R> for F
+impl<F, V> InnerHtmlValue for F
 where
     F: ReactiveFunction<Output = V>,
-    V: InnerHtmlValue<R> + 'static,
+    V: InnerHtmlValue + 'static,
     V::State: 'static,
-    R: DomRenderer,
 {
     type AsyncOutput = V::AsyncOutput;
     type State = RenderEffect<V::State>;
@@ -30,7 +26,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
@@ -44,7 +40,7 @@ where
         })
     }
 
-    fn build(mut self, el: &<R as Renderer>::Element) -> Self::State {
+    fn build(mut self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
             let value = self.invoke();
@@ -92,10 +88,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::{
-        html::element::InnerHtmlValue,
-        renderer::{DomRenderer, Renderer},
-    };
+    use crate::html::element::InnerHtmlValue;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,
@@ -107,12 +100,11 @@ mod stable {
 
     macro_rules! inner_html_signal {
         ($sig:ident) => {
-            impl<V, R> InnerHtmlValue<R> for $sig<V>
+            impl<V> InnerHtmlValue for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: InnerHtmlValue<R> + Send + Sync + Clone + 'static,
+                V: InnerHtmlValue + Send + Sync + Clone + 'static,
                 V::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
@@ -132,12 +124,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 
@@ -164,14 +159,13 @@ mod stable {
 
     macro_rules! inner_html_signal_arena {
         ($sig:ident) => {
-            impl<V, R, S> InnerHtmlValue<R> for $sig<V, S>
+            impl<V, S> InnerHtmlValue for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
                 S: Storage<V>,
-                V: InnerHtmlValue<R> + Send + Sync + Clone + 'static,
+                V: InnerHtmlValue + Send + Sync + Clone + 'static,
                 V::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
@@ -191,12 +185,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 

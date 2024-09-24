@@ -1,15 +1,11 @@
 use crate::{
     html::{
         attribute::Attribute,
-        element::{
-            CreateElement, ElementType, ElementWithChildren, HtmlElement,
-        },
+        element::{ElementType, ElementWithChildren, HtmlElement},
     },
-    renderer::{dom::Dom, Renderer},
     view::Render,
 };
-use once_cell::unsync::Lazy;
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 macro_rules! svg_elements {
 	($($tag:ident  [$($attr:ty),*]),* $(,)?) => {
@@ -18,15 +14,15 @@ macro_rules! svg_elements {
                 /// An SVG attribute.
                 // `tag()` function
                 #[allow(non_snake_case)]
-                pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
+                pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
-                    Rndr: Renderer
+
                 {
                     HtmlElement {
                         tag: [<$tag:camel>],
                         attributes: (),
                         children: (),
-                        rndr: PhantomData,
+
                     }
                 }
 
@@ -34,30 +30,30 @@ macro_rules! svg_elements {
                 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
                 pub struct [<$tag:camel>];
 
-				impl<At, Ch, Rndr> HtmlElement<[<$tag:camel>], At, Ch, Rndr>
+				impl<At, Ch> HtmlElement<[<$tag:camel>], At, Ch>
 				where
-					At: Attribute<Rndr>,
-					Ch: Render<Rndr>,
-					Rndr: Renderer,
+					At: Attribute,
+					Ch: Render,
+
 				{
 					$(
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
-                            Ch, Rndr
+                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output,
+                            Ch
                         >
                         where
-                            V: AttributeValue<Rndr>,
-                            At: NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+                            V: AttributeValue,
+                            At: NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output: Attribute,
                         {
-                            let HtmlElement { tag, rndr, children, attributes,
+                            let HtmlElement { tag, children, attributes,
                                 #[cfg(debug_assertions)]
                                 defined_at
                             } = self;
                             HtmlElement {
                                 tag,
-                                rndr,
+
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
                                 #[cfg(debug_assertions)]
@@ -81,22 +77,6 @@ macro_rules! svg_elements {
                 }
 
                 impl ElementWithChildren for [<$tag:camel>] {}
-
-                impl CreateElement<Dom> for [<$tag:camel>] {
-                    fn create_element(&self) -> <Dom as Renderer>::Element {
-                        use wasm_bindgen::JsCast;
-
-                        thread_local! {
-                            static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                                crate::dom::document().create_element_ns(
-									Some(wasm_bindgen::intern("http://www.w3.org/2000/svg")),
-									stringify!($tag)
-								).unwrap()
-                            });
-                        }
-                        ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
-                    }
-                }
             )*
 		}
     }

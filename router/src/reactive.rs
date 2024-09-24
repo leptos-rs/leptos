@@ -26,7 +26,7 @@ pub fn ReactiveRouter<Rndr, Loc, DefFn, Defs, FallbackFn, Fallback>(
     mut location: Loc,
     routes: DefFn,
     fallback: FallbackFn,
-) -> impl RenderHtml<Rndr>
+) -> impl RenderHtml
 where
     DefFn: Fn() -> Defs + 'static,
     Defs: 'static,
@@ -35,10 +35,9 @@ where
     Rndr::Element: Clone,
     Rndr::Node: Clone,
     FallbackFn: Fn() -> Fallback + Clone + 'static,
-    Fallback: Render<Rndr> + 'static,
+    Fallback: Render + 'static,
     Router<Rndr, Loc, Defs, FallbackFn>: FallbackOrView,
-    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output:
-        RenderHtml<Rndr>,
+    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: RenderHtml,
 {
     // create a reactive URL signal that will drive the router view
     let url = ArcRwSignal::new(location.try_to_url().unwrap_or_default());
@@ -75,7 +74,7 @@ where
     fal: PhantomData<Fallback>,
 }
 
-impl<Rndr, Loc, Defs, FallbackFn, Fallback> Render<Rndr>
+impl<Rndr, Loc, Defs, FallbackFn, Fallback> Render
     for ReactiveRouterInner<Rndr, Loc, Defs, FallbackFn, Fallback>
 where
     Loc: Location,
@@ -83,10 +82,9 @@ where
     Rndr::Element: Clone,
     Rndr::Node: Clone,
     FallbackFn: Fn() -> Fallback,
-    Fallback: Render<Rndr>,
+    Fallback: Render,
     Router<Rndr, Loc, Defs, FallbackFn>: FallbackOrView,
-    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output:
-        Render<Rndr>,
+    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: Render,
 {
     type State =
         ReactiveRouterInnerState<Rndr, Loc, Defs, FallbackFn, Fallback>;
@@ -112,7 +110,7 @@ where
     }
 }
 
-impl<Rndr, Loc, Defs, FallbackFn, Fallback> RenderHtml<Rndr>
+impl<Rndr, Loc, Defs, FallbackFn, Fallback> RenderHtml
     for ReactiveRouterInner<Rndr, Loc, Defs, FallbackFn, Fallback>
 where
     Loc: Location,
@@ -120,18 +118,18 @@ where
     Rndr::Element: Clone,
     Rndr::Node: Clone,
     FallbackFn: Fn() -> Fallback,
-    Fallback: Render<Rndr>,
+    Fallback: Render,
     Router<Rndr, Loc, Defs, FallbackFn>: FallbackOrView,
-    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output:
-        RenderHtml<Rndr>,
+    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: RenderHtml,
 {
-    const MIN_LENGTH: usize = <<Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output as RenderHtml<Rndr>>::MIN_LENGTH;
+    const MIN_LENGTH: usize = <<Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output as RenderHtml>::MIN_LENGTH;
 
     fn to_html_with_buf(
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool, mark_branches: bool
+        escape: bool,
+        mark_branches: bool,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -156,7 +154,8 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool, mark_branches: bool
+        escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -168,7 +167,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let (prev_id, inner) = self.inner.fallback_or_view();
@@ -186,21 +185,20 @@ where
 struct ReactiveRouterInnerState<Rndr, Loc, Defs, FallbackFn, Fallback>
 where
     Router<Rndr, Loc, Defs, FallbackFn>: FallbackOrView,
-    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: Render<Rndr>,
+    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: Render,
     Rndr: Renderer,
 {
     owner: Owner,
     prev_id: &'static str,
-    inner: <<Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output as Render<Rndr>>::State,
+    inner: <<Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output as Render>::State,
     fal: PhantomData<Fallback>,
 }
 
-impl<Rndr, Loc, Defs, FallbackFn, Fallback> Mountable<Rndr>
+impl<Rndr, Loc, Defs, FallbackFn, Fallback> Mountable
     for ReactiveRouterInnerState<Rndr, Loc, Defs, FallbackFn, Fallback>
 where
     Router<Rndr, Loc, Defs, FallbackFn>: FallbackOrView,
-    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output:
-        Render<Rndr>,
+    <Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output: Render,
     Rndr: Renderer,
 {
     fn unmount(&mut self) {
@@ -209,13 +207,13 @@ where
 
     fn mount(
         &mut self,
-        parent: &<Rndr as Renderer>::Element,
-        marker: Option<&<Rndr as Renderer>::Node>,
+        parent: &leptos::tachys::renderer::types::Element,
+        marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
         self.inner.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.inner.insert_before_this(child)
     }
 }
@@ -248,12 +246,12 @@ impl ReactiveMatchedRoute {
     }
 }
 
-pub fn reactive_route<ViewFn, View, Rndr>(
+pub fn reactive_route<ViewFn, View>(
     view_fn: ViewFn,
-) -> impl Fn(MatchedRoute) -> ReactiveRoute<ViewFn, View, Rndr>
+) -> impl Fn(MatchedRoute) -> ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View + Clone,
-    View: Render<Rndr>,
+    View: Render,
     Rndr: Renderer,
 {
     move |matched| ReactiveRoute {
@@ -263,21 +261,21 @@ where
     }
 }
 
-pub struct ReactiveRoute<ViewFn, View, Rndr>
+pub struct ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
-    View: Render<Rndr>,
+    View: Render,
     Rndr: Renderer,
 {
     view_fn: ViewFn,
     matched: MatchedRoute,
-    ty: PhantomData<Rndr>,
+    ty: PhantomData,
 }
 
-impl<ViewFn, View, Rndr> Render<Rndr> for ReactiveRoute<ViewFn, View, Rndr>
+impl<ViewFn, View> Render for ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
-    View: Render<Rndr>,
+    View: Render,
     Rndr: Renderer,
 {
     type State = ReactiveRouteState<View::State>;
@@ -310,10 +308,10 @@ where
     }
 }
 
-impl<ViewFn, View, Rndr> RenderHtml<Rndr> for ReactiveRoute<ViewFn, View, Rndr>
+impl<ViewFn, View> RenderHtml for ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
-    View: RenderHtml<Rndr>,
+    View: RenderHtml,
     Rndr: Renderer,
     Rndr::Node: Clone,
     Rndr::Element: Clone,
@@ -324,7 +322,8 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool, mark_branches: bool
+        escape: bool,
+        mark_branches: bool,
     ) {
         let MatchedRoute {
             search_params,
@@ -345,7 +344,8 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool, mark_branches: bool
+        escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -367,7 +367,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let MatchedRoute {
@@ -401,10 +401,9 @@ impl<State> Drop for ReactiveRouteState<State> {
     }
 }
 
-impl<T, R> Mountable<R> for ReactiveRouteState<T>
+impl<T> Mountable for ReactiveRouteState<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     fn unmount(&mut self) {
         self.view_state.unmount();
@@ -418,7 +417,7 @@ where
         self.view_state.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view_state.insert_before_this(child)
     }
 }

@@ -1,13 +1,7 @@
 use self::add_attr::AddAnyAttr;
-use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
+use crate::{hydration::Cursor, ssr::StreamBuilder};
 use parking_lot::RwLock;
-use std::{
-    cell::RefCell,
-    future::Future,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-    sync::Arc,
-};
+use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
 /// Add attributes to typed views.
 pub mod add_attr;
@@ -38,12 +32,12 @@ pub mod tuples;
 ///
 /// It is generic over the renderer itself, as long as that implements the [`Renderer`]
 /// trait.
-pub trait Render<R: Renderer>: Sized {
+pub trait Render: Sized {
     /// The “view state” for this type, which can be retained between updates.
     ///
     /// For example, for a text node, `State` might be the actual DOM text node
     /// and the previous string, to allow for diffing between updates.
-    type State: Mountable<R>;
+    type State: Mountable;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
@@ -98,12 +92,12 @@ impl MarkBranch for StreamBuilder {
 /// can be transformed into some HTML that is used to create a `<template>` node, which
 /// can be cloned many times and “hydrated,” which is more efficient than creating the
 /// whole view piece by piece.
-pub trait RenderHtml<R: Renderer>
+pub trait RenderHtml
 where
-    Self: Render<R> + AddAnyAttr<R> + Send,
+    Self: Render + AddAnyAttr + Send,
 {
     /// The type of the view after waiting for all asynchronous data to load.
-    type AsyncOutput: RenderHtml<R>;
+    type AsyncOutput: RenderHtml;
 
     /// The minimum length of HTML created when this view is rendered.
     const MIN_LENGTH: usize;
@@ -253,14 +247,14 @@ where
     /// (e.g., into a `<template>` element).
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State;
 
     /// Hydrates using [`RenderHtml::hydrate`], beginning at the given element.
     fn hydrate_from<const FROM_SERVER: bool>(
         self,
-        el: &R::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State
     where
         Self: Sized,
@@ -271,7 +265,7 @@ where
     /// Hydrates using [`RenderHtml::hydrate`], beginning at the given element and position.
     fn hydrate_from_position<const FROM_SERVER: bool>(
         self,
-        el: &R::Element,
+        el: &crate::renderer::types::Element,
         position: Position,
     ) -> Self::State
     where
@@ -284,24 +278,28 @@ where
 }
 
 /// Allows a type to be mounted to the DOM.
-pub trait Mountable<R: Renderer> {
+pub trait Mountable {
     /// Detaches the view from the DOM.
     fn unmount(&mut self);
 
     /// Mounts a node to the interface.
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>);
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    );
 
     /// Inserts another `Mountable` type before this one. Returns `false` if
     /// this does not actually exist in the UI (for example, `()`).
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool;
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool;
 
     /// Inserts another `Mountable` type before this one, or before the marker
     /// if this one doesn't exist in the UI (for example, `()`).
     fn insert_before_this_or_marker(
         &self,
-        parent: &R::Element,
-        child: &mut dyn Mountable<R>,
-        marker: Option<&R::Node>,
+        parent: &crate::renderer::types::Element,
+        child: &mut dyn Mountable,
+        marker: Option<&crate::renderer::types::Node>,
     ) {
         if !self.insert_before_this(child) {
             child.mount(parent, marker);
@@ -310,20 +308,16 @@ pub trait Mountable<R: Renderer> {
 }
 
 /// Indicates where a node should be mounted to its parent.
-pub enum MountKind<R>
-where
-    R: Renderer,
-{
+pub enum MountKind {
     /// Node should be mounted before this marker node.
-    Before(R::Node),
+    Before(crate::renderer::types::Node),
     /// Node should be appended to the parent’s children.
     Append,
 }
 
-impl<T, R> Mountable<R> for Option<T>
+impl<T> Mountable for Option<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     fn unmount(&mut self) {
         if let Some(ref mut mounted) = self {
@@ -331,33 +325,40 @@ where
         }
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         if let Some(ref mut inner) = self {
             inner.mount(parent, marker);
         }
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.as_ref()
             .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
     }
 }
 
-impl<T, R> Mountable<R> for Rc<RefCell<T>>
+impl<T> Mountable for Rc<RefCell<T>>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     fn unmount(&mut self) {
         self.borrow_mut().unmount()
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         self.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.borrow().insert_before_this(child)
     }
 }
@@ -430,230 +431,4 @@ pub enum Position {
     OnlyChild,
     /// This is the last child of its parent.
     LastChild,
-}
-
-/// A view stored on the heap.
-///
-/// This is a newtype around `Box<_>` that allows us to implement rendering traits on it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoxedView<T: Send>(Box<T>);
-
-impl<T: Send> BoxedView<T> {
-    /// Stores view on the heap.
-    pub fn new(value: T) -> Self {
-        Self(Box::new(value))
-    }
-
-    /// Deferences the view to its inner value.
-    pub fn into_inner(self) -> T {
-        *self.0
-    }
-}
-
-impl<T: Send> AsRef<T> for BoxedView<T> {
-    fn as_ref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T: Send> AsMut<T> for BoxedView<T> {
-    fn as_mut(&mut self) -> &mut T {
-        &mut self.0
-    }
-}
-
-impl<T: Send> Deref for BoxedView<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Send> DerefMut for BoxedView<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T, Rndr> Render<Rndr> for BoxedView<T>
-where
-    T: Render<Rndr> + Send,
-    Rndr: Renderer,
-{
-    type State = T::State;
-
-    fn build(self) -> Self::State {
-        self.into_inner().build()
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        self.into_inner().rebuild(state);
-    }
-}
-
-impl<T, Rndr> RenderHtml<Rndr> for BoxedView<T>
-where
-    T: RenderHtml<Rndr> + Send,
-    Rndr: Renderer,
-{
-    type AsyncOutput = BoxedView<T::AsyncOutput>;
-
-    const MIN_LENGTH: usize = T::MIN_LENGTH;
-
-    fn dry_resolve(&mut self) {
-        self.as_mut().dry_resolve();
-    }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        let inner = self.into_inner().resolve().await;
-        BoxedView::new(inner)
-    }
-
-    fn to_html_with_buf(
-        self,
-        buf: &mut String,
-        position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
-    ) {
-        self.into_inner()
-            .to_html_with_buf(buf, position, escape, mark_branches)
-    }
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        cursor: &Cursor<Rndr>,
-        position: &PositionState,
-    ) -> Self::State {
-        self.into_inner().hydrate::<FROM_SERVER>(cursor, position)
-    }
-}
-
-impl<T> ToTemplate for BoxedView<T>
-where
-    T: ToTemplate + Send,
-{
-    fn to_template(
-        buf: &mut String,
-        class: &mut String,
-        style: &mut String,
-        inner_html: &mut String,
-        position: &mut Position,
-    ) {
-        T::to_template(buf, class, style, inner_html, position);
-    }
-}
-
-/// A newtype around a view that allows us to get out of certain compile errors.
-///
-/// It is unlikely that you need this in your own work.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct WrappedView<T: Send>(T);
-
-impl<T: Send> WrappedView<T> {
-    /// Wraps the view.
-    pub fn new(value: T) -> Self {
-        Self(value)
-    }
-
-    /// Unwraps the view to its inner value.
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-
-impl<T: Send> Deref for WrappedView<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Send> DerefMut for WrappedView<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Send> AsRef<T> for WrappedView<T> {
-    fn as_ref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T: Send> AsMut<T> for WrappedView<T> {
-    fn as_mut(&mut self) -> &mut T {
-        &mut self.0
-    }
-}
-
-impl<T, Rndr> Render<Rndr> for WrappedView<T>
-where
-    T: Render<Rndr> + Send,
-    Rndr: Renderer,
-{
-    type State = T::State;
-
-    fn build(self) -> Self::State {
-        self.into_inner().build()
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        self.into_inner().rebuild(state);
-    }
-}
-
-impl<T, Rndr> RenderHtml<Rndr> for WrappedView<T>
-where
-    T: RenderHtml<Rndr> + Send,
-    Rndr: Renderer,
-{
-    type AsyncOutput = BoxedView<T::AsyncOutput>;
-
-    const MIN_LENGTH: usize = T::MIN_LENGTH;
-
-    fn dry_resolve(&mut self) {
-        self.as_mut().dry_resolve();
-    }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        let inner = self.into_inner().resolve().await;
-        BoxedView::new(inner)
-    }
-
-    fn to_html_with_buf(
-        self,
-        buf: &mut String,
-        position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
-    ) {
-        self.into_inner()
-            .to_html_with_buf(buf, position, escape, mark_branches)
-    }
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        cursor: &Cursor<Rndr>,
-        position: &PositionState,
-    ) -> Self::State {
-        self.into_inner().hydrate::<FROM_SERVER>(cursor, position)
-    }
-}
-
-impl<T> ToTemplate for WrappedView<T>
-where
-    T: ToTemplate + Send,
-{
-    fn to_template(
-        buf: &mut String,
-        class: &mut String,
-        style: &mut String,
-        inner_html: &mut String,
-        position: &mut Position,
-    ) {
-        T::to_template(buf, class, style, inner_html, position);
-    }
 }

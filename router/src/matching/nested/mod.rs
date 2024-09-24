@@ -8,32 +8,27 @@ use either_of::Either;
 use std::{
     borrow::Cow,
     collections::HashSet,
-    marker::PhantomData,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::{
-    renderer::Renderer,
-    view::{Render, RenderHtml},
-};
+use tachys::view::{Render, RenderHtml};
 
 mod tuples;
 
 static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct NestedRoute<Segments, Children, Data, View, R> {
+pub struct NestedRoute<Segments, Children, Data, View> {
     id: u16,
     segments: Segments,
     children: Option<Children>,
     data: Data,
     view: View,
-    rndr: PhantomData<R>,
     methods: HashSet<Method>,
     ssr_mode: SsrMode,
 }
 
-impl<Segments, Children, Data, View, R> Clone
-    for NestedRoute<Segments, Children, Data, View, R>
+impl<Segments, Children, Data, View> Clone
+    for NestedRoute<Segments, Children, Data, View>
 where
     Segments: Clone,
     Children: Clone,
@@ -47,18 +42,16 @@ where
             children: self.children.clone(),
             data: self.data.clone(),
             view: self.view.clone(),
-            rndr: PhantomData,
             methods: self.methods.clone(),
             ssr_mode: self.ssr_mode.clone(),
         }
     }
 }
 
-impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
+impl<Segments, View> NestedRoute<Segments, (), (), View> {
     pub fn new(path: Segments, view: View) -> Self
     where
-        View: ChooseView<R>,
-        R: Renderer + 'static,
+        View: ChooseView,
     {
         Self {
             id: ROUTE_ID.fetch_add(1, Ordering::Relaxed),
@@ -66,24 +59,22 @@ impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
             children: None,
             data: (),
             view,
-            rndr: PhantomData,
             methods: [Method::Get].into(),
             ssr_mode: Default::default(),
         }
     }
 }
 
-impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
+impl<Segments, Data, View> NestedRoute<Segments, (), Data, View> {
     pub fn child<Children>(
         self,
         child: Children,
-    ) -> NestedRoute<Segments, Children, Data, View, R> {
+    ) -> NestedRoute<Segments, Children, Data, View> {
         let Self {
             id,
             segments,
             data,
             view,
-            rndr,
             ssr_mode,
             methods,
             ..
@@ -96,7 +87,6 @@ impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
             view,
             ssr_mode,
             methods,
-            rndr,
         }
     }
 
@@ -146,13 +136,12 @@ where
     }
 }
 
-impl<ParamsIter, Child, View, Rndr> MatchInterface<Rndr>
+impl<ParamsIter, Child, View> MatchInterface
     for NestedMatch<ParamsIter, Child, View>
 where
-    Rndr: Renderer + 'static,
-    Child: MatchInterface<Rndr> + MatchParams + 'static,
-    View: ChooseView<Rndr>,
-    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    Child: MatchInterface + MatchParams + 'static,
+    View: ChooseView,
+    View::Output: Render + RenderHtml + Send + 'static,
 {
     type Child = Child;
     type View = View::Output;
@@ -167,28 +156,24 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
         (self.view_fn, self.child)
     }
 }
 
-impl<Segments, Children, Data, View, Rndr> MatchNestedRoutes<Rndr>
-    for NestedRoute<Segments, Children, Data, View, Rndr>
+impl<Segments, Children, Data, View> MatchNestedRoutes
+    for NestedRoute<Segments, Children, Data, View>
 where
     Self: 'static,
-    Rndr: Renderer + 'static,
     Segments: PossibleRouteMatch + std::fmt::Debug,
     <<Segments as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter: Clone,
-    Children: MatchNestedRoutes<Rndr>,
-    <<<Children as MatchNestedRoutes<Rndr>>::Match as MatchParams>::Params as IntoIterator>::IntoIter: Clone,
+    Children: MatchNestedRoutes,
+    <<<Children as MatchNestedRoutes>::Match as MatchParams>::Params as IntoIterator>::IntoIter: Clone,
    Children::Match: MatchParams,
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
-    View: ChooseView<Rndr> + Clone,
-    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    View: ChooseView + Clone,
+    View::Output: Render + RenderHtml + Send + 'static,
 {
     type Data = Data;
     type View = View::Output;

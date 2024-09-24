@@ -420,7 +420,7 @@ impl Mountable<MockDom> for Placeholder {
 }
 
 impl<E: ElementType> CreateElement<MockDom> for E {
-    fn create_element(&self) -> <MockDom as Renderer>::Element {
+    fn create_element(&self) -> crate::renderer::types::Element {
         document().create_element(E::TAG)
     }
 }

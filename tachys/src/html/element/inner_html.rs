@@ -1,10 +1,10 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
     html::attribute::{Attribute, NextAttribute},
-    renderer::{DomRenderer, Renderer},
+    renderer::Rndr,
     view::add_attr::AddAnyAttr,
 };
-use std::{future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that sets the inner HTML of an element.
 ///
@@ -15,47 +15,40 @@ use std::{future::Future, marker::PhantomData, sync::Arc};
 /// sanitize the input to avoid a cross-site scripting (XSS)
 /// vulnerability.
 #[inline(always)]
-pub fn inner_html<T, R>(value: T) -> InnerHtml<T, R>
+pub fn inner_html<T>(value: T) -> InnerHtml<T>
 where
-    T: InnerHtmlValue<R>,
-    R: DomRenderer,
+    T: InnerHtmlValue,
 {
-    InnerHtml {
-        value,
-        rndr: PhantomData,
-    }
+    InnerHtml { value }
 }
 
 /// Sets the inner HTML of an element.
 #[derive(Debug)]
-pub struct InnerHtml<T, R> {
+pub struct InnerHtml<T> {
     value: T,
-    rndr: PhantomData<R>,
 }
 
-impl<T, R> Clone for InnerHtml<T, R>
+impl<T> Clone for InnerHtml<T>
 where
     T: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
-            rndr: PhantomData,
         }
     }
 }
 
-impl<T, R> Attribute<R> for InnerHtml<T, R>
+impl<T> Attribute for InnerHtml<T>
 where
-    T: InnerHtmlValue<R>,
-    R: DomRenderer,
+    T: InnerHtmlValue,
 {
     const MIN_LENGTH: usize = 0;
 
-    type AsyncOutput = InnerHtml<T::AsyncOutput, R>;
+    type AsyncOutput = InnerHtml<T::AsyncOutput>;
     type State = T::State;
-    type Cloneable = InnerHtml<T::Cloneable, R>;
-    type CloneableOwned = InnerHtml<T::CloneableOwned, R>;
+    type Cloneable = InnerHtml<T::Cloneable>;
+    type CloneableOwned = InnerHtml<T::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         self.value.html_len()
@@ -73,12 +66,12 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         self.value.hydrate::<FROM_SERVER>(el)
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.value.build(el)
     }
 
@@ -89,14 +82,12 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         InnerHtml {
             value: self.value.into_cloneable(),
-            rndr: self.rndr,
         }
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         InnerHtml {
             value: self.value.into_cloneable_owned(),
-            rndr: self.rndr,
         }
     }
 
@@ -107,19 +98,17 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         InnerHtml {
             value: self.value.resolve().await,
-            rndr: self.rndr,
         }
     }
 }
 
-impl<T, R> NextAttribute<R> for InnerHtml<T, R>
+impl<T> NextAttribute for InnerHtml<T>
 where
-    T: InnerHtmlValue<R>,
-    R: DomRenderer,
+    T: InnerHtmlValue,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -128,11 +117,11 @@ where
 }
 
 /// Sets the inner HTML of an element.
-pub trait InnerHtmlAttribute<T, Rndr>
+pub trait InnerHtmlAttribute<T>
 where
-    T: InnerHtmlValue<Rndr>,
-    Rndr: DomRenderer,
-    Self: Sized + AddAnyAttr<Rndr>,
+    T: InnerHtmlValue,
+
+    Self: Sized + AddAnyAttr,
 {
     /// Sets the inner HTML of this element.
     ///
@@ -145,38 +134,36 @@ where
     fn inner_html(
         self,
         value: T,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<InnerHtml<T, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<InnerHtml<T>> {
         self.add_any_attr(inner_html(value))
     }
 }
 
-impl<T, E, At, Rndr> InnerHtmlAttribute<T, Rndr>
-    for HtmlElement<E, At, (), Rndr>
+impl<T, E, At> InnerHtmlAttribute<T> for HtmlElement<E, At, ()>
 where
-    Self: AddAnyAttr<Rndr>,
+    Self: AddAnyAttr,
     E: ElementWithChildren,
-    At: Attribute<Rndr>,
-    T: InnerHtmlValue<Rndr>,
-    Rndr: DomRenderer,
+    At: Attribute,
+    T: InnerHtmlValue,
 {
     fn inner_html(
         self,
         value: T,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<InnerHtml<T, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<InnerHtml<T>> {
         self.add_any_attr(inner_html(value))
     }
 }
 
 /// A possible value for [`InnerHtml`].
-pub trait InnerHtmlValue<R: DomRenderer>: Send {
+pub trait InnerHtmlValue: Send {
     /// The type after all async data have resolved.
-    type AsyncOutput: InnerHtmlValue<R>;
+    type AsyncOutput: InnerHtmlValue;
     /// The view state retained between building and rebuilding.
     type State;
     /// An equivalent value that can be cloned.
-    type Cloneable: InnerHtmlValue<R> + Clone;
+    type Cloneable: InnerHtmlValue + Clone;
     /// An equivalent value that can be cloned and is `'static`.
-    type CloneableOwned: InnerHtmlValue<R> + Clone + 'static;
+    type CloneableOwned: InnerHtmlValue + Clone + 'static;
 
     /// The estimated length of the HTML.
     fn html_len(&self) -> usize;
@@ -189,10 +176,13 @@ pub trait InnerHtmlValue<R: DomRenderer>: Send {
 
     /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
     /// either been rendered on the server, or cloned for a `<template>`.
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State;
 
     /// Adds this class to the element during client-side rendering.
-    fn build(self, el: &R::Element) -> Self::State;
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State;
 
     /// Updates the value.
     fn rebuild(self, state: &mut Self::State);
@@ -212,12 +202,9 @@ pub trait InnerHtmlValue<R: DomRenderer>: Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
-impl<R> InnerHtmlValue<R> for String
-where
-    R: DomRenderer,
-{
+impl InnerHtmlValue for String {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
 
@@ -233,22 +220,22 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         if !FROM_SERVER {
-            R::set_inner_html(el, &self);
+            Rndr::set_inner_html(el, &self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        R::set_inner_html(el, &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_inner_html(el, &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         if self != state.1 {
-            R::set_inner_html(&state.0, &self);
+            Rndr::set_inner_html(&state.0, &self);
             state.1 = self;
         }
     }
@@ -268,12 +255,9 @@ where
     }
 }
 
-impl<R> InnerHtmlValue<R> for Arc<str>
-where
-    R: DomRenderer,
-{
+impl InnerHtmlValue for Arc<str> {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -289,22 +273,22 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         if !FROM_SERVER {
-            R::set_inner_html(el, &self);
+            Rndr::set_inner_html(el, &self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        R::set_inner_html(el, &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_inner_html(el, &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         if !Arc::ptr_eq(&self, &state.1) {
-            R::set_inner_html(&state.0, &self);
+            Rndr::set_inner_html(&state.0, &self);
             state.1 = self;
         }
     }
@@ -324,12 +308,9 @@ where
     }
 }
 
-impl<'a, R> InnerHtmlValue<R> for &'a str
-where
-    R: DomRenderer,
-{
+impl<'a> InnerHtmlValue for &'a str {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
 
@@ -345,22 +326,22 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         if !FROM_SERVER {
-            R::set_inner_html(el, self);
+            Rndr::set_inner_html(el, self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        R::set_inner_html(el, self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_inner_html(el, self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         if self != state.1 {
-            R::set_inner_html(&state.0, self);
+            Rndr::set_inner_html(&state.0, self);
             state.1 = self;
         }
     }
@@ -380,13 +361,12 @@ where
     }
 }
 
-impl<T, R> InnerHtmlValue<R> for Option<T>
+impl<T> InnerHtmlValue for Option<T>
 where
-    T: InnerHtmlValue<R>,
-    R: DomRenderer,
+    T: InnerHtmlValue,
 {
     type AsyncOutput = Self;
-    type State = (R::Element, Option<T::State>);
+    type State = (crate::renderer::types::Element, Option<T::State>);
     type Cloneable = Option<T::Cloneable>;
     type CloneableOwned = Option<T::CloneableOwned>;
 
@@ -407,12 +387,12 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         (el.clone(), self.map(|n| n.hydrate::<FROM_SERVER>(el)))
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         (el.clone(), self.map(|n| n.build(el)))
     }
 
@@ -420,7 +400,7 @@ where
         let new_state = match (self, &mut state.1) {
             (None, None) => None,
             (None, Some(_)) => {
-                R::set_inner_html(&state.0, "");
+                Rndr::set_inner_html(&state.0, "");
                 Some(None)
             }
             (Some(new), None) => Some(Some(new.build(&state.0))),

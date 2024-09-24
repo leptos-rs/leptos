@@ -1,1 +1,0 @@
-extend = [{ path = "../cargo-make/main.toml" }]

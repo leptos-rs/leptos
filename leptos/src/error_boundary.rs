@@ -9,12 +9,11 @@ use reactive_graph::{
     traits::{Get, Update, With, WithUntracked},
 };
 use rustc_hash::FxHashMap;
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::OwnedView,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -112,20 +111,18 @@ where
             children,
             errors,
             fallback,
-            rndr: PhantomData,
         },
         owner,
     )
 }
 
-struct ErrorBoundaryView<Chil, FalFn, Rndr> {
+struct ErrorBoundaryView<Chil, FalFn> {
     hook: Arc<dyn ErrorHook>,
     boundary_id: SerializedDataId,
     errors_empty: ArcMemo<bool>,
     children: Chil,
     fallback: FalFn,
     errors: ArcRwSignal<Errors>,
-    rndr: PhantomData<Rndr>,
 }
 
 struct ErrorBoundaryViewState<Chil, Fal> {
@@ -134,11 +131,10 @@ struct ErrorBoundaryViewState<Chil, Fal> {
     fallback: Option<Fal>,
 }
 
-impl<Chil, Fal, Rndr> Mountable<Rndr> for ErrorBoundaryViewState<Chil, Fal>
+impl<Chil, Fal> Mountable for ErrorBoundaryViewState<Chil, Fal>
 where
-    Chil: Mountable<Rndr>,
-    Fal: Mountable<Rndr>,
-    Rndr: Renderer,
+    Chil: Mountable,
+    Fal: Mountable,
 {
     fn unmount(&mut self) {
         if let Some(fallback) = &mut self.fallback {
@@ -148,7 +144,11 @@ where
         }
     }
 
-    fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
+    fn mount(
+        &mut self,
+        parent: &tachys::renderer::types::Element,
+        marker: Option<&tachys::renderer::types::Node>,
+    ) {
         if let Some(fallback) = &mut self.fallback {
             fallback.mount(parent, marker);
         } else {
@@ -156,7 +156,7 @@ where
         }
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if let Some(fallback) = &self.fallback {
             fallback.insert_before_this(child)
         } else {
@@ -165,13 +165,11 @@ where
     }
 }
 
-impl<Chil, FalFn, Fal, Rndr> Render<Rndr>
-    for ErrorBoundaryView<Chil, FalFn, Rndr>
+impl<Chil, FalFn, Fal> Render for ErrorBoundaryView<Chil, FalFn>
 where
-    Chil: Render<Rndr> + 'static,
+    Chil: Render + 'static,
     FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
-    Fal: Render<Rndr> + 'static,
-    Rndr: Renderer,
+    Fal: Render + 'static,
 {
     type State = RenderEffect<ErrorBoundaryViewState<Chil::State, Fal::State>>;
 
@@ -228,26 +226,21 @@ where
     }
 }
 
-impl<Chil, FalFn, Fal, Rndr> AddAnyAttr<Rndr>
-    for ErrorBoundaryView<Chil, FalFn, Rndr>
+impl<Chil, FalFn, Fal> AddAnyAttr for ErrorBoundaryView<Chil, FalFn>
 where
-    Chil: RenderHtml<Rndr> + 'static,
+    Chil: RenderHtml + 'static,
     FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
-    Fal: RenderHtml<Rndr> + Send + 'static,
-    Rndr: Renderer,
+    Fal: RenderHtml + Send + 'static,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = ErrorBoundaryView<
-        Chil::Output<SomeNewAttr::CloneableOwned>,
-        FalFn,
-        Rndr,
-    >;
+    type Output<SomeNewAttr: Attribute> =
+        ErrorBoundaryView<Chil::Output<SomeNewAttr::CloneableOwned>, FalFn>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let ErrorBoundaryView {
             hook,
@@ -256,7 +249,6 @@ where
             children,
             fallback,
             errors,
-            rndr,
         } = self;
         ErrorBoundaryView {
             hook,
@@ -265,20 +257,17 @@ where
             children: children.add_any_attr(attr.into_cloneable_owned()),
             fallback,
             errors,
-            rndr,
         }
     }
 }
 
-impl<Chil, FalFn, Fal, Rndr> RenderHtml<Rndr>
-    for ErrorBoundaryView<Chil, FalFn, Rndr>
+impl<Chil, FalFn, Fal> RenderHtml for ErrorBoundaryView<Chil, FalFn>
 where
-    Chil: RenderHtml<Rndr> + Send + 'static,
+    Chil: RenderHtml + Send + 'static,
     FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
-    Fal: RenderHtml<Rndr> + Send + 'static,
-    Rndr: Renderer,
+    Fal: RenderHtml + Send + 'static,
 {
-    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, FalFn, Rndr>;
+    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, FalFn>;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
@@ -303,7 +292,6 @@ where
             children: children.resolve().await,
             fallback,
             errors,
-            rndr: PhantomData,
         }
     }
 
@@ -377,7 +365,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let mut children = Some(self.children);
