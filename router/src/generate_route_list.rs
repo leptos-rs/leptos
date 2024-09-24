@@ -224,6 +224,7 @@ impl RouteList {
     where
         T: RenderHtml,
     {
+        let _resource_guard = leptos::server::SuppressResourceLoad::new();
         Self::IS_GENERATING.set(true);
         // run the app once, but throw away the HTML
         // the router won't actually route, but will fill the listing
