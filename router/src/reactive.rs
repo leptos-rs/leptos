@@ -246,9 +246,9 @@ impl ReactiveMatchedRoute {
     }
 }
 
-pub fn reactive_route<ViewFn, View, Rndr>(
+pub fn reactive_route<ViewFn, View>(
     view_fn: ViewFn,
-) -> impl Fn(MatchedRoute) -> ReactiveRoute<ViewFn, View, Rndr>
+) -> impl Fn(MatchedRoute) -> ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View + Clone,
     View: Render,
@@ -261,7 +261,7 @@ where
     }
 }
 
-pub struct ReactiveRoute<ViewFn, View, Rndr>
+pub struct ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
     View: Render,
@@ -272,7 +272,7 @@ where
     ty: PhantomData,
 }
 
-impl<ViewFn, View, Rndr> Render for ReactiveRoute<ViewFn, View, Rndr>
+impl<ViewFn, View> Render for ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
     View: Render,
@@ -308,7 +308,7 @@ where
     }
 }
 
-impl<ViewFn, View, Rndr> RenderHtml for ReactiveRoute<ViewFn, View, Rndr>
+impl<ViewFn, View> RenderHtml for ReactiveRoute<ViewFn, View>
 where
     ViewFn: Fn(&ReactiveMatchedRoute) -> View,
     View: RenderHtml,
@@ -401,10 +401,9 @@ impl<State> Drop for ReactiveRouteState<State> {
     }
 }
 
-impl<T, R> Mountable for ReactiveRouteState<T>
+impl<T> Mountable for ReactiveRouteState<T>
 where
     T: Mountable,
-    R: Renderer,
 {
     fn unmount(&mut self) {
         self.view_state.unmount();

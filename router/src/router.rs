@@ -48,7 +48,7 @@ use tachys::{
 pub struct Router<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: PhantomData<Loc>,
-    pub routes: Routes<Children, Rndr>,
+    pub routes: Routes<Children>,
     fallback: FallbackFn,
 }
 
@@ -60,7 +60,7 @@ where
     FallbackFn: Fn() -> Fallback,
 {
     pub fn new(
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -73,7 +73,7 @@ where
 
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -98,7 +98,7 @@ where
 
 pub struct 
 where
-    R: Renderer + 'static,
+    
 {
     pub params: ArcMemo<Params>,
     pub outlet: Outlet,
@@ -118,7 +118,7 @@ where
 {
     type State = RenderEffect<
         EitherState<
-            <NestedRouteView<Children::Match, Rndr> as Render>::State,
+            <NestedRouteView<Children::Match> as Render>::State,
             <Fallback as Render>::State,
             Rndr,
         >,
@@ -158,7 +158,7 @@ where
                         }
                     }
                 } else {
-                    Either::<NestedRouteView<Children::Match, Rndr>, _>::Right(
+                    Either::<NestedRouteView<Children::Match>, _>::Right(
                         (self.fallback)(),
                     )
                     .rebuild(&mut prev);
@@ -332,7 +332,7 @@ where
                         }
                     }
                 } else {
-                    Either::<NestedRouteView<Children::Match, Rndr>, _>::Right(
+                    Either::<NestedRouteView<Children::Match>, _>::Right(
                         (self.fallback)(),
                     )
                     .rebuild(&mut prev);
@@ -360,7 +360,7 @@ where
 pub struct NestedRouteView<Matcher, R>
 where
     Matcher: MatchInterface,
-    R: Renderer + 'static,
+    
 {
     id: RouteMatchId,
     owner: Owner,
@@ -370,7 +370,7 @@ where
     ty: PhantomData<(Matcher, R)>,
 }
 
-impl<Matcher, Rndr> NestedRouteView<Matcher, Rndr>
+impl<Matcher> NestedRouteView<Matcher>
 where
     Matcher: MatchInterface + MatchParams,
     Matcher::Child: 'static,
@@ -459,7 +459,7 @@ where
     }
 }
 
-pub struct NestedRouteState<Matcher, Rndr>
+pub struct NestedRouteState<Matcher>
 where
     Matcher: MatchInterface,
     Rndr: Renderer + 'static,
@@ -478,7 +478,7 @@ fn get_inner_view<Match, R>(
 ) -> Outlet
 where
     Match: MatchInterface + MatchParams,
-    R: Renderer + 'static,
+    
 {
     let owner = parent.child();
     let id = route_match.as_id();
@@ -533,7 +533,7 @@ fn get_inner_view_hydrate<Match, R>(
 ) -> Outlet
 where
     Match: MatchInterface + MatchParams,
-    R: Renderer + 'static,
+    
 {
     let owner = parent.child();
     let id = route_match.as_id();
@@ -626,7 +626,7 @@ impl<R: Renderer> Debug for OutletInner {
 
 impl Default for OutletInner
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         let view =
@@ -642,7 +642,7 @@ where
 
 impl Clone for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn clone(&self) -> Self {
         Self {
@@ -657,7 +657,7 @@ where
 
 impl Default for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         Self {
@@ -671,7 +671,7 @@ where
 
 impl Render for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     type State = Outlet;
 
@@ -686,7 +686,7 @@ where
 
 impl RenderHtml for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     type AsyncOutput = Self;
 
@@ -745,7 +745,7 @@ where
 
 /*pub struct OutletStateInner
 where
-    R: Renderer + 'static,
+    
 {
     html_len: Box<dyn Fn() -> usize + Send + Sync>,
     view: Arc<
@@ -769,7 +769,7 @@ impl<R: Renderer> Debug for OutletStateInner {
 
 impl Default for OutletStateInner
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         let view =
@@ -786,7 +786,7 @@ where
 
 impl Mountable for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn unmount(&mut self) {
         todo!()
@@ -819,7 +819,7 @@ fn rebuild_nested<Match, R>(
     new_match: Match,
 ) where
     Match: MatchInterface + MatchParams + std::fmt::Debug,
-    R: Renderer + 'static,
+    
 {
     let mut items = 0;
     let NestedRouteState {
@@ -850,7 +850,7 @@ fn rebuild_inner<Match, R>(
     route_match: Match,
 ) where
     Match: MatchInterface + MatchParams,
-    R: Renderer + 'static,
+    
 {
     *items += 1;
 
@@ -914,7 +914,7 @@ impl<Matcher, R> Render for NestedRouteView<Matcher, R>
 where
     Matcher: MatchInterface,
     Matcher::View: Sized + 'static,
-    R: Renderer + 'static,
+    
 {
     type State = NestedRouteState<Matcher, R>;
 
@@ -957,7 +957,7 @@ impl<Matcher, R> RenderHtml for NestedRouteView<Matcher, R>
 where
     Matcher: MatchInterface + Send,
     Matcher::View: Sized + 'static,
-    R: Renderer + 'static,
+    
 {
     type AsyncOutput = Self;
 
@@ -1012,7 +1012,7 @@ where
 impl<Matcher, R> Mountable for NestedRouteState<Matcher, R>
 where
     Matcher: MatchInterface,
-    R: Renderer + 'static,
+    
 {
     fn unmount(&mut self) {
         self.view.unmount();
@@ -1069,7 +1069,7 @@ where
 pub struct FlatRouter<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: PhantomData<Loc>,
-    pub routes: Routes<Children, Rndr>,
+    pub routes: Routes<Children>,
     fallback: FallbackFn,
 }
 
@@ -1081,7 +1081,7 @@ where
     FallbackFn: Fn() -> Fallback,
 {
     pub fn new(
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -1094,7 +1094,7 @@ where
 
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
         Self {

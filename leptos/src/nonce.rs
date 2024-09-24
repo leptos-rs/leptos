@@ -66,8 +66,6 @@ impl Display for Nonce {
 }
 
 impl AttributeValue for Nonce
-where
-    R: Renderer,
 {
     type AsyncOutput = Self;
     type State = <Arc<str> as AttributeValue>::State;
