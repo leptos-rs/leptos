@@ -1,9 +1,7 @@
 use super::{Attribute, NextAttribute};
-use crate::renderer::{Renderer, Rndr};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    marker::PhantomData,
 };
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};

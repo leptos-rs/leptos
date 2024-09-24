@@ -2,9 +2,8 @@ use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::Rndr,
     ssr::StreamBuilder,
-    view::{iterators::OptionState, Mountable, Render, Renderer},
+    view::{iterators::OptionState, Mountable, Render},
 };
 use either_of::Either;
 use std::sync::Arc;

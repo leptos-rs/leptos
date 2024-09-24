@@ -1,9 +1,6 @@
 use super::ElementWithChildren;
-use crate::{
-    html::element::{ElementType, HtmlElement},
-    renderer::{dom::Dom, Renderer},
-};
-use std::{fmt::Debug, marker::PhantomData};
+use crate::html::element::{ElementType, HtmlElement};
+use std::fmt::Debug;
 
 /// Creates a custom element.
 #[track_caller]

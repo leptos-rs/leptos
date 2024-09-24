@@ -1,7 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
     prelude::AddAnyAttr,
-    renderer::{Renderer, Rndr},
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;

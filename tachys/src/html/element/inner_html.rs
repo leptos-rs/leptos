@@ -1,10 +1,10 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
     html::attribute::{Attribute, NextAttribute},
-    renderer::{DomRenderer, Renderer, Rndr},
+    renderer::{DomRenderer, Rndr},
     view::add_attr::AddAnyAttr,
 };
-use std::{future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that sets the inner HTML of an element.
 ///

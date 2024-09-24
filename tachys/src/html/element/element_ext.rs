@@ -5,7 +5,7 @@ use crate::{
         event::{on, EventDescriptor},
         style::IntoStyle,
     },
-    renderer::{dom::Dom, DomRenderer, RemoveEventHandler},
+    renderer::RemoveEventHandler,
 };
 use wasm_bindgen::JsValue;
 use web_sys::Element;

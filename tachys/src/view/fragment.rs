@@ -1,5 +1,4 @@
 use super::any_view::{AnyView, IntoAny};
-use crate::renderer::Renderer;
 
 /// A typed-erased collection of different views.
 pub struct Fragment {

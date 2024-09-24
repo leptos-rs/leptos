@@ -1,6 +1,5 @@
 use super::{Attr, AttributeValue};
-use crate::renderer::Renderer;
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 /// An HTML attribute key.
 pub trait AttributeKey: Clone + Send + 'static {

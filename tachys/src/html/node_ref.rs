@@ -5,7 +5,6 @@ use super::{
 use crate::{
     html::element::HtmlElement,
     prelude::Render,
-    renderer::{Renderer, Rndr},
     view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;

@@ -43,7 +43,7 @@ where
         //crate::log("advancing to next child of ");
         //Rndr::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
-        if let Some(node) = Rndr::first_child(&*inner) {
+        if let Some(node) = Rndr::first_child(&inner) {
             *inner = node;
         }
         //drop(inner);
@@ -58,7 +58,7 @@ where
         //crate::log("advancing to next sibling of ");
         //Rndr::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
-        if let Some(node) = Rndr::next_sibling(&*inner) {
+        if let Some(node) = Rndr::next_sibling(&inner) {
             *inner = node;
         }
         //drop(inner);
@@ -71,7 +71,7 @@ where
     /// Does nothing if there is no parent.
     pub fn parent(&self) {
         let mut inner = self.0.borrow_mut();
-        if let Some(node) = Rndr::get_parent(&*inner) {
+        if let Some(node) = Rndr::get_parent(&inner) {
             *inner = node;
         }
     }

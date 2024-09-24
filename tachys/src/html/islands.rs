@@ -2,11 +2,9 @@ use super::attribute::Attribute;
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState},
 };
-use std::marker::PhantomData;
 
 /// An island of interactivity in an otherwise-inert HTML document.
 pub struct Island<View> {

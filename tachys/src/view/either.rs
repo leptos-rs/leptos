@@ -5,12 +5,10 @@ use super::{
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{Renderer, Rndr},
     ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;
-use std::marker::PhantomData;
 
 impl<A, B> Render for Either<A, B>
 where

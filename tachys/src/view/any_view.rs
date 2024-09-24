@@ -5,18 +5,13 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::{
-        any_attribute::{AnyAttribute, IntoAnyAttribute},
-        Attribute,
-    },
+    html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{Renderer, Rndr},
     ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    marker::PhantomData,
 };
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};

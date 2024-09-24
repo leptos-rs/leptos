@@ -1,7 +1,4 @@
-use crate::{
-    renderer::Renderer,
-    view::{Position, RenderHtml},
-};
+use crate::view::{Position, RenderHtml};
 use futures::Stream;
 use std::{
     collections::VecDeque,

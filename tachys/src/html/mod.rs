@@ -3,10 +3,10 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::AddAnyAttr,
-    renderer::{CastFrom, DomRenderer, Renderer, Rndr},
+    renderer::{CastFrom, DomRenderer, Rndr},
     view::{Position, PositionState, Render, RenderHtml},
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::borrow::Cow;
 
 /// Types for HTML attributes.
 pub mod attribute;

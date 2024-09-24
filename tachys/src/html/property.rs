@@ -1,6 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
-    renderer::{DomRenderer, Renderer, Rndr},
+    renderer::{DomRenderer, Rndr},
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;

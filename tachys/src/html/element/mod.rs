@@ -13,7 +13,7 @@ use const_str_slice_concat::{
 };
 use futures::future::join;
 use next_tuple::NextTuple;
-use std::{marker::PhantomData, ops::Deref};
+use std::ops::Deref;
 
 mod custom;
 mod element_ext;

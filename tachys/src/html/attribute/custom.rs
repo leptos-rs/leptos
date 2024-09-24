@@ -1,10 +1,9 @@
 use super::NextAttribute;
 use crate::{
     html::attribute::{Attribute, AttributeValue},
-    renderer::{DomRenderer, Renderer, Rndr},
     view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
-use std::{borrow::Cow, marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 /// Adds a custom attribute with any key-value combintion.
 #[inline(always)]

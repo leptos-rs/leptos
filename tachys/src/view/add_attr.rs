@@ -1,5 +1,5 @@
 use super::RenderHtml;
-use crate::{html::attribute::Attribute, renderer::Renderer};
+use crate::html::attribute::Attribute;
 
 /// Allows adding a new attribute to some type, before it is rendered.
 /// This takes place at compile time as part of the builder syntax for creating a statically typed

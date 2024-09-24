@@ -1,14 +1,13 @@
 use self::add_attr::AddAnyAttr;
 use crate::{
     hydration::Cursor,
-    renderer::{Renderer, Rndr},
+    renderer::Renderer,
     ssr::StreamBuilder,
 };
 use parking_lot::RwLock;
 use std::{
     cell::RefCell,
     future::Future,
-    ops::{Deref, DerefMut},
     rc::Rc,
     sync::Arc,
 };

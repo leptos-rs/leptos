@@ -11,10 +11,7 @@ use crate::{
 use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
-use std::{
-    hash::{BuildHasherDefault, Hash},
-    marker::PhantomData,
-};
+use std::hash::{BuildHasherDefault, Hash};
 
 type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 

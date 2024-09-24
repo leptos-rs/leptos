@@ -21,6 +21,7 @@ pub mod mock_dom;
 pub mod sledgehammer; */
 
 /// Implements the instructions necessary to render an interface on some platform.
+///
 /// By default, this is implemented for the Document Object Model (DOM) in a Web
 /// browser, but implementing this trait for some other platform allows you to use
 /// the library to render any tree-based UI.

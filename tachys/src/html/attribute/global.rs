@@ -9,7 +9,6 @@ use crate::{
         style::{style, IntoStyle, Style},
     },
     prelude::RenderHtml,
-    renderer::{DomRenderer, Rndr},
     view::add_attr::AddAnyAttr,
 };
 use core::convert::From;

@@ -3,7 +3,7 @@ use crate::{
     renderer::{DomRenderer, Renderer, Rndr},
     view::{Position, ToTemplate},
 };
-use std::{future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Adds a CSS class.
 #[inline(always)]
