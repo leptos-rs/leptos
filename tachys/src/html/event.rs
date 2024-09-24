@@ -405,9 +405,9 @@ impl<E: FromWasmAbi> Custom<E> {
     /// # use tachys::prelude::*;
     /// # use tachys::html;
     /// # use tachys::html::event as ev;
-    /// # fn custom_event() -> impl Render<Dom> {
+    /// # fn custom_event() -> impl Render {
     /// let mut non_passive_wheel = ev::Custom::new("wheel");
-    /// non_passive_wheel.options_mut().passive(false);
+    /// non_passive_wheel.options_mut().set_passive(false);
     ///
     /// let canvas =
     ///     html::element::canvas().on(non_passive_wheel, |e: ev::WheelEvent| {

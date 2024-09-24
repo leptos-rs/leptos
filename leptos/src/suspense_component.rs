@@ -21,7 +21,6 @@ use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,

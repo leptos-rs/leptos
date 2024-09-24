@@ -9,12 +9,11 @@ use reactive_graph::{
     traits::{Get, Update, With, WithUntracked},
 };
 use rustc_hash::FxHashMap;
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::OwnedView,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,

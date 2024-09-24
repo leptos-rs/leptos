@@ -3,13 +3,10 @@ use std::{
     fmt::{self, Debug},
     sync::Arc,
 };
-use tachys::{
-    renderer::dom::Dom,
-    view::{
-        any_view::{AnyView, IntoAny},
-        fragment::{Fragment, IntoFragment},
-        RenderHtml,
-    },
+use tachys::view::{
+    any_view::{AnyView, IntoAny},
+    fragment::{Fragment, IntoFragment},
+    RenderHtml,
 };
 
 /// The most common type for the `children` property on components,
