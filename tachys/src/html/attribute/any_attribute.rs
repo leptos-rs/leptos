@@ -14,8 +14,10 @@ pub struct AnyAttribute {
     #[cfg(feature = "ssr")]
     to_html:
         fn(Box<dyn Any>, &mut String, &mut String, &mut String, &mut String),
-    build:
-        fn(Box<dyn Any>, el: &crate::renderer::types::Element) -> AnyAttributeState,
+    build: fn(
+        Box<dyn Any>,
+        el: &crate::renderer::types::Element,
+    ) -> AnyAttributeState,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyAttributeState),
     #[cfg(feature = "hydrate")]
     hydrate_from_server:
@@ -76,7 +78,8 @@ where
                 .expect("AnyAttribute::to_html could not be downcast");
             value.to_html(buf, class, style, inner_html);
         };
-        let build = |value: Box<dyn Any>, el: &crate::renderer::types::Element| {
+        let build = |value: Box<dyn Any>,
+                     el: &crate::renderer::types::Element| {
             let value = value
                 .downcast::<T>()
                 .expect("AnyAttribute::build couldn't downcast");

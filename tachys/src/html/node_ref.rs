@@ -3,9 +3,7 @@ use super::{
     element::ElementType,
 };
 use crate::{
-    html::element::HtmlElement,
-    prelude::Render,
-    view::add_attr::AddAnyAttr,
+    html::element::HtmlElement, prelude::Render, view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;
 

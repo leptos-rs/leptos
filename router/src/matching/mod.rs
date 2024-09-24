@@ -143,7 +143,6 @@ mod tests {
         WildcardSegment,
     };
     use either_of::Either;
-    
 
     #[test]
     pub fn matches_single_root_route() {

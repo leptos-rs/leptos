@@ -3,9 +3,7 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
-    hydration::Cursor,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;

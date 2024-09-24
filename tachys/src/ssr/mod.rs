@@ -104,7 +104,6 @@ impl StreamBuilder {
         mark_branches: bool,
     ) where
         View: RenderHtml,
-        
     {
         self.write_chunk_marker(true);
         fallback.to_html_with_buf(
@@ -162,7 +161,6 @@ impl StreamBuilder {
         mark_branches: bool,
     ) where
         View: RenderHtml,
-        
     {
         let id = self.clone_id();
         // copy so it's not updated by additional iterations
