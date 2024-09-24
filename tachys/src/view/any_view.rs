@@ -5,12 +5,7 @@ use super::{
     RenderHtml, WrappedView,
 };
 use crate::{
-    html::attribute::{
-        any_attribute::{AnyAttribute, IntoAnyAttribute},
-        Attribute,
-    },
-    hydration::Cursor,
-    renderer::Renderer,
+    html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
     ssr::StreamBuilder,
 };
 use std::{
@@ -54,7 +49,6 @@ where
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
-    add_any_attr: fn(Box<dyn Any>, AnyAttribute<R>) -> AnyView<R>,
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
     resolve:
@@ -296,20 +290,11 @@ where
                 *state = new;
             }
         };
-
-        let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute<R>| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::add_any_attr() couldn't downcast value");
-            value.add_any_attr(attr).into_any()
-        };
-
         AnyView {
             type_id: TypeId::of::<T>(),
             value,
             build,
             rebuild,
-            add_any_attr,
             #[cfg(feature = "ssr")]
             resolve,
             #[cfg(feature = "ssr")]
@@ -347,18 +332,16 @@ impl<R> AddAnyAttr<R> for AnyView<R>
 where
     R: Renderer + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> = WrappedView<AnyView<R>>;
+    type Output<SomeNewAttr: Attribute<R>> = Self;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        let attr = attr.into_cloneable_owned().into_any_attr();
-        let new = (self.add_any_attr)(self.value, attr).into_any();
-        WrappedView::new(new)
+        todo!()
     }
 }
 
