@@ -223,9 +223,6 @@ impl RouteList {
     pub fn generate<T>(app: impl FnOnce() -> T) -> Option<Self>
     where
         T: RenderHtml,
-        Rndr: Renderer,
-        Rndr::Node: Clone,
-        Rndr::Element: Clone,
     {
         Self::IS_GENERATING.set(true);
         // run the app once, but throw away the HTML
