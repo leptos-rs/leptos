@@ -9,11 +9,8 @@ mod vertical;
 use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, collections::HashSet, marker::PhantomData};
-use tachys::{
-    renderer::Renderer,
-    view::{Render, RenderHtml},
-};
+use std::{borrow::Cow, collections::HashSet};
+use tachys::view::{Render, RenderHtml};
 pub use vertical::*;
 
 #[derive(Debug)]
@@ -167,7 +164,7 @@ mod tests {
 
     #[test]
     pub fn matches_nested_route() {
-        let routes: Routes<_, Dom> =
+        let routes: Routes<_> =
             Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
@@ -209,7 +206,7 @@ mod tests {
 
     #[test]
     pub fn does_not_match_incomplete_route() {
-        let routes: Routes<_, Dom> =
+        let routes: Routes<_> =
             Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
@@ -222,7 +219,7 @@ mod tests {
 
     #[test]
     pub fn chooses_between_nested_routes() {
-        let routes: Routes<_, Dom> = Routes::new((
+        let routes: Routes<_> = Routes::new((
             NestedRoute::new(StaticSegment("/"), || ()).child((
                 NestedRoute::new(StaticSegment(""), || ()),
                 NestedRoute::new(StaticSegment("about"), || ()),
@@ -276,7 +273,7 @@ mod tests {
 
     #[test]
     pub fn arbitrary_nested_routes() {
-        let routes: Routes<_, Dom> = Routes::new_with_base(
+        let routes: Routes<_> = Routes::new_with_base(
             (
                 NestedRoute::new(StaticSegment("/"), || ()).child((
                     NestedRoute::new(StaticSegment("/"), || ()),

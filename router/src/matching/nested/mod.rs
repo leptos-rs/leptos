@@ -8,13 +8,9 @@ use either_of::Either;
 use std::{
     borrow::Cow,
     collections::HashSet,
-    marker::PhantomData,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::{
-    renderer::Renderer,
-    view::{Render, RenderHtml},
-};
+use tachys::view::{Render, RenderHtml};
 
 mod tuples;
 

@@ -3,7 +3,6 @@ use crate::{ChooseView, GeneratedRouteData, MatchParams};
 use core::iter;
 use either_of::*;
 use std::borrow::Cow;
-use tachys::renderer::Renderer;
 
 impl MatchParams for () {
     type Params = iter::Empty<(Cow<'static, str>, String)>;

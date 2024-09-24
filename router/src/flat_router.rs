@@ -21,7 +21,6 @@ use std::{cell::RefCell, iter, mem, rc::Rc};
 use tachys::{
     hydration::Cursor,
     reactive_graph::OwnedView,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,

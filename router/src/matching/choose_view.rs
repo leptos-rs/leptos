@@ -1,9 +1,6 @@
 use either_of::*;
 use std::{future::Future, marker::PhantomData};
-use tachys::{
-    renderer::Renderer,
-    view::{any_view::AnyView, Render},
-};
+use tachys::view::{any_view::AnyView, Render};
 
 pub trait ChooseView
 where

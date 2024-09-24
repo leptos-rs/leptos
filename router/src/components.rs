@@ -24,11 +24,10 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
-    marker::PhantomData,
     sync::Arc,
     time::Duration,
 };
-use tachys::{renderer::dom::Dom, view::any_view::AnyView};
+use tachys::view::any_view::AnyView;
 
 #[derive(Debug)]
 pub struct RouteChildren<Children>(Children);

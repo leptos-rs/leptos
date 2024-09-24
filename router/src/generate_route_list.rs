@@ -13,7 +13,7 @@ use std::{
     future::Future,
     mem,
 };
-use tachys::{renderer::Renderer, view::RenderHtml};
+use tachys::view::RenderHtml;
 
 #[derive(Clone, Debug, Default)]
 /// A route that this application can serve.

@@ -24,7 +24,6 @@ use std::{
     fmt::Debug,
     future::Future,
     iter,
-    marker::PhantomData,
     mem,
     pin::Pin,
     rc::Rc,
@@ -33,7 +32,6 @@ use std::{
 use tachys::{
     hydration::Cursor,
     reactive_graph::{OwnedView, Suspend},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
