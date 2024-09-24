@@ -1,6 +1,5 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, Renderer,
-    ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
     html::attribute::Attribute,

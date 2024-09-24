@@ -1,7 +1,7 @@
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{CastFrom, Renderer, Rndr},
+    renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,

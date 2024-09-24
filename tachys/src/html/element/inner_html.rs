@@ -1,7 +1,7 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
     html::attribute::{Attribute, NextAttribute},
-    renderer::{DomRenderer, Rndr},
+    renderer::Rndr,
     view::add_attr::AddAnyAttr,
 };
 use std::{future::Future, sync::Arc};

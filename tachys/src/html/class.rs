@@ -1,6 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
-    renderer::{DomRenderer, Renderer, Rndr},
+    renderer::Rndr,
     view::{Position, ToTemplate},
 };
 use std::{future::Future, sync::Arc};

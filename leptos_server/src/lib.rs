@@ -188,7 +188,6 @@ mod view_implementations {
         html::attribute::Attribute,
         hydration::Cursor,
         reactive_graph::{RenderEffectState, Suspend, SuspendState},
-        renderer::Renderer,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,

@@ -6,7 +6,7 @@ use base64::{
 };
 use rand::{thread_rng, RngCore};
 use std::{fmt::Display, ops::Deref, sync::Arc};
-use tachys::{html::attribute::AttributeValue, renderer::Renderer};
+use tachys::html::attribute::AttributeValue;
 
 /// A cryptographic nonce ("number used once") which can be
 /// used by Content Security Policy to determine whether or not a given
@@ -65,8 +65,7 @@ impl Display for Nonce {
     }
 }
 
-impl AttributeValue for Nonce
-{
+impl AttributeValue for Nonce {
     type AsyncOutput = Self;
     type State = <Arc<str> as AttributeValue>::State;
     type Cloneable = Self;
@@ -90,7 +89,11 @@ impl AttributeValue for Nonce
         <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(self.0, key, el)
     }
 
-    fn build(self, el: &tachys::renderer::types::Element, key: &str) -> Self::State {
+    fn build(
+        self,
+        el: &tachys::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
         <Arc<str> as AttributeValue>::build(self.0, el, key)
     }
 

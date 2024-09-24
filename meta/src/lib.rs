@@ -60,7 +60,6 @@ use leptos::{
             element::{ElementType, HtmlElement},
         },
         hydration::Cursor,
-        renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
             RenderHtml,
@@ -468,7 +467,7 @@ where
             )
             .cursor;
         let state = self.el.unwrap().hydrate::<FROM_SERVER>(
-            &*cursor,
+            &cursor,
             &PositionState::new(Position::NextChild),
         );
         RegisteredMetaTagState { state }

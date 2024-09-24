@@ -2,11 +2,7 @@ use super::{
     add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
     RenderHtml, ToTemplate,
 };
-use crate::{
-    html::attribute::Attribute,
-    hydration::Cursor,
-    renderer::{DomRenderer, Rndr},
-};
+use crate::{html::attribute::Attribute, hydration::Cursor, renderer::Rndr};
 
 /// A view wrapper that uses a `<template>` node to optimize DOM node creation.
 ///

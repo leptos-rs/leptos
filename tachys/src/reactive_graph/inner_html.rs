@@ -1,8 +1,5 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
-use crate::{
-    html::element::InnerHtmlValue,
-    renderer::{DomRenderer, Renderer},
-};
+use crate::html::element::InnerHtmlValue;
 use reactive_graph::effect::RenderEffect;
 
 impl<F, V> InnerHtmlValue for F
@@ -91,10 +88,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::{
-        html::element::InnerHtmlValue,
-        renderer::{DomRenderer, Renderer},
-    };
+    use crate::html::element::InnerHtmlValue;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,

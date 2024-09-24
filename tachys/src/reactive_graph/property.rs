@@ -1,8 +1,5 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
-use crate::{
-    html::property::IntoProperty,
-    renderer::{Renderer, Rndr},
-};
+use crate::{html::property::IntoProperty, renderer::Rndr};
 use reactive_graph::effect::RenderEffect;
 
 // These do update during hydration because properties don't exist in the DOM
@@ -84,10 +81,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::{
-        html::property::IntoProperty,
-        renderer::{DomRenderer, Renderer},
-    };
+    use crate::html::property::IntoProperty;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,

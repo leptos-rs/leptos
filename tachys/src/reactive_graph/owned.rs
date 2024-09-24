@@ -2,12 +2,10 @@ use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
     prelude::Mountable,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
-use std::marker::PhantomData;
 
 /// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
 #[derive(Debug, Clone)]

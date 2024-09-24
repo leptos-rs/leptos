@@ -1,6 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
-    renderer::{DomRenderer, Rndr},
+    renderer::Rndr,
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
@@ -169,7 +169,11 @@ pub trait IntoProperty {
     ) -> Self::State;
 
     /// Adds the property during client-side rendering.
-    fn build(self, el: &crate::renderer::types::Element, key: &str) -> Self::State;
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State;
 
     /// Updates the property with a new value.
     fn rebuild(self, state: &mut Self::State, key: &str);
@@ -388,7 +392,11 @@ impl IntoProperty for Arc<str> {
         (el.clone(), value)
     }
 
-    fn build(self, el: &crate::renderer::types::Element, key: &str) -> Self::State {
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
         let value = JsValue::from_str(self.as_ref());
         Rndr::set_property(el, key, &value);
         (el.clone(), value)
@@ -428,7 +436,11 @@ impl IntoProperty for Option<Arc<str>> {
         (el.clone(), value)
     }
 
-    fn build(self, el: &crate::renderer::types::Element, key: &str) -> Self::State {
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
         let was_some = self.is_some();
         let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
         if was_some {

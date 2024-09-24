@@ -3,7 +3,7 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::AddAnyAttr,
-    renderer::{CastFrom, DomRenderer, Rndr},
+    renderer::{CastFrom, Rndr},
     view::{Position, PositionState, Render, RenderHtml},
 };
 use std::borrow::Cow;
@@ -154,8 +154,8 @@ impl RenderHtml for InertElement {
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
-        let el =
-            crate::renderer::types::Element::cast_from(cursor.current()).unwrap();
+        let el = crate::renderer::types::Element::cast_from(cursor.current())
+            .unwrap();
         position.set(Position::NextChild);
         el
     }

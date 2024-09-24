@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,

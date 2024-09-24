@@ -2,7 +2,7 @@ use super::attribute::{Attribute, NextAttribute};
 #[cfg(feature = "nightly")]
 use crate::view::static_types::Static;
 use crate::{
-    renderer::{DomRenderer, Renderer, Rndr},
+    renderer::Rndr,
     view::{Position, ToTemplate},
 };
 use std::{future::Future, sync::Arc};

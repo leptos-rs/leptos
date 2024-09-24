@@ -1,7 +1,6 @@
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, iterators::OptionState, Mountable, Position,

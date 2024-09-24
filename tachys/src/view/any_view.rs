@@ -5,9 +5,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
-    hydration::Cursor,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -311,7 +309,7 @@ impl AddAnyAttr for AnyView {
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,

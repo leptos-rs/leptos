@@ -1,5 +1,5 @@
 use crate::{
-    renderer::{CastFrom, Renderer, Rndr},
+    renderer::{CastFrom, Rndr},
     view::{Position, PositionState},
 };
 use std::{cell::RefCell, rc::Rc};

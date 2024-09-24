@@ -7,7 +7,6 @@ use leptos::{
         dom::document,
         html::attribute::Attribute,
         hydration::Cursor,
-        renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
             RenderHtml,

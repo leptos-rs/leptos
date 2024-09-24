@@ -1,6 +1,6 @@
 use crate::{
     html::attribute::Attribute,
-    renderer::{CastFrom, DomRenderer, RemoveEventHandler, Rndr},
+    renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;

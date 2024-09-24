@@ -3,9 +3,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
-    hydration::Cursor,
-    renderer::{Renderer, Rndr},
+    html::attribute::Attribute, hydration::Cursor, renderer::Rndr,
     ssr::StreamBuilder,
 };
 use either_of::Either;

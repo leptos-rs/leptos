@@ -5,7 +5,7 @@ use super::{
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{CastFrom, Renderer, Rndr},
+    renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
 };
 use drain_filter_polyfill::VecExt as VecDrainFilterExt;

@@ -1,7 +1,7 @@
 use crate::{
     html::attribute::{Attribute, AttributeValue},
     hydration::Cursor,
-    renderer::{Renderer, Rndr},
+    renderer::Rndr,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -501,7 +501,6 @@ mod stable {
     use crate::{
         html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
-        renderer::Renderer,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,

@@ -2,7 +2,7 @@ use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     no_attrs,
-    renderer::{CastFrom, Renderer, Rndr},
+    renderer::{CastFrom, Rndr},
     view::ToTemplate,
 };
 use std::{

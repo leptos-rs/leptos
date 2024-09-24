@@ -1,8 +1,5 @@
 use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
-use crate::{
-    html::style::IntoStyle,
-    renderer::{DomRenderer, Rndr},
-};
+use crate::{html::style::IntoStyle, renderer::Rndr};
 use any_spawner::Executor;
 use futures::FutureExt;
 use reactive_graph::effect::RenderEffect;
@@ -421,7 +418,7 @@ mod stable {
     }
 
     use super::RenderEffect;
-    use crate::{html::style::IntoStyle, renderer::DomRenderer};
+    use crate::html::style::IntoStyle;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         owner::Storage,

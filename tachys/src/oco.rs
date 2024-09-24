@@ -3,7 +3,7 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
-    renderer::{DomRenderer, Renderer, Rndr},
+    renderer::Rndr,
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;

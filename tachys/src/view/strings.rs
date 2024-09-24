@@ -4,7 +4,7 @@ use super::{
 use crate::{
     hydration::Cursor,
     no_attrs,
-    renderer::{CastFrom, Renderer, Rndr},
+    renderer::{CastFrom, Rndr},
 };
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 

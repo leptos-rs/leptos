@@ -5,7 +5,7 @@ use super::{
 use crate::{
     html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
     hydration::Cursor,
-    renderer::{Renderer, Rndr},
+    renderer::Rndr,
 };
 use std::marker::PhantomData;
 

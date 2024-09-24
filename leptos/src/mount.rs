@@ -5,10 +5,8 @@ use any_spawner::Executor;
 use reactive_graph::owner::Owner;
 #[cfg(debug_assertions)]
 use std::cell::Cell;
-use std::marker::PhantomData;
 use tachys::{
     dom::body,
-    renderer::{dom::Dom, Renderer},
     view::{Mountable, Render},
 };
 #[cfg(feature = "hydrate")]
@@ -38,10 +36,7 @@ thread_local! {
 
 #[cfg(feature = "hydrate")]
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn hydrate_from<F, N>(
-    parent: HtmlElement,
-    f: F,
-) -> UnmountHandle<N::State>
+pub fn hydrate_from<F, N>(parent: HtmlElement, f: F) -> UnmountHandle<N::State>
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,

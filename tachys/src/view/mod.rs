@@ -1,16 +1,7 @@
 use self::add_attr::AddAnyAttr;
-use crate::{
-    hydration::Cursor,
-    renderer::Renderer,
-    ssr::StreamBuilder,
-};
+use crate::{hydration::Cursor, ssr::StreamBuilder};
 use parking_lot::RwLock;
-use std::{
-    cell::RefCell,
-    future::Future,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
 /// Add attributes to typed views.
 pub mod add_attr;

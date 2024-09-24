@@ -1,4 +1,4 @@
-use crate::renderer::{Renderer, Rndr};
+use crate::renderer::Rndr;
 use std::{
     borrow::Cow,
     future::Future,

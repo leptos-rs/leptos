@@ -1,7 +1,4 @@
-use crate::{
-    html::{element::ElementType, node_ref::NodeRefContainer},
-    renderer::{dom::Dom, Renderer},
-};
+use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
     signal::RwSignal,
     traits::{DefinedAt, Set, Track, WithUntracked},
