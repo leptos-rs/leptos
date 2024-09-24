@@ -148,7 +148,7 @@ mod tests {
     #[test]
     pub fn matches_single_root_route() {
         let routes =
-            Routes::<_, Dom>::new(NestedRoute::new(StaticSegment("/"), || ()));
+            Routes::<_>::new(NestedRoute::new(StaticSegment("/"), || ()));
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         // this case seems like it should match, but implementing it interferes with
@@ -186,17 +186,17 @@ mod tests {
         );
 
         let matched = routes.match_route("/author/contact").unwrap();
-        assert_eq!(MatchInterface::<Dom>::as_matched(&matched), "");
-        let (_, child) = MatchInterface::<Dom>::into_view_and_child(matched);
+        assert_eq!(MatchInterface::as_matched(&matched), "");
+        let (_, child) = MatchInterface::into_view_and_child(matched);
         assert_eq!(
-            MatchInterface::<Dom>::as_matched(&child.unwrap()),
+            MatchInterface::as_matched(&child.unwrap()),
             "/author/contact"
         );
     }
 
     #[test]
     pub fn does_not_match_route_unless_full_param_matches() {
-        let routes = Routes::<_, Dom>::new((
+        let routes = Routes::<_>::new((
             NestedRoute::new(StaticSegment("/property-api"), || ()),
             NestedRoute::new(StaticSegment("/property"), || ()),
         ));
