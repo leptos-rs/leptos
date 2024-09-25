@@ -33,8 +33,17 @@ impl Dom {
         intern(text)
     }
 
-    pub fn create_element(tag: &str) -> Element {
-        document().create_element(tag).unwrap()
+    pub fn create_element(tag: &str, namespace: Option<&str>) -> Element {
+        if let Some(namespace) = namespace {
+            document()
+                .create_element_ns(
+                    Some(Self::intern(namespace)),
+                    Self::intern(tag),
+                )
+                .unwrap()
+        } else {
+            document().create_element(Self::intern(tag)).unwrap()
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]

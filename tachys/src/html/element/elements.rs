@@ -72,6 +72,7 @@ macro_rules! html_element_inner {
                 const TAG: &'static str = stringify!($tag);
                 const SELF_CLOSING: bool = false;
                 const ESCAPE_CHILDREN: bool = $escape;
+                const NAMESPACE: Option<&'static str> = None;
 
                 #[inline(always)]
                 fn tag(&self) -> &str {
@@ -170,6 +171,7 @@ macro_rules! html_self_closing_elements {
                     const TAG: &'static str = stringify!($tag);
                     const SELF_CLOSING: bool = true;
                     const ESCAPE_CHILDREN: bool = $escape;
+                    const NAMESPACE: Option<&'static str> = None;
 
                     #[inline(always)]
                     fn tag(&self) -> &str {
