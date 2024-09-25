@@ -24,7 +24,35 @@ use reactive_graph::{
     prelude::*,
     signal::{ArcRwSignal, RwSignal},
 };
-use std::{future::IntoFuture, ops::Deref, panic::Location};
+use std::{
+    future::{pending, IntoFuture},
+    ops::Deref,
+    panic::Location,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool = AtomicBool::new(false);
+
+pub struct SuppressResourceLoad;
+
+impl SuppressResourceLoad {
+    pub fn new() -> Self {
+        IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::Relaxed);
+        Self
+    }
+}
+
+impl Default for SuppressResourceLoad {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for SuppressResourceLoad {
+    fn drop(&mut self) {
+        IS_SUPPRESSING_RESOURCE_LOAD.store(false, Ordering::Relaxed);
+    }
+}
 
 pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
@@ -116,7 +144,14 @@ where
             let source = source.clone();
             move || {
                 let (_, source) = source.get();
-                fetcher(source)
+                let fut = fetcher(source);
+                async move {
+                    if IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+                        pending().await
+                    } else {
+                        fut.await
+                    }
+                }
             }
         };
 
