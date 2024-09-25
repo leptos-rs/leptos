@@ -29,6 +29,7 @@ where
     const SELF_CLOSING: bool = false;
     const ESCAPE_CHILDREN: bool = true;
     const TAG: &'static str = "";
+    const NAMESPACE: Option<&'static str> = None;
 
     fn tag(&self) -> &str {
         self.0.as_ref()

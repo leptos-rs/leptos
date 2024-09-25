@@ -138,6 +138,8 @@ pub trait ElementType: Send {
     /// like `<style>` and `<script>`, which include other languages that should not use HTML
     /// entity escaping.
     const ESCAPE_CHILDREN: bool;
+    /// The element's namespace, if it is not HTML.
+    const NAMESPACE: Option<&'static str>;
 
     /// The element's tag.
     fn tag(&self) -> &str;
@@ -177,7 +179,7 @@ where
     }
 
     fn build(self) -> Self::State {
-        let el = Rndr::create_element(self.tag.tag());
+        let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
         let attrs = self.attributes.build(&el);
         let children = if E::SELF_CLOSING {

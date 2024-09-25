@@ -69,6 +69,7 @@ macro_rules! svg_elements {
                     const TAG: &'static str = stringify!($tag);
                     const SELF_CLOSING: bool = false;
                     const ESCAPE_CHILDREN: bool = true;
+                    const NAMESPACE: Option<&'static str> = Some("http://www.w3.org/2000/svg");
 
                     #[inline(always)]
                     fn tag(&self) -> &str {
