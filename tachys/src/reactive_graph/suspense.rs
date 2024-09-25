@@ -8,7 +8,10 @@ use crate::{
     },
 };
 use any_spawner::Executor;
-use futures::{select, FutureExt};
+use futures::{
+    future::{AbortHandle, Abortable},
+    select, FutureExt,
+};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
@@ -19,7 +22,7 @@ use reactive_graph::{
         AnySource, AnySubscriber, Observer, ReactiveNode, Source, Subscriber,
         ToAnySubscriber, WithObserver,
     },
-    owner::{provide_context, use_context},
+    owner::{on_cleanup, provide_context, use_context},
 };
 use std::{
     cell::RefCell,
@@ -164,15 +167,20 @@ where
 {
     type State = SuspendState<Fut::Output>;
 
-    // TODO cancelation if it fires multiple times
     fn build(self) -> Self::State {
         let Self { subscriber, inner } = self;
+
+        // create a Future that will be aborted on on_cleanup
+        // this prevents trying to access signals or other resources inside the Suspend, after the
+        // await, if they have already been cleaned up
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let mut fut = Box::pin(Abortable::new(inner, abort_registration));
+        on_cleanup(move || abort_handle.abort());
 
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(inner);
-        let initial = fut.as_mut().now_or_never();
+        let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(initial.build()));
 
@@ -193,7 +201,10 @@ where
 
                     let value = fut.as_mut().await;
                     drop(id);
-                    Some(value).rebuild(&mut *state.borrow_mut());
+
+                    if let Ok(value) = value {
+                        Some(value).rebuild(&mut *state.borrow_mut());
+                    }
 
                     subscriber.forward();
                 }
@@ -208,8 +219,14 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let Self { subscriber, inner } = self;
 
+        // create a Future that will be aborted on on_cleanup
+        // this prevents trying to access signals or other resources inside the Suspend, after the
+        // await, if they have already been cleaned up
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let fut = Abortable::new(inner, abort_registration);
+        on_cleanup(move || abort_handle.abort());
+
         // get a unique ID if there's a SuspenseContext
-        let fut = inner;
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
         let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
@@ -223,11 +240,14 @@ where
 
                 let value = fut.await;
                 drop(id);
+
                 // waiting a tick here allows Suspense to remount if necessary, which prevents some
                 // edge cases in which a rebuild can't happen while unmounted because the DOM node
                 // has no parent
                 any_spawner::Executor::tick().await;
-                Some(value).rebuild(&mut *state.borrow_mut());
+                if let Ok(value) = value {
+                    Some(value).rebuild(&mut *state.borrow_mut());
+                }
 
                 subscriber.forward();
             }
@@ -367,11 +387,17 @@ where
     ) -> Self::State {
         let Self { subscriber, inner } = self;
 
+        // create a Future that will be aborted on on_cleanup
+        // this prevents trying to access signals or other resources inside the Suspend, after the
+        // await, if they have already been cleaned up
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let mut fut = Box::pin(Abortable::new(inner, abort_registration));
+        on_cleanup(move || abort_handle.abort());
+
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(inner);
-        let initial = fut.as_mut().now_or_never();
+        let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(
             initial.hydrate::<FROM_SERVER>(cursor, position),
@@ -394,7 +420,10 @@ where
 
                     let value = fut.as_mut().await;
                     drop(id);
-                    Some(value).rebuild(&mut *state.borrow_mut());
+
+                    if let Ok(value) = value {
+                        Some(value).rebuild(&mut *state.borrow_mut());
+                    }
 
                     subscriber.forward();
                 }
