@@ -2,13 +2,15 @@ use or_poisoned::OrPoisoned;
 use slotmap::{new_key_type, SlotMap};
 #[cfg(feature = "sandboxed-arenas")]
 use std::cell::RefCell;
-#[cfg(feature = "hydration")]
-use std::sync::Arc;
 #[cfg(not(feature = "sandboxed-arenas"))]
 use std::sync::OnceLock;
 #[cfg(feature = "sandboxed-arenas")]
 use std::sync::Weak;
-use std::{any::Any, hash::Hash, sync::RwLock};
+use std::{
+    any::Any,
+    hash::Hash,
+    sync::{Arc, RwLock},
+};
 
 new_key_type! {
     /// Unique identifier for an item stored in the arena.
