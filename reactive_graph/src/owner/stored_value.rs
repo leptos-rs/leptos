@@ -1,5 +1,6 @@
 use super::{ArenaItem, LocalStorage, Storage, SyncStorage};
 use crate::{
+    signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
     traits::{DefinedAt, Dispose, IsDisposed},
     unwrap_signal,
 };
@@ -191,6 +192,44 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     pub fn with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(fun)
             .unwrap_or_else(unwrap_signal!(self))
+    }
+
+    /// Returns a read guard to the stored data, or `None` if the owner of the reactive node has been disposed.
+    #[track_caller]
+    pub fn try_read_value(&self) -> Option<ReadGuard<T, Plain<T>>> {
+        self.value
+            .try_get_value()
+            .and_then(|inner| Plain::try_new(inner).map(ReadGuard::new))
+    }
+
+    /// Returns a read guard to the stored data.
+    ///
+    /// # Panics
+    ///
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_read_value`] for a version without panic.
+    #[track_caller]
+    pub fn read_value(&self) -> ReadGuard<T, Plain<T>> {
+        self.try_read_value().unwrap_or_else(unwrap_signal!(self))
+    }
+
+    /// Returns a write guard to the stored data, or `None` if the owner of the reactive node has been disposed.
+    #[track_caller]
+    pub fn try_write_value(&self) -> Option<UntrackedWriteGuard<T>> {
+        self.value
+            .try_get_value()
+            .and_then(|inner| UntrackedWriteGuard::try_new(inner))
+    }
+
+    /// Returns a write guard to the stored data.
+    ///
+    /// # Panics
+    ///
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_write_value`] for a version without panic.
+    #[track_caller]
+    pub fn write_value(&self) -> UntrackedWriteGuard<T> {
+        self.try_write_value().unwrap_or_else(unwrap_signal!(self))
     }
 
     /// Updates the current value by applying the given closure, returning the return value of the
