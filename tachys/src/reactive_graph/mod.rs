@@ -8,7 +8,6 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
-use any_spawner::Executor;
 use reactive_graph::effect::RenderEffect;
 use std::{
     cell::RefCell,
@@ -391,7 +390,7 @@ where
         let key = key.to_owned();
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
@@ -410,7 +409,7 @@ where
         let key = key.to_owned();
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() = Some(self.inner.await.build(&el, &key));
@@ -422,7 +421,7 @@ where
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
         let key = key.to_owned();
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(state);
             async move {
                 let value = self.inner.await;

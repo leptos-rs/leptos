@@ -293,6 +293,10 @@ pub mod spawn {
     pub async fn tick() {
         Executor::tick().await
     }
+
+    pub use reactive_graph::{
+        spawn_local_scoped, spawn_local_scoped_with_cancellation,
+    };
 }
 
 // these reexports are used in islands
