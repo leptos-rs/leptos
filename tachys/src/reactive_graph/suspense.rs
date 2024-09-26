@@ -192,7 +192,7 @@ where
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
         if initially_pending {
-            Executor::spawn_local({
+            reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
                 async move {
                     let _guard = error_hook.as_ref().map(|hook| {
@@ -231,7 +231,7 @@ where
         let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
         // spawn the future, and rebuild the state when it resolves
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state.inner);
             async move {
                 let _guard = error_hook
@@ -244,7 +244,7 @@ where
                 // waiting a tick here allows Suspense to remount if necessary, which prevents some
                 // edge cases in which a rebuild can't happen while unmounted because the DOM node
                 // has no parent
-                any_spawner::Executor::tick().await;
+                Executor::tick().await;
                 if let Ok(value) = value {
                     Some(value).rebuild(&mut *state.borrow_mut());
                 }
@@ -411,7 +411,7 @@ where
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
         if initially_pending {
-            Executor::spawn_local({
+            reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
                 async move {
                     let _guard = error_hook.as_ref().map(|hook| {

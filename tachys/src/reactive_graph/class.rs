@@ -1,6 +1,5 @@
 use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
 use crate::{html::class::IntoClass, renderer::Rndr};
-use any_spawner::Executor;
 use futures::FutureExt;
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
@@ -738,7 +737,7 @@ where
     ) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
@@ -752,7 +751,7 @@ where
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() = Some(self.inner.await.build(&el));
@@ -763,7 +762,7 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(state);
             async move {
                 let value = self.inner.await;
