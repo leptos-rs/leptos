@@ -49,7 +49,7 @@ use std::{
 ///
 /// ## Examples
 /// ```
-/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = signal(0);
 ///
 /// // calling .get() clones and returns the value
