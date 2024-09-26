@@ -272,7 +272,7 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
-pub mod spawn {
+pub mod task {
     pub use any_spawner::Executor;
     use std::future::Future;
 
@@ -293,6 +293,10 @@ pub mod spawn {
     pub async fn tick() {
         Executor::tick().await
     }
+
+    pub use reactive_graph::{
+        spawn_local_scoped, spawn_local_scoped_with_cancellation,
+    };
 }
 
 // these reexports are used in islands
