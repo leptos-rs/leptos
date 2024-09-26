@@ -69,7 +69,7 @@ use std::{
 ///
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let count = ArcRwSignal::new(0);
 ///
 /// // ✅ calling the getter clones and returns the value

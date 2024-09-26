@@ -32,7 +32,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 ///
 /// ## Examples
 /// ```
-/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = signal(0);
 ///
 /// // ✅ calling the setter sets the value

@@ -37,13 +37,13 @@ use std::{
 ///
 /// ```
 /// # use reactive_graph::computed::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::effect::Effect;
 /// # use reactive_graph::owner::ArenaItem;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let a = RwSignal::new(0);
 /// let b = RwSignal::new(0);
 ///
@@ -185,7 +185,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     ///
@@ -217,7 +217,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     /// let (cb_num, set_cb_num) = signal(0);
@@ -256,7 +256,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     ///

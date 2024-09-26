@@ -131,7 +131,7 @@ pub mod read {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
         /// ```rust
-        /// # use reactive_graph::signal::*;
+        /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
         /// # use reactive_graph::wrappers::read::ArcSignal;
         /// # use reactive_graph::prelude::*;
         /// let (count, set_count) = arc_signal(2);
@@ -397,7 +397,7 @@ pub mod read {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
         /// ```rust
-        /// # use reactive_graph::signal::*;
+        /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
         /// # use reactive_graph::wrappers::read::Signal;
         /// # use reactive_graph::prelude::*;
         /// let (count, set_count) = signal(2);
@@ -647,7 +647,7 @@ pub mod read {
     /// of the same type. This is especially useful for component properties.
     ///
     /// ```
-    /// # use reactive_graph::signal::*;
+    /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::wrappers::read::MaybeSignal;
     /// # use reactive_graph::computed::Memo;
     /// # use reactive_graph::prelude::*;
@@ -907,7 +907,7 @@ pub mod read {
     ///
     /// ## Examples
     /// ```rust
-    /// # use reactive_graph::signal::*;
+    /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::wrappers::read::MaybeProp;
     /// # use reactive_graph::computed::Memo;
     /// # use reactive_graph::prelude::*;
@@ -1282,7 +1282,7 @@ pub mod write {
     ///
     /// ## Examples
     /// ```rust
-    /// # use reactive_graph::prelude::*;
+    /// # use reactive_graph::prelude::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::wrappers::write::SignalSetter;
     /// # use reactive_graph::signal::signal;
     /// let (count, set_count) = signal(2);

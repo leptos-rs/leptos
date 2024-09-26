@@ -36,7 +36,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// # use reactive_graph::effect::Effect;
 /// # use reactive_graph::signal::signal;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # tokio::task::LocalSet::new().run_until(async {
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
 /// let (value, set_value) = signal(0);
@@ -161,7 +161,7 @@ where
     /// # use reactive_graph::effect::Effect;
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # fn really_expensive_computation(value: i32) -> i32 { value };
     /// let (value, set_value) = signal(0);
     ///

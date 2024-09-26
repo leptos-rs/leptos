@@ -120,7 +120,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// // Does not implement Clone
@@ -167,7 +167,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// // Does not implement Clone
     /// struct Data {
@@ -251,7 +251,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// #[derive(Default)] // Does not implement Clone
     /// struct Data {
@@ -295,7 +295,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// let data = StoredValue::new(String::default());
@@ -353,7 +353,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// let data = StoredValue::new(10);
     ///
@@ -394,7 +394,7 @@ where
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// // u8 is practically free to clone.
@@ -434,7 +434,7 @@ where
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// // u8 is practically free to clone.
     /// let data: StoredValue<u8> = StoredValue::new(10);

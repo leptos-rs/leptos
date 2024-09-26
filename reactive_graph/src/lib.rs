@@ -14,6 +14,7 @@
 //!
 //! ```rust
 //! # any_spawner::Executor::init_futures_executor();
+//! # let owner = reactive_graph::owner::Owner::new(); owner.set();
 //! use reactive_graph::{
 //!     computed::ArcMemo,
 //!     effect::Effect,
