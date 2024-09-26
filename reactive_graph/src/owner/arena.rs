@@ -27,7 +27,6 @@ thread_local! {
 }
 
 impl Arena {
-    #[cfg(feature = "hydration")]
     #[inline(always)]
     #[allow(unused)]
     pub fn set(arena: &Arc<RwLock<ArenaMap>>) {
