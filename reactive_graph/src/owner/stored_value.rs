@@ -199,8 +199,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     pub fn try_read_value(&self) -> Option<ReadGuard<T, Plain<T>>> {
         self.value
             .try_get_value()
-            .map(|inner| Plain::try_new(inner).map(ReadGuard::new))
-            .flatten()
+            .and_then(|inner| Plain::try_new(inner).map(ReadGuard::new))
     }
 
     /// Returns a read guard to the stored data.
@@ -219,8 +218,7 @@ impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     pub fn try_write_value(&self) -> Option<UntrackedWriteGuard<T>> {
         self.value
             .try_get_value()
-            .map(|inner| UntrackedWriteGuard::try_new(inner))
-            .flatten()
+            .and_then(|inner| UntrackedWriteGuard::try_new(inner))
     }
 
     /// Returns a write guard to the stored data.
