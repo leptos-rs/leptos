@@ -352,7 +352,7 @@ where
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         // hydrate children
-        let children = if !Ch::EXISTS {
+        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);
