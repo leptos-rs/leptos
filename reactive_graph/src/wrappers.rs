@@ -3,15 +3,20 @@
 /// Types that abstract over signals with values that can be read.
 pub mod read {
     use crate::{
-        computed::{ArcMemo, Memo},
+        computed::{ArcMemo, Memo, MemoInner},
         graph::untrack,
         owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
-        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
-        traits::{DefinedAt, Dispose, Get, With, WithUntracked},
+        signal::{
+            guards::{Mapped, Plain, ReadGuard},
+            ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal
+        },
+        traits::{DefinedAt, Dispose, Get, Read, ReadUntracked, Track, With},
         unwrap_signal,
     };
     use send_wrapper::SendWrapper;
-    use std::{panic::Location, sync::Arc};
+    use std::{
+        borrow::Borrow, fmt::Display, ops::Deref, panic::Location, sync::Arc,
+    };
 
     /// Possibilities for the inner type of a [`Signal`].
     pub enum SignalTypes<T, S = SyncStorage>
@@ -170,6 +175,27 @@ pub mod read {
         }
     }
 
+    impl<T, S> ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
+        /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+        #[track_caller]
+        pub fn track(&self) {
+            match &self.inner {
+                SignalTypes::ReadSignal(i) => {
+                    i.track();
+                }
+                SignalTypes::Memo(i) => {
+                    i.track();
+                }
+                SignalTypes::DerivedSignal(i) => {
+                    i();
+                }
+            }
+        }
+    }
+
     impl<T> Default for ArcSignal<T, SyncStorage>
     where
         T: Default + Send + Sync + 'static,
@@ -231,24 +257,6 @@ pub mod read {
         }
     }
 
-    impl<T, S> WithUntracked for ArcSignal<T, S>
-    where
-        S: Storage<T>,
-    {
-        type Value = T;
-
-        fn try_with_untracked<U>(
-            &self,
-            fun: impl FnOnce(&Self::Value) -> U,
-        ) -> Option<U> {
-            match &self.inner {
-                SignalTypes::ReadSignal(i) => i.try_with_untracked(fun),
-                SignalTypes::Memo(i) => i.try_with_untracked(fun),
-                SignalTypes::DerivedSignal(i) => Some(untrack(|| fun(&i()))),
-            }
-        }
-    }
-
     impl<T, S> With for ArcSignal<T, S>
     where
         S: Storage<T>,
@@ -265,6 +273,52 @@ pub mod read {
                 SignalTypes::Memo(i) => i.try_with(fun),
                 SignalTypes::DerivedSignal(i) => Some(fun(&i())),
             }
+        }
+    }
+
+    impl<T, S> ReadUntracked for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read_untracked(&self) -> Option<Self::Value> {
+            match &self.inner {
+                SignalTypes::ReadSignal(i) => {
+                    i.try_read_untracked().map(SignalReadGuard::Read)
+                }
+                SignalTypes::Memo(i) => {
+                    i.try_read_untracked().map(SignalReadGuard::Memo)
+                }
+                SignalTypes::DerivedSignal(i) => {
+                    Some(SignalReadGuard::Owned(untrack(|| i())))
+                }
+            }
+            .map(ReadGuard::new)
+        }
+    }
+
+    impl<T, S> Read for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read(&self) -> Option<Self::Value> {
+            match &self.inner {
+                SignalTypes::ReadSignal(i) => {
+                    i.try_read().map(SignalReadGuard::Read)
+                }
+                SignalTypes::Memo(i) => i.try_read().map(SignalReadGuard::Memo),
+                SignalTypes::DerivedSignal(i) => {
+                    Some(SignalReadGuard::Owned(i()))
+                }
+            }
+            .map(ReadGuard::new)
+        }
+
+        fn read(&self) -> Self::Value {
+            self.try_read().unwrap_or_else(unwrap_signal!(self))
         }
     }
 
@@ -343,31 +397,6 @@ pub mod read {
         }
     }
 
-    impl<T, S> WithUntracked for Signal<T, S>
-    where
-        T: 'static,
-        S: Storage<SignalTypes<T, S>> + Storage<T>,
-    {
-        type Value = T;
-
-        fn try_with_untracked<U>(
-            &self,
-            fun: impl FnOnce(&Self::Value) -> U,
-        ) -> Option<U> {
-            self.inner
-                // clone the inner Arc type and release the lock
-                // prevents deadlocking if the derived value includes taking a lock on the arena
-                .try_with_value(Clone::clone)
-                .and_then(|inner| match &inner {
-                    SignalTypes::ReadSignal(i) => i.try_with_untracked(fun),
-                    SignalTypes::Memo(i) => i.try_with_untracked(fun),
-                    SignalTypes::DerivedSignal(i) => {
-                        Some(untrack(|| fun(&i())))
-                    }
-                })
-        }
-    }
-
     impl<T, S> With for Signal<T, S>
     where
         T: 'static,
@@ -388,6 +417,68 @@ pub mod read {
                     SignalTypes::Memo(i) => i.try_with(fun),
                     SignalTypes::DerivedSignal(i) => Some(fun(&i())),
                 })
+        }
+    }
+
+    impl<T, S> ReadUntracked for Signal<T, S>
+    where
+        T: 'static,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read_untracked(&self) -> Option<Self::Value> {
+            self.inner
+                // clone the inner Arc type and release the lock
+                // prevents deadlocking if the derived value includes taking a lock on the arena
+                .try_with_value(Clone::clone)
+                .and_then(|inner| {
+                    match &inner {
+                        SignalTypes::ReadSignal(i) => {
+                            i.try_read_untracked().map(SignalReadGuard::Read)
+                        }
+                        SignalTypes::Memo(i) => {
+                            i.try_read_untracked().map(SignalReadGuard::Memo)
+                        }
+                        SignalTypes::DerivedSignal(i) => {
+                            Some(SignalReadGuard::Owned(untrack(|| i())))
+                        }
+                    }
+                    .map(ReadGuard::new)
+                })
+        }
+    }
+
+    impl<T, S> Read for Signal<T, S>
+    where
+        T: 'static,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read(&self) -> Option<Self::Value> {
+            self.inner
+                // clone the inner Arc type and release the lock
+                // prevents deadlocking if the derived value includes taking a lock on the arena
+                .try_with_value(Clone::clone)
+                .and_then(|inner| {
+                    match &inner {
+                        SignalTypes::ReadSignal(i) => {
+                            i.try_read().map(SignalReadGuard::Read)
+                        }
+                        SignalTypes::Memo(i) => {
+                            i.try_read().map(SignalReadGuard::Memo)
+                        }
+                        SignalTypes::DerivedSignal(i) => {
+                            Some(SignalReadGuard::Owned(i()))
+                        }
+                    }
+                    .map(ReadGuard::new)
+                })
+        }
+
+        fn read(&self) -> Self::Value {
+            self.try_read().unwrap_or_else(unwrap_signal!(self))
         }
     }
 
@@ -458,6 +549,34 @@ pub mod read {
                 )),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T, S> Signal<T, S>
+    where
+        T: 'static,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+        #[track_caller]
+        pub fn track(&self) {
+            let inner = self
+                .inner
+                // clone the inner Arc type and release the lock
+                // prevents deadlocking if the derived value includes taking a lock on the arena
+                .try_with_value(Clone::clone)
+                .unwrap_or_else(unwrap_signal!(self));
+            match inner {
+                SignalTypes::ReadSignal(i) => {
+                    i.track();
+                }
+                SignalTypes::Memo(i) => {
+                    i.track();
+                }
+                SignalTypes::DerivedSignal(i) => {
+                    i();
+                }
             }
         }
     }
@@ -715,23 +834,6 @@ pub mod read {
         }
     }
 
-    impl<T, S> WithUntracked for MaybeSignal<T, S>
-    where
-        S: Storage<SignalTypes<T, S>> + Storage<T>,
-    {
-        type Value = T;
-
-        fn try_with_untracked<U>(
-            &self,
-            fun: impl FnOnce(&Self::Value) -> U,
-        ) -> Option<U> {
-            match self {
-                Self::Static(t) => Some(fun(t)),
-                Self::Dynamic(s) => s.try_with_untracked(fun),
-            }
-        }
-    }
-
     impl<T, S> With for MaybeSignal<T, S>
     where
         T: Send + Sync + 'static,
@@ -747,6 +849,46 @@ pub mod read {
                 Self::Static(t) => Some(fun(t)),
                 Self::Dynamic(s) => s.try_with(fun),
             }
+        }
+    }
+
+    impl<T, S> ReadUntracked for MaybeSignal<T, S>
+    where
+        T: Clone,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read_untracked(&self) -> Option<Self::Value> {
+            match self {
+                // TODO: could be a way to remove clone, either static changed to Arc<RwLock<T>> to put in the read guard type, or lifetimes on the read guard struct to return borrowed value.
+                Self::Static(t) => {
+                    Some(ReadGuard::new(SignalReadGuard::Owned(t.clone())))
+                }
+                Self::Dynamic(s) => s.try_read_untracked(),
+            }
+        }
+    }
+
+    impl<T, S> Read for MaybeSignal<T, S>
+    where
+        T: Clone,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        type Value = ReadGuard<T, SignalReadGuard<T, S>>;
+
+        fn try_read(&self) -> Option<Self::Value> {
+            match self {
+                // TODO: could be a way to remove clone, either static changed to Arc<RwLock<T>> to put in the read guard type, or lifetimes on the read guard struct to return borrowed value.
+                Self::Static(t) => {
+                    Some(ReadGuard::new(SignalReadGuard::Owned(t.clone())))
+                }
+                Self::Dynamic(s) => s.try_read(),
+            }
+        }
+
+        fn read(&self) -> Self::Value {
+            self.try_read().unwrap_or_else(unwrap_signal!(self))
         }
     }
 
@@ -768,6 +910,21 @@ pub mod read {
         /// reactive signals.
         pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
             Self::Dynamic(Signal::derive_local(derived_signal))
+        }
+    }
+
+    impl<T, S> MaybeSignal<T, S>
+    where
+        T: 'static,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
+    {
+        /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+        #[track_caller]
+        pub fn track(&self) {
+            match self {
+                Self::Static(_) => {}
+                Self::Dynamic(signal) => signal.track(),
+            }
         }
     }
 
@@ -968,23 +1125,6 @@ pub mod read {
         }
     }
 
-    impl<T, S> WithUntracked for MaybeProp<T, S>
-    where
-        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
-    {
-        type Value = Option<T>;
-
-        fn try_with_untracked<U>(
-            &self,
-            fun: impl FnOnce(&Self::Value) -> U,
-        ) -> Option<U> {
-            match &self.0 {
-                None => Some(fun(&None)),
-                Some(inner) => inner.try_with_untracked(fun),
-            }
-        }
-    }
-
     impl<T, S> With for MaybeProp<T, S>
     where
         T: Send + Sync + 'static,
@@ -1003,6 +1143,40 @@ pub mod read {
         }
     }
 
+    impl<T, S> ReadUntracked for MaybeProp<T, S>
+    where
+        T: Clone,
+        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
+    {
+        type Value = ReadGuard<Option<T>, SignalReadGuard<Option<T>, S>>;
+
+        fn try_read_untracked(&self) -> Option<Self::Value> {
+            match &self.0 {
+                None => Some(ReadGuard::new(SignalReadGuard::Owned(None))),
+                Some(inner) => inner.try_read_untracked(),
+            }
+        }
+    }
+
+    impl<T, S> Read for MaybeProp<T, S>
+    where
+        T: Clone,
+        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
+    {
+        type Value = ReadGuard<Option<T>, SignalReadGuard<Option<T>, S>>;
+
+        fn try_read(&self) -> Option<Self::Value> {
+            match &self.0 {
+                None => Some(ReadGuard::new(SignalReadGuard::Owned(None))),
+                Some(inner) => inner.try_read(),
+            }
+        }
+
+        fn read(&self) -> Self::Value {
+            self.try_read().unwrap_or_else(unwrap_signal!(self))
+        }
+    }
+
     impl<T> MaybeProp<T>
     where
         T: Send + Sync,
@@ -1013,6 +1187,21 @@ pub mod read {
             derived_signal: impl Fn() -> Option<T> + Send + Sync + 'static,
         ) -> Self {
             Self(Some(MaybeSignal::derive(derived_signal)))
+        }
+    }
+
+    impl<T, S> MaybeProp<T, S>
+    where
+        T: 'static,
+        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
+    {
+        /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+        #[track_caller]
+        pub fn track(&self) {
+            match &self.0 {
+                None => {}
+                Some(signal) => signal.track(),
+            }
         }
     }
 
@@ -1240,6 +1429,76 @@ pub mod read {
     impl From<&str> for MaybeProp<String, LocalStorage> {
         fn from(value: &str) -> Self {
             Self(Some(MaybeSignal::from_local(Some(value.to_string()))))
+        }
+    }
+
+    /// The content of a [`Signal`] wrapper read guard, variable depending on the signal type.
+    #[derive(Debug)]
+    pub enum SignalReadGuard<T: 'static, S: Storage<T>> {
+        /// A read signal guard.
+        Read(ReadGuard<T, Plain<T>>),
+        /// A memo guard.
+        Memo(ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>),
+        /// A fake guard for derived signals, the content had to actually be cloned, so it's not a guard but we pretend it is.
+        Owned(T),
+    }
+
+    impl<T, S> Clone for SignalReadGuard<T, S>
+    where
+        S: Storage<T>,
+        T: Clone,
+        Plain<T>: Clone,
+        Mapped<Plain<MemoInner<T, S>>, T>: Clone,
+    {
+        fn clone(&self) -> Self {
+            match self {
+                SignalReadGuard::Read(i) => SignalReadGuard::Read(i.clone()),
+                SignalReadGuard::Memo(i) => SignalReadGuard::Memo(i.clone()),
+                SignalReadGuard::Owned(i) => SignalReadGuard::Owned(i.clone()),
+            }
+        }
+    }
+
+    impl<T, S> Deref for SignalReadGuard<T, S>
+    where
+        S: Storage<T>,
+    {
+        type Target = T;
+        fn deref(&self) -> &Self::Target {
+            match self {
+                SignalReadGuard::Read(i) => i,
+                SignalReadGuard::Memo(i) => i,
+                SignalReadGuard::Owned(i) => i,
+            }
+        }
+    }
+
+    impl<T, S> Borrow<T> for SignalReadGuard<T, S>
+    where
+        S: Storage<T>,
+    {
+        fn borrow(&self) -> &T {
+            self.deref()
+        }
+    }
+
+    impl<T, S> PartialEq<T> for SignalReadGuard<T, S>
+    where
+        S: Storage<T>,
+        T: PartialEq,
+    {
+        fn eq(&self, other: &T) -> bool {
+            self.deref() == other
+        }
+    }
+
+    impl<T, S> Display for SignalReadGuard<T, S>
+    where
+        S: Storage<T>,
+        T: Display,
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            Display::fmt(&**self, f)
         }
     }
 }
