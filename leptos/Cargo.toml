@@ -92,7 +92,6 @@ trace-component-props = [
   "leptos_dom/trace-component-props"
 ]
 delegation = ["tachys/delegation"]
-erase_types = ["leptos_macro/erase_types"]
 
 [package.metadata.cargo-all-features]
 denylist = [

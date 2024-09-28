@@ -272,7 +272,7 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             body_expr
-        } else if cfg!(feature = "erase_types") {
+        } else if cfg!(erase_components) {
             quote! {
                 ::leptos::prelude::IntoAny::into_any(
                     ::leptos::prelude::untrack(
