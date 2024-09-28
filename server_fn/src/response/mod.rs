@@ -10,6 +10,9 @@ pub mod http;
 /// Response types for [`reqwest`].
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
+/// Generic request type
+#[cfg(feature = "generic")]
+pub mod generic;
 
 use crate::error::ServerFnError;
 use bytes::Bytes;

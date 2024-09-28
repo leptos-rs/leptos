@@ -527,11 +527,15 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::axum_export::http::Request<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::http_export::Request<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
             #server_fn_path::request::actix::ActixRequest
+        }
+    } else if cfg!(feature = "generic") {
+        quote! {
+            #server_fn_path::http_export::Request<#server_fn_path::bytes_export::Bytes>
         }
     } else if let Some(req_ty) = req_ty {
         req_ty.to_token_stream()
@@ -551,11 +555,15 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::axum_export::http::Response<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::http_export::Response<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
             #server_fn_path::response::actix::ActixResponse
+        }
+    } else if cfg!(feature = "generic") {
+        quote! {
+            #server_fn_path::http_export::Response<#server_fn_path::response::generic::Body>
         }
     } else if let Some(res_ty) = res_ty {
         res_ty.to_token_stream()
