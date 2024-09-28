@@ -60,3 +60,6 @@ skip_feature_sets = [
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(erase_components)'] }
