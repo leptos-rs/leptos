@@ -15,6 +15,9 @@ pub mod browser;
 /// Request types for [`reqwest`].
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
+/// Generic request type
+#[cfg(feature = "generic")]
+pub mod generic;
 
 /// Represents a request as made by the client.
 pub trait ClientReq<CustErr>
