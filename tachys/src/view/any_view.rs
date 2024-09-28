@@ -5,7 +5,12 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{
+        any_attribute::{AnyAttribute, IntoAnyAttribute},
+        Attribute,
+    },
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -28,6 +33,9 @@ pub struct AnyView {
     type_id: TypeId,
     value: Box<dyn Any + Send>,
 
+    build: fn(Box<dyn Any>) -> AnyViewState,
+    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
+    add_any_attr: fn(Box<dyn Any>, AnyAttribute) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -42,8 +50,6 @@ pub struct AnyView {
     #[cfg(feature = "ssr")]
     to_html_async_ooo:
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
-    build: fn(Box<dyn Any>) -> AnyViewState,
-    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
     resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
@@ -137,6 +143,13 @@ where
         let html_len = self.html_len();
 
         let value = Box::new(self) as Box<dyn Any + Send>;
+
+        let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::add_any_attr could not be downcast");
+            value.add_any_attr(attr).into_any()
+        };
 
         #[cfg(feature = "ssr")]
         let dry_resolve = |value: &mut Box<dyn Any + Send>| {
@@ -274,6 +287,7 @@ where
             value,
             build,
             rebuild,
+            add_any_attr,
             #[cfg(feature = "ssr")]
             resolve,
             #[cfg(feature = "ssr")]
@@ -309,12 +323,13 @@ impl AddAnyAttr for AnyView {
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
-        _attr: NewAttr,
+        attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        todo!()
+        let attr = attr.into_cloneable_owned();
+        (self.add_any_attr)(self.value, attr.into_any_attr())
     }
 }
 
