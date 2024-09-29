@@ -195,10 +195,7 @@ where
     pub fn new_with_compare(
         fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
         changed: fn(Option<&T>, Option<&T>) -> bool,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -222,10 +219,7 @@ where
     )]
     pub fn new_owning(
         fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
