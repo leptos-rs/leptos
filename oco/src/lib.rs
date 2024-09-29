@@ -42,6 +42,7 @@ use std::{
     ops::{Add, Deref},
     path::Path,
     rc::Rc,
+    sync::Arc,
 };
 
 /// "Owned Clones Once": a smart pointer that can be either a reference,
@@ -67,6 +68,8 @@ pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     Borrowed(&'a T),
     /// A reference counted pointer to a value.
     Counted(Rc<T>),
+    /// A reference atomically-counted pointer to a value.
+    AtomicallyCounted(Arc<T>),
     /// An owned value.
     Owned(<T as ToOwned>::Owned),
 }
@@ -77,6 +80,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
         match self {
             Oco::Borrowed(v) => v.to_owned(),
             Oco::Counted(v) => v.as_ref().to_owned(),
+            Oco::AtomicallyCounted(v) => v.as_ref().to_owned(),
             Oco::Owned(v) => v,
         }
     }
@@ -129,6 +133,7 @@ impl<T: ?Sized + ToOwned> Deref for Oco<'_, T> {
             Oco::Borrowed(v) => v,
             Oco::Owned(v) => v.borrow(),
             Oco::Counted(v) => v,
+            Oco::AtomicallyCounted(v) => v,
         }
     }
 }
@@ -279,6 +284,7 @@ where
         match self {
             Self::Borrowed(v) => Self::Borrowed(v),
             Self::Counted(v) => Self::Counted(Rc::clone(v)),
+            Self::AtomicallyCounted(v) => Self::AtomicallyCounted(Arc::clone(v)),
             Self::Owned(v) => Self::Counted(Rc::from(v.borrow())),
         }
     }
@@ -304,6 +310,7 @@ where
         match &*self {
             Self::Borrowed(v) => Self::Borrowed(v),
             Self::Counted(v) => Self::Counted(Rc::clone(v)),
+            Self::AtomicallyCounted(v) => Self::AtomicallyCounted(Arc::clone(v)),
             Self::Owned(v) => {
                 let rc = Rc::from(v.borrow());
                 *self = Self::Counted(rc.clone());
@@ -413,6 +420,7 @@ where
             Oco::Borrowed(v) => Cow::Borrowed(v),
             Oco::Owned(v) => Cow::Owned(v),
             Oco::Counted(v) => Cow::Owned(v.as_ref().to_owned()),
+            Oco::AtomicallyCounted(v) => Cow::Owned(v.as_ref().to_owned()),
         }
     }
 }
@@ -423,6 +431,15 @@ where
 {
     fn from(v: Rc<T>) -> Self {
         Oco::Counted(v)
+    }
+}
+
+impl<T: ?Sized> From<Arc<T>> for Oco<'_, T>
+where
+    T: ToOwned,
+{
+    fn from(v: Arc<T>) -> Self {
+        Oco::AtomicallyCounted(v)
     }
 }
 
@@ -446,6 +463,7 @@ impl From<Oco<'_, str>> for String {
         match v {
             Oco::Borrowed(v) => v.to_owned(),
             Oco::Counted(v) => v.as_ref().to_owned(),
+            Oco::AtomicallyCounted(v) => v.as_ref().to_owned(),
             Oco::Owned(v) => v,
         }
     }
@@ -475,6 +493,7 @@ impl<'a> From<Oco<'a, str>> for Oco<'a, [u8]> {
             Oco::Borrowed(v) => Oco::Borrowed(v.as_bytes()),
             Oco::Owned(v) => Oco::Owned(v.into_bytes()),
             Oco::Counted(v) => Oco::Counted(v.into()),
+            Oco::AtomicallyCounted(v) => Oco::AtomicallyCounted(v.into()),
         }
     }
 }

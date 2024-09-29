@@ -1211,6 +1211,17 @@ impl IntoView for Rc<str> {
     }
 }
 
+impl IntoView for std::sync::Arc<str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self.into()))
+    }
+}
+
 impl IntoView for Oco<'static, str> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
