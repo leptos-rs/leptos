@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores_macro"
-version = "0.1.0-beta7"
+version = "0.1.0-gamma"
 rust-version.workspace = true
 edition.workspace = true
 

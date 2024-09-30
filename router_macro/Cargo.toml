@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.7.0-beta7"
+version = "0.7.0-gamma"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
