@@ -24,7 +24,7 @@ use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
     prelude::expect_context,
-    reactive_graph::{computed::ScopedFuture, owner::Owner},
+    reactive::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
 use leptos_integration_utils::{
