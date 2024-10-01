@@ -2,7 +2,7 @@ use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     no_attrs,
-    renderer::{CastFrom, Renderer},
+    renderer::{CastFrom, Rndr},
     view::ToTemplate,
 };
 use std::{
@@ -20,41 +20,41 @@ macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
 		paste::paste! {
-			pub struct [<$child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
+			pub struct [<$child_type:camel State>](crate::renderer::types::Text, $child_type);
 
-			impl<R: Renderer> Mountable<R> for [<$child_type:camel State>]<R> {
+			impl Mountable for [<$child_type:camel State>] {
 					fn unmount(&mut self) {
 						self.0.unmount()
 					}
 
 					fn mount(
 						&mut self,
-						parent: &<R as Renderer>::Element,
-						marker: Option<&<R as Renderer>::Node>,
+						parent: &crate::renderer::types::Element,
+						marker: Option<&crate::renderer::types::Node>,
 					) {
-						R::insert_node(parent, self.0.as_ref(), marker);
+						Rndr::insert_node(parent, self.0.as_ref(), marker);
 					}
 
 					fn insert_before_this(&self,
-						child: &mut dyn Mountable<R>,
+						child: &mut dyn Mountable,
 					) -> bool {
                         self.0.insert_before_this(child)
 					}
 			}
 
-			impl<R: Renderer> Render<R> for $child_type {
-				type State = [<$child_type:camel State>]<R>;
+			impl Render for $child_type {
+				type State = [<$child_type:camel State>];
 
 
 				fn build(self) -> Self::State {
-					let node = R::create_text_node(&self.to_string());
+					let node = Rndr::create_text_node(&self.to_string());
 					[<$child_type:camel State>](node, self)
 				}
 
 				fn rebuild(self, state: &mut Self::State) {
 					let [<$child_type:camel State>](node, this) = state;
 					if &self != this {
-						R::set_text(node, &self.to_string());
+						Rndr::set_text(node, &self.to_string());
 						*this = self;
 					}
 				}
@@ -62,9 +62,7 @@ macro_rules! render_primitive {
 
             no_attrs!($child_type);
 
-			impl<R> RenderHtml<R> for $child_type
-			where
-				R: Renderer,
+			impl RenderHtml for $child_type
 			{
 				type AsyncOutput = Self;
 
@@ -87,7 +85,7 @@ macro_rules! render_primitive {
 
 				fn hydrate<const FROM_SERVER: bool>(
 					self,
-					cursor: &Cursor<R>,
+					cursor: &Cursor,
 					position: &PositionState,
 				) -> Self::State {
 					if position.get() == Position::FirstChild {
@@ -102,11 +100,11 @@ macro_rules! render_primitive {
 					}
 
 					let node = cursor.current();
-					let node = R::Text::cast_from(node)
+					let node = crate::renderer::types::Text::cast_from(node)
 						.expect("couldn't cast text node from node");
 
 					if !FROM_SERVER {
-						R::set_text(&node, &self.to_string());
+						Rndr::set_text(&node, &self.to_string());
 					}
 					position.set(Position::NextChildAfterText);
 

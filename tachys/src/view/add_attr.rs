@@ -1,5 +1,5 @@
-use super::{BoxedView, RenderHtml};
-use crate::{html::attribute::Attribute, renderer::Renderer};
+use super::RenderHtml;
+use crate::html::attribute::Attribute;
 
 /// Allows adding a new attribute to some type, before it is rendered.
 /// This takes place at compile time as part of the builder syntax for creating a statically typed
@@ -8,34 +8,28 @@ use crate::{html::attribute::Attribute, renderer::Renderer};
 /// Normally, this is used to add an attribute to an HTML element. But it is required to be
 /// implemented for all types that implement [`RenderHtml`], so that attributes can be spread onto
 /// other structures like the return type of a component.
-pub trait AddAnyAttr<Rndr>
-where
-    Rndr: Renderer,
-{
+pub trait AddAnyAttr {
     /// The new type once the attribute has been added.
-    type Output<SomeNewAttr: Attribute<Rndr>>: RenderHtml<Rndr>;
+    type Output<SomeNewAttr: Attribute>: RenderHtml;
 
     /// Adds an attribute to the view.
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>;
+        Self::Output<NewAttr>: RenderHtml;
 }
 
 /// Declares that spreading attributes onto a particular type has no effect.
 #[macro_export]
 macro_rules! no_attrs {
     ($ty_name:ty) => {
-        impl<'a, R> $crate::view::add_attr::AddAnyAttr<R> for $ty_name
-        where
-            R: Renderer,
-        {
-            type Output<SomeNewAttr: $crate::html::attribute::Attribute<R>> =
+        impl<'a> $crate::view::add_attr::AddAnyAttr for $ty_name {
+            type Output<SomeNewAttr: $crate::html::attribute::Attribute> =
                 $ty_name;
 
-            fn add_any_attr<NewAttr: $crate::html::attribute::Attribute<R>>(
+            fn add_any_attr<NewAttr: $crate::html::attribute::Attribute>(
                 self,
                 _attr: NewAttr,
             ) -> Self::Output<NewAttr> {
@@ -43,23 +37,4 @@ macro_rules! no_attrs {
             }
         }
     };
-}
-
-impl<T, Rndr> AddAnyAttr<Rndr> for BoxedView<T>
-where
-    T: AddAnyAttr<Rndr>,
-    Rndr: Renderer,
-{
-    type Output<SomeNewAttr: Attribute<Rndr>> =
-        BoxedView<T::Output<SomeNewAttr>>;
-
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
-        self,
-        attr: NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
-    {
-        BoxedView::new(self.into_inner().add_any_attr(attr))
-    }
 }

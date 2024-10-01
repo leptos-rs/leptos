@@ -1,16 +1,12 @@
 use crate::{
     html::{
         attribute::{Attr, Attribute, AttributeValue},
-        element::{
-            CreateElement, ElementType, ElementWithChildren, HtmlElement,
-        },
+        element::{ElementType, ElementWithChildren, HtmlElement},
     },
-    renderer::{dom::Dom, Renderer},
     view::Render,
 };
 use next_tuple::NextTuple;
-use once_cell::unsync::Lazy;
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 macro_rules! mathml_global {
 	($tag:ty, $attr:ty) => {
@@ -18,18 +14,18 @@ macro_rules! mathml_global {
             /// A MathML attribute.
 			pub fn $attr<V>(self, value: V) -> HtmlElement <
 				[<$tag:camel>],
-				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-				Ch, Rndr
+				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+				Ch
 			>
 			where
-				V: AttributeValue<Rndr>,
+				V: AttributeValue,
 				At: NextTuple,
-				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
 			{
-				let HtmlElement { tag, rndr, children, attributes } = self;
+				let HtmlElement { tag, children, attributes } = self;
 				HtmlElement {
 					tag,
-					rndr,
+
 					children,
 					attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
 				}
@@ -45,15 +41,15 @@ macro_rules! mathml_elements {
                 // `tag()` function
                 /// A MathML element.
                 #[track_caller]
-                pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
+                pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
-                    Rndr: Renderer
+
                 {
                     HtmlElement {
                         tag: [<$tag:camel>],
                         attributes: (),
                         children: (),
-                        rndr: PhantomData,
+
                     }
                 }
 
@@ -61,11 +57,11 @@ macro_rules! mathml_elements {
                 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
                 pub struct [<$tag:camel>];
 
-				impl<At, Ch, Rndr> HtmlElement<[<$tag:camel>], At, Ch, Rndr>
+				impl<At, Ch> HtmlElement<[<$tag:camel>], At, Ch>
 				where
-					At: Attribute<Rndr>,
-					Ch: Render<Rndr>,
-					Rndr: Renderer,
+					At: Attribute,
+					Ch: Render,
+
 				{
 					mathml_global!($tag, displaystyle);
 					mathml_global!($tag, href);
@@ -80,18 +76,18 @@ macro_rules! mathml_elements {
                         /// A MathML attribute.
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            Ch, Rndr
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            Ch
                         >
                         where
-                            V: AttributeValue<Rndr>,
+                            V: AttributeValue,
                             At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
-                            let HtmlElement { tag, rndr, children, attributes } = self;
+                            let HtmlElement { tag, children, attributes } = self;
                             HtmlElement {
                                 tag,
-                                rndr,
+
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
                             }
@@ -105,6 +101,7 @@ macro_rules! mathml_elements {
                     const TAG: &'static str = stringify!($tag);
                     const SELF_CLOSING: bool = false;
                     const ESCAPE_CHILDREN: bool = true;
+                    const NAMESPACE: Option<&'static str> = Some("http://www.w3.org/1998/Math/MathML");
 
                     #[inline(always)]
                     fn tag(&self) -> &str {
@@ -113,22 +110,6 @@ macro_rules! mathml_elements {
                 }
 
                 impl ElementWithChildren for [<$tag:camel>] {}
-
-                impl CreateElement<Dom> for [<$tag:camel>] {
-                    fn create_element(&self) -> <Dom as Renderer>::Element {
-                        use wasm_bindgen::JsCast;
-
-                        thread_local! {
-                            static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                                crate::dom::document().create_element_ns(
-									Some(wasm_bindgen::intern("http://www.w3.org/1998/Math/MathML")),
-									stringify!($tag)
-								).unwrap()
-                            });
-                        }
-                        ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
-                    }
-                }
             )*
 		}
     }

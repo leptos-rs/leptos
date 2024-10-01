@@ -3,7 +3,6 @@ use crate::{ChooseView, GeneratedRouteData, MatchParams};
 use core::iter;
 use either_of::*;
 use std::borrow::Cow;
-use tachys::renderer::Renderer;
 
 impl MatchParams for () {
     type Params = iter::Empty<(Cow<'static, str>, String)>;
@@ -13,10 +12,7 @@ impl MatchParams for () {
     }
 }
 
-impl<Rndr> MatchInterface<Rndr> for ()
-where
-    Rndr: Renderer + 'static,
-{
+impl MatchInterface for () {
     type Child = ();
     type View = ();
 
@@ -30,18 +26,12 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
         ((), None)
     }
 }
 
-impl<Rndr> MatchNestedRoutes<Rndr> for ()
-where
-    Rndr: Renderer + 'static,
-{
+impl MatchNestedRoutes for () {
     type Data = ();
     type View = ();
     type Match = ();
@@ -74,10 +64,9 @@ where
     }
 }
 
-impl<A, Rndr> MatchInterface<Rndr> for (A,)
+impl<A> MatchInterface for (A,)
 where
-    A: MatchInterface<Rndr> + 'static,
-    Rndr: Renderer + 'static,
+    A: MatchInterface + 'static,
 {
     type Child = A::Child;
     type View = A::View;
@@ -92,18 +81,14 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
         self.0.into_view_and_child()
     }
 }
 
-impl<A, Rndr> MatchNestedRoutes<Rndr> for (A,)
+impl<A> MatchNestedRoutes for (A,)
 where
-    A: MatchNestedRoutes<Rndr> + 'static,
-    Rndr: Renderer + 'static,
+    A: MatchNestedRoutes + 'static,
 {
     type Data = A::Data;
     type View = A::View;
@@ -141,11 +126,10 @@ where
     }
 }
 
-impl<A, B, Rndr> MatchInterface<Rndr> for Either<A, B>
+impl<A, B> MatchInterface for Either<A, B>
 where
-    Rndr: Renderer + 'static,
-    A: MatchInterface<Rndr>,
-    B: MatchInterface<Rndr>,
+    A: MatchInterface,
+    B: MatchInterface,
 {
     type Child = Either<A::Child, B::Child>;
     type View = Either<A::View, B::View>;
@@ -166,10 +150,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
         match self {
             Either::Left(i) => {
                 let (view, child) = i.into_view_and_child();
@@ -183,11 +164,10 @@ where
     }
 }
 
-impl<A, B, Rndr> MatchNestedRoutes<Rndr> for (A, B)
+impl<A, B> MatchNestedRoutes for (A, B)
 where
-    A: MatchNestedRoutes<Rndr>,
-    B: MatchNestedRoutes<Rndr>,
-    Rndr: Renderer + 'static,
+    A: MatchNestedRoutes,
+    B: MatchNestedRoutes,
 {
     type Data = (A::Data, B::Data);
     type View = Either<A::View, B::View>;
@@ -251,10 +231,9 @@ macro_rules! tuples {
             }
         }
 
-        impl<Rndr, $($ty,)*> MatchInterface<Rndr> for $either <$($ty,)*>
+        impl<$($ty,)*> MatchInterface for $either <$($ty,)*>
         where
-            Rndr: Renderer + 'static,
-            $($ty: MatchInterface<Rndr> + 'static),*,
+            $($ty: MatchInterface + 'static),*,
         {
             type Child = $either<$($ty::Child,)*>;
             type View = $either<$($ty::View,)*>;
@@ -274,7 +253,7 @@ macro_rules! tuples {
             fn into_view_and_child(
                 self,
             ) -> (
-                impl ChooseView<Rndr, Output = Self::View>,
+                impl ChooseView<Output = Self::View>,
                 Option<Self::Child>,
             ) {
                 match self {
@@ -286,10 +265,9 @@ macro_rules! tuples {
             }
         }
 
-        impl<Rndr, $($ty),*> MatchNestedRoutes<Rndr> for ($($ty,)*)
+        impl<$($ty),*> MatchNestedRoutes for ($($ty,)*)
         where
-            Rndr: Renderer + 'static,
-			$($ty: MatchNestedRoutes<Rndr> + 'static),*,
+			$($ty: MatchNestedRoutes + 'static),*,
         {
             type Data = ($($ty::Data,)*);
             type View = $either<$($ty::View,)*>;

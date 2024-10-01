@@ -1,20 +1,16 @@
 use super::ElementWithChildren;
-use crate::{
-    html::element::{CreateElement, ElementType, HtmlElement},
-    renderer::{dom::Dom, Renderer},
-};
-use std::{fmt::Debug, marker::PhantomData};
+use crate::html::element::{ElementType, HtmlElement};
+use std::fmt::Debug;
 
 /// Creates a custom element.
 #[track_caller]
-pub fn custom<E, Rndr>(tag: E) -> HtmlElement<Custom<E>, (), (), Rndr>
+pub fn custom<E>(tag: E) -> HtmlElement<Custom<E>, (), ()>
 where
     E: AsRef<str>,
-    Rndr: Renderer,
 {
     HtmlElement {
         tag: Custom(tag),
-        rndr: PhantomData,
+
         attributes: (),
         children: (),
     }
@@ -33,6 +29,7 @@ where
     const SELF_CLOSING: bool = false;
     const ESCAPE_CHILDREN: bool = true;
     const TAG: &'static str = "";
+    const NAMESPACE: Option<&'static str> = None;
 
     fn tag(&self) -> &str {
         self.0.as_ref()
@@ -40,16 +37,3 @@ where
 }
 
 impl<E> ElementWithChildren for Custom<E> {}
-
-impl<E> CreateElement<Dom> for Custom<E>
-where
-    E: AsRef<str>,
-{
-    fn create_element(&self) -> <Dom as Renderer>::Element {
-        use wasm_bindgen::intern;
-
-        crate::dom::document()
-            .create_element(intern(self.0.as_ref()))
-            .unwrap()
-    }
-}

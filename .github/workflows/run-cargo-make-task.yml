@@ -1,5 +1,4 @@
 name: Run Task
-
 on:
   workflow_call:
     inputs:
@@ -12,70 +11,53 @@ on:
       toolchain:
         required: true
         type: string
-
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-
 jobs:
   test:
     name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
     runs-on: ubuntu-latest
-
     steps:
       # Setup environment
       - uses: actions/checkout@v4
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ inputs.toolchain }}
-
       - name: Add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
-
       - name: Setup cargo-make
         uses: davidB/rust-cargo-make@v1
-
       - name: Cargo generate-lockfile
         run: cargo generate-lockfile
-
       - uses: Swatinem/rust-cache@v2
-
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
-
       - name: Install wasm-bindgen
         run: cargo binstall wasm-bindgen-cli --no-confirm
-
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --no-confirm
-
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
           version: "latest"
-
       - name: Print Trunk Version
         run: trunk --version
-
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         id: pnpm-install
         with:
           version: 8
           run_install: false
-
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
       - uses: actions/cache@v4
         name: Setup pnpm cache
         with:
@@ -83,7 +65,6 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-
       - name: Maybe install chromedriver
         run: |
           project_makefile=${{inputs.directory}}/Makefile.toml
@@ -99,7 +80,6 @@ jobs:
           else
               echo chromedriver is not required
           fi
-
       - name: Maybe install playwright browser dependencies
         run: |
           for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
@@ -113,12 +93,16 @@ jobs:
               echo Playwright is not required
             fi
           done
-
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-
+      - name: Maybe install gtk-rs dependencies
+        run: |
+          if [ ! -z $(echo ${{inputs.directory}} | grep gtk) ]; then
+            sudo apt-get update
+            sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
+          fi
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |

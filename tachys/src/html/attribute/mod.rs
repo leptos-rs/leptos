@@ -10,29 +10,26 @@ mod group;
 mod key;
 mod value;
 
-use crate::{
-    renderer::Renderer,
-    view::{Position, ToTemplate},
-};
+use crate::view::{Position, ToTemplate};
 pub use group::*;
 pub use key::*;
-use std::{fmt::Debug, future::Future, marker::PhantomData};
+use std::{fmt::Debug, future::Future};
 pub use value::*;
 
 /// Defines an attribute: anything that can modify an element.
-pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
+pub trait Attribute: NextAttribute + Send {
     /// The minimum length of this attribute in HTML.
     const MIN_LENGTH: usize;
 
     /// The state that should be retained between building and rebuilding.
     type State;
     /// The type once all async data have loaded.
-    type AsyncOutput: Attribute<R>;
+    type AsyncOutput: Attribute;
     /// An equivalent to this attribute that can be cloned to be shared across elements.
-    type Cloneable: Attribute<R> + Clone;
+    type Cloneable: Attribute + Clone;
     /// An equivalent to this attribute that can be cloned to be shared across elements, and
     /// captures no references shorter than `'static`.
-    type CloneableOwned: Attribute<R> + Clone + 'static;
+    type CloneableOwned: Attribute + Clone + 'static;
 
     /// An approximation of the actual length of this attribute in HTML.
     fn html_len(&self) -> usize;
@@ -52,10 +49,13 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
 
     /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
     /// either been rendered on the server, or cloned for a `<template>`.
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State;
 
     /// Adds this attribute to the element during client-side rendering.
-    fn build(self, el: &R::Element) -> Self::State;
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State;
 
     /// Applies a new value for the attribute.
     fn rebuild(self, state: &mut Self::State);
@@ -78,21 +78,18 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
 /// Adds another attribute to this one, returning a new attribute.
 ///
 /// This is typically achieved by creating or extending a tuple of attributes.
-pub trait NextAttribute<R: Renderer> {
+pub trait NextAttribute {
     /// The type of the new, combined attribute.
-    type Output<NewAttr: Attribute<R>>: Attribute<R>;
+    type Output<NewAttr: Attribute>: Attribute;
 
     /// Adds a new attribute.
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr>;
 }
 
-impl<R> Attribute<R> for ()
-where
-    R: Renderer,
-{
+impl Attribute for () {
     const MIN_LENGTH: usize = 0;
 
     type State = ();
@@ -113,10 +110,13 @@ where
     ) {
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _el: &crate::renderer::types::Element,
+    ) -> Self::State {
     }
 
-    fn build(self, _el: &R::Element) -> Self::State {}
+    fn build(self, _el: &crate::renderer::types::Element) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
 
@@ -133,13 +133,10 @@ where
     async fn resolve(self) -> Self::AsyncOutput {}
 }
 
-impl<R> NextAttribute<R> for ()
-where
-    R: Renderer,
-{
-    type Output<NewAttr: Attribute<R>> = (NewAttr,);
+impl NextAttribute for () {
+    type Output<NewAttr: Attribute> = (NewAttr,);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -149,28 +146,25 @@ where
 
 /// An attribute with a key and value.
 #[derive(Debug)]
-pub struct Attr<K, V, R>(pub K, pub V, pub PhantomData<R>)
+pub struct Attr<K, V>(pub K, pub V)
 where
     K: AttributeKey,
-    V: AttributeValue<R>,
-    R: Renderer;
+    V: AttributeValue;
 
-impl<K, V, R> Clone for Attr<K, V, R>
+impl<K, V> Clone for Attr<K, V>
 where
     K: AttributeKey,
-    V: AttributeValue<R> + Clone,
-    R: Renderer,
+    V: AttributeValue + Clone,
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone(), PhantomData)
+        Self(self.0.clone(), self.1.clone())
     }
 }
 
-impl<K, V, R> ToTemplate for Attr<K, V, R>
+impl<K, V> ToTemplate for Attr<K, V>
 where
     K: AttributeKey,
-    V: AttributeValue<R>,
-    R: Renderer,
+    V: AttributeValue,
 {
     fn to_template(
         buf: &mut String,
@@ -183,18 +177,17 @@ where
     }
 }
 
-impl<K, V, R> Attribute<R> for Attr<K, V, R>
+impl<K, V> Attribute for Attr<K, V>
 where
     K: AttributeKey + Send,
-    V: AttributeValue<R> + Send,
-    R: Renderer,
+    V: AttributeValue + Send,
 {
     const MIN_LENGTH: usize = 0;
 
     type State = V::State;
-    type AsyncOutput = Attr<K, V::AsyncOutput, R>;
-    type Cloneable = Attr<K, V::Cloneable, R>;
-    type CloneableOwned = Attr<K, V::CloneableOwned, R>;
+    type AsyncOutput = Attr<K, V::AsyncOutput>;
+    type Cloneable = Attr<K, V::Cloneable>;
+    type CloneableOwned = Attr<K, V::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         K::KEY.len() + 3 + self.1.html_len()
@@ -210,11 +203,14 @@ where
         self.1.to_html(K::KEY, buf);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         self.1.hydrate::<FROM_SERVER>(K::KEY, el)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         V::build(self.1, el, K::KEY)
     }
 
@@ -223,11 +219,11 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        Attr(self.0, self.1.into_cloneable(), PhantomData)
+        Attr(self.0, self.1.into_cloneable())
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        Attr(self.0, self.1.into_cloneable_owned(), PhantomData)
+        Attr(self.0, self.1.into_cloneable_owned())
     }
 
     fn dry_resolve(&mut self) {
@@ -235,19 +231,18 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        Attr(self.0, self.1.resolve().await, PhantomData)
+        Attr(self.0, self.1.resolve().await)
     }
 }
 
-impl<K, V, R> NextAttribute<R> for Attr<K, V, R>
+impl<K, V> NextAttribute for Attr<K, V>
 where
     K: AttributeKey,
-    V: AttributeValue<R>,
-    R: Renderer,
+    V: AttributeValue,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -257,11 +252,11 @@ where
 
 macro_rules! impl_attr_for_tuples {
 	($first:ident, $($ty:ident),* $(,)?) => {
-		impl<$first, $($ty),*, Rndr> Attribute<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
 		where
-			$first: Attribute<Rndr>,
-			$($ty: Attribute<Rndr>),*,
-            Rndr: Renderer
+			$first: Attribute,
+			$($ty: Attribute),*,
+
 		{
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
@@ -283,7 +278,7 @@ macro_rules! impl_attr_for_tuples {
 					$($ty.to_html(buf, class, style, inner_html));*
 			}
 
-			fn hydrate<const FROM_SERVER: bool>(self, el: &Rndr::Element) -> Self::State {
+			fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
 					let ($first, $($ty,)* ) = self;
 					(
@@ -292,7 +287,7 @@ macro_rules! impl_attr_for_tuples {
 					)
 			}
 
-            fn build(self, el: &Rndr::Element) -> Self::State {
+            fn build(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
 					let ($first, $($ty,)*) = self;
                     (
@@ -345,15 +340,15 @@ macro_rules! impl_attr_for_tuples {
             }
         }
 
-		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
 		where
-			$first: Attribute<Rndr>,
-			$($ty: Attribute<Rndr>),*,
-            Rndr: Renderer
-        {
-            type Output<NewAttr: Attribute<Rndr>> = ($first, $($ty,)* NewAttr);
+			$first: Attribute,
+			$($ty: Attribute),*,
 
-            fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        {
+            type Output<NewAttr: Attribute> = ($first, $($ty,)* NewAttr);
+
+            fn add_any_attr<NewAttr: Attribute>(
                 self,
                 new_attr: NewAttr,
             ) -> Self::Output<NewAttr> {
@@ -367,11 +362,11 @@ macro_rules! impl_attr_for_tuples {
 
 macro_rules! impl_attr_for_tuples_truncate_additional {
 	($first:ident, $($ty:ident),* $(,)?) => {
-		impl<$first, $($ty),*, Rndr> Attribute<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
 		where
-			$first: Attribute<Rndr>,
-			$($ty: Attribute<Rndr>),*,
-            Rndr: Renderer
+			$first: Attribute,
+			$($ty: Attribute),*,
+
 		{
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
@@ -393,7 +388,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 $($ty.to_html(buf, class, style, inner_html));*
 			}
 
-			fn hydrate<const FROM_SERVER: bool>(self, el: &Rndr::Element) -> Self::State {
+			fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
                 (
@@ -402,7 +397,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 )
 			}
 
-            fn build(self, el: &Rndr::Element) -> Self::State {
+            fn build(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
@@ -455,15 +450,15 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
         }
 
-		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
 		where
-			$first: Attribute<Rndr>,
-			$($ty: Attribute<Rndr>),*,
-            Rndr: Renderer
-        {
-            type Output<NewAttr: Attribute<Rndr>> = ($first, $($ty,)*);
+			$first: Attribute,
+			$($ty: Attribute),*,
 
-            fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        {
+            type Output<NewAttr: Attribute> = ($first, $($ty,)*);
+
+            fn add_any_attr<NewAttr: Attribute>(
                 self,
                 _new_attr: NewAttr,
             ) -> Self::Output<NewAttr> {
@@ -474,10 +469,9 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 	};
 }
 
-impl<A, Rndr> Attribute<Rndr> for (A,)
+impl<A> Attribute for (A,)
 where
-    A: Attribute<Rndr>,
-    Rndr: Renderer,
+    A: Attribute,
 {
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
@@ -502,12 +496,12 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &Rndr::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         self.0.hydrate::<FROM_SERVER>(el)
     }
 
-    fn build(self, el: &Rndr::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.0.build(el)
     }
 
@@ -532,14 +526,13 @@ where
     }
 }
 
-impl<A, Rndr> NextAttribute<Rndr> for (A,)
+impl<A> NextAttribute for (A,)
 where
-    A: Attribute<Rndr>,
-    Rndr: Renderer,
+    A: Attribute,
 {
-    type Output<NewAttr: Attribute<Rndr>> = (A, NewAttr);
+    type Output<NewAttr: Attribute> = (A, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {

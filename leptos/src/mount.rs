@@ -5,10 +5,8 @@ use any_spawner::Executor;
 use reactive_graph::owner::Owner;
 #[cfg(debug_assertions)]
 use std::cell::Cell;
-use std::marker::PhantomData;
 use tachys::{
     dom::body,
-    renderer::{dom::Dom, Renderer},
     view::{Mountable, Render},
 };
 #[cfg(feature = "hydrate")]
@@ -38,10 +36,7 @@ thread_local! {
 
 #[cfg(feature = "hydrate")]
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn hydrate_from<F, N>(
-    parent: HtmlElement,
-    f: F,
-) -> UnmountHandle<N::State, Dom>
+pub fn hydrate_from<F, N>(parent: HtmlElement, f: F) -> UnmountHandle<N::State>
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -85,11 +80,7 @@ where
 
     // returns a handle that owns the owner
     // when this is dropped, it will clean up the reactive system and unmount the view
-    UnmountHandle {
-        owner,
-        mountable,
-        rndr: PhantomData,
-    }
+    UnmountHandle { owner, mountable }
 }
 
 /// Runs the provided closure and mounts the result to the `<body>`.
@@ -103,7 +94,7 @@ where
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn mount_to<F, N>(parent: HtmlElement, f: F) -> UnmountHandle<N::State, Dom>
+pub fn mount_to<F, N>(parent: HtmlElement, f: F) -> UnmountHandle<N::State>
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -140,22 +131,17 @@ where
 
     // returns a handle that owns the owner
     // when this is dropped, it will clean up the reactive system and unmount the view
-    UnmountHandle {
-        owner,
-        mountable,
-        rndr: PhantomData,
-    }
+    UnmountHandle { owner, mountable }
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn mount_to_renderer<F, N, R>(
-    parent: &R::Element,
+pub fn mount_to_renderer<F, N>(
+    parent: &tachys::renderer::types::Element,
     f: F,
-) -> UnmountHandle<N::State, R>
+) -> UnmountHandle<N::State>
 where
     F: FnOnce() -> N + 'static,
-    N: Render<R>,
-    R: Renderer,
+    N: Render,
 {
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
@@ -173,11 +159,7 @@ where
 
     // returns a handle that owns the owner
     // when this is dropped, it will clean up the reactive system and unmount the view
-    UnmountHandle {
-        owner,
-        mountable,
-        rndr: PhantomData,
-    }
+    UnmountHandle { owner, mountable }
 }
 
 /// Hydrates any islands that are currently present on the page.
@@ -211,21 +193,18 @@ pub fn hydrate_islands() {
               reactive system. You should either call `.forget()` to keep the \
               view permanently mounted, or store the `UnmountHandle` somewhere \
               and drop it when you'd like to unmount the view."]
-pub struct UnmountHandle<M, R>
+pub struct UnmountHandle<M>
 where
-    M: Mountable<R>,
-    R: Renderer,
+    M: Mountable,
 {
     #[allow(dead_code)]
     owner: Owner,
     mountable: M,
-    rndr: PhantomData<R>,
 }
 
-impl<M, R> UnmountHandle<M, R>
+impl<M> UnmountHandle<M>
 where
-    M: Mountable<R>,
-    R: Renderer,
+    M: Mountable,
 {
     /// Leaks the handle, preventing the reactive system from being cleaned up and the view from
     /// being unmounted. This should always be called when [`mount_to`] is used for the root of an
@@ -235,10 +214,9 @@ where
     }
 }
 
-impl<M, R> Drop for UnmountHandle<M, R>
+impl<M> Drop for UnmountHandle<M>
 where
-    M: Mountable<R>,
-    R: Renderer,
+    M: Mountable,
 {
     fn drop(&mut self) {
         self.mountable.unmount();

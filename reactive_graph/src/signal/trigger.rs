@@ -1,7 +1,7 @@
 use super::{subscriber_traits::AsSubscriberSet, ArcTrigger};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::StoredValue,
+    owner::ArenaItem,
     traits::{DefinedAt, Dispose, IsDisposed, Notify},
 };
 use std::{
@@ -20,7 +20,7 @@ use std::{
 pub struct Trigger {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcTrigger>,
+    pub(crate) inner: ArenaItem<ArcTrigger>,
 }
 
 impl Trigger {
@@ -30,7 +30,7 @@ impl Trigger {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcTrigger::new()),
+            inner: ArenaItem::new(ArcTrigger::new()),
         }
     }
 }

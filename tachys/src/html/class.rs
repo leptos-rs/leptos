@@ -1,53 +1,46 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
-    renderer::DomRenderer,
+    renderer::Rndr,
     view::{Position, ToTemplate},
 };
-use std::{future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Adds a CSS class.
 #[inline(always)]
-pub fn class<C, R>(class: C) -> Class<C, R>
+pub fn class<C>(class: C) -> Class<C>
 where
-    C: IntoClass<R>,
-    R: DomRenderer,
+    C: IntoClass,
 {
-    Class {
-        class,
-        rndr: PhantomData,
-    }
+    Class { class }
 }
 
 /// A CSS class.
 #[derive(Debug)]
-pub struct Class<C, R> {
+pub struct Class<C> {
     class: C,
-    rndr: PhantomData<R>,
 }
 
-impl<C, R> Clone for Class<C, R>
+impl<C> Clone for Class<C>
 where
     C: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             class: self.class.clone(),
-            rndr: PhantomData,
         }
     }
 }
 
-impl<C, R> Attribute<R> for Class<C, R>
+impl<C> Attribute for Class<C>
 where
-    C: IntoClass<R>,
-    R: DomRenderer,
+    C: IntoClass,
 {
     const MIN_LENGTH: usize = C::MIN_LENGTH;
 
-    type AsyncOutput = Class<C::AsyncOutput, R>;
+    type AsyncOutput = Class<C::AsyncOutput>;
     type State = C::State;
-    type Cloneable = Class<C::Cloneable, R>;
-    type CloneableOwned = Class<C::CloneableOwned, R>;
+    type Cloneable = Class<C::Cloneable>;
+    type CloneableOwned = Class<C::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         self.class.html_len() + 1
@@ -64,11 +57,14 @@ where
         self.class.to_html(class);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         self.class.hydrate::<FROM_SERVER>(el)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.class.build(el)
     }
 
@@ -79,14 +75,12 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         Class {
             class: self.class.into_cloneable(),
-            rndr: self.rndr,
         }
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         Class {
             class: self.class.into_cloneable_owned(),
-            rndr: self.rndr,
         }
     }
 
@@ -97,19 +91,17 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         Class {
             class: self.class.resolve().await,
-            rndr: self.rndr,
         }
     }
 }
 
-impl<C, R> NextAttribute<R> for Class<C, R>
+impl<C> NextAttribute for Class<C>
 where
-    C: IntoClass<R>,
-    R: DomRenderer,
+    C: IntoClass,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -117,10 +109,9 @@ where
     }
 }
 
-impl<C, R> ToTemplate for Class<C, R>
+impl<C> ToTemplate for Class<C>
 where
-    C: IntoClass<R>,
-    R: DomRenderer,
+    C: IntoClass,
 {
     const CLASS: &'static str = C::TEMPLATE;
 
@@ -136,20 +127,20 @@ where
 }
 
 /// A possible value for a CSS class.
-pub trait IntoClass<R: DomRenderer>: Send {
+pub trait IntoClass: Send {
     /// The HTML that should be included in a `<template>`.
     const TEMPLATE: &'static str = "";
     /// The minimum length of the HTML.
     const MIN_LENGTH: usize = Self::TEMPLATE.len();
 
     /// The type after all async data have resolved.
-    type AsyncOutput: IntoClass<R>;
+    type AsyncOutput: IntoClass;
     /// The view state retained between building and rebuilding.
     type State;
     /// An equivalent value that can be cloned.
-    type Cloneable: IntoClass<R> + Clone;
+    type Cloneable: IntoClass + Clone;
     /// An equivalent value that can be cloned and is `'static`.
-    type CloneableOwned: IntoClass<R> + Clone + 'static;
+    type CloneableOwned: IntoClass + Clone + 'static;
 
     /// The estimated length of the HTML.
     fn html_len(&self) -> usize;
@@ -163,10 +154,13 @@ pub trait IntoClass<R: DomRenderer>: Send {
 
     /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
     /// either been rendered on the server, or cloned for a `<template>`.
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State;
 
     /// Adds this class to the element during client-side rendering.
-    fn build(self, el: &R::Element) -> Self::State;
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State;
 
     /// Updates the value.
     fn rebuild(self, state: &mut Self::State);
@@ -186,12 +180,9 @@ pub trait IntoClass<R: DomRenderer>: Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
-impl<'a, R> IntoClass<R> for &'a str
-where
-    R: DomRenderer,
-{
+impl<'a> IntoClass for &'a str {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
 
@@ -203,22 +194,25 @@ where
         class.push_str(self);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         if !FROM_SERVER {
-            R::set_attribute(el, "class", self);
+            Rndr::set_attribute(el, "class", self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "class", self);
+            Rndr::set_attribute(el, "class", self);
         }
         *prev = self;
     }
@@ -238,12 +232,9 @@ where
     }
 }
 
-impl<R> IntoClass<R> for String
-where
-    R: DomRenderer,
-{
+impl IntoClass for String {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
 
@@ -252,25 +243,28 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        IntoClass::<R>::to_html(self.as_str(), class);
+        IntoClass::to_html(self.as_str(), class);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         if !FROM_SERVER {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         *prev = self;
     }
@@ -290,12 +284,9 @@ where
     }
 }
 
-impl<R> IntoClass<R> for Arc<str>
-where
-    R: DomRenderer,
-{
+impl IntoClass for Arc<str> {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -304,25 +295,28 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        IntoClass::<R>::to_html(self.as_ref(), class);
+        IntoClass::to_html(self.as_ref(), class);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         if !FROM_SERVER {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if !Arc::ptr_eq(&self, prev) {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         *prev = self;
     }
@@ -342,12 +336,9 @@ where
     }
 }
 
-impl<R> IntoClass<R> for (&'static str, bool)
-where
-    R: DomRenderer,
-{
+impl IntoClass for (&'static str, bool) {
     type AsyncOutput = Self;
-    type State = (R::ClassList, bool);
+    type State = (crate::renderer::types::ClassList, bool);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -362,20 +353,23 @@ where
         }
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         let (name, include) = self;
-        let class_list = R::class_list(el);
+        let class_list = Rndr::class_list(el);
         if !FROM_SERVER && include {
-            R::add_class(&class_list, name);
+            Rndr::add_class(&class_list, name);
         }
         (class_list, self.1)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, include) = self;
-        let class_list = R::class_list(el);
+        let class_list = Rndr::class_list(el);
         if include {
-            R::add_class(&class_list, name);
+            Rndr::add_class(&class_list, name);
         }
         (class_list, self.1)
     }
@@ -385,9 +379,9 @@ where
         let (class_list, prev_include) = state;
         if include != *prev_include {
             if include {
-                R::add_class(class_list, name);
+                Rndr::add_class(class_list, name);
             } else {
-                R::remove_class(class_list, name);
+                Rndr::remove_class(class_list, name);
             }
         }
         *prev_include = include;
@@ -409,11 +403,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<R, const V: &'static str> IntoClass<R>
-    for crate::view::static_types::Static<V>
-where
-    R: DomRenderer,
-{
+impl<const V: &'static str> IntoClass for crate::view::static_types::Static<V> {
     const TEMPLATE: &'static str = V;
 
     type AsyncOutput = Self;
@@ -433,11 +423,14 @@ where
         class.push_str(V);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _el: &crate::renderer::types::Element,
+    ) -> Self::State {
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", V);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}

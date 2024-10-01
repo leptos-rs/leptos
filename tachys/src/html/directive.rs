@@ -1,7 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
 use crate::{
     prelude::AddAnyAttr,
-    renderer::Renderer,
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
@@ -9,10 +8,9 @@ use std::{marker::PhantomData, sync::Arc};
 
 /// Adds a directive to the element, which runs some custom logic in the browser when the element
 /// is created or hydrated.
-pub trait DirectiveAttribute<T, P, D, Rndr>
+pub trait DirectiveAttribute<T, P, D>
 where
-    D: IntoDirective<T, P, Rndr>,
-    Rndr: Renderer,
+    D: IntoDirective<T, P>,
 {
     /// The type of the element with the directive added.
     type Output;
@@ -22,15 +20,14 @@ where
     fn directive(self, handler: D, param: P) -> Self::Output;
 }
 
-impl<V, T, P, D, Rndr> DirectiveAttribute<T, P, D, Rndr> for V
+impl<V, T, P, D> DirectiveAttribute<T, P, D> for V
 where
-    V: AddAnyAttr<Rndr>,
-    D: IntoDirective<T, P, Rndr>,
+    V: AddAnyAttr,
+    D: IntoDirective<T, P>,
     P: Clone + 'static,
     T: 'static,
-    Rndr: Renderer,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<Directive<T, D, P, Rndr>>;
+    type Output = <Self as AddAnyAttr>::Output<Directive<T, D, P>>;
 
     fn directive(self, handler: D, param: P) -> Self::Output {
         self.add_any_attr(directive(handler, param))
@@ -40,26 +37,22 @@ where
 /// Adds a directive to the element, which runs some custom logic in the browser when the element
 /// is created or hydrated.
 #[inline(always)]
-pub fn directive<T, P, D, R>(handler: D, param: P) -> Directive<T, D, P, R>
+pub fn directive<T, P, D>(handler: D, param: P) -> Directive<T, D, P>
 where
-    D: IntoDirective<T, P, R>,
-    R: Renderer,
+    D: IntoDirective<T, P>,
 {
     Directive(Some(SendWrapper::new(DirectiveInner {
         handler,
         param,
         t: PhantomData,
-        rndr: PhantomData,
     })))
 }
 
 /// Custom logic that runs in the browser when the element is created or hydrated.
 #[derive(Debug)]
-pub struct Directive<T, D, P, R>(
-    Option<SendWrapper<DirectiveInner<T, D, P, R>>>,
-);
+pub struct Directive<T, D, P>(Option<SendWrapper<DirectiveInner<T, D, P>>>);
 
-impl<T, D, P, R> Clone for Directive<T, D, P, R>
+impl<T, D, P> Clone for Directive<T, D, P>
 where
     P: Clone + 'static,
     D: Clone,
@@ -70,14 +63,13 @@ where
 }
 
 #[derive(Debug)]
-struct DirectiveInner<T, D, P, R> {
+struct DirectiveInner<T, D, P> {
     handler: D,
     param: P,
     t: PhantomData<T>,
-    rndr: PhantomData<R>,
 }
 
-impl<T, D, P, R> Clone for DirectiveInner<T, D, P, R>
+impl<T, D, P> Clone for DirectiveInner<T, D, P>
 where
     P: Clone + 'static,
     D: Clone,
@@ -87,24 +79,22 @@ where
             handler: self.handler.clone(),
             param: self.param.clone(),
             t: PhantomData,
-            rndr: PhantomData,
         }
     }
 }
 
-impl<T, P, D, R> Attribute<R> for Directive<T, D, P, R>
+impl<T, P, D> Attribute for Directive<T, D, P>
 where
-    D: IntoDirective<T, P, R>,
+    D: IntoDirective<T, P>,
     P: Clone + 'static, // TODO this is just here to make them cloneable
     T: 'static,
-    R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
 
     type AsyncOutput = Self;
-    type State = R::Element;
-    type Cloneable = Directive<T, D::Cloneable, P, R>;
-    type CloneableOwned = Directive<T, D::Cloneable, P, R>;
+    type State = crate::renderer::types::Element;
+    type Cloneable = Directive<T, D::Cloneable, P>;
+    type CloneableOwned = Directive<T, D::Cloneable, P>;
 
     fn html_len(&self) -> usize {
         0
@@ -119,13 +109,16 @@ where
     ) {
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         let inner = self.0.expect("directive removed early").take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let inner = self.0.expect("directive removed early").take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
@@ -142,17 +135,11 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         let inner = self.0.map(|inner| {
-            let DirectiveInner {
-                handler,
-                param,
-                t,
-                rndr,
-            } = inner.take();
+            let DirectiveInner { handler, param, t } = inner.take();
             SendWrapper::new(DirectiveInner {
                 handler: handler.into_cloneable(),
                 param,
                 t,
-                rndr,
             })
         });
         Directive(inner)
@@ -171,16 +158,15 @@ where
     }
 }
 
-impl<T, D, P, R> NextAttribute<R> for Directive<T, D, P, R>
+impl<T, D, P> NextAttribute for Directive<T, D, P>
 where
-    D: IntoDirective<T, P, R>,
+    D: IntoDirective<T, P>,
     P: Clone + 'static,
     T: 'static,
-    R: Renderer,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -188,7 +174,7 @@ where
     }
 }
 
-impl<T, D, P, R> ToTemplate for Directive<T, D, P, R> {
+impl<T, D, P> ToTemplate for Directive<T, D, P> {
     const CLASS: &'static str = "";
 
     fn to_template(
@@ -207,16 +193,16 @@ impl<T, D, P, R> ToTemplate for Directive<T, D, P, R> {
 ///
 /// You can use directives like the following.
 ///
-/// ```
+/// ```ignore
 /// # use leptos::{*, html::AnyElement};
 ///
 /// // This doesn't take an attribute value
-/// fn my_directive(el: R::Element) {
+/// fn my_directive(el: crate::renderer::types::Element) {
 ///     // do sth
 /// }
 ///
 /// // This requires an attribute value
-/// fn another_directive(el: R::Element, params: i32) {
+/// fn another_directive(el: crate::renderer::types::Element, params: i32) {
 ///     // do sth
 /// }
 ///
@@ -247,25 +233,24 @@ impl<T, D, P, R> ToTemplate for Directive<T, D, P, R> {
 /// A directive can be a function with one or two parameters.
 /// The first is the element the directive is added to and the optional
 /// second is the parameter that is provided in the attribute.
-pub trait IntoDirective<T: ?Sized, P, R: Renderer> {
+pub trait IntoDirective<T: ?Sized, P> {
     /// An equivalent to this directive that is cloneable and owned.
-    type Cloneable: IntoDirective<T, P, R> + Clone + 'static;
+    type Cloneable: IntoDirective<T, P> + Clone + 'static;
 
     /// Calls the handler function
-    fn run(&self, el: R::Element, param: P);
+    fn run(&self, el: crate::renderer::types::Element, param: P);
 
     /// Converts this into a cloneable type.
     fn into_cloneable(self) -> Self::Cloneable;
 }
 
-impl<F, R> IntoDirective<(R::Element,), (), R> for F
+impl<F> IntoDirective<(crate::renderer::types::Element,), ()> for F
 where
-    F: Fn(R::Element) + 'static,
-    R: Renderer,
+    F: Fn(crate::renderer::types::Element) + 'static,
 {
-    type Cloneable = Arc<dyn Fn(R::Element)>;
+    type Cloneable = Arc<dyn Fn(crate::renderer::types::Element)>;
 
-    fn run(&self, el: R::Element, _: ()) {
+    fn run(&self, el: crate::renderer::types::Element, _: ()) {
         self(el)
     }
 
@@ -274,13 +259,12 @@ where
     }
 }
 
-impl<R> IntoDirective<(R::Element,), (), R> for Arc<dyn Fn(R::Element)>
-where
-    R: Renderer,
+impl IntoDirective<(crate::renderer::types::Element,), ()>
+    for Arc<dyn Fn(crate::renderer::types::Element)>
 {
-    type Cloneable = Arc<dyn Fn(R::Element)>;
+    type Cloneable = Arc<dyn Fn(crate::renderer::types::Element)>;
 
-    fn run(&self, el: R::Element, _: ()) {
+    fn run(&self, el: crate::renderer::types::Element, _: ()) {
         self(el)
     }
 
@@ -289,15 +273,14 @@ where
     }
 }
 
-impl<F, P, R> IntoDirective<(R::Element, P), P, R> for F
+impl<F, P> IntoDirective<(crate::renderer::types::Element, P), P> for F
 where
-    F: Fn(R::Element, P) + 'static,
+    F: Fn(crate::renderer::types::Element, P) + 'static,
     P: 'static,
-    R: Renderer,
 {
-    type Cloneable = Arc<dyn Fn(R::Element, P)>;
+    type Cloneable = Arc<dyn Fn(crate::renderer::types::Element, P)>;
 
-    fn run(&self, el: R::Element, param: P) {
+    fn run(&self, el: crate::renderer::types::Element, param: P) {
         self(el, param);
     }
 
@@ -306,14 +289,14 @@ where
     }
 }
 
-impl<P, R> IntoDirective<(R::Element, P), P, R> for Arc<dyn Fn(R::Element, P)>
+impl<P> IntoDirective<(crate::renderer::types::Element, P), P>
+    for Arc<dyn Fn(crate::renderer::types::Element, P)>
 where
-    R: Renderer,
     P: 'static,
 {
-    type Cloneable = Arc<dyn Fn(R::Element, P)>;
+    type Cloneable = Arc<dyn Fn(crate::renderer::types::Element, P)>;
 
-    fn run(&self, el: R::Element, param: P) {
+    fn run(&self, el: crate::renderer::types::Element, param: P) {
         self(el, param)
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     diagnostics::is_suppressing_resource_load,
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
@@ -24,7 +24,7 @@ use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 /// # use reactive_graph::actions::*;
 /// # use reactive_graph::prelude::*;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
@@ -45,7 +45,7 @@ use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 /// # });
 /// ```
 pub struct MultiAction<I, O, S = SyncStorage> {
-    inner: StoredValue<ArcMultiAction<I, O>, S>,
+    inner: ArenaItem<ArcMultiAction<I, O>, S>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -105,7 +105,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// // if there's a single argument, just use that
     /// let action1 = MultiAction::new(|input: &String| {
@@ -129,9 +129,7 @@ where
         Fut: Future<Output = O> + Send + 'static,
     {
         Self {
-            inner: StoredValue::new_with_storage(ArcMultiAction::new(
-                action_fn,
-            )),
+            inner: ArenaItem::new_with_storage(ArcMultiAction::new(action_fn)),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -153,7 +151,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -189,7 +187,7 @@ where
     /// ```
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
-            self.inner.with_value(|inner| inner.dispatch(input));
+            self.inner.try_with_value(|inner| inner.dispatch(input));
         }
     }
 
@@ -204,7 +202,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -232,7 +230,8 @@ where
     /// # });
     /// ```
     pub fn dispatch_sync(&self, value: O) {
-        self.inner.with_value(|inner| inner.dispatch_sync(value));
+        self.inner
+            .try_with_value(|inner| inner.dispatch_sync(value));
     }
 }
 
@@ -246,7 +245,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -287,7 +286,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -337,7 +336,7 @@ where
 /// # use reactive_graph::actions::*;
 /// # use reactive_graph::prelude::*;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
@@ -404,7 +403,7 @@ impl<I, O> ArcMultiAction<I, O> {
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// // if there's a single argument, just use that
     /// let action1 = ArcMultiAction::new(|input: &String| {
@@ -453,7 +452,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -530,7 +529,7 @@ where
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -580,7 +579,7 @@ impl<I, O> ArcMultiAction<I, O> {
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...
@@ -610,7 +609,7 @@ impl<I, O> ArcMultiAction<I, O> {
     /// # use reactive_graph::actions::*;
     /// # use reactive_graph::prelude::*;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// async fn send_new_todo_to_api(task: String) -> usize {
     ///   // do something...

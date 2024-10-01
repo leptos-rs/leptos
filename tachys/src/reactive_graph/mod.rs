@@ -1,14 +1,13 @@
 use crate::{
     html::attribute::{Attribute, AttributeValue},
     hydration::Cursor,
-    renderer::Renderer,
+    renderer::Rndr,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
         RenderHtml, ToTemplate,
     },
 };
-use any_spawner::Executor;
 use reactive_graph::effect::RenderEffect;
 use std::{
     cell::RefCell,
@@ -20,7 +19,6 @@ use std::{
 /// Types for two way data binding.
 pub mod bind;
 mod class;
-mod guards;
 mod inner_html;
 /// Provides a reactive [`NodeRef`](node_ref::NodeRef) type.
 pub mod node_ref;
@@ -51,12 +49,11 @@ where
     }
 }
 
-impl<F, V, R> Render<R> for F
+impl<F, V> Render for F
 where
     F: ReactiveFunction<Output = V>,
-    V: Render<R>,
+    V: Render,
     V::State: 'static,
-    R: Renderer,
 {
     type State = RenderEffectState<V::State>;
 
@@ -92,10 +89,9 @@ impl<T> From<RenderEffect<T>> for RenderEffectState<T> {
     }
 }
 
-impl<T, R> Mountable<R> for RenderEffectState<T>
+impl<T> Mountable for RenderEffectState<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     fn unmount(&mut self) {
         if let Some(ref mut inner) = self.0 {
@@ -103,13 +99,17 @@ where
         }
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         if let Some(ref mut inner) = self.0 {
             inner.mount(parent, marker);
         }
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if let Some(inner) = &self.0 {
             inner.insert_before_this(child)
         } else {
@@ -118,13 +118,11 @@ where
     }
 }
 
-impl<F, V, R> RenderHtml<R> for F
+impl<F, V> RenderHtml for F
 where
     F: ReactiveFunction<Output = V>,
-    V: RenderHtml<R> + 'static,
+    V: RenderHtml + 'static,
     V::State: 'static,
-
-    R: Renderer + 'static,
 {
     type AsyncOutput = V::AsyncOutput;
 
@@ -173,7 +171,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let cursor = cursor.clone();
@@ -191,31 +189,29 @@ where
     }
 }
 
-impl<F, V, R> AddAnyAttr<R> for F
+impl<F, V> AddAnyAttr for F
 where
     F: ReactiveFunction<Output = V>,
-    V: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    V: RenderHtml + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> =
+    type Output<SomeNewAttr: Attribute> =
         Box<dyn FnMut() -> V::Output<SomeNewAttr::CloneableOwned> + Send>;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         mut self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
         Box::new(move || self.invoke().add_any_attr(attr.clone()))
     }
 }
 
-impl<M, R> Mountable<R> for RenderEffect<M>
+impl<M> Mountable for RenderEffect<M>
 where
-    M: Mountable<R> + 'static,
-    R: Renderer,
+    M: Mountable + 'static,
 {
     fn unmount(&mut self) {
         self.with_value_mut(|state| state.unmount());
@@ -223,24 +219,23 @@ where
 
     fn mount(
         &mut self,
-        parent: &<R as Renderer>::Element,
-        marker: Option<&<R as Renderer>::Node>,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
     ) {
         self.with_value_mut(|state| {
             state.mount(parent, marker);
         });
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.with_value_mut(|value| value.insert_before_this(child))
             .unwrap_or(false)
     }
 }
 
-impl<M, E, R> Mountable<R> for Result<M, E>
+impl<M, E> Mountable for Result<M, E>
 where
-    M: Mountable<R>,
-    R: Renderer,
+    M: Mountable,
 {
     fn unmount(&mut self) {
         if let Ok(ref mut inner) = self {
@@ -250,15 +245,15 @@ where
 
     fn mount(
         &mut self,
-        parent: &<R as Renderer>::Element,
-        marker: Option<&<R as Renderer>::Node>,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
     ) {
         if let Ok(ref mut inner) = self {
             inner.mount(parent, marker);
         }
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if let Ok(inner) = &self {
             inner.insert_before_this(child)
         } else {
@@ -268,12 +263,11 @@ where
 }
 
 // Dynamic attributes
-impl<F, V, R> AttributeValue<R> for F
+impl<F, V> AttributeValue for F
 where
     F: ReactiveFunction<Output = V>,
-    V: AttributeValue<R> + 'static,
+    V: AttributeValue + 'static,
     V::State: 'static,
-    R: Renderer,
 {
     type AsyncOutput = V::AsyncOutput;
     type State = RenderEffect<V::State>;
@@ -294,9 +288,9 @@ where
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
         key: &str,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let key = R::intern(key);
+        let key = Rndr::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
 
@@ -313,10 +307,10 @@ where
 
     fn build(
         mut self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
         key: &str,
     ) -> Self::State {
-        let key = R::intern(key);
+        let key = Rndr::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
 
@@ -332,7 +326,7 @@ where
     }
 
     fn rebuild(mut self, key: &str, state: &mut Self::State) {
-        let key = R::intern(key);
+        let key = Rndr::intern(key);
         let key = key.to_owned();
         let prev_value = state.take_value();
 
@@ -367,12 +361,11 @@ where
     }
 }
 
-impl<Fut, V, R> AttributeValue<R> for Suspend<Fut>
+impl<Fut, V> AttributeValue for Suspend<Fut>
 where
     Fut: Future<Output = V> + Send + 'static,
-    V: AttributeValue<R> + 'static,
+    V: AttributeValue + 'static,
     V::State: 'static,
-    R: Renderer,
 {
     type State = Rc<RefCell<Option<V::State>>>;
     type AsyncOutput = V;
@@ -395,12 +388,12 @@ where
     fn hydrate<const FROM_SERVER: bool>(
         self,
         key: &str,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         let key = key.to_owned();
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
@@ -411,11 +404,15 @@ where
         state
     }
 
-    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
         let key = key.to_owned();
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() = Some(self.inner.await.build(&el, &key));
@@ -427,7 +424,7 @@ where
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
         let key = key.to_owned();
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(state);
             async move {
                 let value = self.inner.await;
@@ -506,7 +503,6 @@ mod stable {
     use crate::{
         html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
-        renderer::Renderer,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -524,13 +520,11 @@ mod stable {
 
     macro_rules! signal_impl {
         ($sig:ident $dry_resolve:literal) => {
-            impl<V, R> Render<R> for $sig<V>
+            impl<V> Render for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: Render<R> + Clone + Send + Sync + 'static,
+                V: Render + Clone + Send + Sync + 'static,
                 V::State: 'static,
-
-                R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
 
@@ -548,33 +542,30 @@ mod stable {
                 }
             }
 
-            impl<V, R> AddAnyAttr<R> for $sig<V>
+            impl<V> AddAnyAttr for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V: RenderHtml + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
+                type Output<SomeNewAttr: Attribute> = Self;
 
-                fn add_any_attr<NewAttr: Attribute<R>>(
+                fn add_any_attr<NewAttr: Attribute>(
                     self,
                     _attr: NewAttr,
                 ) -> Self::Output<NewAttr>
                 where
-                    Self::Output<NewAttr>: RenderHtml<R>,
+                    Self::Output<NewAttr>: RenderHtml,
                 {
                     todo!()
                 }
             }
 
-            impl<V, R> RenderHtml<R> for $sig<V>
+            impl<V> RenderHtml for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V: RenderHtml + Clone + Send + Sync + 'static,
                 V::State: 'static,
-
-                R: Renderer + 'static,
             {
                 type AsyncOutput = Self;
 
@@ -625,7 +616,7 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    cursor: &Cursor<R>,
+                    cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
                     (move || self.get())
@@ -633,12 +624,11 @@ mod stable {
                 }
             }
 
-            impl<V, R> AttributeValue<R> for $sig<V>
+            impl<V> AttributeValue for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: AttributeValue<R> + Clone + Send + Sync + 'static,
+                V: AttributeValue + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                R: Renderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
@@ -659,14 +649,14 @@ mod stable {
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
                     key: &str,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(key, el)
                 }
 
                 fn build(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).build(el, key)
@@ -695,15 +685,13 @@ mod stable {
 
     macro_rules! signal_impl_arena {
         ($sig:ident $dry_resolve:literal) => {
-            impl<V, R, S> Render<R> for $sig<V, S>
+            impl<V, S> Render for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
                 S: Storage<V> + Storage<Option<V>>,
-                V: Render<R> + Send + Sync + Clone + 'static,
+                V: Render + Send + Sync + Clone + 'static,
                 V::State: 'static,
-
-                R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
 
@@ -721,37 +709,34 @@ mod stable {
                 }
             }
 
-            impl<V, R, S> AddAnyAttr<R> for $sig<V, S>
+            impl<V, S> AddAnyAttr for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
                 S: Storage<V> + Storage<Option<V>>,
-                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V: RenderHtml + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> = $sig<V, S>;
+                type Output<SomeNewAttr: Attribute> = $sig<V, S>;
 
-                fn add_any_attr<NewAttr: Attribute<R>>(
+                fn add_any_attr<NewAttr: Attribute>(
                     self,
                     _attr: NewAttr,
                 ) -> Self::Output<NewAttr>
                 where
-                    Self::Output<NewAttr>: RenderHtml<R>,
+                    Self::Output<NewAttr>: RenderHtml,
                 {
                     todo!()
                 }
             }
 
-            impl<V, R, S> RenderHtml<R> for $sig<V, S>
+            impl<V, S> RenderHtml for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
                 S: Storage<V> + Storage<Option<V>>,
-                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V: RenderHtml + Clone + Send + Sync + 'static,
                 V::State: 'static,
-
-                R: Renderer + 'static,
             {
                 type AsyncOutput = Self;
 
@@ -802,7 +787,7 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    cursor: &Cursor<R>,
+                    cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
                     (move || self.get())
@@ -810,14 +795,13 @@ mod stable {
                 }
             }
 
-            impl<V, R, S> AttributeValue<R> for $sig<V, S>
+            impl<V, S> AttributeValue for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Storage<V> + Storage<Option<V>>,
                 S: Send + Sync + 'static,
-                V: AttributeValue<R> + Send + Sync + Clone + 'static,
+                V: AttributeValue + Send + Sync + Clone + 'static,
                 V::State: 'static,
-                R: Renderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
@@ -838,14 +822,14 @@ mod stable {
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
                     key: &str,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(key, el)
                 }
 
                 fn build(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).build(el, key)

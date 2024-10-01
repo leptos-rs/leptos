@@ -27,13 +27,13 @@ where
     type Value = T::Value;
 
     fn patch(&self, new: Self::Value) {
-        let path = StorePath::default();
+        let path = self.path().into_iter().collect::<StorePath>();
         if let Some(mut writer) = self.writer() {
             // don't track the writer for the whole store
             writer.untrack();
             let mut notify = |path: &StorePath| {
-                println!("notifying on {path:?}");
-                self.get_trigger(path.to_owned()).notify();
+                self.get_trigger(path.to_owned()).this.notify();
+                self.get_trigger(path.to_owned()).children.notify();
             };
             writer.patch_field(new, &path, &mut notify);
         }

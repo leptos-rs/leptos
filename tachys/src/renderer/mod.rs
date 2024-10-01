@@ -1,54 +1,55 @@
-use crate::{
-    html::element::CreateElement,
-    view::{Mountable, ToTemplate},
-};
+use crate::view::{Mountable, ToTemplate};
 use std::{borrow::Cow, fmt::Debug};
 use wasm_bindgen::JsValue;
 
 /// A DOM renderer.
 pub mod dom;
-#[cfg(feature = "testing")]
+
+pub type Rndr = dom::Dom;
+pub mod types {
+    pub use super::dom::{
+        ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,
+        TemplateElement, Text,
+    };
+}
+
+/* #[cfg(feature = "testing")]
 /// A renderer based on a mock DOM.
 pub mod mock_dom;
 /// A DOM renderer optimized for element creation.
 #[cfg(feature = "sledgehammer")]
-pub mod sledgehammer;
+pub mod sledgehammer; */
 
 /// Implements the instructions necessary to render an interface on some platform.
+///
 /// By default, this is implemented for the Document Object Model (DOM) in a Web
 /// browser, but implementing this trait for some other platform allows you to use
 /// the library to render any tree-based UI.
 pub trait Renderer: Send + Sized + Debug + 'static {
     /// The basic type of node in the view tree.
-    type Node: Mountable<Self> + Clone + 'static;
+    type Node: Mountable + Clone + 'static;
     /// A visible element in the view tree.
     type Element: AsRef<Self::Node>
         + CastFrom<Self::Node>
-        + Mountable<Self>
+        + Mountable
         + Clone
         + 'static;
     /// A text node in the view tree.
     type Text: AsRef<Self::Node>
         + CastFrom<Self::Node>
-        + Mountable<Self>
+        + Mountable
         + Clone
         + 'static;
     /// A placeholder node, which can be inserted into the tree but does not
     /// appear (e.g., a comment node in the DOM).
     type Placeholder: AsRef<Self::Node>
         + CastFrom<Self::Node>
-        + Mountable<Self>
+        + Mountable
         + Clone
         + 'static;
 
     /// Interns a string slice, if that is available on this platform and useful as an optimization.
     fn intern(text: &str) -> &str;
-
-    /// Creates a new element node.
-    #[track_caller]
-    fn create_element<E: CreateElement<Self>>(tag: E) -> Self::Element {
-        tag.create_element()
-    }
 
     /// Creates a new text node.
     fn create_text_node(text: &str) -> Self::Text;
@@ -72,39 +73,6 @@ pub trait Renderer: Send + Sized + Debug + 'static {
         new_child: &Self::Node,
         marker: Option<&Self::Node>,
     );
-
-    /// Mounts the new child before the marker as its sibling.
-    ///
-    /// ## Panics
-    /// The default implementation panics if `before` does not have a parent [`R::Element`].
-    fn mount_before<M>(new_child: &mut M, before: &Self::Node)
-    where
-        M: Mountable<Self>,
-    {
-        let parent = Self::Element::cast_from(
-            Self::get_parent(before).expect("could not find parent element"),
-        )
-        .expect("placeholder parent should be Element");
-        new_child.mount(&parent, Some(before));
-    }
-
-    /// Tries to mount the new child before the marker as its sibling.
-    ///
-    /// Returns `false` if the child did not have a valid parent.
-    #[track_caller]
-    fn try_mount_before<M>(new_child: &mut M, before: &Self::Node) -> bool
-    where
-        M: Mountable<Self>,
-    {
-        if let Some(parent) =
-            Self::get_parent(before).and_then(Self::Element::cast_from)
-        {
-            new_child.mount(&parent, Some(before));
-            true
-        } else {
-            false
-        }
-    }
 
     /// Removes the child node from the parents, and returns the removed node.
     fn remove_node(

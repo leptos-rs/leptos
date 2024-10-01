@@ -9,21 +9,17 @@ mod vertical;
 use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, collections::HashSet, marker::PhantomData};
-use tachys::{
-    renderer::Renderer,
-    view::{Render, RenderHtml},
-};
+use std::{borrow::Cow, collections::HashSet};
+use tachys::view::{Render, RenderHtml};
 pub use vertical::*;
 
 #[derive(Debug)]
-pub struct Routes<Children, Rndr> {
+pub struct Routes<Children> {
     base: Option<Cow<'static, str>>,
     children: Children,
-    ty: PhantomData<Rndr>,
 }
 
-impl<Children, Rndr> Clone for Routes<Children, Rndr>
+impl<Children> Clone for Routes<Children>
 where
     Children: Clone,
 {
@@ -31,17 +27,15 @@ where
         Self {
             base: self.base.clone(),
             children: self.children.clone(),
-            ty: PhantomData,
         }
     }
 }
 
-impl<Children, Rndr> Routes<Children, Rndr> {
+impl<Children> Routes<Children> {
     pub fn new(children: Children) -> Self {
         Self {
             base: None,
             children,
-            ty: PhantomData,
         }
     }
 
@@ -52,15 +46,13 @@ impl<Children, Rndr> Routes<Children, Rndr> {
         Self {
             base: Some(base.into()),
             children,
-            ty: PhantomData,
         }
     }
 }
 
-impl<Children, Rndr> Routes<Children, Rndr>
+impl<Children> Routes<Children>
 where
-    Rndr: Renderer + 'static,
-    Children: MatchNestedRoutes<Rndr>,
+    Children: MatchNestedRoutes,
 {
     pub fn match_route(&self, path: &str) -> Option<Children::Match> {
         let path = match &self.base {
@@ -101,12 +93,9 @@ where
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u16);
 
-pub trait MatchInterface<R>
-where
-    R: Renderer + 'static,
-{
-    type Child: MatchInterface<R> + MatchParams + 'static;
-    type View: Render<R> + RenderHtml<R> + Send + 'static;
+pub trait MatchInterface {
+    type Child: MatchInterface + MatchParams + 'static;
+    type View: Render + RenderHtml + Send + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 
@@ -114,7 +103,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (impl ChooseView<R, Output = Self::View>, Option<Self::Child>);
+    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>);
 }
 
 pub trait MatchParams {
@@ -123,13 +112,10 @@ pub trait MatchParams {
     fn to_params(&self) -> Self::Params;
 }
 
-pub trait MatchNestedRoutes<R>
-where
-    R: Renderer + 'static,
-{
+pub trait MatchNestedRoutes {
     type Data;
     type View;
-    type Match: MatchInterface<R> + MatchParams;
+    type Match: MatchInterface + MatchParams;
 
     fn match_nested<'a>(
         &'a self,
@@ -157,12 +143,11 @@ mod tests {
         WildcardSegment,
     };
     use either_of::Either;
-    use tachys::renderer::dom::Dom;
 
     #[test]
     pub fn matches_single_root_route() {
         let routes =
-            Routes::<_, Dom>::new(NestedRoute::new(StaticSegment("/"), || ()));
+            Routes::<_>::new(NestedRoute::new(StaticSegment("/"), || ()));
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         // this case seems like it should match, but implementing it interferes with
@@ -178,7 +163,7 @@ mod tests {
 
     #[test]
     pub fn matches_nested_route() {
-        let routes: Routes<_, Dom> =
+        let routes: Routes<_> =
             Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
@@ -200,17 +185,17 @@ mod tests {
         );
 
         let matched = routes.match_route("/author/contact").unwrap();
-        assert_eq!(MatchInterface::<Dom>::as_matched(&matched), "");
-        let (_, child) = MatchInterface::<Dom>::into_view_and_child(matched);
+        assert_eq!(MatchInterface::as_matched(&matched), "");
+        let (_, child) = MatchInterface::into_view_and_child(matched);
         assert_eq!(
-            MatchInterface::<Dom>::as_matched(&child.unwrap()),
+            MatchInterface::as_matched(&child.unwrap()),
             "/author/contact"
         );
     }
 
     #[test]
     pub fn does_not_match_route_unless_full_param_matches() {
-        let routes = Routes::<_, Dom>::new((
+        let routes = Routes::<_>::new((
             NestedRoute::new(StaticSegment("/property-api"), || ()),
             NestedRoute::new(StaticSegment("/property"), || ()),
         ));
@@ -220,7 +205,7 @@ mod tests {
 
     #[test]
     pub fn does_not_match_incomplete_route() {
-        let routes: Routes<_, Dom> =
+        let routes: Routes<_> =
             Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
@@ -233,7 +218,7 @@ mod tests {
 
     #[test]
     pub fn chooses_between_nested_routes() {
-        let routes: Routes<_, Dom> = Routes::new((
+        let routes: Routes<_> = Routes::new((
             NestedRoute::new(StaticSegment("/"), || ()).child((
                 NestedRoute::new(StaticSegment(""), || ()),
                 NestedRoute::new(StaticSegment("about"), || ()),
@@ -287,7 +272,7 @@ mod tests {
 
     #[test]
     pub fn arbitrary_nested_routes() {
-        let routes: Routes<_, Dom> = Routes::new_with_base(
+        let routes: Routes<_> = Routes::new_with_base(
             (
                 NestedRoute::new(StaticSegment("/"), || ()).child((
                     NestedRoute::new(StaticSegment("/"), || ()),

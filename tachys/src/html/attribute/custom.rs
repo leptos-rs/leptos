@@ -1,65 +1,54 @@
 use super::NextAttribute;
 use crate::{
     html::attribute::{Attribute, AttributeValue},
-    renderer::DomRenderer,
     view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
-use std::{borrow::Cow, marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 /// Adds a custom attribute with any key-value combintion.
 #[inline(always)]
-pub fn custom_attribute<K, V, R>(key: K, value: V) -> CustomAttr<K, V, R>
+pub fn custom_attribute<K, V>(key: K, value: V) -> CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R>,
-    R: DomRenderer,
+    V: AttributeValue,
 {
-    CustomAttr {
-        key,
-        value,
-        rndr: PhantomData,
-    }
+    CustomAttr { key, value }
 }
 
 /// A custom attribute with any key-value combination.
 #[derive(Debug)]
-pub struct CustomAttr<K, V, R>
+pub struct CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R>,
-    R: DomRenderer,
+    V: AttributeValue,
 {
     key: K,
     value: V,
-    rndr: PhantomData<R>,
 }
 
-impl<K, V, R> Clone for CustomAttr<K, V, R>
+impl<K, V> Clone for CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R> + Clone,
-    R: DomRenderer,
+    V: AttributeValue + Clone,
 {
     fn clone(&self) -> Self {
         Self {
             key: self.key.clone(),
             value: self.value.clone(),
-            rndr: self.rndr,
         }
     }
 }
 
-impl<K, V, R> Attribute<R> for CustomAttr<K, V, R>
+impl<K, V> Attribute for CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R>,
-    R: DomRenderer,
+    V: AttributeValue,
 {
     const MIN_LENGTH: usize = 0;
-    type AsyncOutput = CustomAttr<K, V::AsyncOutput, R>;
+    type AsyncOutput = CustomAttr<K, V::AsyncOutput>;
     type State = V::State;
-    type Cloneable = CustomAttr<K, V::Cloneable, R>;
-    type CloneableOwned = CustomAttr<K, V::CloneableOwned, R>;
+    type Cloneable = CustomAttr<K, V::Cloneable>;
+    type CloneableOwned = CustomAttr<K, V::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         self.key.as_ref().len() + 3 + self.value.html_len()
@@ -75,7 +64,10 @@ where
         self.value.to_html(self.key.as_ref(), buf);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         if !K::KEY.is_empty() {
             self.value.hydrate::<FROM_SERVER>(self.key.as_ref(), el)
         } else {
@@ -83,7 +75,7 @@ where
         }
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.value.build(el, self.key.as_ref())
     }
 
@@ -95,7 +87,6 @@ where
         CustomAttr {
             key: self.key,
             value: self.value.into_cloneable(),
-            rndr: self.rndr,
         }
     }
 
@@ -103,7 +94,6 @@ where
         CustomAttr {
             key: self.key,
             value: self.value.into_cloneable_owned(),
-            rndr: self.rndr,
         }
     }
 
@@ -115,20 +105,18 @@ where
         CustomAttr {
             key: self.key,
             value: self.value.resolve().await,
-            rndr: self.rndr,
         }
     }
 }
 
-impl<K, V, R> NextAttribute<R> for CustomAttr<K, V, R>
+impl<K, V> NextAttribute for CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R>,
-    R: DomRenderer,
+    V: AttributeValue,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -136,11 +124,10 @@ where
     }
 }
 
-impl<K, V, R> ToTemplate for CustomAttr<K, V, R>
+impl<K, V> ToTemplate for CustomAttr<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<R>,
-    R: DomRenderer,
+    V: AttributeValue,
 {
     fn to_template(
         buf: &mut String,
@@ -186,28 +173,27 @@ impl<const K: &'static str> CustomAttributeKey
 }
 
 /// Adds a custom attribute to an element.
-pub trait CustomAttribute<K, V, Rndr>
+pub trait CustomAttribute<K, V>
 where
     K: CustomAttributeKey,
-    V: AttributeValue<Rndr>,
-    Rndr: DomRenderer,
-    Self: Sized + AddAnyAttr<Rndr>,
+    V: AttributeValue,
+
+    Self: Sized + AddAnyAttr,
 {
     /// Adds an HTML attribute by key and value.
     fn attr(
         self,
         key: K,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<CustomAttr<K, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<CustomAttr<K, V>> {
         self.add_any_attr(custom_attribute(key, value))
     }
 }
 
-impl<T, K, V, Rndr> CustomAttribute<K, V, Rndr> for T
+impl<T, K, V> CustomAttribute<K, V> for T
 where
-    T: AddAnyAttr<Rndr>,
+    T: AddAnyAttr,
     K: CustomAttributeKey,
-    V: AttributeValue<Rndr>,
-    Rndr: DomRenderer,
+    V: AttributeValue,
 {
 }

@@ -1,5 +1,6 @@
 use reactive_graph::{
     computed::{ArcMemo, Memo},
+    owner::Owner,
     prelude::*,
     signal::RwSignal,
     wrappers::read::Signal,
@@ -29,6 +30,9 @@ pub mod imports {
 
 #[test]
 fn memo_calculates_value() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new(1);
     let b = RwSignal::new(2);
     let c = RwSignal::new(3);
@@ -42,6 +46,9 @@ fn memo_calculates_value() {
 
 #[test]
 fn arc_memo_readable() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new(1);
     let b = RwSignal::new(2);
     let c = RwSignal::new(3);
@@ -52,6 +59,9 @@ fn arc_memo_readable() {
 
 #[test]
 fn memo_doesnt_repeat_calculation_per_get() {
+    let owner = Owner::new();
+    owner.set();
+
     let calculations = Arc::new(RwLock::new(0));
 
     let a = RwSignal::new(1);
@@ -78,6 +88,9 @@ fn memo_doesnt_repeat_calculation_per_get() {
 
 #[test]
 fn nested_memos() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new(0); // 1
     let b = RwSignal::new(0); // 2
     let c = Memo::new(move |_| {
@@ -111,6 +124,9 @@ fn nested_memos() {
 
 #[test]
 fn memo_runs_only_when_inputs_change() {
+    let owner = Owner::new();
+    owner.set();
+
     let call_count = Arc::new(RwLock::new(0));
     let a = RwSignal::new(0);
     let b = RwSignal::new(0);
@@ -150,6 +166,9 @@ fn memo_runs_only_when_inputs_change() {
 
 #[test]
 fn diamond_problem() {
+    let owner = Owner::new();
+    owner.set();
+
     let name = RwSignal::new("Greg Johnston".to_string());
     let first = Memo::new(move |_| {
         println!("calculating first");
@@ -187,9 +206,14 @@ fn diamond_problem() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn dynamic_dependencies() {
+    let owner = Owner::new();
+    owner.set();
+
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let first = RwSignal::new("Greg");
     let last = RwSignal::new("Johnston");
@@ -264,9 +288,14 @@ async fn dynamic_dependencies() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
+    let owner = Owner::new();
+    owner.set();
+
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -307,9 +336,14 @@ async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_doesnt_rerun_if_memo_didnt_change() {
+    let owner = Owner::new();
+    owner.set();
+
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -343,9 +377,14 @@ async fn effect_doesnt_rerun_if_memo_didnt_change() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_depending_on_signal_and_memo_doesnt_rerun_unnecessarily() {
+    let owner = Owner::new();
+    owner.set();
+
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -383,6 +422,9 @@ async fn effect_depending_on_signal_and_memo_doesnt_rerun_unnecessarily() {
 
 #[test]
 fn unsync_derived_signal_and_memo() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new_local(Rc::new(1));
     let b = RwSignal::new(2);
     let c = RwSignal::new(3);

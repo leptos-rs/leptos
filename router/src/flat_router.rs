@@ -21,7 +21,6 @@ use std::{cell::RefCell, iter, mem, rc::Rc};
 use tachys::{
     hydration::Cursor,
     reactive_graph::OwnedView,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -29,23 +28,22 @@ use tachys::{
     },
 };
 
-pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
+pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
     pub current_url: ArcRwSignal<Url>,
     pub location: Option<Loc>,
-    pub routes: Routes<Defs, R>,
+    pub routes: Routes<Defs>,
     pub fallback: FalFn,
     pub outer_owner: Owner,
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
-pub struct FlatRoutesViewState<Defs, Fal, R>
+pub struct FlatRoutesViewState<Defs, Fal>
 where
-    Defs: MatchNestedRoutes<R> + 'static,
-    Fal: Render<R> + 'static,
-    R: Renderer + 'static
+    Defs: MatchNestedRoutes + 'static,
+    Fal: Render + 'static,
 {
     #[allow(clippy::type_complexity)]
-    view: <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<R>>::State,
+    view: <EitherOf3<(), Fal, OwnedView<<Defs::Match as MatchInterface>::View>> as Render>::State,
     id: Option<RouteMatchId>,
     owner: Owner,
     params: ArcRwSignal<ParamsMap>,
@@ -54,11 +52,10 @@ where
         matched: ArcRwSignal<String>
 }
 
-impl<Defs, Fal, R> Mountable<R> for FlatRoutesViewState<Defs, Fal, R>
+impl<Defs, Fal> Mountable for FlatRoutesViewState<Defs, Fal>
 where
-    Defs: MatchNestedRoutes<R> + 'static,
-    Fal: Render<R> + 'static,
-    R: Renderer + 'static,
+    Defs: MatchNestedRoutes + 'static,
+    Fal: Render + 'static,
 {
     fn unmount(&mut self) {
         self.view.unmount();
@@ -66,26 +63,25 @@ where
 
     fn mount(
         &mut self,
-        parent: &<R as Renderer>::Element,
-        marker: Option<&<R as Renderer>::Node>,
+        parent: &leptos::tachys::renderer::types::Element,
+        marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
         self.view.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
     }
 }
 
-impl<Loc, Defs, FalFn, Fal, R> Render<R> for FlatRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> Render for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider,
-    Defs: MatchNestedRoutes<R> + 'static,
+    Defs: MatchNestedRoutes + 'static,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: Render<R> + 'static,
-    R: Renderer + 'static,
+    Fal: Render + 'static,
 {
-    type State = Rc<RefCell<FlatRoutesViewState<Defs, Fal, R>>>;
+    type State = Rc<RefCell<FlatRoutesViewState<Defs, Fal>>>;
 
     fn build(self) -> Self::State {
         let FlatRoutesView {
@@ -151,7 +147,7 @@ where
                             provide_context(params_memo);
                             provide_context(url);
                             provide_context(Matched(ArcMemo::from(matched)));
-                            view.choose().await
+                            OwnedView::new(view.choose().await)
                         }
                     })
                 }));
@@ -296,7 +292,7 @@ where
                             provide_context(Matched(ArcMemo::from(
                                 new_matched,
                             )));
-                            let view =
+                            let view = OwnedView::new(
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
                                     let value =
@@ -306,7 +302,8 @@ where
                                     value
                                 } else {
                                     view.choose().await
-                                };
+                                },
+                            );
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
@@ -332,41 +329,37 @@ where
     }
 }
 
-impl<Loc, Defs, FalFn, Fal, R> AddAnyAttr<R>
-    for FlatRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    Fal: RenderHtml + 'static,
 {
-    type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        FlatRoutesView<Loc, Defs, FalFn, R>;
+    type Output<SomeNewAttr: leptos::attr::Attribute> =
+        FlatRoutesView<Loc, Defs, FalFn>;
 
-    fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
+    fn add_any_attr<NewAttr: leptos::attr::Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         todo!()
     }
 }
 
-impl<Loc, Defs, FalFn, Fal, R> FlatRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    Fal: RenderHtml + 'static,
 {
     fn choose_ssr(
         self,
-    ) -> OwnedView<Either<Fal, <Defs::Match as MatchInterface<R>>::View>, R>
-    {
+    ) -> OwnedView<Either<Fal, <Defs::Match as MatchInterface>::View>> {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
@@ -411,21 +404,19 @@ where
     }
 }
 
-impl<Loc, Defs, FalFn, Fal, R> RenderHtml<R>
-    for FlatRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = <Either<
         Fal,
-        <Defs::Match as MatchInterface<R>>::View,
-    > as RenderHtml<R>>::MIN_LENGTH;
+        <Defs::Match as MatchInterface>::View,
+    > as RenderHtml>::MIN_LENGTH;
 
     fn dry_resolve(&mut self) {}
 
@@ -509,7 +500,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         // this can be mostly the same as the build() implementation, but with hydrate()
@@ -582,7 +573,7 @@ where
                             provide_context(params_memo);
                             provide_context(url);
                             provide_context(Matched(ArcMemo::from(matched)));
-                            view.choose().await
+                            OwnedView::new(view.choose().await)
                         }
                     })
                 }));

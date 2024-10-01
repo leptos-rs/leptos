@@ -9,8 +9,9 @@ use crate::{
     html::element::{CreateElement, ElementType},
     view::Mountable,
 };
+use indexmap::IndexMap;
 use slotmap::{new_key_type, SlotMap};
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsValue;
 
 /// A [`Renderer`] that uses a mock DOM structure running in Rust code.
@@ -206,7 +207,7 @@ impl Document {
             parent: None,
             ty: NodeType::Element {
                 tag: tag.to_string().into(),
-                attrs: HashMap::new(),
+                attrs: IndexMap::new(),
                 children: Vec::new(),
             },
         })))
@@ -331,7 +332,7 @@ pub enum NodeType {
         /// The HTML tag name.
         tag: Cow<'static, str>,
         /// The attributes.
-        attrs: HashMap<String, String>,
+        attrs: IndexMap<String, String>,
         /// The element's children.
         children: Vec<Node>,
     },
@@ -419,7 +420,7 @@ impl Mountable<MockDom> for Placeholder {
 }
 
 impl<E: ElementType> CreateElement<MockDom> for E {
-    fn create_element(&self) -> <MockDom as Renderer>::Element {
+    fn create_element(&self) -> crate::renderer::types::Element {
         document().create_element(E::TAG)
     }
 }
@@ -461,7 +462,7 @@ impl Renderer for MockDom {
     fn remove_attribute(node: &Self::Element, name: &str) {
         Document::with_node_mut(node.0 .0, |node| {
             if let NodeType::Element { ref mut attrs, .. } = node.ty {
-                attrs.remove(name);
+                attrs.shift_remove(name);
             }
         });
     }
@@ -575,7 +576,7 @@ impl Renderer for MockDom {
     }
 
     fn log_node(node: &Self::Node) {
-        println!("{node:?}");
+        eprintln!("{node:?}");
     }
 
     fn clear_children(parent: &Self::Element) {

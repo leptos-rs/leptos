@@ -2,30 +2,26 @@ use super::attribute::Attribute;
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState},
 };
-use std::marker::PhantomData;
 
 /// An island of interactivity in an otherwise-inert HTML document.
-pub struct Island<Rndr, View> {
+pub struct Island<View> {
     component: &'static str,
     props_json: String,
     view: View,
-    rndr: PhantomData<Rndr>,
 }
 const ISLAND_TAG: &str = "leptos-island";
 const ISLAND_CHILDREN_TAG: &str = "leptos-children";
 
-impl<Rndr, View> Island<Rndr, View> {
+impl<View> Island<View> {
     /// Creates a new island with the given component name.
     pub fn new(component: &'static str, view: View) -> Self {
         Island {
             component,
             props_json: String::new(),
             view,
-            rndr: PhantomData,
         }
     }
 
@@ -57,10 +53,9 @@ impl<Rndr, View> Island<Rndr, View> {
     }
 }
 
-impl<Rndr, View> Render<Rndr> for Island<Rndr, View>
+impl<View> Render for Island<View>
 where
-    View: Render<Rndr>,
-    Rndr: Renderer,
+    View: Render,
 {
     type State = View::State;
 
@@ -73,42 +68,38 @@ where
     }
 }
 
-impl<Rndr, View> AddAnyAttr<Rndr> for Island<Rndr, View>
+impl<View> AddAnyAttr for Island<View>
 where
-    View: RenderHtml<Rndr>,
-    Rndr: Renderer,
+    View: RenderHtml,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> =
-        Island<Rndr, <View as AddAnyAttr<Rndr>>::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute> =
+        Island<<View as AddAnyAttr>::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let Island {
             component,
             props_json,
             view,
-            rndr,
         } = self;
         Island {
             component,
             props_json,
             view: view.add_any_attr(attr),
-            rndr,
         }
     }
 }
 
-impl<Rndr, View> RenderHtml<Rndr> for Island<Rndr, View>
+impl<View> RenderHtml for Island<View>
 where
-    View: RenderHtml<Rndr>,
-    Rndr: Renderer,
+    View: RenderHtml,
 {
-    type AsyncOutput = Island<Rndr, View::AsyncOutput>;
+    type AsyncOutput = Island<View::AsyncOutput>;
 
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -125,13 +116,11 @@ where
             component,
             props_json,
             view,
-            rndr,
         } = self;
         Island {
             component,
             props_json,
             view: view.resolve().await,
-            rndr,
         }
     }
 
@@ -178,7 +167,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         if position.get() == Position::FirstChild {
@@ -192,18 +181,14 @@ where
 }
 
 /// The children that will be projected into an [`Island`].
-pub struct IslandChildren<Rndr, View> {
+pub struct IslandChildren<View> {
     view: View,
-    rndr: PhantomData<Rndr>,
 }
 
-impl<Rndr, View> IslandChildren<Rndr, View> {
+impl<View> IslandChildren<View> {
     /// Creates a new representation of the children.
     pub fn new(view: View) -> Self {
-        IslandChildren {
-            view,
-            rndr: PhantomData,
-        }
+        IslandChildren { view }
     }
 
     fn open_tag(buf: &mut String) {
@@ -219,10 +204,9 @@ impl<Rndr, View> IslandChildren<Rndr, View> {
     }
 }
 
-impl<Rndr, View> Render<Rndr> for IslandChildren<Rndr, View>
+impl<View> Render for IslandChildren<View>
 where
-    View: Render<Rndr>,
-    Rndr: Renderer,
+    View: Render,
 {
     type State = ();
 
@@ -231,35 +215,32 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-impl<Rndr, View> AddAnyAttr<Rndr> for IslandChildren<Rndr, View>
+impl<View> AddAnyAttr for IslandChildren<View>
 where
-    View: RenderHtml<Rndr>,
-    Rndr: Renderer,
+    View: RenderHtml,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> =
-        IslandChildren<Rndr, <View as AddAnyAttr<Rndr>>::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute> =
+        IslandChildren<<View as AddAnyAttr>::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
-        let IslandChildren { view, rndr } = self;
+        let IslandChildren { view } = self;
         IslandChildren {
             view: view.add_any_attr(attr),
-            rndr,
         }
     }
 }
 
-impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>
+impl<View> RenderHtml for IslandChildren<View>
 where
-    View: RenderHtml<Rndr>,
-    Rndr: Renderer,
+    View: RenderHtml,
 {
-    type AsyncOutput = IslandChildren<Rndr, View::AsyncOutput>;
+    type AsyncOutput = IslandChildren<View::AsyncOutput>;
 
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
@@ -271,10 +252,9 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        let IslandChildren { view, rndr } = self;
+        let IslandChildren { view } = self;
         IslandChildren {
             view: view.resolve().await,
-            rndr,
         }
     }
 
@@ -321,7 +301,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         // island children aren't hydrated

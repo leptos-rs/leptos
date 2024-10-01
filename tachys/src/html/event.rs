@@ -1,6 +1,6 @@
 use crate::{
     html::attribute::Attribute,
-    renderer::{CastFrom, DomRenderer, RemoveEventHandler},
+    renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
@@ -51,13 +51,12 @@ where
 }
 
 /// An event listener with a typed event target.
-pub struct Targeted<E, T, R> {
+pub struct Targeted<E, T> {
     event: E,
     el_ty: PhantomData<T>,
-    rndr: PhantomData<R>,
 }
 
-impl<E, T, R> Targeted<E, T, R> {
+impl<E, T> Targeted<E, T> {
     /// Returns the inner event.
     pub fn into_inner(self) -> E {
         self.event
@@ -66,17 +65,17 @@ impl<E, T, R> Targeted<E, T, R> {
     /// Returns the event's target, as an HTML element of the correct type.
     pub fn target(&self) -> T
     where
-        T: CastFrom<R::Element>,
-        R: DomRenderer,
-        R::Event: From<E>,
+        T: CastFrom<crate::renderer::types::Element>,
+
+        crate::renderer::types::Event: From<E>,
         E: Clone,
     {
-        let ev = R::Event::from(self.event.clone());
-        R::event_target(&ev)
+        let ev = crate::renderer::types::Event::from(self.event.clone());
+        Rndr::event_target(&ev)
     }
 }
 
-impl<E, T, R> Deref for Targeted<E, T, R> {
+impl<E, T> Deref for Targeted<E, T> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -84,64 +83,60 @@ impl<E, T, R> Deref for Targeted<E, T, R> {
     }
 }
 
-impl<E, T, R> DerefMut for Targeted<E, T, R> {
+impl<E, T> DerefMut for Targeted<E, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.event
     }
 }
 
-impl<E, T, R> From<E> for Targeted<E, T, R> {
+impl<E, T> From<E> for Targeted<E, T> {
     fn from(event: E) -> Self {
         Targeted {
             event,
             el_ty: PhantomData,
-            rndr: PhantomData,
         }
     }
 }
 
 /// Creates an [`Attribute`] that will add an event listener to an element.
-pub fn on<E, F, R>(event: E, cb: F) -> On<E, F, R>
+pub fn on<E, F>(event: E, cb: F) -> On<E, F>
 where
     F: FnMut(E::EventType) + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    E::EventType: From<R::Event>,
-    R: DomRenderer,
+    E::EventType: From<crate::renderer::types::Event>,
 {
     On {
         event,
         cb: Some(SendWrapper::new(cb)),
-        ty: PhantomData,
     }
 }
 
 /// Creates an [`Attribute`] that will add an event listener with a typed target to an element.
 #[allow(clippy::type_complexity)]
-pub fn on_target<E, T, R, F>(
+pub fn on_target<E, T, F>(
     event: E,
     mut cb: F,
-) -> On<E, Box<dyn FnMut(E::EventType)>, R>
+) -> On<E, Box<dyn FnMut(E::EventType)>>
 where
     T: HasElementType,
-    F: FnMut(Targeted<E::EventType, <T as HasElementType>::ElementType, R>)
+    F: FnMut(Targeted<E::EventType, <T as HasElementType>::ElementType>)
         + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    R: DomRenderer,
-    E::EventType: From<R::Event>,
+
+    E::EventType: From<crate::renderer::types::Event>,
 {
     on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
 }
 
 /// An [`Attribute`] that adds an event listener to an element.
-pub struct On<E, F, R> {
+pub struct On<E, F> {
     event: E,
     cb: Option<SendWrapper<F>>,
-    ty: PhantomData<R>,
 }
 
-impl<E, F, R> Clone for On<E, F, R>
+impl<E, F> Clone for On<E, F>
 where
     E: Clone,
     F: Clone,
@@ -150,30 +145,33 @@ where
         Self {
             event: self.event.clone(),
             cb: self.cb.clone(),
-            ty: PhantomData,
         }
     }
 }
 
-impl<E, F, R> On<E, F, R>
+impl<E, F> On<E, F>
 where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    R: DomRenderer,
-    E::EventType: From<R::Event>,
+    E::EventType: From<crate::renderer::types::Event>,
 {
     /// Attaches the event listener to the element.
-    pub fn attach(self, el: &R::Element) -> RemoveEventHandler<R::Element> {
-        fn attach_inner<R: DomRenderer>(
-            el: &R::Element,
-            cb: Box<dyn FnMut(R::Event)>,
+    pub fn attach(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> RemoveEventHandler<crate::renderer::types::Element> {
+        fn attach_inner(
+            el: &crate::renderer::types::Element,
+            cb: Box<dyn FnMut(crate::renderer::types::Event)>,
             name: Cow<'static, str>,
             delegation_key: Option<Cow<'static, str>>,
-        ) -> RemoveEventHandler<R::Element> {
+        ) -> RemoveEventHandler<crate::renderer::types::Element> {
             match delegation_key {
-                None => R::add_event_listener(el, &name, cb),
-                Some(key) => R::add_event_listener_delegated(el, name, key, cb),
+                None => Rndr::add_event_listener(el, &name, cb),
+                Some(key) => {
+                    Rndr::add_event_listener_delegated(el, name, key, cb)
+                }
             }
         }
 
@@ -182,7 +180,7 @@ where
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
 
-        let cb = Box::new(move |ev: R::Event| {
+        let cb = Box::new(move |ev: crate::renderer::types::Event| {
             #[cfg(all(debug_assertions, feature = "reactive_graph"))]
             let _rx_guard =
                 reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
@@ -191,9 +189,9 @@ where
 
             let ev = E::EventType::from(ev);
             cb.invoke(ev);
-        }) as Box<dyn FnMut(R::Event)>;
+        }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
-        attach_inner::<R>(
+        attach_inner(
             el,
             cb,
             self.event.name(),
@@ -203,30 +201,32 @@ where
     }
 }
 
-impl<E, F, R> Debug for On<E, F, R>
+impl<E, F> Debug for On<E, F>
 where
     E: Debug,
-    R: DomRenderer,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("On").field(&self.event).finish()
     }
 }
 
-impl<E, F, R> Attribute<R> for On<E, F, R>
+impl<E, F> Attribute for On<E, F>
 where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    R: DomRenderer,
-    E::EventType: From<R::Event>,
+
+    E::EventType: From<crate::renderer::types::Event>,
 {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
     // a function that can be called once to remove the event listener
-    type State = (R::Element, Option<RemoveEventHandler<R::Element>>);
-    type Cloneable = On<E, SharedEventCallback<E::EventType>, R>;
-    type CloneableOwned = On<E, SharedEventCallback<E::EventType>, R>;
+    type State = (
+        crate::renderer::types::Element,
+        Option<RemoveEventHandler<crate::renderer::types::Element>>,
+    );
+    type Cloneable = On<E, SharedEventCallback<E::EventType>>;
+    type CloneableOwned = On<E, SharedEventCallback<E::EventType>>;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -244,13 +244,16 @@ where
     }
 
     #[inline(always)]
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         let cleanup = self.attach(el);
         (el.clone(), Some(cleanup))
     }
 
     #[inline(always)]
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let cleanup = self.attach(el);
         (el.clone(), Some(cleanup))
     }
@@ -268,7 +271,6 @@ where
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
-            ty: self.ty,
         }
     }
 
@@ -276,7 +278,6 @@ where
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
-            ty: self.ty,
         }
     }
 
@@ -293,17 +294,17 @@ where
     }
 }
 
-impl<E, F, R> NextAttribute<R> for On<E, F, R>
+impl<E, F> NextAttribute for On<E, F>
 where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    R: DomRenderer,
-    E::EventType: From<R::Event>,
-{
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    E::EventType: From<crate::renderer::types::Event>,
+{
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -311,7 +312,7 @@ where
     }
 }
 
-impl<E, F, R> ToTemplate for On<E, F, R> {
+impl<E, F> ToTemplate for On<E, F> {
     #[inline(always)]
     fn to_template(
         _buf: &mut String,
@@ -404,9 +405,9 @@ impl<E: FromWasmAbi> Custom<E> {
     /// # use tachys::prelude::*;
     /// # use tachys::html;
     /// # use tachys::html::event as ev;
-    /// # fn custom_event() -> impl Render<Dom> {
+    /// # fn custom_event() -> impl Render {
     /// let mut non_passive_wheel = ev::Custom::new("wheel");
-    /// non_passive_wheel.options_mut().passive(false);
+    /// non_passive_wheel.options_mut().set_passive(false);
     ///
     /// let canvas =
     ///     html::element::canvas().on(non_passive_wheel, |e: ev::WheelEvent| {

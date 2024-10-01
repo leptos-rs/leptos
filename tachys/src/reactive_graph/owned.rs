@@ -2,75 +2,56 @@ use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
     prelude::Mountable,
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
-use std::marker::PhantomData;
 
 /// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
 #[derive(Debug, Clone)]
-pub struct OwnedView<T, R> {
+pub struct OwnedView<T> {
     owner: Owner,
     view: T,
-    rndr: PhantomData<R>,
 }
 
-impl<T, R> OwnedView<T, R> {
+impl<T> OwnedView<T> {
     /// Wraps a view with the current owner.
     pub fn new(view: T) -> Self {
         let owner = Owner::current().expect("no reactive owner");
-        Self {
-            owner,
-            view,
-            rndr: PhantomData,
-        }
+        Self { owner, view }
     }
 
     /// Wraps a view with the given owner.
     pub fn new_with_owner(view: T, owner: Owner) -> Self {
-        Self {
-            owner,
-            view,
-            rndr: PhantomData,
-        }
+        Self { owner, view }
     }
 }
 
 /// Retained view state for an [`OwnedView`].
 #[derive(Debug, Clone)]
-pub struct OwnedViewState<T, R>
+pub struct OwnedViewState<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     owner: Owner,
     state: T,
-    rndr: PhantomData<R>,
 }
 
-impl<T, R> OwnedViewState<T, R>
+impl<T> OwnedViewState<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     /// Wraps a state with the given owner.
     fn new(state: T, owner: Owner) -> Self {
-        Self {
-            owner,
-            state,
-            rndr: PhantomData,
-        }
+        Self { owner, state }
     }
 }
 
-impl<T, R> Render<R> for OwnedView<T, R>
+impl<T> Render for OwnedView<T>
 where
-    T: Render<R>,
-    R: Renderer,
+    T: Render,
 {
-    type State = OwnedViewState<T::State, R>;
+    type State = OwnedViewState<T::State>;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -84,37 +65,33 @@ where
     }
 }
 
-impl<T, R> AddAnyAttr<R> for OwnedView<T, R>
+impl<T> AddAnyAttr for OwnedView<T>
 where
-    T: AddAnyAttr<R>,
-    R: Renderer,
+    T: AddAnyAttr,
 {
-    type Output<SomeNewAttr: Attribute<R>> =
-        OwnedView<T::Output<SomeNewAttr>, R>;
+    type Output<SomeNewAttr: Attribute> = OwnedView<T::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
-        let OwnedView { owner, view, rndr } = self;
+        let OwnedView { owner, view } = self;
         OwnedView {
             owner,
             view: view.add_any_attr(attr),
-            rndr,
         }
     }
 }
 
-impl<T, R> RenderHtml<R> for OwnedView<T, R>
+impl<T> RenderHtml for OwnedView<T>
 where
-    T: RenderHtml<R>,
-    R: Renderer,
+    T: RenderHtml,
 {
     // TODO
-    type AsyncOutput = OwnedView<T::AsyncOutput, R>;
+    type AsyncOutput = OwnedView<T::AsyncOutput>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -158,7 +135,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let state = self
@@ -168,11 +145,11 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        let OwnedView { owner, view, rndr } = self;
+        let OwnedView { owner, view } = self;
         let view = owner
             .with(|| ScopedFuture::new(async move { view.resolve().await }))
             .await;
-        OwnedView { owner, view, rndr }
+        OwnedView { owner, view }
     }
 
     fn dry_resolve(&mut self) {
@@ -180,10 +157,9 @@ where
     }
 }
 
-impl<T, R> Mountable<R> for OwnedViewState<T, R>
+impl<T> Mountable for OwnedViewState<T>
 where
-    T: Mountable<R>,
-    R: Renderer,
+    T: Mountable,
 {
     fn unmount(&mut self) {
         self.state.unmount();
@@ -191,13 +167,13 @@ where
 
     fn mount(
         &mut self,
-        parent: &<R as Renderer>::Element,
-        marker: Option<&<R as Renderer>::Node>,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
     ) {
         self.state.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
     }
 }

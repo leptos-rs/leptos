@@ -23,9 +23,7 @@ use std::{
     cell::RefCell,
     fmt::Debug,
     future::Future,
-    iter,
-    marker::PhantomData,
-    mem,
+    iter, mem,
     pin::Pin,
     rc::Rc,
     sync::{Arc, Mutex},
@@ -33,7 +31,6 @@ use std::{
 use tachys::{
     hydration::Cursor,
     reactive_graph::{OwnedView, Suspend},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
@@ -43,42 +40,38 @@ use tachys::{
     },
 };
 
-pub(crate) struct NestedRoutesView<Loc, Defs, FalFn, R> {
+pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub location: Option<Loc>,
-    pub routes: Routes<Defs, R>,
+    pub routes: Routes<Defs>,
     pub outer_owner: Owner,
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
     #[allow(unused)] // TODO
     pub set_is_routing: Option<SignalSetter<bool>>,
-    pub rndr: PhantomData<R>,
 }
 
-pub struct NestedRouteViewState<Fal, R>
+pub struct NestedRouteViewState<Fal>
 where
-    Fal: Render<R>,
-    R: Renderer + 'static,
+    Fal: Render,
 {
     path: String,
     current_url: ArcRwSignal<Url>,
-    outlets: Vec<RouteContext<R>>,
+    outlets: Vec<RouteContext>,
     // TODO loading fallback
     #[allow(clippy::type_complexity)]
-    view: Rc<RefCell<EitherOf3State<(), Fal, AnyView<R>, R>>>,
+    view: Rc<RefCell<EitherOf3State<(), Fal, AnyView>>>,
 }
 
-impl<Loc, Defs, FalFn, Fal, R> Render<R>
-    for NestedRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> Render for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider,
-    Defs: MatchNestedRoutes<R>,
+    Defs: MatchNestedRoutes,
     FalFn: FnOnce() -> Fal,
-    Fal: Render<R> + 'static,
-    R: Renderer + 'static,
+    Fal: Render + 'static,
 {
     // TODO support fallback while loading
-    type State = NestedRouteViewState<Fal, R>;
+    type State = NestedRouteViewState<Fal>;
 
     fn build(self) -> Self::State {
         let NestedRoutesView {
@@ -112,11 +105,7 @@ where
                     &outer_owner,
                 );
                 drop(url);
-                outer_owner.with(|| {
-                    EitherOf3::C(
-                        Outlet(OutletProps::builder().build()).into_any(),
-                    )
-                })
+                outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
             }
         };
 
@@ -161,7 +150,7 @@ where
 
         match new_match {
             None => {
-                EitherOf3::<(), Fal, AnyView<R>>::B((self.fallback)())
+                EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
             }
@@ -191,10 +180,8 @@ where
                 // if it was on the fallback, show the view instead
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
                     self.outer_owner.with(|| {
-                        EitherOf3::<(), Fal, AnyView<R>>::C(
-                            Outlet(OutletProps::builder().build()).into_any(),
-                        )
-                        .rebuild(&mut *state.view.borrow_mut());
+                        EitherOf3::<(), Fal, AnyView>::C(Outlet().into_any())
+                            .rebuild(&mut *state.view.borrow_mut());
                     })
                 }
             }
@@ -206,37 +193,33 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, FalFn, R> AddAnyAttr<R>
-    for NestedRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes<R> + Send,
+    Defs: MatchNestedRoutes + Send,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    Fal: RenderHtml + 'static,
 {
-    type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        NestedRoutesView<Loc, Defs, FalFn, R>;
+    type Output<SomeNewAttr: leptos::attr::Attribute> =
+        NestedRoutesView<Loc, Defs, FalFn>;
 
-    fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
+    fn add_any_attr<NewAttr: leptos::attr::Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         todo!()
     }
 }
 
-impl<Loc, Defs, FalFn, Fal, R> RenderHtml<R>
-    for NestedRoutesView<Loc, Defs, FalFn, R>
+impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes<R> + Send,
+    Defs: MatchNestedRoutes + Send,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: RenderHtml<R> + 'static,
-    R: Renderer + 'static,
+    Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
 
@@ -330,11 +313,7 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    outer_owner.with(|| {
-                        Either::Right(
-                            Outlet(OutletProps::builder().build()).into_any(),
-                        )
-                    })
+                    outer_owner.with(|| Either::Right(Outlet().into_any()))
                 }
             };
             view.to_html_with_buf(buf, position, escape, mark_branches);
@@ -381,11 +360,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                outer_owner.with(|| {
-                    Either::Right(
-                        Outlet(OutletProps::builder().build()).into_any(),
-                    )
-                })
+                outer_owner.with(|| Either::Right(Outlet().into_any()))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -398,7 +373,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let NestedRoutesView {
@@ -436,11 +411,7 @@ where
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
                         .expect("async routes not supported in SSR");
-                    outer_owner.with(|| {
-                        EitherOf3::C(
-                            Outlet(OutletProps::builder().build()).into_any(),
-                        )
-                    })
+                    outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -455,15 +426,11 @@ where
     }
 }
 
-type OutletViewFn<R> = Box<
-    dyn Fn() -> Suspend<Pin<Box<dyn Future<Output = AnyView<R>> + Send>>>
-        + Send,
+type OutletViewFn = Box<
+    dyn Fn() -> Suspend<Pin<Box<dyn Future<Output = AnyView> + Send>>> + Send,
 >;
 
-pub(crate) struct RouteContext<R>
-where
-    R: Renderer,
-{
+pub(crate) struct RouteContext {
     id: RouteMatchId,
     trigger: ArcTrigger,
     url: ArcRwSignal<Url>,
@@ -471,10 +438,10 @@ where
     owner: Owner,
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
-    view_fn: Arc<Mutex<OutletViewFn<R>>>,
+    view_fn: Arc<Mutex<OutletViewFn>>,
 }
 
-impl<R: Renderer> Debug for RouteContext<R> {
+impl Debug for RouteContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RouteContext")
             .field("id", &self.id)
@@ -488,19 +455,13 @@ impl<R: Renderer> Debug for RouteContext<R> {
     }
 }
 
-impl<R> RouteContext<R>
-where
-    R: Renderer + 'static,
-{
+impl RouteContext {
     fn provide_contexts(&self) {
         provide_context(self.clone());
     }
 }
 
-impl<R> Clone for RouteContext<R>
-where
-    R: Renderer,
-{
+impl Clone for RouteContext {
     fn clone(&self) -> Self {
         Self {
             url: self.url.clone(),
@@ -515,16 +476,13 @@ where
     }
 }
 
-trait AddNestedRoute<R>
-where
-    R: Renderer,
-{
+trait AddNestedRoute {
     fn build_nested_route(
         self,
         url: &Url,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        outlets: &mut Vec<RouteContext<R>>,
+        outlets: &mut Vec<RouteContext>,
         parent: &Owner,
     );
 
@@ -534,22 +492,21 @@ where
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        outlets: &mut Vec<RouteContext<R>>,
+        outlets: &mut Vec<RouteContext>,
         parent: &Owner,
     );
 }
 
-impl<Match, R> AddNestedRoute<R> for Match
+impl<Match> AddNestedRoute for Match
 where
-    Match: MatchInterface<R> + MatchParams,
-    R: Renderer + 'static,
+    Match: MatchInterface + MatchParams,
 {
     fn build_nested_route(
         self,
         url: &Url,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        outlets: &mut Vec<RouteContext<R>>,
+        outlets: &mut Vec<RouteContext>,
         parent: &Owner,
     ) {
         let orig_url = url;
@@ -650,7 +607,7 @@ where
                                 OwnedView::new(view).into_any()
                             })
                                 as Pin<
-                                    Box<dyn Future<Output = AnyView<R>> + Send>,
+                                    Box<dyn Future<Output = AnyView> + Send>,
                                 >)
                         })
                     });
@@ -678,7 +635,7 @@ where
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        outlets: &mut Vec<RouteContext<R>>,
+        outlets: &mut Vec<RouteContext>,
         parent: &Owner,
     ) {
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
@@ -833,32 +790,33 @@ where
     }
 }
 
-impl<Fal, R> Mountable<R> for NestedRouteViewState<Fal, R>
+impl<Fal> Mountable for NestedRouteViewState<Fal>
 where
-    Fal: Render<R>,
-    R: Renderer,
+    Fal: Render,
 {
     fn unmount(&mut self) {
         self.view.unmount();
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &leptos::tachys::renderer::types::Element,
+        marker: Option<&leptos::tachys::renderer::types::Node>,
+    ) {
         self.view.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
     }
 }
 
 #[component]
-pub fn Outlet<R>(#[prop(optional)] rndr: PhantomData<R>) -> impl RenderHtml<R>
+pub fn Outlet() -> impl RenderHtml
 where
-    R: Renderer + 'static,
 {
-    _ = rndr;
     move || {
-        let ctx = use_context::<RouteContext<R>>()
+        let ctx = use_context::<RouteContext>()
             .expect("<Outlet/> used without RouteContext being provided.");
         let RouteContext {
             trigger, view_fn, ..

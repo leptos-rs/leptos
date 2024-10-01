@@ -1,4 +1,4 @@
-use super::{CastFrom, DomRenderer, RemoveEventHandler, Renderer};
+use super::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},
     ok_or_debug, or_debug,
@@ -9,10 +9,7 @@ use once_cell::unsync::Lazy;
 use rustc_hash::FxHashSet;
 use std::{any::TypeId, borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
-use web_sys::{
-    Comment, CssStyleDeclaration, DocumentFragment, DomTokenList, Element,
-    Event, HtmlElement, HtmlTemplateElement, Node, Text,
-};
+use web_sys::{Comment, HtmlTemplateElement};
 
 /// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -22,22 +19,39 @@ thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
 }
 
-impl Renderer for Dom {
-    type Node = Node;
-    type Text = Text;
-    type Element = Element;
-    type Placeholder = Comment;
+pub type Node = web_sys::Node;
+pub type Text = web_sys::Text;
+pub type Element = web_sys::Element;
+pub type Placeholder = web_sys::Comment;
+pub type Event = wasm_bindgen::JsValue;
+pub type ClassList = web_sys::DomTokenList;
+pub type CssStyleDeclaration = web_sys::CssStyleDeclaration;
+pub type TemplateElement = web_sys::HtmlTemplateElement;
 
-    fn intern(text: &str) -> &str {
+impl Dom {
+    pub fn intern(text: &str) -> &str {
         intern(text)
     }
 
+    pub fn create_element(tag: &str, namespace: Option<&str>) -> Element {
+        if let Some(namespace) = namespace {
+            document()
+                .create_element_ns(
+                    Some(Self::intern(namespace)),
+                    Self::intern(tag),
+                )
+                .unwrap()
+        } else {
+            document().create_element(Self::intern(tag)).unwrap()
+        }
+    }
+
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn create_text_node(text: &str) -> Self::Text {
+    pub fn create_text_node(text: &str) -> Text {
         document().create_text_node(text)
     }
 
-    fn create_placeholder() -> Self::Placeholder {
+    pub fn create_placeholder() -> Placeholder {
         thread_local! {
             static COMMENT: Lazy<Comment> = Lazy::new(|| {
                 document().create_comment("")
@@ -47,25 +61,25 @@ impl Renderer for Dom {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn set_text(node: &Self::Text, text: &str) {
+    pub fn set_text(node: &Text, text: &str) {
         node.set_node_value(Some(text));
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn set_attribute(node: &Self::Element, name: &str, value: &str) {
+    pub fn set_attribute(node: &Element, name: &str, value: &str) {
         or_debug!(node.set_attribute(name, value), node, "setAttribute");
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn remove_attribute(node: &Self::Element, name: &str) {
+    pub fn remove_attribute(node: &Element, name: &str) {
         or_debug!(node.remove_attribute(name), node, "removeAttribute");
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn insert_node(
-        parent: &Self::Element,
-        new_child: &Self::Node,
-        anchor: Option<&Self::Node>,
+    pub fn insert_node(
+        parent: &Element,
+        new_child: &Node,
+        anchor: Option<&Node>,
     ) {
         ok_or_debug!(
             parent.insert_before(new_child, anchor),
@@ -75,23 +89,20 @@ impl Renderer for Dom {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn remove_node(
-        parent: &Self::Element,
-        child: &Self::Node,
-    ) -> Option<Self::Node> {
+    pub fn remove_node(parent: &Element, child: &Node) -> Option<Node> {
         ok_or_debug!(parent.remove_child(child), parent, "removeNode")
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn remove(node: &Self::Node) {
+    pub fn remove(node: &Node) {
         node.unchecked_ref::<Element>().remove();
     }
 
-    fn get_parent(node: &Self::Node) -> Option<Self::Node> {
+    pub fn get_parent(node: &Node) -> Option<Node> {
         node.parent_node()
     }
 
-    fn first_child(node: &Self::Node) -> Option<Self::Node> {
+    pub fn first_child(node: &Node) -> Option<Node> {
         #[cfg(debug_assertions)]
         {
             let node = node.first_child();
@@ -116,7 +127,7 @@ impl Renderer for Dom {
         }
     }
 
-    fn next_sibling(node: &Self::Node) -> Option<Self::Node> {
+    pub fn next_sibling(node: &Node) -> Option<Node> {
         #[cfg(debug_assertions)]
         {
             let node = node.next_sibling();
@@ -141,23 +152,49 @@ impl Renderer for Dom {
         }
     }
 
-    fn log_node(node: &Self::Node) {
+    pub fn log_node(node: &Node) {
         web_sys::console::log_1(node);
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn clear_children(parent: &Self::Element) {
+    pub fn clear_children(parent: &Element) {
         parent.set_text_content(Some(""));
     }
-}
 
-impl DomRenderer for Dom {
-    type Event = JsValue;
-    type ClassList = DomTokenList;
-    type CssStyleDeclaration = CssStyleDeclaration;
-    type TemplateElement = HtmlTemplateElement;
+    /// Mounts the new child before the marker as its sibling.
+    ///
+    /// ## Panics
+    /// The default implementation panics if `before` does not have a parent [`crate::renderer::types::Element`].
+    pub fn mount_before<M>(new_child: &mut M, before: &Node)
+    where
+        M: Mountable,
+    {
+        let parent = Element::cast_from(
+            Self::get_parent(before).expect("could not find parent element"),
+        )
+        .expect("placeholder parent should be Element");
+        new_child.mount(&parent, Some(before));
+    }
 
-    fn set_property(el: &Self::Element, key: &str, value: &JsValue) {
+    /// Tries to mount the new child before the marker as its sibling.
+    ///
+    /// Returns `false` if the child did not have a valid parent.
+    #[track_caller]
+    pub fn try_mount_before<M>(new_child: &mut M, before: &Node) -> bool
+    where
+        M: Mountable,
+    {
+        if let Some(parent) =
+            Self::get_parent(before).and_then(Element::cast_from)
+        {
+            new_child.mount(&parent, Some(before));
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_property(el: &Element, key: &str, value: &JsValue) {
         or_debug!(
             js_sys::Reflect::set(
                 el,
@@ -169,11 +206,11 @@ impl DomRenderer for Dom {
         );
     }
 
-    fn add_event_listener(
-        el: &Self::Element,
+    pub fn add_event_listener(
+        el: &Element,
         name: &str,
-        cb: Box<dyn FnMut(Self::Event)>,
-    ) -> RemoveEventHandler<Self::Element> {
+        cb: Box<dyn FnMut(Event)>,
+    ) -> RemoveEventHandler<Element> {
         let cb = wasm_bindgen::closure::Closure::wrap(cb);
         let name = intern(name);
         or_debug!(
@@ -191,7 +228,7 @@ impl DomRenderer for Dom {
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
             let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Self::Element| {
+            move |el: &Element| {
                 or_debug!(
                     el.remove_event_listener_with_callback(
                         intern(&name),
@@ -204,24 +241,24 @@ impl DomRenderer for Dom {
         })
     }
 
-    fn event_target<T>(ev: &Self::Event) -> T
+    pub fn event_target<T>(ev: &Event) -> T
     where
-        T: CastFrom<Self::Element>,
+        T: CastFrom<Element>,
     {
         let el = ev
-            .unchecked_ref::<Event>()
+            .unchecked_ref::<web_sys::Event>()
             .target()
             .expect("event.target not found")
             .unchecked_into::<Element>();
         T::cast_from(el).expect("incorrect element type")
     }
 
-    fn add_event_listener_delegated(
-        el: &Self::Element,
+    pub fn add_event_listener_delegated(
+        el: &Element,
         name: Cow<'static, str>,
         delegation_key: Cow<'static, str>,
-        cb: Box<dyn FnMut(Self::Event)>,
-    ) -> RemoveEventHandler<Self::Element> {
+        cb: Box<dyn FnMut(Event)>,
+    ) -> RemoveEventHandler<Element> {
         let cb = Closure::wrap(cb);
         let key = intern(&delegation_key);
         or_debug!(
@@ -304,7 +341,7 @@ impl DomRenderer for Dom {
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
             let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Self::Element| {
+            move |el: &Element| {
                 drop(cb.take());
                 or_debug!(
                     js_sys::Reflect::delete_property(
@@ -318,24 +355,24 @@ impl DomRenderer for Dom {
         })
     }
 
-    fn class_list(el: &Self::Element) -> Self::ClassList {
+    pub fn class_list(el: &Element) -> ClassList {
         el.class_list()
     }
 
-    fn add_class(list: &Self::ClassList, name: &str) {
+    pub fn add_class(list: &ClassList, name: &str) {
         or_debug!(list.add_1(name), list.unchecked_ref(), "add()");
     }
 
-    fn remove_class(list: &Self::ClassList, name: &str) {
+    pub fn remove_class(list: &ClassList, name: &str) {
         or_debug!(list.remove_1(name), list.unchecked_ref(), "remove()");
     }
 
-    fn style(el: &Self::Element) -> Self::CssStyleDeclaration {
-        el.unchecked_ref::<HtmlElement>().style()
+    pub fn style(el: &Element) -> CssStyleDeclaration {
+        el.unchecked_ref::<web_sys::HtmlElement>().style()
     }
 
-    fn set_css_property(
-        style: &Self::CssStyleDeclaration,
+    pub fn set_css_property(
+        style: &CssStyleDeclaration,
         name: &str,
         value: &str,
     ) {
@@ -346,11 +383,11 @@ impl DomRenderer for Dom {
         );
     }
 
-    fn set_inner_html(el: &Self::Element, html: &str) {
+    pub fn set_inner_html(el: &Element, html: &str) {
         el.set_inner_html(html);
     }
 
-    fn get_template<V>() -> Self::TemplateElement
+    pub fn get_template<V>() -> TemplateElement
     where
         V: ToTemplate + 'static,
     {
@@ -384,14 +421,14 @@ impl DomRenderer for Dom {
         })
     }
 
-    fn clone_template(tpl: &Self::TemplateElement) -> Self::Element {
+    pub fn clone_template(tpl: &TemplateElement) -> Element {
         tpl.content()
             .clone_node_with_deep(true)
             .unwrap()
             .unchecked_into()
     }
 
-    fn create_element_from_html(html: &str) -> Self::Element {
+    pub fn create_element_from_html(html: &str) -> Element {
         // TODO can be optimized to cache HTML strings or cache <template>?
         let tpl = document().create_element("template").unwrap();
         tpl.set_inner_html(html);
@@ -399,7 +436,7 @@ impl DomRenderer for Dom {
     }
 }
 
-impl Mountable<Dom> for Node {
+impl Mountable for Node {
     fn unmount(&mut self) {
         todo!()
     }
@@ -408,7 +445,7 @@ impl Mountable<Dom> for Node {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent = Dom::get_parent(self).and_then(Element::cast_from);
         if let Some(parent) = parent {
             child.mount(&parent, Some(self));
@@ -418,7 +455,7 @@ impl Mountable<Dom> for Node {
     }
 }
 
-impl Mountable<Dom> for Text {
+impl Mountable for Text {
     fn unmount(&mut self) {
         self.remove();
     }
@@ -427,7 +464,7 @@ impl Mountable<Dom> for Text {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent =
             Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
         if let Some(parent) = parent {
@@ -438,7 +475,7 @@ impl Mountable<Dom> for Text {
     }
 }
 
-impl Mountable<Dom> for Comment {
+impl Mountable for Comment {
     fn unmount(&mut self) {
         self.remove();
     }
@@ -447,7 +484,7 @@ impl Mountable<Dom> for Comment {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent =
             Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
         if let Some(parent) = parent {
@@ -458,7 +495,7 @@ impl Mountable<Dom> for Comment {
     }
 }
 
-impl Mountable<Dom> for Element {
+impl Mountable for Element {
     fn unmount(&mut self) {
         self.remove();
     }
@@ -467,27 +504,7 @@ impl Mountable<Dom> for Element {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
-        let parent =
-            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
-        if let Some(parent) = parent {
-            child.mount(&parent, Some(self));
-            return true;
-        }
-        false
-    }
-}
-
-impl Mountable<Dom> for DocumentFragment {
-    fn unmount(&mut self) {
-        todo!()
-    }
-
-    fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
-        Dom::insert_node(parent, self, marker);
-    }
-
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent =
             Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
         if let Some(parent) = parent {

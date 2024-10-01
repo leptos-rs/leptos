@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
@@ -63,13 +63,13 @@ use std::{
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`] instead.
+/// > value. If you want a non-reactive container, used [`ArenaItem`] instead.
 ///
 /// ## Examples
 ///
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let count = ArcRwSignal::new(0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -102,7 +102,7 @@ use std::{
 pub struct RwSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcRwSignal<T>, S>,
+    inner: ArenaItem<ArcRwSignal<T>, S>,
 }
 
 impl<T, S> Dispose for RwSignal<T, S> {
@@ -141,7 +141,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcRwSignal::new(value)),
+            inner: ArenaItem::new_with_storage(ArcRwSignal::new(value)),
         }
     }
 }
@@ -174,7 +174,7 @@ where
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 self.inner
                     .try_get_value()
                     .map(|inner| inner.read_only())
@@ -196,7 +196,7 @@ where
         WriteSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 self.inner
                     .try_get_value()
                     .map(|inner| inner.write_only())
@@ -233,7 +233,7 @@ where
                     Some(Self {
                         #[cfg(debug_assertions)]
                         defined_at: Location::caller(),
-                        inner: StoredValue::new_with_storage(ArcRwSignal {
+                        inner: ArenaItem::new_with_storage(ArcRwSignal {
                             #[cfg(debug_assertions)]
                             defined_at: Location::caller(),
                             value: Arc::clone(&read.value),
@@ -365,7 +365,9 @@ where
 
     #[allow(refining_impl_trait)]
     fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
-        self.inner.with_value(|n| n.try_write_untracked())
+        self.inner
+            .try_with_value(|n| n.try_write_untracked())
+            .flatten()
     }
 }
 
@@ -378,7 +380,7 @@ where
         RwSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -402,7 +404,7 @@ where
         RwSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
