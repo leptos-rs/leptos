@@ -289,6 +289,7 @@ pub mod task {
         Executor::spawn_local(fut)
     }
 
+    /// Waits until the next "tick" of the current async executor.
     pub async fn tick() {
         Executor::tick().await
     }
