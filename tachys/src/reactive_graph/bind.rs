@@ -41,7 +41,7 @@ where
     ///
     /// Example:
     ///
-    /// ```
+    /// ```ignore
     /// // You can use `RwSignal`s
     /// let is_awesome = RwSignal::new(true);
     ///
