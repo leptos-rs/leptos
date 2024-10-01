@@ -705,8 +705,10 @@ pub fn server_macro_impl(
         quote! { vec![] }
     };
 
-    // auto-registration with inventory
-    let inventory = if cfg!(feature = "ssr") {
+    // auto-registration with inventory only if there are no generics
+    let inventory = if cfg!(feature = "ssr")
+        && ty_generics.clone().into_token_stream().is_empty()
+    {
         quote! {
             #server_fn_path::inventory::submit! {{
                 use #server_fn_path::{ServerFn, codec::Encoding};
@@ -724,7 +726,7 @@ pub fn server_macro_impl(
         quote! {}
     };
 
-    let quote = quote::quote! {
+    Ok(quote::quote! {
         #args_docs
         #docs
         #[derive(Debug, #derives)]
@@ -763,9 +765,7 @@ pub fn server_macro_impl(
         #func
 
         #dummy
-    };
-
-    Ok(quote)
+    })
 }
 
 fn type_from_ident(ident: Ident) -> Type {
