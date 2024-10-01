@@ -6,7 +6,7 @@ use crate::{
         property::{prop, IntoProperty},
     },
     prelude::AddAnyAttr,
-    renderer::{DomRenderer, RemoveEventHandler, Renderer},
+    renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
 use reactive_graph::{
@@ -15,7 +15,6 @@ use reactive_graph::{
     wrappers::read::Signal,
 };
 use send_wrapper::SendWrapper;
-use std::marker::PhantomData;
 use wasm_bindgen::JsValue;
 
 /// `group` attribute used for radio inputs with `bind`.
@@ -28,12 +27,11 @@ impl AttributeKey for Group {
 
 /// Adds a two-way binding to the element, which adds an attribute and an event listener to the
 /// element when the element is created or hydrated.
-pub trait BindAttribute<Key, Sig, T, Rndr>
+pub trait BindAttribute<Key, Sig, T>
 where
     Key: AttributeKey,
-    Sig: IntoSplitSignal<Rndr, Value = T>,
-    T: FromEventTarget + AttributeValue<Rndr> + 'static,
-    Rndr: Renderer,
+    Sig: IntoSplitSignal<Value = T>,
+    T: FromEventTarget + AttributeValue + 'static,
 {
     /// The type of the element with the two-way binding added.
     type Output;
@@ -66,27 +64,24 @@ where
     fn bind(self, key: Key, signal: Sig) -> Self::Output;
 }
 
-impl<V, Key, Sig, T, Rndr> BindAttribute<Key, Sig, T, Rndr> for V
+impl<V, Key, Sig, T> BindAttribute<Key, Sig, T> for V
 where
-    V: AddAnyAttr<Rndr>,
+    V: AddAnyAttr,
     Key: AttributeKey,
-    Sig: IntoSplitSignal<Rndr, Value = T>,
-    T: FromEventTarget + AttributeValue<Rndr> + PartialEq + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty<Rndr>,
-    <Sig as IntoSplitSignal<Rndr>>::Read:
+    Sig: IntoSplitSignal<Value = T>,
+    T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
+    Signal<BoolOrT<T>>: IntoProperty,
+    <Sig as IntoSplitSignal>::Read:
         Get<Value = T> + Send + Sync + Clone + 'static,
-    <Sig as IntoSplitSignal<Rndr>>::Write: Send + Clone + 'static,
-    Rndr: Renderer + DomRenderer,
-    Rndr::Element: ChangeEvent + GetValue<T>,
-    web_sys::Event: From<<Rndr as DomRenderer>::Event>,
+    <Sig as IntoSplitSignal>::Write: Send + Clone + 'static,
+    Element: GetValue<T>,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<
+    type Output = <Self as AddAnyAttr>::Output<
         Bind<
             Key,
             T,
-            <Sig as IntoSplitSignal<Rndr>>::Read,
-            <Sig as IntoSplitSignal<Rndr>>::Write,
-            Rndr,
+            <Sig as IntoSplitSignal>::Read,
+            <Sig as IntoSplitSignal>::Write,
         >,
     >;
 
@@ -98,23 +93,16 @@ where
 /// Adds a two-way binding to the element, which adds an attribute and an event listener to the
 /// element when the element is created or hydrated.
 #[inline(always)]
-pub fn bind<Key, Sig, T, Rndr>(
+pub fn bind<Key, Sig, T>(
     key: Key,
     signal: Sig,
-) -> Bind<
-    Key,
-    T,
-    <Sig as IntoSplitSignal<Rndr>>::Read,
-    <Sig as IntoSplitSignal<Rndr>>::Write,
-    Rndr,
->
+) -> Bind<Key, T, <Sig as IntoSplitSignal>::Read, <Sig as IntoSplitSignal>::Write>
 where
     Key: AttributeKey,
-    Sig: IntoSplitSignal<Rndr, Value = T>,
-    T: FromEventTarget + AttributeValue<Rndr> + 'static,
-    <Sig as IntoSplitSignal<Rndr>>::Read: Get<Value = T> + Clone + 'static,
-    <Sig as IntoSplitSignal<Rndr>>::Write: Send + Clone + 'static,
-    Rndr: Renderer,
+    Sig: IntoSplitSignal<Value = T>,
+    T: FromEventTarget + AttributeValue + 'static,
+    <Sig as IntoSplitSignal>::Read: Get<Value = T> + Clone + 'static,
+    <Sig as IntoSplitSignal>::Write: Send + Clone + 'static,
 {
     let (read_signal, write_signal) = signal.into_split_signal();
 
@@ -122,68 +110,55 @@ where
         key,
         read_signal,
         write_signal,
-        _marker: PhantomData,
     }
 }
 
 /// Two-way binding of an attribute and an event listener
 #[derive(Debug)]
-pub struct Bind<Key, T, R, W, Rndr>
+pub struct Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + 'static,
+    T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
     W: Update<Value = T>,
-    Rndr: Renderer,
 {
     key: Key,
     read_signal: R,
     write_signal: W,
-    _marker: PhantomData<Rndr>,
 }
 
-impl<Key, T, R, W, Rndr> Clone for Bind<Key, T, R, W, Rndr>
+impl<Key, T, R, W> Clone for Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + 'static,
+    T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
     W: Update<Value = T> + Clone,
-    Rndr: Renderer,
 {
     fn clone(&self) -> Self {
         Self {
             key: self.key.clone(),
             read_signal: self.read_signal.clone(),
             write_signal: self.write_signal.clone(),
-            _marker: PhantomData,
         }
     }
 }
 
-impl<Key, T, R, W, Rndr> Bind<Key, T, R, W, Rndr>
+impl<Key, T, R, W> Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + PartialEq + Sync + 'static,
+    T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
     W: Update<Value = T> + Clone + 'static,
-    Rndr: Renderer + DomRenderer,
-    Rndr::Element: ChangeEvent + GetValue<T>,
-    web_sys::Event: From<<Rndr as DomRenderer>::Event>,
+    Element: ChangeEvent + GetValue<T>,
 {
     /// Attaches the event listener that updates the signal value to the element.
-    pub fn attach(
-        self,
-        el: &Rndr::Element,
-    ) -> RemoveEventHandler<Rndr::Element> {
-        el.attach_change_event::<T, W, Rndr>(
-            Key::KEY,
-            self.write_signal.clone(),
-        )
+    pub fn attach(self, el: &Element) -> RemoveEventHandler<Element> {
+        el.attach_change_event::<T, W>(Key::KEY, self.write_signal.clone())
     }
 
     /// Creates the signal to update the value of the attribute. This signal is different
     /// when using a `"group"` attribute
-    pub fn read_signal(&self, el: &Rndr::Element) -> Signal<BoolOrT<T>> {
+    pub fn read_signal(&self, el: &Element) -> Signal<BoolOrT<T>> {
         let read_signal = self.read_signal.clone();
 
         if Key::KEY == "group" {
@@ -208,26 +183,24 @@ where
     }
 }
 
-impl<Key, T, R, W, Rndr> Attribute<Rndr> for Bind<Key, T, R, W, Rndr>
+impl<Key, T, R, W> Attribute for Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + PartialEq + Sync + 'static,
+    T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty<Rndr>,
+    Signal<BoolOrT<T>>: IntoProperty,
     W: Update<Value = T> + Clone + Send + 'static,
-    Rndr: Renderer + DomRenderer,
-    Rndr::Element: ChangeEvent + GetValue<T>,
-    web_sys::Event: From<<Rndr as DomRenderer>::Event>,
+    Element: ChangeEvent + GetValue<T>,
 {
     const MIN_LENGTH: usize = 0;
 
     type State = (
-        <Signal<BoolOrT<T>> as IntoProperty<Rndr>>::State,
-        (Rndr::Element, Option<RemoveEventHandler<Rndr::Element>>),
+        <Signal<BoolOrT<T>> as IntoProperty>::State,
+        (Element, Option<RemoveEventHandler<Element>>),
     );
     type AsyncOutput = Self;
-    type Cloneable = Bind<Key, T, R, W, Rndr>;
-    type CloneableOwned = Bind<Key, T, R, W, Rndr>;
+    type Cloneable = Bind<Key, T, R, W>;
+    type CloneableOwned = Bind<Key, T, R, W>;
 
     fn html_len(&self) -> usize {
         0
@@ -243,10 +216,7 @@ where
     }
 
     #[inline(always)]
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        el: &Rndr::Element,
-    ) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(self, el: &Element) -> Self::State {
         let signal = self.read_signal(el);
         let attr_state = prop(self.key(), signal).hydrate::<FROM_SERVER>(el);
 
@@ -256,7 +226,7 @@ where
     }
 
     #[inline(always)]
-    fn build(self, el: &Rndr::Element) -> Self::State {
+    fn build(self, el: &Element) -> Self::State {
         let signal = self.read_signal(el);
         let attr_state = prop(self.key(), signal).build(el);
 
@@ -293,20 +263,18 @@ where
     }
 }
 
-impl<Key, T, R, W, Rndr> NextAttribute<Rndr> for Bind<Key, T, R, W, Rndr>
+impl<Key, T, R, W> NextAttribute for Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + PartialEq + Sync + 'static,
+    T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty<Rndr>,
+    Signal<BoolOrT<T>>: IntoProperty,
     W: Update<Value = T> + Clone + Send + 'static,
-    Rndr: Renderer + DomRenderer,
-    Rndr::Element: ChangeEvent + GetValue<T>,
-    web_sys::Event: From<<Rndr as DomRenderer>::Event>,
+    Element: ChangeEvent + GetValue<T>,
 {
-    type Output<NewAttr: Attribute<Rndr>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -314,13 +282,12 @@ where
     }
 }
 
-impl<Key, T, R, W, Rndr> ToTemplate for Bind<Key, T, R, W, Rndr>
+impl<Key, T, R, W> ToTemplate for Bind<Key, T, R, W>
 where
     Key: AttributeKey,
-    T: FromEventTarget + AttributeValue<Rndr> + 'static,
+    T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
     W: Update<Value = T> + Clone,
-    Rndr: Renderer,
 {
     #[inline(always)]
     fn to_template(
@@ -336,7 +303,7 @@ where
 /// Splits a combined signal into its read and write parts.
 ///
 /// This allows you to either provide a `RwSignal` or a tuple `(ReadSignal, WriteSignal)`.
-pub trait IntoSplitSignal<Rndr: Renderer> {
+pub trait IntoSplitSignal {
     /// The actual contained value of the signal
     type Value;
     /// The read part of the signal
@@ -347,11 +314,10 @@ pub trait IntoSplitSignal<Rndr: Renderer> {
     fn into_split_signal(self) -> (Self::Read, Self::Write);
 }
 
-impl<T, Rndr> IntoSplitSignal<Rndr> for RwSignal<T>
+impl<T> IntoSplitSignal for RwSignal<T>
 where
     T: Send + Sync + 'static,
     ReadSignal<T>: Get<Value = T>,
-    Rndr: Renderer,
 {
     type Value = T;
     type Read = ReadSignal<T>;
@@ -362,11 +328,10 @@ where
     }
 }
 
-impl<T, R, W, Rndr> IntoSplitSignal<Rndr> for (R, W)
+impl<T, R, W> IntoSplitSignal for (R, W)
 where
     R: Get<Value = T>,
     W: Update<Value = T>,
-    Rndr: Renderer,
 {
     type Value = T;
     type Read = R;
@@ -400,30 +365,26 @@ impl FromEventTarget for String {
 /// - `<input type="checkbox">`, `<input type="radio">` and `<select>` use the `change` event;
 pub trait ChangeEvent {
     /// Attaches the appropriate change event listener to the element.
-    fn attach_change_event<T, W, Rndr>(
+    fn attach_change_event<T, W>(
         &self,
         key: &str,
         write_signal: W,
     ) -> RemoveEventHandler<Self>
     where
-        T: FromEventTarget + AttributeValue<Rndr> + 'static,
+        T: FromEventTarget + AttributeValue + 'static,
         W: Update<Value = T> + 'static,
-        Rndr: Renderer<Element = Self> + DomRenderer,
-        web_sys::Event: From<<Rndr as DomRenderer>::Event>,
         Self: Sized;
 }
 
 impl ChangeEvent for web_sys::Element {
-    fn attach_change_event<T, W, Rndr>(
+    fn attach_change_event<T, W>(
         &self,
         key: &str,
         write_signal: W,
     ) -> RemoveEventHandler<Self>
     where
-        T: FromEventTarget + AttributeValue<Rndr> + 'static,
+        T: FromEventTarget + AttributeValue + 'static,
         W: Update<Value = T> + 'static,
-        Rndr: Renderer<Element = Self> + DomRenderer,
-        web_sys::Event: From<<Rndr as DomRenderer>::Event>,
     {
         if key == "group" {
             let handler = move |evt| {
@@ -434,16 +395,16 @@ impl ChangeEvent for web_sys::Element {
                 }
             };
 
-            on::<_, _, Rndr>(change, handler).attach(self)
+            on::<_, _>(change, handler).attach(self)
         } else {
             let handler = move |evt| {
                 write_signal.try_update(|v| *v = T::from_event_target(&evt));
             };
 
             if key == "checked" || self.tag_name() == "SELECT" {
-                on::<_, _, Rndr>(change, handler).attach(self)
+                on::<_, _>(change, handler).attach(self)
             } else {
-                on::<_, _, Rndr>(input, handler).attach(self)
+                on::<_, _>(input, handler).attach(self)
             }
         }
     }
@@ -478,21 +439,20 @@ pub enum BoolOrT<T> {
     T(T),
 }
 
-impl<T, Rndr> IntoProperty<Rndr> for BoolOrT<T>
+impl<T> IntoProperty for BoolOrT<T>
 where
-    T: IntoProperty<Rndr, State = (<Rndr as Renderer>::Element, JsValue)>
+    T: IntoProperty<State = (Element, JsValue)>
         + Into<JsValue>
         + Clone
         + 'static,
-    Rndr: DomRenderer,
 {
-    type State = (Rndr::Element, JsValue);
+    type State = (Element, JsValue);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &Rndr::Element,
+        el: &Element,
         key: &str,
     ) -> Self::State {
         match self.clone() {
@@ -500,22 +460,20 @@ where
                 s.hydrate::<FROM_SERVER>(el, key);
             }
             Self::Bool(b) => {
-                <bool as IntoProperty<Rndr>>::hydrate::<FROM_SERVER>(
-                    b, el, key,
-                );
+                <bool as IntoProperty>::hydrate::<FROM_SERVER>(b, el, key);
             }
         };
 
         (el.clone(), self.into())
     }
 
-    fn build(self, el: &Rndr::Element, key: &str) -> Self::State {
+    fn build(self, el: &Element, key: &str) -> Self::State {
         match self.clone() {
             Self::T(s) => {
                 s.build(el, key);
             }
             Self::Bool(b) => {
-                <bool as IntoProperty<Rndr>>::build(b, el, key);
+                <bool as IntoProperty>::build(b, el, key);
             }
         }
 
@@ -527,7 +485,7 @@ where
 
         match self {
             Self::T(s) => s.rebuild(&mut (el.clone(), prev.clone()), key),
-            Self::Bool(b) => <bool as IntoProperty<Rndr>>::rebuild(
+            Self::Bool(b) => <bool as IntoProperty>::rebuild(
                 b,
                 &mut (el.clone(), prev.clone()),
                 key,
