@@ -61,6 +61,7 @@ use std::{
     panic::Location,
 };
 
+#[doc(hidden)]
 /// Provides a sensible panic message for accessing disposed signals.
 #[macro_export]
 macro_rules! unwrap_signal {
