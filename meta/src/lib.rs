@@ -52,7 +52,7 @@ use leptos::{
     attr::NextAttribute,
     component,
     logging::debug_warn,
-    reactive_graph::owner::{provide_context, use_context},
+    reactive::owner::{provide_context, use_context},
     tachys::{
         dom::document,
         html::{

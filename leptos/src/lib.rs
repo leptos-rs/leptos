@@ -245,7 +245,7 @@ pub use leptos_config as config;
 pub use oco_ref as oco;
 mod from_form_data;
 pub use either_of as either;
-pub use reactive_graph;
+pub use reactive_graph as reactive;
 
 /// Provide and access data along the reactive graph, sharing data without directly passing arguments.
 pub mod context {
