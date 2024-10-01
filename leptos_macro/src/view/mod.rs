@@ -329,7 +329,7 @@ fn inert_element_to_tokens(
                                     attr_name.trim_start_matches("r#");
                                 if attr_name != "class" {
                                     html.push(' ');
-                                    html.push_str(&attr_name);
+                                    html.push_str(attr_name);
                                 }
 
                                 if let Some(value) =
