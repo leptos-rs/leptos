@@ -89,7 +89,6 @@ pub mod transition;
 pub mod wrappers;
 
 use computed::ScopedFuture;
-pub use graph::untrack;
 
 #[cfg(feature = "nightly")]
 mod nightly;
