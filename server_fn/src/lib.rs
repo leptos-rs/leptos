@@ -67,9 +67,11 @@
 //!   ad hoc HTTP API endpoint, not a magic formula. Any server function can be accessed by any HTTP
 //!   client. You should take care to sanitize any data being returned from the function to ensure it
 //!   does not leak data that should exist only on the server.
-//! - **Server functions can’t be generic.** Because each server function creates a separate API endpoint,
-//!   it is difficult to monomorphize. As a result, server functions cannot be generic (for now?) If you need to use
-//!   a generic function, you can define a generic inner function called by multiple concrete server functions.
+//! - **Generic server fns must be explicitly registered with the type.** Each server function creates
+//!   a separate API endpoint, which means that the URL can change depending on the generic type. As a
+//!   result, server functions that are generic must be explicitly registered with the
+//!   [`axum::register_explicit`] or [`actix::register_explicit`] function call with your generic type 
+//!   passed into it as an argument.
 //! - **Arguments and return types must be serializable.** We support a variety of different encodings,
 //!   but one way or another arguments need to be serialized to be sent to the server and deserialized
 //!   on the server, and the return type must be serialized on the server and deserialized on the client.
