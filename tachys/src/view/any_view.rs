@@ -5,13 +5,11 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    marker::PhantomData,
 };
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
@@ -26,10 +24,7 @@ use std::{future::Future, pin::Pin};
 /// Generally speaking, using `AnyView` restricts the amount of information available to the
 /// compiler and should be limited to situations in which it is necessary to preserve the maximum
 /// amount of type information possible.
-pub struct AnyView<R>
-where
-    R: Renderer,
-{
+pub struct AnyView {
     type_id: TypeId,
     value: Box<dyn Any + Send>,
 
@@ -47,38 +42,34 @@ where
     #[cfg(feature = "ssr")]
     to_html_async_ooo:
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
-    build: fn(Box<dyn Any>) -> AnyViewState<R>,
-    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
+    build: fn(Box<dyn Any>) -> AnyViewState,
+    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve:
-        fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView<R>> + Send>>,
+    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Box<dyn Any + Send>),
     #[cfg(feature = "hydrate")]
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_server:
-        fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
+        fn(Box<dyn Any>, &Cursor, &PositionState) -> AnyViewState,
 }
 
 /// Retained view state for [`AnyView`].
-pub struct AnyViewState<R>
-where
-    R: Renderer,
-{
+pub struct AnyViewState {
     type_id: TypeId,
     state: Box<dyn Any>,
     unmount: fn(&mut dyn Any),
-    mount: fn(&mut dyn Any, parent: &R::Element, marker: Option<&R::Node>),
-    insert_before_this: fn(&dyn Any, child: &mut dyn Mountable<R>) -> bool,
-    rndr: PhantomData<R>,
+    mount: fn(
+        &mut dyn Any,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ),
+    insert_before_this: fn(&dyn Any, child: &mut dyn Mountable) -> bool,
 }
 
-impl<R> Debug for AnyViewState<R>
-where
-    R: Renderer,
-{
+impl Debug for AnyViewState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AnyViewState")
             .field("type_id", &self.type_id)
@@ -86,28 +77,23 @@ where
             .field("unmount", &self.unmount)
             .field("mount", &self.mount)
             .field("insert_before_this", &self.insert_before_this)
-            .field("rndr", &self.rndr)
             .finish()
     }
 }
 
 /// Allows converting some view into [`AnyView`].
-pub trait IntoAny<R>
-where
-    R: Renderer,
-{
+pub trait IntoAny {
     /// Converts the view into a type-erased [`AnyView`].
-    fn into_any(self) -> AnyView<R>;
+    fn into_any(self) -> AnyView;
 }
 
-fn mount_any<R, T>(
+fn mount_any<T>(
     state: &mut dyn Any,
-    parent: &R::Element,
-    marker: Option<&R::Node>,
+    parent: &crate::renderer::types::Element,
+    marker: Option<&crate::renderer::types::Node>,
 ) where
-    T: Render<R>,
+    T: Render,
     T::State: 'static,
-    R: Renderer,
 {
     let state = state
         .downcast_mut::<T::State>()
@@ -115,11 +101,10 @@ fn mount_any<R, T>(
     state.mount(parent, marker)
 }
 
-fn unmount_any<R, T>(state: &mut dyn Any)
+fn unmount_any<T>(state: &mut dyn Any)
 where
-    T: Render<R>,
+    T: Render,
     T::State: 'static,
-    R: Renderer,
 {
     let state = state
         .downcast_mut::<T::State>()
@@ -127,14 +112,10 @@ where
     state.unmount();
 }
 
-fn insert_before_this<R, T>(
-    state: &dyn Any,
-    child: &mut dyn Mountable<R>,
-) -> bool
+fn insert_before_this<T>(state: &dyn Any, child: &mut dyn Mountable) -> bool
 where
-    T: Render<R>,
+    T: Render,
     T::State: 'static,
-    R: Renderer + 'static,
 {
     let state = state
         .downcast_ref::<T::State>()
@@ -142,17 +123,16 @@ where
     state.insert_before_this(child)
 }
 
-impl<T, R> IntoAny<R> for T
+impl<T> IntoAny for T
 where
     T: Send,
-    T: RenderHtml<R> + 'static,
+    T: RenderHtml + 'static,
     T::State: 'static,
-    R: Renderer + 'static,
 {
     // inlining allows the compiler to remove the unused functions
     // i.e., doesn't ship HTML-generating code that isn't used
     #[inline(always)]
-    fn into_any(self) -> AnyView<R> {
+    fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]
         let html_len = self.html_len();
 
@@ -172,7 +152,7 @@ where
                 .downcast::<T>()
                 .expect("AnyView::resolve could not be downcast");
             Box::pin(async move { value.resolve().await.into_any() })
-                as Pin<Box<dyn Future<Output = AnyView<R>> + Send>>
+                as Pin<Box<dyn Future<Output = AnyView> + Send>>
         };
         #[cfg(feature = "ssr")]
         let to_html = |value: Box<dyn Any>,
@@ -245,17 +225,15 @@ where
             AnyViewState {
                 type_id: TypeId::of::<T>(),
                 state,
-                rndr: PhantomData,
-                mount: mount_any::<R, T>,
-                unmount: unmount_any::<R, T>,
-                insert_before_this: insert_before_this::<R, T>,
+
+                mount: mount_any::<T>,
+                unmount: unmount_any::<T>,
+                insert_before_this: insert_before_this::<T>,
             }
         };
         #[cfg(feature = "hydrate")]
         let hydrate_from_server =
-            |value: Box<dyn Any>,
-             cursor: &Cursor<R>,
-             position: &PositionState| {
+            |value: Box<dyn Any>, cursor: &Cursor, position: &PositionState| {
                 let value = value
                     .downcast::<T>()
                     .expect("AnyView::hydrate_from_server couldn't downcast");
@@ -264,16 +242,16 @@ where
                 AnyViewState {
                     type_id: TypeId::of::<T>(),
                     state,
-                    rndr: PhantomData,
-                    mount: mount_any::<R, T>,
-                    unmount: unmount_any::<R, T>,
-                    insert_before_this: insert_before_this::<R, T>,
+
+                    mount: mount_any::<T>,
+                    unmount: unmount_any::<T>,
+                    insert_before_this: insert_before_this::<T>,
                 }
             };
 
         let rebuild = |new_type_id: TypeId,
                        value: Box<dyn Any>,
-                       state: &mut AnyViewState<R>| {
+                       state: &mut AnyViewState| {
             let value = value
                 .downcast::<T>()
                 .expect("AnyView::rebuild couldn't downcast value");
@@ -290,6 +268,7 @@ where
                 *state = new;
             }
         };
+
         AnyView {
             type_id: TypeId::of::<T>(),
             value,
@@ -313,11 +292,8 @@ where
     }
 }
 
-impl<R> Render<R> for AnyView<R>
-where
-    R: Renderer + 'static,
-{
-    type State = AnyViewState<R>;
+impl Render for AnyView {
+    type State = AnyViewState;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -328,27 +304,21 @@ where
     }
 }
 
-impl<R> AddAnyAttr<R> for AnyView<R>
-where
-    R: Renderer + 'static,
-{
-    type Output<SomeNewAttr: Attribute<R>> = Self;
+impl AddAnyAttr for AnyView {
+    type Output<SomeNewAttr: Attribute> = Self;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         todo!()
     }
 }
 
-impl<R> RenderHtml<R> for AnyView<R>
-where
-    R: Renderer + 'static,
-{
+impl RenderHtml for AnyView {
     type AsyncOutput = Self;
 
     fn dry_resolve(&mut self) {
@@ -441,7 +411,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
@@ -476,19 +446,20 @@ where
     }
 }
 
-impl<R> Mountable<R> for AnyViewState<R>
-where
-    R: Renderer + 'static,
-{
+impl Mountable for AnyViewState {
     fn unmount(&mut self) {
         (self.unmount)(&mut *self.state)
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         (self.mount)(&mut *self.state, parent, marker)
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         (self.insert_before_this)(&*self.state, child)
     }
 }

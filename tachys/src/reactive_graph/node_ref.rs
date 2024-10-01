@@ -1,7 +1,4 @@
-use crate::{
-    html::{element::ElementType, node_ref::NodeRefContainer},
-    renderer::{dom::Dom, Renderer},
-};
+use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
     signal::RwSignal,
     traits::{DefinedAt, Set, Track, WithUntracked},
@@ -55,12 +52,12 @@ where
 {
 }
 
-impl<E> NodeRefContainer<E, Dom> for NodeRef<E>
+impl<E> NodeRefContainer<E> for NodeRef<E>
 where
     E: ElementType,
     E::Output: JsCast + 'static,
 {
-    fn load(self, el: &<Dom as Renderer>::Element) {
+    fn load(self, el: &crate::renderer::types::Element) {
         // safe to construct SendWrapper here, because it will only run in the browser
         // so it will always be accessed or dropped from the main thread
         self.0

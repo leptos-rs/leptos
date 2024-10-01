@@ -13,24 +13,27 @@ use std::{
 };
 
 mod arena;
+mod arena_item;
 mod context;
+mod storage;
 mod stored_value;
 use self::arena::Arena;
 #[cfg(feature = "sandboxed-arenas")]
 pub use arena::sandboxed::Sandboxed;
+#[cfg(feature = "sandboxed-arenas")]
+use arena::ArenaMap;
 use arena::NodeId;
+pub use arena_item::*;
 pub use context::*;
+pub use storage::*;
 #[allow(deprecated)] // allow exporting deprecated fn
-pub use stored_value::{
-    store_value, FromLocal, LocalStorage, Storage, StorageAccess, StoredValue,
-    SyncStorage,
-};
+pub use stored_value::{store_value, FromLocal, StoredValue};
 
 /// A reactive owner, which manages
 /// 1) the cancelation of [`Effect`](crate::effect::Effect)s,
 /// 2) providing and accessing environment data via [`provide_context`] and [`use_context`],
 /// 3) running cleanup functions defined via [`Owner::on_cleanup`], and
-/// 4) an arena storage system to provide `Copy` handles via [`StoredValue`], which is what allows
+/// 4) an arena storage system to provide `Copy` handles via [`ArenaItem`], which is what allows
 ///    types like [`RwSignal`](crate::signal::RwSignal), [`Memo`](crate::computed::Memo), and so on to be `Copy`.
 ///
 /// Every effect and computed reactive value has an associated `Owner`. While it is running, this
@@ -119,6 +122,12 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                #[cfg(feature = "sandboxed-arenas")]
+                arena: parent
+                    .as_ref()
+                    .and_then(|parent| parent.upgrade())
+                    .map(|parent| parent.read().or_poisoned().arena.clone())
+                    .unwrap_or_default(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -139,11 +148,10 @@ impl Owner {
     /// Only one `SharedContext` needs to be created per request, and will be automatically shared
     /// by any other `Owner`s created under this one.
     #[cfg(feature = "hydration")]
+    #[track_caller]
     pub fn new_root(
         shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
     ) -> Self {
-        Arena::enter_new();
-
         let this = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent: None,
@@ -151,17 +159,21 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                #[cfg(feature = "sandboxed-arenas")]
+                arena: Default::default(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
         };
-        OWNER.with_borrow_mut(|owner| *owner = Some(this.clone()));
+        this.set();
         this
     }
 
     /// Creates a new `Owner` that is the child of the current `Owner`, if any.
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));
+        #[cfg(feature = "sandboxed-arenas")]
+        let arena = self.inner.read().or_poisoned().arena.clone();
         let child = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
@@ -169,6 +181,8 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                #[cfg(feature = "sandboxed-arenas")]
+                arena,
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
@@ -184,6 +198,8 @@ impl Owner {
     /// Sets this as the current `Owner`.
     pub fn set(&self) {
         OWNER.with_borrow_mut(|owner| *owner = Some(self.clone()));
+        #[cfg(feature = "sandboxed-arenas")]
+        Arena::set(&self.inner.read().or_poisoned().arena);
     }
 
     /// Runs the given function with this as the current `Owner`.
@@ -193,6 +209,8 @@ impl Owner {
                 mem::replace(&mut *o.borrow_mut(), Some(self.clone()))
             })
         };
+        #[cfg(feature = "sandboxed-arenas")]
+        Arena::set(&self.inner.read().or_poisoned().arena);
         let val = fun();
         OWNER.with(|o| {
             *o.borrow_mut() = prev;
@@ -209,7 +227,7 @@ impl Owner {
     /// Cleans up this owner in the following order:
     /// 1) Runs `cleanup` on all children,
     /// 2) Runs all cleanup functions registered with [`Owner::on_cleanup`],
-    /// 3) Drops the values of any arena-allocated [`StoredValue`]s.
+    /// 3) Drops the values of any arena-allocated [`ArenaItem`]s.
     pub fn cleanup(&self) {
         self.inner.cleanup();
     }
@@ -333,6 +351,8 @@ pub(crate) struct OwnerInner {
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
     pub children: Vec<Weak<RwLock<OwnerInner>>>,
+    #[cfg(feature = "sandboxed-arenas")]
+    arena: Arc<RwLock<ArenaMap>>,
 }
 
 impl Debug for OwnerInner {
@@ -360,11 +380,19 @@ impl Drop for OwnerInner {
 
         let nodes = mem::take(&mut self.nodes);
         if !nodes.is_empty() {
+            #[cfg(not(feature = "sandboxed-arenas"))]
             Arena::with_mut(|arena| {
                 for node in nodes {
                     _ = arena.remove(node);
                 }
             });
+            #[cfg(feature = "sandboxed-arenas")]
+            {
+                let mut arena = self.arena.write().or_poisoned();
+                for node in nodes {
+                    _ = arena.remove(node);
+                }
+            }
         }
     }
 }
@@ -393,11 +421,20 @@ impl Cleanup for RwLock<OwnerInner> {
         }
 
         if !nodes.is_empty() {
+            #[cfg(not(feature = "sandboxed-arenas"))]
             Arena::with_mut(|arena| {
                 for node in nodes {
                     _ = arena.remove(node);
                 }
             });
+            #[cfg(feature = "sandboxed-arenas")]
+            {
+                let arena = self.read().or_poisoned().arena.clone();
+                let mut arena = arena.write().or_poisoned();
+                for node in nodes {
+                    _ = arena.remove(node);
+                }
+            }
         }
     }
 }

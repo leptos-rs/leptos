@@ -168,7 +168,7 @@ pub mod prelude {
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
-            actions::*, computed::*, effect::*, owner::*, signal::*,
+            actions::*, computed::*, effect::*, owner::*, signal::*, untrack,
             wrappers::read::*,
         };
         pub use server_fn::{self, ServerFnError};
@@ -293,6 +293,10 @@ pub mod spawn {
     pub async fn tick() {
         Executor::tick().await
     }
+
+    pub use reactive_graph::{
+        spawn_local_scoped, spawn_local_scoped_with_cancellation,
+    };
 }
 
 // these reexports are used in islands

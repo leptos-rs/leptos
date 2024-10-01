@@ -108,6 +108,7 @@ impl Owner {
 /// ```rust
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
 /// # use reactive_graph::effect::Effect;
 /// # futures::executor::block_on(async move {
 /// # any_spawner::Executor::init_futures_executor();
@@ -140,6 +141,7 @@ impl Owner {
 /// ```rust
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
 /// # use reactive_graph::effect::Effect;
 /// # futures::executor::block_on(async move {
 /// # any_spawner::Executor::init_futures_executor();
@@ -187,6 +189,7 @@ pub fn provide_context<T: Send + Sync + 'static>(value: T) {
 /// ```rust
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
 /// # use reactive_graph::effect::Effect;
 /// # futures::executor::block_on(async move {
 /// # any_spawner::Executor::init_futures_executor();
@@ -232,6 +235,7 @@ pub fn use_context<T: Clone + 'static>() -> Option<T> {
 /// ```rust
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
 /// # use reactive_graph::effect::Effect;
 /// # futures::executor::block_on(async move {
 /// # any_spawner::Executor::init_futures_executor();
@@ -286,6 +290,7 @@ pub fn expect_context<T: Clone + 'static>() -> T {
 /// ```rust
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
 /// # use reactive_graph::effect::Effect;
 /// # futures::executor::block_on(async move {
 /// # any_spawner::Executor::init_futures_executor();

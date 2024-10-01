@@ -5,25 +5,12 @@ use super::{
 use crate::{
     html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
     hydration::Cursor,
-    renderer::Renderer,
+    renderer::Rndr,
 };
 use std::marker::PhantomData;
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.
-///
-/// ```
-/// use tachydom::{
-///     html::attribute::{Attribute, Type},
-///     view::static_types::{static_attr, StaticAttr},
-/// };
-/// let input_type = static_attr::<Type, "text">();
-/// let mut buf = String::new();
-/// let mut classes = String::new();
-/// let mut styles = String::new();
-/// input_type.to_html(&mut buf, &mut classes, &mut styles);
-/// assert_eq!(buf, " type=\"text\"");
-/// ```
 #[derive(Debug)]
 pub struct StaticAttr<K: AttributeKey, const V: &'static str> {
     ty: PhantomData<K>,
@@ -67,10 +54,9 @@ where
     }
 }
 
-impl<K, const V: &'static str, R> Attribute<R> for StaticAttr<K, V>
+impl<K, const V: &'static str> Attribute for StaticAttr<K, V>
 where
     K: AttributeKey,
-    R: Renderer,
 {
     const MIN_LENGTH: usize = K::KEY.len() + 3 + V.len(); // K::KEY + ="..." + V
 
@@ -91,14 +77,17 @@ where
         _style: &mut String,
         _inner_html: &mut String,
     ) {
-        AttributeValue::<R>::to_html(V, K::KEY, buf)
+        AttributeValue::to_html(V, K::KEY, buf)
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _el: &crate::renderer::types::Element,
+    ) -> Self::State {
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, K::KEY, V);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, K::KEY, V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
@@ -118,14 +107,13 @@ where
     }
 }
 
-impl<K, const V: &'static str, R> NextAttribute<R> for StaticAttr<K, V>
+impl<K, const V: &'static str> NextAttribute for StaticAttr<K, V>
 where
     K: AttributeKey,
-    R: Renderer,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -151,27 +139,22 @@ impl<const V: &'static str> AsRef<str> for Static<V> {
     }
 }
 
-impl<const V: &'static str, R: Renderer> Render<R> for Static<V>
+impl<const V: &'static str> Render for Static<V>
 where
-    R::Text: Mountable<R>,
+    crate::renderer::types::Text: Mountable,
 {
-    type State = Option<R::Text>;
+    type State = Option<crate::renderer::types::Text>;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
-        Some(R::create_text_node(V))
+        Some(Rndr::create_text_node(V))
     }
 
     // This type is specified as static, so no rebuilding is done.
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-impl<const V: &'static str, R> RenderHtml<R> for Static<V>
-where
-    R: Renderer,
-
-    R::Text: Mountable<R>,
-{
+impl<const V: &'static str> RenderHtml for Static<V> {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = V.len();
@@ -207,7 +190,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         if position.get() == Position::FirstChild {
@@ -225,21 +208,16 @@ where
     }
 }
 
-impl<R, const V: &'static str> AddAnyAttr<R> for Static<V>
-where
-    R: Renderer,
-{
-    type Output<SomeNewAttr: Attribute<R>> = Static<V>;
+impl<const V: &'static str> AddAnyAttr for Static<V> {
+    type Output<SomeNewAttr: Attribute> = Static<V>;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
-        // TODO: there is a strange compiler thing that seems to prevent us returning Self here,
-        // even though we've already said that Output is always the same as Self
         todo!()
     }
 }

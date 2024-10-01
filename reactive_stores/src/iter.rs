@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap,
+    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
@@ -69,8 +69,6 @@ where
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
         MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
-    type UntrackedWriter =
-        MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -79,7 +77,7 @@ where
             .chain(iter::once(self.index.into()))
     }
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -95,19 +93,13 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.writer()?);
+        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
         let index = self.index;
         Some(MappedMutArc::new(
             inner,
             move |n| &n[index],
             move |n| &mut n[index],
         ))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let mut guard = self.writer()?;
-        guard.untrack();
-        Some(guard)
     }
 
     #[inline(always)]
@@ -149,7 +141,7 @@ where
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.notify();
+        trigger.this.notify();
     }
 }
 
@@ -161,7 +153,8 @@ where
 {
     fn track(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
@@ -224,7 +217,8 @@ where
     fn iter(self) -> StoreFieldIter<Inner, Prev> {
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
 
         // get the current length of the field by accessing slice
         let len = self.reader().map(|n| n.as_ref().len()).unwrap_or(0);

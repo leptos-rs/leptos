@@ -13,7 +13,7 @@ use std::{
     future::Future,
     mem,
 };
-use tachys::{renderer::Renderer, view::RenderHtml};
+use tachys::view::RenderHtml;
 
 #[derive(Clone, Debug, Default)]
 /// A route that this application can serve.
@@ -220,13 +220,11 @@ impl RouteList {
         static GENERATED: RefCell<Option<RouteList>> = const { RefCell::new(None) };
     }
 
-    pub fn generate<T, Rndr>(app: impl FnOnce() -> T) -> Option<Self>
+    pub fn generate<T>(app: impl FnOnce() -> T) -> Option<Self>
     where
-        T: RenderHtml<Rndr>,
-        Rndr: Renderer,
-        Rndr::Node: Clone,
-        Rndr::Element: Clone,
+        T: RenderHtml,
     {
+        let _resource_guard = leptos::server::SuppressResourceLoad::new();
         Self::IS_GENERATING.set(true);
         // run the app once, but throw away the HTML
         // the router won't actually route, but will fill the listing

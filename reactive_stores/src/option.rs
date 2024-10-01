@@ -136,76 +136,6 @@ mod tests {
             "Bob!!!"
         );
     }
-    #[tokio::test]
-    async fn updating_option_unwrap_subfield_doesnt_notify_option() {
-        use crate::OptionStoreExt;
-
-        _ = any_spawner::Executor::init_tokio();
-
-        let parent_count = Arc::new(AtomicUsize::new(0));
-        let inner_count = Arc::new(AtomicUsize::new(0));
-
-        let store = Store::new(User { name: None });
-
-        Effect::new_sync({
-            let parent_count = Arc::clone(&parent_count);
-            move |prev: Option<()>| {
-                if prev.is_none() {
-                    println!("parent: first run");
-                } else {
-                    println!("parent: next run");
-                }
-
-                println!("  is_some = {}", store.name().read().is_some());
-                parent_count.fetch_add(1, Ordering::Relaxed);
-            }
-        });
-        Effect::new_sync({
-            let inner_count = Arc::clone(&inner_count);
-            move |prev: Option<()>| {
-                if prev.is_none() {
-                    println!("inner: first run");
-                } else {
-                    println!("inner: next run");
-                }
-
-                if store.name().read().is_some() {
-                    println!(
-                        "  inner label = {:?}",
-                        *store.name().unwrap().first_name().read()
-                    );
-                } else {
-                    println!("  no inner value");
-                }
-                inner_count.fetch_add(1, Ordering::Relaxed);
-            }
-        });
-
-        tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
-        assert_eq!(inner_count.load(Ordering::Relaxed), 1);
-
-        store.name().set(Some(Name {
-            first_name: Some("Alice".into()),
-        }));
-        tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
-        assert_eq!(inner_count.load(Ordering::Relaxed), 2);
-
-        println!("\nUpdating first name only");
-        store
-            .name()
-            .unwrap()
-            .first_name()
-            .write()
-            .as_mut()
-            .unwrap()
-            .push_str("!!!");
-
-        tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
-        assert_eq!(inner_count.load(Ordering::Relaxed), 3);
-    }
 
     #[tokio::test]
     async fn mapping_over_optional_store_field() {
@@ -274,7 +204,7 @@ mod tests {
             .push_str("!!!");
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
         assert_eq!(inner_count.load(Ordering::Relaxed), 3);
     }
 }

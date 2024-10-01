@@ -1,11 +1,14 @@
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Plain, ReadGuard},
+        guards::{Plain, ReadGuard, WriteGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Writeable,
+    },
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -13,6 +16,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     hash::Hash,
+    ops::DerefMut,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -33,26 +37,38 @@ pub use iter::*;
 pub use keyed::*;
 pub use option::*;
 pub use patch::*;
-use path::{StorePath, StorePathSegment};
+pub use path::{StorePath, StorePathSegment};
 pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
-struct TriggerMap(FxHashMap<StorePath, ArcTrigger>);
+struct TriggerMap(FxHashMap<StorePath, StoreFieldTrigger>);
+
+#[derive(Debug, Clone, Default)]
+pub struct StoreFieldTrigger {
+    pub this: ArcTrigger,
+    pub children: ArcTrigger,
+}
+
+impl StoreFieldTrigger {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl TriggerMap {
-    fn get_or_insert(&mut self, key: StorePath) -> ArcTrigger {
+    fn get_or_insert(&mut self, key: StorePath) -> StoreFieldTrigger {
         if let Some(trigger) = self.0.get(&key) {
             trigger.clone()
         } else {
-            let new = ArcTrigger::new();
+            let new = StoreFieldTrigger::new();
             self.0.insert(key, new.clone());
             new
         }
     }
 
     #[allow(unused)]
-    fn remove(&mut self, key: &StorePath) -> Option<ArcTrigger> {
+    fn remove(&mut self, key: &StorePath) -> Option<StoreFieldTrigger> {
         self.0.remove(key)
     }
 }
@@ -238,22 +254,46 @@ where
     }
 }
 
+impl<T> Writeable for ArcStore<T>
+where
+    T: 'static,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer()
+            .map(|writer| WriteGuard::new(self.clone(), writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
+    }
+}
+
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        self.get_trigger(Default::default()).track();
+        let trigger = self.get_trigger(Default::default());
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
 impl<T: 'static> Notify for ArcStore<T> {
     fn notify(&self) {
-        self.get_trigger(self.path().into_iter().collect()).notify();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
 pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcStore<T>, S>,
+    inner: ArenaItem<ArcStore<T>, S>,
 }
 
 impl<T> Store<T>
@@ -264,7 +304,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
@@ -277,7 +317,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
@@ -335,7 +375,27 @@ where
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
             .try_get_value()
-            .map(|inner| inner.read_untracked())
+            .and_then(|inner| inner.try_read_untracked())
+    }
+}
+
+impl<T, S> Writeable for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer().map(|writer| WriteGuard::new(*self, writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
     }
 }
 
@@ -365,9 +425,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        self as reactive_stores, Patch, Store, StoreField, StoreFieldIterator,
-    };
+    use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
@@ -382,13 +440,13 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_micros(1)).await;
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todos {
         user: String,
         todos: Vec<Todo>,
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todo {
         label: String,
         completed: bool,
@@ -454,18 +512,6 @@ mod tests {
         tick().await;
         // the effect reads from `user`, so it should trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 4);
-
-        store
-            .todos()
-            .write()
-            .push(Todo::new("Create reactive stores"));
-        tick().await;
-        store.todos().write().push(Todo::new("???"));
-        tick().await;
-        store.todos().write().push(Todo::new("Profit!"));
-        tick().await;
-        // the effect doesn't read from `todos`, so the count should not have changed
-        assert_eq!(combined_count.load(Ordering::Relaxed), 4);
     }
 
     #[tokio::test]
@@ -496,8 +542,70 @@ mod tests {
         tick().await;
         store.user().update(|name| name.push_str("!!!"));
         tick().await;
-        // the effect reads from `user`, so it should trigger every time
+        // the effect reads from `todos`, so it shouldn't trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn parent_does_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.todos().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.set(Todos::default());
+        tick().await;
+        store.set(data());
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn changes_do_notify_parent() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.user().set("Greg".into());
+        tick().await;
+        store.user().set("Carol".into());
+        tick().await;
+        store.user().update(|name| name.push_str("!!!"));
+        tick().await;
+        store.todos().write().clear();
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 5);
     }
 
     #[tokio::test]

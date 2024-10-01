@@ -1,6 +1,6 @@
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::{quote, ToTokens};
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
@@ -25,7 +25,7 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 ///
 /// assert_eq!(path, output);
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn path(tokens: TokenStream) -> TokenStream {
     let mut parser = SegmentParser::new(tokens);

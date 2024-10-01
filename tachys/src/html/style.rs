@@ -2,54 +2,47 @@ use super::attribute::{Attribute, NextAttribute};
 #[cfg(feature = "nightly")]
 use crate::view::static_types::Static;
 use crate::{
-    renderer::DomRenderer,
+    renderer::Rndr,
     view::{Position, ToTemplate},
 };
-use std::{future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that will add to an element's CSS styles.
 #[inline(always)]
-pub fn style<S, R>(style: S) -> Style<S, R>
+pub fn style<S>(style: S) -> Style<S>
 where
-    S: IntoStyle<R>,
-    R: DomRenderer,
+    S: IntoStyle,
 {
-    Style {
-        style,
-        rndr: PhantomData,
-    }
+    Style { style }
 }
 
 /// An [`Attribute`] that will add to an element's CSS styles.
 #[derive(Debug)]
-pub struct Style<S, R> {
+pub struct Style<S> {
     style: S,
-    rndr: PhantomData<R>,
 }
 
-impl<S, R> Clone for Style<S, R>
+impl<S> Clone for Style<S>
 where
     S: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             style: self.style.clone(),
-            rndr: PhantomData,
         }
     }
 }
 
-impl<S, R> Attribute<R> for Style<S, R>
+impl<S> Attribute for Style<S>
 where
-    S: IntoStyle<R>,
-    R: DomRenderer,
+    S: IntoStyle,
 {
     const MIN_LENGTH: usize = 0;
 
-    type AsyncOutput = Style<S::AsyncOutput, R>;
+    type AsyncOutput = Style<S::AsyncOutput>;
     type State = S::State;
-    type Cloneable = Style<S::Cloneable, R>;
-    type CloneableOwned = Style<S::CloneableOwned, R>;
+    type Cloneable = Style<S::Cloneable>;
+    type CloneableOwned = Style<S::CloneableOwned>;
 
     // TODO
     #[inline(always)]
@@ -67,11 +60,14 @@ where
         self.style.to_html(style);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         self.style.hydrate::<FROM_SERVER>(el)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.style.build(el)
     }
 
@@ -82,14 +78,12 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         Style {
             style: self.style.into_cloneable(),
-            rndr: self.rndr,
         }
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         Style {
             style: self.style.into_cloneable_owned(),
-            rndr: self.rndr,
         }
     }
 
@@ -100,19 +94,17 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         Style {
             style: self.style.resolve().await,
-            rndr: self.rndr,
         }
     }
 }
 
-impl<S, R> NextAttribute<R> for Style<S, R>
+impl<S> NextAttribute for Style<S>
 where
-    S: IntoStyle<R>,
-    R: DomRenderer,
+    S: IntoStyle,
 {
-    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -120,10 +112,9 @@ where
     }
 }
 
-impl<S, R> ToTemplate for Style<S, R>
+impl<S> ToTemplate for Style<S>
 where
-    S: IntoStyle<R>,
-    R: DomRenderer,
+    S: IntoStyle,
 {
     fn to_template(
         _buf: &mut String,
@@ -138,25 +129,28 @@ where
 
 /// Any type that can be added to the `style` attribute or set as a style in
 /// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
-pub trait IntoStyle<R: DomRenderer>: Send {
+pub trait IntoStyle: Send {
     /// The type after all async data have resolved.
-    type AsyncOutput: IntoStyle<R>;
+    type AsyncOutput: IntoStyle;
     /// The view state retained between building and rebuilding.
     type State;
     /// An equivalent value that can be cloned.
-    type Cloneable: IntoStyle<R> + Clone;
+    type Cloneable: IntoStyle + Clone;
     /// An equivalent value that can be cloned and is `'static`.
-    type CloneableOwned: IntoStyle<R> + Clone + 'static;
+    type CloneableOwned: IntoStyle + Clone + 'static;
 
     /// Renders the style to HTML.
     fn to_html(self, style: &mut String);
 
     /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
     /// either been rendered on the server, or cloned for a `<template>`.
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State;
 
     /// Adds this style to the element during client-side rendering.
-    fn build(self, el: &R::Element) -> Self::State;
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State;
 
     /// Updates the value.
     fn rebuild(self, state: &mut Self::State);
@@ -176,12 +170,9 @@ pub trait IntoStyle<R: DomRenderer>: Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
-impl<'a, R> IntoStyle<R> for &'a str
-where
-    R: DomRenderer,
-{
+impl<'a> IntoStyle for &'a str {
     type AsyncOutput = Self;
-    type State = (R::Element, &'a str);
+    type State = (crate::renderer::types::Element, &'a str);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
 
@@ -190,19 +181,22 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "style", self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "style", self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "style", self);
+            Rndr::set_attribute(el, "style", self);
         }
         *prev = self;
     }
@@ -222,12 +216,9 @@ where
     }
 }
 
-impl<R> IntoStyle<R> for Arc<str>
-where
-    R: DomRenderer,
-{
+impl IntoStyle for Arc<str> {
     type AsyncOutput = Self;
-    type State = (R::Element, Arc<str>);
+    type State = (crate::renderer::types::Element, Arc<str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -236,19 +227,22 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "style", &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "style", &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "style", &self);
+            Rndr::set_attribute(el, "style", &self);
         }
         *prev = self;
     }
@@ -268,12 +262,9 @@ where
     }
 }
 
-impl<R> IntoStyle<R> for String
-where
-    R: DomRenderer,
-{
+impl IntoStyle for String {
     type AsyncOutput = Self;
-    type State = (R::Element, String);
+    type State = (crate::renderer::types::Element, String);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
 
@@ -282,19 +273,22 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "style", &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "style", &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "style", &self);
+            Rndr::set_attribute(el, "style", &self);
         }
         *prev = self;
     }
@@ -314,12 +308,9 @@ where
     }
 }
 
-impl<R> IntoStyle<R> for (Arc<str>, Arc<str>)
-where
-    R: DomRenderer,
-{
+impl IntoStyle for (Arc<str>, Arc<str>) {
     type AsyncOutput = Self;
-    type State = (R::CssStyleDeclaration, Arc<str>);
+    type State = (crate::renderer::types::CssStyleDeclaration, Arc<str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -331,15 +322,18 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let style = R::style(el);
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let style = Rndr::style(el);
         (style, self.1)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = self;
-        let style = R::style(el);
-        R::set_css_property(&style, &name, &value);
+        let style = Rndr::style(el);
+        Rndr::set_css_property(&style, &name, &value);
         (style, value)
     }
 
@@ -347,7 +341,7 @@ where
         let (name, value) = self;
         let (style, prev) = state;
         if value != *prev {
-            R::set_css_property(style, &name, &value);
+            Rndr::set_css_property(style, &name, &value);
         }
         *prev = value;
     }
@@ -367,12 +361,9 @@ where
     }
 }
 
-impl<'a, R> IntoStyle<R> for (&'a str, &'a str)
-where
-    R: DomRenderer,
-{
+impl<'a> IntoStyle for (&'a str, &'a str) {
     type AsyncOutput = Self;
-    type State = (R::CssStyleDeclaration, &'a str);
+    type State = (crate::renderer::types::CssStyleDeclaration, &'a str);
     type Cloneable = Self;
     type CloneableOwned = (Arc<str>, Arc<str>);
 
@@ -384,15 +375,18 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let style = R::style(el);
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let style = Rndr::style(el);
         (style, self.1)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = self;
-        let style = R::style(el);
-        R::set_css_property(&style, name, value);
+        let style = Rndr::style(el);
+        Rndr::set_css_property(&style, name, value);
         (style, self.1)
     }
 
@@ -400,7 +394,7 @@ where
         let (name, value) = self;
         let (style, prev) = state;
         if value != *prev {
-            R::set_css_property(style, name, value);
+            Rndr::set_css_property(style, name, value);
         }
         *prev = value;
     }
@@ -420,12 +414,9 @@ where
     }
 }
 
-impl<'a, R> IntoStyle<R> for (&'a str, String)
-where
-    R: DomRenderer,
-{
+impl<'a> IntoStyle for (&'a str, String) {
     type AsyncOutput = Self;
-    type State = (R::CssStyleDeclaration, String);
+    type State = (crate::renderer::types::CssStyleDeclaration, String);
     type Cloneable = (Arc<str>, Arc<str>);
     type CloneableOwned = (Arc<str>, Arc<str>);
 
@@ -437,15 +428,18 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let style = R::style(el);
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let style = Rndr::style(el);
         (style, self.1)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = &self;
-        let style = R::style(el);
-        R::set_css_property(&style, name, value);
+        let style = Rndr::style(el);
+        Rndr::set_css_property(&style, name, value);
         (style, self.1)
     }
 
@@ -453,7 +447,7 @@ where
         let (name, value) = self;
         let (style, prev) = state;
         if value != *prev {
-            R::set_css_property(style, name, &value);
+            Rndr::set_css_property(style, name, &value);
         }
         *prev = value;
     }
@@ -474,10 +468,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<'a, const V: &'static str, R> IntoStyle<R> for (&'a str, Static<V>)
-where
-    R: DomRenderer,
-{
+impl<'a, const V: &'static str> IntoStyle for (&'a str, Static<V>) {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);
@@ -491,13 +482,16 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _el: &crate::renderer::types::Element,
+    ) -> Self::State {
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, _) = &self;
-        let style = R::style(el);
-        R::set_css_property(&style, name, V);
+        let style = Rndr::style(el);
+        Rndr::set_css_property(&style, name, V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
@@ -518,10 +512,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<const V: &'static str, R> IntoStyle<R> for (Arc<str>, Static<V>)
-where
-    R: DomRenderer,
-{
+impl<const V: &'static str> IntoStyle for (Arc<str>, Static<V>) {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);
@@ -535,13 +526,16 @@ where
         style.push(';');
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _el: &crate::renderer::types::Element,
+    ) -> Self::State {
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, _) = &self;
-        let style = R::style(el);
-        R::set_css_property(&style, name, V);
+        let style = Rndr::style(el);
+        Rndr::set_css_property(&style, name, V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
@@ -562,11 +556,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<const V: &'static str, R> IntoStyle<R>
-    for crate::view::static_types::Static<V>
-where
-    R: DomRenderer,
-{
+impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
@@ -579,12 +569,12 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _el: &<R>::Element,
+        _el: &crate::renderer::types::Element,
     ) -> Self::State {
     }
 
-    fn build(self, el: &<R>::Element) -> Self::State {
-        R::set_attribute(el, "style", V);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "style", V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}

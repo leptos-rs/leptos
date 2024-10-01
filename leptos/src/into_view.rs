@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
@@ -50,14 +49,14 @@ impl<T> View<T> {
 
 pub trait IntoView
 where
-    Self: Sized + Render<Dom> + RenderHtml<Dom> + Send,
+    Self: Sized + Render + RenderHtml + Send,
 {
     fn into_view(self) -> View<Self>;
 }
 
 impl<T> IntoView for T
 where
-    T: Sized + Render<Dom> + RenderHtml<Dom> + Send, //+ AddAnyAttr<Dom>,
+    T: Sized + Render + RenderHtml + Send, //+ AddAnyAttr,
 {
     fn into_view(self) -> View<Self> {
         View {
@@ -68,7 +67,7 @@ where
     }
 }
 
-impl<T: Render<Rndr>, Rndr: Renderer> Render<Rndr> for View<T> {
+impl<T: Render> Render for View<T> {
     type State = T::State;
 
     fn build(self) -> Self::State {
@@ -80,10 +79,10 @@ impl<T: Render<Rndr>, Rndr: Renderer> Render<Rndr> for View<T> {
     }
 }
 
-impl<T: RenderHtml<Rndr>, Rndr: Renderer> RenderHtml<Rndr> for View<T> {
+impl<T: RenderHtml> RenderHtml for View<T> {
     type AsyncOutput = T::AsyncOutput;
 
-    const MIN_LENGTH: usize = <T as RenderHtml<Rndr>>::MIN_LENGTH;
+    const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.inner.resolve().await
@@ -147,7 +146,7 @@ impl<T: RenderHtml<Rndr>, Rndr: Renderer> RenderHtml<Rndr> for View<T> {
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
@@ -166,18 +165,15 @@ impl<T: ToTemplate> ToTemplate for View<T> {
     }
 }
 
-impl<T: AddAnyAttr<Rndr>, Rndr> AddAnyAttr<Rndr> for View<T>
-where
-    Rndr: Renderer,
-{
-    type Output<SomeNewAttr: Attribute<Rndr>> = View<T::Output<SomeNewAttr>>;
+impl<T: AddAnyAttr> AddAnyAttr for View<T> {
+    type Output<SomeNewAttr: Attribute> = View<T::Output<SomeNewAttr>>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let View {
             inner,

@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{abort, abort_call_site, proc_macro_error};
+use proc_macro_error2::{abort, abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    Field, Fields, Generics, Ident, Index, Meta, Result, Token, Type, Variant,
-    Visibility, WhereClause, ExprClosure,
+    ExprClosure, Field, Fields, Generics, Ident, Index, Meta, Result, Token,
+    Type, Variant, Visibility, WhereClause,
 };
 
 #[proc_macro_error]
@@ -441,7 +441,7 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>; 
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>;
                         }
                     }
                 }));
@@ -524,7 +524,7 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>; 
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>;
                         }
                     }
                 }));

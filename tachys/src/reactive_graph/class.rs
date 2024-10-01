@@ -1,6 +1,5 @@
 use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
-use crate::{html::class::IntoClass, renderer::DomRenderer};
-use any_spawner::Executor;
+use crate::{html::class::IntoClass, renderer::Rndr};
 use futures::FutureExt;
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
@@ -8,12 +7,11 @@ use std::{
     sync::Arc,
 };
 
-impl<F, C, R> IntoClass<R> for F
+impl<F, C> IntoClass for F
 where
     F: ReactiveFunction<Output = C>,
-    C: IntoClass<R> + 'static,
+    C: IntoClass + 'static,
     C::State: 'static,
-    R: DomRenderer,
 {
     type AsyncOutput = C::AsyncOutput;
     type State = RenderEffect<C::State>;
@@ -31,7 +29,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        el: &R::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         // TODO FROM_SERVER vs template
         let el = el.clone();
@@ -46,7 +44,7 @@ where
         })
     }
 
-    fn build(mut self, el: &R::Element) -> Self::State {
+    fn build(mut self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
             let value = self.invoke();
@@ -92,14 +90,13 @@ where
     }
 }
 
-impl<F, T, R> IntoClass<R> for (&'static str, F)
+impl<F, T> IntoClass for (&'static str, F)
 where
     F: ReactiveFunction<Output = T>,
     T: Borrow<bool> + Send + 'static,
-    R: DomRenderer,
 {
     type AsyncOutput = (&'static str, bool);
-    type State = RenderEffect<(R::ClassList, bool)>;
+    type State = RenderEffect<(crate::renderer::types::ClassList, bool)>;
     type Cloneable = (&'static str, SharedReactiveFunction<T>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<T>);
 
@@ -111,56 +108,63 @@ where
         let (name, mut f) = self;
         let include = *f.invoke().borrow();
         if include {
-            <&str as IntoClass<R>>::to_html(name, class);
+            <&str as IntoClass>::to_html(name, class);
         }
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         // TODO FROM_SERVER vs template
         let (name, mut f) = self;
-        let class_list = R::class_list(el);
-        let name = R::intern(name);
+        let class_list = Rndr::class_list(el);
+        let name = Rndr::intern(name);
 
-        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f.invoke().borrow();
-            if let Some((class_list, prev)) = prev {
-                if include {
-                    if !prev {
-                        R::add_class(&class_list, name);
-                    }
-                } else if prev {
-                    R::remove_class(&class_list, name);
-                }
-            }
-            (class_list.clone(), include)
-        })
-    }
-
-    fn build(self, el: &R::Element) -> Self::State {
-        let (name, mut f) = self;
-        let class_list = R::class_list(el);
-        let name = R::intern(name);
-
-        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f.invoke().borrow();
-            match prev {
-                Some((class_list, prev)) => {
+        RenderEffect::new(
+            move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
+                let include = *f.invoke().borrow();
+                if let Some((class_list, prev)) = prev {
                     if include {
                         if !prev {
-                            R::add_class(&class_list, name);
+                            Rndr::add_class(&class_list, name);
                         }
                     } else if prev {
-                        R::remove_class(&class_list, name);
+                        Rndr::remove_class(&class_list, name);
                     }
                 }
-                None => {
-                    if include {
-                        R::add_class(&class_list, name);
+                (class_list.clone(), include)
+            },
+        )
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        let (name, mut f) = self;
+        let class_list = Rndr::class_list(el);
+        let name = Rndr::intern(name);
+
+        RenderEffect::new(
+            move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
+                let include = *f.invoke().borrow();
+                match prev {
+                    Some((class_list, prev)) => {
+                        if include {
+                            if !prev {
+                                Rndr::add_class(&class_list, name);
+                            }
+                        } else if prev {
+                            Rndr::remove_class(&class_list, name);
+                        }
+                    }
+                    None => {
+                        if include {
+                            Rndr::add_class(&class_list, name);
+                        }
                     }
                 }
-            }
-            (class_list.clone(), include)
-        })
+                (class_list.clone(), include)
+            },
+        )
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -173,10 +177,10 @@ where
                     Some((class_list, prev)) => {
                         if include {
                             if !prev {
-                                R::add_class(&class_list, name);
+                                Rndr::add_class(&class_list, name);
                             }
                         } else if prev {
-                            R::remove_class(&class_list, name);
+                            Rndr::remove_class(&class_list, name);
                         }
                         (class_list.clone(), include)
                     }
@@ -208,14 +212,14 @@ where
 
 // TODO this needs a non-reactive form too to be restored
 /*
-impl<F, T, R> IntoClass<R> for (Vec<Cow<'static, str>>, F)
+impl<F, T> IntoClass for (Vec<Cow<'static, str>>, F)
 where
     F: ReactiveFunction<Output = T>,
     T: Borrow<bool> + Send + 'static,
-    R: DomRenderer,
+
 {
     type AsyncOutput = (Vec<Cow<'static, str>>, bool);
-    type State = RenderEffect<(R::ClassList, bool)>;
+    type State = RenderEffect<(crate::renderer::types::ClassList, bool)>;
     type Cloneable = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
     type CloneableOwned = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
 
@@ -228,29 +232,29 @@ where
         let include = *f.invoke().borrow();
         if include {
             for name in names {
-                <&str as IntoClass<R>>::to_html(&name, class);
+                <&str as IntoClass>::to_html(&name, class);
             }
         }
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
         // TODO FROM_SERVER vs template
         let (names, mut f) = self;
-        let class_list = R::class_list(el);
+        let class_list = Rndr::class_list(el);
 
-        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
+        RenderEffect::new(move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
             let include = *f.invoke().borrow();
             if let Some((class_list, prev)) = prev {
                 if include {
                     if !prev {
                         for name in &names {
                             // TODO multi-class optimizations here
-                            R::add_class(&class_list, name);
+                            Rndr::add_class(&class_list, name);
                         }
                     }
                 } else if prev {
                     for name in &names {
-                        R::remove_class(&class_list, name);
+                        Rndr::remove_class(&class_list, name);
                     }
                 }
             }
@@ -258,30 +262,30 @@ where
         })
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (names, mut f) = self;
-        let class_list = R::class_list(el);
+        let class_list = Rndr::class_list(el);
 
-        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
+        RenderEffect::new(move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
             let include = *f.invoke().borrow();
             match prev {
                 Some((class_list, prev)) => {
                     if include {
                         for name in &names {
                             if !prev {
-                                R::add_class(&class_list, name);
+                                Rndr::add_class(&class_list, name);
                             }
                         }
                     } else if prev {
                         for name in &names {
-                            R::remove_class(&class_list, name);
+                            Rndr::remove_class(&class_list, name);
                         }
                     }
                 }
                 None => {
                     if include {
                         for name in &names {
-                            R::add_class(&class_list, name);
+                            Rndr::add_class(&class_list, name);
                         }
                     }
                 }
@@ -295,19 +299,19 @@ where
         let prev_value = state.take_value();
 
         *state = RenderEffect::new_with_value(
-            move |prev: Option<(R::ClassList, bool)>| {
+            move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
                 let include = *f.invoke().borrow();
                 match prev {
                     Some((class_list, prev)) => {
                         if include {
                             for name in &names {
                                 if !prev {
-                                    R::add_class(&class_list, name);
+                                    Rndr::add_class(&class_list, name);
                                 }
                             }
                         } else if prev {
                             for name in &names {
-                                R::remove_class(&class_list, name);
+                                Rndr::remove_class(&class_list, name);
                             }
                         }
                         (class_list.clone(), include)
@@ -339,13 +343,12 @@ where
 }
 */
 
-impl<G, R> IntoClass<R> for ReadGuard<String, G>
+impl<G> IntoClass for ReadGuard<String, G>
 where
     G: Deref<Target = String> + Send,
-    R: DomRenderer,
 {
     type AsyncOutput = Self;
-    type State = <String as IntoClass<R>>::State;
+    type State = <String as IntoClass>::State;
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
 
@@ -354,25 +357,25 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        <&str as IntoClass<R>>::to_html(self.deref().as_str(), class);
+        <&str as IntoClass>::to_html(self.deref().as_str(), class);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
-        <String as IntoClass<R>>::hydrate::<FROM_SERVER>(
+        <String as IntoClass>::hydrate::<FROM_SERVER>(
             self.deref().to_owned(),
             el,
         )
     }
 
-    fn build(self, el: &<R>::Element) -> Self::State {
-        <String as IntoClass<R>>::build(self.deref().to_owned(), el)
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        <String as IntoClass>::build(self.deref().to_owned(), el)
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        <String as IntoClass<R>>::rebuild(self.deref().to_owned(), state)
+        <String as IntoClass>::rebuild(self.deref().to_owned(), state)
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -390,13 +393,12 @@ where
     }
 }
 
-impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
+impl<G> IntoClass for (&'static str, ReadGuard<bool, G>)
 where
     G: Deref<Target = bool> + Send,
-    R: DomRenderer,
 {
     type AsyncOutput = Self;
-    type State = <(&'static str, bool) as IntoClass<R>>::State;
+    type State = <(&'static str, bool) as IntoClass>::State;
     type Cloneable = (&'static str, bool);
     type CloneableOwned = (&'static str, bool);
 
@@ -405,7 +407,7 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        <(&'static str, bool) as IntoClass<R>>::to_html(
+        <(&'static str, bool) as IntoClass>::to_html(
             (self.0, *self.1.deref()),
             class,
         );
@@ -413,23 +415,23 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<R>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
-        <(&'static str, bool) as IntoClass<R>>::hydrate::<FROM_SERVER>(
+        <(&'static str, bool) as IntoClass>::hydrate::<FROM_SERVER>(
             (self.0, *self.1.deref()),
             el,
         )
     }
 
-    fn build(self, el: &<R>::Element) -> Self::State {
-        <(&'static str, bool) as IntoClass<R>>::build(
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        <(&'static str, bool) as IntoClass>::build(
             (self.0, *self.1.deref()),
             el,
         )
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        <(&'static str, bool) as IntoClass<R>>::rebuild(
+        <(&'static str, bool) as IntoClass>::rebuild(
             (self.0, *self.1.deref()),
             state,
         )
@@ -454,14 +456,13 @@ where
 mod stable {
     macro_rules! class_signal_arena {
         ($sig:ident) => {
-            impl<C, R, S> IntoClass<R> for $sig<C, S>
+            impl<C, S> IntoClass for $sig<C, S>
             where
                 $sig<C, S>: Get<Value = C>,
                 S: Send + Sync + 'static,
                 S: Storage<C> + Storage<Option<C>>,
-                C: IntoClass<R> + Send + Sync + Clone + 'static,
+                C: IntoClass + Send + Sync + Clone + 'static,
                 C::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
@@ -479,12 +480,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 
@@ -507,15 +511,15 @@ mod stable {
                 }
             }
 
-            impl<R, S> IntoClass<R> for (&'static str, $sig<bool, S>)
+            impl<S> IntoClass for (&'static str, $sig<bool, S>)
             where
                 $sig<bool, S>: Get<Value = bool>,
                 S: Send + 'static,
                 S: Storage<bool>,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<(R::ClassList, bool)>;
+                type State =
+                    RenderEffect<(crate::renderer::types::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -527,29 +531,29 @@ mod stable {
                     let (name, f) = self;
                     let include = f.get();
                     if include {
-                        <&str as IntoClass<R>>::to_html(name, class);
+                        <&str as IntoClass>::to_html(name, class);
                     }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::<R>::hydrate::<FROM_SERVER>(
+                    IntoClass::hydrate::<FROM_SERVER>(
                         (self.0, move || self.1.get()),
                         el,
                     )
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
-                    IntoClass::<R>::build((self.0, move || self.1.get()), el)
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    IntoClass::build((self.0, move || self.1.get()), el)
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::<R>::rebuild(
-                        (self.0, move || self.1.get()),
-                        state,
-                    )
+                    IntoClass::rebuild((self.0, move || self.1.get()), state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -571,12 +575,11 @@ mod stable {
 
     macro_rules! class_signal {
         ($sig:ident) => {
-            impl<C, R> IntoClass<R> for $sig<C>
+            impl<C> IntoClass for $sig<C>
             where
                 $sig<C>: Get<Value = C>,
-                C: IntoClass<R> + Send + Sync + Clone + 'static,
+                C: IntoClass + Send + Sync + Clone + 'static,
                 C::State: 'static,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
@@ -594,12 +597,15 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el)
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
                     (move || self.get()).build(el)
                 }
 
@@ -622,13 +628,13 @@ mod stable {
                 }
             }
 
-            impl<R> IntoClass<R> for (&'static str, $sig<bool>)
+            impl IntoClass for (&'static str, $sig<bool>)
             where
                 $sig<bool>: Get<Value = bool>,
-                R: DomRenderer,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<(R::ClassList, bool)>;
+                type State =
+                    RenderEffect<(crate::renderer::types::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -640,29 +646,29 @@ mod stable {
                     let (name, f) = self;
                     let include = f.get();
                     if include {
-                        <&str as IntoClass<R>>::to_html(name, class);
+                        <&str as IntoClass>::to_html(name, class);
                     }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &R::Element,
+                    el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::<R>::hydrate::<FROM_SERVER>(
+                    IntoClass::hydrate::<FROM_SERVER>(
                         (self.0, move || self.1.get()),
                         el,
                     )
                 }
 
-                fn build(self, el: &R::Element) -> Self::State {
-                    IntoClass::<R>::build((self.0, move || self.1.get()), el)
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    IntoClass::build((self.0, move || self.1.get()), el)
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::<R>::rebuild(
-                        (self.0, move || self.1.get()),
-                        state,
-                    )
+                    IntoClass::rebuild((self.0, move || self.1.get()), state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -683,7 +689,7 @@ mod stable {
     }
 
     use super::RenderEffect;
-    use crate::{html::class::IntoClass, renderer::DomRenderer};
+    use crate::html::class::IntoClass;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         owner::Storage,
@@ -703,14 +709,13 @@ mod stable {
     class_signal!(ArcSignal);
 }
 
-impl<Fut, Rndr> IntoClass<Rndr> for Suspend<Fut>
+impl<Fut> IntoClass for Suspend<Fut>
 where
     Fut: Clone + Future + Send + 'static,
-    Fut::Output: IntoClass<Rndr>,
-    Rndr: DomRenderer + 'static,
+    Fut::Output: IntoClass,
 {
     type AsyncOutput = Fut::Output;
-    type State = Rc<RefCell<Option<<Fut::Output as IntoClass<Rndr>>::State>>>;
+    type State = Rc<RefCell<Option<<Fut::Output as IntoClass>::State>>>;
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -728,11 +733,11 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<Rndr>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
@@ -743,10 +748,10 @@ where
         state
     }
 
-    fn build(self, el: &<Rndr>::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let el = el.to_owned();
         let state = Rc::new(RefCell::new(None));
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() = Some(self.inner.await.build(&el));
@@ -757,7 +762,7 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        Executor::spawn_local({
+        reactive_graph::spawn_local_scoped({
             let state = Rc::clone(state);
             async move {
                 let value = self.inner.await;

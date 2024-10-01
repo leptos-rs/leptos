@@ -3,6 +3,7 @@ pub mod imports {
     pub use any_spawner::Executor;
     pub use reactive_graph::{
         effect::{Effect, RenderEffect},
+        owner::Owner,
         prelude::*,
         signal::RwSignal,
     };
@@ -19,6 +20,8 @@ async fn render_effect_runs() {
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
     task::LocalSet::new()
         .run_until(async {
             let a = RwSignal::new(-1);
@@ -54,6 +57,8 @@ async fn effect_runs() {
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -88,6 +93,8 @@ async fn dynamic_dependencies() {
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -156,6 +163,8 @@ async fn recursive_effect_runs_recursively() {
     use imports::*;
 
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
     task::LocalSet::new()
         .run_until(async {
             let s = RwSignal::new(0);

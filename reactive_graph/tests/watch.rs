@@ -1,6 +1,8 @@
 #[cfg(feature = "effects")]
 use any_spawner::Executor;
 #[cfg(feature = "effects")]
+use reactive_graph::owner::Owner;
+#[cfg(feature = "effects")]
 use reactive_graph::{effect::Effect, prelude::*, signal::RwSignal};
 #[cfg(feature = "effects")]
 use std::sync::{Arc, RwLock};
@@ -11,6 +13,8 @@ use tokio::task;
 #[tokio::test]
 async fn watch_runs() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -71,6 +75,8 @@ async fn watch_runs() {
 #[tokio::test]
 async fn watch_runs_immediately() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -118,6 +124,8 @@ async fn watch_runs_immediately() {
 #[tokio::test]
 async fn watch_ignores_callback() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {
@@ -174,6 +182,8 @@ async fn watch_ignores_callback() {
 #[tokio::test]
 async fn deprecated_watch_runs() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     task::LocalSet::new()
         .run_until(async {

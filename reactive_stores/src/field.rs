@@ -1,11 +1,11 @@
 use crate::{
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, Subfield,
+    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField,
+    StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
-    owner::{Storage, StoredValue, SyncStorage},
-    signal::ArcTrigger,
+    owner::{ArenaItem, Storage, SyncStorage},
     traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
     unwrap_signal,
 };
@@ -17,7 +17,7 @@ where
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcField<T>, S>,
+    inner: ArenaItem<ArcField<T>, S>,
 }
 
 impl<T, S> StoreField for Field<T, S>
@@ -27,9 +27,8 @@ where
     type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
-    type UntrackedWriter = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))
@@ -51,12 +50,6 @@ where
         self.inner.try_get_value().and_then(|inner| inner.writer())
     }
 
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        self.inner
-            .try_get_value()
-            .and_then(|inner| inner.untracked_writer())
-    }
-
     fn keys(&self) -> Option<KeyMap> {
         self.inner.try_get_value().and_then(|n| n.keys())
     }
@@ -75,7 +68,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }
@@ -93,7 +86,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }
@@ -116,7 +109,7 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value.into()),
         }
     }
 }

@@ -53,10 +53,10 @@ use std::{
 /// ## Examples
 /// ```rust
 /// # use reactive_graph::computed::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 ///
 /// let signal1 = RwSignal::new(0);
@@ -233,7 +233,8 @@ macro_rules! spawn_derived {
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
             state: AsyncDerivedState::Clean,
-            version: 0
+            version: 0,
+            suspenses: Vec::new()
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -345,13 +346,20 @@ macro_rules! spawn_derived {
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
 
-                                    let this_version = {
+                                    let (this_version, suspense_ids) = {
                                         let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
-                                        guard.version
+                                        let version = guard.version;
+                                        let suspense_ids = mem::take(&mut guard.suspenses)
+                                            .into_iter()
+                                            .map(|sc| sc.task_id())
+                                            .collect::<Vec<_>>();
+                                        (version, suspense_ids)
                                     };
 
                                     let new_value = fut.await;
+
+                                    drop(suspense_ids);
 
                                     let latest_version = inner.read().or_poisoned().version;
 
@@ -575,6 +583,11 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
                     ready.await;
                     drop(handle);
                 });
+                self.inner
+                    .write()
+                    .or_poisoned()
+                    .suspenses
+                    .push(suspense_context);
             }
         }
         AsyncPlain::try_new(&self.value).map(ReadGuard::new)

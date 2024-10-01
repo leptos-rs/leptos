@@ -2,6 +2,8 @@
 name = "ssr_modes"
 version = "0.1.0"
 edition = "2021"
+# std::sync::LazyLock is stabilized in Rust version 1.80.0
+rust-version = "1.80.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,7 +13,6 @@ actix-files = { version = "0.6.6", optional = true }
 actix-web = { version = "4.8", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1.7"
 console_log = "1.0"
-lazy_static = "1.5"
 leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
@@ -38,12 +39,12 @@ denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["ssr", "hydrate"]]
 
 [package.metadata.leptos]
-# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
 output-name = "ssr_modes"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
-# Defaults to pkg	
+# Defaults to pkg
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "style/main.scss"

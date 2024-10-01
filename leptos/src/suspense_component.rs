@@ -21,7 +21,6 @@ use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
-    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
@@ -135,15 +134,14 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub children: Chil,
 }
 
-impl<const TRANSITION: bool, Fal, Chil, Rndr> Render<Rndr>
+impl<const TRANSITION: bool, Fal, Chil> Render
     for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    Fal: Render<Rndr> + Send + 'static,
-    Chil: Render<Rndr> + Send + 'static,
-    Rndr: Renderer + 'static,
+    Fal: Render + Send + 'static,
+    Chil: Render + Send + 'static,
 {
     type State = RenderEffect<
-        OwnedViewState<EitherKeepAliveState<Chil::State, Fal::State>, Rndr>,
+        OwnedViewState<EitherKeepAliveState<Chil::State, Fal::State>>,
     >;
 
     fn build(self) -> Self::State {
@@ -187,25 +185,24 @@ where
     }
 }
 
-impl<const TRANSITION: bool, Fal, Chil, Rndr> AddAnyAttr<Rndr>
+impl<const TRANSITION: bool, Fal, Chil> AddAnyAttr
     for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    Fal: RenderHtml<Rndr> + Send + 'static,
-    Chil: RenderHtml<Rndr> + Send + 'static,
-    Rndr: Renderer + 'static,
+    Fal: RenderHtml + Send + 'static,
+    Chil: RenderHtml + Send + 'static,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = SuspenseBoundary<
+    type Output<SomeNewAttr: Attribute> = SuspenseBoundary<
         TRANSITION,
         Fal,
         Chil::Output<SomeNewAttr::CloneableOwned>,
     >;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
         let SuspenseBoundary {
@@ -223,12 +220,11 @@ where
     }
 }
 
-impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
+impl<const TRANSITION: bool, Fal, Chil> RenderHtml
     for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    Fal: RenderHtml<Rndr> + Send + 'static,
-    Chil: RenderHtml<Rndr> + Send + 'static,
-    Rndr: Renderer + 'static,
+    Fal: RenderHtml + Send + 'static,
+    Chil: RenderHtml + Send + 'static,
 {
     // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
     // itself
@@ -405,7 +401,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let cursor = cursor.to_owned();
@@ -455,10 +451,9 @@ impl<T> Unsuspend<T> {
     }
 }
 
-impl<T, Rndr> Render<Rndr> for Unsuspend<T>
+impl<T> Render for Unsuspend<T>
 where
-    T: Render<Rndr>,
-    Rndr: Renderer,
+    T: Render,
 {
     type State = T::State;
 
@@ -471,30 +466,28 @@ where
     }
 }
 
-impl<T, Rndr> AddAnyAttr<Rndr> for Unsuspend<T>
+impl<T> AddAnyAttr for Unsuspend<T>
 where
-    T: AddAnyAttr<Rndr> + 'static,
-    Rndr: Renderer,
+    T: AddAnyAttr + 'static,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> =
+    type Output<SomeNewAttr: Attribute> =
         Unsuspend<T::Output<SomeNewAttr::CloneableOwned>>;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
         Unsuspend::new(move || (self.0)().add_any_attr(attr))
     }
 }
 
-impl<T, Rndr> RenderHtml<Rndr> for Unsuspend<T>
+impl<T> RenderHtml for Unsuspend<T>
 where
-    T: RenderHtml<Rndr> + 'static,
-    Rndr: Renderer,
+    T: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
 
@@ -535,7 +528,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         (self.0)().hydrate::<FROM_SERVER>(cursor, position)

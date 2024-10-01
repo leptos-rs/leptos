@@ -48,7 +48,7 @@ use tachys::{
 pub struct Router<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: PhantomData<Loc>,
-    pub routes: Routes<Children, Rndr>,
+    pub routes: Routes<Children>,
     fallback: FallbackFn,
 }
 
@@ -60,7 +60,7 @@ where
     FallbackFn: Fn() -> Fallback,
 {
     pub fn new(
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -73,7 +73,7 @@ where
 
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -98,28 +98,28 @@ where
 
 pub struct 
 where
-    R: Renderer + 'static,
+    
 {
     pub params: ArcMemo<Params>,
-    pub outlet: Outlet<R>,
+    pub outlet: Outlet,
 }
 
-impl<Rndr, Loc, FallbackFn, Fallback, Children> Render<Rndr>
+impl<Rndr, Loc, FallbackFn, Fallback, Children> Render
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
     FallbackFn: Fn() -> Fallback + 'static,
-    Fallback: Render<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + 'static,
+    Fallback: Render,
+    Children: MatchNestedRoutes + 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
     Children::Match: std::fmt::Debug,
-    <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
+    <Children::Match as MatchInterface>::Child: std::fmt::Debug,
 {
     type State = RenderEffect<
         EitherState<
-            <NestedRouteView<Children::Match, Rndr> as Render<Rndr>>::State,
-            <Fallback as Render<Rndr>>::State,
+            <NestedRouteView<Children::Match> as Render>::State,
+            <Fallback as Render>::State,
             Rndr,
         >,
     >;
@@ -158,7 +158,7 @@ where
                         }
                     }
                 } else {
-                    Either::<NestedRouteView<Children::Match, Rndr>, _>::Right(
+                    Either::<NestedRouteView<Children::Match>, _>::Right(
                         (self.fallback)(),
                     )
                     .rebuild(&mut prev);
@@ -180,21 +180,21 @@ where
     fn rebuild(self, state: &mut Self::State) {}
 }
 
-impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
+impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location + Send,
     FallbackFn: Fn() -> Fallback + Send + 'static,
-    Fallback: RenderHtml<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + Send + 'static,
-    Children::View: RenderHtml<Rndr>,
-    /*View: Render<Rndr> + IntoAny<Rndr> + 'static,
+    Fallback: RenderHtml,
+    Children: MatchNestedRoutes + Send + 'static,
+    Children::View: RenderHtml,
+    /*View: Render + IntoAny + 'static,
     View::State: 'static,*/
-    Fallback: RenderHtml<Rndr>,
+    Fallback: RenderHtml,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
     Children::Match: std::fmt::Debug,
-    <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
+    <Children::Match as MatchInterface>::Child: std::fmt::Debug,
 {
     type AsyncOutput = Self;
 
@@ -294,7 +294,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -332,7 +332,7 @@ where
                         }
                     }
                 } else {
-                    Either::<NestedRouteView<Children::Match, Rndr>, _>::Right(
+                    Either::<NestedRouteView<Children::Match>, _>::Right(
                         (self.fallback)(),
                     )
                     .rebuild(&mut prev);
@@ -359,20 +359,20 @@ where
 
 pub struct NestedRouteView<Matcher, R>
 where
-    Matcher: MatchInterface<R>,
-    R: Renderer + 'static,
+    Matcher: MatchInterface,
+    
 {
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    outlets: VecDeque<Outlet<R>>,
+    outlets: VecDeque<Outlet>,
     view: Matcher::View,
     ty: PhantomData<(Matcher, R)>,
 }
 
-impl<Matcher, Rndr> NestedRouteView<Matcher, Rndr>
+impl<Matcher> NestedRouteView<Matcher>
 where
-    Matcher: MatchInterface<Rndr> + MatchParams,
+    Matcher: MatchInterface + MatchParams,
     Matcher::Child: 'static,
     Matcher::View: 'static,
     Rndr: Renderer + 'static,
@@ -414,7 +414,7 @@ where
     pub fn new_hydrate(
         outer_owner: &Owner,
         route_match: Matcher,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self {
         // keep track of all outlets, for diffing
@@ -459,26 +459,26 @@ where
     }
 }
 
-pub struct NestedRouteState<Matcher, Rndr>
+pub struct NestedRouteState<Matcher>
 where
-    Matcher: MatchInterface<Rndr>,
+    Matcher: MatchInterface,
     Rndr: Renderer + 'static,
 {
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    view: <Matcher::View as Render<Rndr>>::State,
-    outlets: VecDeque<Outlet<Rndr>>,
+    view: <Matcher::View as Render>::State,
+    outlets: VecDeque<Outlet>,
 }
 
 fn get_inner_view<Match, R>(
-    outlets: &mut VecDeque<Outlet<R>>,
+    outlets: &mut VecDeque<Outlet>,
     parent: &Owner,
     route_match: Match,
-) -> Outlet<R>
+) -> Outlet
 where
-    Match: MatchInterface<R> + MatchParams,
-    R: Renderer + 'static,
+    Match: MatchInterface + MatchParams,
+    
 {
     let owner = parent.child();
     let id = route_match.as_id();
@@ -503,7 +503,7 @@ where
                     })
                     .into_any(),
             ))
-        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>
+        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView>>>
     }));
     let inner = Arc::new(RwLock::new(OutletStateInner {
         html_len: {
@@ -525,15 +525,15 @@ where
 }
 
 fn get_inner_view_hydrate<Match, R>(
-    outlets: &mut VecDeque<Outlet<R>>,
+    outlets: &mut VecDeque<Outlet>,
     parent: &Owner,
     route_match: Match,
-    cursor: &Cursor<R>,
+    cursor: &Cursor,
     position: &PositionState,
-) -> Outlet<R>
+) -> Outlet
 where
-    Match: MatchInterface<R> + MatchParams,
-    R: Renderer + 'static,
+    Match: MatchInterface + MatchParams,
+    
 {
     let owner = parent.child();
     let id = route_match.as_id();
@@ -558,7 +558,7 @@ where
                     })
                     .into_any(),
             ))
-        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>
+        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView>>>
     }));
     let inner = Arc::new(RwLock::new(OutletStateInner {
         html_len: Box::new({
@@ -585,18 +585,18 @@ where
 }
 
 #[derive(Debug)]
-pub struct Outlet<R>
+pub struct Outlet
 where
     R: Renderer + Send + 'static,
 {
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    rndr: PhantomData<R>,
-    inner: OutletInner<R>,
+    rndr: PhantomData,
+    inner: OutletInner,
 }
 
-pub enum OutletInner<R> where R: Renderer + 'static {
+pub enum OutletInner where R: Renderer + 'static {
     Server {
         html_len: Box<dyn Fn() -> usize + Send + Sync>,
         view: Box<
@@ -608,30 +608,30 @@ pub enum OutletInner<R> where R: Renderer + 'static {
     html_len: Box<dyn Fn() -> usize + Send + Sync>,
     view: Arc<
         Lazy<
-            RwLock<Option<AnyView<R>>>,
-            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>> + Send + Sync>,
+            RwLock<Option<AnyView>>,
+            Box<dyn FnOnce() -> RwLock<Option<AnyView>> + Send + Sync>,
         >,
     >,
     state: Lazy<
-        SendWrapper<AnyViewState<R>>,
-        Box<dyn FnOnce() -> SendWrapper<AnyViewState<R>> + Send + Sync>,
+        SendWrapper<AnyViewState>,
+        Box<dyn FnOnce() -> SendWrapper<AnyViewState> + Send + Sync>,
     >,
     */
 
-impl<R: Renderer> Debug for OutletInner<R> {
+impl<R: Renderer> Debug for OutletInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OutletInner").finish_non_exhaustive()
     }
 }
 
-impl<R> Default for OutletInner<R>
+impl Default for OutletInner
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         let view =
             Arc::new(Lazy::new(Box::new(|| RwLock::new(Some(().into_any())))
-                as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>));
+                as Box<dyn FnOnce() -> RwLock<Option<AnyView>>>));
         Self {
             html_len: Box::new(|| 0),
             view,
@@ -640,9 +640,9 @@ where
     }
 }
 
-impl<R> Clone for Outlet<R>
+impl Clone for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn clone(&self) -> Self {
         Self {
@@ -655,9 +655,9 @@ where
     }
 }
 
-impl<R> Default for Outlet<R>
+impl Default for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         Self {
@@ -669,11 +669,11 @@ where
     }
 }
 
-impl<R> Render<R> for Outlet<R>
+impl Render for Outlet
 where
-    R: Renderer + 'static,
+    
 {
-    type State = Outlet<R>;
+    type State = Outlet;
 
     fn build(self) -> Self::State {
         self
@@ -684,9 +684,9 @@ where
     }
 }
 
-impl<R> RenderHtml<R> for Outlet<R>
+impl RenderHtml for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     type AsyncOutput = Self;
 
@@ -725,7 +725,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         todo!()
@@ -743,38 +743,38 @@ where
     }
 }
 
-/*pub struct OutletStateInner<R>
+/*pub struct OutletStateInner
 where
-    R: Renderer + 'static,
+    
 {
     html_len: Box<dyn Fn() -> usize + Send + Sync>,
     view: Arc<
         Lazy<
-            RwLock<Option<AnyView<R>>>,
-            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>> + Send + Sync>,
+            RwLock<Option<AnyView>>,
+            Box<dyn FnOnce() -> RwLock<Option<AnyView>> + Send + Sync>,
         >,
     >,
     state: Lazy<
-        SendWrapper<AnyViewState<R>>,
-        Box<dyn FnOnce() -> SendWrapper<AnyViewState<R>> + Send + Sync>,
+        SendWrapper<AnyViewState>,
+        Box<dyn FnOnce() -> SendWrapper<AnyViewState> + Send + Sync>,
     >,
 }
 
 
-impl<R: Renderer> Debug for OutletStateInner<R> {
+impl<R: Renderer> Debug for OutletStateInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OutletStateInner").finish_non_exhaustive()
     }
 }
 
-impl<R> Default for OutletStateInner<R>
+impl Default for OutletStateInner
 where
-    R: Renderer + 'static,
+    
 {
     fn default() -> Self {
         let view =
             Arc::new(Lazy::new(Box::new(|| RwLock::new(Some(().into_any())))
-                as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>));
+                as Box<dyn FnOnce() -> RwLock<Option<AnyView>>>));
         Self {
             html_len: Box::new(|| 0),
             view,
@@ -784,9 +784,9 @@ where
 }
 */
 
-impl<R> Mountable<R> for Outlet<R>
+impl Mountable for Outlet
 where
-    R: Renderer + 'static,
+    
 {
     fn unmount(&mut self) {
         todo!()
@@ -802,7 +802,7 @@ where
     }
 
     fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
+        child: &mut dyn Mountable,
     ) -> bool {
         /*self.inner
         .write()
@@ -818,8 +818,8 @@ fn rebuild_nested<Match, R>(
     prev: &mut NestedRouteState<Match, R>,
     new_match: Match,
 ) where
-    Match: MatchInterface<R> + MatchParams + std::fmt::Debug,
-    R: Renderer + 'static,
+    Match: MatchInterface + MatchParams + std::fmt::Debug,
+    
 {
     let mut items = 0;
     let NestedRouteState {
@@ -846,11 +846,11 @@ fn rebuild_nested<Match, R>(
 
 fn rebuild_inner<Match, R>(
     items: &mut usize,
-    outlets: &mut VecDeque<Outlet<R>>,
+    outlets: &mut VecDeque<Outlet>,
     route_match: Match,
 ) where
-    Match: MatchInterface<R> + MatchParams,
-    R: Renderer + 'static,
+    Match: MatchInterface + MatchParams,
+    
 {
     *items += 1;
 
@@ -910,11 +910,11 @@ fn rebuild_inner<Match, R>(
     }
 }
 
-impl<Matcher, R> Render<R> for NestedRouteView<Matcher, R>
+impl<Matcher, R> Render for NestedRouteView<Matcher, R>
 where
-    Matcher: MatchInterface<R>,
+    Matcher: MatchInterface,
     Matcher::View: Sized + 'static,
-    R: Renderer + 'static,
+    
 {
     type State = NestedRouteState<Matcher, R>;
 
@@ -953,11 +953,11 @@ where
     }
 }
 
-impl<Matcher, R> RenderHtml<R> for NestedRouteView<Matcher, R>
+impl<Matcher, R> RenderHtml for NestedRouteView<Matcher, R>
 where
-    Matcher: MatchInterface<R> + Send,
+    Matcher: MatchInterface + Send,
     Matcher::View: Sized + 'static,
-    R: Renderer + 'static,
+    
 {
     type AsyncOutput = Self;
 
@@ -988,7 +988,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let NestedRouteView {
@@ -1009,10 +1009,10 @@ where
     }
 }
 
-impl<Matcher, R> Mountable<R> for NestedRouteState<Matcher, R>
+impl<Matcher, R> Mountable for NestedRouteState<Matcher, R>
 where
-    Matcher: MatchInterface<R>,
-    R: Renderer + 'static,
+    Matcher: MatchInterface,
+    
 {
     fn unmount(&mut self) {
         self.view.unmount();
@@ -1023,43 +1023,43 @@ where
     }
 
     fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
+        child: &mut dyn Mountable,
     ) -> bool {
         self.view.insert_before_this(child)
     }
 }
 
-impl<Rndr, Loc, FallbackFn, Fallback, Children, View> AddAnyAttr<Rndr>
+impl<Rndr, Loc, FallbackFn, Fallback, Children, View> AddAnyAttr
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
     FallbackFn: Fn() -> Fallback,
-    Fallback: Render<Rndr>,
-    Children: MatchNestedRoutes<Rndr>,
-     <<Children as MatchNestedRoutes<Rndr>>::Match as MatchInterface<
+    Fallback: Render,
+    Children: MatchNestedRoutes,
+     <<Children as MatchNestedRoutes>::Match as MatchInterface<
         Rndr,
     >>::View: ChooseView<Rndr, Output = View>,
     Rndr: Renderer + 'static,
-    Router<Rndr, Loc, Children, FallbackFn>: RenderHtml<Rndr>,
+    Router<Rndr, Loc, Children, FallbackFn>: RenderHtml,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = Self;
+    type Output<SomeNewAttr: Attribute> = Self;
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         self
     }
 
-    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr_by_ref<NewAttr: Attribute>(
         self,
         attr: &NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         self
     }
@@ -1069,7 +1069,7 @@ where
 pub struct FlatRouter<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: PhantomData<Loc>,
-    pub routes: Routes<Children, Rndr>,
+    pub routes: Routes<Children>,
     fallback: FallbackFn,
 }
 
@@ -1081,7 +1081,7 @@ where
     FallbackFn: Fn() -> Fallback,
 {
     pub fn new(
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -1094,7 +1094,7 @@ where
 
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
-        routes: Routes<Children, Rndr>,
+        routes: Routes<Children>,
         fallback: FallbackFn,
     ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -1105,23 +1105,23 @@ where
         }
     }
 }
-impl<Rndr, Loc, FallbackFn, Fallback, Children> Render<Rndr>
+impl<Rndr, Loc, FallbackFn, Fallback, Children> Render
     for FlatRouter<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
     FallbackFn: Fn() -> Fallback + 'static,
-    Fallback: Render<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + 'static,
+    Fallback: Render,
+    Children: MatchNestedRoutes + 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
 {
     type State =
         RenderEffect<
             EitherState<
-                <<Children::Match as MatchInterface<Rndr>>::View as Render<
+                <<Children::Match as MatchInterface>::View as Render<
                     Rndr,
                 >>::State,
-                <Fallback as Render<Rndr>>::State,
+                <Fallback as Render>::State,
                 Rndr,
             >,
         >;
@@ -1170,7 +1170,7 @@ where
                     let view = outer_owner.with(|| view.choose());
                     Either::Left::<_, Fallback>(view).rebuild(&mut prev);
                 } else {
-                    Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
+                    Either::<<Children::Match as MatchInterface>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
                 }
                 prev
             } else {
@@ -1209,20 +1209,20 @@ where
     fn rebuild(self, state: &mut Self::State) {}
 }
 
-impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
+impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml
     for FlatRouter<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location + Send,
     FallbackFn: Fn() -> Fallback + Send + 'static,
-    Fallback: RenderHtml<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + Send + 'static,
+    Fallback: RenderHtml,
+    Children: MatchNestedRoutes + Send + 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
 {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize =
-        <Children::Match as MatchInterface<Rndr>>::View::MIN_LENGTH;
+        <Children::Match as MatchInterface>::View::MIN_LENGTH;
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
@@ -1357,7 +1357,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Rndr>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -1405,7 +1405,7 @@ where
                     let view = outer_owner.with(|| view.choose());
                     Either::Left::<_, Fallback>(view).rebuild(&mut prev);
                 } else {
-                    Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
+                    Either::<<Children::Match as MatchInterface>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
                 }
                 prev
             } else {

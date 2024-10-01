@@ -1,12 +1,10 @@
 name: Get Leptos Changed Call
-
 on:
   workflow_call:
     outputs:
       leptos_changed:
         description: "Leptos Changed"
         value: ${{ jobs.create.outputs.leptos_changed }}
-
 jobs:
   create:
     name: Detect Source Change
@@ -18,43 +16,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Get source files that changed
         id: changed-source
         uses: tj-actions/changed-files@v45
         with:
-          files: |
-            any_error/**
-            any_spawner/**
-            const_str_slice_concat/**
-            either_of/**
-            hydration_context/**
-            integrations/actix/**
-            integrations/axum/**
-            integrations/utils/**
-            leptos/**
-            leptos_config/**
-            leptos_dom/**
-            leptos_hot_reload/**
-            leptos_macro/**
-            leptos_server/**
-            meta/**
-            next_tuple/**
-            oco/**
-            or_poisoned/**
-            reactive_graph/**
-            reactive_stores/**
-            reactive_stores_macro/**
-            router/**
-            router_macro/**
-            server_fn/**
-            server_fn/server_fn_macro_default/**
-            server_fn_macro/**
-            tachys/**
-
+          files_ignore: |
+            .*/**/*
+            cargo-make/**/*
+            examples/**/*
+            projects/**/*
+            benchmarks/**/*
+            docs/**/*
       - name: List source files that changed
         run: echo '${{ steps.changed-source.outputs.all_changed_files }}'
-
       - name: Set leptos_changed
         id: set-source-changed
         run: |

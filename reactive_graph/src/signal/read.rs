@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
@@ -49,7 +49,7 @@ use std::{
 ///
 /// ## Examples
 /// ```
-/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = signal(0);
 ///
 /// // calling .get() clones and returns the value
@@ -60,7 +60,7 @@ use std::{
 pub struct ReadSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcReadSignal<T>, S>,
+    pub(crate) inner: ArenaItem<ArcReadSignal<T>, S>,
 }
 
 impl<T, S> Dispose for ReadSignal<T, S> {
@@ -158,7 +158,7 @@ where
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -172,7 +172,7 @@ where
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }

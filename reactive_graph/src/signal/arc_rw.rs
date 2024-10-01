@@ -56,14 +56,14 @@ use std::{
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`](crate::owner::StoredValue)
+/// > value. If you want a non-reactive container, used [`ArenaItem`](crate::owner::ArenaItem)
 /// > instead.
 ///
 /// ## Examples
 ///
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let count = ArcRwSignal::new(0);
 ///
 /// // ✅ calling the getter clones and returns the value
