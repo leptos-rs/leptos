@@ -749,7 +749,7 @@ where
     IV: IntoView + 'static,
 {
     Box::pin(async move {
-        let app = if cfg!(feature = "islands-router") {
+        let app = if cfg!(feature = "dont-use-islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
             app.to_html_stream_in_order()

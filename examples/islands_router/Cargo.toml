@@ -17,7 +17,7 @@ leptos = { path = "../../leptos", features = [
 leptos_router = { path = "../../router" }
 server_fn = { path = "../../server_fn", features = ["serde-lite"] }
 leptos_axum = { path = "../../integrations/axum", features = [
-  "islands-router",
+  "dont-use-islands-router",
 ], optional = true }
 log = "0.4.22"
 serde = { version = "1.0", features = ["derive"] }
