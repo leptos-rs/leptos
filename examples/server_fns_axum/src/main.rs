@@ -4,6 +4,8 @@ use leptos::{config::get_configuration, logging};
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use server_fns_axum::*;
 
+// cargo make cli: error: unneeded `return` statement
+#[allow(clippy::needless_return)]
 #[tokio::main]
 async fn main() {
     simple_logger::init_with_level(log::Level::Error)
@@ -30,5 +32,5 @@ async fn main() {
     logging::log!("listening on http://{}", &addr);
     axum::serve(listener, app.into_make_service())
         .await
-        .unwrap();
+        .unwrap()
 }

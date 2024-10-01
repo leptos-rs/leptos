@@ -11,6 +11,7 @@ use server_fn::{
     },
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, Res},
+    rkyv,
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -293,6 +294,13 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
     }
 }
 
+#[derive(
+    rkyv::Archive, PartialEq, Clone, Debug, rkyv::Deserialize, rkyv::Serialize,
+)]
+pub struct RkyvData {
+    inner: String,
+}
+
 /// `server_fn` supports a wide variety of input and output encodings, each of which can be
 /// referred to as a PascalCased struct name
 /// - Toml
@@ -303,16 +311,18 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
     input = Rkyv,
     output = Rkyv
 )]
-pub async fn rkyv_example(input: String) -> Result<String, ServerFnError> {
+pub async fn rkyv_example(input: RkyvData) -> Result<String, ServerFnError> {
     // insert a simulated wait
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-    Ok(input.to_ascii_uppercase())
+    Ok(input.inner.to_ascii_uppercase())
 }
 
 #[component]
 pub fn RkyvExample() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
-    let (input, set_input) = signal(String::new());
+    let (input, set_input) = signal(RkyvData {
+        inner: String::new(),
+    });
     let rkyv_result = Resource::new(move || input.get(), rkyv_example);
 
     view! {
@@ -320,12 +330,12 @@ pub fn RkyvExample() -> impl IntoView {
         <input node_ref=input_ref placeholder="Type something here."/>
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
-            set_input.set(value);
+            set_input.set(RkyvData { inner: value });
         }>
 
             Click to capitalize
         </button>
-        <p>{input}</p>
+        <p>{move || input.get().inner}</p>
         <Transition>{rkyv_result}</Transition>
     }
 }
@@ -417,7 +427,6 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     /// This requires us to store some global state of all the uploads. In a real app, you probably
     /// shouldn't do exactly what I'm doing here in the demo. For example, this map just
     /// distinguishes between files by filename, not by user.
-
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};

@@ -28,7 +28,6 @@ impl Arena {
     pub fn enter_new() {
         #[cfg(feature = "sandboxed-arenas")]
         {
-            use std::sync::Arc;
             MAP.with_borrow_mut(|arena| {
                 *arena = Some(Arc::new(RwLock::new(
                     SlotMap::with_capacity_and_key(32),
