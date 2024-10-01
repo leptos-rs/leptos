@@ -6,12 +6,10 @@ pub mod aria;
 pub mod custom;
 /// Traits to define global attribute methods on all HTML elements.
 pub mod global;
-mod group;
 mod key;
 mod value;
 
 use crate::view::{Position, ToTemplate};
-pub use group::*;
 pub use key::*;
 use std::{fmt::Debug, future::Future};
 pub use value::*;

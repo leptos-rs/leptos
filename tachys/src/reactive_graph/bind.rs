@@ -18,6 +18,14 @@ use send_wrapper::SendWrapper;
 use std::marker::PhantomData;
 use wasm_bindgen::JsValue;
 
+/// `group` attribute used for radio inputs with `bind`.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Group;
+
+impl AttributeKey for Group {
+    const KEY: &'static str = "group";
+}
+
 /// Adds a two-way binding to the element, which adds an attribute and an event listener to the
 /// element when the element is created or hydrated.
 pub trait BindAttribute<Key, Sig, T, Rndr>
