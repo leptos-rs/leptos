@@ -272,7 +272,7 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
-pub mod spawn {
+pub mod task {
     pub use any_spawner::Executor;
     use std::future::Future;
 
