@@ -216,11 +216,11 @@ pub fn WithActionForm() -> impl IntoView {
         Resource::new(move || action.version().get(), |_| get_rows());
 
     view! {
-        <h3>Using <code>"&lt;ActionForm/&gt;"</code></h3>
+        <h3>Using <code>"<ActionForm/>"</code></h3>
         <p>
-            <code>"&lt;ActionForm/&gt;"</code>
+            <code>"<ActionForm/>"</code>
             "lets you use an HTML "
-            <code>"&lt;form&gt; "</code>
+            <code>"<form>"</code>
             "to call a server function in a way that gracefully degrades."
         </p>
         <ActionForm action>
