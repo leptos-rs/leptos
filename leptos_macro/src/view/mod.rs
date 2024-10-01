@@ -1074,7 +1074,7 @@ pub(crate) fn two_way_binding_to_tokens(
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
 
     quote! {
-        .bind(leptos::attr::#ident, #value)
+        .bind(::leptos::attr::#ident, #value)
     }
 }
 
