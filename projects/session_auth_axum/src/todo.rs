@@ -1,7 +1,7 @@
 use crate::{auth::*, error_template::ErrorTemplate};
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{components::*, *};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,13 +109,33 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
         .map(|_| ())?)
 }
 
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
+                <link rel="stylesheet" id="leptos" href="/pkg/session_auth_axum.css"/>
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                <MetaTags/>
+            </head>
+            <body>
+                <TodoApp/>
+            </body>
+        </html>
+    }
+}
+
 #[component]
 pub fn TodoApp() -> impl IntoView {
-    let login = create_server_action::<Login>();
-    let logout = create_server_action::<Logout>();
-    let signup = create_server_action::<Signup>();
+    let login = ServerAction::<Login>::new();
+    let logout = ServerAction::<Logout>::new();
+    let signup = ServerAction::<Signup>::new();
 
-    let user = create_resource(
+    let user = Resource::new(
         move || {
             (
                 login.version().get(),
@@ -128,8 +148,6 @@ pub fn TodoApp() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/session_auth_axum.css"/>
         <Router>
             <header>
                 <A href="/">
@@ -149,7 +167,7 @@ pub fn TodoApp() -> impl IntoView {
                                         ", "
                                         <span>{format!("Login error: {}", e)}</span>
                                     }
-                                        .into_view()
+                                        .into_any()
                                 }
                                 Ok(None) => {
                                     view! {
@@ -159,7 +177,7 @@ pub fn TodoApp() -> impl IntoView {
                                         ", "
                                         <span>"Logged out."</span>
                                     }
-                                        .into_view()
+                                        .into_any()
                                 }
                                 Ok(Some(user)) => {
                                     view! {
@@ -169,7 +187,7 @@ pub fn TodoApp() -> impl IntoView {
                                             {format!("Logged in as: {} ({})", user.username, user.id)}
                                         </span>
                                     }
-                                        .into_view()
+                                        .into_any()
                                 }
                             })
                     }}
@@ -178,13 +196,15 @@ pub fn TodoApp() -> impl IntoView {
             </header>
             <hr/>
             <main>
-                <Routes>
+                <FlatRoutes fallback=|| "Not found.">
                     // Route
-                    <Route path="" view=Todos/>
-                    <Route path="signup" view=move || view! { <Signup action=signup/> }/>
-                    <Route path="login" view=move || view! { <Login action=login/> }/>
-                    <Route
-                        path="settings"
+                    <Route path=path!("") view=Todos/>
+                    <Route path=path!("signup") view=move || view! { <Signup action=signup/> }/>
+                    <Route path=path!("login") view=move || view! { <Login action=login/> }/>
+                    <ProtectedRoute
+                        path=path!("settings")
+                        condition=move || user.get().map(|r| r.ok().flatten().is_some())
+                        redirect_path=|| "/"
                         view=move || {
                             view! {
                                 <h1>"Settings"</h1>
@@ -193,7 +213,7 @@ pub fn TodoApp() -> impl IntoView {
                         }
                     />
 
-                </Routes>
+                </FlatRoutes>
             </main>
         </Router>
     }
@@ -201,12 +221,12 @@ pub fn TodoApp() -> impl IntoView {
 
 #[component]
 pub fn Todos() -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>();
-    let delete_todo = create_server_action::<DeleteTodo>();
+    let add_todo = ServerMultiAction::<AddTodo>::new();
+    let delete_todo = ServerAction::<DeleteTodo>::new();
     let submissions = add_todo.submissions();
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = create_resource(
+    let todos = Resource::new(
         move || (add_todo.version().get(), delete_todo.version().get()),
         move |_| get_todos(),
     );
@@ -231,11 +251,11 @@ pub fn Todos() -> impl IntoView {
                                             view! {
                                                 <pre class="error">"Server Error: " {e.to_string()}</pre>
                                             }
-                                                .into_view()
+                                                .into_any()
                                         }
                                         Ok(todos) => {
                                             if todos.is_empty() {
-                                                view! { <p>"No tasks were found."</p> }.into_view()
+                                                view! { <p>"No tasks were found."</p> }.into_any()
                                             } else {
                                                 todos
                                                     .into_iter()
@@ -252,10 +272,11 @@ pub fn Todos() -> impl IntoView {
                                                         }
                                                     })
                                                     .collect_view()
+                                                    .into_any()
                                             }
                                         }
                                     })
-                                    .unwrap_or_default()
+                                    .unwrap_or(().into_any())
                             }
                         };
                         let pending_todos = move || {
@@ -266,7 +287,7 @@ pub fn Todos() -> impl IntoView {
                                 .map(|submission| {
                                     view! {
                                         <li class="pending">
-                                            {move || submission.input.get().map(|data| data.title)}
+                                            {move || submission.input().get().map(|data| data.title)}
                                         </li>
                                     }
                                 })
@@ -282,9 +303,7 @@ pub fn Todos() -> impl IntoView {
 }
 
 #[component]
-pub fn Login(
-    action: Action<Login, Result<(), ServerFnError>>,
-) -> impl IntoView {
+pub fn Login(action: ServerAction<Login>) -> impl IntoView {
     view! {
         <ActionForm action=action>
             <h1>"Log In"</h1>
@@ -317,9 +336,7 @@ pub fn Login(
 }
 
 #[component]
-pub fn Signup(
-    action: Action<Signup, Result<(), ServerFnError>>,
-) -> impl IntoView {
+pub fn Signup(action: ServerAction<Signup>) -> impl IntoView {
     view! {
         <ActionForm action=action>
             <h1>"Sign Up"</h1>
@@ -362,9 +379,7 @@ pub fn Signup(
 }
 
 #[component]
-pub fn Logout(
-    action: Action<Logout, Result<(), ServerFnError>>,
-) -> impl IntoView {
+pub fn Logout(action: ServerAction<Logout>) -> impl IntoView {
     view! {
         <div id="loginbox">
             <ActionForm action=action>
