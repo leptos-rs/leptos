@@ -307,10 +307,12 @@ fn inert_element_to_tokens(
                 match current {
                     Node::RawText(raw) => {
                         let text = raw.to_string_best();
+                        let text = html_escape::encode_text(&text);
                         html.push_str(&text);
                     }
                     Node::Text(text) => {
                         let text = text.value_string();
+                        let text = html_escape::encode_text(&text);
                         html.push_str(&text);
                     }
                     Node::Element(node) => {
@@ -337,11 +339,13 @@ fn inert_element_to_tokens(
                                     )) = &value.value
                                     {
                                         if let Lit::Str(txt) = &lit.lit {
+                                            let value = txt.value();
+                                            let value = html_escape::encode_double_quoted_attribute(&value);
                                             if attr_name == "class" {
-                                                html.push_class(&txt.value());
+                                                html.push_class(&value);
                                             } else {
                                                 html.push_str("=\"");
-                                                html.push_str(&txt.value());
+                                                html.push_str(&value);
                                                 html.push('"');
                                             }
                                         }
