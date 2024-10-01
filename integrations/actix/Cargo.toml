@@ -33,7 +33,7 @@ once_cell = "1"
 rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
-islands-router = []
+dont-use-islands-router = []
 tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
