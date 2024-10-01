@@ -229,6 +229,7 @@ mod suspense_component;
 pub mod text_prop;
 mod transition;
 pub use leptos_macro::*;
+#[doc(inline)]
 pub use server_fn;
 #[doc(hidden)]
 pub use typed_builder;
@@ -236,15 +237,21 @@ pub use typed_builder;
 pub use typed_builder_macro;
 mod into_view;
 pub use into_view::IntoView;
+#[doc(inline)]
 pub use leptos_dom;
 mod provider;
+#[doc(inline)]
 pub use tachys;
 /// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
 pub mod mount;
+#[doc(inline)]
 pub use leptos_config as config;
+#[doc(inline)]
 pub use oco_ref as oco;
 mod from_form_data;
+#[doc(inline)]
 pub use either_of as either;
+#[doc(inline)]
 pub use reactive_graph as reactive;
 
 /// Provide and access data along the reactive graph, sharing data without directly passing arguments.
@@ -253,17 +260,22 @@ pub mod context {
     pub use reactive_graph::owner::{provide_context, use_context};
 }
 
+#[doc(inline)]
 pub use leptos_server as server;
 /// HTML attribute types.
+#[doc(inline)]
 pub use tachys::html::attribute as attr;
 /// HTML element types.
+#[doc(inline)]
 pub use tachys::html::element as html;
 /// HTML event types.
 #[doc(no_inline)]
 pub use tachys::html::event as ev;
 /// MathML element types.
+#[doc(inline)]
 pub use tachys::mathml as math;
 /// SVG element types.
+#[doc(inline)]
 pub use tachys::svg;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
