@@ -2,7 +2,7 @@ use super::guards::{UntrackedWriteGuard, WriteGuard};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Notify},
-    traits::{DefinedAt, UntrackableGuard, Writeable},
+    traits::{DefinedAt, UntrackableGuard, Write},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -23,7 +23,7 @@ use std::{
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
 /// - [`.update()`](crate::traits::Update) updates the value of the signal by
 ///   applying a closure that takes a mutable reference.
-/// - [`.write()`](crate::traits::Writeable) returns a guard through which the signal
+/// - [`.write()`](crate::traits::Write) returns a guard through which the signal
 ///   can be mutated, and which notifies subscribers when it is dropped.
 ///
 /// > Each of these has a related `_untracked()` method, which updates the signal
@@ -122,7 +122,7 @@ impl<T> Notify for ArcWriteSignal<T> {
     }
 }
 
-impl<T: 'static> Writeable for ArcWriteSignal<T> {
+impl<T: 'static> Write for ArcWriteSignal<T> {
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {

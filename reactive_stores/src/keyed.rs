@@ -10,7 +10,7 @@ use reactive_graph::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
 };
 use std::{
@@ -312,7 +312,7 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> Writeable for KeyedSubfield<Inner, Prev, K, T>
+impl<Inner, Prev, K, T> Write for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
     for<'a> &'a T: IntoIterator,
@@ -574,7 +574,7 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> Writeable for AtKeyed<Inner, Prev, K, T>
+impl<Inner, Prev, K, T> Write for AtKeyed<Inner, Prev, K, T>
 where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
