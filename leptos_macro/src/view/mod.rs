@@ -1,14 +1,19 @@
 mod component_builder;
 mod slot_helper;
+mod utils;
+
 use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
 };
-use convert_case::{Case::Snake, Casing};
+use convert_case::{
+    Case::{Snake, UpperCamel},
+    Casing,
+};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
@@ -874,6 +879,8 @@ fn attribute_to_tokens(
                 directive_call_from_attribute_node(node, name)
             } else if let Some(name) = name.strip_prefix("on:") {
                 event_to_tokens(name, node)
+            } else if let Some(name) = name.strip_prefix("bind:") {
+                two_way_binding_to_tokens(name, node)
             } else if let Some(name) = name.strip_prefix("class:") {
                 let class = match &node.key {
                     NodeName::Punctuated(parts) => &parts[0],
@@ -1054,6 +1061,20 @@ pub(crate) fn attribute_absolute(
                 }
             }
         }),
+    }
+}
+
+pub(crate) fn two_way_binding_to_tokens(
+    name: &str,
+    node: &KeyedAttribute,
+) -> TokenStream {
+    let value = attribute_value(node);
+
+    let ident =
+        format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
+
+    quote! {
+        .bind(::leptos::attr::#ident, #value)
     }
 }
 

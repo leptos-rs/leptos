@@ -1,5 +1,5 @@
 use super::{fragment_to_tokens, TagType};
-use crate::view::attribute_absolute;
+use crate::view::{attribute_absolute, utils::filter_prefixed_attrs};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
@@ -105,20 +105,13 @@ pub(crate) fn component_to_tokens(
                     return None;
                 }
             };
+
             let inputs = &binding.inputs;
             Some(quote! { #inputs })
         })
         .collect::<Vec<_>>();
 
-    let items_to_clone = attrs
-        .iter()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("clone:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
-        })
-        .collect::<Vec<_>>();
+    let items_to_clone = filter_prefixed_attrs(attrs.iter(), "clone:");
 
     // include all attribute that are either
     // 1) blocks ({..attrs} or {attrs}),

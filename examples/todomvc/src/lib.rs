@@ -319,10 +319,7 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                     node_ref=todo_input
                     class="toggle"
                     type="checkbox"
-                    prop:checked=move || todo.completed.get()
-                    on:input:target=move |ev| {
-                        todo.completed.set(ev.target().checked());
-                    }
+                    bind:checked=todo.completed
                 />
 
                 <label on:dblclick=move |_| {

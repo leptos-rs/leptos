@@ -1,7 +1,7 @@
 use super::{convert_to_snake_case, ident_from_tag_name};
-use crate::view::{fragment_to_tokens, TagType};
+use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -70,25 +70,9 @@ pub(crate) fn slot_to_tokens(
             }
         });
 
-    let items_to_bind = attrs
-        .iter()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("let:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
-        })
-        .collect::<Vec<_>>();
+    let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:");
 
-    let items_to_clone = attrs
-        .iter()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("clone:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
-        })
-        .collect::<Vec<_>>();
+    let items_to_clone = filter_prefixed_attrs(attrs.iter(), "clone:");
 
     let dyn_attrs = attrs
         .iter()
