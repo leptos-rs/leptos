@@ -106,7 +106,7 @@ impl Observer {
 /// # use reactive_graph::computed::*;
 /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::untrack;
+/// # use reactive_graph::graph::untrack;
 /// # tokio_test::block_on(async move {
 /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (a, set_a) = signal(0);
