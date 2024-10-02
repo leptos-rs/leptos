@@ -258,3 +258,20 @@ where
         }
     }
 }
+
+impl<Inner, Prev> DoubleEndedIterator for StoreFieldIter<Inner, Prev>
+where
+    Inner: StoreField<Value = Prev> + Clone + 'static,
+    Prev: IndexMut<usize> + 'static,
+    Prev::Output: Sized + 'static,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.len > self.idx {
+            self.len -= 1;
+            let field = AtIndex::new(self.inner.clone(), self.len);
+            Some(field)
+        } else {
+            None
+        }
+    }
+}

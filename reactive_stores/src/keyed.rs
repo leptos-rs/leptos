@@ -682,3 +682,18 @@ where
             .map(|key| AtKeyed::new(self.inner.clone(), key))
     }
 }
+
+impl<Inner, Prev, K, T> DoubleEndedIterator
+    for StoreFieldKeyedIter<Inner, Prev, K, T>
+where
+    Inner: StoreField<Value = Prev> + Clone + 'static,
+    T: IndexMut<usize> + 'static,
+    T::Output: Sized + 'static,
+    for<'a> &'a T: IntoIterator,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.keys
+            .pop_back()
+            .map(|key| AtKeyed::new(self.inner.clone(), key))
+    }
+}
