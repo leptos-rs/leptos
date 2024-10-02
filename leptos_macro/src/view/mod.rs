@@ -326,9 +326,12 @@ fn inert_element_to_tokens(
                         for attr in node.attributes() {
                             if let NodeAttribute::Attribute(attr) = attr {
                                 let attr_name = attr.key.to_string();
+                                // trim r# from raw identifiers like r#as
+                                let attr_name =
+                                    attr_name.trim_start_matches("r#");
                                 if attr_name != "class" {
                                     html.push(' ');
-                                    html.push_str(&attr_name);
+                                    html.push_str(attr_name);
                                 }
 
                                 if let Some(value) =
