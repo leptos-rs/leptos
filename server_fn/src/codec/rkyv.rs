@@ -10,11 +10,16 @@ use http::Method;
 use rkyv::{
     api::high::{HighDeserializer, HighSerializer, HighValidator},
     bytecheck::CheckBytes,
-    rancor::{Error as RancorError, Failure as RancorFailure},
+    rancor,
     ser::allocator::ArenaHandle,
     util::AlignedVec,
-    Archive, Deserialize, Portable, Serialize,
+    Archive, Deserialize, Serialize,
 };
+
+type RkyvSerializer<'a> =
+    HighSerializer<AlignedVec, ArenaHandle<'a>, rancor::Error>;
+type RkyvDeserializer = HighDeserializer<rancor::Error>;
+type RkyvValidator<'a> = HighValidator<'a, rancor::Error>;
 
 /// Pass arguments and receive responses using `rkyv` in a `POST` request.
 pub struct Rkyv;
@@ -27,20 +32,16 @@ impl Encoding for Rkyv {
 impl<CustErr, T, Request> IntoReq<Rkyv, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
-    T: Archive
-        + for<'a> Serialize<
-            HighSerializer<AlignedVec, ArenaHandle<'a>, RancorError>,
-        >,
-    T::Archived: Portable
-        + Deserialize<T, HighDeserializer<RancorError>>
-        + for<'a> CheckBytes<HighValidator<'a, RancorError>>,
+    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
+    T::Archived: Deserialize<T, RkyvDeserializer>
+        + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
     fn into_req(
         self,
         path: &str,
         accepts: &str,
     ) -> Result<Request, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<RancorError>(&self)
+        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Request::try_new_post_bytes(path, accepts, Rkyv::CONTENT_TYPE, bytes)
@@ -50,13 +51,9 @@ where
 impl<CustErr, T, Request> FromReq<Rkyv, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
-    T: Archive
-        + for<'a> Serialize<
-            HighSerializer<AlignedVec, ArenaHandle<'a>, RancorError>,
-        >,
-    T::Archived: Portable
-        + Deserialize<T, HighDeserializer<RancorError>>
-        + for<'a> CheckBytes<HighValidator<'a, RancorError>>,
+    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
+    T::Archived: Deserialize<T, RkyvDeserializer>
+        + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let mut aligned = AlignedVec::<1024>::new();
@@ -73,7 +70,7 @@ where
                 }
             }
         }
-        rkyv::from_bytes::<T, rkyv::rancor::Error>(aligned.as_ref())
+        rkyv::from_bytes::<T, rancor::Error>(aligned.as_ref())
             .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
@@ -82,16 +79,12 @@ impl<CustErr, T, Response> IntoRes<Rkyv, Response, CustErr> for T
 where
     Response: Res<CustErr>,
     T: Send,
-    T: Archive
-        + for<'a> Serialize<
-            HighSerializer<AlignedVec, ArenaHandle<'a>, RancorError>,
-        >,
-    T::Archived: Portable
-        + Deserialize<T, HighDeserializer<RancorError>>
-        + for<'a> CheckBytes<HighValidator<'a, RancorError>>,
+    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
+    T::Archived: Deserialize<T, RkyvDeserializer>
+        + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
     async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<RancorError>(&self)
+        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
             .map_err(|e| ServerFnError::Serialization(format!("{e:?}")))?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Response::try_from_bytes(Rkyv::CONTENT_TYPE, bytes)
@@ -101,17 +94,13 @@ where
 impl<CustErr, T, Response> FromRes<Rkyv, Response, CustErr> for T
 where
     Response: ClientRes<CustErr> + Send,
-    T: Archive
-        + for<'a> Serialize<
-            HighSerializer<AlignedVec, ArenaHandle<'a>, RancorError>,
-        >,
-    T::Archived: Portable
-        + Deserialize<T, HighDeserializer<RancorFailure>>
-        + for<'a> CheckBytes<HighValidator<'a, RancorFailure>>,
+    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
+    T::Archived: Deserialize<T, RkyvDeserializer>
+        + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
     async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
         let data = res.try_into_bytes().await?;
-        rkyv::from_bytes::<T, RancorFailure>(&data)
+        rkyv::from_bytes::<T, rancor::Error>(&data)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 }
