@@ -76,7 +76,7 @@ use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::path::Path;
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
-use tower::ServiceExt;
+use tower::util::ServiceExt;
 #[cfg(feature = "default")]
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?

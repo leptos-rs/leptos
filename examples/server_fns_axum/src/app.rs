@@ -417,7 +417,6 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     /// This requires us to store some global state of all the uploads. In a real app, you probably
     /// shouldn't do exactly what I'm doing here in the demo. For example, this map just
     /// distinguishes between files by filename, not by user.
-
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};
