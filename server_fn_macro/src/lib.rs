@@ -715,7 +715,7 @@ pub fn server_macro_impl(
                     |req| {
                         Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
                     },
-                    #middlewares
+                    #wrapped_struct_name_turbofish::middlewares
                 )
             }}
         }
