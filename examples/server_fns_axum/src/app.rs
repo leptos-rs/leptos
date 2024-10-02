@@ -325,7 +325,7 @@ pub fn RkyvExample() -> impl IntoView {
 
             Click to capitalize
         </button>
-        <p>{move || input.get()}</p>
+        <p>{input}</p>
         <Transition>{rkyv_result}</Transition>
     }
 }

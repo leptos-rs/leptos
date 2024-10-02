@@ -32,5 +32,5 @@ async fn main() {
     logging::log!("listening on http://{}", &addr);
     axum::serve(listener, app.into_make_service())
         .await
-        .unwrap()
+        .unwrap();
 }
