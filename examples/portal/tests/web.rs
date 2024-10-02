@@ -3,7 +3,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
-use leptos::spawn::tick;
+use leptos::task::tick;
 use leptos::{leptos_dom::helpers::document, mount::mount_to};
 use web_sys::HtmlButtonElement;
 

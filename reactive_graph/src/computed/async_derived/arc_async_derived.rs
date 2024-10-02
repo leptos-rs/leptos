@@ -19,7 +19,7 @@ use crate::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
     transition::AsyncTransition,
 };
@@ -600,7 +600,7 @@ impl<T: 'static> Notify for ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> Writeable for ArcAsyncDerived<T> {
+impl<T: 'static> Write for ArcAsyncDerived<T> {
     type Value = Option<T>;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {

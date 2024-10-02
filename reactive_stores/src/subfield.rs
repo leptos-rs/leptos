@@ -10,7 +10,7 @@ use reactive_graph::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
@@ -168,7 +168,7 @@ where
     }
 }
 
-impl<Inner, Prev, T> Writeable for Subfield<Inner, Prev, T>
+impl<Inner, Prev, T> Write for Subfield<Inner, Prev, T>
 where
     T: 'static,
     Inner: StoreField<Value = Prev>,

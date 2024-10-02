@@ -7,14 +7,16 @@ use axum::{
     Router,
 };
 use axum_session::{SessionConfig, SessionLayer, SessionStore};
-use axum_session_auth::{AuthConfig, AuthSessionLayer, SessionSqlitePool};
-use leptos::{get_configuration, logging::log, provide_context};
+use axum_session_auth::{AuthConfig, AuthSessionLayer};
+use axum_session_sqlx::SessionSqlitePool;
+use leptos::{
+    config::get_configuration, logging::log, prelude::provide_context,
+};
 use leptos_axum::{
     generate_route_list, handle_server_fns_with_context, LeptosRoutes,
 };
 use session_auth_axum::{
     auth::{ssr::AuthSession, User},
-    fallback::file_and_error_handler,
     state::AppState,
     todo::*,
 };
@@ -40,19 +42,19 @@ async fn server_fn_handler(
 
 async fn leptos_routes_handler(
     auth_session: AuthSession,
-    State(app_state): State<AppState>,
+    state: State<AppState>,
     req: Request<AxumBody>,
 ) -> Response {
+    let State(app_state) = state.clone();
     let handler = leptos_axum::render_route_with_context(
-        app_state.leptos_options.clone(),
         app_state.routes.clone(),
         move || {
             provide_context(auth_session.clone());
             provide_context(app_state.pool.clone());
         },
-        TodoApp,
+        move || shell(app_state.leptos_options.clone()),
     );
-    handler(req).await.into_response()
+    handler(state, req).await.into_response()
 }
 
 #[tokio::main]
@@ -111,7 +113,7 @@ async fn main() {
             get(server_fn_handler).post(server_fn_handler),
         )
         .leptos_routes_with_handler(routes, get(leptos_routes_handler))
-        .fallback(file_and_error_handler)
+        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
         .layer(
             AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(
                 Some(pool.clone()),

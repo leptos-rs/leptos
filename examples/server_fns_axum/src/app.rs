@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use http::Method;
-use leptos::{html::Input, prelude::*, spawn::spawn_local};
+use leptos::{html::Input, prelude::*, task::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
     client::{browser::BrowserClient, Client},

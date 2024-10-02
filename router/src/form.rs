@@ -4,7 +4,7 @@ use crate::{
     location::{BrowserUrl, LocationProvider},
     NavigateOptions,
 };
-use leptos::{ev, html::form, prelude::*, spawn::spawn_local};
+use leptos::{ev, html::form, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use web_sys::{FormData, RequestRedirect, Response};

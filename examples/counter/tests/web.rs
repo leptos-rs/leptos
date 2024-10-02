@@ -1,7 +1,7 @@
 use counter::*;
 use leptos::mount::mount_to;
 use leptos::prelude::*;
-use leptos::spawn::tick;
+use leptos::task::tick;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 

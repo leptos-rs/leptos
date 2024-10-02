@@ -255,7 +255,7 @@ impl ToTokens for Model {
         let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if is_island {
             quote! {
-                ::leptos::reactive_graph::owner::Owner::with_hydration(move || {
+                ::leptos::reactive::owner::Owner::with_hydration(move || {
                     #body_name(#prop_names)
                 })
             }
@@ -266,7 +266,7 @@ impl ToTokens for Model {
         };
 
         let component = quote! {
-            ::leptos::reactive_graph::untrack(
+            ::leptos::prelude::untrack(
                 move || {
                     #tracing_guard_expr
                     #tracing_props_expr
@@ -280,7 +280,7 @@ impl ToTokens for Model {
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
                 {
-                    if ::leptos::reactive_graph::owner::Owner::current_shared_context()
+                    if ::leptos::reactive::owner::Owner::current_shared_context()
                         .map(|sc| sc.get_is_hydrating())
                         .unwrap_or(false) {
                         ::leptos::either::Either::Left(
@@ -316,9 +316,9 @@ impl ToTokens for Model {
                 quote! {
                     use leptos::tachys::view::any_view::IntoAny;
                     let children = Box::new(|| {
-                        let sc = ::leptos::reactive_graph::owner::Owner::current_shared_context().unwrap();
+                        let sc = ::leptos::reactive::owner::Owner::current_shared_context().unwrap();
                         let prev = sc.get_is_hydrating();
-                        let value = ::leptos::reactive_graph::owner::Owner::with_no_hydration(||
+                        let value = ::leptos::reactive::owner::Owner::with_no_hydration(||
                             ::leptos::tachys::html::islands::IslandChildren::new(children()).into_any()
                         );
                         sc.set_is_hydrating(prev);

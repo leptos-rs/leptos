@@ -1,14 +1,19 @@
 mod component_builder;
 mod slot_helper;
+mod utils;
+
 use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
 };
-use convert_case::{Case::Snake, Casing};
+use convert_case::{
+    Case::{Snake, UpperCamel},
+    Casing,
+};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
@@ -302,10 +307,12 @@ fn inert_element_to_tokens(
                 match current {
                     Node::RawText(raw) => {
                         let text = raw.to_string_best();
+                        let text = html_escape::encode_text(&text);
                         html.push_str(&text);
                     }
                     Node::Text(text) => {
                         let text = text.value_string();
+                        let text = html_escape::encode_text(&text);
                         html.push_str(&text);
                     }
                     Node::Element(node) => {
@@ -319,9 +326,12 @@ fn inert_element_to_tokens(
                         for attr in node.attributes() {
                             if let NodeAttribute::Attribute(attr) = attr {
                                 let attr_name = attr.key.to_string();
+                                // trim r# from raw identifiers like r#as
+                                let attr_name =
+                                    attr_name.trim_start_matches("r#");
                                 if attr_name != "class" {
                                     html.push(' ');
-                                    html.push_str(&attr_name);
+                                    html.push_str(attr_name);
                                 }
 
                                 if let Some(value) =
@@ -332,11 +342,13 @@ fn inert_element_to_tokens(
                                     )) = &value.value
                                     {
                                         if let Lit::Str(txt) = &lit.lit {
+                                            let value = txt.value();
+                                            let value = html_escape::encode_double_quoted_attribute(&value);
                                             if attr_name == "class" {
-                                                html.push_class(&txt.value());
+                                                html.push_class(&value);
                                             } else {
                                                 html.push_str("=\"");
-                                                html.push_str(&txt.value());
+                                                html.push_str(&value);
                                                 html.push('"');
                                             }
                                         }
@@ -874,6 +886,8 @@ fn attribute_to_tokens(
                 directive_call_from_attribute_node(node, name)
             } else if let Some(name) = name.strip_prefix("on:") {
                 event_to_tokens(name, node)
+            } else if let Some(name) = name.strip_prefix("bind:") {
+                two_way_binding_to_tokens(name, node)
             } else if let Some(name) = name.strip_prefix("class:") {
                 let class = match &node.key {
                     NodeName::Punctuated(parts) => &parts[0],
@@ -1054,6 +1068,20 @@ pub(crate) fn attribute_absolute(
                 }
             }
         }),
+    }
+}
+
+pub(crate) fn two_way_binding_to_tokens(
+    name: &str,
+    node: &KeyedAttribute,
+) -> TokenStream {
+    let value = attribute_value(node);
+
+    let ident =
+        format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
+
+    quote! {
+        .bind(::leptos::attr::#ident, #value)
     }
 }
 

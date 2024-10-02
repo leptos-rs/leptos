@@ -8,7 +8,7 @@ use crate::{
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
-        UntrackableGuard, Writeable,
+        UntrackableGuard, Write,
     },
     unwrap_signal,
 };
@@ -300,7 +300,7 @@ where
     }
 }
 
-impl<T, S> Writeable for AsyncDerived<T, S>
+impl<T, S> Write for AsyncDerived<T, S>
 where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,

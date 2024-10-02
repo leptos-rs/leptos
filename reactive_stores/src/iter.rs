@@ -10,7 +10,7 @@ use reactive_graph::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
 };
 use std::{
@@ -171,7 +171,7 @@ where
     }
 }
 
-impl<Inner, Prev> Writeable for AtIndex<Inner, Prev>
+impl<Inner, Prev> Write for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,

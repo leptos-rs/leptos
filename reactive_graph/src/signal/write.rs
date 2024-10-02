@@ -1,9 +1,7 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
     owner::{ArenaItem, Storage, SyncStorage},
-    traits::{
-        DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Writeable,
-    },
+    traits::{DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Write},
 };
 use core::fmt::Debug;
 use guardian::ArcRwLockWriteGuardian;
@@ -22,7 +20,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
 /// - [`.update()`](crate::traits::Update) updates the value of the signal by
 ///   applying a closure that takes a mutable reference.
-/// - [`.write()`](crate::traits::Writeable) returns a guard through which the signal
+/// - [`.write()`](crate::traits::Write) returns a guard through which the signal
 ///   can be mutated, and which notifies subscribers when it is dropped.
 ///
 /// > Each of these has a related `_untracked()` method, which updates the signal
@@ -128,7 +126,7 @@ where
     }
 }
 
-impl<T, S> Writeable for WriteSignal<T, S>
+impl<T, S> Write for WriteSignal<T, S>
 where
     T: 'static,
     S: Storage<ArcWriteSignal<T>>,
