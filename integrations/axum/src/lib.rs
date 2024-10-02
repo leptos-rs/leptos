@@ -1341,8 +1341,7 @@ where
         .with(|| {
             // stub out a path for now
             provide_context(RequestUrl::new(""));
-            let (mock_parts, _) =
-                Request::new(Body::from("")).into_parts();
+            let (mock_parts, _) = Request::new(Body::from("")).into_parts();
             let (mock_meta, _) = ServerMetaContext::new();
             provide_contexts("", &mock_meta, mock_parts, Default::default());
             additional_context();
