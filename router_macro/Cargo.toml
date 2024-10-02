@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.7.0-beta4"
+version = "0.7.0-gamma"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -13,7 +13,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro-error = { version = "1.0", default-features = false }
+proc-macro-error2 = { version = "2.0", default-features = false }
 proc-macro2 = "1.0"
 quote = "1.0"
 

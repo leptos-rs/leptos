@@ -5,7 +5,7 @@ use crate::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
     },
-    owner::{LocalStorage, Owner, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Owner, Storage, SyncStorage},
     traits::Dispose,
 };
 use any_spawner::Executor;
@@ -37,12 +37,13 @@ use std::{
 ///
 /// ```
 /// # use reactive_graph::computed::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::effect::Effect;
-/// # use reactive_graph::owner::StoredValue;
+/// # use reactive_graph::owner::ArenaItem;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let a = RwSignal::new(0);
 /// let b = RwSignal::new(0);
 ///
@@ -52,7 +53,9 @@ use std::{
 ///   println!("Value: {}", a.get());
 /// });
 ///
+/// # assert_eq!(a.get(), 0);
 /// a.set(1);
+/// # assert_eq!(a.get(), 1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
@@ -61,7 +64,7 @@ use std::{
 ///   // and easily lead to problems like infinite loops
 ///   b.set(a.get() + 1);
 /// });
-/// # });
+/// # }).await;
 /// # });
 /// ```
 /// ## Web-Specific Notes
@@ -75,7 +78,7 @@ use std::{
 ///    If you need an effect to run on the server, use [`Effect::new_isomorphic`].
 #[derive(Debug, Clone, Copy)]
 pub struct Effect<S> {
-    inner: Option<StoredValue<StoredEffect, S>>,
+    inner: Option<ArenaItem<StoredEffect, S>>,
 }
 
 type StoredEffect = Option<Arc<RwLock<EffectInner>>>;
@@ -162,7 +165,7 @@ impl Effect<LocalStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -182,6 +185,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     ///
@@ -192,13 +196,16 @@ impl Effect<LocalStorage> {
     ///     },
     ///     false,
     /// );
+    /// # assert_eq!(num.get(), 0);
     ///
     /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
+    /// # assert_eq!(num.get(), 1);
     ///
     /// effect.stop(); // stop watching
     ///
     /// set_num.set(2); // (nothing happens)
-    /// # });
+    /// # assert_eq!(num.get(), 2);
+    /// # }).await;
     /// # });
     /// ```
     ///
@@ -210,6 +217,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     /// let (cb_num, set_cb_num) = signal(0);
@@ -222,12 +230,17 @@ impl Effect<LocalStorage> {
     ///     false,
     /// );
     ///
+    /// # assert_eq!(num.get(), 0);
     /// set_num.set(1); // > "Number: 1; Cb: 0"
+    /// # assert_eq!(num.get(), 1);
     ///
+    /// # assert_eq!(cb_num.get(), 0);
     /// set_cb_num.set(1); // (nothing happens)
+    /// # assert_eq!(cb_num.get(), 1);
     ///
     /// set_num.set(2); // > "Number: 2; Cb: 1"
-    /// # });
+    /// # assert_eq!(num.get(), 2);
+    /// # }).await;
     /// # });
     /// ```
     ///
@@ -243,6 +256,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// #
     /// let (num, set_num) = signal(0);
     ///
@@ -254,8 +268,10 @@ impl Effect<LocalStorage> {
     ///     true,
     /// ); // > "Number: 0; Prev: None"
     ///
+    /// # assert_eq!(num.get(), 0);
     /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
-    /// # });
+    /// # assert_eq!(num.get(), 1);
+    /// # }).await;
     /// # });
     /// ```
     pub fn watch<D, T>(
@@ -318,7 +334,7 @@ impl Effect<LocalStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -342,7 +358,7 @@ impl Effect<SyncStorage> {
             let mut first_run = true;
             let value = Arc::new(RwLock::new(None::<T>));
 
-            Executor::spawn({
+            crate::spawn({
                 let value = Arc::clone(&value);
                 let subscriber = inner.to_any_subscriber();
 
@@ -367,7 +383,7 @@ impl Effect<SyncStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }
@@ -387,7 +403,7 @@ impl Effect<SyncStorage> {
         let mut first_run = true;
         let value = Arc::new(RwLock::new(None::<T>));
 
-        Executor::spawn({
+        let task = {
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
 
@@ -409,10 +425,12 @@ impl Effect<SyncStorage> {
                     }
                 }
             }
-        });
+        };
+
+        crate::spawn(task);
 
         Self {
-            inner: Some(StoredValue::new_with_storage(Some(inner))),
+            inner: Some(ArenaItem::new_with_storage(Some(inner))),
         }
     }
 
@@ -435,7 +453,7 @@ impl Effect<SyncStorage> {
         let watch_value = Arc::new(RwLock::new(None::<T>));
 
         let inner = cfg!(feature = "effects").then(|| {
-            Executor::spawn({
+            crate::spawn({
                 let dep_value = Arc::clone(&dep_value);
                 let watch_value = Arc::clone(&watch_value);
                 let subscriber = inner.to_any_subscriber();
@@ -480,7 +498,7 @@ impl Effect<SyncStorage> {
                 }
             });
 
-            StoredValue::new_with_storage(Some(inner))
+            ArenaItem::new_with_storage(Some(inner))
         });
 
         Self { inner }

@@ -1,6 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
+    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
@@ -8,17 +9,14 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
-        Writeable,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Write,
     },
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
 #[derive(Debug)]
-pub struct Subfield<Inner, Prev, T>
-where
-    Inner: StoreField<Value = Prev>,
-{
+pub struct Subfield<Inner, Prev, T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     path_segment: StorePathSegment,
@@ -30,7 +28,7 @@ where
 
 impl<Inner, Prev, T> Clone for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Value = Prev> + Clone,
+    Inner: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -45,15 +43,9 @@ where
     }
 }
 
-impl<Inner, Prev, T> Copy for Subfield<Inner, Prev, T> where
-    Inner: StoreField<Value = Prev> + Copy
-{
-}
+impl<Inner, Prev, T> Copy for Subfield<Inner, Prev, T> where Inner: Copy {}
 
-impl<Inner, Prev, T> Subfield<Inner, Prev, T>
-where
-    Inner: StoreField<Value = Prev>,
-{
+impl<Inner, Prev, T> Subfield<Inner, Prev, T> {
     #[track_caller]
     pub fn new(
         inner: Inner,
@@ -89,7 +81,7 @@ where
             .chain(iter::once(self.path_segment))
     }
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -100,8 +92,13 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.writer()?);
+        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
         Some(MappedMut::new(inner, self.read, self.write))
+    }
+
+    #[inline(always)]
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.keys()
     }
 }
 
@@ -123,33 +120,39 @@ where
 
 impl<Inner, Prev, T> IsDisposed for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Value = Prev> + IsDisposed,
+    Inner: IsDisposed,
 {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
     }
 }
 
-impl<Inner, Prev, T> Trigger for Subfield<Inner, Prev, T>
+impl<Inner, Prev, T> Notify for Subfield<Inner, Prev, T>
 where
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
 impl<Inner, Prev, T> Track for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Value = Prev> + 'static,
+    Inner: StoreField<Value = Prev> + Track + 'static,
     Prev: 'static,
     T: 'static,
 {
     fn track(&self) {
+        let inner = self
+            .inner
+            .get_trigger(self.inner.path().into_iter().collect());
+        inner.this.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
@@ -165,7 +168,7 @@ where
     }
 }
 
-impl<Inner, Prev, T> Writeable for Subfield<Inner, Prev, T>
+impl<Inner, Prev, T> Write for Subfield<Inner, Prev, T>
 where
     T: 'static,
     Inner: StoreField<Value = Prev>,

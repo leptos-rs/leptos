@@ -1,17 +1,13 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
-use crate::{
-    html::property::IntoProperty,
-    renderer::{DomRenderer, Renderer},
-};
+use crate::{html::property::IntoProperty, renderer::Rndr};
 use reactive_graph::effect::RenderEffect;
 
 // These do update during hydration because properties don't exist in the DOM
-impl<F, V, R> IntoProperty<R> for F
+impl<F, V> IntoProperty for F
 where
     F: ReactiveFunction<Output = V>,
-    V: IntoProperty<R> + 'static,
+    V: IntoProperty + 'static,
     V::State: 'static,
-    R: DomRenderer,
 {
     type State = RenderEffect<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
@@ -19,10 +15,10 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
         key: &str,
     ) -> Self::State {
-        let key = R::intern(key);
+        let key = Rndr::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
 
@@ -39,10 +35,10 @@ where
 
     fn build(
         mut self,
-        el: &<R as Renderer>::Element,
+        el: &crate::renderer::types::Element,
         key: &str,
     ) -> Self::State {
-        let key = R::intern(key);
+        let key = Rndr::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
 
@@ -85,10 +81,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::{
-        html::property::IntoProperty,
-        renderer::{DomRenderer, Renderer},
-    };
+    use crate::html::property::IntoProperty;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,
@@ -100,12 +93,11 @@ mod stable {
 
     macro_rules! property_signal {
         ($sig:ident) => {
-            impl<V, R> IntoProperty<R> for $sig<V>
+            impl<V> IntoProperty for $sig<V>
             where
                 $sig<V>: Get<Value = V>,
-                V: IntoProperty<R> + Send + Sync + Clone + 'static,
+                V: IntoProperty + Send + Sync + Clone + 'static,
                 V::State: 'static,
-                R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
                 type Cloneable = Self;
@@ -113,7 +105,7 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el, key)
@@ -121,7 +113,7 @@ mod stable {
 
                 fn build(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).build(el, key)
@@ -144,14 +136,13 @@ mod stable {
 
     macro_rules! property_signal_arena {
         ($sig:ident) => {
-            impl<V, R, S> IntoProperty<R> for $sig<V, S>
+            impl<V, S> IntoProperty for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
                 S: Storage<V> + Storage<Option<V>>,
-                V: IntoProperty<R> + Send + Sync + Clone + 'static,
+                V: IntoProperty + Send + Sync + Clone + 'static,
                 V::State: 'static,
-                R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
                 type Cloneable = Self;
@@ -159,7 +150,7 @@ mod stable {
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).hydrate::<FROM_SERVER>(el, key)
@@ -167,7 +158,7 @@ mod stable {
 
                 fn build(
                     self,
-                    el: &<R as Renderer>::Element,
+                    el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
                     (move || self.get()).build(el, key)

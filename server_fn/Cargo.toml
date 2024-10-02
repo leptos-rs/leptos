@@ -25,8 +25,8 @@ inventory = { version = "0.3.15", optional = true }
 dashmap = "6.0"
 once_cell = "1.19"
 
-## servers 
-# actix 
+## servers
+# actix
 actix-web = { version = "4.8", optional = true }
 
 # axum
@@ -36,12 +36,12 @@ axum = { version = "0.7.5", optional = true, default-features = false, features 
 tower = { version = "0.4.13", optional = true }
 tower-layer = { version = "0.3.2", optional = true }
 
-## input encodings 
+## input encodings
 serde_qs = { version = "0.13.0", optional = true }
 multer = { version = "3.1", optional = true }
 
-## output encodings 
-# serde 
+## output encodings
+# serde
 serde_json = "1.0"
 serde-lite = { version = "0.5.0", features = ["derive"], optional = true }
 futures = "0.3.30"
@@ -51,11 +51,7 @@ postcard = { version = "1", features = ["alloc"], optional = true }
 hyper = { version = "1.4", optional = true }
 bytes = "1.7"
 http-body-util = { version = "0.1.2", optional = true }
-rkyv = { version = "0.7.44", features = [
-  "validation",
-  "uuid",
-  "strict",
-], optional = true }
+rkyv = { version = "0.8.8", optional = true }
 rmp-serde = { version = "1.3.0", optional = true }
 
 # client
@@ -72,7 +68,7 @@ web-sys = { version = "0.3.70", optional = true, features = [
   "AbortSignal",
 ] }
 
-# reqwest client 
+# reqwest client
 reqwest = { version = "0.12.5", default-features = false, optional = true, features = [
   "multipart",
   "stream",

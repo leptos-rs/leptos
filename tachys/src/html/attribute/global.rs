@@ -3,22 +3,20 @@ use crate::{
     html::{
         attribute::*,
         class::{class, Class, IntoClass},
-        element::{CreateElement, ElementType, HasElementType, HtmlElement},
+        element::{ElementType, HasElementType, HtmlElement},
         event::{on, on_target, EventDescriptor, On, Targeted},
         property::{prop, IntoProperty, Property},
         style::{style, IntoStyle, Style},
     },
     prelude::RenderHtml,
-    renderer::DomRenderer,
     view::add_attr::AddAnyAttr,
 };
 use core::convert::From;
 
 /// Adds an attribute that modifies the `class`.
-pub trait ClassAttribute<C, Rndr>
+pub trait ClassAttribute<C>
 where
-    C: IntoClass<Rndr>,
-    Rndr: DomRenderer,
+    C: IntoClass,
 {
     /// The type of the element with the new attribute added.
     type Output;
@@ -27,16 +25,14 @@ where
     fn class(self, value: C) -> Self::Output;
 }
 
-impl<E, At, Ch, C, Rndr> ClassAttribute<C, Rndr>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, C> ClassAttribute<C> for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    C: IntoClass<Rndr>,
-    Rndr: DomRenderer,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
+    C: IntoClass,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<Class<C, Rndr>>;
+    type Output = <Self as AddAnyAttr>::Output<Class<C>>;
 
     fn class(self, value: C) -> Self::Output {
         self.add_any_attr(class(value))
@@ -44,10 +40,9 @@ where
 }
 
 /// Adds an attribute that modifies the DOM properties.
-pub trait PropAttribute<K, P, Rndr>
+pub trait PropAttribute<K, P>
 where
-    P: IntoProperty<Rndr>,
-    Rndr: DomRenderer,
+    P: IntoProperty,
 {
     /// The type of the element with the new attribute added.
     type Output;
@@ -56,17 +51,15 @@ where
     fn prop(self, key: K, value: P) -> Self::Output;
 }
 
-impl<E, At, Ch, K, P, Rndr> PropAttribute<K, P, Rndr>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, K, P> PropAttribute<K, P> for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
     K: AsRef<str> + Send,
-    P: IntoProperty<Rndr>,
-    Rndr: DomRenderer,
+    P: IntoProperty,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<Property<K, P, Rndr>>;
+    type Output = <Self as AddAnyAttr>::Output<Property<K, P>>;
 
     fn prop(self, key: K, value: P) -> Self::Output {
         self.add_any_attr(prop(key, value))
@@ -74,10 +67,9 @@ where
 }
 
 /// Adds an attribute that modifies the CSS styles.
-pub trait StyleAttribute<S, Rndr>
+pub trait StyleAttribute<S>
 where
-    S: IntoStyle<Rndr>,
-    Rndr: DomRenderer,
+    S: IntoStyle,
 {
     /// The type of the element with the new attribute added.
     type Output;
@@ -86,16 +78,14 @@ where
     fn style(self, value: S) -> Self::Output;
 }
 
-impl<E, At, Ch, S, Rndr> StyleAttribute<S, Rndr>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, S> StyleAttribute<S> for HtmlElement<E, At, Ch>
 where
-    E: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    S: IntoStyle<Rndr>,
-    Rndr: DomRenderer,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
+    S: IntoStyle,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<Style<S, Rndr>>;
+    type Output = <Self as AddAnyAttr>::Output<Style<S>>;
 
     fn style(self, value: S) -> Self::Output {
         self.add_any_attr(style(value))
@@ -103,7 +93,7 @@ where
 }
 
 /// Adds an event listener to an element definition.
-pub trait OnAttribute<E, F, Rndr> {
+pub trait OnAttribute<E, F> {
     /// The type of the element with the event listener added.
     type Output;
 
@@ -111,19 +101,17 @@ pub trait OnAttribute<E, F, Rndr> {
     fn on(self, event: E, cb: F) -> Self::Output;
 }
 
-impl<El, At, Ch, E, F, Rndr> OnAttribute<E, F, Rndr>
-    for HtmlElement<El, At, Ch, Rndr>
+impl<El, At, Ch, E, F> OnAttribute<E, F> for HtmlElement<El, At, Ch>
 where
-    El: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
+    El: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
+    E::EventType: From<crate::renderer::types::Event>,
     F: FnMut(E::EventType) + 'static,
-    Rndr: DomRenderer,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<E, F, Rndr>>;
+    type Output = <Self as AddAnyAttr>::Output<On<E, F>>;
 
     fn on(self, event: E, cb: F) -> Self::Output {
         self.add_any_attr(on(event, cb))
@@ -131,7 +119,7 @@ where
 }
 
 /// Adds an event listener with a typed target to an element definition.
-pub trait OnTargetAttribute<E, F, T, Rndr> {
+pub trait OnTargetAttribute<E, F, T> {
     /// The type of the element with the new attribute added.
     type Output;
 
@@ -139,43 +127,36 @@ pub trait OnTargetAttribute<E, F, T, Rndr> {
     fn on_target(self, event: E, cb: F) -> Self::Output;
 }
 
-impl<El, At, Ch, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr>
-    for HtmlElement<El, At, Ch, Rndr>
+impl<El, At, Ch, E, F> OnTargetAttribute<E, F, Self> for HtmlElement<El, At, Ch>
 where
-    El: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
+    El: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
-    F: FnMut(
-            Targeted<E::EventType, <Self as HasElementType>::ElementType, Rndr>,
-        ) + 'static,
-    Rndr: DomRenderer,
+    E::EventType: From<crate::renderer::types::Event>,
+    F: FnMut(Targeted<E::EventType, <Self as HasElementType>::ElementType>)
+        + 'static,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<
-        On<E, Box<dyn FnMut(E::EventType)>, Rndr>,
-    >;
+    type Output =
+        <Self as AddAnyAttr>::Output<On<E, Box<dyn FnMut(E::EventType)>>>;
 
     fn on_target(self, event: E, cb: F) -> Self::Output {
-        self.add_any_attr(
-            on_target::<E, HtmlElement<El, At, Ch, Rndr>, Rndr, F>(event, cb),
-        )
+        self.add_any_attr(on_target::<E, HtmlElement<El, At, Ch>, F>(event, cb))
     }
 }
 
 /// Global attributes can be added to any HTML element.
-pub trait GlobalAttributes<Rndr, V>
+pub trait GlobalAttributes<V>
 where
-    Self: Sized + AddAnyAttr<Rndr>,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    Self: Sized + AddAnyAttr,
+    V: AttributeValue,
 {
     /// The `accesskey` global attribute provides a hint for generating a keyboard shortcut for the current element.
     fn accesskey(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Accesskey, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Accesskey, V>> {
         self.add_any_attr(accesskey(value))
     }
 
@@ -183,7 +164,7 @@ where
     fn autocapitalize(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Autocapitalize, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Autocapitalize, V>> {
         self.add_any_attr(autocapitalize(value))
     }
 
@@ -191,7 +172,7 @@ where
     fn autofocus(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Autofocus, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Autofocus, V>> {
         self.add_any_attr(autofocus(value))
     }
 
@@ -199,16 +180,12 @@ where
     fn contenteditable(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Contenteditable, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Contenteditable, V>> {
         self.add_any_attr(contenteditable(value))
     }
 
     /// The `dir` global attribute is an enumerated attribute indicating the directionality of the element's text.
-    fn dir(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Dir, V, Rndr>> {
+    fn dir(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Dir, V>> {
         self.add_any_attr(dir(value))
     }
 
@@ -216,7 +193,7 @@ where
     fn draggable(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Draggable, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Draggable, V>> {
         self.add_any_attr(draggable(value))
     }
 
@@ -224,31 +201,22 @@ where
     fn enterkeyhint(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Enterkeyhint, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Enterkeyhint, V>> {
         self.add_any_attr(enterkeyhint(value))
     }
 
     /// The `hidden` global attribute is a Boolean attribute indicating that the element is not yet, or is no longer, relevant.
-    fn hidden(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Hidden, V, Rndr>> {
+    fn hidden(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Hidden, V>> {
         self.add_any_attr(hidden(value))
     }
 
     /// The `id` global attribute defines a unique identifier (ID) which must be unique in the whole document.
-    fn id(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Id, V, Rndr>> {
+    fn id(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Id, V>> {
         self.add_any_attr(id(value))
     }
 
     /// The `inert` global attribute is a Boolean attribute that makes an element behave inertly.
-    fn inert(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Inert, V, Rndr>> {
+    fn inert(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Inert, V>> {
         self.add_any_attr(inert(value))
     }
 
@@ -256,23 +224,17 @@ where
     fn inputmode(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Inputmode, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Inputmode, V>> {
         self.add_any_attr(inputmode(value))
     }
 
     /// The `is` global attribute allows you to specify that a standard HTML element should behave like a custom built-in element.
-    fn is(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Is, V, Rndr>> {
+    fn is(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Is, V>> {
         self.add_any_attr(is(value))
     }
 
     /// The `itemid` global attribute is used to specify the unique, global identifier of an item.
-    fn itemid(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemid, V, Rndr>> {
+    fn itemid(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Itemid, V>> {
         self.add_any_attr(itemid(value))
     }
 
@@ -280,7 +242,7 @@ where
     fn itemprop(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemprop, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Itemprop, V>> {
         self.add_any_attr(itemprop(value))
     }
 
@@ -288,7 +250,7 @@ where
     fn itemref(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemref, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Itemref, V>> {
         self.add_any_attr(itemref(value))
     }
 
@@ -296,7 +258,7 @@ where
     fn itemscope(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemscope, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Itemscope, V>> {
         self.add_any_attr(itemscope(value))
     }
 
@@ -304,31 +266,22 @@ where
     fn itemtype(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemtype, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Itemtype, V>> {
         self.add_any_attr(itemtype(value))
     }
 
     /// The `lang` global attribute helps define the language of an element.
-    fn lang(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Lang, V, Rndr>> {
+    fn lang(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Lang, V>> {
         self.add_any_attr(lang(value))
     }
 
     /// The `nonce` global attribute is used to specify a cryptographic nonce.
-    fn nonce(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Nonce, V, Rndr>> {
+    fn nonce(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Nonce, V>> {
         self.add_any_attr(nonce(value))
     }
 
     /// The `part` global attribute identifies the element as a part of a component.
-    fn part(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Part, V, Rndr>> {
+    fn part(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Part, V>> {
         self.add_any_attr(part(value))
     }
 
@@ -336,23 +289,17 @@ where
     fn popover(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Popover, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Popover, V>> {
         self.add_any_attr(popover(value))
     }
 
     /// The `role` global attribute defines the role of an element in ARIA.
-    fn role(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Role, V, Rndr>> {
+    fn role(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Role, V>> {
         self.add_any_attr(role(value))
     }
 
     /// The `slot` global attribute assigns a slot in a shadow DOM.
-    fn slot(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Slot, V, Rndr>> {
+    fn slot(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Slot, V>> {
         self.add_any_attr(slot(value))
     }
 
@@ -360,7 +307,7 @@ where
     fn spellcheck(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Spellcheck, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Spellcheck, V>> {
         self.add_any_attr(spellcheck(value))
     }
 
@@ -368,15 +315,12 @@ where
     fn tabindex(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Tabindex, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Tabindex, V>> {
         self.add_any_attr(tabindex(value))
     }
 
     /// The `title` global attribute contains text representing advisory information.
-    fn title(
-        self,
-        value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Title, V, Rndr>> {
+    fn title(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Title, V>> {
         self.add_any_attr(title(value))
     }
 
@@ -384,7 +328,7 @@ where
     fn translate(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Translate, V, Rndr>> {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Translate, V>> {
         self.add_any_attr(translate(value))
     }
 
@@ -392,20 +336,17 @@ where
     fn virtualkeyboardpolicy(
         self,
         value: V,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Virtualkeyboardpolicy, V, Rndr>>
-    {
+    ) -> <Self as AddAnyAttr>::Output<Attr<Virtualkeyboardpolicy, V>> {
         self.add_any_attr(virtualkeyboardpolicy(value))
     }
 }
 
-impl<El, At, Ch, Rndr, V> GlobalAttributes<Rndr, V>
-    for HtmlElement<El, At, Ch, Rndr>
+impl<El, At, Ch, V> GlobalAttributes<V> for HtmlElement<El, At, Ch>
 where
-    El: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    El: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
+    V: AttributeValue,
 {
 }
 
@@ -418,7 +359,7 @@ macro_rules! on_definitions {
                 fn $key(
                     self,
                     value: V,
-                ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<[<$key:camel>], V, Rndr>>
+                ) -> <Self as AddAnyAttr>::Output<Attr<[<$key:camel>], V>>
                 {
                     self.add_any_attr($key(value))
                 }
@@ -428,11 +369,10 @@ macro_rules! on_definitions {
 }
 
 /// Provides methods for HTML event listener attributes.
-pub trait GlobalOnAttributes<Rndr, V>
+pub trait GlobalOnAttributes<V>
 where
-    Self: Sized + AddAnyAttr<Rndr>,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    Self: Sized + AddAnyAttr,
+    V: AttributeValue,
 {
     on_definitions! {
         /// The `onabort` attribute specifies the event handler for the abort event.
@@ -575,13 +515,11 @@ where
     }
 }
 
-impl<El, At, Ch, Rndr, V> GlobalOnAttributes<Rndr, V>
-    for HtmlElement<El, At, Ch, Rndr>
+impl<El, At, Ch, V> GlobalOnAttributes<V> for HtmlElement<El, At, Ch>
 where
-    El: ElementType + CreateElement<Rndr> + Send,
-    At: Attribute<Rndr> + Send,
-    Ch: RenderHtml<Rndr> + Send,
-    V: AttributeValue<Rndr>,
-    Rndr: Renderer,
+    El: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
+    V: AttributeValue,
 {
 }

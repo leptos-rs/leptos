@@ -3,30 +3,27 @@ use super::{
     element::ElementType,
 };
 use crate::{
-    html::element::HtmlElement, prelude::Render, renderer::Renderer,
-    view::add_attr::AddAnyAttr,
+    html::element::HtmlElement, prelude::Render, view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;
 
 /// Describes a container that can be used to hold a reference to an HTML element.
-pub trait NodeRefContainer<E, Rndr>: Send + Clone
+pub trait NodeRefContainer<E>: Send + Clone
 where
     E: ElementType,
-    Rndr: Renderer,
 {
     /// Fills the container with the element.
-    fn load(self, el: &Rndr::Element);
+    fn load(self, el: &crate::renderer::types::Element);
 }
 
 /// An [`Attribute`] that will fill a [`NodeRefContainer`] with an HTML element.
 #[derive(Debug)]
-pub struct NodeRefAttr<E, C, Rndr> {
+pub struct NodeRefAttr<E, C> {
     container: C,
     ty: PhantomData<E>,
-    rndr: PhantomData<Rndr>,
 }
 
-impl<E, C, Rndr> Clone for NodeRefAttr<E, C, Rndr>
+impl<E, C> Clone for NodeRefAttr<E, C>
 where
     C: Clone,
 {
@@ -34,35 +31,32 @@ where
         Self {
             container: self.container.clone(),
             ty: PhantomData,
-            rndr: PhantomData,
         }
     }
 }
 
 /// Creates an attribute that will fill a [`NodeRefContainer`] with the element it is applied to.
-pub fn node_ref<E, C, Rndr>(container: C) -> NodeRefAttr<E, C, Rndr>
+pub fn node_ref<E, C>(container: C) -> NodeRefAttr<E, C>
 where
     E: ElementType,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
+    C: NodeRefContainer<E>,
 {
     NodeRefAttr {
         container,
         ty: PhantomData,
-        rndr: PhantomData,
     }
 }
 
-impl<E, C, Rndr> Attribute<Rndr> for NodeRefAttr<E, C, Rndr>
+impl<E, C> Attribute for NodeRefAttr<E, C>
 where
     E: ElementType,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
-    Rndr::Element: PartialEq,
+    C: NodeRefContainer<E>,
+
+    crate::renderer::types::Element: PartialEq,
 {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
-    type State = Rndr::Element;
+    type State = crate::renderer::types::Element;
     type Cloneable = ();
     type CloneableOwned = ();
 
@@ -82,13 +76,13 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        el: &<Rndr as Renderer>::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
         self.container.load(el);
         el.to_owned()
     }
 
-    fn build(self, el: &<Rndr as Renderer>::Element) -> Self::State {
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.container.load(el);
         el.to_owned()
     }
@@ -112,16 +106,16 @@ where
     }
 }
 
-impl<E, C, Rndr> NextAttribute<Rndr> for NodeRefAttr<E, C, Rndr>
+impl<E, C> NextAttribute for NodeRefAttr<E, C>
 where
     E: ElementType,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
-    Rndr::Element: PartialEq,
-{
-    type Output<NewAttr: Attribute<Rndr>> = (Self, NewAttr);
+    C: NodeRefContainer<E>,
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    crate::renderer::types::Element: PartialEq,
+{
+    type Output<NewAttr: Attribute> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
@@ -130,35 +124,33 @@ where
 }
 
 /// Adds the `node_ref` attribute to an element.
-pub trait NodeRefAttribute<E, C, Rndr>
+pub trait NodeRefAttribute<E, C>
 where
     E: ElementType,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
-    Rndr::Element: PartialEq,
+    C: NodeRefContainer<E>,
+
+    crate::renderer::types::Element: PartialEq,
 {
     /// Binds this HTML element to a [`NodeRefContainer`].
     fn node_ref(
         self,
         container: C,
-    ) -> <Self as AddAnyAttr<Rndr>>::Output<NodeRefAttr<E, C, Rndr>>
+    ) -> <Self as AddAnyAttr>::Output<NodeRefAttr<E, C>>
     where
-        Self: Sized + AddAnyAttr<Rndr>,
-        <Self as AddAnyAttr<Rndr>>::Output<NodeRefAttr<E, C, Rndr>>:
-            Render<Rndr>,
+        Self: Sized + AddAnyAttr,
+        <Self as AddAnyAttr>::Output<NodeRefAttr<E, C>>: Render,
     {
         self.add_any_attr(node_ref(container))
     }
 }
 
-impl<E, At, Ch, C, Rndr> NodeRefAttribute<E, C, Rndr>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, C> NodeRefAttribute<E, C> for HtmlElement<E, At, Ch>
 where
     E: ElementType,
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr>,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
-    Rndr::Element: PartialEq,
+    At: Attribute,
+    Ch: Render,
+    C: NodeRefContainer<E>,
+
+    crate::renderer::types::Element: PartialEq,
 {
 }

@@ -9,6 +9,7 @@ pub mod guards;
 mod read;
 mod rw;
 mod subscriber_traits;
+mod trigger;
 mod write;
 
 use crate::owner::LocalStorage;
@@ -18,6 +19,7 @@ pub use arc_trigger::*;
 pub use arc_write::*;
 pub use read::*;
 pub use rw::*;
+pub use trigger::*;
 pub use write::*;
 
 /// Creates a reference-counted signal.
@@ -34,7 +36,7 @@ pub use write::*;
 ///
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = arc_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -80,7 +82,7 @@ pub fn arc_signal<T>(value: T) -> (ArcReadSignal<T>, ArcWriteSignal<T>) {
 /// as long as a reference to it is alive, see [`arc_signal`].
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -140,7 +142,7 @@ pub fn signal_local<T: 'static>(
 /// as long as a reference to it is alive, see [`arc_signal`].
 /// ```
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value

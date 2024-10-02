@@ -3,26 +3,25 @@ use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
     ssr::StreamBuilder,
-    view::{iterators::OptionState, Mountable, Render, Renderer},
+    view::{iterators::OptionState, Mountable, Render},
 };
 use either_of::Either;
 use std::sync::Arc;
 use throw_error::{Error as AnyError, ErrorHook};
 
-impl<R, T, E> Render<R> for Result<T, E>
+impl<T, E> Render for Result<T, E>
 where
-    T: Render<R>,
-    R: Renderer,
+    T: Render,
     E: Into<AnyError> + 'static,
 {
-    type State = ResultState<T, R>;
+    type State = ResultState<T>;
 
     fn build(self) -> Self::State {
         let hook = throw_error::get_error_hook();
         let (state, error) = match self {
             Ok(view) => (Either::Left(view.build()), None),
             Err(e) => (
-                Either::Right(Render::<R>::build(())),
+                Either::Right(Render::build(())),
                 Some(throw_error::throw(e.into())),
             ),
         };
@@ -42,7 +41,7 @@ where
             }
             // Ok => Err: unmount, replace with marker, and throw
             (Either::Left(old), Err(err)) => {
-                let mut new_state = Render::<R>::build(());
+                let mut new_state = Render::build(());
                 old.insert_before_this(&mut new_state);
                 old.unmount();
                 state.state = Either::Right(new_state);
@@ -63,21 +62,19 @@ where
 }
 
 /// View state for a `Result<_, _>` view.
-pub struct ResultState<T, R>
+pub struct ResultState<T>
 where
-    T: Render<R>,
-    R: Renderer,
+    T: Render,
 {
     /// The view state.
-    state: OptionState<T, R>,
+    state: OptionState<T>,
     error: Option<throw_error::ErrorId>,
     hook: Option<Arc<dyn ErrorHook>>,
 }
 
-impl<T, R> Drop for ResultState<T, R>
+impl<T> Drop for ResultState<T>
 where
-    T: Render<R>,
-    R: Renderer,
+    T: Render,
 {
     fn drop(&mut self) {
         // when the state is cleared, unregister this error; this item is being dropped and its
@@ -88,48 +85,50 @@ where
     }
 }
 
-impl<T, R> Mountable<R> for ResultState<T, R>
+impl<T> Mountable for ResultState<T>
 where
-    T: Render<R>,
-    R: Renderer,
+    T: Render,
 {
     fn unmount(&mut self) {
         self.state.unmount();
     }
 
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
         self.state.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
     }
 }
 
-impl<R, T, E> AddAnyAttr<R> for Result<T, E>
+impl<T, E> AddAnyAttr for Result<T, E>
 where
-    T: AddAnyAttr<R>,
-    R: Renderer,
+    T: AddAnyAttr,
+
     E: Into<AnyError> + Send + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> =
-        Result<<T as AddAnyAttr<R>>::Output<SomeNewAttr>, E>;
+    type Output<SomeNewAttr: Attribute> =
+        Result<<T as AddAnyAttr>::Output<SomeNewAttr>, E>;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         self.map(|inner| inner.add_any_attr(attr))
     }
 }
 
-impl<R, T, E> RenderHtml<R> for Result<T, E>
+impl<T, E> RenderHtml for Result<T, E>
 where
-    T: RenderHtml<R>,
-    R: Renderer,
+    T: RenderHtml,
     E: Into<AnyError> + Send + 'static,
 {
     type AsyncOutput = Result<T::AsyncOutput, E>;
@@ -199,7 +198,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let hook = throw_error::get_error_hook();
@@ -209,11 +208,8 @@ where
                 None,
             ),
             Err(e) => {
-                let state = RenderHtml::<R>::hydrate::<FROM_SERVER>(
-                    (),
-                    cursor,
-                    position,
-                );
+                let state =
+                    RenderHtml::hydrate::<FROM_SERVER>((), cursor, position);
                 (Either::Right(state), Some(throw_error::throw(e.into())))
             }
         };

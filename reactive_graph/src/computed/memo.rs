@@ -1,6 +1,6 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
@@ -36,7 +36,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// # use reactive_graph::effect::Effect;
 /// # use reactive_graph::signal::signal;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # tokio::task::LocalSet::new().run_until(async {
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
 /// let (value, set_value) = signal(0);
@@ -102,7 +102,7 @@ where
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcMemo<T, S>, S>,
+    inner: ArenaItem<ArcMemo<T, S>, S>,
 }
 
 impl<T, S> Dispose for Memo<T, S>
@@ -123,7 +123,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -137,7 +137,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -161,7 +161,7 @@ where
     /// # use reactive_graph::effect::Effect;
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
+    /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # fn really_expensive_computation(value: i32) -> i32 { value };
     /// let (value, set_value) = signal(0);
     ///
@@ -177,7 +177,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new(fun)),
+            inner: ArenaItem::new_with_storage(ArcMemo::new(fun)),
         }
     }
 
@@ -195,14 +195,11 @@ where
     pub fn new_with_compare(
         fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
         changed: fn(Option<&T>, Option<&T>) -> bool,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new_with_compare(
+            inner: ArenaItem::new_with_storage(ArcMemo::new_with_compare(
                 fun, changed,
             )),
         }
@@ -222,14 +219,11 @@ where
     )]
     pub fn new_owning(
         fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcMemo::new_owning(fun)),
+            inner: ArenaItem::new_with_storage(ArcMemo::new_owning(fun)),
         }
     }
 }

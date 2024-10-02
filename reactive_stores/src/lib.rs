@@ -1,14 +1,22 @@
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Plain, ReadGuard},
+        guards::{Plain, ReadGuard, WriteGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Write,
+    },
 };
 use rustc_hash::FxHashMap;
 use std::{
+    any::Any,
+    collections::HashMap,
     fmt::Debug,
+    hash::Hash,
+    ops::DerefMut,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -16,6 +24,8 @@ use std::{
 mod arc_field;
 mod field;
 mod iter;
+mod keyed;
+mod option;
 mod patch;
 mod path;
 mod store_field;
@@ -24,28 +34,149 @@ mod subfield;
 pub use arc_field::ArcField;
 pub use field::Field;
 pub use iter::*;
+pub use keyed::*;
+pub use option::*;
 pub use patch::*;
-use path::StorePath;
-pub use store_field::StoreField;
+pub use path::{StorePath, StorePathSegment};
+pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
-struct TriggerMap(FxHashMap<StorePath, ArcTrigger>);
+struct TriggerMap(FxHashMap<StorePath, StoreFieldTrigger>);
+
+#[derive(Debug, Clone, Default)]
+pub struct StoreFieldTrigger {
+    pub this: ArcTrigger,
+    pub children: ArcTrigger,
+}
+
+impl StoreFieldTrigger {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl TriggerMap {
-    fn get_or_insert(&mut self, key: StorePath) -> ArcTrigger {
+    fn get_or_insert(&mut self, key: StorePath) -> StoreFieldTrigger {
         if let Some(trigger) = self.0.get(&key) {
             trigger.clone()
         } else {
-            let new = ArcTrigger::new();
+            let new = StoreFieldTrigger::new();
             self.0.insert(key, new.clone());
             new
         }
     }
 
     #[allow(unused)]
-    fn remove(&mut self, key: &StorePath) -> Option<ArcTrigger> {
+    fn remove(&mut self, key: &StorePath) -> Option<StoreFieldTrigger> {
         self.0.remove(key)
+    }
+}
+
+pub struct FieldKeys<K> {
+    spare_keys: Vec<StorePathSegment>,
+    current_key: usize,
+    keys: FxHashMap<K, (StorePathSegment, usize)>,
+}
+
+impl<K> FieldKeys<K>
+where
+    K: Debug + Hash + PartialEq + Eq,
+{
+    pub fn new(from_keys: Vec<K>) -> Self {
+        let mut keys = FxHashMap::with_capacity_and_hasher(
+            from_keys.len(),
+            Default::default(),
+        );
+        for (idx, key) in from_keys.into_iter().enumerate() {
+            let segment = idx.into();
+            keys.insert(key, (segment, idx));
+        }
+
+        Self {
+            spare_keys: Vec::new(),
+            current_key: 0,
+            keys,
+        }
+    }
+}
+
+impl<K> FieldKeys<K>
+where
+    K: Hash + PartialEq + Eq,
+{
+    pub fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
+        self.keys.get(key).copied()
+    }
+
+    fn next_key(&mut self) -> StorePathSegment {
+        self.spare_keys.pop().unwrap_or_else(|| {
+            self.current_key += 1;
+            self.current_key.into()
+        })
+    }
+
+    pub fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+        let new_keys = iter
+            .into_iter()
+            .enumerate()
+            .map(|(idx, key)| (key, idx))
+            .collect::<FxHashMap<K, usize>>();
+
+        // remove old keys and recycle the slots
+        self.keys.retain(|key, old_entry| match new_keys.get(key) {
+            Some(idx) => {
+                old_entry.1 = *idx;
+                true
+            }
+            None => {
+                self.spare_keys.push(old_entry.0);
+                false
+            }
+        });
+
+        // add new keys
+        for (key, idx) in new_keys {
+            // the suggestion doesn't compile because we need &mut for self.next_key(),
+            // and we don't want to call that until after the check
+            #[allow(clippy::map_entry)]
+            if !self.keys.contains_key(&key) {
+                let path = self.next_key();
+                self.keys.insert(key, (path, idx));
+            }
+        }
+    }
+}
+
+impl<K> Default for FieldKeys<K> {
+    fn default() -> Self {
+        Self {
+            spare_keys: Default::default(),
+            current_key: Default::default(),
+            keys: Default::default(),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct KeyMap(Arc<RwLock<HashMap<StorePath, Box<dyn Any + Send + Sync>>>>);
+
+impl KeyMap {
+    pub fn with_field_keys<K, T>(
+        &self,
+        path: StorePath,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> T,
+        initialize: impl FnOnce() -> Vec<K>,
+    ) -> Option<T>
+    where
+        K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
+    {
+        let mut guard = self.0.write().or_poisoned();
+        let entry = guard
+            .entry(path)
+            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+        let entry = entry.downcast_mut::<FieldKeys<K>>()?;
+        Some(fun(entry))
     }
 }
 
@@ -54,6 +185,7 @@ pub struct ArcStore<T> {
     defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     signals: Arc<RwLock<TriggerMap>>,
+    keys: KeyMap,
 }
 
 impl<T> ArcStore<T> {
@@ -63,7 +195,7 @@ impl<T> ArcStore<T> {
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             signals: Default::default(),
-            /* inner: Arc::new(RwLock::new(SubscriberSet::new())), */
+            keys: Default::default(),
         }
     }
 }
@@ -86,6 +218,7 @@ impl<T> Clone for ArcStore<T> {
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             signals: Arc::clone(&self.signals),
+            keys: self.keys.clone(),
         }
     }
 }
@@ -121,23 +254,46 @@ where
     }
 }
 
-impl<T: 'static> Track for ArcStore<T> {
-    fn track(&self) {
-        self.get_trigger(Default::default()).trigger();
+impl<T> Write for ArcStore<T>
+where
+    T: 'static,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer()
+            .map(|writer| WriteGuard::new(self.clone(), writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
     }
 }
 
-impl<T: 'static> Trigger for ArcStore<T> {
-    fn trigger(&self) {
-        self.get_trigger(self.path().into_iter().collect())
-            .trigger();
+impl<T: 'static> Track for ArcStore<T> {
+    fn track(&self) {
+        let trigger = self.get_trigger(Default::default());
+        trigger.this.track();
+        trigger.children.track();
+    }
+}
+
+impl<T: 'static> Notify for ArcStore<T> {
+    fn notify(&self) {
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
 pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcStore<T>, S>,
+    inner: ArenaItem<ArcStore<T>, S>,
 }
 
 impl<T> Store<T>
@@ -148,7 +304,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
@@ -161,7 +317,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
@@ -219,7 +375,27 @@ where
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
             .try_get_value()
-            .map(|inner| inner.read_untracked())
+            .and_then(|inner| inner.try_read_untracked())
+    }
+}
+
+impl<T, S> Write for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer().map(|writer| WriteGuard::new(*self, writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
     }
 }
 
@@ -235,14 +411,14 @@ where
     }
 }
 
-impl<T, S> Trigger for Store<T, S>
+impl<T, S> Notify for Store<T, S>
 where
     T: 'static,
     S: Storage<ArcStore<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
-            inner.trigger();
+            inner.notify();
         }
     }
 }
@@ -252,7 +428,7 @@ mod tests {
     use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
-        traits::{Read, ReadUntracked, Set, Update, Writeable},
+        traits::{Read, ReadUntracked, Set, Update, Write},
     };
     use reactive_stores_macro::{Patch, Store};
     use std::sync::{
@@ -264,13 +440,13 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_micros(1)).await;
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todos {
         user: String,
         todos: Vec<Todo>,
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todo {
         label: String,
         completed: bool,
@@ -336,18 +512,6 @@ mod tests {
         tick().await;
         // the effect reads from `user`, so it should trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 4);
-
-        store
-            .todos()
-            .write()
-            .push(Todo::new("Create reactive stores"));
-        tick().await;
-        store.todos().write().push(Todo::new("???"));
-        tick().await;
-        store.todos().write().push(Todo::new("Profit!"));
-        tick().await;
-        // the effect doesn't read from `todos`, so the count should not have changed
-        assert_eq!(combined_count.load(Ordering::Relaxed), 4);
     }
 
     #[tokio::test]
@@ -378,8 +542,70 @@ mod tests {
         tick().await;
         store.user().update(|name| name.push_str("!!!"));
         tick().await;
-        // the effect reads from `user`, so it should trigger every time
+        // the effect reads from `todos`, so it shouldn't trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn parent_does_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.todos().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.set(Todos::default());
+        tick().await;
+        store.set(data());
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn changes_do_notify_parent() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.user().set("Greg".into());
+        tick().await;
+        store.user().set("Carol".into());
+        tick().await;
+        store.user().update(|name| name.push_str("!!!"));
+        tick().await;
+        store.todos().write().clear();
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 5);
     }
 
     #[tokio::test]
@@ -462,5 +688,10 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[derive(Debug, Store)]
+    pub struct StructWithOption {
+        opt_field: Option<Todo>,
     }
 }

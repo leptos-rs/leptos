@@ -1,30 +1,27 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, Renderer,
-    ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
+    renderer::Rndr,
     view::{add_attr::AddAnyAttr, StreamBuilder},
 };
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
 };
 
-impl<R: Renderer> Render<R> for () {
-    type State = R::Placeholder;
+impl Render for () {
+    type State = crate::renderer::types::Placeholder;
 
     fn build(self) -> Self::State {
-        R::create_placeholder()
+        Rndr::create_placeholder()
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-impl<R> RenderHtml<R> for ()
-where
-    R: Renderer,
-{
+impl RenderHtml for () {
     type AsyncOutput = ();
 
     const MIN_LENGTH: usize = 3;
@@ -34,16 +31,18 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
+        escape: bool,
         _mark_branches: bool,
     ) {
-        buf.push_str("<!>");
-        *position = Position::NextChild;
+        if escape {
+            buf.push_str("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         cursor.next_placeholder(position)
@@ -54,29 +53,30 @@ where
     fn dry_resolve(&mut self) {}
 }
 
-impl<Rndr> AddAnyAttr<Rndr> for ()
-where
-    Rndr: Renderer,
-{
-    type Output<SomeNewAttr: Attribute<Rndr>> = ();
+impl AddAnyAttr for () {
+    type Output<SomeNewAttr: Attribute> = ();
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
-        ().add_any_attr(_attr)
     }
 }
 
-impl<R: Renderer> Mountable<R> for () {
+impl Mountable for () {
     fn unmount(&mut self) {}
 
-    fn mount(&mut self, _parent: &R::Element, _marker: Option<&R::Node>) {}
+    fn mount(
+        &mut self,
+        _parent: &crate::renderer::types::Element,
+        _marker: Option<&crate::renderer::types::Node>,
+    ) {
+    }
 
-    fn insert_before_this(&self, _child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
 }
@@ -95,7 +95,7 @@ impl ToTemplate for () {
     }
 }
 
-impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
+impl<A: Render> Render for (A,) {
     type State = A::State;
 
     fn build(self) -> Self::State {
@@ -107,10 +107,9 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     }
 }
 
-impl<A, R> RenderHtml<R> for (A,)
+impl<A> RenderHtml for (A,)
 where
-    A: RenderHtml<R>,
-    R: Renderer,
+    A: RenderHtml,
 {
     type AsyncOutput = (A::AsyncOutput,);
 
@@ -150,7 +149,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         self.0.hydrate::<FROM_SERVER>(cursor, position)
@@ -181,19 +180,18 @@ impl<A: ToTemplate> ToTemplate for (A,) {
     }
 }
 
-impl<A, Rndr> AddAnyAttr<Rndr> for (A,)
+impl<A> AddAnyAttr for (A,)
 where
-    A: AddAnyAttr<Rndr>,
-    Rndr: Renderer,
+    A: AddAnyAttr,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> = (A::Output<SomeNewAttr>,);
+    type Output<SomeNewAttr: Attribute> = (A::Output<SomeNewAttr>,);
 
-    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         (self.0.add_any_attr(attr),)
     }
@@ -201,11 +199,11 @@ where
 
 macro_rules! impl_view_for_tuples {
 	($first:ident, $($ty:ident),* $(,)?) => {
-		impl<$first, $($ty),*, Rndr> Render<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> Render for ($first, $($ty,)*)
 		where
-			$first: Render<Rndr>,
-			$($ty: Render<Rndr>),*,
-			Rndr: Renderer
+			$first: Render,
+			$($ty: Render),*,
+
 		{
 			type State = ($first::State, $($ty::State,)*);
 
@@ -229,11 +227,11 @@ macro_rules! impl_view_for_tuples {
 			}
 		}
 
-		impl<$first, $($ty),*, Rndr> RenderHtml<Rndr> for ($first, $($ty,)*)
+		impl<$first, $($ty),*> RenderHtml for ($first, $($ty,)*)
 		where
-			$first: RenderHtml<Rndr>,
-			$($ty: RenderHtml<Rndr>),*,
-			Rndr: Renderer,
+			$first: RenderHtml,
+			$($ty: RenderHtml),*,
+
 		{
             type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
 
@@ -264,7 +262,7 @@ macro_rules! impl_view_for_tuples {
                 $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches));*
 			}
 
-			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor<Rndr>, position: &PositionState) -> Self::State {
+			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor, position: &PositionState) -> Self::State {
                 #[allow(non_snake_case)]
 					let ($first, $($ty,)* ) = self;
 					(
@@ -311,10 +309,10 @@ macro_rules! impl_view_for_tuples {
 			}
 		}
 
-		impl<$first, $($ty),*, Rndr> Mountable<Rndr> for ($first, $($ty,)*) where
-			$first: Mountable<Rndr>,
-			$($ty: Mountable<Rndr>),*,
-			Rndr: Renderer
+		impl<$first, $($ty),*> Mountable for ($first, $($ty,)*) where
+			$first: Mountable,
+			$($ty: Mountable),*,
+
 		{
 			fn unmount(&mut self) {
                 #[allow(non_snake_case)] // better macro performance
@@ -325,8 +323,8 @@ macro_rules! impl_view_for_tuples {
 
 			fn mount(
 				&mut self,
-				parent: &Rndr::Element,
-				marker: Option<&Rndr::Node>,
+				parent: &crate::renderer::types::Element,
+				marker: Option<&crate::renderer::types::Node>,
 			) {
                 #[allow(non_snake_case)] // better macro performance
                 let ($first, $($ty,)*) = self;
@@ -335,7 +333,7 @@ macro_rules! impl_view_for_tuples {
 			}
 
 			fn insert_before_this(&self,
-				child: &mut dyn Mountable<Rndr>,
+				child: &mut dyn Mountable,
 			) -> bool {
                 #[allow(non_snake_case)] // better macro performance
                 let ($first, $($ty,)*) = self;
@@ -344,20 +342,20 @@ macro_rules! impl_view_for_tuples {
 			}
 		}
 
-        impl<$first, $($ty,)* Rndr> AddAnyAttr<Rndr> for ($first, $($ty,)*)
+        impl<$first, $($ty,)*> AddAnyAttr for ($first, $($ty,)*)
         where
-			$first: AddAnyAttr<Rndr>,
-			$($ty: AddAnyAttr<Rndr>),*,
-            Rndr: Renderer,
-        {
-            type Output<SomeNewAttr: Attribute<Rndr>> = ($first::Output<SomeNewAttr::Cloneable>, $($ty::Output<SomeNewAttr::Cloneable>,)*);
+			$first: AddAnyAttr,
+			$($ty: AddAnyAttr),*,
 
-            fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        {
+            type Output<SomeNewAttr: Attribute> = ($first::Output<SomeNewAttr::Cloneable>, $($ty::Output<SomeNewAttr::Cloneable>,)*);
+
+            fn add_any_attr<NewAttr: Attribute>(
                 self,
                 attr: NewAttr,
             ) -> Self::Output<NewAttr>
             where
-                Self::Output<NewAttr>: RenderHtml<Rndr>,
+                Self::Output<NewAttr>: RenderHtml,
             {
                 let shared = attr.into_cloneable();
                 #[allow(non_snake_case)] // better macro performance

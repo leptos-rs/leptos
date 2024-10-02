@@ -52,15 +52,14 @@ use leptos::{
     attr::NextAttribute,
     component,
     logging::debug_warn,
-    reactive_graph::owner::{provide_context, use_context},
+    reactive::owner::{provide_context, use_context},
     tachys::{
         dom::document,
         html::{
             attribute::Attribute,
-            element::{CreateElement, ElementType, HtmlElement},
+            element::{ElementType, HtmlElement},
         },
         hydration::Cursor,
-        renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
             RenderHtml,
@@ -106,7 +105,7 @@ pub struct MetaContext {
     /// Metadata associated with the `<title>` element.
     pub(crate) title: TitleContext,
     /// The hydration cursor for the location in the `<head>` for arbitrary tags will be rendered.
-    pub(crate) cursor: Arc<Lazy<SendWrapper<Cursor<Dom>>>>,
+    pub(crate) cursor: Arc<Lazy<SendWrapper<Cursor>>>,
 }
 
 impl MetaContext {
@@ -123,7 +122,7 @@ const COMMENT_NODE: u16 = 8;
 
 impl Default for MetaContext {
     fn default() -> Self {
-        let build_cursor: fn() -> SendWrapper<Cursor<Dom>> = || {
+        let build_cursor: fn() -> SendWrapper<Cursor> = || {
             let head = document().head().expect("missing <head> element");
             let mut cursor = None;
             let mut child = head.first_child();
@@ -323,10 +322,10 @@ pub fn use_head() -> MetaContext {
 }
 
 pub(crate) fn register<E, At, Ch>(
-    el: HtmlElement<E, At, Ch, Dom>,
+    el: HtmlElement<E, At, Ch>,
 ) -> RegisteredMetaTag<E, At, Ch>
 where
-    HtmlElement<E, At, Ch, Dom>: RenderHtml<Dom>,
+    HtmlElement<E, At, Ch>: RenderHtml,
 {
     #[allow(unused_mut)] // used for `ssr`
     let mut el = Some(el);
@@ -358,19 +357,19 @@ where
 struct RegisteredMetaTag<E, At, Ch> {
     // this is `None` if we've already taken it out to render to HTML on the server
     // we don't render it in place in RenderHtml, so it's fine
-    el: Option<HtmlElement<E, At, Ch, Dom>>,
+    el: Option<HtmlElement<E, At, Ch>>,
 }
 
 struct RegisteredMetaTagState<E, At, Ch>
 where
-    HtmlElement<E, At, Ch, Dom>: Render<Dom>,
+    HtmlElement<E, At, Ch>: Render,
 {
-    state: <HtmlElement<E, At, Ch, Dom> as Render<Dom>>::State,
+    state: <HtmlElement<E, At, Ch> as Render>::State,
 }
 
 impl<E, At, Ch> Drop for RegisteredMetaTagState<E, At, Ch>
 where
-    HtmlElement<E, At, Ch, Dom>: Render<Dom>,
+    HtmlElement<E, At, Ch>: Render,
 {
     fn drop(&mut self) {
         self.state.unmount();
@@ -387,11 +386,11 @@ fn document_head() -> HtmlHeadElement {
     })
 }
 
-impl<E, At, Ch> Render<Dom> for RegisteredMetaTag<E, At, Ch>
+impl<E, At, Ch> Render for RegisteredMetaTag<E, At, Ch>
 where
-    E: ElementType + CreateElement<Dom>,
-    At: Attribute<Dom>,
-    Ch: Render<Dom>,
+    E: ElementType,
+    At: Attribute,
+    Ch: Render,
 {
     type State = RegisteredMetaTagState<E, At, Ch>;
 
@@ -405,24 +404,21 @@ where
     }
 }
 
-impl<E, At, Ch> AddAnyAttr<Dom> for RegisteredMetaTag<E, At, Ch>
+impl<E, At, Ch> AddAnyAttr for RegisteredMetaTag<E, At, Ch>
 where
-    E: ElementType + CreateElement<Dom> + Send,
-    At: Attribute<Dom> + Send,
-    Ch: RenderHtml<Dom> + Send,
+    E: ElementType + Send,
+    At: Attribute + Send,
+    Ch: RenderHtml + Send,
 {
-    type Output<SomeNewAttr: Attribute<Dom>> = RegisteredMetaTag<
-        E,
-        <At as NextAttribute<Dom>>::Output<SomeNewAttr>,
-        Ch,
-    >;
+    type Output<SomeNewAttr: Attribute> =
+        RegisteredMetaTag<E, <At as NextAttribute>::Output<SomeNewAttr>, Ch>;
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         RegisteredMetaTag {
             el: self.el.map(|inner| inner.add_any_attr(attr)),
@@ -430,11 +426,11 @@ where
     }
 }
 
-impl<E, At, Ch> RenderHtml<Dom> for RegisteredMetaTag<E, At, Ch>
+impl<E, At, Ch> RenderHtml for RegisteredMetaTag<E, At, Ch>
 where
-    E: ElementType + CreateElement<Dom>,
-    At: Attribute<Dom>,
-    Ch: RenderHtml<Dom> + Send,
+    E: ElementType,
+    At: Attribute,
+    Ch: RenderHtml + Send,
 {
     type AsyncOutput = Self;
 
@@ -461,7 +457,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<Dom>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
         let cursor = use_context::<MetaContext>()
@@ -471,18 +467,18 @@ where
             )
             .cursor;
         let state = self.el.unwrap().hydrate::<FROM_SERVER>(
-            &*cursor,
+            &cursor,
             &PositionState::new(Position::NextChild),
         );
         RegisteredMetaTagState { state }
     }
 }
 
-impl<E, At, Ch> Mountable<Dom> for RegisteredMetaTagState<E, At, Ch>
+impl<E, At, Ch> Mountable for RegisteredMetaTagState<E, At, Ch>
 where
-    E: ElementType + CreateElement<Dom>,
-    At: Attribute<Dom>,
-    Ch: Render<Dom>,
+    E: ElementType,
+    At: Attribute,
+    Ch: Render,
 {
     fn unmount(&mut self) {
         self.state.unmount();
@@ -490,8 +486,8 @@ where
 
     fn mount(
         &mut self,
-        _parent: &<Dom as Renderer>::Element,
-        _marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &leptos::tachys::renderer::types::Element,
+        _marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
         // we always mount this to the <head>, which is the whole point
         // but this shouldn't warn about the parent being a regular element or being unused
@@ -500,7 +496,7 @@ where
         self.state.mount(&document_head(), None);
     }
 
-    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         // Registered meta tags will be mounted in the <head>, but *seem* to be mounted somewhere
         // else in the DOM. We should never tell the renderer that we have successfully mounted
         // something before this, because if e.g., a <Meta/> is the first item in an Either, then
@@ -525,7 +521,7 @@ struct MetaTagsView;
 // rendering HTML for all the tags that will be injected into the `<head>`
 //
 // client-side rendering is handled by the individual components
-impl Render<Dom> for MetaTagsView {
+impl Render for MetaTagsView {
     type State = ();
 
     fn build(self) -> Self::State {}
@@ -533,21 +529,21 @@ impl Render<Dom> for MetaTagsView {
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
-impl AddAnyAttr<Dom> for MetaTagsView {
-    type Output<SomeNewAttr: Attribute<Dom>> = MetaTagsView;
+impl AddAnyAttr for MetaTagsView {
+    type Output<SomeNewAttr: Attribute> = MetaTagsView;
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         self
     }
 }
 
-impl RenderHtml<Dom> for MetaTagsView {
+impl RenderHtml for MetaTagsView {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -570,7 +566,7 @@ impl RenderHtml<Dom> for MetaTagsView {
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<Dom>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
     }

@@ -19,18 +19,18 @@ use std::{
 ///
 /// ```
 /// # use reactive_graph::computed::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::effect::Effect;
-/// # use reactive_graph::owner::StoredValue;
+/// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 /// let a = RwSignal::new(0);
 /// let is_selected = Selector::new(move || a.get());
 /// let total_notifications = StoredValue::new(0);
-/// Effect::new({
+/// Effect::new_isomorphic({
 ///     let is_selected = is_selected.clone();
 ///     move |_| {
 ///         if is_selected.selected(5) {
@@ -55,7 +55,7 @@ use std::{
 ///
 /// # any_spawner::Executor::tick().await;
 /// assert_eq!(is_selected.selected(5), false);
-/// # });
+/// # }).await;
 /// # });
 /// ```
 #[derive(Clone)]
@@ -74,17 +74,17 @@ where
 
 impl<T> Selector<T>
 where
-    T: PartialEq + Eq + Clone + Hash + 'static,
+    T: PartialEq + Send + Sync + Eq + Clone + Hash + 'static,
 {
     /// Creates a new selector that compares values using [`PartialEq`].
-    pub fn new(source: impl Fn() -> T + Clone + 'static) -> Self {
+    pub fn new(source: impl Fn() -> T + Send + Sync + Clone + 'static) -> Self {
         Self::new_with_fn(source, PartialEq::eq)
     }
 
     /// Creates a new selector that compares values by returning `true` from a comparator function
     /// if the values are the same.
     pub fn new_with_fn(
-        source: impl Fn() -> T + Clone + 'static,
+        source: impl Fn() -> T + Clone + Send + Sync + 'static,
         f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
     ) -> Self {
         let subs: Arc<RwLock<FxHashMap<T, ArcRwSignal<bool>>>> =
@@ -92,7 +92,7 @@ where
         let v: Arc<RwLock<Option<T>>> = Default::default();
         let f = Arc::new(f) as Arc<dyn Fn(&T, &T) -> bool + Send + Sync>;
 
-        let effect = Arc::new(RenderEffect::new({
+        let effect = Arc::new(RenderEffect::new_isomorphic({
             let subs = Arc::clone(&subs);
             let f = Arc::clone(&f);
             let v = Arc::clone(&v);

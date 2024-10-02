@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use http::Method;
-use leptos::{html::Input, prelude::*, spawn::spawn_local};
+use leptos::{html::Input, prelude::*, task::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
     client::{browser::BrowserClient, Client},
@@ -417,7 +417,6 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     /// This requires us to store some global state of all the uploads. In a real app, you probably
     /// shouldn't do exactly what I'm doing here in the demo. For example, this map just
     /// distinguishes between files by filename, not by user.
-
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};

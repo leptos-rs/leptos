@@ -28,9 +28,8 @@ impl Default for User {
 #[cfg(feature = "ssr")]
 pub mod ssr {
     pub use super::{User, UserPasshash};
-    pub use axum_session_auth::{
-        Authentication, HasPermission, SessionSqlitePool,
-    };
+    pub use axum_session_auth::{Authentication, HasPermission};
+    use axum_session_sqlx::SessionSqlitePool;
     pub use sqlx::SqlitePool;
     pub use std::collections::HashSet;
     pub type AuthSession = axum_session_auth::AuthSession<

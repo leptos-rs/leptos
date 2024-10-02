@@ -1,8 +1,9 @@
 use reactive_graph::{
+    owner::Owner,
     signal::{arc_signal, signal, ArcRwSignal, RwSignal},
     traits::{
         Get, GetUntracked, Read, Set, Update, UpdateUntracked, With,
-        WithUntracked, Writeable,
+        WithUntracked, Write,
     },
 };
 
@@ -54,6 +55,9 @@ fn update_arc_signal() {
 
 #[test]
 fn create_rw_signal() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new(0);
     assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
@@ -63,6 +67,9 @@ fn create_rw_signal() {
 
 #[test]
 fn update_rw_signal() {
+    let owner = Owner::new();
+    owner.set();
+
     let a = RwSignal::new(1);
     assert_eq!(a.read(), 1);
     assert_eq!(a.get(), 1);
@@ -76,6 +83,9 @@ fn update_rw_signal() {
 
 #[test]
 fn create_signal() {
+    let owner = Owner::new();
+    owner.set();
+
     let (a, _) = signal(0);
     assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
@@ -86,6 +96,9 @@ fn create_signal() {
 
 #[test]
 fn update_signal() {
+    let owner = Owner::new();
+    owner.set();
+
     let (a, set_a) = signal(1);
     assert_eq!(a.get(), 1);
     set_a.update(|n| *n += 1);

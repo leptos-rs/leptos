@@ -1,9 +1,7 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
-    owner::{Storage, StoredValue, SyncStorage},
-    traits::{
-        DefinedAt, Dispose, IsDisposed, Trigger, UntrackableGuard, Writeable,
-    },
+    owner::{ArenaItem, Storage, SyncStorage},
+    traits::{DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Write},
 };
 use core::fmt::Debug;
 use guardian::ArcRwLockWriteGuardian;
@@ -22,17 +20,17 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
 /// - [`.update()`](crate::traits::Update) updates the value of the signal by
 ///   applying a closure that takes a mutable reference.
-/// - [`.write()`](crate::traits::Writeable) returns a guard through which the signal
+/// - [`.write()`](crate::traits::Write) returns a guard through which the signal
 ///   can be mutated, and which notifies subscribers when it is dropped.
 ///
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`] instead.
+/// > value. If you want a non-reactive container, used [`ArenaItem`] instead.
 ///
 /// ## Examples
 /// ```
-/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let (count, set_count) = signal(0);
 ///
 /// // ✅ calling the setter sets the value
@@ -54,7 +52,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 pub struct WriteSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcWriteSignal<T>, S>,
+    pub(crate) inner: ArenaItem<ArcWriteSignal<T>, S>,
 }
 
 impl<T, S> Dispose for WriteSignal<T, S> {
@@ -116,19 +114,19 @@ impl<T, S> IsDisposed for WriteSignal<T, S> {
     }
 }
 
-impl<T, S> Trigger for WriteSignal<T, S>
+impl<T, S> Notify for WriteSignal<T, S>
 where
     T: 'static,
     S: Storage<ArcWriteSignal<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
-            inner.trigger();
+            inner.notify();
         }
     }
 }
 
-impl<T, S> Writeable for WriteSignal<T, S>
+impl<T, S> Write for WriteSignal<T, S>
 where
     T: 'static,
     S: Storage<ArcWriteSignal<T>>,
@@ -145,6 +143,8 @@ where
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        self.inner.with_value(|n| n.try_write_untracked())
+        self.inner
+            .try_with_value(|n| n.try_write_untracked())
+            .flatten()
     }
 }

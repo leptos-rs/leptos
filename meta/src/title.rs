@@ -3,14 +3,13 @@ use leptos::{
     attr::Attribute,
     component,
     oco::Oco,
-    reactive_graph::{
+    reactive::{
         effect::RenderEffect,
         owner::{use_context, Owner},
     },
     tachys::{
         dom::document,
         hydration::Cursor,
-        renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
             RenderHtml,
@@ -187,7 +186,7 @@ struct TitleViewState {
     effect: RenderEffect<Oco<'static, str>>,
 }
 
-impl Render<Dom> for TitleView {
+impl Render for TitleView {
     type State = TitleViewState;
 
     fn build(mut self) -> Self::State {
@@ -219,21 +218,21 @@ impl Render<Dom> for TitleView {
     }
 }
 
-impl AddAnyAttr<Dom> for TitleView {
-    type Output<SomeNewAttr: Attribute<Dom>> = TitleView;
+impl AddAnyAttr for TitleView {
+    type Output<SomeNewAttr: Attribute> = TitleView;
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         self
     }
 }
 
-impl RenderHtml<Dom> for TitleView {
+impl RenderHtml for TitleView {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -257,7 +256,7 @@ impl RenderHtml<Dom> for TitleView {
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
-        _cursor: &Cursor<Dom>,
+        _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
         let el = self.el();
@@ -285,19 +284,19 @@ impl RenderHtml<Dom> for TitleView {
     }
 }
 
-impl Mountable<Dom> for TitleViewState {
+impl Mountable for TitleViewState {
     fn unmount(&mut self) {}
 
     fn mount(
         &mut self,
-        _parent: &<Dom as Renderer>::Element,
-        _marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &leptos::tachys::renderer::types::Element,
+        _marker: Option<&leptos::tachys::renderer::types::Node>,
     ) {
         // <title> doesn't need to be mounted
         // TitleView::el() guarantees that there is a <title> in the <head>
     }
 
-    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
 }

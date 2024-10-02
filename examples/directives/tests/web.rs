@@ -1,5 +1,5 @@
 use directives::App;
-use leptos::{prelude::*, spawn::tick};
+use leptos::{prelude::*, task::tick};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 use web_sys::HtmlElement;

@@ -24,12 +24,65 @@ use reactive_graph::{
     prelude::*,
     signal::{ArcRwSignal, RwSignal},
 };
-use std::{future::IntoFuture, ops::Deref};
+use std::{
+    future::{pending, IntoFuture},
+    ops::Deref,
+    panic::Location,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool = AtomicBool::new(false);
+
+pub struct SuppressResourceLoad;
+
+impl SuppressResourceLoad {
+    pub fn new() -> Self {
+        IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::Relaxed);
+        Self
+    }
+}
+
+impl Default for SuppressResourceLoad {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for SuppressResourceLoad {
+    fn drop(&mut self) {
+        IS_SUPPRESSING_RESOURCE_LOAD.store(false, Ordering::Relaxed);
+    }
+}
 
 pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
     refetch: ArcRwSignal<usize>,
     data: ArcAsyncDerived<T>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+}
+
+impl<T, Ser> Debug for ArcResource<T, Ser> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("ArcResource");
+        d.field("ser", &self.ser).field("data", &self.data);
+        #[cfg(debug_assertions)]
+        d.field("defined_at", self.defined_at);
+        d.finish_non_exhaustive()
+    }
+}
+
+impl<T, Ser> DefinedAt for ArcResource<T, Ser> {
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
 }
 
 impl<T, Ser> Clone for ArcResource<T, Ser> {
@@ -38,6 +91,8 @@ impl<T, Ser> Clone for ArcResource<T, Ser> {
             ser: self.ser,
             refetch: self.refetch.clone(),
             data: self.data.clone(),
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -47,6 +102,49 @@ impl<T, Ser> Deref for ArcResource<T, Ser> {
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl<T, Ser> Track for ArcResource<T, Ser>
+where
+    T: 'static,
+{
+    fn track(&self) {
+        self.data.track();
+    }
+}
+
+impl<T, Ser> ReadUntracked for ArcResource<T, Ser>
+where
+    T: 'static,
+{
+    type Value = <ArcAsyncDerived<T> as ReadUntracked>::Value;
+
+    #[track_caller]
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        #[cfg(all(feature = "hydration", debug_assertions))]
+        {
+            use reactive_graph::{
+                computed::suspense::SuspenseContext, owner::use_context,
+            };
+            let suspense = use_context::<SuspenseContext>();
+            if suspense.is_none() {
+                let location = std::panic::Location::caller();
+                reactive_graph::log_warning(format_args!(
+                    "At {location}, you are reading a resource in `hydrate` \
+                     mode outside a <Suspense/> or <Transition/>. This can \
+                     cause hydration mismatch errors and loses out on a \
+                     significant performance optimization. To fix this issue, \
+                     you can either: \n1. Wrap the place where you read the \
+                     resource in a <Suspense/> or <Transition/> component, or \
+                     \n2. Switch to using ArcLocalResource::new(), which will \
+                     wait to load the resource until the app is hydrated on \
+                     the client side. (This will have worse performance in \
+                     most cases.)",
+                ));
+            }
+        }
+        self.data.try_read_untracked()
     }
 }
 
@@ -81,19 +179,30 @@ where
         let is_ready = initial.is_some();
 
         let refetch = ArcRwSignal::new(0);
-        let source = ArcMemo::new(move |_| source());
+        let source = ArcMemo::new({
+            let refetch = refetch.clone();
+            move |_| (refetch.get(), source())
+        });
         let fun = {
             let source = source.clone();
-            let refetch = refetch.clone();
             move || {
-                refetch.track();
-                fetcher(source.get())
+                let (_, source) = source.get();
+                let fut = fetcher(source);
+                async move {
+                    if IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+                        pending().await
+                    } else {
+                        fut.await
+                    }
+                }
             }
         };
 
-        let data = ArcAsyncDerived::new_with_manual_dependencies(initial, fun);
+        let data = ArcAsyncDerived::new_with_manual_dependencies(
+            initial, fun, &source,
+        );
         if is_ready {
-            source.with(|_| ());
+            source.with_untracked(|_| ());
             source.add_subscriber(data.to_any_subscriber());
         }
 
@@ -127,6 +236,8 @@ where
             ser: PhantomData,
             data,
             refetch,
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
         }
     }
 
@@ -444,6 +555,37 @@ where
     ser: PhantomData<Ser>,
     data: AsyncDerived<T>,
     refetch: RwSignal<usize>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+}
+
+impl<T, Ser> Debug for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("ArcResource");
+        d.field("ser", &self.ser).field("data", &self.data);
+        #[cfg(debug_assertions)]
+        d.field("defined_at", self.defined_at);
+        d.finish_non_exhaustive()
+    }
+}
+
+impl<T, Ser> DefinedAt for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
 }
 
 impl<T: Send + Sync + 'static, Ser> Copy for Resource<T, Ser> {}
@@ -462,6 +604,49 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl<T, Ser> Track for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn track(&self) {
+        self.data.track();
+    }
+}
+
+impl<T, Ser> ReadUntracked for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    type Value = <AsyncDerived<T> as ReadUntracked>::Value;
+
+    #[track_caller]
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        #[cfg(all(feature = "hydration", debug_assertions))]
+        {
+            use reactive_graph::{
+                computed::suspense::SuspenseContext, owner::use_context,
+            };
+            let suspense = use_context::<SuspenseContext>();
+            if suspense.is_none() {
+                let location = std::panic::Location::caller();
+                reactive_graph::log_warning(format_args!(
+                    "At {location}, you are reading a resource in `hydrate` \
+                     mode outside a <Suspense/> or <Transition/>. This can \
+                     cause hydration mismatch errors and loses out on a \
+                     significant performance optimization. To fix this issue, \
+                     you can either: \n1. Wrap the place where you read the \
+                     resource in a <Suspense/> or <Transition/> component, or \
+                     \n2. Switch to using LocalResource::new(), which will \
+                     wait to load the resource until the app is hydrated on \
+                     the client side. (This will have worse performance in \
+                     most cases.)",
+                ));
+            }
+        }
+        self.data.try_read_untracked()
     }
 }
 
@@ -699,6 +884,8 @@ where
             ser: PhantomData,
             data: data.into(),
             refetch: refetch.into(),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
         }
     }
 

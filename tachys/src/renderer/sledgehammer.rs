@@ -560,6 +560,10 @@ impl DomRenderer for Sledgehammer {
         });
         node
     }
+
+    fn create_element_from_html(_html: &str) -> Self::Element {
+        todo!()
+    }
 }
 
 impl Mountable<Sledgehammer> for SNode {

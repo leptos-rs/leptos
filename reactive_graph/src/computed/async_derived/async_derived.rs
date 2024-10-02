@@ -4,10 +4,11 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, ReadUntracked, Trigger, UntrackableGuard, Writeable,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
+        UntrackableGuard, Write,
     },
     unwrap_signal,
 };
@@ -28,10 +29,10 @@ use std::{future::Future, ops::DerefMut, panic::Location};
 /// ## Examples
 /// ```rust
 /// # use reactive_graph::computed::*;
-/// # use reactive_graph::signal::*;
+/// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
 /// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 ///
 /// let signal1 = RwSignal::new(0);
@@ -84,7 +85,7 @@ use std::{future::Future, ops::DerefMut, panic::Location};
 pub struct AsyncDerived<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcAsyncDerived<T>, S>,
+    pub(crate) inner: ArenaItem<ArcAsyncDerived<T>, S>,
 }
 
 impl<T, S> Dispose for AsyncDerived<T, S> {
@@ -103,7 +104,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at,
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -118,7 +119,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at,
-            inner: StoredValue::new_with_storage(value),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -140,7 +141,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new(fun)),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new(fun)),
         }
     }
 
@@ -158,7 +159,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_with_initial(initial_value, fun),
             ),
         }
@@ -175,9 +176,7 @@ impl<T> AsyncDerived<SendWrapper<T>> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_mock(
-                fun,
-            )),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
         }
     }
 }
@@ -199,7 +198,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_unsync(
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_unsync(
                 fun,
             )),
         }
@@ -220,7 +219,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
+            inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_unsync_with_initial(initial_value, fun),
             ),
         }
@@ -291,17 +290,17 @@ where
     }
 }
 
-impl<T, S> Trigger for AsyncDerived<T, S>
+impl<T, S> Notify for AsyncDerived<T, S>
 where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,
 {
-    fn trigger(&self) {
-        self.inner.try_with_value(|inner| inner.trigger());
+    fn notify(&self) {
+        self.inner.try_with_value(|inner| inner.notify());
     }
 }
 
-impl<T, S> Writeable for AsyncDerived<T, S>
+impl<T, S> Write for AsyncDerived<T, S>
 where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,
@@ -319,6 +318,16 @@ where
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
         self.inner.try_with_value(|n| n.value.blocking_write_arc())
+    }
+}
+
+impl<T, S> IsDisposed for AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
+    fn is_disposed(&self) -> bool {
+        self.inner.is_disposed()
     }
 }
 

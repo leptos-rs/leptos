@@ -2,7 +2,7 @@ use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
     nonce::use_nonce,
-    reactive_graph::owner::{Owner, Sandboxed},
+    reactive::owner::{Owner, Sandboxed},
     IntoView,
 };
 use leptos_config::LeptosOptions;
@@ -59,7 +59,7 @@ pub trait ExtendResponse: Sized {
                     // drop the owner, cleaning up the reactive runtime,
                     // once the stream is over
                     .chain(once(async move {
-                        drop(owner);
+                        owner.unset();
                         Default::default()
                     })),
             ));

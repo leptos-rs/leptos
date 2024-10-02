@@ -505,12 +505,7 @@ pub fn server_macro_impl(
         PathInfo::Serde => quote! {
             #[serde(crate = #serde_path)]
         },
-        PathInfo::Rkyv => {
-            let rkyv_path = format!("{server_fn_path}::rkyv");
-            quote! {
-                #[archive(crate = #rkyv_path, check_bytes)]
-            }
-        }
+        PathInfo::Rkyv => quote! {},
         PathInfo::None => quote! {},
     };
 

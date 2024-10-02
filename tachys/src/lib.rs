@@ -5,7 +5,7 @@
 
 #![allow(incomplete_features)] // yolo
 #![cfg_attr(feature = "nightly", feature(unsized_const_params))]
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 
 /// Commonly-used traits.
 pub mod prelude {

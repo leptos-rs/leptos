@@ -1,72 +1,69 @@
 use super::any_view::{AnyView, IntoAny};
-use crate::renderer::Renderer;
 
 /// A typed-erased collection of different views.
-pub struct Fragment<R: Renderer> {
+pub struct Fragment {
     /// The nodes contained in the fragment.
-    pub nodes: Vec<AnyView<R>>,
+    pub nodes: Vec<AnyView>,
 }
 
 /// Converts some view into a type-erased collection of views.
-pub trait IntoFragment<R: Renderer> {
+pub trait IntoFragment {
     /// Converts some view into a type-erased collection of views.
-    fn into_fragment(self) -> Fragment<R>;
+    fn into_fragment(self) -> Fragment;
 }
 
-impl<R: Renderer> FromIterator<AnyView<R>> for Fragment<R> {
-    fn from_iter<T: IntoIterator<Item = AnyView<R>>>(iter: T) -> Self {
+impl FromIterator<AnyView> for Fragment {
+    fn from_iter<T: IntoIterator<Item = AnyView>>(iter: T) -> Self {
         Fragment::new(iter.into_iter().collect())
     }
 }
 
-impl<R: Renderer> From<AnyView<R>> for Fragment<R> {
-    fn from(view: AnyView<R>) -> Self {
+impl From<AnyView> for Fragment {
+    fn from(view: AnyView) -> Self {
         Fragment::new(vec![view])
     }
 }
 
-impl<R: Renderer> From<Fragment<R>> for AnyView<R> {
-    fn from(value: Fragment<R>) -> Self {
+impl From<Fragment> for AnyView {
+    fn from(value: Fragment) -> Self {
         value.nodes.into_any()
     }
 }
 
-impl<R: Renderer> Fragment<R> {
+impl Fragment {
     /// Creates a new [`Fragment`].
     #[inline(always)]
-    pub fn new(nodes: Vec<AnyView<R>>) -> Self {
+    pub fn new(nodes: Vec<AnyView>) -> Self {
         Self { nodes }
     }
 }
 
-impl<T, R> IntoFragment<R> for Vec<T>
+impl<T> IntoFragment for Vec<T>
 where
-    T: IntoAny<R>,
-    R: Renderer,
+    T: IntoAny,
 {
-    fn into_fragment(self) -> Fragment<R> {
+    fn into_fragment(self) -> Fragment {
         Fragment::new(self.into_iter().map(IntoAny::into_any).collect())
     }
 }
 
-impl<const N: usize, T, R> IntoFragment<R> for [T; N]
+impl<const N: usize, T> IntoFragment for [T; N]
 where
-    T: IntoAny<R>,
-    R: Renderer,
+    T: IntoAny,
 {
-    fn into_fragment(self) -> Fragment<R> {
+    fn into_fragment(self) -> Fragment {
         Fragment::new(self.into_iter().map(IntoAny::into_any).collect())
     }
 }
 
 macro_rules! tuples {
 	($($ty:ident),*) => {
-		impl<$($ty),*, Rndr> IntoFragment<Rndr> for ($($ty,)*)
+		impl<$($ty),*> IntoFragment for ($($ty,)*)
 		where
-			$($ty: IntoAny<Rndr>),*,
-			Rndr: Renderer
+			$($ty: IntoAny),*,
+
 		{
-            fn into_fragment(self) -> Fragment<Rndr> {
+            fn into_fragment(self) -> Fragment {
                 #[allow(non_snake_case)]
 			    let ($($ty,)*) = self;
                 Fragment::new(vec![$($ty.into_any(),)*])

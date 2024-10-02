@@ -18,7 +18,7 @@
 //! | [`Track`]         | —     | Tracks changes to this value, adding it as a source of the current reactive observer. |
 //! | [`Trigger`]       | —     | Notifies subscribers that this value has changed.                                     |
 //! | [`ReadUntracked`] | Guard | Gives immutable access to the value of this signal.                                   |
-//! | [`Writeable`]     | Guard | Gives mutable access to the value of this signal.
+//! | [`Write`]     | Guard | Gives mutable access to the value of this signal.
 //!
 //! ## Derived Traits
 //!
@@ -33,7 +33,7 @@
 //! ### Update
 //! | Trait               | Mode          | Composition                       | Description
 //! |---------------------|---------------|-----------------------------------|------------
-//! | [`UpdateUntracked`] | `fn(&mut T)`  | [`Writeable`]                     | Applies closure to the current value to update it, but doesn't notify subscribers.
+//! | [`UpdateUntracked`] | `fn(&mut T)`  | [`Write`]                     | Applies closure to the current value to update it, but doesn't notify subscribers.
 //! | [`Update`]          | `fn(&mut T)`  | [`UpdateUntracked`] + [`Trigger`] | Applies closure to the current value to update it, and notifies subscribers.
 //! | [`Set`]             | `T`           | [`Update`]                        | Sets the value to a new value, and notifies subscribers.
 //!
@@ -61,6 +61,7 @@ use std::{
     panic::Location,
 };
 
+#[doc(hidden)]
 /// Provides a sensible panic message for accessing disposed signals.
 #[macro_export]
 macro_rules! unwrap_signal {
@@ -107,6 +108,10 @@ pub trait Track {
 impl<T: Source + ToAnySource + DefinedAt> Track for T {
     #[track_caller]
     fn track(&self) {
+        if self.is_disposed() {
+            return;
+        }
+
         if let Some(subscriber) = Observer::get() {
             subscriber.add_source(self.to_any_source());
             self.add_subscriber(subscriber);
@@ -209,7 +214,7 @@ pub trait UntrackableGuard: DerefMut {
 
 /// Gives mutable access to a signal's value through a guard type. When the guard is dropped, the
 /// signal's subscribers will be notified.
-pub trait Writeable: Sized + DefinedAt + Trigger {
+pub trait Write: Sized + DefinedAt + Notify {
     /// The type of the signal's value.
     type Value: Sized + 'static;
 
@@ -381,9 +386,9 @@ where
 }
 
 /// Notifies subscribers of a change in this signal.
-pub trait Trigger {
+pub trait Notify {
     /// Notifies subscribers of a change in this signal.
-    fn trigger(&self);
+    fn notify(&self);
 }
 
 /// Updates the value of a signal by applying a function that updates it in place,
@@ -417,9 +422,9 @@ pub trait UpdateUntracked: DefinedAt {
 
 impl<T> UpdateUntracked for T
 where
-    T: Writeable,
+    T: Write,
 {
-    type Value = <Self as Writeable>::Value;
+    type Value = <Self as Write>::Value;
 
     #[track_caller]
     fn try_update_untracked<U>(
@@ -474,9 +479,9 @@ pub trait Update {
 
 impl<T> Update for T
 where
-    T: Writeable,
+    T: Write,
 {
-    type Value = <Self as Writeable>::Value;
+    type Value = <Self as Write>::Value;
 
     #[track_caller]
     fn try_maybe_update<U>(
@@ -583,7 +588,7 @@ where
     fn from_stream(stream: impl Stream<Item = T> + Send + 'static) -> Self {
         let (read, write) = arc_signal(None);
         let mut stream = Box::pin(stream);
-        Executor::spawn(async move {
+        crate::spawn(async move {
             while let Some(value) = stream.next().await {
                 write.set(Some(value));
             }

@@ -1,27 +1,24 @@
 name: CI semver
-
 on:
   push:
     branches:
       - main
+      - leptos_0.6
   pull_request:
     branches:
       - main
-
+      - leptos_0.6
 jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
-
   test:
     needs: [get-leptos-changed]
     if: github.event.pull_request.labels[0].name == 'semver' # needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
     name: Run semver check (nightly-2024-08-01)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Semver Checks
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:

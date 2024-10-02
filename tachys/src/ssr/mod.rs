@@ -1,7 +1,4 @@
-use crate::{
-    renderer::Renderer,
-    view::{Position, RenderHtml},
-};
+use crate::view::{Position, RenderHtml};
 use futures::Stream;
 use std::{
     collections::VecDeque,
@@ -100,14 +97,13 @@ impl StreamBuilder {
 
     // Out-of-Order Streaming
     /// Pushes a fallback for out-of-order streaming.
-    pub fn push_fallback<View, Rndr>(
+    pub fn push_fallback<View>(
         &mut self,
         fallback: View,
         position: &mut Position,
         mark_branches: bool,
     ) where
-        View: RenderHtml<Rndr>,
-        Rndr: Renderer,
+        View: RenderHtml,
     {
         self.write_chunk_marker(true);
         fallback.to_html_with_buf(
@@ -158,14 +154,13 @@ impl StreamBuilder {
     }
 
     /// Injects an out-of-order chunk into the stream.
-    pub fn push_async_out_of_order<View, Rndr>(
+    pub fn push_async_out_of_order<View>(
         &mut self,
         view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
         mark_branches: bool,
     ) where
-        View: RenderHtml<Rndr>,
-        Rndr: Renderer,
+        View: RenderHtml,
     {
         let id = self.clone_id();
         // copy so it's not updated by additional iterations

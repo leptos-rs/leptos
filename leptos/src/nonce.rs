@@ -6,7 +6,7 @@ use base64::{
 };
 use rand::{thread_rng, RngCore};
 use std::{fmt::Display, ops::Deref, sync::Arc};
-use tachys::{html::attribute::AttributeValue, renderer::Renderer};
+use tachys::html::attribute::AttributeValue;
 
 /// A cryptographic nonce ("number used once") which can be
 /// used by Content Security Policy to determine whether or not a given
@@ -65,12 +65,9 @@ impl Display for Nonce {
     }
 }
 
-impl<R> AttributeValue<R> for Nonce
-where
-    R: Renderer,
-{
+impl AttributeValue for Nonce {
     type AsyncOutput = Self;
-    type State = <Arc<str> as AttributeValue<R>>::State;
+    type State = <Arc<str> as AttributeValue>::State;
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -79,7 +76,7 @@ where
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
-        <Arc<str> as AttributeValue<R>>::to_html(self.0, key, buf)
+        <Arc<str> as AttributeValue>::to_html(self.0, key, buf)
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -87,17 +84,21 @@ where
     fn hydrate<const FROM_SERVER: bool>(
         self,
         key: &str,
-        el: &<R as Renderer>::Element,
+        el: &tachys::renderer::types::Element,
     ) -> Self::State {
-        <Arc<str> as AttributeValue<R>>::hydrate::<FROM_SERVER>(self.0, key, el)
+        <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(self.0, key, el)
     }
 
-    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
-        <Arc<str> as AttributeValue<R>>::build(self.0, el, key)
+    fn build(
+        self,
+        el: &tachys::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        <Arc<str> as AttributeValue>::build(self.0, el, key)
     }
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
-        <Arc<str> as AttributeValue<R>>::rebuild(self.0, key, state)
+        <Arc<str> as AttributeValue>::rebuild(self.0, key, state)
     }
 
     fn into_cloneable(self) -> Self::Cloneable {

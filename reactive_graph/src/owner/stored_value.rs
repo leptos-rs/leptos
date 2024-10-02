@@ -1,162 +1,15 @@
-use super::{
-    arena::{Arena, NodeId},
-    OWNER,
-};
+use super::{ArenaItem, LocalStorage, Storage, SyncStorage};
 use crate::{
+    signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
     traits::{DefinedAt, Dispose, IsDisposed},
     unwrap_signal,
 };
-use send_wrapper::SendWrapper;
-use std::{any::Any, hash::Hash, marker::PhantomData, panic::Location};
-
-/// A trait for borrowing and taking data.
-pub trait StorageAccess<T> {
-    /// Borrows the value.
-    fn as_borrowed(&self) -> &T;
-
-    /// Takes the value.
-    fn into_taken(self) -> T;
-}
-
-impl<T> StorageAccess<T> for T {
-    fn as_borrowed(&self) -> &T {
-        self
-    }
-
-    fn into_taken(self) -> T {
-        self
-    }
-}
-
-impl<T> StorageAccess<T> for SendWrapper<T> {
-    fn as_borrowed(&self) -> &T {
-        self
-    }
-
-    fn into_taken(self) -> T {
-        self.take()
-    }
-}
-
-/// A way of storing a [`StoredValue`], either as itself or with a wrapper to make it threadsafe.
-///
-/// This exists because all items stored in the arena must be `Send + Sync`, but in single-threaded
-/// environments you might want or need to use thread-unsafe types.
-pub trait Storage<T>: Send + Sync + 'static {
-    /// The type being stored, once it has been wrapped.
-    type Wrapped: StorageAccess<T> + Send + Sync + 'static;
-
-    /// Adds any needed wrapper to the type.
-    fn wrap(value: T) -> Self::Wrapped;
-
-    /// Applies the given function to the stored value, if it exists and can be accessed from this
-    /// thread.
-    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U>;
-
-    /// Applies the given function to a mutable reference to the stored value, if it exists and can be accessed from this
-    /// thread.
-    fn try_with_mut<U>(
-        node: NodeId,
-        fun: impl FnOnce(&mut T) -> U,
-    ) -> Option<U>;
-
-    /// Sets a new value for the stored value. If it has been disposed, returns `Some(T)`.
-    fn try_set(node: NodeId, value: T) -> Option<T>;
-}
-
-/// A form of [`Storage`] that stores the type as itself, with no wrapper.
-#[derive(Debug, Copy, Clone)]
-pub struct SyncStorage;
-
-impl<T> Storage<T> for SyncStorage
-where
-    T: Send + Sync + 'static,
-{
-    type Wrapped = T;
-
-    #[inline(always)]
-    fn wrap(value: T) -> Self::Wrapped {
-        value
-    }
-
-    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
-        Arena::with(|arena| {
-            let m = arena.get(node);
-            m.and_then(|n| n.downcast_ref::<T>()).map(fun)
-        })
-    }
-
-    fn try_with_mut<U>(
-        node: NodeId,
-        fun: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            m.and_then(|n| n.downcast_mut::<T>()).map(fun)
-        })
-    }
-
-    fn try_set(node: NodeId, value: T) -> Option<T> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            match m.and_then(|n| n.downcast_mut::<T>()) {
-                Some(inner) => {
-                    *inner = value;
-                    None
-                }
-                None => Some(value),
-            }
-        })
-    }
-}
-
-/// A form of [`Storage`] that stores the type with a wrapper that makes it `Send + Sync`, but only
-/// allows it to be accessed from the thread on which it was created.
-#[derive(Debug, Copy, Clone)]
-pub struct LocalStorage;
-
-impl<T> Storage<T> for LocalStorage
-where
-    T: 'static,
-{
-    type Wrapped = SendWrapper<T>;
-
-    fn wrap(value: T) -> Self::Wrapped {
-        SendWrapper::new(value)
-    }
-
-    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
-        Arena::with(|arena| {
-            let m = arena.get(node);
-            m.and_then(|n| n.downcast_ref::<SendWrapper<T>>())
-                .map(|inner| fun(inner))
-        })
-    }
-
-    fn try_with_mut<U>(
-        node: NodeId,
-        fun: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            m.and_then(|n| n.downcast_mut::<SendWrapper<T>>())
-                .map(|inner| fun(&mut *inner))
-        })
-    }
-
-    fn try_set(node: NodeId, value: T) -> Option<T> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            match m.and_then(|n| n.downcast_mut::<SendWrapper<T>>()) {
-                Some(inner) => {
-                    *inner = SendWrapper::new(value);
-                    None
-                }
-                None => Some(value),
-            }
-        })
-    }
-}
+use or_poisoned::OrPoisoned;
+use std::{
+    hash::Hash,
+    panic::Location,
+    sync::{Arc, RwLock},
+};
 
 /// A **non-reactive**, `Copy` handle for any value.
 ///
@@ -167,8 +20,7 @@ where
 /// updating it does not notify anything else.
 #[derive(Debug)]
 pub struct StoredValue<T, S = SyncStorage> {
-    node: NodeId,
-    ty: PhantomData<(SendWrapper<T>, S)>,
+    value: ArenaItem<Arc<RwLock<T>>, S>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -183,7 +35,7 @@ impl<T, S> Clone for StoredValue<T, S> {
 
 impl<T, S> PartialEq for StoredValue<T, S> {
     fn eq(&self, other: &Self) -> bool {
-        self.node == other.node
+        self.value == other.value
     }
 }
 
@@ -191,7 +43,7 @@ impl<T, S> Eq for StoredValue<T, S> {}
 
 impl<T, S> Hash for StoredValue<T, S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.node.hash(state);
+        self.value.hash(state);
     }
 }
 
@@ -211,27 +63,13 @@ impl<T, S> DefinedAt for StoredValue<T, S> {
 impl<T, S> StoredValue<T, S>
 where
     T: 'static,
-    S: Storage<T>,
+    S: Storage<Arc<RwLock<T>>>,
 {
     /// Stores the given value in the arena allocator.
     #[track_caller]
     pub fn new_with_storage(value: T) -> Self {
-        let node = {
-            Arena::with_mut(|arena| {
-                arena.insert(
-                    Box::new(S::wrap(value)) as Box<dyn Any + Send + Sync>
-                )
-            })
-        };
-        OWNER.with(|o| {
-            if let Some(owner) = &*o.borrow() {
-                owner.register(node);
-            }
-        });
-
         Self {
-            node,
-            ty: PhantomData,
+            value: ArenaItem::new_with_storage(Arc::new(RwLock::new(value))),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -241,7 +79,7 @@ where
 impl<T, S> Default for StoredValue<T, S>
 where
     T: Default + 'static,
-    S: Storage<T>,
+    S: Storage<Arc<RwLock<T>>>,
 {
     #[track_caller] // Default trait is not annotated with #[track_caller]
     fn default() -> Self {
@@ -271,7 +109,7 @@ where
     }
 }
 
-impl<T, S: Storage<T>> StoredValue<T, S> {
+impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S> {
     /// Returns an [`Option`] of applying a function to the value within the [`StoredValue`].
     ///
     /// If the owner of the reactive node has not been disposed [`Some`] is returned. Calling this
@@ -282,7 +120,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// // Does not implement Clone
@@ -313,8 +151,11 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// assert_eq!(last, None);
     /// assert_eq!(length_fn(), None);
     /// ```
+    #[track_caller]
     pub fn try_with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> Option<U> {
-        S::try_with(self.node, fun)
+        self.value
+            .try_get_value()
+            .map(|inner| fun(&*inner.read().or_poisoned()))
     }
 
     /// Returns the output of applying a function to the value within the [`StoredValue`].
@@ -326,7 +167,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// // Does not implement Clone
     /// struct Data {
@@ -347,9 +188,48 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// assert_eq!(sum, 6);
     /// assert_eq!(length_fn(), 3);
     /// ```
+    #[track_caller]
     pub fn with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(fun)
             .unwrap_or_else(unwrap_signal!(self))
+    }
+
+    /// Returns a read guard to the stored data, or `None` if the owner of the reactive node has been disposed.
+    #[track_caller]
+    pub fn try_read_value(&self) -> Option<ReadGuard<T, Plain<T>>> {
+        self.value
+            .try_get_value()
+            .and_then(|inner| Plain::try_new(inner).map(ReadGuard::new))
+    }
+
+    /// Returns a read guard to the stored data.
+    ///
+    /// # Panics
+    ///
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_read_value`] for a version without panic.
+    #[track_caller]
+    pub fn read_value(&self) -> ReadGuard<T, Plain<T>> {
+        self.try_read_value().unwrap_or_else(unwrap_signal!(self))
+    }
+
+    /// Returns a write guard to the stored data, or `None` if the owner of the reactive node has been disposed.
+    #[track_caller]
+    pub fn try_write_value(&self) -> Option<UntrackedWriteGuard<T>> {
+        self.value
+            .try_get_value()
+            .and_then(|inner| UntrackedWriteGuard::try_new(inner))
+    }
+
+    /// Returns a write guard to the stored data.
+    ///
+    /// # Panics
+    ///
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_write_value`] for a version without panic.
+    #[track_caller]
+    pub fn write_value(&self) -> UntrackedWriteGuard<T> {
+        self.try_write_value().unwrap_or_else(unwrap_signal!(self))
     }
 
     /// Updates the current value by applying the given closure, returning the return value of the
@@ -358,7 +238,9 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
         &self,
         fun: impl FnOnce(&mut T) -> U,
     ) -> Option<U> {
-        S::try_with_mut(self.node, fun)
+        self.value
+            .try_get_value()
+            .map(|inner| fun(&mut *inner.write().or_poisoned()))
     }
 
     /// Updates the value within [`StoredValue`] by applying a function to it.
@@ -369,7 +251,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// #[derive(Default)] // Does not implement Clone
     /// struct Data {
@@ -413,7 +295,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// let data = StoredValue::new(String::default());
@@ -451,7 +333,13 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// assert_eq!(reset().as_deref(), Some(""));
     /// ```
     pub fn try_set_value(&self, value: T) -> Option<T> {
-        S::try_set(self.node, value)
+        match self.value.try_get_value() {
+            Some(inner) => {
+                *inner.write().or_poisoned() = value;
+                None
+            }
+            None => Some(value),
+        }
     }
 
     /// Sets the value within [`StoredValue`].
@@ -465,7 +353,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// let data = StoredValue::new(10);
     ///
@@ -488,11 +376,11 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
 
 impl<T, S> IsDisposed for StoredValue<T, S> {
     fn is_disposed(&self) -> bool {
-        Arena::with(|arena| !arena.contains_key(self.node))
+        self.value.is_disposed()
     }
 }
 
-impl<T, S: Storage<T>> StoredValue<T, S>
+impl<T, S: Storage<Arc<RwLock<T>>>> StoredValue<T, S>
 where
     T: Clone + 'static,
 {
@@ -506,7 +394,7 @@ where
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # use reactive_graph::traits::Dispose;
     ///
     /// // u8 is practically free to clone.
@@ -546,7 +434,7 @@ where
     ///
     /// # Examples
     /// ```rust
-    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::owner::StoredValue; let owner = reactive_graph::owner::Owner::new(); owner.set();
     ///
     /// // u8 is practically free to clone.
     /// let data: StoredValue<u8> = StoredValue::new(10);
@@ -572,7 +460,7 @@ where
 
 impl<T, S> Dispose for StoredValue<T, S> {
     fn dispose(self) {
-        Arena::with_mut(|arena| arena.remove(self.node));
+        self.value.dispose();
     }
 }
 
@@ -580,7 +468,7 @@ impl<T, S> Dispose for StoredValue<T, S> {
 #[inline(always)]
 #[track_caller]
 #[deprecated(
-    since = "0.7.0-beta4",
+    since = "0.7.0-beta5",
     note = "This function is being removed to conform to Rust idioms. Please \
             use `StoredValue::new()` or `StoredValue::new_local()` instead."
 )]

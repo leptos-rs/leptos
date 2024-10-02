@@ -1,8 +1,9 @@
-use super::{ArcAsyncDerived, AsyncDerived};
+use super::{inner::ArcAsyncDerivedInner, ArcAsyncDerived, AsyncDerived};
 use crate::{
+    computed::suspense::SuspenseContext,
     diagnostics::SpecialNonReactiveZone,
     graph::{AnySource, ToAnySource},
-    owner::Storage,
+    owner::{use_context, Storage},
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
     traits::{DefinedAt, Track},
     unwrap_signal,
@@ -63,6 +64,7 @@ where
             value: Arc::clone(&self.value),
             loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
+            inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -92,6 +94,7 @@ pub struct AsyncDerivedFuture<T> {
     value: Arc<async_lock::RwLock<Option<T>>>,
     loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
+    inner: Arc<RwLock<ArcAsyncDerivedInner>>,
 }
 
 impl<T> Future for AsyncDerivedFuture<T>
@@ -107,6 +110,15 @@ where
         let waker = cx.waker();
         self.source.track();
         let value = self.value.read_arc();
+
+        if let Some(suspense_context) = use_context::<SuspenseContext>() {
+            self.inner
+                .write()
+                .or_poisoned()
+                .suspenses
+                .push(suspense_context);
+        }
+
         pin_mut!(value);
         match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
             (true, _) => {

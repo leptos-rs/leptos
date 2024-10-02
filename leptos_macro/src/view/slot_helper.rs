@@ -1,16 +1,17 @@
 use super::{convert_to_snake_case, ident_from_tag_name};
-use crate::view::{fragment_to_tokens, TagType};
+use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 pub(crate) fn slot_to_tokens(
-    node: &NodeElement<impl CustomNode>,
+    node: &mut NodeElement<impl CustomNode>,
     slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
+    disable_inert_html: bool,
 ) {
     let name = slot.key.to_string();
     let name = name.trim();
@@ -30,20 +31,25 @@ pub(crate) fn slot_to_tokens(
         return;
     };
 
-    let attrs = node.attributes().iter().filter_map(|node| {
-        if let NodeAttribute::Attribute(node) = node {
-            if is_slot(node) {
-                None
+    let attrs = node
+        .attributes()
+        .iter()
+        .filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                if is_slot(node) {
+                    None
+                } else {
+                    Some(node)
+                }
             } else {
-                Some(node)
+                None
             }
-        } else {
-            None
-        }
-    });
+        })
+        .cloned()
+        .collect::<Vec<_>>();
 
     let props = attrs
-        .clone()
+        .iter()
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
@@ -64,27 +70,12 @@ pub(crate) fn slot_to_tokens(
             }
         });
 
-    let items_to_bind = attrs
-        .clone()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("let:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
-        })
-        .collect::<Vec<_>>();
+    let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:");
 
-    let items_to_clone = attrs
-        .clone()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("clone:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
-        })
-        .collect::<Vec<_>>();
+    let items_to_clone = filter_prefixed_attrs(attrs.iter(), "clone:");
 
     let dyn_attrs = attrs
+        .iter()
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
         .filter_map(|attr| {
             let name = &attr.key.to_string();
@@ -107,11 +98,12 @@ pub(crate) fn slot_to_tokens(
         quote! {}
     } else {
         let children = fragment_to_tokens(
-            &node.children,
+            &mut node.children,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
             None,
+            disable_inert_html,
         );
 
         // TODO view markers for hot-reloading

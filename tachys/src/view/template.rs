@@ -2,44 +2,35 @@ use super::{
     add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
     RenderHtml, ToTemplate,
 };
-use crate::{
-    html::attribute::Attribute, hydration::Cursor, renderer::DomRenderer,
-};
-use std::marker::PhantomData;
+use crate::{html::attribute::Attribute, hydration::Cursor, renderer::Rndr};
 
 /// A view wrapper that uses a `<template>` node to optimize DOM node creation.
 ///
 /// Rather than creating all of the DOM nodes each time it is built, this template will create a
 /// single `<template>` node once, then use `.cloneNode(true)` to clone that entire tree, and
 /// hydrate it to add event listeners and interactivity for this instance.
-pub struct ViewTemplate<V, R> {
+pub struct ViewTemplate<V> {
     view: V,
-    rndr: PhantomData<R>,
 }
 
-impl<V, R> ViewTemplate<V, R>
+impl<V> ViewTemplate<V>
 where
-    V: Render<R> + ToTemplate + 'static,
-    R: DomRenderer,
+    V: Render + ToTemplate + 'static,
 {
     /// Creates a new view template.
     pub fn new(view: V) -> Self {
-        Self {
-            view,
-            rndr: PhantomData,
-        }
+        Self { view }
     }
 
-    fn to_template() -> R::TemplateElement {
-        R::get_template::<V>()
+    fn to_template() -> crate::renderer::types::TemplateElement {
+        Rndr::get_template::<V>()
     }
 }
 
-impl<V, R> Render<R> for ViewTemplate<V, R>
+impl<V> Render for ViewTemplate<V>
 where
-    V: Render<R> + RenderHtml<R> + ToTemplate + 'static,
-    V::State: Mountable<R>,
-    R: DomRenderer,
+    V: Render + RenderHtml + ToTemplate + 'static,
+    V::State: Mountable,
 {
     type State = V::State;
 
@@ -47,7 +38,7 @@ where
 
     fn build(self) -> Self::State {
         let tpl = Self::to_template();
-        let contents = R::clone_template(&tpl);
+        let contents = Rndr::clone_template(&tpl);
         self.view
             .hydrate::<false>(&Cursor::new(contents), &Default::default())
     }
@@ -57,30 +48,28 @@ where
     }
 }
 
-impl<V, R> AddAnyAttr<R> for ViewTemplate<V, R>
+impl<V> AddAnyAttr for ViewTemplate<V>
 where
-    V: RenderHtml<R> + ToTemplate + 'static,
-    V::State: Mountable<R>,
-    R: DomRenderer,
+    V: RenderHtml + ToTemplate + 'static,
+    V::State: Mountable,
 {
-    type Output<SomeNewAttr: Attribute<R>> = ViewTemplate<V, R>;
+    type Output<SomeNewAttr: Attribute> = ViewTemplate<V>;
 
-    fn add_any_attr<NewAttr: Attribute<R>>(
+    fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<R>,
+        Self::Output<NewAttr>: RenderHtml,
     {
         panic!("AddAnyAttr not supported on ViewTemplate");
     }
 }
 
-impl<V, R> RenderHtml<R> for ViewTemplate<V, R>
+impl<V> RenderHtml for ViewTemplate<V>
 where
-    V: RenderHtml<R> + ToTemplate + 'static,
-    V::State: Mountable<R>,
-    R: DomRenderer,
+    V: RenderHtml + ToTemplate + 'static,
+    V::State: Mountable,
 {
     type AsyncOutput = V::AsyncOutput;
 
@@ -99,26 +88,25 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 
     fn dry_resolve(&mut self) {
-        todo!()
+        self.view.dry_resolve();
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+        self.view.resolve().await
     }
 }
 
-impl<V, R> ToTemplate for ViewTemplate<V, R>
+impl<V> ToTemplate for ViewTemplate<V>
 where
-    V: RenderHtml<R> + ToTemplate + 'static,
-    V::State: Mountable<R>,
-    R: DomRenderer,
+    V: RenderHtml + ToTemplate + 'static,
+    V::State: Mountable,
 {
     const TEMPLATE: &'static str = V::TEMPLATE;
 

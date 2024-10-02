@@ -1,18 +1,12 @@
-#[cfg(feature = "sledgehammer")]
-use crate::renderer::sledgehammer::Sledgehammer;
 use crate::{
     html::{
         attribute::{Attr, Attribute, AttributeValue},
-        element::{
-            CreateElement, ElementType, ElementWithChildren, HtmlElement,
-        },
+        element::{ElementType, ElementWithChildren, HtmlElement},
     },
-    renderer::{dom::Dom, Renderer},
     view::Render,
 };
 use next_tuple::NextTuple;
-use once_cell::unsync::Lazy;
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 macro_rules! html_element_inner {
     (
@@ -26,17 +20,15 @@ macro_rules! html_element_inner {
         paste::paste! {
             #[$meta]
             #[track_caller]
-            pub fn $tag<Rndr>() -> HtmlElement<$struct_name, (), (), Rndr>
+            pub fn $tag() -> HtmlElement<$struct_name, (), ()>
             where
-                Rndr: Renderer
+
             {
                 HtmlElement {
                     tag: $struct_name,
                     attributes: (),
                     children: (),
-                    rndr: PhantomData,
-                    #[cfg(debug_assertions)]
-                    defined_at: std::panic::Location::caller()
+
                 }
             }
 
@@ -45,35 +37,30 @@ macro_rules! html_element_inner {
             pub struct $struct_name;
 
             // Typed attribute methods
-            impl<At, Ch, Rndr> HtmlElement<$struct_name, At, Ch, Rndr>
+            impl<At, Ch> HtmlElement<$struct_name, At, Ch>
             where
-                At: Attribute<Rndr>,
-                Ch: Render<Rndr>,
-                Rndr: Renderer,
+                At: Attribute,
+                Ch: Render,
+
             {
                 $(
                     #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                     pub fn $attr<V>(self, value: V) -> HtmlElement <
                         $struct_name,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                        Ch, Rndr
+                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                        Ch
                     >
                     where
-                        V: AttributeValue<Rndr>,
+                        V: AttributeValue,
                         At: NextTuple,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
-                        let HtmlElement { tag, rndr, children, attributes,
-                            #[cfg(debug_assertions)]
-                            defined_at
-                        } = self;
+                        let HtmlElement { tag, children, attributes } = self;
                         HtmlElement {
                             tag,
-                            rndr,
+
                             children,
                             attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
-                            #[cfg(debug_assertions)]
-                            defined_at
                         }
                     }
                 )*
@@ -85,6 +72,7 @@ macro_rules! html_element_inner {
                 const TAG: &'static str = stringify!($tag);
                 const SELF_CLOSING: bool = false;
                 const ESCAPE_CHILDREN: bool = $escape;
+                const NAMESPACE: Option<&'static str> = None;
 
                 #[inline(always)]
                 fn tag(&self) -> &str {
@@ -93,28 +81,6 @@ macro_rules! html_element_inner {
             }
 
             impl ElementWithChildren for $struct_name {}
-
-            impl CreateElement<Dom> for $struct_name {
-                #[track_caller]
-                #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", fields(callsite = std::panic::Location::caller().to_string())))]
-                fn create_element(&self) -> <Dom as Renderer>::Element {
-                    use wasm_bindgen::JsCast;
-
-                    thread_local! {
-                        static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                            crate::dom::document().create_element(stringify!($tag)).unwrap()
-                        });
-                    }
-                    ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
-                }
-            }
-
-            #[cfg(feature = "sledgehammer")]
-            impl CreateElement<Sledgehammer> for $struct_name {
-                fn create_element(&self) -> <Sledgehammer as Renderer>::Element {
-                    Sledgehammer::element(stringify!($tag))
-                }
-            }
         }
     };
 }
@@ -152,17 +118,15 @@ macro_rules! html_self_closing_elements {
         paste::paste! {
             $(
                 #[$meta]
-                pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
+                pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
-                    Rndr: Renderer
+
                 {
                     HtmlElement {
                         attributes: (),
                         children: (),
-                        rndr: PhantomData,
+
                         tag: [<$tag:camel>],
-                        #[cfg(debug_assertions)]
-                        defined_at: std::panic::Location::caller()
                     }
                 }
 
@@ -171,36 +135,31 @@ macro_rules! html_self_closing_elements {
                 pub struct [<$tag:camel>];
 
                 // Typed attribute methods
-                impl<At, Rndr> HtmlElement<[<$tag:camel>], At, (), Rndr>
+                impl<At> HtmlElement<[<$tag:camel>], At, ()>
                 where
-                    At: Attribute<Rndr>,
-                    Rndr: Renderer,
+                    At: Attribute,
+
                 {
                     $(
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                         pub fn $attr<V>(self, value: V) -> HtmlElement<
                             [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                             (),
-                            Rndr
                         >
                         where
-                            V: AttributeValue<Rndr>,
+                            V: AttributeValue,
                             At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
 
                         {
-                            let HtmlElement { tag, rndr, children, attributes,
-                                #[cfg(debug_assertions)]
-                                defined_at
+                            let HtmlElement { tag, children, attributes,
                             } = self;
                             HtmlElement {
                                 tag,
-                                rndr,
+
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
-                                #[cfg(debug_assertions)]
-                                defined_at
                             }
                         }
                     )*
@@ -212,23 +171,11 @@ macro_rules! html_self_closing_elements {
                     const TAG: &'static str = stringify!($tag);
                     const SELF_CLOSING: bool = true;
                     const ESCAPE_CHILDREN: bool = $escape;
+                    const NAMESPACE: Option<&'static str> = None;
 
                     #[inline(always)]
                     fn tag(&self) -> &str {
                         Self::TAG
-                    }
-                }
-
-                impl CreateElement<Dom> for [<$tag:camel>] {
-                    fn create_element(&self) -> <Dom as Renderer>::Element {
-                        use wasm_bindgen::JsCast;
-
-                        thread_local! {
-                            static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                                crate::dom::document().create_element(stringify!($tag)).unwrap()
-                            });
-                        }
-                        ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
                     }
                 }
             )*
@@ -443,7 +390,7 @@ html_elements! {
     /// The `<template>` HTML element is a mechanism for holding HTML that is not to be rendered immediately when a page is loaded but may be instantiated subsequently during runtime using JavaScript.
     template HtmlTemplateElement [] true,
     /// The `<textarea>` HTML element represents a multi-line plain-text editing control, useful when you want to allow users to enter a sizeable amount of free-form text, for example a comment on a review or feedback form.
-    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] true,
+    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] false,
     /// The `<tfoot>` HTML element defines a set of rows summarizing the columns of the table.
     tfoot HtmlTableSectionElement [] true,
     /// The `<th>` HTML element defines a cell as header of a group of table cells. The exact nature of this group is defined by the scope and headers attributes.

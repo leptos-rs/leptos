@@ -1,6 +1,7 @@
 use any_spawner::Executor;
 use reactive_graph::{
     computed::{ArcAsyncDerived, AsyncDerived},
+    owner::Owner,
     signal::RwSignal,
     traits::{Get, Read, Set, With, WithUntracked},
 };
@@ -9,6 +10,8 @@ use std::future::pending;
 #[tokio::test]
 async fn arc_async_derived_calculates_eagerly() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let value = ArcAsyncDerived::new(|| async {
         Executor::tick().await;
@@ -21,6 +24,8 @@ async fn arc_async_derived_calculates_eagerly() {
 #[tokio::test]
 async fn arc_async_derived_tracks_signal_change() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let signal = RwSignal::new(10);
     let value = ArcAsyncDerived::new(move || async move {
@@ -40,6 +45,8 @@ async fn arc_async_derived_tracks_signal_change() {
 #[tokio::test]
 async fn async_derived_calculates_eagerly() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let value = AsyncDerived::new(|| async {
         Executor::tick().await;
@@ -52,6 +59,8 @@ async fn async_derived_calculates_eagerly() {
 #[tokio::test]
 async fn async_derived_tracks_signal_change() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let signal = RwSignal::new(10);
     let value = AsyncDerived::new(move || async move {
@@ -71,6 +80,8 @@ async fn async_derived_tracks_signal_change() {
 #[tokio::test]
 async fn read_signal_traits_on_arc() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let value = ArcAsyncDerived::new(pending::<()>);
     assert_eq!(value.read(), None);
@@ -82,6 +93,8 @@ async fn read_signal_traits_on_arc() {
 #[tokio::test]
 async fn read_signal_traits_on_arena() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let value = AsyncDerived::new(pending::<()>);
     println!("{:?}", value.read());
@@ -94,6 +107,8 @@ async fn read_signal_traits_on_arena() {
 #[tokio::test]
 async fn async_derived_with_initial() {
     _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
 
     let signal1 = RwSignal::new(0);
     let signal2 = RwSignal::new(0);

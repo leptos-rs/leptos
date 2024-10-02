@@ -9,7 +9,7 @@ use crate::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal, ArcRwSignal,
     },
-    traits::{DefinedAt, Get, ReadUntracked},
+    traits::{DefinedAt, Get, IsDisposed, ReadUntracked},
 };
 use core::fmt::Debug;
 use or_poisoned::OrPoisoned;
@@ -40,7 +40,7 @@ use std::{
 ///
 /// ## Examples
 /// ```
-/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::prelude::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::computed::*;
 /// # use reactive_graph::signal::signal;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
@@ -132,10 +132,7 @@ where
     pub fn new_with_compare(
         fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
         changed: fn(Option<&T>, Option<&T>) -> bool,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         Self::new_owning(move |prev: Option<T>| {
             let new_value = fun(prev.as_ref());
             let changed = changed(prev.as_ref(), Some(&new_value));
@@ -157,10 +154,7 @@ where
     )]
     pub fn new_owning(
         fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: PartialEq,
-    {
+    ) -> Self {
         let inner = Arc::new_cyclic(|weak| {
             let subscriber = AnySubscriber(
                 weak.as_ptr() as usize,
@@ -257,6 +251,16 @@ where
 
     fn update_if_necessary(&self) -> bool {
         self.inner.update_if_necessary()
+    }
+}
+
+impl<T: 'static, S> IsDisposed for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        false
     }
 }
 

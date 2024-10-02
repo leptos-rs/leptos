@@ -53,7 +53,7 @@ use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
     prelude::*,
-    reactive_graph::{computed::ScopedFuture, owner::Owner},
+    reactive::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
 use leptos_integration_utils::{
@@ -76,7 +76,7 @@ use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::path::Path;
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
-use tower::ServiceExt;
+use tower::util::ServiceExt;
 #[cfg(feature = "default")]
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
@@ -784,7 +784,7 @@ where
     _ = replace_blocks; // TODO
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
+            let app = if cfg!(feature = "dont-use-islands-router") {
                 app.to_html_stream_out_of_order_branching()
             } else {
                 app.to_html_stream_out_of_order()
@@ -849,7 +849,7 @@ where
     IV: IntoView + 'static,
 {
     handle_response(additional_context, app_fn, |app, chunks| {
-        let app = if cfg!(feature = "islands-router") {
+        let app = if cfg!(feature = "dont-use-islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
             app.to_html_stream_in_order()
@@ -1069,7 +1069,7 @@ where
 {
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
+            let app = if cfg!(feature = "dont-use-islands-router") {
                 app.to_html_stream_in_order_branching()
             } else {
                 app.to_html_stream_in_order()
@@ -1146,7 +1146,7 @@ where
     IV: IntoView + 'static,
 {
     Box::pin(async move {
-        let app = if cfg!(feature = "islands-router") {
+        let app = if cfg!(feature = "dont-use-islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
             app.to_html_stream_in_order()

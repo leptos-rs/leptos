@@ -1,7 +1,7 @@
 use super::subscriber_traits::AsSubscriberSet;
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    traits::{DefinedAt, IsDisposed, Trigger},
+    traits::{DefinedAt, IsDisposed, Notify},
 };
 use std::{
     fmt::{Debug, Formatter, Result},
@@ -83,8 +83,8 @@ impl DefinedAt for ArcTrigger {
     }
 }
 
-impl Trigger for ArcTrigger {
-    fn trigger(&self) {
+impl Notify for ArcTrigger {
+    fn notify(&self) {
         self.inner.mark_dirty();
     }
 }

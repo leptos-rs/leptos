@@ -1,0 +1,32 @@
+name: Get Leptos Matrix Call
+on:
+  workflow_call:
+    outputs:
+      matrix:
+        description: "Matrix"
+        value: ${{ jobs.create.outputs.matrix }}
+jobs:
+  create:
+    name: Create Leptos Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get install jq
+      - name: Set Matrix
+        id: set-matrix
+        run: |
+          crates=$(cargo metadata --no-deps --quiet --format-version 1 |
+          jq -r '.packages[] | select(.name != "workspace") | .manifest_path| rtrimstr("/Cargo.toml")' |
+          sed "s|$(pwd)/||" |
+          jq -R -s -c 'split("\n")[:-1]')
+          echo "Leptos Directories: $crates"
+          echo "matrix={\"directory\":$crates}" >> "$GITHUB_OUTPUT"
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u

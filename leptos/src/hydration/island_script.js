@@ -38,7 +38,7 @@
 		if (islandFn) {
 			islandFn(el);
 		} else {
-			console.warn(`Could not find WASM function for the island ${l}.`);
+			console.warn(`Could not find WASM function for the island ${id}.`);
 		}
 	}
 	function hydrateIslands(entry, mod) {

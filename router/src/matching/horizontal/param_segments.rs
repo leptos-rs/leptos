@@ -2,6 +2,33 @@ use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use core::iter;
 use std::borrow::Cow;
 
+/// A segment that captures a value from the url and maps it to a key.
+///
+/// # Examples
+/// ```rust
+/// # (|| -> Option<()> { // Option does not impl Terminate, so no main
+/// use leptos::prelude::*;
+/// use leptos_router::{path, ParamSegment, PossibleRouteMatch};
+///
+/// let path = &"/hello";
+///
+/// // Manual definition
+/// let manual = (ParamSegment("message"),);
+/// let (key, value) = manual.test(path)?.params().last()?;
+///
+/// assert_eq!(key, "message");
+/// assert_eq!(value, "hello");
+///
+/// // Macro definition
+/// let using_macro = path!("/:message");
+/// let (key, value) = using_macro.test(path)?.params().last()?;
+///
+/// assert_eq!(key, "message");
+/// assert_eq!(value, "hello");
+///
+/// # Some(())
+/// # })().unwrap();
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParamSegment(pub &'static str);
 
@@ -51,6 +78,46 @@ impl PossibleRouteMatch for ParamSegment {
     }
 }
 
+/// A segment that captures all remaining values from the url and maps it to a key.
+///
+/// A [`WildcardSegment`] __must__ be the last segment of your path definition.
+///
+/// ```rust
+/// # (|| -> Option<()> { // Option does not impl Terminate, so no main
+/// use leptos::prelude::*;
+/// use leptos_router::{
+///     path, ParamSegment, PossibleRouteMatch, StaticSegment, WildcardSegment,
+/// };
+///
+/// let path = &"/echo/send/sync/and/static";
+///
+/// // Manual definition
+/// let manual = (StaticSegment("echo"), WildcardSegment("kitchen_sink"));
+/// let (key, value) = manual.test(path)?.params().last()?;
+///
+/// assert_eq!(key, "kitchen_sink");
+/// assert_eq!(value, "send/sync/and/static");
+///
+/// // Macro definition
+/// let using_macro = path!("/echo/*else");
+/// let (key, value) = using_macro.test(path)?.params().last()?;
+///
+/// assert_eq!(key, "else");
+/// assert_eq!(value, "send/sync/and/static");
+///
+/// // This fails to compile because the macro will catch the bad ordering
+/// // let bad = path!("/echo/*foo/bar/:baz");
+///
+/// // This compiles but may not work as you expect at runtime.
+/// (
+///     StaticSegment("echo"),
+///     WildcardSegment("foo"),
+///     ParamSegment("baz"),
+/// );
+///
+/// # Some(())
+/// # })().unwrap();
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WildcardSegment(pub &'static str);
 

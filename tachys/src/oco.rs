@@ -3,29 +3,29 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
-    renderer::{DomRenderer, Renderer},
+    renderer::Rndr,
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
 
 /// Retained view state for [`Oco`].
-pub struct OcoStrState<R: Renderer> {
-    node: R::Text,
+pub struct OcoStrState {
+    node: crate::renderer::types::Text,
     str: Oco<'static, str>,
 }
 
-impl<R: Renderer> Render<R> for Oco<'static, str> {
-    type State = OcoStrState<R>;
+impl Render for Oco<'static, str> {
+    type State = OcoStrState;
 
     fn build(self) -> Self::State {
-        let node = R::create_text_node(&self);
+        let node = Rndr::create_text_node(&self);
         OcoStrState { node, str: self }
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let OcoStrState { node, str } = state;
         if &self == str {
-            R::set_text(node, &self);
+            Rndr::set_text(node, &self);
             *str = self;
         }
     }
@@ -33,10 +33,7 @@ impl<R: Renderer> Render<R> for Oco<'static, str> {
 
 no_attrs!(Oco<'static, str>);
 
-impl<R> RenderHtml<R> for Oco<'static, str>
-where
-    R: Renderer,
-{
+impl RenderHtml for Oco<'static, str> {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -54,7 +51,7 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
-        <&str as RenderHtml<R>>::to_html_with_buf(
+        <&str as RenderHtml>::to_html_with_buf(
             &self,
             buf,
             position,
@@ -65,13 +62,13 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<R>,
+        cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
         let this: &str = self.as_ref();
-        let StrState { node, .. } = <&str as RenderHtml<R>>::hydrate::<
-            FROM_SERVER,
-        >(this, cursor, position);
+        let StrState { node, .. } = <&str as RenderHtml>::hydrate::<FROM_SERVER>(
+            this, cursor, position,
+        );
         OcoStrState { node, str: self }
     }
 }
@@ -92,30 +89,27 @@ impl ToTemplate for Oco<'static, str> {
     }
 }
 
-impl<R: Renderer> Mountable<R> for OcoStrState<R> {
+impl Mountable for OcoStrState {
     fn unmount(&mut self) {
         self.node.unmount()
     }
 
     fn mount(
         &mut self,
-        parent: &<R as Renderer>::Element,
-        marker: Option<&<R as Renderer>::Node>,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
     ) {
-        R::insert_node(parent, self.node.as_ref(), marker);
+        Rndr::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
 }
 
-impl<R> AttributeValue<R> for Oco<'static, str>
-where
-    R: Renderer,
-{
+impl AttributeValue for Oco<'static, str> {
     type AsyncOutput = Self;
-    type State = (R::Element, Oco<'static, str>);
+    type State = (crate::renderer::types::Element, Oco<'static, str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -124,7 +118,7 @@ where
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
-        <&str as AttributeValue<R>>::to_html(self.as_str(), key, buf);
+        <&str as AttributeValue>::to_html(self.as_str(), key, buf);
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -132,9 +126,9 @@ where
     fn hydrate<const FROM_SERVER: bool>(
         self,
         key: &str,
-        el: &R::Element,
+        el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let (el, _) = <&str as AttributeValue<R>>::hydrate::<FROM_SERVER>(
+        let (el, _) = <&str as AttributeValue>::hydrate::<FROM_SERVER>(
             self.as_str(),
             key,
             el,
@@ -142,15 +136,19 @@ where
         (el, self)
     }
 
-    fn build(self, el: &R::Element, key: &str) -> Self::State {
-        R::set_attribute(el, key, &self);
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        Rndr::set_attribute(el, key, &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
         let (el, prev_value) = state;
         if self != *prev_value {
-            R::set_attribute(el, key, &self);
+            Rndr::set_attribute(el, key, &self);
         }
         *prev_value = self;
     }
@@ -174,12 +172,9 @@ where
     }
 }
 
-impl<R> IntoClass<R> for Oco<'static, str>
-where
-    R: DomRenderer,
-{
+impl IntoClass for Oco<'static, str> {
     type AsyncOutput = Self;
-    type State = (R::Element, Self);
+    type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -188,25 +183,28 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        IntoClass::<R>::to_html(self.as_str(), class);
+        IntoClass::to_html(self.as_str(), class);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
         if !FROM_SERVER {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", &self);
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", &self);
         (el.clone(), self)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "class", &self);
+            Rndr::set_attribute(el, "class", &self);
         }
         *prev = self;
     }
