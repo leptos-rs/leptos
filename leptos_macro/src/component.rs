@@ -286,7 +286,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                ::leptos::reactive_graph::untrack(
+                ::leptos::prelude::untrack(
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
