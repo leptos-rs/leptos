@@ -3,7 +3,7 @@ use leptos::{
     attr::Attribute,
     component,
     oco::Oco,
-    reactive_graph::{
+    reactive::{
         effect::RenderEffect,
         owner::{use_context, Owner},
     },

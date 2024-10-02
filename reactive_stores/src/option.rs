@@ -49,7 +49,7 @@ mod tests {
     use crate::{self as reactive_stores, Store};
     use reactive_graph::{
         effect::Effect,
-        traits::{Get, Read, ReadUntracked, Set, Writeable},
+        traits::{Get, Read, ReadUntracked, Set, Write},
     };
     use reactive_stores_macro::Store;
     use std::sync::{

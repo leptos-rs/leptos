@@ -1,5 +1,5 @@
 use counter_without_macros::counter;
-use leptos::{prelude::*, spawn::tick};
+use leptos::{prelude::*, task::tick};
 use pretty_assertions::assert_eq;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;

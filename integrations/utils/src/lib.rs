@@ -2,7 +2,7 @@ use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
     nonce::use_nonce,
-    reactive_graph::owner::{Owner, Sandboxed},
+    reactive::owner::{Owner, Sandboxed},
     IntoView,
 };
 use leptos_config::LeptosOptions;

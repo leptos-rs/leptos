@@ -3,7 +3,7 @@ use reactive_graph::{
     signal::{arc_signal, signal, ArcRwSignal, RwSignal},
     traits::{
         Get, GetUntracked, Read, Set, Update, UpdateUntracked, With,
-        WithUntracked, Writeable,
+        WithUntracked, Write,
     },
 };
 

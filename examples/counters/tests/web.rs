@@ -4,7 +4,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 use counters::Counters;
 use leptos::prelude::*;
-use leptos::spawn::tick;
+use leptos::task::tick;
 use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]

@@ -168,12 +168,11 @@ pub mod prelude {
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
-            actions::*, computed::*, effect::*, owner::*, signal::*, untrack,
-            wrappers::read::*,
+            actions::*, computed::*, effect::*, graph::untrack, owner::*,
+            signal::*, wrappers::read::*,
         };
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{
-            self,
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
             view::template::ViewTemplate,
         };
@@ -230,6 +229,7 @@ mod suspense_component;
 pub mod text_prop;
 mod transition;
 pub use leptos_macro::*;
+#[doc(inline)]
 pub use server_fn;
 #[doc(hidden)]
 pub use typed_builder;
@@ -237,16 +237,22 @@ pub use typed_builder;
 pub use typed_builder_macro;
 mod into_view;
 pub use into_view::IntoView;
+#[doc(inline)]
 pub use leptos_dom;
 mod provider;
+#[doc(inline)]
 pub use tachys;
 /// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
 pub mod mount;
+#[doc(inline)]
 pub use leptos_config as config;
+#[doc(inline)]
 pub use oco_ref as oco;
 mod from_form_data;
+#[doc(inline)]
 pub use either_of as either;
-pub use reactive_graph;
+#[doc(inline)]
+pub use reactive_graph as reactive;
 
 /// Provide and access data along the reactive graph, sharing data without directly passing arguments.
 pub mod context {
@@ -254,17 +260,22 @@ pub mod context {
     pub use reactive_graph::owner::{provide_context, use_context};
 }
 
+#[doc(inline)]
 pub use leptos_server as server;
 /// HTML attribute types.
+#[doc(inline)]
 pub use tachys::html::attribute as attr;
 /// HTML element types.
+#[doc(inline)]
 pub use tachys::html::element as html;
 /// HTML event types.
 #[doc(no_inline)]
 pub use tachys::html::event as ev;
 /// MathML element types.
+#[doc(inline)]
 pub use tachys::mathml as math;
 /// SVG element types.
+#[doc(inline)]
 pub use tachys::svg;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
@@ -272,7 +283,7 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
-pub mod spawn {
+pub mod task {
     pub use any_spawner::Executor;
     use std::future::Future;
 
@@ -290,6 +301,7 @@ pub mod spawn {
         Executor::spawn_local(fut)
     }
 
+    /// Waits until the next "tick" of the current async executor.
     pub async fn tick() {
         Executor::tick().await
     }

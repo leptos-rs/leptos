@@ -9,7 +9,7 @@ use crate::{
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
-        UntrackableGuard, Writeable,
+        UntrackableGuard, Write,
     },
     unwrap_signal,
 };
@@ -57,7 +57,7 @@ use std::{
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
 /// - [`.update()`](crate::traits::Update) updates the value of the signal by
 ///   applying a closure that takes a mutable reference.
-/// - [`.write()`](crate::traits::Writeable) returns a guard through which the signal
+/// - [`.write()`](crate::traits::Write) returns a guard through which the signal
 ///   can be mutated, and which notifies subscribers when it is dropped.
 ///
 /// > Each of these has a related `_untracked()` method, which updates the signal
@@ -349,7 +349,7 @@ where
     }
 }
 
-impl<T, S> Writeable for RwSignal<T, S>
+impl<T, S> Write for RwSignal<T, S>
 where
     T: 'static,
     S: Storage<ArcRwSignal<T>>,

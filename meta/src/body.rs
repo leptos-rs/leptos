@@ -2,7 +2,7 @@ use crate::ServerMetaContext;
 use leptos::{
     attr::NextAttribute,
     component, html,
-    reactive_graph::owner::use_context,
+    reactive::owner::use_context,
     tachys::{
         dom::document,
         html::attribute::Attribute,

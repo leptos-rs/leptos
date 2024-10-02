@@ -7,7 +7,7 @@ use reactive_graph::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
 };
 use rustc_hash::FxHashMap;
@@ -254,7 +254,7 @@ where
     }
 }
 
-impl<T> Writeable for ArcStore<T>
+impl<T> Write for ArcStore<T>
 where
     T: 'static,
 {
@@ -379,7 +379,7 @@ where
     }
 }
 
-impl<T, S> Writeable for Store<T, S>
+impl<T, S> Write for Store<T, S>
 where
     T: 'static,
     S: Storage<ArcStore<T>>,
@@ -428,7 +428,7 @@ mod tests {
     use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
-        traits::{Read, ReadUntracked, Set, Update, Writeable},
+        traits::{Read, ReadUntracked, Set, Update, Write},
     };
     use reactive_stores_macro::{Patch, Store};
     use std::sync::{

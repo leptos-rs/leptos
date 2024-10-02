@@ -11,7 +11,7 @@ use reactive_graph::{
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Writeable,
+        Write,
     },
     unwrap_signal,
 };
@@ -251,7 +251,7 @@ where
     }
 }
 
-impl<T, S> Writeable for Then<T, S>
+impl<T, S> Write for Then<T, S>
 where
     T: 'static,
     S: StoreField,

@@ -58,7 +58,7 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
 pub mod suspense {
     use crate::{
         signal::ArcRwSignal,
-        traits::{Update, Writeable},
+        traits::{Update, Write},
     };
     use futures::channel::oneshot::Sender;
     use or_poisoned::OrPoisoned;

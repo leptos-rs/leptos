@@ -1,6 +1,6 @@
 use crate::{hooks::RawParamsMap, params::ParamsMap, PathSegment};
 use futures::{channel::oneshot, stream, Stream, StreamExt};
-use leptos::spawn::spawn;
+use leptos::task::spawn;
 use reactive_graph::{owner::Owner, traits::GetUntracked};
 use std::{
     fmt::{Debug, Display},

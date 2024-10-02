@@ -1,7 +1,7 @@
 use crate::{children::TypedChildrenFn, mount, IntoView};
 use leptos_dom::helpers::document;
 use leptos_macro::component;
-use reactive_graph::{effect::Effect, owner::Owner, untrack};
+use reactive_graph::{effect::Effect, graph::untrack, owner::Owner};
 use std::sync::Arc;
 
 /// Renders components somewhere else in the DOM.
