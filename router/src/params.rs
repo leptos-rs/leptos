@@ -24,26 +24,29 @@ impl ParamsMap {
     pub fn insert(&mut self, key: String, value: String) {
         let value = unescape(&value);
 
-        if let Some(prev) = self.0.iter().position(|(k, _)| k == &key) {
-            self.0[prev].1.push(value);
+        if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
+            prev.1.push(value);
         } else {
             self.0.push((key.into(), vec![value]));
         }
     }
 
-    /// Gets an owned value from the map.
-    pub fn get(&self, key: &str) -> Option<Vec<String>> {
-        self.0
-            .iter()
-            .find_map(|(k, v)| (k == key).then_some(v.to_owned()))
+    /// Gets the most-recently-added value of this param from the map.
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.get_str(key).map(ToOwned::to_owned)
     }
 
-    /// Gets a reference to a value from the map.
+    /// Gets all references to a param of this name from the map.
+    pub fn get_all(&self, key: &str) -> Option<Vec<String>> {
+        self.0
+            .iter()
+            .find_map(|(k, v)| if k == key { Some(v.clone()) } else { None })
+    }
+
+    /// Gets a reference to the most-recently-added value of this param from the map.
     pub fn get_str(&self, key: &str) -> Option<&str> {
         self.0.iter().find_map(|(k, v)| {
             if k == key {
-                // NOTE: gets the last value which should behave like it did when it was map
-                // that replaced values
                 v.last().map(|i| i.as_str())
             } else {
                 None
@@ -217,7 +220,7 @@ impl PartialEq for ParamsError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
 
