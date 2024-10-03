@@ -8,7 +8,7 @@ pub mod read {
         owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
         signal::{
             guards::{Mapped, Plain, ReadGuard},
-            ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal
+            ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal,
         },
         traits::{DefinedAt, Dispose, Get, Read, ReadUntracked, Track, With},
         unwrap_signal,
