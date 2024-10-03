@@ -861,7 +861,6 @@ pub mod read {
 
         fn try_read_untracked(&self) -> Option<Self::Value> {
             match self {
-                // TODO: could be a way to remove clone, either static changed to Arc<RwLock<T>> to put in the read guard type, or lifetimes on the read guard struct to return borrowed value.
                 Self::Static(t) => {
                     Some(ReadGuard::new(SignalReadGuard::Owned(t.clone())))
                 }
@@ -879,7 +878,6 @@ pub mod read {
 
         fn try_read(&self) -> Option<Self::Value> {
             match self {
-                // TODO: could be a way to remove clone, either static changed to Arc<RwLock<T>> to put in the read guard type, or lifetimes on the read guard struct to return borrowed value.
                 Self::Static(t) => {
                     Some(ReadGuard::new(SignalReadGuard::Owned(t.clone())))
                 }
