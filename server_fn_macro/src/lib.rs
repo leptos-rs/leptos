@@ -389,6 +389,7 @@ pub fn server_macro_impl(
     let impl_from = impl_from.map(|v| v.value).unwrap_or(true);
     let from_impl = (body.inputs.len() == 1
         && first_field.is_some()
+        && body.generics.params.is_empty()
         && impl_from)
         .then(|| {
             let field = first_field.unwrap();
