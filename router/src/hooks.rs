@@ -101,8 +101,9 @@ where
     let get = Memo::new({
         let key = key.clone_inplace();
         move |_| {
-            query_map
-                .with(|map| map.get(&key).and_then(|value| value.parse().ok()))
+            query_map.with(|map| {
+                map.get_str(&key).and_then(|value| value.parse().ok())
+            })
         }
     });
 
