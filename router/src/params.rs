@@ -21,13 +21,14 @@ impl ParamsMap {
     }
 
     /// Inserts a value into the map.
-    pub fn insert(&mut self, key: String, value: String) {
+    pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = unescape(&value);
 
+        let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
             prev.1.push(value);
         } else {
-            self.0.push((key.into(), vec![value]));
+            self.0.push((key, vec![value]));
         }
     }
 
@@ -92,11 +93,12 @@ where
     V: Into<String>,
 {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        Self(
-            iter.into_iter()
-                .map(|(k, v)| (k.into(), vec![v.into()]))
-                .collect(),
-        )
+        let mut map = Self::new();
+
+        for (key, value) in iter {
+            map.insert(key, value.into());
+        }
+        map
     }
 }
 
