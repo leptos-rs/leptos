@@ -59,6 +59,7 @@ pub fn HomePage() -> impl IntoView {
     view! {
         <h2>"Some Simple Server Functions"</h2>
         <SpawnLocal/>
+        <Generic/>
         <WithAnAction/>
         <WithActionForm/>
         <h2>"Custom Error Types"</h2>
@@ -72,6 +73,44 @@ pub fn HomePage() -> impl IntoView {
         <FileWatcher/>
         <CustomEncoding/>
         <CustomClientExample/>
+    }
+}
+
+/// Server functions can be made generic, which will register multiple endpoints.
+///
+/// If you use generics, you need to explicitly register the server function endpoint for each type
+/// with [`server_fn::axum::register_explicit`] or [`server_fn::actix::register_explicit`]
+#[component]
+pub fn Generic() -> impl IntoView {
+    use std::fmt::Display;
+
+    #[server]
+    pub async fn test_fn<S>(input: S) -> Result<String, ServerFnError>
+    where
+        S: Display,
+    {
+        // insert a simulated wait
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        Ok(input.to_string())
+    }
+
+    view! {
+        <h3>Generic Server Functions</h3>
+        <p>"Server functions can be made generic, which will register multiple endpoints."</p>
+        <p>
+            "If you use generics, you need to explicitly register the server function endpoint for each type."
+        </p>
+        <p>"Open your browser devtools to see which endpoints the function below calls."</p>
+        <button on:click=move |_| {
+            spawn_local(async move {
+                test_fn("foo".to_string()).await;
+                test_fn(42).await;
+                test_fn(3.14).await;
+            });
+        }>
+
+            "Click me and check the requests"
+        </button>
     }
 }
 
@@ -382,7 +421,8 @@ pub fn FileUpload() -> impl IntoView {
         </form>
         <p>
             {move || {
-                if upload_action.input_local().read().is_none() && upload_action.value().read().is_none()
+                if upload_action.input_local().read().is_none()
+                    && upload_action.value().read().is_none()
                 {
                     "Upload a file.".to_string()
                 } else if upload_action.pending().get() {
@@ -782,19 +822,6 @@ pub struct WhyNotResult {
     modified: String,
 }
 
-#[server]
-pub async fn test_fn<S>(
-    first: S,
-    second: S,
-) -> Result<WhyNotResult, ServerFnError>
-where
-    S: Display,
-{
-    let original = first.to_string();
-    let modified = format!("{original}{second}");
-    Ok(WhyNotResult { original, modified })
-}
-
 #[server(
     input = Toml,
     output = Toml,
@@ -942,13 +969,11 @@ pub fn PostcardExample() -> impl IntoView {
         <h3>Using <code>postcard</code> encoding</h3>
         <p>"This example demonstrates using Postcard for efficient binary serialization."</p>
         <button on:click=move |_| {
-            // Update the input data when the button is clicked
-            set_input.update(|data| {
-                data.age += 1;
-            });
-        }>
-            "Increment Age"
-        </button>
+            set_input
+                .update(|data| {
+                    data.age += 1;
+                });
+        }>"Increment Age"</button>
         // Display the current input data
         <p>"Input: " {move || format!("{:?}", input.get())}</p>
         <Transition>
