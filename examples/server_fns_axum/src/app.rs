@@ -12,12 +12,12 @@ use server_fn::{
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, Res},
 };
+use std::future::Future;
 #[cfg(feature = "ssr")]
 use std::sync::{
     atomic::{AtomicU8, Ordering},
     Mutex,
 };
-use std::{fmt::Display, future::Future};
 use strum::{Display, EnumString};
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
@@ -103,9 +103,9 @@ pub fn Generic() -> impl IntoView {
         <p>"Open your browser devtools to see which endpoints the function below calls."</p>
         <button on:click=move |_| {
             spawn_local(async move {
-                test_fn("foo".to_string()).await;
-                test_fn(42).await;
-                test_fn(3.14).await;
+                test_fn("foo".to_string()).await.unwrap();
+                test_fn(42).await.unwrap();
+                test_fn(10.16).await.unwrap();
             });
         }>
 
