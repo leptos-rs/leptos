@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-/// Declares that can be converted into some other type, which is a valid attribute value.
+/// Declares that this type can be converted into some other type, which is a valid attribute value.
 pub trait IntoAttributeValue {
     /// The attribute value into which this type can be converted.
     type Output;
