@@ -26,8 +26,8 @@ pub mod prelude {
         },
         renderer::{dom::Dom, Renderer},
         view::{
-            add_attr::AddAnyAttr, any_view::IntoAny, Mountable, Render,
-            RenderHtml,
+            add_attr::AddAnyAttr, any_view::IntoAny, IntoRender, Mountable,
+            Render, RenderHtml,
         },
     };
 }

@@ -432,3 +432,20 @@ pub enum Position {
     /// This is the last child of its parent.
     LastChild,
 }
+
+pub trait IntoRender {
+    type Output;
+
+    fn into_render(self) -> Self::Output;
+}
+
+impl<T> IntoRender for T
+where
+    T: Render,
+{
+    type Output = Self;
+
+    fn into_render(self) -> Self::Output {
+        self
+    }
+}

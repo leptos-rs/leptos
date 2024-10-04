@@ -548,7 +548,9 @@ fn node_to_tokens(
             view_marker,
             disable_inert_html,
         ),
-        Node::Block(block) => Some(quote! { #block }),
+        Node::Block(block) => {
+            Some(quote! { ::leptos::prelude::IntoRender::into_render(#block) })
+        }
         Node::Text(text) => Some(text_to_tokens(&text.value)),
         Node::RawText(raw) => {
             let text = raw.to_string_best();
