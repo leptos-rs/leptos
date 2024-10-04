@@ -1365,14 +1365,20 @@ fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
                     }
                 }
 
-                quote! {
-                    {#expr}
+                if matches!(expr, Expr::Lit(_)) {
+                    quote! {
+                        #expr
+                    }
+                } else {
+                    quote! {
+                        ::leptos::prelude::IntoAttributeValue::into_attribute_value(#expr)
+                    }
                 }
             }
             // any value in braces: expand as-is to give proper r-a support
             KVAttributeValue::InvalidBraced(block) => {
                 quote! {
-                    #block
+                    ::leptos::prelude::IntoAttributeValue::into_attribute_value(#block)
                 }
             }
         },
