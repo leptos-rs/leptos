@@ -548,7 +548,9 @@ fn node_to_tokens(
             view_marker,
             disable_inert_html,
         ),
-        Node::Block(block) => Some(quote! { #block }),
+        Node::Block(block) => {
+            Some(quote! { ::leptos::prelude::IntoRender::into_render(#block) })
+        }
         Node::Text(text) => Some(text_to_tokens(&text.value)),
         Node::RawText(raw) => {
             let text = raw.to_string_best();
@@ -878,7 +880,7 @@ fn attribute_to_tokens(
                     NodeName::Path(path) => path.path.get_ident(),
                     _ => unreachable!(),
                 };
-                let value = attribute_value(node);
+                let value = attribute_value(node, false);
                 quote! {
                     .#node_ref(#value)
                 }
@@ -928,13 +930,13 @@ fn attribute_to_tokens(
                 // we don't provide statically-checked methods for SVG attributes
                 || (tag_type == TagType::Svg && name != "inner_html")
             {
-                let value = attribute_value(node);
+                let value = attribute_value(node, true);
                 quote! {
                     .attr(#name, #value)
                 }
             } else {
                 let key = attribute_name(&node.key);
-                let value = attribute_value(node);
+                let value = attribute_value(node, true);
 
                 // special case of global_class and class attribute
                 if &node.key.to_string() == "class"
@@ -971,11 +973,11 @@ pub(crate) fn attribute_absolute(
                 let id = &parts[0];
                 match id {
                     NodeNameFragment::Ident(id) => {
-                        let value = attribute_value(node);
                         // ignore `let:` and `clone:`
                         if id == "let" || id == "clone" {
                             None
                         } else if id == "attr" {
+                        let value = attribute_value(node, true);
                             let key = &parts[1];
                             let key_name = key.to_string();
                             if key_name == "class" || key_name == "style" {
@@ -983,6 +985,7 @@ pub(crate) fn attribute_absolute(
                                     quote! { ::leptos::tachys::html::#key::#key(#value) },
                                 )
                             } else if key_name == "aria" {
+                                let value = attribute_value(node, true);
                                 let mut parts_iter = parts.iter();
                                 parts_iter.next();
                                 let fn_name = parts_iter.map(|p| p.to_string()).collect::<Vec<String>>().join("_");
@@ -1011,6 +1014,7 @@ pub(crate) fn attribute_absolute(
                                 },
                             )
                         } else if id == "style" || id == "class" {
+                            let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key
                                 .replacen("style:", "", 1)
@@ -1019,6 +1023,7 @@ pub(crate) fn attribute_absolute(
                                 quote! { ::leptos::tachys::html::#id::#id((#key, #value)) },
                             )
                         } else if id == "prop" {
+                            let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key.replacen("prop:", "", 1);
                             Some(
@@ -1075,7 +1080,7 @@ pub(crate) fn two_way_binding_to_tokens(
     name: &str,
     node: &KeyedAttribute,
 ) -> TokenStream {
-    let value = attribute_value(node);
+    let value = attribute_value(node, false);
 
     let ident =
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
@@ -1100,7 +1105,7 @@ pub(crate) fn event_type_and_handler(
     name: &str,
     node: &KeyedAttribute,
 ) -> (TokenStream, TokenStream, TokenStream) {
-    let handler = attribute_value(node);
+    let handler = attribute_value(node, false);
 
     let (event_type, is_custom, is_force_undelegated, is_targeted) =
         parse_event_name(name);
@@ -1157,7 +1162,7 @@ fn class_to_tokens(
     class: TokenStream,
     class_name: Option<&str>,
 ) -> TokenStream {
-    let value = attribute_value(node);
+    let value = attribute_value(node, false);
     if let Some(class_name) = class_name {
         quote! {
             .#class((#class_name, #value))
@@ -1174,7 +1179,7 @@ fn style_to_tokens(
     style: TokenStream,
     style_name: Option<&str>,
 ) -> TokenStream {
-    let value = attribute_value(node);
+    let value = attribute_value(node, false);
     if let Some(style_name) = style_name {
         quote! {
             .#style((#style_name, #value))
@@ -1191,7 +1196,7 @@ fn prop_to_tokens(
     prop: TokenStream,
     key: &str,
 ) -> TokenStream {
-    let value = attribute_value(node);
+    let value = attribute_value(node, false);
     quote! {
         .#prop(#key, #value)
     }
@@ -1348,7 +1353,10 @@ fn attribute_name(name: &NodeName) -> TokenStream {
     }
 }
 
-fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
+fn attribute_value(
+    attr: &KeyedAttribute,
+    is_attribute_proper: bool,
+) -> TokenStream {
     match attr.possible_value.to_value() {
         None => quote! { true },
         Some(value) => match &value.value {
@@ -1363,14 +1371,26 @@ fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
                     }
                 }
 
-                quote! {
-                    {#expr}
+                if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
+                    quote! {
+                        #expr
+                    }
+                } else {
+                    quote! {
+                        ::leptos::prelude::IntoAttributeValue::into_attribute_value(#expr)
+                    }
                 }
             }
             // any value in braces: expand as-is to give proper r-a support
             KVAttributeValue::InvalidBraced(block) => {
-                quote! {
-                    #block
+                if is_attribute_proper {
+                    quote! {
+                        ::leptos::prelude::IntoAttributeValue::into_attribute_value(#block)
+                    }
+                } else {
+                    quote! {
+                        #block
+                    }
                 }
             }
         },

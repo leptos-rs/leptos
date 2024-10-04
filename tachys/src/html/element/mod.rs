@@ -4,8 +4,8 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, IntoRender, Mountable, Position, PositionState,
+        Render, RenderHtml, ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -65,11 +65,13 @@ impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
 where
     E: ElementWithChildren,
     Ch: Render + NextTuple,
-    <Ch as NextTuple>::Output<NewChild>: Render,
+    <Ch as NextTuple>::Output<NewChild::Output>: Render,
 
-    NewChild: Render,
+    NewChild: IntoRender,
+    NewChild::Output: Render,
 {
-    type Output = HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild>>;
+    type Output =
+        HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild::Output>>;
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
@@ -82,7 +84,7 @@ where
             tag,
 
             attributes,
-            children: children.next_tuple(child),
+            children: children.next_tuple(child.into_render()),
         }
     }
 }
@@ -116,7 +118,7 @@ where
 /// Adds a child to the element.
 pub trait ElementChild<NewChild>
 where
-    NewChild: Render,
+    NewChild: IntoRender,
 {
     /// The type of the element, with the child added.
     type Output;

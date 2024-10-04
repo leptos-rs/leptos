@@ -11,6 +11,26 @@ use std::{
     sync::Arc,
 };
 
+/// Declares that this type can be converted into some other type, which is a valid attribute value.
+pub trait IntoAttributeValue {
+    /// The attribute value into which this type can be converted.
+    type Output;
+
+    /// Consumes this value, transforming it into an attribute value.
+    fn into_attribute_value(self) -> Self::Output;
+}
+
+impl<T> IntoAttributeValue for T
+where
+    T: AttributeValue,
+{
+    type Output = Self;
+
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
 /// A possible value for an HTML attribute.
 pub trait AttributeValue: Send {
     /// The state that should be retained between building and rebuilding.
