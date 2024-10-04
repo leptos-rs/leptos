@@ -35,10 +35,10 @@ impl<T> Clone for ArcLocalResource<T> {
 
 impl<T> ArcLocalResource<T> {
     #[track_caller]
-    pub fn new<Fut>(fetcher: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
-        T: Send + Sync + 'static,
-        Fut: Future<Output = T> + Send + 'static,
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
     {
         let fetcher = move || {
             let fut = fetcher();
@@ -60,7 +60,7 @@ impl<T> ArcLocalResource<T> {
             }
         };
         Self {
-            data: ArcAsyncDerived::new(fetcher),
+            data: ArcAsyncDerived::new_unsync(fetcher),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -103,7 +103,7 @@ impl<T> DefinedAt for ArcLocalResource<T> {
 
 impl<T> ReadUntracked for ArcLocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
 
@@ -201,7 +201,7 @@ impl<T> LocalResource<T> {
     pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
         T: 'static,
-        Fut: Future<Output = T> + Send + 'static,
+        Fut: Future<Output = T> + 'static,
     {
         let fetcher = move || {
             let fut = fetcher();
@@ -230,7 +230,7 @@ impl<T> LocalResource<T> {
                 let fetcher = SendWrapper::new(fetcher);
                 AsyncDerived::new(move || {
                     let fut = fetcher();
-                    async move { SendWrapper::new(fut.await) }
+                    SendWrapper::new(async move { SendWrapper::new(fut.await) })
                 })
             },
             #[cfg(debug_assertions)]
@@ -280,7 +280,7 @@ impl<T> DefinedAt for LocalResource<T> {
 
 impl<T> ReadUntracked for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     type Value =
         ReadGuard<Option<SendWrapper<T>>, AsyncPlain<Option<SendWrapper<T>>>>;
@@ -307,7 +307,7 @@ impl<T: 'static> IsDisposed for LocalResource<T> {
 
 impl<T: 'static> ToAnySource for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     fn to_any_source(&self) -> AnySource {
         self.data.to_any_source()
@@ -316,7 +316,7 @@ where
 
 impl<T: 'static> ToAnySubscriber for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     fn to_any_subscriber(&self) -> AnySubscriber {
         self.data.to_any_subscriber()
@@ -325,7 +325,7 @@ where
 
 impl<T> Source for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
         self.data.add_subscriber(subscriber)
@@ -342,7 +342,7 @@ where
 
 impl<T> ReactiveNode for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     fn mark_dirty(&self) {
         self.data.mark_dirty();
@@ -363,7 +363,7 @@ where
 
 impl<T> Subscriber for LocalResource<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     fn add_source(&self, source: AnySource) {
         self.data.add_source(source);
