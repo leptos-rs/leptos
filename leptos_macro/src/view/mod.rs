@@ -985,7 +985,7 @@ pub(crate) fn attribute_absolute(
                                     quote! { ::leptos::tachys::html::#key::#key(#value) },
                                 )
                             } else if key_name == "aria" {
-                        let value = attribute_value(node, true);
+                                let value = attribute_value(node, true);
                                 let mut parts_iter = parts.iter();
                                 parts_iter.next();
                                 let fn_name = parts_iter.map(|p| p.to_string()).collect::<Vec<String>>().join("_");
@@ -999,7 +999,6 @@ pub(crate) fn attribute_absolute(
                                 )
                             }
                         } else if id == "use" {
-                        let value = attribute_value(node, false);
                             let key = &parts[1];
                             let param = if let Some(value) = node.value() {
                                 quote!(#value)
@@ -1015,7 +1014,7 @@ pub(crate) fn attribute_absolute(
                                 },
                             )
                         } else if id == "style" || id == "class" {
-                        let value = attribute_value(node, false);
+                            let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key
                                 .replacen("style:", "", 1)
@@ -1024,14 +1023,13 @@ pub(crate) fn attribute_absolute(
                                 quote! { ::leptos::tachys::html::#id::#id((#key, #value)) },
                             )
                         } else if id == "prop" {
-                        let value = attribute_value(node, false);
+                            let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key.replacen("prop:", "", 1);
                             Some(
                                 quote! { ::leptos::tachys::html::property::#id(#key, #value) },
                             )
                         } else if id == "on" {
-                        let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key.replacen("on:", "", 1);
                             let (on, ty, handler) =
