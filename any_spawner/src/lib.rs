@@ -37,6 +37,7 @@ pub(crate) type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
+static RUN: OnceLock<fn()> = OnceLock::new();
 
 /// Errors that can occur when using the executor.
 #[derive(Error, Debug)]
@@ -101,6 +102,27 @@ impl Executor {
             #[cfg(all(debug_assertions, not(feature = "tracing")))]
             panic!(
                 "At {}, tried to spawn a Future with Executor::spawn_local() \
+                 before the Executor had been set.",
+                std::panic::Location::caller()
+            );
+        }
+    }
+
+    /// Run the [`Executor`].
+    #[track_caller]
+    pub fn run() {
+        if let Some(run) = RUN.get() {
+            run();
+        } else {
+            #[cfg(all(debug_assertions, feature = "tracing"))]
+            tracing::error!(
+                "At {}, tried to run an executor with Executor::run() \
+                 before the Executor had been set.",
+                std::panic::Location::caller()
+            );
+            #[cfg(all(debug_assertions, not(feature = "tracing")))]
+            panic!(
+                "At {}, tried to run an executor with Executor::run() \
                  before the Executor had been set.",
                 std::panic::Location::caller()
             );
@@ -226,6 +248,52 @@ impl Executor {
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
     }
+
+    /// Globally sets the [`futures`] executor as the executor used to spawn tasks,
+    /// using a single-threaded local thread pool, useful for platforms without
+    /// multi-threading capabilities such as `wasm32-wasip1`.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `futures-executor` feature to be activated on this crate.
+    #[cfg(feature = "futures-executor")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "futures-executor")))]
+    pub fn init_futures_local_executor() -> Result<(), ExecutorError> {
+        use std::cell::RefCell;
+
+        use futures::{executor::LocalPool, task::LocalSpawnExt};
+
+        thread_local! {
+            static LOCAL_POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
+        }
+
+        SPAWN
+            .set(|fut| {
+                LOCAL_POOL.with(|pool| {
+                    let spawner = pool.borrow().spawner();
+                    spawner.spawn_local(fut).expect("failed to spawn future");
+                });
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        SPAWN_LOCAL
+            .set(|fut| {
+                LOCAL_POOL.with(|pool| {
+                    let spawner = pool.borrow().spawner();
+                    spawner.spawn_local(fut).expect("failed to spawn future");
+                });
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+
+        RUN
+            .set(|| {
+                LOCAL_POOL.with(|pool| {
+                    pool.borrow_mut().run();
+                });
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -240,6 +308,15 @@ mod tests {
         Executor::spawn_local(async {
             _ = rc;
         });
+        Executor::spawn(async {});
+    }
+
+    #[cfg(feature = "futures-executor")]
+    #[test]
+    fn can_spawn_future_single_thread() {
+        use crate::Executor;
+        Executor::init_futures_local_executor().expect("couldn't set executor");
+        Executor::spawn_local(async {});
         Executor::spawn(async {});
     }
 }
