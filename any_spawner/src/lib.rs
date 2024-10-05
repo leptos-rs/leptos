@@ -110,6 +110,27 @@ impl Executor {
         }
     }
 
+    /// Run the [`Executor`].
+    #[track_caller]
+    pub fn run() {
+        if let Some(run) = RUN.get() {
+            run();
+        } else {
+            #[cfg(all(debug_assertions, feature = "tracing"))]
+            tracing::error!(
+                "At {}, tried to run an executor with Executor::run() \
+                 before the Executor had been set.",
+                std::panic::Location::caller()
+            );
+            #[cfg(all(debug_assertions, not(feature = "tracing")))]
+            panic!(
+                "At {}, tried to run an executor with Executor::run() \
+                 before the Executor had been set.",
+                std::panic::Location::caller()
+            );
+        }
+    }
+
     /// Waits until the next "tick" of the current async executor.
     pub async fn tick() {
         let (tx, rx) = futures::channel::oneshot::channel();
