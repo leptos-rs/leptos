@@ -12,12 +12,11 @@ pub mod axum;
 /// Request types for the browser.
 #[cfg(feature = "browser")]
 pub mod browser;
+#[cfg(feature = "generic")]
+pub mod generic;
 /// Request types for [`reqwest`].
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
-/// Generic request type
-#[cfg(feature = "generic")]
-pub mod generic;
 
 /// Represents a request as made by the client.
 pub trait ClientReq<CustErr>

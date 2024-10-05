@@ -1,33 +1,57 @@
+//! This module uses platform-agnostic abstractions
+//! allowing users to run server functions on a wide range of
+//! platforms.
+//! 
+//! The crates in use in this crate are:
+//! 
+//! * `bytes`: platform-agnostic manipulation of bytes.
+//! * `http`: low-dependency HTTP abstractions' *front-end*.
+//! 
+//! # Users
+//! 
+//! * `wasm32-wasip*` integration crate `leptos_wasi` is using this
+//!   crate under the hood.
+
 use super::Res;
 use crate::error::{
-    NoCustomError, ServerFnError, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER
+    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER
 };
 use bytes::Bytes;
-use futures::Stream;
+use futures::{Stream, TryStreamExt};
 use http::{header, HeaderValue, Response, StatusCode};
+use throw_error::Error;
 use std::{
-    fmt::{Debug, Display}, pin::Pin, str::FromStr
+    fmt::{Debug, Display},
+    pin::Pin,
+    str::FromStr,
 };
 
 /// The Body of a Response whose *execution model* can be
 /// customised using the variants.
-pub enum Body<CustErr = NoCustomError> {
+pub enum Body {
     /// The response body will be written synchronously.
     Sync(Bytes),
-    
+
     /// The response body will be written asynchronously,
     /// this execution model is also known as
     /// "streaming".
-    Async(Pin<Box<dyn Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + 'static>>),
+    Async(
+        Pin<
+            Box<
+                dyn Stream<Item = Result<Bytes, Error>>
+                    + Send + 'static,
+            >,
+        >,
+    ),
 }
 
-impl<CustErr> From<String> for Body<CustErr> {
+impl From<String> for Body {
     fn from(value: String) -> Self {
         Body::Sync(Bytes::from(value))
     }
 }
 
-impl<CustErr> Res<CustErr> for Response<Body<CustErr>>
+impl<CustErr> Res<CustErr> for Response<Body>
 where
     CustErr: Send + Sync + Debug + FromStr + Display + 'static,
 {
@@ -65,7 +89,11 @@ where
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
-            .body(Body::Async(Box::pin(data)))
+            .body(
+                Body::Async(
+                    Box::pin(data.map_err(ServerFnErrorErr::from).map_err(Error::from))
+                )
+            )
             .map_err(|e| ServerFnError::Response(e.to_string()))
     }
 
