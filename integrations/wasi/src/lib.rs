@@ -1,9 +1,57 @@
-use std::sync::Arc;
-
-use bindings::wasi::http::types::{Fields, IncomingRequest, OutgoingResponse};
-use http::{HeaderMap, StatusCode, HeaderName, HeaderValue};
-use hydration_context::PinnedStream;
-use parking_lot::RwLock;
+//! A first-party support of the `wasm32-wasip1` target for the **Server-Side**
+//! of Leptos using the [`wasi:http`][wasi-http] proposal.
+//! 
+//! [wasi-http]: https://github.com/WebAssembly/wasi-http
+//! 
+//! # `Handler`
+//! 
+//! The [`prelude::Handler`] is the main abstraction you will use.
+//! 
+//! It expects being run in the context of a Future Executor `Task`,
+//! since WASI is, at the moment, a single-threaded environment,
+//! we provide a simple abstraction in the form of [`leptos::spawn::Executor`]
+//! that you can leverage to use this crate.
+//! 
+//! ```
+//! use leptos_wasi::{bindings::exports::wasi::http::incoming_handler::Guest, prelude::{IncomingRequest, ResponseOutparam}};
+//! 
+//! struct LeptosServer;
+//!
+//! // NB(raskyld): for now, the types to use for the HTTP handlers are the one from
+//! // the `leptos_wasi` crate, not the one generated in your crate.
+//! impl Guest for LeptosServer {
+//!     fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
+//!         // Initiate a single-threaded [`Future`] Executor so we can run the
+//!         // rendering system and take advantage of bodies streaming.
+//!         Executor::init_futures_local_executor().expect("cannot init future executor");
+//!         Executor::spawn(async {
+//!             // declare an async function called `handle_request` and
+//!             // use the Handler in this function.
+//!             handle_request(request, response_out).await;
+//!         });
+//!         Executor::run();
+//!     }
+//! }
+//! ```
+//! 
+//! # WASI Bindings
+//! 
+//! You are free to use any WIT imports and export any WIT exports but at the moment,
+//! when interacting with this crate, you must use the types that you can find in
+//! this crate [`bindings`].
+//! 
+//! You then need to export your implementation using:
+//! 
+//! ```
+//! export!(LeptosServer with_types_in leptos_wasi::bindings);
+//! ```
+//! 
+//! If you want to use your own bindings for `wasi:http`,
+//! then you need to implement `From` traits
+//! to convert your own bindings into the one in [`bindings`].
+//! Please, note that it will likely implies doing `unsafe`
+//! operations to wrap the resource's `handle() -> u64` in
+//! another type.
 
 pub mod bindings {
     wit_bindgen::generate!({
@@ -14,57 +62,19 @@ pub mod bindings {
     });
 }
 
-pub mod server_fn;
+pub mod request;
+pub mod handler;
+pub mod response;
+pub mod utils;
 
-pub struct WasiRequest(pub IncomingRequest);
-
-pub struct WasiResponse {
-    fields: Fields,
-    resp: OutgoingResponse,
-    
-    /// Optional stream to consume to produce the response,
-    /// the tachys crate seems to produce String stream so we use
-    /// the same here. If it is set, the stream is consumed and the
-    /// chunks are appended to the body of resp.
-    stream: Option<PinnedStream<String>>,
+pub mod prelude {
+    pub use crate::utils::redirect;
+    pub use crate::handler::Handler;
+    pub use crate::bindings::exports::wasi::http::incoming_handler::{IncomingRequest, ResponseOutparam};
+    pub use crate::response::Body;
 }
 
-/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
-/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
-#[derive(Debug, Clone, Default)]
-pub struct ResponseParts {
-    pub headers: HeaderMap,
-    pub status: Option<StatusCode>,
-}
-
-/// Allows you to override details of the HTTP response like the status code and add Headers/Cookies.
-#[derive(Debug, Clone, Default)]
-pub struct ResponseOptions(Arc<RwLock<ResponseParts>>);
-
-impl ResponseOptions {
-    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
-    pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
-        *writable = parts
-    }
-    /// Set the status of the returned Response.
-    pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.status = Some(status);
-    }
-    /// Insert a header, overwriting any previous value with the same key.
-    pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.headers.insert(key, value);
-    }
-    /// Append a header, leaving any header with the same key intact.
-    pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.headers.append(key, value);
-    }
-}
-
+/// When working with streams, this crate will try to chunk bytes with
+/// this size.
+const CHUNK_BYTE_SIZE: u64 = 64;
 

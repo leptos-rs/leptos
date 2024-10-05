@@ -1,0 +1,137 @@
+use std::{pin::Pin, sync::Arc};
+
+use bytes::Bytes;
+use futures::{Stream, StreamExt};
+use http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
+use leptos_integration_utils::ExtendResponse;
+use parking_lot::RwLock;
+
+use server_fn::response::generic::Body as ServerFnBody;
+use throw_error::Error;
+
+use crate::bindings::wasi::http::types::Headers;
+
+/// This crate uses platform-agnostic [`http::Response`]
+/// with a custom [`Body`] and convert them under the hood to
+/// WASI native types.
+/// 
+/// It supports both [`Body::Sync`] and [`Body::Async`],
+/// allowing you to choose between synchronous response
+/// (i.e. sending the whole response) and asynchronous response
+/// (i.e. streaming the response).
+pub struct Response(pub http::Response<Body>);
+
+impl Response {
+    pub fn headers(&self) -> Result<Headers, Error> {
+        let headers = Headers::new();
+        for (name, value) in self.0.headers() {
+            headers.append(&name.to_string(), &Vec::from(value.as_bytes()))?;
+        }
+        Ok(headers)
+    }
+}
+
+impl<T> From<http::Response<T>> for Response
+    where T: Into<Body>,
+{
+    fn from(value: http::Response<T>) -> Self {
+        Response(value.map(Into::into))
+    }
+}
+
+pub enum Body {
+    /// The response body will be written synchronously.
+    Sync(Bytes),
+
+    /// The response body will be written asynchronously,
+    /// this execution model is also known as
+    /// "streaming".
+    Async(
+        Pin<
+            Box<
+                dyn Stream<Item = Result<Bytes, Error>>
+                    + Send + 'static,
+            >,
+        >,
+    ),
+}
+
+impl From<ServerFnBody> for Body {
+    fn from(value: ServerFnBody) -> Self {
+        match value {
+            ServerFnBody::Sync(data) => Body::Sync(data),
+            ServerFnBody::Async(stream) => Body::Async(stream),
+        }
+    }
+}
+
+
+/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
+/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+#[derive(Debug, Clone, Default)]
+pub struct ResponseParts {
+    pub headers: HeaderMap,
+    pub status: Option<StatusCode>,
+}
+
+/// Allows you to override details of the HTTP response like the status code and add Headers/Cookies.
+#[derive(Debug, Clone, Default)]
+pub struct ResponseOptions(Arc<RwLock<ResponseParts>>);
+
+impl ResponseOptions {
+    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
+    pub fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write();
+        *writable = parts
+    }
+    /// Set the status of the returned Response.
+    pub fn set_status(&self, status: StatusCode) {
+        let mut writeable = self.0.write();
+        let res_parts = &mut *writeable;
+        res_parts.status = Some(status);
+    }
+    /// Insert a header, overwriting any previous value with the same key.
+    pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write();
+        let res_parts = &mut *writeable;
+        res_parts.headers.insert(key, value);
+    }
+    /// Append a header, leaving any header with the same key intact.
+    pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write();
+        let res_parts = &mut *writeable;
+        res_parts.headers.append(key, value);
+    }
+}
+
+impl ExtendResponse for Response {
+    type ResponseOptions = ResponseOptions;
+
+    fn from_stream(stream: impl Stream<Item = String> + Send + 'static)
+            -> Self {
+        let stream = stream
+            .map(|data| {
+                Result::<Bytes, Error>::Ok(Bytes::from(data))
+            });
+        
+        Response(http::Response::new(Body::Async(Box::pin(stream))))
+    }
+
+    fn extend_response(&mut self, opt: &Self::ResponseOptions) {
+        let mut opt = opt.0.write();
+        if let Some(status_code) = opt.status {
+            *self.0.status_mut() = status_code;
+        }
+        self.0.headers_mut().extend(std::mem::take(&mut opt.headers));
+    }
+
+    fn set_default_content_type(&mut self, content_type: &str) {
+        let headers = self.0.headers_mut();
+        if !headers.contains_key(http::header::CONTENT_TYPE) {
+            headers.insert(
+                http::header::CONTENT_TYPE,
+                HeaderValue::from_str(content_type).unwrap(),
+            );
+        }
+    }
+}
