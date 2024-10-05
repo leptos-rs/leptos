@@ -1,10 +1,8 @@
-use crate::Suspense;
-use leptos_dom::IntoView;
+use crate::{prelude::Suspend, suspense_component::Suspense, IntoView};
 use leptos_macro::{component, view};
-use leptos_reactive::{
-    create_blocking_resource, create_local_resource, create_resource,
-    store_value, Serializable,
-};
+use leptos_server::ArcOnceResource;
+use reactive_graph::prelude::ReadUntracked;
+use serde::{de::DeserializeOwned, Serialize};
 
 #[component]
 /// Allows you to inline the data loading for an `async` block or
@@ -37,15 +35,15 @@ use leptos_reactive::{
 /// # runtime.dispose();
 /// # }
 /// ```
-pub fn Await<T, Fut, FF, VF, V>(
-    /// A function that returns the [`Future`](std::future::Future) that
-    /// will the component will `.await` before rendering.
-    future: FF,
-    /// If `true`, the component will use [`create_blocking_resource`], preventing
+pub fn Await<T, Fut, Chil, V>(
+    /// A [`Future`](std::future::Future) that will the component will `.await`
+    /// before rendering.
+    future: Fut,
+    /// If `true`, the component will create a blocking resource, preventing
     /// the HTML stream from returning anything before `future` has resolved.
     #[prop(optional)]
     blocking: bool,
-    /// If `true`, the component will use [`create_local_resource`], this will
+    /// If `true`, the component will create a local resource, which will
     /// always run on the local system and therefore its result type does not
     /// need to be `Serializable`.
     #[prop(optional)]
@@ -66,7 +64,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! {
     ///     <Await
-    ///         future=|| fetch_monkeys(3)
+    ///         future=fetch_monkeys(3)
     ///         let:data
     ///     >
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
@@ -86,7 +84,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! {
     ///     <Await
-    ///         future=|| fetch_monkeys(3)
+    ///         future=fetch_monkeys(3)
     ///         children=|data| view! {
     ///           <p>{*data} " little monkeys, jumping on the bed."</p>
     ///         }
@@ -96,27 +94,24 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # runtime.dispose();
     /// # }
     /// ```
-    children: VF,
+    children: Chil,
 ) -> impl IntoView
 where
-    Fut: std::future::Future<Output = T> + 'static,
-    FF: Fn() -> Fut + 'static,
+    T: Send + Sync + Serialize + DeserializeOwned + 'static,
+    Fut: std::future::Future<Output = T> + Send + 'static,
+    Chil: FnOnce(&T) -> V + Send + 'static,
     V: IntoView,
-    VF: Fn(&T) -> V + 'static,
-    T: Serializable + 'static,
 {
-    let res = if blocking {
-        create_blocking_resource(|| (), move |_| future())
-    } else if local {
-        create_local_resource(|| (), move |_| future())
-    } else {
-        create_resource(|| (), move |_| future())
-    };
-    let view = store_value(children);
+    let res = ArcOnceResource::<T>::new_with_options(future, blocking);
+    let ready = res.ready();
 
     view! {
         <Suspense fallback=|| ()>
-            {move || res.map(|data| view.with_value(|view| view(data)))}
+            {Suspend::new(async move {
+                ready.await;
+                children(res.read_untracked().as_ref().unwrap())
+            })}
+
         </Suspense>
     }
 }

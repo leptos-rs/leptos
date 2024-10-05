@@ -53,7 +53,8 @@ impl Drop for SpecialNonReactiveZoneGuard {
 }
 
 pin_project! {
-    pub(crate) struct SpecialNonReactiveFuture<Fut> {
+    #[doc(hidden)]
+    pub struct SpecialNonReactiveFuture<Fut> {
         #[pin]
         inner: Fut
     }

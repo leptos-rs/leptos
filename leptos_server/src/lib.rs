@@ -8,6 +8,8 @@ mod local_resource;
 pub use local_resource::*;
 mod multi_action;
 pub use multi_action::*;
+mod once_resource;
+pub use once_resource::*;
 mod resource;
 pub use resource::*;
 mod shared;
