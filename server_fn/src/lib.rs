@@ -124,10 +124,10 @@ pub use ::axum as axum_export;
 
 #[cfg(feature = "generic")]
 #[doc(hidden)]
-pub use ::http as http_export;
+pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
-pub use ::bytes as bytes_export;
+pub use ::http as http_export;
 
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
