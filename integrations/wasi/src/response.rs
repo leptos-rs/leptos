@@ -14,7 +14,7 @@ use crate::bindings::wasi::http::types::Headers;
 /// This crate uses platform-agnostic [`http::Response`]
 /// with a custom [`Body`] and convert them under the hood to
 /// WASI native types.
-/// 
+///
 /// It supports both [`Body::Sync`] and [`Body::Async`],
 /// allowing you to choose between synchronous response
 /// (i.e. sending the whole response) and asynchronous response
@@ -32,7 +32,8 @@ impl Response {
 }
 
 impl<T> From<http::Response<T>> for Response
-    where T: Into<Body>,
+where
+    T: Into<Body>,
 {
     fn from(value: http::Response<T>) -> Self {
         Self(value.map(Into::into))
@@ -46,14 +47,7 @@ pub enum Body {
     /// The response body will be written asynchronously,
     /// this execution model is also known as
     /// "streaming".
-    Async(
-        Pin<
-            Box<
-                dyn Stream<Item = Result<Bytes, Error>>
-                    + Send + 'static,
-            >,
-        >,
-    ),
+    Async(Pin<Box<dyn Stream<Item = Result<Bytes, Error>> + Send + 'static>>),
 }
 
 impl From<ServerFnBody> for Body {
@@ -64,7 +58,6 @@ impl From<ServerFnBody> for Body {
         }
     }
 }
-
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -104,13 +97,12 @@ impl ResponseOptions {
 impl ExtendResponse for Response {
     type ResponseOptions = ResponseOptions;
 
-    fn from_stream(stream: impl Stream<Item = String> + Send + 'static)
-            -> Self {
-        let stream = stream
-            .map(|data| {
-                Result::<Bytes, Error>::Ok(Bytes::from(data))
-            });
-        
+    fn from_stream(
+        stream: impl Stream<Item = String> + Send + 'static,
+    ) -> Self {
+        let stream =
+            stream.map(|data| Result::<Bytes, Error>::Ok(Bytes::from(data)));
+
         Self(http::Response::new(Body::Async(Box::pin(stream))))
     }
 
@@ -119,7 +111,9 @@ impl ExtendResponse for Response {
         if let Some(status_code) = opt.status {
             *self.0.status_mut() = status_code;
         }
-        self.0.headers_mut().extend(std::mem::take(&mut opt.headers));
+        self.0
+            .headers_mut()
+            .extend(std::mem::take(&mut opt.headers));
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {

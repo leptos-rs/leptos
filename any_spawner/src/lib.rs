@@ -29,9 +29,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use core::{future::Future, pin::Pin, panic::Location};
-use std::sync::OnceLock;
+use core::{future::Future, panic::Location, pin::Pin};
 use futures::channel::oneshot;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 /// A future that has been pinned.
@@ -43,7 +43,7 @@ pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
 
 /// Handle to spawn a new [`PinnedLocalFuture`] on the initiated [`Executor`].
-/// 
+///
 /// It is useful when you have a Future that is not [`Send`].
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
 static POLL_LOCAL: OnceLock<fn()> = OnceLock::new();
@@ -72,7 +72,8 @@ impl Executor {
     #[track_caller]
     #[inline]
     pub fn spawn<T>(fut: T)
-        where T: Future<Output = ()> + Send + 'static
+    where
+        T: Future<Output = ()> + Send + 'static,
     {
         if let Some(spawner) = SPAWN.get() {
             spawner(Box::pin(fut))
@@ -104,7 +105,8 @@ impl Executor {
     #[track_caller]
     #[inline]
     pub fn spawn_local<T>(fut: T)
-        where T: Future<Output = ()> + 'static
+    where
+        T: Future<Output = ()> + 'static,
     {
         if let Some(spawner) = SPAWN_LOCAL.get() {
             spawner(Box::pin(fut))
