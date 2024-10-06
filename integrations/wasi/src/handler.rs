@@ -117,7 +117,8 @@ impl Handler {
 
     // Test whether we are ready to send a response to shortcut some
     // code and provide a fast-path.
-    fn shortcut(&self) -> bool {
+    #[inline]
+    const fn shortcut(&self) -> bool {
         self.server_fn.is_some() || self.preset_res.is_some() || self.should_404
     }
 
@@ -270,11 +271,11 @@ impl Handler {
             .into_iter()
             .map(|rt| (rt.path().to_rf_str_representation(), rt))
             .filter(|route| {
-                if let Some(excluded_routes) = &excluded_routes {
-                    !excluded_routes.iter().any(|ex_path| *ex_path == route.0)
-                } else {
-                    true
-                }
+                excluded_routes
+                    .as_ref()
+                    .map_or(true, |excluded_routes| {
+                        !excluded_routes.iter().any(|ex_path| *ex_path == route.0)
+                })
             });
 
         for (path, route_listing) in routes {
@@ -404,7 +405,7 @@ impl Handler {
 
         while let Some(buf) = input_stream.next().await {
             let buf = buf?;
-            let chunks = buf.chunks(CHUNK_BYTE_SIZE.try_into().unwrap());
+            let chunks = buf.chunks(CHUNK_BYTE_SIZE);
             for chunk in chunks {
                 // TODO: better error handling there.
                 output_stream.blocking_write_and_flush(chunk)?;

@@ -35,7 +35,7 @@ impl<T> From<http::Response<T>> for Response
     where T: Into<Body>,
 {
     fn from(value: http::Response<T>) -> Self {
-        Response(value.map(Into::into))
+        Self(value.map(Into::into))
     }
 }
 
@@ -59,8 +59,8 @@ pub enum Body {
 impl From<ServerFnBody> for Body {
     fn from(value: ServerFnBody) -> Self {
         match value {
-            ServerFnBody::Sync(data) => Body::Sync(data),
-            ServerFnBody::Async(stream) => Body::Async(stream),
+            ServerFnBody::Sync(data) => Self::Sync(data),
+            ServerFnBody::Async(stream) => Self::Async(stream),
         }
     }
 }
@@ -80,27 +80,24 @@ pub struct ResponseOptions(Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
+    #[inline]
     pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
-        *writable = parts
+        *self.0.write() = parts
     }
     /// Set the status of the returned Response.
+    #[inline]
     pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.status = Some(status);
+        self.0.write().status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key.
+    #[inline]
     pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.headers.insert(key, value);
+        self.0.write().headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact.
+    #[inline]
     pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
-        let res_parts = &mut *writeable;
-        res_parts.headers.append(key, value);
+        self.0.write().headers.append(key, value);
     }
 }
 
@@ -114,7 +111,7 @@ impl ExtendResponse for Response {
                 Result::<Bytes, Error>::Ok(Bytes::from(data))
             });
         
-        Response(http::Response::new(Body::Async(Box::pin(stream))))
+        Self(http::Response::new(Body::Async(Box::pin(stream))))
     }
 
     fn extend_response(&mut self, opt: &Self::ResponseOptions) {
