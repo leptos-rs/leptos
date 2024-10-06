@@ -43,11 +43,6 @@ pub fn Await<T, Fut, Chil, V>(
     /// the HTML stream from returning anything before `future` has resolved.
     #[prop(optional)]
     blocking: bool,
-    /// If `true`, the component will create a local resource, which will
-    /// always run on the local system and therefore its result type does not
-    /// need to be `Serializable`.
-    #[prop(optional)]
-    local: bool,
     /// A function that takes a reference to the resolved data from the `future`
     /// renders a view.
     ///
