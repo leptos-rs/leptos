@@ -261,36 +261,53 @@ impl Executor {
     pub fn init_futures_local_executor() -> Result<(), ExecutorError> {
         use std::cell::RefCell;
 
-        use futures::{executor::LocalPool, task::LocalSpawnExt};
+        use futures::{
+            executor::{LocalPool, LocalSpawner},
+            task::LocalSpawnExt,
+        };
 
         thread_local! {
             static LOCAL_POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
+            static SPAWNER_HANDLE: OnceLock<LocalSpawner> = const { OnceLock::new() };
         }
+
+        SPAWNER_HANDLE.with(|spawner_handle| {
+            LOCAL_POOL.with(|local_pool| {
+                spawner_handle
+                    .set(local_pool.borrow().spawner())
+                    .expect("unexpected error when getting executor spawner");
+            });
+        });
 
         SPAWN
             .set(|fut| {
-                LOCAL_POOL.with(|pool| {
-                    let spawner = pool.borrow().spawner();
-                    spawner.spawn_local(fut).expect("failed to spawn future");
+                SPAWNER_HANDLE.with(|spawner| {
+                    spawner
+                        .get()
+                        .expect("executor spawner was not set")
+                        .spawn_local(fut)
+                        .expect("failed to spawn future");
                 });
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         SPAWN_LOCAL
             .set(|fut| {
-                LOCAL_POOL.with(|pool| {
-                    let spawner = pool.borrow().spawner();
-                    spawner.spawn_local(fut).expect("failed to spawn future");
+                SPAWNER_HANDLE.with(|spawner| {
+                    spawner
+                        .get()
+                        .expect("executor spawner was not set")
+                        .spawn_local(fut)
+                        .expect("failed to spawn future");
                 });
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
 
-        RUN
-            .set(|| {
-                LOCAL_POOL.with(|pool| {
-                    pool.borrow_mut().run();
-                });
-            })
-            .map_err(|_| ExecutorError::AlreadySet)?;
+        RUN.set(|| {
+            LOCAL_POOL.with(|pool| {
+                pool.borrow_mut().run();
+            });
+        })
+        .map_err(|_| ExecutorError::AlreadySet)?;
 
         Ok(())
     }
