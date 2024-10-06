@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use futures::{stream::{self, once}, StreamExt};
-use http::{request::Parts, HeaderValue, Uri};
+use http::{header::{ACCEPT, LOCATION, REFERER}, request::Parts, HeaderValue, StatusCode, Uri};
 use hydration_context::SsrSharedContext;
 use leptos::{
     prelude::{provide_context, Owner, ScopedFuture}, server_fn::{
@@ -316,7 +316,37 @@ impl Handler {
                     self.preset_res
                 } else if let Some(mut sfn) = self.server_fn {
                     provide_contexts(additional_context, context_parts, res_opts.clone());
-                    Some(sfn.run(req).await.into())
+
+                    // store Accepts and Referer in case we need them for redirect (below)
+                    let accepts_html = req
+                        .headers()
+                        .get(ACCEPT)
+                        .and_then(|v| v.to_str().ok())
+                        .map(|v| v.contains("text/html"))
+                        .unwrap_or(false);
+                    let referrer = req.headers().get(REFERER).cloned();
+
+                    let mut res = sfn.run(req).await;
+
+                    // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                    // Location set, then redirect to to Referer
+                    if accepts_html {
+                        if let Some(referrer) = referrer {
+                            let has_location =
+                                res.headers().get(LOCATION).is_some();
+                            if !has_location {
+                                *res.status_mut() = StatusCode::FOUND;
+                                res.headers_mut().insert(LOCATION, referrer);
+                            }
+                        }
+                    }
+
+                    match res.body() {
+                        ServerFnBody::Async(_) => println!("cant print stream"),
+                        ServerFnBody::Sync(data) => println!("will send : {}", String::from_utf8_lossy(data))
+                    };
+
+                    Some(res.into())
                 } else if let Some(best_match) = best_match {
                     let listing = best_match.handler();
                     let (meta_context, meta_output) = ServerMetaContext::new();
