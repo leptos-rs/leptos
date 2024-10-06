@@ -812,8 +812,10 @@ pub trait SetValue: DefinedAt {
     /// Panics if you try to access a signal that has been disposed.
     #[track_caller]
     fn set_value(&self, value: Self::Value) {
-        self.try_set_value(value)
-            .unwrap_or_else(unwrap_signal!(self));
+        // Unlike most other traits, for these None actually means success:
+        if self.try_set_value(value).is_some() {
+            unwrap_signal!(self)();
+        }
     }
 }
 
@@ -824,6 +826,7 @@ where
     type Value = <Self as WriteValue>::Value;
 
     fn try_set_value(&self, value: Self::Value) -> Option<Self::Value> {
+        // Unlike most other traits, for these None actually means success:
         if let Some(mut guard) = self.try_write_value() {
             *guard = value;
             None
