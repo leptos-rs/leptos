@@ -83,6 +83,7 @@ where
     #[track_caller]
     pub fn new_with_options(
         fut: impl Future<Output = T> + Send + 'static,
+        #[allow(unused)] // this is used with `feature = "ssr"`
         blocking: bool,
     ) -> Self {
         let shared_context = Owner::current_shared_context();
