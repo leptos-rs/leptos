@@ -29,16 +29,16 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use core::{future::Future, pin::Pin, panic::Location};
-use std::sync::OnceLock;
+use core::{future::Future, panic::Location, pin::Pin};
 use futures::channel::oneshot;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 /// Helper alias for pinned Box holding a Future so `poll` can be called.
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 /// Helper alias for pinned Box holding a Future so `poll` can be called.
-/// 
+///
 /// Unlike [`PinnedFuture`], the boxed future is not [`Send`], that is,
 /// the future can only be run on the local thread.
 pub(crate) type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -47,12 +47,12 @@ pub(crate) type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
 
 /// Handle to spawn a new [`PinnedLocalFuture`] on the initiated [`Executor`].
-/// 
+///
 /// It is useful when you have a Future that is not [`Send`].
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
 
 /// Handle to actually run the initiated [`Executor`].
-/// 
+///
 /// At the moment, it is only useful when [`futures`] is the chosen runtime
 /// since, unlike [`tokio`] and [`glib`], it is not expected to be
 /// initiated with an ambiant / global executor. This means the library
@@ -84,7 +84,8 @@ impl Executor {
     #[track_caller]
     #[inline]
     pub fn spawn<T>(fut: T)
-        where T: Future<Output = ()> + Send + 'static
+    where
+        T: Future<Output = ()> + Send + 'static,
     {
         if let Some(spawner) = SPAWN.get() {
             spawner(Box::pin(fut))
@@ -116,7 +117,8 @@ impl Executor {
     #[track_caller]
     #[inline]
     pub fn spawn_local<T>(fut: T)
-        where T: Future<Output = ()> + 'static
+    where
+        T: Future<Output = ()> + 'static,
     {
         if let Some(spawner) = SPAWN_LOCAL.get() {
             spawner(Box::pin(fut))
