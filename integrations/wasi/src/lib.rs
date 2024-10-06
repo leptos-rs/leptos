@@ -53,6 +53,12 @@
 //! operations to wrap the resource's `handle() -> u64` in
 //! another type.
 
+#![warn(clippy::all)]
+#![warn(clippy::nursery)]
+#![allow(clippy::restriction)]
+#![deny(clippy::allow_attributes)]
+
+#[allow(warnings)]
 pub mod bindings {
     wit_bindgen::generate!({
         path: "wit",
@@ -67,6 +73,7 @@ pub mod handler;
 pub mod response;
 pub mod utils;
 
+#[allow(clippy::pub_use)]
 pub mod prelude {
     pub use crate::utils::redirect;
     pub use crate::handler::Handler;
@@ -76,5 +83,5 @@ pub mod prelude {
 
 /// When working with streams, this crate will try to chunk bytes with
 /// this size.
-const CHUNK_BYTE_SIZE: u64 = 64;
+const CHUNK_BYTE_SIZE: usize = 64;
 

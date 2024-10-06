@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use http::{uri::Parts, Uri};
+use http::{uri::{InvalidUri, Parts}, Uri};
 use throw_error::Error;
 
 use crate::{
@@ -33,10 +33,10 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
         let body_stream = incoming_body.stream().expect("could not create a stream from body");
 
         let mut body_bytes =
-            Vec::<u8>::with_capacity(CHUNK_BYTE_SIZE.try_into().unwrap());
+            Vec::<u8>::with_capacity(CHUNK_BYTE_SIZE);
 
         loop {
-            match body_stream.blocking_read(CHUNK_BYTE_SIZE) {
+            match body_stream.blocking_read(CHUNK_BYTE_SIZE as u64) {
                 Err(StreamError::Closed) => break,
                 Err(StreamError::LastOperationFailed(err)) => {
                     return Err(StreamError::LastOperationFailed(err).into())
@@ -49,21 +49,24 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
 
         let mut uri_parts = Parts::default();
 
-        uri_parts.scheme = req.scheme().map(http::uri::Scheme::from);
+        uri_parts.scheme = req
+            .scheme()
+            .map(http::uri::Scheme::try_from)
+            .transpose()?;
         uri_parts.authority = req
             .authority()
             .map(|aut| {
                 http::uri::Authority::from_maybe_shared(aut.into_bytes())
             })
             .transpose()
-            .map_err(|err| Error::from(err))?;
+            .map_err(Error::from)?;
         uri_parts.path_and_query = req
             .path_with_query()
             .map(|paq| {
                 http::uri::PathAndQuery::from_maybe_shared(paq.into_bytes())
             })
             .transpose()
-            .map_err(|err| Error::from(err))?;
+            .map_err(Error::from)?;
 
         drop(body_stream);
         IncomingBody::finish(incoming_body);
@@ -71,10 +74,10 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
             .method(req_method)
             .uri(
                 Uri::from_parts(uri_parts)
-                    .map_err(|err| Error::from(err))?,
+                    .map_err(Error::from)?,
             )
             .body(Bytes::from(body_bytes))
-            .map_err(|err| Error::from(err))
+            .map_err(Error::from)
     }
 }
 
@@ -83,27 +86,28 @@ impl TryFrom<Method> for http::Method {
 
     fn try_from(value: Method) -> Result<Self, Self::Error> {
         match value {
-            Method::Connect => Ok(http::Method::CONNECT),
-            Method::Delete => Ok(http::Method::DELETE),
-            Method::Get => Ok(http::Method::GET),
-            Method::Head => Ok(http::Method::HEAD),
-            Method::Options => Ok(http::Method::OPTIONS),
-            Method::Patch => Ok(http::Method::PATCH),
-            Method::Post => Ok(http::Method::POST),
-            Method::Put => Ok(http::Method::PUT),
-            Method::Trace => Ok(http::Method::TRACE),
-            Method::Other(mtd) => http::Method::from_bytes(mtd.as_bytes()),
+            Method::Connect => Ok(Self::CONNECT),
+            Method::Delete => Ok(Self::DELETE),
+            Method::Get => Ok(Self::GET),
+            Method::Head => Ok(Self::HEAD),
+            Method::Options => Ok(Self::OPTIONS),
+            Method::Patch => Ok(Self::PATCH),
+            Method::Post => Ok(Self::POST),
+            Method::Put => Ok(Self::PUT),
+            Method::Trace => Ok(Self::TRACE),
+            Method::Other(mtd) => Self::from_bytes(mtd.as_bytes()),
         }
     }
 }
 
-impl From<Scheme> for http::uri::Scheme {
-    fn from(value: Scheme) -> Self {
+impl TryFrom<Scheme> for http::uri::Scheme {
+    type Error = InvalidUri;
+    fn try_from(value: Scheme) -> Result<Self, Self::Error> {
         match value {
-            Scheme::Http => http::uri::Scheme::HTTP,
-            Scheme::Https => http::uri::Scheme::HTTPS,
+            Scheme::Http => Ok(Self::HTTP),
+            Scheme::Https => Ok(Self::HTTPS),
             Scheme::Other(oth) => {
-                http::uri::Scheme::try_from(oth.as_bytes()).unwrap()
+                Self::try_from(oth.as_bytes())
             }
         }
     }
