@@ -1,5 +1,8 @@
 use bytes::Bytes;
-use http::{uri::{InvalidUri, Parts}, Uri};
+use http::{
+    uri::{InvalidUri, Parts},
+    Uri,
+};
 use throw_error::Error;
 
 use crate::{
@@ -27,13 +30,13 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
         // NB(raskyld): consume could fail if, for some reason the caller
         // manage to recreate an IncomingRequest backed by the same underlying
         // resource handle (need to dig more to see if that's possible)
-        let incoming_body = req
-            .consume().expect("could not consume body");
+        let incoming_body = req.consume().expect("could not consume body");
 
-        let body_stream = incoming_body.stream().expect("could not create a stream from body");
+        let body_stream = incoming_body
+            .stream()
+            .expect("could not create a stream from body");
 
-        let mut body_bytes =
-            Vec::<u8>::with_capacity(CHUNK_BYTE_SIZE);
+        let mut body_bytes = Vec::<u8>::with_capacity(CHUNK_BYTE_SIZE);
 
         loop {
             match body_stream.blocking_read(CHUNK_BYTE_SIZE as u64) {
@@ -49,10 +52,8 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
 
         let mut uri_parts = Parts::default();
 
-        uri_parts.scheme = req
-            .scheme()
-            .map(http::uri::Scheme::try_from)
-            .transpose()?;
+        uri_parts.scheme =
+            req.scheme().map(http::uri::Scheme::try_from).transpose()?;
         uri_parts.authority = req
             .authority()
             .map(|aut| {
@@ -72,10 +73,7 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
         IncomingBody::finish(incoming_body);
         builder
             .method(req_method)
-            .uri(
-                Uri::from_parts(uri_parts)
-                    .map_err(Error::from)?,
-            )
+            .uri(Uri::from_parts(uri_parts).map_err(Error::from)?)
             .body(Bytes::from(body_bytes))
             .map_err(Error::from)
     }
@@ -106,9 +104,7 @@ impl TryFrom<Scheme> for http::uri::Scheme {
         match value {
             Scheme::Http => Ok(Self::HTTP),
             Scheme::Https => Ok(Self::HTTPS),
-            Scheme::Other(oth) => {
-                Self::try_from(oth.as_bytes())
-            }
+            Scheme::Other(oth) => Self::try_from(oth.as_bytes()),
         }
     }
 }

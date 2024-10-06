@@ -3,21 +3,29 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use futures::{stream::{self, once}, StreamExt};
-use http::{header::{ACCEPT, LOCATION, REFERER}, request::Parts, HeaderValue, StatusCode, Uri};
+use futures::{
+    stream::{self, once},
+    StreamExt,
+};
+use http::{
+    header::{ACCEPT, LOCATION, REFERER},
+    request::Parts,
+    HeaderValue, StatusCode, Uri,
+};
 use hydration_context::SsrSharedContext;
 use leptos::{
-    prelude::{provide_context, Owner, ScopedFuture}, server_fn::{
-        codec::Encoding,
-        http_export::Request,
-        response::generic::Body as ServerFnBody,
-        ServerFn, ServerFnTraitObj,
-    }, IntoView
+    prelude::{provide_context, Owner, ScopedFuture},
+    server_fn::{
+        codec::Encoding, http_export::Request,
+        response::generic::Body as ServerFnBody, ServerFn, ServerFnTraitObj,
+    },
+    IntoView,
 };
 use leptos_integration_utils::{ExtendResponse, PinnedStream};
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
-    components::provide_server_redirect, location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode
+    components::provide_server_redirect, location::RequestUrl, PathSegment,
+    RouteList, RouteListing, SsrMode,
 };
 use mime_guess::MimeGuess;
 use routefinder::Router;
@@ -25,19 +33,24 @@ use server_fn::middleware::Service;
 use throw_error::Error;
 
 use crate::{
-    bindings::wasi::http::types::{IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam}, response::{Body, Response, ResponseOptions}, utils::redirect, CHUNK_BYTE_SIZE,
+    bindings::wasi::http::types::{
+        IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam,
+    },
+    response::{Body, Response, ResponseOptions},
+    utils::redirect,
+    CHUNK_BYTE_SIZE,
 };
 
 /// Handle routing, static file serving and response tx using the low-level
 /// `wasi:http` APIs.
-/// 
+///
 /// ## Usage
-/// 
+///
 /// Please, note that the handler expect to be run with a local Executor initiated.
-/// 
+///
 /// ```
 /// use leptos_wasi::prelude::Handler;
-/// 
+///
 /// let conf = get_configuration(None).unwrap();
 /// let leptos_options = conf.leptos_options;
 ///
@@ -45,7 +58,7 @@ use crate::{
 ///    .expect("could not create handler")
 ///    // Those two functions should be called first because they can
 ///    // *shortcut* the handler, see "Performance Considerations".
-/// 
+///
 ///    // Any HTTP request prefixed with `/pkg` will call the passed
 ///    // `serve_static_files` function to deliver static files.
 ///    .static_files_handler("/pkg", serve_static_files)
@@ -55,33 +68,33 @@ use crate::{
 ///    // Actually process the request and write the response.
 ///    .handle_with_context(move || shell(leptos_options.clone()), || {}).await.expect("could not handle the request");
 /// ```
-/// 
+///
 /// ## Performance Considerations
-/// 
+///
 /// This handler is optimised for the special case of WASI Components being spawned
 /// on a per-request basis. That is, the lifetime of the component is bound to the
 /// one of the request, so we don't do any fancy pre-setup: it means
 /// **your Server-Side will always be cold-started**.
-/// 
+///
 /// While it could have a bad impact on the performance of your app, please, know
 /// that there is a *shotcut* mechanism implemented that allows the [`Handler`]
 /// to shortcut the whole HTTP Rendering and Reactivity logic to directly jump to
 /// writting the response in those case:
-/// 
+///
 /// * The user request a static-file, then, calling [`Handler::static_files_handler`]
 ///   will *shortcut* the handler and all future calls are ignored to reach
 ///   [`Handler::handle_with_context`] *almost* instantly.
 /// * The user reach a server function, then, calling [`Handler::with_server_fn`]
 ///   will check if the request's path matches the one from the passed server functions,
 ///   if so, *shortcut* the handler.
-/// 
+///
 /// This implementation ensures that, even though your component is cold-started
 /// on each request, the performance are good. Please, note that this approach is
 /// directly enabled by the fact WASI Components have under-millisecond start-up
 /// times! It wouldn't be practical to do that with traditional container-based solutions.
-/// 
+///
 /// ## Limitations
-/// 
+///
 /// [`SsrMode::Static`] is not implemented yet, having one in your `<Router>`
 /// will cause [`Handler::handle_with_context`] to panic!
 pub struct Handler {
@@ -89,7 +102,8 @@ pub struct Handler {
     res_out: ResponseOutparam,
 
     // *shortcut* if any is set
-    server_fn: Option<ServerFnTraitObj<Request<Bytes>, http::Response<ServerFnBody>>>,
+    server_fn:
+        Option<ServerFnTraitObj<Request<Bytes>, http::Response<ServerFnBody>>>,
     preset_res: Option<Response>,
     should_404: bool,
 
@@ -155,7 +169,7 @@ impl Handler {
     /// the prefix. If the closure returns
     /// None, the response will be 404, otherwise, the returned [`Body`]
     /// will be served as-if.
-    /// 
+    ///
     /// This function, when matching, *shortcut* the [`Handler`] to quickly reach
     /// the call to [`Handler::handle_with_context`].
     pub fn static_files_handler<T>(
@@ -163,32 +177,33 @@ impl Handler {
         prefix: T,
         handler: impl Fn(String) -> Option<Body> + 'static + Send + Clone,
     ) -> Self
-        where
-            T: TryInto<Uri>,
-            <T as TryInto<Uri>>::Error: std::error::Error,
+    where
+        T: TryInto<Uri>,
+        <T as TryInto<Uri>>::Error: std::error::Error,
     {
         if self.shortcut() {
             return self;
         }
 
-        if let Some(trimmed_url) = self.req.uri().path().strip_prefix(prefix.try_into().expect("you passed an invalid Uri").path()) {
+        if let Some(trimmed_url) = self.req.uri().path().strip_prefix(
+            prefix.try_into().expect("you passed an invalid Uri").path(),
+        ) {
             match handler(trimmed_url.to_string()) {
                 None => self.should_404 = true,
                 Some(body) => {
                     let mut res = http::Response::new(body);
                     let mime = MimeGuess::from_path(trimmed_url);
 
-                    res
-                        .headers_mut()
-                        .insert(
-                            http::header::CONTENT_TYPE,
-                            HeaderValue::from_str(
-                                mime.first_or_octet_stream().as_ref(),
-                            ).expect("internal error: could not parse MIME type")
-                        );
+                    res.headers_mut().insert(
+                        http::header::CONTENT_TYPE,
+                        HeaderValue::from_str(
+                            mime.first_or_octet_stream().as_ref(),
+                        )
+                        .expect("internal error: could not parse MIME type"),
+                    );
 
                     self.preset_res = Some(Response(res));
-                },
+                }
             }
         }
 
@@ -209,7 +224,7 @@ impl Handler {
 
     /// This mocks a request to the `app_fn` component to extract your
     /// `<Router>`'s `<Routes>`.
-    /// 
+    ///
     /// You can pass an `additional_context` to [`provide_context`] to the
     /// application.
     pub fn generate_routes_with_context<IV>(
@@ -229,10 +244,10 @@ impl Handler {
 
     /// This mocks a request to the `app_fn` component to extract your
     /// `<Router>`'s `<Routes>`.
-    /// 
+    ///
     /// You can pass an `additional_context` to [`provide_context`] to the
     /// application.
-    /// 
+    ///
     /// You can pass a list of `excluded_routes` to avoid generating them.
     pub fn generate_routes_with_exclusions_and_context<IV>(
         mut self,
@@ -271,10 +286,8 @@ impl Handler {
             .into_iter()
             .map(|rt| (rt.path().to_rf_str_representation(), rt))
             .filter(|route| {
-                excluded_routes
-                    .as_ref()
-                    .map_or(true, |excluded_routes| {
-                        !excluded_routes.iter().any(|ex_path| *ex_path == route.0)
+                excluded_routes.as_ref().map_or(true, |excluded_routes| {
+                    !excluded_routes.iter().any(|ex_path| *ex_path == route.0)
                 })
             });
 
@@ -289,7 +302,7 @@ impl Handler {
 
     /// Consumes the [`Handler`] to actually perform all the request handling
     /// logic.
-    /// 
+    ///
     /// You can pass an `additional_context` to [`provide_context`] to the
     /// application.
     pub async fn handle_with_context<IV>(
@@ -423,11 +436,15 @@ impl Handler {
         let headers = response.headers()?;
         let wasi_res = OutgoingResponse::new(headers);
 
-        wasi_res.set_status_code(response.0.status().as_u16()).expect("invalid http status code was returned");
+        wasi_res
+            .set_status_code(response.0.status().as_u16())
+            .expect("invalid http status code was returned");
         let body = wasi_res.body().expect("unable to take response body");
         ResponseOutparam::set(self.res_out, Ok(wasi_res));
 
-        let output_stream = body.write().expect("unable to open writable stream on body");
+        let output_stream = body
+            .write()
+            .expect("unable to open writable stream on body");
         let mut input_stream = match response.0.into_body() {
             Body::Sync(buf) => Box::pin(stream::once(async { Ok(buf) })),
             Body::Async(stream) => stream,

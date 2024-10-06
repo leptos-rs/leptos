@@ -1,4 +1,8 @@
-use http::{header::{self, ACCEPT}, request::Parts, HeaderName, HeaderValue, StatusCode};
+use http::{
+    header::{self, ACCEPT},
+    request::Parts,
+    HeaderName, HeaderValue, StatusCode,
+};
 use leptos::prelude::use_context;
 use server_fn::redirect::REDIRECT_HEADER;
 

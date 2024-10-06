@@ -1,14 +1,14 @@
 //! This module uses platform-agnostic abstractions
 //! allowing users to run server functions on a wide range of
 //! platforms.
-//! 
+//!
 //! The crates in use in this crate are:
-//! 
+//!
 //! * `bytes`: platform-agnostic manipulation of bytes.
 //! * `http`: low-dependency HTTP abstractions' *front-end*.
-//! 
+//!
 //! # Users
-//! 
+//!
 //! * `wasm32-wasip*` integration crate `leptos_wasi` is using this
 //!   crate under the hood.
 
