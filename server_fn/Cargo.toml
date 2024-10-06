@@ -80,6 +80,7 @@ pin-project-lite = "0.2.14"
 default = ["json"]
 axum-no-default = [
   "ssr",
+  "generic",
   "dep:axum",
   "dep:hyper",
   "dep:http-body-util",
