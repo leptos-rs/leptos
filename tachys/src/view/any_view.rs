@@ -35,7 +35,7 @@ pub struct AnyView {
 
     build: fn(Box<dyn Any>) -> AnyViewState,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
-    add_any_attr: fn(Box<dyn Any>, AnyAttribute) -> AnyView,
+    add_attr: fn(Box<dyn Any>, AnyAttribute) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -144,11 +144,11 @@ where
 
         let value = Box::new(self) as Box<dyn Any + Send>;
 
-        let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
+        let add_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
             let value = value
                 .downcast::<T>()
-                .expect("AnyView::add_any_attr could not be downcast");
-            value.add_any_attr(attr).into_any()
+                .expect("AnyView::add_attr could not be downcast");
+            (*value).add_any_attr(attr).into_any()
         };
 
         #[cfg(feature = "ssr")]
@@ -287,7 +287,7 @@ where
             value,
             build,
             rebuild,
-            add_any_attr,
+            add_attr,
             #[cfg(feature = "ssr")]
             resolve,
             #[cfg(feature = "ssr")]
@@ -329,7 +329,7 @@ impl AddAnyAttr for AnyView {
         Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
-        (self.add_any_attr)(self.value, attr.into_any_attr())
+        (self.add_attr)(self.value, attr.into_any_attr())
     }
 }
 
