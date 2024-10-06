@@ -13,11 +13,8 @@ use serde::{de::DeserializeOwned, Serialize};
 /// Adding `let:{variable name}` to the props makes the data available in the children
 /// that variable name, when resolved.
 /// ```
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
+/// # use leptos::prelude::*;
 /// # if false {
-/// # let runtime = create_runtime();
 /// async fn fetch_monkeys(monkey: i32) -> i32 {
 ///     // do some expensive work
 ///     3
@@ -25,14 +22,13 @@ use serde::{de::DeserializeOwned, Serialize};
 ///
 /// view! {
 ///     <Await
-///         future=|| fetch_monkeys(3)
+///         future=fetch_monkeys(3)
 ///         let:data
 ///     >
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
 ///     </Await>
 /// }
 /// # ;
-/// # runtime.dispose();
 /// # }
 /// ```
 pub fn Await<T, Fut, Chil, V>(
@@ -51,9 +47,8 @@ pub fn Await<T, Fut, Chil, V>(
     /// `let:` syntax to specify the name for the data variable.
     ///
     /// ```rust
-    /// # use leptos::*;
+    /// # use leptos::prelude::*;
     /// # if false {
-    /// # let runtime = create_runtime();
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
@@ -66,14 +61,12 @@ pub fn Await<T, Fut, Chil, V>(
     ///     </Await>
     /// }
     /// # ;
-    /// # runtime.dispose();
     /// # }
     /// ```
     /// is the same as
     ///  ```rust
-    /// # use leptos::*;
+    /// # use leptos::prelude::*;
     /// # if false {
-    /// # let runtime = create_runtime();
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
@@ -86,7 +79,6 @@ pub fn Await<T, Fut, Chil, V>(
     ///     />
     /// }
     /// # ;
-    /// # runtime.dispose();
     /// # }
     /// ```
     children: Chil,
