@@ -144,164 +144,180 @@ where
 
         let value = Box::new(self) as Box<dyn Any + Send>;
 
-        let add_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::add_attr could not be downcast");
-            (*value).add_any_attr(attr).into_any()
-        };
+        match value.downcast::<AnyView>() {
+            // if it's already an AnyView, we don't need to double-wrap it
+            Ok(any_view) => *any_view,
+            Err(value) => {
+                let add_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::add_attr could not be downcast");
+                    (*value).add_any_attr(attr).into_any()
+                };
 
-        #[cfg(feature = "ssr")]
-        let dry_resolve = |value: &mut Box<dyn Any + Send>| {
-            let value = value
-                .downcast_mut::<T>()
-                .expect("AnyView::resolve could not be downcast");
-            value.dry_resolve();
-        };
+                #[cfg(feature = "ssr")]
+                let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+                    let value = value
+                        .downcast_mut::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    value.dry_resolve();
+                };
 
-        #[cfg(feature = "ssr")]
-        let resolve = |value: Box<dyn Any>| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::resolve could not be downcast");
-            Box::pin(async move { value.resolve().await.into_any() })
-                as Pin<Box<dyn Future<Output = AnyView> + Send>>
-        };
-        #[cfg(feature = "ssr")]
-        let to_html = |value: Box<dyn Any>,
-                       buf: &mut String,
-                       position: &mut Position,
-                       escape: bool,
-                       mark_branches: bool| {
-            let type_id = mark_branches
-                .then(|| format!("{:?}", TypeId::of::<T>()))
-                .unwrap_or_default();
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::to_html could not be downcast");
-            if mark_branches {
-                buf.open_branch(&type_id);
-            }
-            value.to_html_with_buf(buf, position, escape, mark_branches);
-            if mark_branches {
-                buf.close_branch(&type_id);
-            }
-        };
-        #[cfg(feature = "ssr")]
-        let to_html_async = |value: Box<dyn Any>,
-                             buf: &mut StreamBuilder,
-                             position: &mut Position,
-                             escape: bool,
-                             mark_branches: bool| {
-            let type_id = mark_branches
-                .then(|| format!("{:?}", TypeId::of::<T>()))
-                .unwrap_or_default();
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::to_html could not be downcast");
-            if mark_branches {
-                buf.open_branch(&type_id);
-            }
-            value.to_html_async_with_buf::<false>(
-                buf,
-                position,
-                escape,
-                mark_branches,
-            );
-            if mark_branches {
-                buf.close_branch(&type_id);
-            }
-        };
-        #[cfg(feature = "ssr")]
-        let to_html_async_ooo =
-            |value: Box<dyn Any>,
-             buf: &mut StreamBuilder,
-             position: &mut Position,
-             escape: bool,
-             mark_branches: bool| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::to_html could not be downcast");
-                value.to_html_async_with_buf::<true>(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                );
-            };
-        let build = |value: Box<dyn Any>| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::build couldn't downcast");
-            let state = Box::new(value.build());
+                #[cfg(feature = "ssr")]
+                let resolve = |value: Box<dyn Any>| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    Box::pin(async move { value.resolve().await.into_any() })
+                        as Pin<Box<dyn Future<Output = AnyView> + Send>>
+                };
+                #[cfg(feature = "ssr")]
+                let to_html =
+                    |value: Box<dyn Any>,
+                     buf: &mut String,
+                     position: &mut Position,
+                     escape: bool,
+                     mark_branches: bool| {
+                        let type_id = mark_branches
+                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .unwrap_or_default();
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView::to_html could not be downcast");
+                        if mark_branches {
+                            buf.open_branch(&type_id);
+                        }
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                        if mark_branches {
+                            buf.close_branch(&type_id);
+                        }
+                    };
+                #[cfg(feature = "ssr")]
+                let to_html_async =
+                    |value: Box<dyn Any>,
+                     buf: &mut StreamBuilder,
+                     position: &mut Position,
+                     escape: bool,
+                     mark_branches: bool| {
+                        let type_id = mark_branches
+                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .unwrap_or_default();
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView::to_html could not be downcast");
+                        if mark_branches {
+                            buf.open_branch(&type_id);
+                        }
+                        value.to_html_async_with_buf::<false>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                        if mark_branches {
+                            buf.close_branch(&type_id);
+                        }
+                    };
+                #[cfg(feature = "ssr")]
+                let to_html_async_ooo =
+                    |value: Box<dyn Any>,
+                     buf: &mut StreamBuilder,
+                     position: &mut Position,
+                     escape: bool,
+                     mark_branches: bool| {
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView::to_html could not be downcast");
+                        value.to_html_async_with_buf::<true>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    };
+                let build = |value: Box<dyn Any>| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::build couldn't downcast");
+                    let state = Box::new(value.build());
 
-            AnyViewState {
-                type_id: TypeId::of::<T>(),
-                state,
+                    AnyViewState {
+                        type_id: TypeId::of::<T>(),
+                        state,
 
-                mount: mount_any::<T>,
-                unmount: unmount_any::<T>,
-                insert_before_this: insert_before_this::<T>,
-            }
-        };
-        #[cfg(feature = "hydrate")]
-        let hydrate_from_server =
-            |value: Box<dyn Any>, cursor: &Cursor, position: &PositionState| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::hydrate_from_server couldn't downcast");
-                let state = Box::new(value.hydrate::<true>(cursor, position));
+                        mount: mount_any::<T>,
+                        unmount: unmount_any::<T>,
+                        insert_before_this: insert_before_this::<T>,
+                    }
+                };
+                #[cfg(feature = "hydrate")]
+                let hydrate_from_server =
+                    |value: Box<dyn Any>,
+                     cursor: &Cursor,
+                     position: &PositionState| {
+                        let value = value.downcast::<T>().expect(
+                            "AnyView::hydrate_from_server couldn't downcast",
+                        );
+                        let state =
+                            Box::new(value.hydrate::<true>(cursor, position));
 
-                AnyViewState {
+                        AnyViewState {
+                            type_id: TypeId::of::<T>(),
+                            state,
+
+                            mount: mount_any::<T>,
+                            unmount: unmount_any::<T>,
+                            insert_before_this: insert_before_this::<T>,
+                        }
+                    };
+
+                let rebuild =
+                    |new_type_id: TypeId,
+                     value: Box<dyn Any>,
+                     state: &mut AnyViewState| {
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView::rebuild couldn't downcast value");
+                        if new_type_id == state.type_id {
+                            let state = state.state.downcast_mut().expect(
+                                "AnyView::rebuild couldn't downcast state",
+                            );
+                            value.rebuild(state);
+                        } else {
+                            let mut new = value.into_any().build();
+                            state.insert_before_this(&mut new);
+                            state.unmount();
+                            *state = new;
+                        }
+                    };
+
+                AnyView {
                     type_id: TypeId::of::<T>(),
-                    state,
-
-                    mount: mount_any::<T>,
-                    unmount: unmount_any::<T>,
-                    insert_before_this: insert_before_this::<T>,
+                    value,
+                    build,
+                    rebuild,
+                    add_attr,
+                    #[cfg(feature = "ssr")]
+                    resolve,
+                    #[cfg(feature = "ssr")]
+                    dry_resolve,
+                    #[cfg(feature = "ssr")]
+                    html_len,
+                    #[cfg(feature = "ssr")]
+                    to_html,
+                    #[cfg(feature = "ssr")]
+                    to_html_async,
+                    #[cfg(feature = "ssr")]
+                    to_html_async_ooo,
+                    #[cfg(feature = "hydrate")]
+                    hydrate_from_server,
                 }
-            };
-
-        let rebuild = |new_type_id: TypeId,
-                       value: Box<dyn Any>,
-                       state: &mut AnyViewState| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::rebuild couldn't downcast value");
-            if new_type_id == state.type_id {
-                let state = state
-                    .state
-                    .downcast_mut()
-                    .expect("AnyView::rebuild couldn't downcast state");
-                value.rebuild(state);
-            } else {
-                let mut new = value.into_any().build();
-                state.insert_before_this(&mut new);
-                state.unmount();
-                *state = new;
             }
-        };
-
-        AnyView {
-            type_id: TypeId::of::<T>(),
-            value,
-            build,
-            rebuild,
-            add_attr,
-            #[cfg(feature = "ssr")]
-            resolve,
-            #[cfg(feature = "ssr")]
-            dry_resolve,
-            #[cfg(feature = "ssr")]
-            html_len,
-            #[cfg(feature = "ssr")]
-            to_html,
-            #[cfg(feature = "ssr")]
-            to_html_async,
-            #[cfg(feature = "ssr")]
-            to_html_async_ooo,
-            #[cfg(feature = "hydrate")]
-            hydrate_from_server,
         }
     }
 }

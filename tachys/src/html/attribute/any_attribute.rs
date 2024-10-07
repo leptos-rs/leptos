@@ -67,107 +67,121 @@ where
 
         let value = Box::new(self) as Box<dyn Any + Send>;
 
-        #[cfg(feature = "ssr")]
-        let to_html = |value: Box<dyn Any>,
-                       buf: &mut String,
-                       class: &mut String,
-                       style: &mut String,
-                       inner_html: &mut String| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyAttribute::to_html could not be downcast");
-            value.to_html(buf, class, style, inner_html);
-        };
-        let build = |value: Box<dyn Any>,
+        match value.downcast::<AnyAttribute>() {
+            // if it's already an AnyAttribute, we don't need to double-wrap it
+            Ok(any_attribute) => *any_attribute,
+            Err(value) => {
+                #[cfg(feature = "ssr")]
+                let to_html =
+                    |value: Box<dyn Any>,
+                     buf: &mut String,
+                     class: &mut String,
+                     style: &mut String,
+                     inner_html: &mut String| {
+                        let value = value.downcast::<T>().expect(
+                            "AnyAttribute::to_html could not be downcast",
+                        );
+                        value.to_html(buf, class, style, inner_html);
+                    };
+                let build =
+                    |value: Box<dyn Any>,
                      el: &crate::renderer::types::Element| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyAttribute::build couldn't downcast");
-            let state = Box::new(value.build(el));
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyAttribute::build couldn't downcast");
+                        let state = Box::new(value.build(el));
 
-            AnyAttributeState {
-                type_id: TypeId::of::<T>(),
-                state,
-                el: el.clone(),
-            }
-        };
-        #[cfg(feature = "hydrate")]
-        let hydrate_from_server =
-            |value: Box<dyn Any>, el: &crate::renderer::types::Element| {
-                let value = value.downcast::<T>().expect(
-                    "AnyAttribute::hydrate_from_server couldn't downcast",
-                );
-                let state = Box::new(value.hydrate::<true>(el));
+                        AnyAttributeState {
+                            type_id: TypeId::of::<T>(),
+                            state,
+                            el: el.clone(),
+                        }
+                    };
+                #[cfg(feature = "hydrate")]
+                let hydrate_from_server =
+                    |value: Box<dyn Any>,
+                     el: &crate::renderer::types::Element| {
+                        let value = value.downcast::<T>().expect(
+                            "AnyAttribute::hydrate_from_server couldn't \
+                             downcast",
+                        );
+                        let state = Box::new(value.hydrate::<true>(el));
 
-                AnyAttributeState {
+                        AnyAttributeState {
+                            type_id: TypeId::of::<T>(),
+                            state,
+                            el: el.clone(),
+                        }
+                    };
+                #[cfg(feature = "hydrate")]
+                let hydrate_from_template =
+                    |value: Box<dyn Any>,
+                     el: &crate::renderer::types::Element| {
+                        let value = value.downcast::<T>().expect(
+                            "AnyAttribute::hydrate_from_server couldn't \
+                             downcast",
+                        );
+                        let state = Box::new(value.hydrate::<true>(el));
+
+                        AnyAttributeState {
+                            type_id: TypeId::of::<T>(),
+                            state,
+                            el: el.clone(),
+                        }
+                    };
+                let rebuild =
+                    |new_type_id: TypeId,
+                     value: Box<dyn Any>,
+                     state: &mut AnyAttributeState| {
+                        let value = value.downcast::<T>().expect(
+                            "AnyAttribute::rebuild couldn't downcast value",
+                        );
+                        if new_type_id == state.type_id {
+                            let state = state.state.downcast_mut().expect(
+                                "AnyAttribute::rebuild couldn't downcast state",
+                            );
+                            value.rebuild(state);
+                        } else {
+                            let new = value.into_any_attr().build(&state.el);
+                            *state = new;
+                        }
+                    };
+                #[cfg(feature = "ssr")]
+                let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+                    let value = value
+                        .downcast_mut::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    value.dry_resolve();
+                };
+
+                #[cfg(feature = "ssr")]
+                let resolve = |value: Box<dyn Any>| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    Box::pin(
+                        async move { value.resolve().await.into_any_attr() },
+                    )
+                        as Pin<Box<dyn Future<Output = AnyAttribute> + Send>>
+                };
+                AnyAttribute {
                     type_id: TypeId::of::<T>(),
-                    state,
-                    el: el.clone(),
+                    html_len,
+                    value,
+                    #[cfg(feature = "ssr")]
+                    to_html,
+                    build,
+                    rebuild,
+                    #[cfg(feature = "hydrate")]
+                    hydrate_from_server,
+                    #[cfg(feature = "hydrate")]
+                    hydrate_from_template,
+                    #[cfg(feature = "ssr")]
+                    resolve,
+                    #[cfg(feature = "ssr")]
+                    dry_resolve,
                 }
-            };
-        #[cfg(feature = "hydrate")]
-        let hydrate_from_template =
-            |value: Box<dyn Any>, el: &crate::renderer::types::Element| {
-                let value = value.downcast::<T>().expect(
-                    "AnyAttribute::hydrate_from_server couldn't downcast",
-                );
-                let state = Box::new(value.hydrate::<true>(el));
-
-                AnyAttributeState {
-                    type_id: TypeId::of::<T>(),
-                    state,
-                    el: el.clone(),
-                }
-            };
-        let rebuild = |new_type_id: TypeId,
-                       value: Box<dyn Any>,
-                       state: &mut AnyAttributeState| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyAttribute::rebuild couldn't downcast value");
-            if new_type_id == state.type_id {
-                let state = state
-                    .state
-                    .downcast_mut()
-                    .expect("AnyAttribute::rebuild couldn't downcast state");
-                value.rebuild(state);
-            } else {
-                let new = value.into_any_attr().build(&state.el);
-                *state = new;
             }
-        };
-        #[cfg(feature = "ssr")]
-        let dry_resolve = |value: &mut Box<dyn Any + Send>| {
-            let value = value
-                .downcast_mut::<T>()
-                .expect("AnyView::resolve could not be downcast");
-            value.dry_resolve();
-        };
-
-        #[cfg(feature = "ssr")]
-        let resolve = |value: Box<dyn Any>| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::resolve could not be downcast");
-            Box::pin(async move { value.resolve().await.into_any_attr() })
-                as Pin<Box<dyn Future<Output = AnyAttribute> + Send>>
-        };
-        AnyAttribute {
-            type_id: TypeId::of::<T>(),
-            html_len,
-            value,
-            #[cfg(feature = "ssr")]
-            to_html,
-            build,
-            rebuild,
-            #[cfg(feature = "hydrate")]
-            hydrate_from_server,
-            #[cfg(feature = "hydrate")]
-            hydrate_from_template,
-            #[cfg(feature = "ssr")]
-            resolve,
-            #[cfg(feature = "ssr")]
-            dry_resolve,
         }
     }
 }
