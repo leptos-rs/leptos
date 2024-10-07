@@ -33,13 +33,14 @@
 //! directory in the Leptos repository.
 
 #[cfg(feature = "default")]
+use axum::http::Uri;
 use axum::{
     body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
         header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
-        HeaderMap, Method, Request, Response, StatusCode, Uri,
+        HeaderMap, Method, Request, Response, StatusCode,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
