@@ -646,14 +646,14 @@ pub trait ReadValue: Sized + DefinedAt {
     /// The guard type that will be returned, which can be dereferenced to the value.
     type Value: Deref;
 
-    /// Returns the non-reactive guard, or `None` if the signal has already been disposed.
+    /// Returns the non-reactive guard, or `None` if the value has already been disposed.
     #[track_caller]
     fn try_read_value(&self) -> Option<Self::Value>;
 
     /// Returns the non-reactive guard.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that has been disposed.
+    /// Panics if you try to access a value that has been disposed.
     #[track_caller]
     fn read_value(&self) -> Self::Value {
         self.try_read_value().unwrap_or_else(unwrap_signal!(self))
@@ -663,11 +663,11 @@ pub trait ReadValue: Sized + DefinedAt {
 /// A variation of the [`With`] trait that provides a signposted "always-non-reactive" API.
 /// E.g. for [`StoredValue`](`crate::owner::StoredValue`).
 pub trait WithValue: DefinedAt {
-    /// The type of the value contained in the signal.
+    /// The type of the value contained in the value.
     type Value: ?Sized;
 
     /// Applies the closure to the value, non-reactively, and returns the result,
-    /// or `None` if the signal has already been disposed.
+    /// or `None` if the value has already been disposed.
     #[track_caller]
     fn try_with_value<U>(
         &self,
@@ -677,7 +677,7 @@ pub trait WithValue: DefinedAt {
     /// Applies the closure to the value, non-reactively, and returns the result.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that has been disposed.
+    /// Panics if you try to access a value that has been disposed.
     #[track_caller]
     fn with_value<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> U {
         self.try_with_value(fun)
@@ -702,18 +702,18 @@ where
 /// A variation of the [`Get`] trait that provides a signposted "always-non-reactive" API.
 /// E.g. for [`StoredValue`](`crate::owner::StoredValue`).
 pub trait GetValue: DefinedAt {
-    /// The type of the value contained in the signal.
+    /// The type of the value contained in the value.
     type Value: Clone;
 
-    /// Clones and returns the value of the signal, non-reactively,
-    /// or `None` if the signal has already been disposed.
+    /// Clones and returns the value of the value, non-reactively,
+    /// or `None` if the value has already been disposed.
     #[track_caller]
     fn try_get_value(&self) -> Option<Self::Value>;
 
-    /// Clones and returns the value of the signal, non-reactively.
+    /// Clones and returns the value of the value, non-reactively.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that has been disposed.
+    /// Panics if you try to access a value that has been disposed.
     #[track_caller]
     fn get_value(&self) -> Self::Value {
         self.try_get_value().unwrap_or_else(unwrap_signal!(self))
@@ -735,17 +735,17 @@ where
 /// A variation of the [`Write`] trait that provides a signposted "always-non-reactive" API.
 /// E.g. for [`StoredValue`](`crate::owner::StoredValue`).
 pub trait WriteValue: Sized + DefinedAt {
-    /// The type of the signal's value.
+    /// The type of the value's value.
     type Value: Sized + 'static;
 
-    /// Returns a non-reactive write guard, or `None` if the signal has already been disposed.
+    /// Returns a non-reactive write guard, or `None` if the value has already been disposed.
     #[track_caller]
     fn try_write_value(&self) -> Option<UntrackedWriteGuard<Self::Value>>;
 
     /// Returns a non-reactive write guard.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that has been disposed.
+    /// Panics if you try to access a value that has been disposed.
     #[track_caller]
     fn write_value(&self) -> UntrackedWriteGuard<Self::Value> {
         self.try_write_value().unwrap_or_else(unwrap_signal!(self))
@@ -755,25 +755,21 @@ pub trait WriteValue: Sized + DefinedAt {
 /// A variation of the [`Update`] trait that provides a signposted "always-non-reactive" API.
 /// E.g. for [`StoredValue`](`crate::owner::StoredValue`).
 pub trait UpdateValue: DefinedAt {
-    /// The type of the value contained in the signal.
+    /// The type of the value contained in the value.
     type Value;
 
-    /// Updates the value by applying a function, non-reactively, returning the value returned by that function,
-    /// or `None` if the signal has already been disposed.
+    /// Updates the value, returning the value that is
+    /// returned by the update function, or `None` if the value has already been disposed.
     #[track_caller]
     fn try_update_value<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
     ) -> Option<U>;
 
-    /// Updates the value by applying a function, non-reactively, returning the value returned by that function.
-    ///
-    /// # Panics
-    /// Panics if you try to update a signal that has been disposed.
+    /// Updates the value.
     #[track_caller]
-    fn update_value<U>(&self, fun: impl FnOnce(&mut Self::Value) -> U) -> U {
-        self.try_update_value(fun)
-            .unwrap_or_else(unwrap_signal!(self))
+    fn update_value(&self, fun: impl FnOnce(&mut Self::Value)) {
+        self.try_update_value(fun);
     }
 }
 
@@ -796,26 +792,20 @@ where
 /// A variation of the [`Set`] trait that provides a signposted "always-non-reactive" API.
 /// E.g. for [`StoredValue`](`crate::owner::StoredValue`).
 pub trait SetValue: DefinedAt {
-    /// The type of the value contained in the signal.
+    /// The type of the value contained in the value.
     type Value;
 
     /// Updates the value by replacing it, non-reactively.
     ///
-    /// If the signal has already been disposed, returns `Some(value)` with the value that was
+    /// If the value has already been disposed, returns `Some(value)` with the value that was
     /// passed in. Otherwise, returns `None`.
     #[track_caller]
     fn try_set_value(&self, value: Self::Value) -> Option<Self::Value>;
 
     /// Updates the value by replacing it, non-reactively.
-    ///
-    /// # Panics
-    /// Panics if you try to access a signal that has been disposed.
     #[track_caller]
     fn set_value(&self, value: Self::Value) {
-        // Unlike most other traits, for these None actually means success:
-        if self.try_set_value(value).is_some() {
-            unwrap_signal!(self)();
-        }
+        self.try_set_value(value);
     }
 }
 

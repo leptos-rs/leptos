@@ -11,8 +11,8 @@ use std::{
 
 /// A reference-counted getter for any value non-reactively.
 ///
-/// This is a reference-counted signal, which is `Clone` but not `Copy`.
-/// For arena-allocated `Copy` signals, use [`StoredValue`](super::StoredValue).
+/// This is a reference-counted value, which is `Clone` but not `Copy`.
+/// For arena-allocated `Copy` values, use [`StoredValue`](super::StoredValue).
 ///
 /// This allows you to create a stable reference for any value by storing it within
 /// the reactive system. Unlike e.g. [`ArcRwSignal`](crate::signal::ArcRwSignal), it is not reactive;
