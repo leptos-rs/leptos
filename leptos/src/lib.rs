@@ -200,10 +200,11 @@ pub mod error {
     pub use throw_error::*;
 }
 
-/// Control-flow components like `<Show>` and `<For>`.
+/// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
-    pub use crate::{for_loop::*, show::*};
+    pub use crate::{await_::*, for_loop::*, show::*};
 }
+mod await_;
 mod for_loop;
 mod show;
 
@@ -328,7 +329,6 @@ pub use web_sys;
 
 /*mod additional_attributes;
 pub use additional_attributes::*;
-mod await_;
 pub use await_::*;
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(

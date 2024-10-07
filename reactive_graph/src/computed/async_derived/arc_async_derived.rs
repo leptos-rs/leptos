@@ -534,11 +534,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
 
     /// Returns a `Future` that is ready when this resource has next finished loading.
     pub fn ready(&self) -> AsyncDerivedReadyFuture {
-        AsyncDerivedReadyFuture {
-            source: self.to_any_source(),
-            loading: Arc::clone(&self.loading),
-            wakers: Arc::clone(&self.wakers),
-        }
+        AsyncDerivedReadyFuture::new(
+            self.to_any_source(),
+            &self.loading,
+            &self.wakers,
+        )
     }
 }
 
