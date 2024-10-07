@@ -727,6 +727,11 @@ pub(crate) fn element_to_tokens(
             quote! { ::leptos::tachys::html::element::#custom(#name) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
+            let name = if tag == "use" || tag == "use_" {
+                Ident::new_raw("use", name.span()).to_token_stream()
+            } else {
+                name.to_token_stream()
+            };
             quote! { ::leptos::tachys::svg::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
