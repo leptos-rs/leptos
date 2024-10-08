@@ -396,8 +396,7 @@ impl IntervalHandle {
     }
 }
 
-/// Repeatedly calls the given function, with a delay of the given duration between calls,
-/// returning a cancelable handle.
+/// Repeatedly calls the given function, with a delay of the given duration between calls.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   feature = "tracing",
