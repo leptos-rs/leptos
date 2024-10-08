@@ -1,7 +1,10 @@
 use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
-    signal::RwSignal,
-    traits::{DefinedAt, Set, Track, WithUntracked},
+    signal::{
+        guards::{Plain, ReadGuard},
+        RwSignal,
+    },
+    traits::{DefinedAt, ReadUntracked, Set, Track},
 };
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsCast;
@@ -75,19 +78,18 @@ where
     }
 }
 
-impl<E> WithUntracked for NodeRef<E>
+impl<E> ReadUntracked for NodeRef<E>
 where
     E: ElementType,
     E::Output: JsCast + Clone + 'static,
 {
-    type Value = Option<E::Output>;
+    type Value = ReadGuard<
+        Option<SendWrapper<<E as ElementType>::Output>>,
+        Plain<Option<SendWrapper<<E as ElementType>::Output>>>,
+    >;
 
-    fn try_with_untracked<U>(
-        &self,
-        fun: impl FnOnce(&Self::Value) -> U,
-    ) -> Option<U> {
-        self.0
-            .try_with_untracked(|inner| fun(&inner.as_deref().cloned()))
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.0.try_read_untracked()
     }
 }
 
