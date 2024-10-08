@@ -1,6 +1,6 @@
 use reactive_graph::{
     computed::Memo,
-    owner::on_cleanup,
+    owner::{on_cleanup, Owner},
     signal::{RwSignal, Trigger},
     traits::{Dispose, GetUntracked, Track},
 };
@@ -8,6 +8,9 @@ use std::sync::Arc;
 
 #[test]
 fn cleanup_on_dispose() {
+    let owner = Owner::new();
+    owner.set();
+
     struct ExecuteOnDrop(Option<Box<dyn FnOnce() + Send + Sync>>);
 
     impl ExecuteOnDrop {
@@ -63,6 +66,9 @@ fn cleanup_on_dispose() {
 
 #[test]
 fn leak_on_dispose() {
+    let owner = Owner::new();
+    owner.set();
+
     let trigger = Trigger::new();
 
     let value = Arc::new(());
