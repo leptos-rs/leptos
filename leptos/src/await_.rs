@@ -87,7 +87,7 @@ where
     T: Send + Sync + Serialize + DeserializeOwned + 'static,
     Fut: std::future::Future<Output = T> + Send + 'static,
     Chil: FnOnce(&T) -> V + Send + 'static,
-    V: IntoView,
+    V: IntoView + 'static,
 {
     let res = ArcOnceResource::<T>::new_with_options(future, blocking);
     let ready = res.ready();
