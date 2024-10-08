@@ -1,7 +1,7 @@
 use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
     signal::{
-        guards::{Plain, ReadGuard},
+        guards::{Derefable, ReadGuard},
         RwSignal,
     },
     traits::{DefinedAt, ReadUntracked, Set, Track},
@@ -83,13 +83,12 @@ where
     E: ElementType,
     E::Output: JsCast + Clone + 'static,
 {
-    type Value = ReadGuard<
-        Option<SendWrapper<<E as ElementType>::Output>>,
-        Plain<Option<SendWrapper<<E as ElementType>::Output>>>,
-    >;
+    type Value = ReadGuard<Option<E::Output>, Derefable<Option<E::Output>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.0.try_read_untracked()
+        Some(ReadGuard::new(Derefable(
+            self.0.try_read_untracked()?.as_deref().cloned(),
+        )))
     }
 }
 
