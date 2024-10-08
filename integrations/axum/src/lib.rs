@@ -606,9 +606,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::{config::LeptosOptions, context::provide_context, prelude::*};
 ///
 /// async fn custom_handler(
@@ -806,9 +806,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1025,9 +1025,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1093,9 +1093,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1932,7 +1932,7 @@ where
 ///
 /// #[server]
 /// pub async fn request_method() -> Result<String, ServerFnError> {
-///     use http::Method;
+///     use axum::http::Method;
 ///     use leptos_axum::extract;
 ///
 ///     // you can extract anything that a regular Axum extractor can extract
