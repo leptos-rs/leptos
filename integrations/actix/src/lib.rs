@@ -1382,7 +1382,7 @@ where
                     )
                 } else {
                     router
-                        .route(path, web::head().to(|| HttpResponse::Ok()))
+                        .route(path, web::head().to(HttpResponse::Ok))
                         .route(
                             path,
                             match mode {
