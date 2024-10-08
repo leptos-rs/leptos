@@ -5,12 +5,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::{
-        any_attribute::{AnyAttribute, IntoAnyAttribute},
-        Attribute,
-    },
-    hydration::Cursor,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -32,10 +27,8 @@ use std::{future::Future, pin::Pin};
 pub struct AnyView {
     type_id: TypeId,
     value: Box<dyn Any + Send>,
-
     build: fn(Box<dyn Any>) -> AnyViewState,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
-    add_attr: fn(Box<dyn Any>, AnyAttribute) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -148,13 +141,6 @@ where
             // if it's already an AnyView, we don't need to double-wrap it
             Ok(any_view) => *any_view,
             Err(value) => {
-                let add_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
-                    let value = value
-                        .downcast::<T>()
-                        .expect("AnyView::add_attr could not be downcast");
-                    (*value).add_any_attr(attr).into_any()
-                };
-
                 #[cfg(feature = "ssr")]
                 let dry_resolve = |value: &mut Box<dyn Any + Send>| {
                     let value = value
@@ -301,7 +287,6 @@ where
                     value,
                     build,
                     rebuild,
-                    add_attr,
                     #[cfg(feature = "ssr")]
                     resolve,
                     #[cfg(feature = "ssr")]
@@ -339,13 +324,12 @@ impl AddAnyAttr for AnyView {
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        let attr = attr.into_cloneable_owned();
-        (self.add_attr)(self.value, attr.into_any_attr())
+        self
     }
 }
 
