@@ -171,7 +171,7 @@ pub trait ReadUntracked: Sized + DefinedAt {
 
     /// This is a backdoor to allow overriding the [`Read::try_read`] implementation despite it being auto implemented.
     ///
-    /// If your type containsa [`Signal`](crate::wrappers::read::Signal),
+    /// If your type contains a [`Signal`](crate::wrappers::read::Signal),
     /// call it's [`ReadUntracked::custom_try_read`] here, else return `None`.
     #[track_caller]
     fn custom_try_read(&self) -> Option<Option<Self::Value>> {
