@@ -1,3 +1,4 @@
+#[cfg(not(erase_components))]
 #[test]
 fn ui() {
     let t = trybuild::TestCases::new();

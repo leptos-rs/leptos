@@ -51,7 +51,15 @@ axum = ["server_fn_macro/axum"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
-skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]
+skip_feature_sets = [
+	["csr", "hydrate"],
+	["hydrate", "csr"],
+	["hydrate", "ssr"],
+	["actix", "axum"]
+]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(erase_components)'] }
