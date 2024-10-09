@@ -19,7 +19,7 @@ use tachys::prelude::*;
 ///
 /// ```rust
 /// # use core::time::Duration;
-/// # use leptos::*;
+/// # use leptos::prelude::*;
 /// # #[component]
 /// # pub fn App() -> impl IntoView {
 /// let show = RwSignal::new(false);
