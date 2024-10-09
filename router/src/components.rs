@@ -24,6 +24,7 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
+    mem,
     sync::Arc,
     time::Duration,
 };
@@ -101,6 +102,7 @@ where
         location,
         state,
         set_is_routing,
+        query_mutations: Default::default(),
     });
 
     let children = children.into_inner();
@@ -114,6 +116,8 @@ pub(crate) struct RouterContext {
     pub location: Location,
     pub state: ArcRwSignal<State>,
     pub set_is_routing: Option<SignalSetter<bool>>,
+    pub query_mutations:
+        ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
 }
 
 impl RouterContext {
@@ -130,7 +134,7 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
-        let url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
+        let mut url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
             Some(Ok(url)) => url,
             Some(Err(e)) => {
                 leptos::logging::error!("Error parsing URL: {e:?}");
@@ -141,6 +145,22 @@ impl RouterContext {
                 return;
             }
         };
+        let query_mutations =
+            mem::take(&mut *self.query_mutations.write_value());
+        if !query_mutations.is_empty() {
+            for (key, value) in query_mutations {
+                if let Some(value) = value {
+                    url.search_params_mut().replace(key, value);
+                } else {
+                    url.search_params_mut().remove(&key);
+                }
+            }
+            *url.search_mut() = url
+                .search_params()
+                .to_query_string()
+                .trim_start_matches('?')
+                .into()
+        }
 
         if url.origin() != current.origin() {
             window().location().set_href(path).unwrap();
@@ -153,13 +173,14 @@ impl RouterContext {
         }
 
         // update URL signal, if necessary
+        let value = url.to_full_path();
         if current != url {
             drop(current);
             self.current_url.set(url);
         }
 
         BrowserUrl::complete_navigation(&LocationChange {
-            value: path.to_string(),
+            value,
             replace: options.replace,
             scroll: options.scroll,
             state: options.state,
