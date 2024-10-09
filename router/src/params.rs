@@ -21,11 +21,31 @@ impl ParamsMap {
     }
 
     /// Inserts a value into the map.
+    ///
+    /// If a value with that key already exists, the new value will be added to it.
+    /// To replace the value instead, see [`replace`].
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = unescape(&value);
 
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
+            prev.1.push(value);
+        } else {
+            self.0.push((key, vec![value]));
+        }
+    }
+
+    /// Inserts a value into the map, replacing any existing value for that key.
+    pub fn replace(
+        &mut self,
+        key: impl Into<Cow<'static, str>>,
+        value: String,
+    ) {
+        let value = unescape(&value);
+
+        let key = key.into();
+        if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
+            prev.1.clear();
             prev.1.push(value);
         } else {
             self.0.push((key, vec![value]));
