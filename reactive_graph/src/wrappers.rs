@@ -714,7 +714,25 @@ pub mod read {
     {
         #[track_caller]
         fn from(value: ArcReadSignal<T>) -> Self {
-            value.into()
+            Self {
+                inner: ArenaItem::new(SignalTypes::ReadSignal(value)),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<ArcReadSignal<T>> for Signal<T, LocalStorage>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcReadSignal<T>) -> Self {
+            Self {
+                inner: ArenaItem::new_local(SignalTypes::ReadSignal(value)),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
         }
     }
 
@@ -756,7 +774,29 @@ pub mod read {
     {
         #[track_caller]
         fn from(value: ArcRwSignal<T>) -> Self {
-            value.into()
+            Self {
+                inner: ArenaItem::new(SignalTypes::ReadSignal(
+                    value.read_only(),
+                )),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<ArcRwSignal<T>> for Signal<T, LocalStorage>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcRwSignal<T>) -> Self {
+            Self {
+                inner: ArenaItem::new_local(SignalTypes::ReadSignal(
+                    value.read_only(),
+                )),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
         }
     }
 
@@ -788,14 +828,31 @@ pub mod read {
         }
     }
 
-
     impl<T> From<ArcMemo<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
     {
         #[track_caller]
         fn from(value: ArcMemo<T>) -> Self {
-            value.into()
+            Self {
+                inner: ArenaItem::new(SignalTypes::Memo(value)),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<ArcMemo<T, LocalStorage>> for Signal<T, LocalStorage>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcMemo<T, LocalStorage>) -> Self {
+            Self {
+                inner: ArenaItem::new_local(SignalTypes::Memo(value)),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
         }
     }
 
@@ -809,9 +866,9 @@ pub mod read {
     impl From<&str> for Signal<String, LocalStorage> {
         #[track_caller]
         fn from(value: &str) -> Self {
-            Signal::stored_local(value.to_string())    
+            Signal::stored_local(value.to_string())
         }
-    }            
+    }
 
     /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
     ///
