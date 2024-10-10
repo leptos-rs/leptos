@@ -7,7 +7,7 @@ use leptos_axum::ResponseOptions;
 // Feel free to do more complicated things here than just displaying them.
 #[component]
 pub fn ErrorTemplate(
-    #[prop(into)] errors: MaybeSignal<Errors>,
+    #[prop(into)] errors: Signal<Errors>,
 ) -> impl IntoView {
     // Get Errors from Signal
     // Downcast lets us take a type that implements `std::error::Error`
