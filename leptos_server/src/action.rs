@@ -48,7 +48,7 @@ where
     #[track_caller]
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
-            (error.path() == S::PATH)
+            (error.path() == S::url())
                 .then(|| ServerFnError::<S::Error>::de(error.err()))
                 .map(Err)
         });
@@ -134,7 +134,7 @@ where
 {
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
-            (error.path() == S::PATH)
+            (error.path() == S::url())
                 .then(|| ServerFnError::<S::Error>::de(error.err()))
                 .map(Err)
         });
