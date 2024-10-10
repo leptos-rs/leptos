@@ -1,9 +1,11 @@
+#[allow(deprecated)]
+use crate::wrappers::read::{MaybeProp, MaybeSignal};
 use crate::{
     computed::{ArcMemo, Memo},
     owner::Storage,
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::With,
-    wrappers::read::{MaybeProp, MaybeSignal, Signal, SignalTypes},
+    wrappers::read::{Signal, SignalTypes},
 };
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +75,7 @@ impl<T: Serialize + 'static, St: Storage<T>> Serialize for ArcMemo<T, St> {
     }
 }
 
+#[allow(deprecated)]
 impl<T, St> Serialize for MaybeSignal<T, St>
 where
     T: Clone + Send + Sync + Serialize,
@@ -86,6 +89,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<T, St> Serialize for MaybeProp<T, St>
 where
     T: Send + Sync + Serialize,
@@ -146,6 +150,7 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for ArcRwSignal<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<'de, T: Deserialize<'de>, St> Deserialize<'de> for MaybeSignal<T, St>
 where
     St: Storage<T>,
