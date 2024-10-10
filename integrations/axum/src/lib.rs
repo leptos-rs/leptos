@@ -1031,9 +1031,7 @@ where
 
                 let (tx, rx) = futures::channel::oneshot::channel();
 
-                // capture current span to enable trace context propagation
                 let current_span = tracing::Span::current();
-
                 spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
@@ -1864,3 +1862,4 @@ where
         .await
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
+
