@@ -708,6 +708,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<ArcReadSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcReadSignal<T>) -> Self {
+            value.into()
+        }
+    }
+
     impl<T> From<RwSignal<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -740,6 +750,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<ArcRwSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcRwSignal<T>) -> Self {
+            value.into()
+        }
+    }
+
     impl<T> From<Memo<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -768,6 +788,17 @@ pub mod read {
         }
     }
 
+
+    impl<T> From<ArcMemo<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcMemo<T>) -> Self {
+            value.into()
+        }
+    }
+
     impl From<&str> for Signal<String> {
         #[track_caller]
         fn from(value: &str) -> Self {
@@ -778,9 +809,9 @@ pub mod read {
     impl From<&str> for Signal<String, LocalStorage> {
         #[track_caller]
         fn from(value: &str) -> Self {
-            Signal::stored_local(value.to_string())
+            Signal::stored_local(value.to_string())    
         }
-    }
+    }            
 
     /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
     ///
