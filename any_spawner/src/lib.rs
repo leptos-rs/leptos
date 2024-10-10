@@ -37,6 +37,7 @@ pub(crate) type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
+static POLL_LOCAL: OnceLock<fn()> = OnceLock::new();
 
 /// Errors that can occur when using the executor.
 #[derive(Error, Debug)]
@@ -115,6 +116,14 @@ impl Executor {
         });
         _ = rx.await;
     }
+
+    /// Polls the current async executor.
+    /// Not all async executors support polling, so this function may not do anything.
+    pub fn poll_local() {
+        if let Some(poller) = POLL_LOCAL.get() {
+            poller()
+        }
+    }
 }
 
 impl Executor {
@@ -192,14 +201,17 @@ impl Executor {
     #[cfg(feature = "futures-executor")]
     #[cfg_attr(docsrs, doc(cfg(feature = "futures-executor")))]
     pub fn init_futures_executor() -> Result<(), ExecutorError> {
+        use std::cell::RefCell;
+
         use futures::{
-            executor::{LocalPool, ThreadPool},
+            executor::{LocalPool, LocalSpawner, ThreadPool},
             task::{LocalSpawnExt, SpawnExt},
         };
 
         static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
         thread_local! {
-            static LOCAL_POOL: LocalPool = LocalPool::new();
+            static LOCAL_POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
+            static SPAWNER: LocalSpawner = LOCAL_POOL.with(|pool| pool.borrow().spawner());
         }
 
         fn get_thread_pool() -> &'static ThreadPool {
@@ -218,14 +230,61 @@ impl Executor {
             .map_err(|_| ExecutorError::AlreadySet)?;
         SPAWN_LOCAL
             .set(|fut| {
-                LOCAL_POOL.with(|pool| {
-                    let spawner = pool.spawner();
+                SPAWNER.with(|spawner| {
                     spawner.spawn_local(fut).expect("failed to spawn future");
+                });
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        POLL_LOCAL
+            .set(|| {
+                LOCAL_POOL.with(|pool| {
+                    if let Ok(mut pool) = pool.try_borrow_mut() {
+                        pool.run_until_stalled();
+                    }
+                    // If we couldn't borrow_mut, we're in a nested call to poll, so we don't need to do anything.
                 });
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
     }
+
+    /// Globally sets a custom executor as the executor used to spawn tasks.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    pub fn init_custom_executor(
+        custom_executor: impl CustomExecutor + 'static,
+    ) -> Result<(), ExecutorError> {
+        static EXECUTOR: OnceLock<Box<dyn CustomExecutor>> = OnceLock::new();
+        EXECUTOR
+            .set(Box::new(custom_executor))
+            .map_err(|_| ExecutorError::AlreadySet)?;
+
+        SPAWN
+            .set(|fut| {
+                EXECUTOR.get().unwrap().spawn(fut);
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        SPAWN_LOCAL
+            .set(|fut| EXECUTOR.get().unwrap().spawn_local(fut))
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        POLL_LOCAL
+            .set(|| EXECUTOR.get().unwrap().poll_local())
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        Ok(())
+    }
+}
+
+/// A trait for custom executors.
+/// Custom executors can be used to integrate with any executor that supports spawning futures.
+///  
+/// All methods can be called recursively.
+pub trait CustomExecutor: Send + Sync {
+    /// Spawns a future, usually on a thread pool.
+    fn spawn(&self, fut: PinnedFuture<()>);
+    /// Spawns a local future. May require calling `poll_local` to make progress.
+    fn spawn_local(&self, fut: PinnedLocalFuture<()>);
+    /// Polls the executor, if it supports polling.
+    fn poll_local(&self);
 }
 
 #[cfg(test)]
@@ -241,5 +300,103 @@ mod tests {
             _ = rc;
         });
         Executor::spawn(async {});
+    }
+
+    #[cfg(feature = "futures-executor")]
+    #[test]
+    fn can_make_threaded_progress() {
+        use crate::Executor;
+        use std::sync::{atomic::AtomicUsize, Arc};
+        Executor::init_futures_executor().expect("couldn't set executor");
+        let counter = Arc::new(AtomicUsize::new(0));
+        Executor::spawn({
+            let counter = Arc::clone(&counter);
+            async move {
+                assert_eq!(
+                    counter.fetch_add(1, std::sync::atomic::Ordering::AcqRel),
+                    0
+                );
+            }
+        });
+        futures::executor::block_on(Executor::tick());
+        assert_eq!(counter.load(std::sync::atomic::Ordering::Acquire), 1);
+    }
+    #[cfg(feature = "futures-executor")]
+    #[test]
+    fn can_make_local_progress() {
+        use crate::Executor;
+        use std::sync::{atomic::AtomicUsize, Arc};
+        Executor::init_futures_executor().expect("couldn't set executor");
+        let counter = Arc::new(AtomicUsize::new(0));
+        Executor::spawn_local({
+            let counter = Arc::clone(&counter);
+            async move {
+                assert_eq!(
+                    counter.fetch_add(1, std::sync::atomic::Ordering::AcqRel),
+                    0
+                );
+                Executor::spawn_local(async {
+                    // Should not crash
+                });
+            }
+        });
+        Executor::poll_local();
+        assert_eq!(counter.load(std::sync::atomic::Ordering::Acquire), 1);
+    }
+
+    #[cfg(feature = "futures-executor")]
+    #[test]
+    fn can_create_custom_executor() {
+        use crate::{CustomExecutor, Executor};
+        use std::{
+            cell::RefCell,
+            sync::{
+                atomic::{AtomicUsize, Ordering},
+                Arc,
+            },
+        };
+
+        use futures::{
+            executor::{LocalPool, LocalSpawner},
+            task::LocalSpawnExt,
+        };
+
+        thread_local! {
+            static LOCAL_POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
+            static SPAWNER: LocalSpawner = LOCAL_POOL.with(|pool| pool.borrow().spawner());
+        }
+
+        struct CustomFutureExecutor;
+        impl CustomExecutor for CustomFutureExecutor {
+            fn spawn(&self, _fut: crate::PinnedFuture<()>) {
+                panic!("not supported in this test");
+            }
+
+            fn spawn_local(&self, fut: crate::PinnedLocalFuture<()>) {
+                SPAWNER.with(|spawner| {
+                    spawner.spawn_local(fut).expect("failed to spawn future");
+                });
+            }
+
+            fn poll_local(&self) {
+                LOCAL_POOL.with(|pool| {
+                    if let Ok(mut pool) = pool.try_borrow_mut() {
+                        pool.run_until_stalled();
+                    }
+                    // If we couldn't borrow_mut, we're in a nested call to poll, so we don't need to do anything.
+                });
+            }
+        }
+
+        Executor::init_custom_executor(CustomFutureExecutor)
+            .expect("couldn't set executor");
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_clone = Arc::clone(&counter);
+        Executor::spawn_local(async move {
+            counter_clone.store(1, Ordering::Release);
+        });
+        Executor::poll_local();
+        assert_eq!(counter.load(Ordering::Acquire), 1);
     }
 }
