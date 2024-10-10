@@ -12,8 +12,6 @@
 
 You can find a list of useful libraries and example projects at [`awesome-leptos`](https://github.com/leptos-rs/awesome-leptos).
 
-# The `main` branch is currently undergoing major changes in preparation for the [0.7](https://github.com/leptos-rs/leptos/milestone/4) release. For a stable version, please use the [v0.6.13 tag](https://github.com/leptos-rs/leptos/tree/v0.6.13)
-
 # Leptos
 
 ```rust
