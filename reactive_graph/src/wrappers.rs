@@ -708,6 +708,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<ArcReadSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcReadSignal<T>) -> Self {
+            value.into()
+        }
+    }
+
     impl<T> From<RwSignal<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -740,6 +750,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<ArcRwSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcRwSignal<T>) -> Self {
+            value.into()
+        }
+    }
+
     impl<T> From<Memo<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -765,6 +785,16 @@ pub mod read {
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
+        }
+    }
+
+    impl<T> From<ArcMemo<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcMemo<T>) -> Self {
+            value.into()
         }
     }
 
