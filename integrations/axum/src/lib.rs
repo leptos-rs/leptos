@@ -1030,6 +1030,10 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
+
+                // capture current span to enable trace context propagation
+                let current_span = tracing::Span::current();
+
                 spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
@@ -1063,7 +1067,7 @@ where
                     *writable = new_res_parts;
 
                     _ = tx.send(html);
-                });
+                }.instrument(current_span));
 
                 let html = rx.await.expect("to complete HTML rendering");
 
