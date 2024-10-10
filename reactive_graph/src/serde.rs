@@ -75,7 +75,7 @@ impl<T: Serialize + 'static, St: Storage<T>> Serialize for ArcMemo<T, St> {
 
 impl<T, St> Serialize for MaybeSignal<T, St>
 where
-    T: Send + Sync + Serialize,
+    T: Clone + Send + Sync + Serialize,
     St: Storage<SignalTypes<T, St>> + Storage<T>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
