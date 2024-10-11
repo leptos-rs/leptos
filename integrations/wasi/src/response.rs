@@ -9,7 +9,7 @@ use parking_lot::RwLock;
 use server_fn::response::generic::Body as ServerFnBody;
 use throw_error::Error;
 
-use crate::bindings::wasi::http::types::Headers;
+use wasi::http::types::Headers;
 
 /// This crate uses platform-agnostic [`http::Response`]
 /// with a custom [`Body`] and convert them under the hood to

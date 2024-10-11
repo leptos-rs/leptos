@@ -1,24 +1,23 @@
 use bytes::Bytes;
-use http::{
-    uri::{InvalidUri, Parts},
-    Uri,
-};
+use http::{uri::Parts, Uri};
 use throw_error::Error;
 
-use crate::{
-    bindings::wasi::{
-        http::types::{IncomingBody, IncomingRequest, Method, Scheme},
-        io::streams::StreamError,
-    },
-    CHUNK_BYTE_SIZE,
+use wasi::{
+    http::types::{IncomingBody, IncomingRequest, Method, Scheme},
+    io::streams::StreamError,
 };
 
-impl TryFrom<IncomingRequest> for http::Request<Bytes> {
+use crate::CHUNK_BYTE_SIZE;
+
+pub struct Request(pub IncomingRequest);
+
+impl TryFrom<Request> for http::Request<Bytes> {
     type Error = Error;
 
-    fn try_from(req: IncomingRequest) -> Result<Self, Self::Error> {
+    fn try_from(req: Request) -> Result<Self, Self::Error> {
         let mut builder = http::Request::builder();
-        let req_method = req.method();
+        let req = req.0;
+        let req_method = method_wasi_to_http(req.method())?;
         let headers = req.headers();
 
         for (header_name, header_value) in headers.entries() {
@@ -52,8 +51,7 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
 
         let mut uri_parts = Parts::default();
 
-        uri_parts.scheme =
-            req.scheme().map(http::uri::Scheme::try_from).transpose()?;
+        uri_parts.scheme = req.scheme().map(scheme_wasi_to_http).transpose()?;
         uri_parts.authority = req
             .authority()
             .map(|aut| {
@@ -79,32 +77,29 @@ impl TryFrom<IncomingRequest> for http::Request<Bytes> {
     }
 }
 
-impl TryFrom<Method> for http::Method {
-    type Error = http::method::InvalidMethod;
-
-    fn try_from(value: Method) -> Result<Self, Self::Error> {
-        match value {
-            Method::Connect => Ok(Self::CONNECT),
-            Method::Delete => Ok(Self::DELETE),
-            Method::Get => Ok(Self::GET),
-            Method::Head => Ok(Self::HEAD),
-            Method::Options => Ok(Self::OPTIONS),
-            Method::Patch => Ok(Self::PATCH),
-            Method::Post => Ok(Self::POST),
-            Method::Put => Ok(Self::PUT),
-            Method::Trace => Ok(Self::TRACE),
-            Method::Other(mtd) => Self::from_bytes(mtd.as_bytes()),
-        }
+pub fn method_wasi_to_http(
+    value: Method,
+) -> Result<http::Method, http::method::InvalidMethod> {
+    match value {
+        Method::Connect => Ok(http::Method::CONNECT),
+        Method::Delete => Ok(http::Method::DELETE),
+        Method::Get => Ok(http::Method::GET),
+        Method::Head => Ok(http::Method::HEAD),
+        Method::Options => Ok(http::Method::OPTIONS),
+        Method::Patch => Ok(http::Method::PATCH),
+        Method::Post => Ok(http::Method::POST),
+        Method::Put => Ok(http::Method::PUT),
+        Method::Trace => Ok(http::Method::TRACE),
+        Method::Other(mtd) => http::Method::from_bytes(mtd.as_bytes()),
     }
 }
 
-impl TryFrom<Scheme> for http::uri::Scheme {
-    type Error = InvalidUri;
-    fn try_from(value: Scheme) -> Result<Self, Self::Error> {
-        match value {
-            Scheme::Http => Ok(Self::HTTP),
-            Scheme::Https => Ok(Self::HTTPS),
-            Scheme::Other(oth) => Self::try_from(oth.as_bytes()),
-        }
+pub fn scheme_wasi_to_http(
+    value: Scheme,
+) -> Result<http::uri::Scheme, http::uri::InvalidUri> {
+    match value {
+        Scheme::Http => Ok(http::uri::Scheme::HTTP),
+        Scheme::Https => Ok(http::uri::Scheme::HTTPS),
+        Scheme::Other(oth) => http::uri::Scheme::try_from(oth.as_bytes()),
     }
 }

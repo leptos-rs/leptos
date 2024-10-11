@@ -13,7 +13,7 @@
 //! that you can leverage to use this crate.
 //!
 //! ```
-//! use leptos_wasi::{bindings::exports::wasi::http::incoming_handler::Guest, prelude::{IncomingRequest, ResponseOutparam}};
+//! use wasi::exports::http::incoming_handler::*;
 //!
 //! struct LeptosServer;
 //!
@@ -36,32 +36,7 @@
 //!
 //! # WASI Bindings
 //!
-//! You are free to use any WIT imports and export any WIT exports but at the moment,
-//! when interacting with this crate, you must use the types that you can find in
-//! this crate [`bindings`].
-//!
-//! You then need to export your implementation using:
-//!
-//! ```
-//! export!(LeptosServer with_types_in leptos_wasi::bindings);
-//! ```
-//!
-//! If you want to use your own bindings for `wasi:http`,
-//! then you need to implement `From` traits
-//! to convert your own bindings into the one in [`bindings`].
-//! Please, note that it will likely implies doing `unsafe`
-//! operations to wrap the resource's `handle() -> u64` in
-//! another type.
-
-#[allow(warnings)]
-pub mod bindings {
-    wit_bindgen::generate!({
-        path: "wit",
-        pub_export_macro: true,
-        world: "http",
-        generate_all,
-    });
-}
+//! We are using the bindings provided by the `wasi` crate.
 
 pub mod handler;
 pub mod request;
@@ -70,12 +45,12 @@ pub mod utils;
 
 #[allow(clippy::pub_use)]
 pub mod prelude {
-    pub use crate::bindings::exports::wasi::http::incoming_handler::{
-        IncomingRequest, ResponseOutparam,
-    };
     pub use crate::handler::Handler;
     pub use crate::response::Body;
     pub use crate::utils::redirect;
+    pub use wasi::exports::wasi::http::incoming_handler::{
+        IncomingRequest, ResponseOutparam,
+    };
 }
 
 /// When working with streams, this crate will try to chunk bytes with

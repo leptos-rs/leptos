@@ -32,10 +32,11 @@ use routefinder::Router;
 use server_fn::middleware::Service;
 use throw_error::Error;
 
+use wasi::http::types::{
+    IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam,
+};
+
 use crate::{
-    bindings::wasi::http::types::{
-        IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam,
-    },
     response::{Body, Response, ResponseOptions},
     utils::redirect,
     CHUNK_BYTE_SIZE,
@@ -120,7 +121,7 @@ impl Handler {
         res_out: ResponseOutparam,
     ) -> Result<Self, Error> {
         Ok(Self {
-            req: req.try_into()?,
+            req: crate::request::Request(req).try_into()?,
             res_out,
             server_fn: None,
             preset_res: None,
