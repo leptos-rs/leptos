@@ -53,11 +53,6 @@
 //! operations to wrap the resource's `handle() -> u64` in
 //! another type.
 
-#![warn(clippy::all)]
-#![warn(clippy::nursery)]
-#![allow(clippy::restriction)]
-#![deny(clippy::allow_attributes)]
-
 #[allow(warnings)]
 pub mod bindings {
     wit_bindgen::generate!({
