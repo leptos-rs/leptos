@@ -143,7 +143,7 @@ where
     View: ChooseView,
 {
     type Child = Child;
-    type View = AnyView<Rndr>;
+    type View = AnyView;
 
     fn as_id(&self) -> RouteMatchId {
         self.id

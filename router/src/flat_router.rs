@@ -51,7 +51,7 @@ pub struct FlatRoutesViewState {
     matched: ArcRwSignal<String>,
 }
 
-impl<Defs, Fal> Mountable for FlatRoutesViewState<Defs, Fal> {
+impl Mountable for FlatRoutesViewState {
     fn unmount(&mut self) {
         self.view.unmount();
     }
@@ -75,7 +75,6 @@ where
     Defs: MatchNestedRoutes + 'static,
     FalFn: FnOnce() -> Fal + Send,
     Fal: IntoAny,
-    R: Renderer + 'static,
 {
     type State = Rc<RefCell<FlatRoutesViewState>>;
 
