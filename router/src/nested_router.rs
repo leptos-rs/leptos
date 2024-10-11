@@ -500,6 +500,7 @@ trait AddNestedRoute {
         parent: &Owner,
     );
 
+    #[allow(clippy::too_many_arguments)]
     fn rebuild_nested_route(
         self,
         url: &Url,
@@ -645,6 +646,7 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn rebuild_nested_route(
         self,
         url: &Url,
