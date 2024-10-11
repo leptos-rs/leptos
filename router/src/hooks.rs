@@ -4,15 +4,18 @@ use crate::{
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
-use leptos::oco::Oco;
+use leptos::{leptos_dom::helpers::request_animation_frame, oco::Oco};
 use reactive_graph::{
     computed::{ArcMemo, Memo},
-    owner::use_context,
+    owner::{expect_context, use_context},
     signal::{ArcRwSignal, ReadSignal},
-    traits::{Get, GetUntracked, With},
+    traits::{Get, GetUntracked, ReadUntracked, With, WriteValue},
     wrappers::write::SignalSetter,
 };
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal` to match Rust naming \
@@ -93,10 +96,15 @@ pub fn query_signal_with_options<T>(
 where
     T: FromStr + ToString + PartialEq + Send + Sync,
 {
+    static IS_NAVIGATING: AtomicBool = AtomicBool::new(false);
+
     let mut key: Oco<'static, str> = key.into();
     let query_map = use_query_map();
     let navigate = use_navigate();
     let location = use_location();
+    let RouterContext {
+        query_mutations, ..
+    } = expect_context();
 
     let get = Memo::new({
         let key = key.clone_inplace();
@@ -108,20 +116,25 @@ where
     });
 
     let set = SignalSetter::map(move |value: Option<T>| {
-        let mut new_query_map = query_map.get();
-        match value {
-            Some(value) => {
-                new_query_map.insert(key.to_string(), value.to_string());
-            }
-            None => {
-                new_query_map.remove(&key);
-            }
-        }
-        let qs = new_query_map.to_query_string();
         let path = location.pathname.get_untracked();
         let hash = location.hash.get_untracked();
+        let qs = location.query.read_untracked().to_query_string();
         let new_url = format!("{path}{qs}{hash}");
-        navigate(&new_url, nav_options.clone());
+        query_mutations
+            .write_value()
+            .push((key.clone(), value.as_ref().map(ToString::to_string)));
+
+        if !IS_NAVIGATING.load(Ordering::Relaxed) {
+            IS_NAVIGATING.store(true, Ordering::Relaxed);
+            request_animation_frame({
+                let navigate = navigate.clone();
+                let nav_options = nav_options.clone();
+                move || {
+                    navigate(&new_url, nav_options.clone());
+                    IS_NAVIGATING.store(false, Ordering::Relaxed)
+                }
+            })
+        }
     });
 
     (get, set)

@@ -125,7 +125,7 @@ pub fn log_warning(text: Arguments) {
 
 /// Calls [`Executor::spawn`], but ensures that the task also runs in the current arena, if
 /// multithreaded arena sandboxing is enabled.
-pub(crate) fn spawn(task: impl Future<Output = ()> + Send + 'static) {
+pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     #[cfg(feature = "sandboxed-arenas")]
     let task = owner::Sandboxed::new(task);
 

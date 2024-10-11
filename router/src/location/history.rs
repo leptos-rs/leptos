@@ -121,7 +121,7 @@ impl LocationProvider for BrowserUrl {
                         && curr.path() == new_url.path()
                 };
 
-                url.set(new_url);
+                url.set(new_url.clone());
                 if same_path {
                     Self::complete_navigation(&loc);
                 }
@@ -130,12 +130,19 @@ impl LocationProvider for BrowserUrl {
                 if !same_path {
                     *pending.lock().or_poisoned() = Some(tx);
                 }
+                let url = url.clone();
                 async move {
                     if !same_path {
                         // if it has been canceled, ignore
                         // otherwise, complete navigation -- i.e., set URL in address bar
                         if rx.await.is_ok() {
-                            Self::complete_navigation(&loc);
+                            // only update the URL in the browser if this is still the current URL
+                            // if we've navigated to another page in the meantime, don't update the
+                            // browser URL
+                            let curr = url.read_untracked();
+                            if curr == new_url {
+                                Self::complete_navigation(&loc);
+                            }
                         }
                     }
                 }

@@ -1,12 +1,15 @@
-use crate::{ChildrenFn, Show};
+use crate::{children::ChildrenFn, component, control_flow::Show, IntoView};
 use core::time::Duration;
-use leptos::component;
-use leptos_dom::{helpers::TimeoutHandle, IntoView};
+use leptos_dom::helpers::TimeoutHandle;
 use leptos_macro::view;
-use leptos_reactive::{
-    create_render_effect, on_cleanup, signal_prelude::*, store_value,
-    StoredValue,
+use reactive_graph::{
+    effect::RenderEffect,
+    owner::{on_cleanup, StoredValue},
+    signal::RwSignal,
+    traits::{Get, GetUntracked, GetValue, Set, SetValue},
+    wrappers::read::Signal,
 };
+use tachys::prelude::*;
 
 /// A component that will show its children when the `when` condition is `true`.
 /// Additionally, you need to specify a `hide_delay`. If the `when` condition changes to `false`,
@@ -16,10 +19,10 @@ use leptos_reactive::{
 ///
 /// ```rust
 /// # use core::time::Duration;
-/// # use leptos::*;
+/// # use leptos::prelude::*;
 /// # #[component]
 /// # pub fn App() -> impl IntoView {
-/// let show = create_rw_signal(false);
+/// let show = RwSignal::new(false);
 ///
 /// view! {
 ///     <div
@@ -50,7 +53,7 @@ pub fn AnimatedShow(
     children: ChildrenFn,
     /// If the component should show or not
     #[prop(into)]
-    when: MaybeSignal<bool>,
+    when: Signal<bool>,
     /// Optional CSS class to apply if `when == true`
     #[prop(optional)]
     show_class: &'static str,
@@ -60,15 +63,15 @@ pub fn AnimatedShow(
     /// The timeout after which the component will be unmounted if `when == false`
     hide_delay: Duration,
 ) -> impl IntoView {
-    let handle: StoredValue<Option<TimeoutHandle>> = store_value(None);
-    let cls = create_rw_signal(if when.get_untracked() {
+    let handle: StoredValue<Option<TimeoutHandle>> = StoredValue::new(None);
+    let cls = RwSignal::new(if when.get_untracked() {
         show_class
     } else {
         hide_class
     });
-    let show = create_rw_signal(when.get_untracked());
+    let show = RwSignal::new(when.get_untracked());
 
-    create_render_effect(move |_| {
+    let eff = RenderEffect::new(move |_| {
         if when.get() {
             // clear any possibly active timer
             if let Some(h) = handle.get_value() {
@@ -93,6 +96,7 @@ pub fn AnimatedShow(
         if let Some(Some(h)) = handle.try_get_value() {
             h.clear();
         }
+        drop(eff);
     });
 
     view! {

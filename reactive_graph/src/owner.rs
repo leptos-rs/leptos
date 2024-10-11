@@ -12,12 +12,14 @@ use std::{
     sync::{Arc, RwLock, Weak},
 };
 
+mod arc_stored_value;
 mod arena;
 mod arena_item;
 mod context;
 mod storage;
 mod stored_value;
 use self::arena::Arena;
+pub use arc_stored_value::ArcStoredValue;
 #[cfg(feature = "sandboxed-arenas")]
 pub use arena::sandboxed::Sandboxed;
 #[cfg(feature = "sandboxed-arenas")]

@@ -32,7 +32,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 
     let gen = quote! {
         impl Params for #name {
-            fn from_map(map: &::leptos_router::params::ParamsMap) -> Result<Self, ::leptos_router::params::ParamsError> {
+            fn from_map(map: &::leptos_router::params::ParamsMap) -> ::core::result::Result<Self, ::leptos_router::params::ParamsError> {
                 Ok(Self {
                     #(#fields,)*
                 })

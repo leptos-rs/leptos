@@ -13,7 +13,7 @@ use codee::{
 };
 use core::{fmt::Debug, marker::PhantomData};
 use futures::Future;
-use hydration_context::SerializedDataId;
+use hydration_context::{SerializedDataId, SharedContext};
 use reactive_graph::{
     computed::{
         ArcAsyncDerived, ArcMemo, AsyncDerived, AsyncDerivedFuture,
@@ -28,10 +28,14 @@ use std::{
     future::{pending, IntoFuture},
     ops::Deref,
     panic::Location,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
-static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool = AtomicBool::new(false);
+pub(crate) static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool =
+    AtomicBool::new(false);
 
 pub struct SuppressResourceLoad;
 
@@ -175,7 +179,7 @@ where
             .map(|sc| sc.next_id())
             .unwrap_or_default();
 
-        let initial = Self::initial_value(&id);
+        let initial = initial_value::<T, Ser>(&id, shared_context.as_ref());
         let is_ready = initial.is_some();
 
         let refetch = ArcRwSignal::new(0);
@@ -253,43 +257,53 @@ where
     pub fn refetch(&self) {
         *self.refetch.write() += 1;
     }
+}
 
-    #[inline(always)]
-    #[allow(unused)]
-    fn initial_value(id: &SerializedDataId) -> Option<T> {
-        #[cfg(feature = "hydration")]
-        {
-            use std::borrow::Borrow;
+#[inline(always)]
+#[allow(unused)]
+pub(crate) fn initial_value<T, Ser>(
+    id: &SerializedDataId,
+    shared_context: Option<&Arc<dyn SharedContext + Send + Sync>>,
+) -> Option<T>
+where
+    Ser: Encoder<T> + Decoder<T>,
+    <Ser as Encoder<T>>::Error: Debug,
+    <Ser as Decoder<T>>::Error: Debug,
+    <<Ser as Decoder<T>>::Encoded as FromEncodedStr>::DecodingError: Debug,
+    <Ser as Encoder<T>>::Encoded: IntoEncodedString,
+    <Ser as Decoder<T>>::Encoded: FromEncodedStr,
+{
+    #[cfg(feature = "hydration")]
+    {
+        use std::borrow::Borrow;
 
-            let shared_context = Owner::current_shared_context();
-            if let Some(shared_context) = shared_context {
-                let value = shared_context.read_data(id);
-                if let Some(value) = value {
-                    let encoded =
-                        match <Ser as Decoder<T>>::Encoded::from_encoded_str(
-                            &value,
-                        ) {
-                            Ok(value) => value,
-                            Err(e) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("couldn't deserialize: {e:?}");
-                                return None;
-                            }
-                        };
-                    let encoded = encoded.borrow();
-                    match Ser::decode(encoded) {
-                        Ok(value) => return Some(value),
-                        #[allow(unused)]
+        let shared_context = Owner::current_shared_context();
+        if let Some(shared_context) = shared_context {
+            let value = shared_context.read_data(id);
+            if let Some(value) = value {
+                let encoded =
+                    match <Ser as Decoder<T>>::Encoded::from_encoded_str(&value)
+                    {
+                        Ok(value) => value,
                         Err(e) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("couldn't deserialize: {e:?}");
+                            return None;
                         }
+                    };
+                let encoded = encoded.borrow();
+                match Ser::decode(encoded) {
+                    Ok(value) => return Some(value),
+                    #[allow(unused)]
+                    Err(e) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("couldn't deserialize: {e:?}");
                     }
                 }
             }
         }
-        None
     }
+    None
 }
 
 impl<T, E, Ser> ArcResource<Result<T, E>, Ser>

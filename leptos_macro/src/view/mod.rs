@@ -179,7 +179,7 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
 }
 
 enum Item<'a, T> {
-    Node(&'a Node<T>),
+    Node(&'a Node<T>, bool),
     ClosingTag(String),
 }
 
@@ -290,10 +290,11 @@ impl<'a> InertElementBuilder<'a> {
 
 fn inert_element_to_tokens(
     node: &Node<impl CustomNode>,
+    escape_text: bool,
     global_class: Option<&TokenTree>,
 ) -> Option<TokenStream> {
     let mut html = InertElementBuilder::new(global_class);
-    let mut nodes = VecDeque::from([Item::Node(node)]);
+    let mut nodes = VecDeque::from([Item::Node(node, escape_text)]);
 
     while let Some(current) = nodes.pop_front() {
         match current {
@@ -303,21 +304,32 @@ fn inert_element_to_tokens(
                 html.push_str(&tag);
                 html.push('>');
             }
-            Item::Node(current) => {
+            Item::Node(current, escape) => {
                 match current {
                     Node::RawText(raw) => {
                         let text = raw.to_string_best();
-                        let text = html_escape::encode_text(&text);
+                        let text = if escape {
+                            html_escape::encode_text(&text)
+                        } else {
+                            text.into()
+                        };
                         html.push_str(&text);
                     }
                     Node::Text(text) => {
                         let text = text.value_string();
-                        let text = html_escape::encode_text(&text);
+                        let text = if escape {
+                            html_escape::encode_text(&text)
+                        } else {
+                            text.into()
+                        };
                         html.push_str(&text);
                     }
                     Node::Element(node) => {
                         let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
+                        let escape = el_name != "script"
+                            && el_name != "style"
+                            && el_name != "textarea";
 
                         // opening tag
                         html.push('<');
@@ -364,7 +376,7 @@ fn inert_element_to_tokens(
                             nodes.push_front(Item::ClosingTag(el_name));
                             let children = node.children.iter().rev();
                             for child in children {
-                                nodes.push_front(Item::Node(child));
+                                nodes.push_front(Item::Node(child, escape));
                             }
                         }
                     }
@@ -559,7 +571,11 @@ fn node_to_tokens(
         }
         Node::Element(el_node) => {
             if !top_level && is_inert {
-                inert_element_to_tokens(node, global_class)
+                let el_name = el_node.name().to_string();
+                let escape = el_name != "script"
+                    && el_name != "style"
+                    && el_name != "textarea";
+                inert_element_to_tokens(node, escape, global_class)
             } else {
                 element_to_tokens(
                     el_node,
@@ -727,6 +743,11 @@ pub(crate) fn element_to_tokens(
             quote! { ::leptos::tachys::html::element::#custom(#name) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
+            let name = if tag == "use" || tag == "use_" {
+                Ident::new_raw("use", name.span()).to_token_stream()
+            } else {
+                name.to_token_stream()
+            };
             quote! { ::leptos::tachys::svg::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;

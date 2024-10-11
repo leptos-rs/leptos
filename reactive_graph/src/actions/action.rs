@@ -1,9 +1,12 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
+    owner::{
+        ArcStoredValue, ArenaItem, FromLocal, LocalStorage, Storage,
+        SyncStorage,
+    },
     signal::{ArcRwSignal, RwSignal},
-    traits::{DefinedAt, Dispose, Get, GetUntracked, Update},
+    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update},
     unwrap_signal,
 };
 use any_spawner::Executor;
@@ -93,6 +96,7 @@ pub struct ArcAction<I, O> {
     input: ArcRwSignal<Option<I>>,
     value: ArcRwSignal<Option<O>>,
     version: ArcRwSignal<usize>,
+    dispatched: ArcStoredValue<usize>,
     #[allow(clippy::complexity)]
     action_fn: Arc<
         dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>> + Send + Sync,
@@ -108,6 +112,7 @@ impl<I, O> Clone for ArcAction<I, O> {
             input: self.input.clone(),
             value: self.value.clone(),
             version: self.version.clone(),
+            dispatched: self.dispatched.clone(),
             action_fn: self.action_fn.clone(),
             #[cfg(debug_assertions)]
             defined_at: self.defined_at,
@@ -191,6 +196,7 @@ where
             input: Default::default(),
             value: ArcRwSignal::new(value),
             version: Default::default(),
+            dispatched: Default::default(),
             action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -230,14 +236,14 @@ where
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
-            let current_version =
-                self.version.try_get_untracked().unwrap_or_default();
+            let current_version = self.dispatched.get_value();
             self.input.try_update(|inp| *inp = Some(input));
 
             // Spawn the task
             crate::spawn({
                 let input = self.input.clone();
                 let version = self.version.clone();
+                let dispatched = self.dispatched.clone();
                 let value = self.value.clone();
                 let in_flight = self.in_flight.clone();
                 async move {
@@ -249,7 +255,7 @@ where
                         // otherwise, update the value
                         result = fut => {
                             in_flight.update(|n| *n = n.saturating_sub(1));
-                            let is_latest = version.get_untracked() <= current_version;
+                            let is_latest = dispatched.get_value() <= current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
                                 value.update(|n| *n = Some(result));
@@ -282,8 +288,7 @@ where
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
-            let current_version =
-                self.version.try_get_untracked().unwrap_or_default();
+            let current_version = self.dispatched.get_value();
             self.input.try_update(|inp| *inp = Some(input));
 
             // Spawn the task
@@ -291,6 +296,7 @@ where
                 let input = self.input.clone();
                 let version = self.version.clone();
                 let value = self.value.clone();
+                let dispatched = self.dispatched.clone();
                 let in_flight = self.in_flight.clone();
                 async move {
                     select! {
@@ -301,7 +307,7 @@ where
                         // otherwise, update the value
                         result = fut => {
                             in_flight.update(|n| *n = n.saturating_sub(1));
-                            let is_latest = version.get_untracked() <= current_version;
+                            let is_latest = dispatched.get_value() <= current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
                                 value.update(|n| *n = Some(result));
@@ -351,6 +357,7 @@ where
             input: Default::default(),
             value: ArcRwSignal::new(value),
             version: Default::default(),
+            dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
                 Box::pin(SendWrapper::new(action_fn(input)))
             }),

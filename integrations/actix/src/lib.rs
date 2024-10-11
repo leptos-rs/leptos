@@ -1381,39 +1381,41 @@ where
                         ),
                     )
                 } else {
-                    router.route(
-                    path,
-                    match mode {
-                        SsrMode::OutOfOrder => {
-                            render_app_to_stream_with_context(
-                                additional_context_and_method.clone(),
-                                app_fn.clone(),
-                                method,
-                            )
-                        }
-                        SsrMode::PartiallyBlocked => {
-                            render_app_to_stream_with_context_and_replace_blocks(
-                                additional_context_and_method.clone(),
-                                app_fn.clone(),
-                                method,
-                                true,
-                            )
-                        }
-                        SsrMode::InOrder => {
-                            render_app_to_stream_in_order_with_context(
-                                additional_context_and_method.clone(),
-                                app_fn.clone(),
-                                method,
-                            )
-                        }
-                        SsrMode::Async => render_app_async_with_context(
-                            additional_context_and_method.clone(),
-                            app_fn.clone(),
-                            method,
-                        ),
-                        _ => unreachable!()
-                    },
-                )
+                    router
+                        .route(path, web::head().to(HttpResponse::Ok))
+                        .route(
+                            path,
+                            match mode {
+                                SsrMode::OutOfOrder => {
+                                    render_app_to_stream_with_context(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::PartiallyBlocked => {
+                                    render_app_to_stream_with_context_and_replace_blocks(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                        true,
+                                    )
+                                }
+                                SsrMode::InOrder => {
+                                    render_app_to_stream_in_order_with_context(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::Async => render_app_async_with_context(
+                                    additional_context_and_method.clone(),
+                                    app_fn.clone(),
+                                    method,
+                                ),
+                                _ => unreachable!()
+                            },
+                        )
                 };
             }
         }

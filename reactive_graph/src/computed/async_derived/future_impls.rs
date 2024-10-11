@@ -34,6 +34,21 @@ pub struct AsyncDerivedReadyFuture {
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
+impl AsyncDerivedReadyFuture {
+    /// Creates a new [`Future`] that will be ready when the given resource is ready.
+    pub fn new(
+        source: AnySource,
+        loading: &Arc<AtomicBool>,
+        wakers: &Arc<RwLock<Vec<Waker>>>,
+    ) -> Self {
+        AsyncDerivedReadyFuture {
+            source,
+            loading: Arc::clone(loading),
+            wakers: Arc::clone(wakers),
+        }
+    }
+}
+
 impl Future for AsyncDerivedReadyFuture {
     type Output = ();
 

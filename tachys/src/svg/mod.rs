@@ -11,7 +11,7 @@ macro_rules! svg_elements {
 	($($tag:ident  [$($attr:ty),*]),* $(,)?) => {
         paste::paste! {
             $(
-                /// An SVG attribute.
+                /// An SVG element.
                 // `tag()` function
                 #[allow(non_snake_case)]
                 pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
@@ -151,4 +151,33 @@ svg_elements![
   view [],
 ];
 
-// TODO <use>
+/// An SVG element.
+#[allow(non_snake_case)]
+pub fn r#use() -> HtmlElement<Use, (), ()>
+where {
+    HtmlElement {
+        tag: Use,
+        attributes: (),
+        children: (),
+    }
+}
+
+/// An SVG element.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Use;
+
+impl ElementType for Use {
+    type Output = web_sys::SvgElement;
+
+    const TAG: &'static str = "use";
+    const SELF_CLOSING: bool = false;
+    const ESCAPE_CHILDREN: bool = true;
+    const NAMESPACE: Option<&'static str> = Some("http://www.w3.org/2000/svg");
+
+    #[inline(always)]
+    fn tag(&self) -> &str {
+        Self::TAG
+    }
+}
+
+impl ElementWithChildren for Use {}

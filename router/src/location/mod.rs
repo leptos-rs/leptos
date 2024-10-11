@@ -36,20 +36,40 @@ impl Url {
         &self.origin
     }
 
+    pub fn origin_mut(&mut self) -> &mut String {
+        &mut self.origin
+    }
+
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    pub fn path_mut(&mut self) -> &mut str {
+        &mut self.path
     }
 
     pub fn search(&self) -> &str {
         &self.search
     }
 
+    pub fn search_mut(&mut self) -> &mut String {
+        &mut self.search
+    }
+
     pub fn search_params(&self) -> &ParamsMap {
         &self.search_params
     }
 
+    pub fn search_params_mut(&mut self) -> &mut ParamsMap {
+        &mut self.search_params
+    }
+
     pub fn hash(&self) -> &str {
         &self.hash
+    }
+
+    pub fn hash_mut(&mut self) -> &mut String {
+        &mut self.hash
     }
 
     pub fn provide_server_action_error(&self) {
@@ -60,6 +80,19 @@ impl Url {
         ) {
             provide_context(ServerActionError::new(path, err))
         }
+    }
+
+    pub(crate) fn to_full_path(&self) -> String {
+        let mut path = self.path.to_string();
+        if !self.search.is_empty() {
+            path.push('?');
+            path.push_str(&self.search);
+        }
+        if !self.hash.is_empty() {
+            path.push('#');
+            path.push_str(&self.hash);
+        }
+        path
     }
 
     pub fn escape(s: &str) -> String {
