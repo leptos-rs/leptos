@@ -8,7 +8,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
-use futures::{future::join_all, FutureExt};
+use futures::{channel::oneshot, future::join_all, FutureExt};
 use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -16,7 +16,7 @@ use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track},
-    wrappers::write::SignalSetter,
+    wrappers::write::SignalSetter, transition::AsyncTransition,
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -47,7 +47,6 @@ pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
-    #[allow(unused)] // TODO
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
@@ -155,22 +154,36 @@ where
                 state.outlets.clear();
             }
             Some(route) => {
-                let mut loaders = Vec::new();
+                if let Some(set_is_routing) = self.set_is_routing {
+                    set_is_routing.set(true);
+                }
+
+                let mut preloaders = Vec::new();
+                let mut full_loaders = Vec::new();
                 route.rebuild_nested_route(
                     &self.current_url.read_untracked(),
                     self.base,
                     &mut 0,
-                    &mut loaders,
+                    &mut preloaders,
+                    &mut full_loaders,
                     &mut state.outlets,
                     &self.outer_owner,
+                    self.set_is_routing.is_some()
                 );
 
                 let location = self.location.clone();
                 Executor::spawn_local(async move {
-                    let triggers = join_all(loaders).await;
+                    let triggers = join_all(preloaders).await;
                     // tell each one of the outlet triggers that it's ready
                     for trigger in triggers {
                         trigger.notify();
+                    }
+                });
+
+                Executor::spawn_local(async move {
+                    join_all(full_loaders).await;
+                    if let Some(set_is_routing) = self.set_is_routing {
+                        set_is_routing.set(false);
                     }
                     if let Some(loc) = location {
                         loc.ready_to_complete();
@@ -492,8 +505,10 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        full_loaders: &mut Vec<oneshot::Receiver<()>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
+        set_is_routing: bool
     );
 }
 
@@ -634,9 +649,11 @@ where
         url: &Url,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
-        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        preloaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        full_loaders: &mut Vec<oneshot::Receiver<()>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
+        set_is_routing: bool
     ) {
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
@@ -647,7 +664,7 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(url, base, loaders, outlets, parent);
+                self.build_nested_route(url, base, preloaders, outlets, parent);
             }
             Some(current) => {
                 // a unique ID for each route, which allows us to compare when we get new matches
@@ -716,11 +733,14 @@ where
                     let old_owner =
                         mem::replace(&mut current.owner, parent.child());
                     let owner = current.owner.clone();
+                    let (full_tx, full_rx) = oneshot::channel();
+                    let full_tx = Mutex::new(Some(full_tx));
+                    full_loaders.push(full_rx);
 
                     // send the new view, with the new owner, through the channel to the Outlet,
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
-                    loaders.push(Box::pin(owner.with(|| {
+                    preloaders.push(Box::pin(owner.with(|| {
                         ScopedFuture::new({
                             let owner = owner.clone();
                             let trigger = current.trigger.clone();
@@ -736,15 +756,26 @@ where
                                     Box::new(move || {
                                         let owner = owner.clone();
                                         let view = view.clone();
+                                        let full_tx =
+                                            full_tx.lock().or_poisoned().take();
                                         Suspend::new(Box::pin(async move {
                                             let view = SendWrapper::new(
                                                 owner.with(|| {
                                                     ScopedFuture::new(
-                                                        view.choose(),
+                                                        async move { 
+                                                            if set_is_routing {
+                                                                AsyncTransition::run(|| view.choose()).await
+                                                            } else {
+                                                                view.choose().await
+                                                            }
+                                                        }
                                                     )
                                                 }),
                                             );
                                             let view = view.await;
+                                            if let Some(tx) = full_tx {
+                                                _ = tx.send(());
+                                            }
                                             owner.with(|| {
                                                 OwnedView::new(view).into_any()
                                             })
@@ -766,7 +797,7 @@ where
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
                         child.build_nested_route(
-                            url, base, loaders, outlets, &owner,
+                            url, base, preloaders, outlets, &owner,
                         );
                     }
 
@@ -782,7 +813,14 @@ where
                     let owner = current.owner.clone();
                     *items += 1;
                     child.rebuild_nested_route(
-                        url, base, items, loaders, outlets, &owner,
+                        url,
+                        base,
+                        items,
+                        preloaders,
+                        full_loaders,
+                        outlets,
+                        &owner,
+                        set_is_routing
                     );
                 }
             }
