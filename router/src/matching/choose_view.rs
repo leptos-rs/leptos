@@ -6,7 +6,7 @@ pub trait ChooseView
 where
     Self: Send + Clone + 'static,
 {
-    fn choose(self) -> impl Future<Output = AnyView<R>>;
+    fn choose(self) -> impl Future<Output = AnyView>;
 
     fn preload(&self) -> impl Future<Output = ()>;
 }
@@ -16,7 +16,7 @@ where
     F: Fn() -> View + Send + Clone + 'static,
     View: IntoAny,
 {
-    async fn choose(self) -> AnyView<R> {
+    async fn choose(self) -> AnyView {
         self().into_any()
     }
 
@@ -80,7 +80,7 @@ where
     A: ChooseView,
     B: ChooseView,
 {
-    async fn choose(self) -> AnyView<Rndr> {
+    async fn choose(self) -> AnyView {
         match self {
             Either::Left(f) => f.choose().await.into_any(),
             Either::Right(f) => f.choose().await.into_any(),
@@ -101,7 +101,7 @@ macro_rules! tuples {
         where
             $($ty: ChooseView,)*
         {
-            async fn choose(self ) -> AnyView<Rndr> {
+            async fn choose(self ) -> AnyView {
                 match self {
                     $($either::$ty(f) => f.choose().await.into_any(),)*
                 }
