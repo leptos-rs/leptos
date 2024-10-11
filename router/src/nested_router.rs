@@ -16,7 +16,8 @@ use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track},
-    wrappers::write::SignalSetter, transition::AsyncTransition,
+    transition::AsyncTransition,
+    wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -168,7 +169,7 @@ where
                     &mut full_loaders,
                     &mut state.outlets,
                     &self.outer_owner,
-                    self.set_is_routing.is_some()
+                    self.set_is_routing.is_some(),
                 );
 
                 let location = self.location.clone();
@@ -508,7 +509,7 @@ trait AddNestedRoute {
         full_loaders: &mut Vec<oneshot::Receiver<()>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
-        set_is_routing: bool
+        set_is_routing: bool,
     );
 }
 
@@ -653,7 +654,7 @@ where
         full_loaders: &mut Vec<oneshot::Receiver<()>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
-        set_is_routing: bool
+        set_is_routing: bool,
     ) {
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
@@ -762,7 +763,7 @@ where
                                             let view = SendWrapper::new(
                                                 owner.with(|| {
                                                     ScopedFuture::new(
-                                                        async move { 
+                                                        async move {
                                                             if set_is_routing {
                                                                 AsyncTransition::run(|| view.choose()).await
                                                             } else {
@@ -820,7 +821,7 @@ where
                         full_loaders,
                         outlets,
                         &owner,
-                        set_is_routing
+                        set_is_routing,
                     );
                 }
             }
