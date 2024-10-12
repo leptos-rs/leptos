@@ -1,6 +1,6 @@
 use crate::fixtures::{check, world::AppWorld};
 use anyhow::{Ok, Result};
-use cucumber::then;
+use cucumber::{then, gherkin::Step};
 
 #[then(regex = r"^I see the page title is (.*)$")]
 async fn i_see_the_page_title_is(
@@ -80,14 +80,20 @@ async fn i_see_the_second_count_is(
     Ok(())
 }
 
-#[then(expr = "I see under Counters the {word} count is {int}")]
+#[then(regex = "^I see the Counters under the (Suspend|Server) Calls$")]
 async fn i_see_the_counter_for_listing_is(
     world: &mut AppWorld,
-    which: String,
-    expected: u32,
+    step: &Step,
+    _heading: String,
 ) -> Result<()> {
     let client = &world.client;
-    check::instrumented_count_is(client, &which, expected).await?;
+    if let Some(table) = step.table.as_ref() {
+        for row in table.rows.iter() {
+            let selector = &row[0];
+            let expected = row[1].parse::<u32>().unwrap();
+            check::instrumented_count_is(client, selector, expected).await?;
+        }
+    }
 
     Ok(())
 }
