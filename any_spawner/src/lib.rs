@@ -201,12 +201,11 @@ impl Executor {
     #[cfg(feature = "futures-executor")]
     #[cfg_attr(docsrs, doc(cfg(feature = "futures-executor")))]
     pub fn init_futures_executor() -> Result<(), ExecutorError> {
-        use std::cell::RefCell;
-
         use futures::{
             executor::{LocalPool, LocalSpawner, ThreadPool},
             task::{LocalSpawnExt, SpawnExt},
         };
+        use std::cell::RefCell;
 
         static THREAD_POOL: OnceLock<ThreadPool> = OnceLock::new();
         thread_local! {
