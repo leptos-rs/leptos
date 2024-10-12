@@ -59,3 +59,11 @@ async fn i_click_the_second_button_n_times(
 
     Ok(())
 }
+
+#[when(expr = "I click on Reset Counters")]
+async fn i_click_on_reset_counters(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    action::click_reset_counters_button(client).await?;
+
+    Ok(())
+}

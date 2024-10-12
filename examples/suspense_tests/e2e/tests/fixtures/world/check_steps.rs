@@ -79,3 +79,15 @@ async fn i_see_the_second_count_is(
 
     Ok(())
 }
+
+#[then(expr = "I see under Counters the {word} count is {int}")]
+async fn i_see_the_counter_for_listing_is(
+    world: &mut AppWorld,
+    which: String,
+    expected: u32,
+) -> Result<()> {
+    let client = &world.client;
+    check::instrumented_count_is(client, &which, expected).await?;
+
+    Ok(())
+}

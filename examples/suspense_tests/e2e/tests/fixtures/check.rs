@@ -63,3 +63,14 @@ pub async fn second_count_is(client: &Client, expected: u32) -> Result<()> {
 
     Ok(())
 }
+
+pub async fn instrumented_count_is(
+    client: &Client,
+    selector: &str,
+    expected: u32,
+) -> Result<()> {
+    let actual = find::instrumented_count(client, selector).await?;
+    assert_eq!(actual, expected);
+
+    Ok(())
+}

@@ -77,6 +77,33 @@ pub async fn second_button(client: &Client) -> Result<Element> {
     Ok(counter_button)
 }
 
+pub async fn instrumented_count(
+    client: &Client,
+    selector: &str,
+) -> Result<u32> {
+    let element = client
+        .wait()
+        .for_element(Locator::Id(selector))
+        .await
+        .expect(format!("Element #{selector} not found.")
+            .as_str());
+    let text = element.text().await?;
+    let count = text.parse::<u32>()
+        .expect(format!("Element #{selector} does not contain a number.")
+            .as_str());
+    Ok(count)
+}
+
+pub async fn reset_counter(client: &Client) -> Result<Element> {
+    let reset_button = client
+        .wait()
+        .for_element(Locator::Id("reset-counters"))
+        .await
+        .expect("Reset counter not found");
+
+    Ok(reset_button)
+}
+
 async fn component_message(client: &Client, id: &str) -> Result<String> {
     let element =
         client.wait().for_element(Locator::Id(id)).await.expect(
