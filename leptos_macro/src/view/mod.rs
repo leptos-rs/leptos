@@ -677,41 +677,45 @@ pub(crate) fn element_to_tokens(
         }
     }
 
-    // Replace nostrip: with __nostrip_ to access the hidden optional method builder for option fields:
-    for attr in node.open_tag.attributes.iter_mut() {
-        if let NodeAttribute::Attribute(attr) = attr {
-            let maybe_cleaned_name_and_span =
-                if let NodeName::Punctuated(punct) = &attr.key {
-                    if punct.len() == 2 {
-                        if let Some(cleaned_name) =
-                            attr.key.to_string().strip_prefix("nostrip:")
-                        {
-                            punct.get(1).map(|segment| {
-                                (cleaned_name.to_string(), segment.span())
-                            })
+    let name = node.name();
+    if is_component_node(node) {
+        // Replace nostrip: with __nostrip_ to access the hidden builder optional methods for option fields:
+        for attr in node.open_tag.attributes.iter_mut() {
+            if let NodeAttribute::Attribute(attr) = attr {
+                let maybe_cleaned_name_and_span =
+                    if let NodeName::Punctuated(punct) = &attr.key {
+                        if punct.len() == 2 {
+                            if let Some(cleaned_name) =
+                                attr.key.to_string().strip_prefix("nostrip:")
+                            {
+                                punct.get(1).map(|segment| {
+                                    (cleaned_name.to_string(), segment.span())
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
                     } else {
                         None
-                    }
-                } else {
-                    None
-                };
-            if let Some((cleaned_name, span)) = maybe_cleaned_name_and_span {
-                let method_key =
-                    format_ident!("__nostrip_{}", cleaned_name, span = span,);
-                attr.key = NodeName::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path: method_key.into(),
-                });
+                    };
+                if let Some((cleaned_name, span)) = maybe_cleaned_name_and_span
+                {
+                    let method_key = format_ident!(
+                        "__nostrip_{}",
+                        cleaned_name,
+                        span = span,
+                    );
+                    attr.key = NodeName::Path(ExprPath {
+                        attrs: vec![],
+                        qself: None,
+                        path: method_key.into(),
+                    });
+                }
             }
         }
-    }
 
-    let name = node.name();
-    if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             let slot = slot.clone();
             slot_to_tokens(
