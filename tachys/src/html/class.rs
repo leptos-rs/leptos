@@ -236,19 +236,11 @@ impl<T: IntoClass> IntoClass for Option<T> {
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        if let Some(t) = self {
-            Some(t.into_cloneable())
-        } else {
-            None
-        }
+        self.map(|t| t.into_cloneable())
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        if let Some(t) = self {
-            Some(t.into_cloneable_owned())
-        } else {
-            None
-        }
+        self.map(|t| t.into_cloneable_owned())
     }
 
     fn dry_resolve(&mut self) {
