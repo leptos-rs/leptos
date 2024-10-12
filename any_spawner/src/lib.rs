@@ -255,7 +255,7 @@ mod tests {
     fn can_spawn_local_future() {
         use crate::Executor;
         use std::rc::Rc;
-        Executor::init_futures_executor().expect("couldn't set executor");
+        _ = Executor::init_futures_executor();
         let rc = Rc::new(());
         Executor::spawn_local(async {
             _ = rc;
@@ -268,7 +268,7 @@ mod tests {
     fn can_make_threaded_progress() {
         use crate::Executor;
         use std::sync::{atomic::AtomicUsize, Arc};
-        Executor::init_futures_executor().expect("couldn't set executor");
+        _ = Executor::init_futures_executor();
         let counter = Arc::new(AtomicUsize::new(0));
         Executor::spawn({
             let counter = Arc::clone(&counter);
@@ -282,12 +282,13 @@ mod tests {
         futures::executor::block_on(Executor::tick());
         assert_eq!(counter.load(std::sync::atomic::Ordering::Acquire), 1);
     }
+
     #[cfg(feature = "futures-executor")]
     #[test]
     fn can_make_local_progress() {
         use crate::Executor;
         use std::sync::{atomic::AtomicUsize, Arc};
-        Executor::init_futures_executor().expect("couldn't set executor");
+        _ = Executor::init_futures_executor();
         let counter = Arc::new(AtomicUsize::new(0));
         Executor::spawn_local({
             let counter = Arc::clone(&counter);
