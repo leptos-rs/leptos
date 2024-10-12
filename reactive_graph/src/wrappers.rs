@@ -830,6 +830,20 @@ pub mod read {
         }
     }
 
+    impl From<&str> for Signal<String> {
+        #[track_caller]
+        fn from(value: &str) -> Self {
+            Signal::stored(value.to_string())
+        }
+    }
+
+    impl From<&str> for Signal<String, LocalStorage> {
+        #[track_caller]
+        fn from(value: &str) -> Self {
+            Signal::stored_local(value.to_string())
+        }
+    }
+
     /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
     ///
     /// This allows you to create APIs that take either a reactive or a non-reactive value
