@@ -80,6 +80,7 @@ pin-project-lite = "0.2.14"
 default = ["json"]
 axum-no-default = [
   "ssr",
+  "generic",
   "dep:axum",
   "dep:hyper",
   "dep:http-body-util",
@@ -110,6 +111,8 @@ default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls"]
 reqwest = ["dep:reqwest"]
 ssr = ["inventory"]
+wasi = ["generic"]
+generic = []
 
 [package.metadata.docs.rs]
 all-features = true
@@ -139,6 +142,10 @@ skip_feature_sets = [
     "axum",
   ],
   [
+    "actix",
+    "generic",
+  ],
+  [
     "browser",
     "actix",
   ],
@@ -149,6 +156,10 @@ skip_feature_sets = [
   [
     "browser",
     "reqwest",
+  ],
+  [
+    "browser",
+    "generic",
   ],
   [
     "default-tls",
@@ -165,6 +176,10 @@ skip_feature_sets = [
   [
     "axum-no-default",
     "browser",
+  ],
+  [
+    "axum-no-default",
+    "generic",
   ],
   [
     "rkyv",

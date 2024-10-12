@@ -59,15 +59,14 @@ pub fn server_macro_impl(
         .inputs
         .iter_mut()
         .map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => {
-                    return Err(syn::Error::new(
+            let typed_arg =
+                match f {
+                    FnArg::Receiver(_) => return Err(syn::Error::new(
                         f.span(),
                         "cannot use receiver types in server function macro",
-                    ))
-                }
-                FnArg::Typed(t) => t,
-            };
+                    )),
+                    FnArg::Typed(t) => t,
+                };
 
             // strip `mut`, which is allowed in fn args but not in struct fields
             if let Pat::Ident(ident) = &mut *typed_arg.pat {
@@ -527,11 +526,15 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::axum_export::http::Request<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::http_export::Request<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
             #server_fn_path::request::actix::ActixRequest
+        }
+    } else if cfg!(feature = "generic") {
+        quote! {
+            #server_fn_path::http_export::Request<#server_fn_path::bytes_export::Bytes>
         }
     } else if let Some(req_ty) = req_ty {
         req_ty.to_token_stream()
@@ -551,11 +554,15 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::axum_export::http::Response<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::http_export::Response<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
             #server_fn_path::response::actix::ActixResponse
+        }
+    } else if cfg!(feature = "generic") {
+        quote! {
+            #server_fn_path::http_export::Response<#server_fn_path::response::generic::Body>
         }
     } else if let Some(res_ty) = res_ty {
         res_ty.to_token_stream()
