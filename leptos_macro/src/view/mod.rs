@@ -23,8 +23,9 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
-    spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
-    RangeLimits, Stmt,
+    spanned::Spanned,
+    Expr::{self, Tuple},
+    ExprLit, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -673,6 +674,38 @@ pub(crate) fn element_to_tokens(
             } else {
                 names.insert(name);
             }
+        }
+    }
+
+    // Replace nostrip: with __nostrip_ to access the hidden optional method builder for option fields:
+    for attr in node.open_tag.attributes.iter_mut() {
+        match attr {
+            NodeAttribute::Attribute(attr) => {
+                if let Some(name) =
+                    attr.key.to_string().strip_prefix("nostrip:")
+                {
+                    let span = match &attr.key {
+                        NodeName::Punctuated(punct) => {
+                            if let Some(segment) = punct.get(1) {
+                                Some(segment.span())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+                    if let Some(span) = span {
+                        let method_key =
+                            format_ident!("__nostrip_{}", name, span = span,);
+                        attr.key = NodeName::Path(ExprPath {
+                            attrs: vec![],
+                            qself: None,
+                            path: method_key.into(),
+                        });
+                    }
+                }
+            }
+            _ => {}
         }
     }
 

@@ -31,7 +31,7 @@ tracing = { version = "0.1.40", optional = true }
 
 [dev-dependencies]
 log = "0.4.22"
-typed-builder = "0.19.1"
+typed-builder = "0.20.0"
 trybuild = "1.0"
 leptos = { path = "../leptos" }
 server_fn = { path = "../server_fn", features = ["cbor"] }

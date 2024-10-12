@@ -3,7 +3,7 @@ use crate::component::{
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, Field, ItemStruct, LitStr, Meta, Type,
     Visibility,
@@ -164,15 +164,17 @@ struct TypedBuilderOpts {
     default_with_value: Option<syn::Expr>,
     strip_option: bool,
     into: bool,
+    name: Ident,
 }
 
 impl TypedBuilderOpts {
-    pub fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
+    pub fn from_opts(name: &Ident, opts: &PropOpt, is_ty_option: bool) -> Self {
         Self {
             default: opts.optional || opts.optional_no_strip || opts.attrs,
             default_with_value: opts.default.clone(),
             strip_option: opts.strip_option || opts.optional && is_ty_option,
             into: opts.into,
+            name: name.clone(),
         }
     }
 }
@@ -189,7 +191,8 @@ impl ToTokens for TypedBuilderOpts {
         };
 
         let strip_option = if self.strip_option {
-            quote! { strip_option, }
+            let nostrip_method_name = format_ident!("__nostrip_{}", self.name);
+            quote! { strip_option(fallback = #nostrip_method_name), }
         } else {
             quote! {}
         };
@@ -228,7 +231,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
             } = prop;
 
             let builder_attrs =
-                TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+                TypedBuilderOpts::from_opts(name, prop_opts, is_option(ty));
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
