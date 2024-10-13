@@ -76,6 +76,26 @@ impl Parse for Model {
     }
 }
 
+/// Look for OptProp<T> and rewrite as Option<Signal<Option<T>>>
+pub fn maybe_opt_prop_rewrite(ty: &mut Type) {
+    if let syn::Type::Path(path) = ty {
+        if let Some(segment) = path.path.segments.first_mut() {
+            if segment.ident == "OptProp" {
+                if let syn::PathArguments::AngleBracketed(ref mut args) =
+                    segment.arguments
+                {
+                    if let Some(syn::GenericArgument::Type(ref mut ty)) =
+                        args.args.first_mut()
+                    {
+                        segment.ident = format_ident!("Option");
+                        *ty = syn::parse_quote!(::leptos::prelude::Signal<Option<#ty>>);
+                    }
+                }
+            }
+        }
+    }
+}
+
 // implemented manually because Vec::drain_filter is nightly only
 // follows std recommended parallel
 pub fn drain_filter<T>(
@@ -643,11 +663,12 @@ struct Prop {
 
 impl Prop {
     fn new(arg: FnArg) -> Self {
-        let typed = if let FnArg::Typed(ty) = arg {
+        let mut typed = if let FnArg::Typed(ty) = arg {
             ty
         } else {
             abort!(arg, "receiver not allowed in `fn`");
         };
+        maybe_opt_prop_rewrite(&mut typed.ty);
 
         let prop_opts =
             PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {

@@ -1,5 +1,6 @@
 use crate::component::{
-    convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
+    convert_from_snake_case, drain_filter, is_option, maybe_opt_prop_rewrite,
+    unwrap_option, Docs,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
@@ -118,7 +119,9 @@ struct Prop {
 }
 
 impl Prop {
-    fn new(arg: Field) -> Self {
+    fn new(mut arg: Field) -> Self {
+        maybe_opt_prop_rewrite(&mut arg.ty);
+
         let prop_opts =
             PropOpt::from_attributes(&arg.attrs).unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed

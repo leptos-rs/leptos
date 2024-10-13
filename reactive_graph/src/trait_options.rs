@@ -219,3 +219,20 @@ where
         })
     }
 }
+
+/// Helper trait to implement flatten() on Option<&Option<T>>.
+pub trait FlattenOptionRefOption {
+    /// The type of the value contained in the double option.
+    type Value;
+
+    /// Converts from `Option<&Option<T>>` to `Option<&T>`.
+    fn flatten(&self) -> Option<&Self::Value>;
+}
+
+impl<'a, T> FlattenOptionRefOption for Option<&'a Option<T>> {
+    type Value = T;
+
+    fn flatten(&self) -> Option<&'a T> {
+        self.map(Option::as_ref).flatten()
+    }
+}
