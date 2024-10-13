@@ -856,6 +856,46 @@ pub mod read {
         }
     }
 
+    impl<T> From<T> for Signal<Option<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: T) -> Self {
+            Signal::stored(Some(value))
+        }
+    }
+
+    impl<T> From<T> for Signal<Option<T>, LocalStorage>
+    where
+        T: 'static,
+    {
+        #[track_caller]
+        fn from(value: T) -> Self {
+            Signal::stored_local(Some(value))
+        }
+    }
+
+    impl<T> From<Signal<T>> for Signal<Option<T>>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: Signal<T>) -> Self {
+            Signal::derive(move || Some(value.get()))
+        }
+    }
+
+    impl<T> From<Signal<T, LocalStorage>> for Signal<Option<T>, LocalStorage>
+    where
+        T: Clone + 'static,
+    {
+        #[track_caller]
+        fn from(value: Signal<T, LocalStorage>) -> Self {
+            Signal::derive_local(move || Some(value.get()))
+        }
+    }
+
     impl From<&str> for Signal<String> {
         #[track_caller]
         fn from(value: &str) -> Self {
@@ -869,6 +909,67 @@ pub mod read {
             Signal::stored_local(value.to_string())
         }
     }
+
+    impl From<&str> for Signal<Option<String>> {
+        #[track_caller]
+        fn from(value: &str) -> Self {
+            Signal::stored(Some(value.to_string()))
+        }
+    }
+
+    impl From<&str> for Signal<Option<String>, LocalStorage> {
+        #[track_caller]
+        fn from(value: &str) -> Self {
+            Signal::stored_local(Some(value.to_string()))
+        }
+    }
+
+    impl From<Signal<&'static str>> for Signal<String> {
+        #[track_caller]
+        fn from(value: Signal<&'static str>) -> Self {
+            Signal::derive(move || value.read().to_string())
+        }
+    }
+
+    impl From<Signal<&'static str>> for Signal<String, LocalStorage> {
+        #[track_caller]
+        fn from(value: Signal<&'static str>) -> Self {
+            Signal::derive_local(move || value.read().to_string())
+        }
+    }
+
+    impl From<Signal<&'static str>> for Signal<Option<String>> {
+        #[track_caller]
+        fn from(value: Signal<&'static str>) -> Self {
+            Signal::derive(move || Some(value.read().to_string()))
+        }
+    }
+
+    impl From<Signal<&'static str>> for Signal<Option<String>, LocalStorage> {
+        #[track_caller]
+        fn from(value: Signal<&'static str>) -> Self {
+            Signal::derive_local(move || Some(value.read().to_string()))
+        }
+    }
+
+    impl From<Signal<Option<&'static str>>> for Signal<Option<String>> {
+        #[track_caller]
+        fn from(value: Signal<Option<&'static str>>) -> Self {
+            Signal::derive(move || value.read().map(str::to_string))
+        }
+    }
+
+    impl From<Signal<Option<&'static str>>>
+        for Signal<Option<String>, LocalStorage>
+    {
+        #[track_caller]
+        fn from(value: Signal<Option<&'static str>>) -> Self {
+            Signal::derive_local(move || value.read().map(str::to_string))
+        }
+    }
+
+    /// A type alias for a [`Option<Signal<Option<T>>>`], which is a non-wrapped alternative to [`MaybeProp`].
+    pub type OptProp<T> = Option<Signal<Option<T>>>;
 
     /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
     ///
