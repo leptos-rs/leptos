@@ -168,11 +168,20 @@ pub trait ReadUntracked: Sized + DefinedAt {
         self.try_read_untracked()
             .unwrap_or_else(unwrap_signal!(self))
     }
+
+    /// This is a backdoor to allow overriding the [`Read::try_read`] implementation despite it being auto implemented.
+    ///
+    /// If your type contains a [`Signal`](crate::wrappers::read::Signal),
+    /// call it's [`ReadUntracked::custom_try_read`] here, else return `None`.
+    #[track_caller]
+    fn custom_try_read(&self) -> Option<Option<Self::Value>> {
+        None
+    }
 }
 
 /// Give read-only access to a signal's value by reference through a guard type,
 /// and subscribes the active reactive observer (an effect or computed) to changes in its value.
-pub trait Read {
+pub trait Read: DefinedAt {
     /// The guard type that will be returned, which can be dereferenced to the value.
     type Value: Deref;
 
@@ -185,7 +194,9 @@ pub trait Read {
     /// # Panics
     /// Panics if you try to access a signal that has been disposed.
     #[track_caller]
-    fn read(&self) -> Self::Value;
+    fn read(&self) -> Self::Value {
+        self.try_read().unwrap_or_else(unwrap_signal!(self))
+    }
 }
 
 impl<T> Read for T
@@ -195,13 +206,18 @@ where
     type Value = T::Value;
 
     fn try_read(&self) -> Option<Self::Value> {
-        self.track();
-        self.try_read_untracked()
-    }
-
-    fn read(&self) -> Self::Value {
-        self.track();
-        self.read_untracked()
+        // The [`Read`] trait is auto implemented for types that implement [`ReadUntracked`] + [`Track`]. The [`Read`] trait then auto implements the [`With`] and [`Get`] traits too.
+        //
+        // This is a problem for e.g. the [`Signal`](crate::wrappers::read::Signal) type,
+        // this type must use a custom [`Read::try_read`] implementation to avoid an unnecessary clone.
+        //
+        // This is a backdoor to allow overriding the [`Read::try_read`] implementation despite it being auto implemented.
+        if let Some(custom) = self.custom_try_read() {
+            custom
+        } else {
+            self.track();
+            self.try_read_untracked()
+        }
     }
 }
 
@@ -307,14 +323,13 @@ pub trait With: DefinedAt {
 
 impl<T> With for T
 where
-    T: WithUntracked + Track,
+    T: Read,
 {
-    type Value = <T as WithUntracked>::Value;
+    type Value = <<T as Read>::Value as Deref>::Target;
 
     #[track_caller]
     fn try_with<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> Option<U> {
-        self.track();
-        self.try_with_untracked(fun)
+        self.try_read().map(|val| fun(&val))
     }
 }
 
