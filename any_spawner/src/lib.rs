@@ -260,11 +260,11 @@ impl Executor {
 
         static THREAD_POOL: OnceLock<Executor> = OnceLock::new();
         thread_local! {
-            static LOCAL_POOL: LocalExecutor<'static> = LocalExecutor::new();
+            static LOCAL_POOL: LocalExecutor<'static> = const { LocalExecutor::new() };
         }
 
         fn get_thread_pool() -> &'static Executor<'static> {
-            THREAD_POOL.get_or_init(|| Executor::new())
+            THREAD_POOL.get_or_init(Executor::new)
         }
 
         SPAWN
