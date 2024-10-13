@@ -5,13 +5,14 @@ use leptos::prelude::*;
 use leptos_router::{
     components::{
         Form, Outlet, ParentRoute, ProtectedRoute, Redirect, Route, Router,
-        Routes, A,
+        Routes, RoutingProgress, A,
     },
     hooks::{use_navigate, use_params, use_query_map},
     params::Params,
     MatchNestedRoutes,
 };
 use leptos_router_macro::path;
+use std::time::Duration;
 use tracing::info;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -26,9 +27,14 @@ pub fn RouterExample() -> impl IntoView {
 
     // this signal will be ued to set whether we are allowed to access a protected route
     let (logged_in, set_logged_in) = signal(true);
+    let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Router>
+        <Router set_is_routing>
+            // shows a progress bar while async data are loading
+            <div class="routing-progress">
+                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+            </div>
             <nav>
                 // ordinary <a> elements can be used for client-side navigation
                 // using <A> has two effects:

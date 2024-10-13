@@ -320,6 +320,7 @@ mod tests {
         futures::executor::block_on(Executor::tick());
         assert_eq!(counter.load(std::sync::atomic::Ordering::Acquire), 1);
     }
+
     #[cfg(feature = "futures-executor")]
     #[test]
     fn can_make_local_progress() {

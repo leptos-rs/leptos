@@ -248,7 +248,10 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new(children.into_inner());
+    let routes = Routes::new_with_base(
+        children.into_inner(),
+        base.clone().unwrap_or_default(),
+    );
     let outer_owner =
         Owner::current().expect("creating Routes, but no Owner was found");
     move || {
@@ -294,7 +297,10 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new(children.into_inner());
+    let routes = Routes::new_with_base(
+        children.into_inner(),
+        base.clone().unwrap_or_default(),
+    );
 
     let outer_owner =
         Owner::current().expect("creating Router, but no Owner was found");
