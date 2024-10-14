@@ -10,7 +10,7 @@ use std::{
     collections::HashSet,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::{renderer::Renderer, view::any_view::AnyView};
+use tachys::view::any_view::AnyView;
 
 mod tuples;
 
