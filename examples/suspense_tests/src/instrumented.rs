@@ -9,20 +9,27 @@ use leptos_router::{
 
 #[cfg(feature = "ssr")]
 pub(super) mod counter {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicU32, Ordering},
+            LazyLock, Mutex,
+        },
+    };
 
-    pub struct Counter(AtomicUsize);
+    #[derive(Default)]
+    pub struct Counter(AtomicU32);
 
     impl Counter {
         pub const fn new() -> Self {
-            Self(AtomicUsize::new(0))
+            Self(AtomicU32::new(0))
         }
 
-        pub fn get(&self) -> usize {
+        pub fn get(&self) -> u32 {
             self.0.load(Ordering::SeqCst)
         }
 
-        pub fn inc(&self) -> usize {
+        pub fn inc(&self) -> u32 {
             self.0.fetch_add(1, Ordering::SeqCst)
         }
 
@@ -31,10 +38,36 @@ pub(super) mod counter {
         }
     }
 
-    pub static LIST_ITEMS: Counter = Counter::new();
-    pub static GET_ITEM: Counter = Counter::new();
-    pub static INSPECT_ITEM_ROOT: Counter = Counter::new();
-    pub static INSPECT_ITEM_FIELD: Counter = Counter::new();
+    #[derive(Default)]
+    pub struct Counters {
+        pub list_items: Counter,
+        pub get_item: Counter,
+        pub inspect_item_root: Counter,
+        pub inspect_item_field: Counter,
+    }
+
+    impl From<&mut Counters> for super::Counters {
+        fn from(counter: &mut Counters) -> Self {
+            Self {
+                get_item: counter.get_item.get(),
+                inspect_item_root: counter.inspect_item_root.get(),
+                inspect_item_field: counter.inspect_item_field.get(),
+                list_items: counter.list_items.get(),
+            }
+        }
+    }
+
+    impl Counters {
+        pub fn reset(&self) {
+            self.get_item.reset();
+            self.inspect_item_root.reset();
+            self.inspect_item_field.reset();
+            self.list_items.reset();
+        }
+    }
+
+    pub static COUNTERS: LazyLock<Mutex<HashMap<u64, Counters>>> =
+        LazyLock::new(|| Mutex::new(HashMap::new()));
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -45,10 +78,16 @@ pub struct Item {
 }
 
 #[server]
-async fn list_items() -> Result<Vec<i64>, ServerFnError> {
+async fn list_items(ticket: u64) -> Result<Vec<i64>, ServerFnError> {
     // emulate database query overhead
-    counter::LIST_ITEMS.inc();
     tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    (*counter::COUNTERS)
+        .lock()
+        .expect("somehow panicked elsewhere")
+        .entry(ticket)
+        .or_default()
+        .list_items
+        .inc();
     Ok(vec![1, 2, 3, 4])
 }
 
@@ -56,10 +95,19 @@ async fn list_items() -> Result<Vec<i64>, ServerFnError> {
 pub struct GetItemResult(pub Item, pub Vec<String>);
 
 #[server]
-async fn get_item(id: i64) -> Result<GetItemResult, ServerFnError> {
+async fn get_item(
+    ticket: u64,
+    id: i64,
+) -> Result<GetItemResult, ServerFnError> {
     // emulate database query overhead
-    counter::GET_ITEM.inc();
     tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    (*counter::COUNTERS)
+        .lock()
+        .expect("somehow panicked elsewhere")
+        .entry(ticket)
+        .or_default()
+        .get_item
+        .inc();
     let name = None::<String>;
     let field = None::<String>;
     Ok(GetItemResult(
@@ -76,6 +124,7 @@ pub struct InspectItemResult(pub Item, pub String, pub Vec<String>);
 
 #[server]
 async fn inspect_item(
+    ticket: u64,
     id: i64,
     path: String,
 ) -> Result<InspectItemResult, ServerFnError> {
@@ -90,9 +139,21 @@ async fn inspect_item(
         .next()
         .and_then(|s| (!s.is_empty()).then(|| s.to_string()));
     if field.is_none() {
-        counter::INSPECT_ITEM_ROOT.inc();
+        (*counter::COUNTERS)
+            .lock()
+            .expect("somehow panicked elsewhere")
+            .entry(ticket)
+            .or_default()
+            .inspect_item_root
+            .inc();
     } else {
-        counter::INSPECT_ITEM_FIELD.inc();
+        (*counter::COUNTERS)
+            .lock()
+            .expect("somehow panicked elsewhere")
+            .entry(ticket)
+            .or_default()
+            .inspect_item_field
+            .inc();
     }
     Ok(InspectItemResult(
         Item { id, name, field },
@@ -106,36 +167,39 @@ async fn inspect_item(
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Counters {
-    get_item: usize,
-    inspect_item_root: usize,
-    inspect_item_field: usize,
-    list_items: usize,
+    pub get_item: u32,
+    pub inspect_item_root: u32,
+    pub inspect_item_field: u32,
+    pub list_items: u32,
 }
 
 #[server]
-async fn get_counters() -> Result<Counters, ServerFnError> {
-    Ok(Counters {
-        get_item: counter::GET_ITEM.get(),
-        inspect_item_root: counter::INSPECT_ITEM_ROOT.get(),
-        inspect_item_field: counter::INSPECT_ITEM_FIELD.get(),
-        list_items: counter::LIST_ITEMS.get(),
-    })
+async fn get_counters(ticket: u64) -> Result<Counters, ServerFnError> {
+    Ok((*counter::COUNTERS)
+        .lock()
+        .expect("somehow panicked elsewhere")
+        .entry(ticket)
+        .or_default()
+        .into())
 }
 
 #[server(ResetCounters)]
-async fn reset_counters() -> Result<(), ServerFnError> {
-    counter::GET_ITEM.reset();
-    counter::INSPECT_ITEM_ROOT.reset();
-    counter::INSPECT_ITEM_FIELD.reset();
-    counter::LIST_ITEMS.reset();
+async fn reset_counters(ticket: u64) -> Result<(), ServerFnError> {
+    (*counter::COUNTERS)
+        .lock()
+        .expect("somehow panicked elsewhere")
+        .entry(ticket)
+        .or_default()
+        .reset();
+    leptos::logging::log!("counters for ticket {ticket} have been reset");
     Ok(())
 }
 
 #[derive(Clone, Default)]
 pub struct SuspenseCounters {
-    item_overview: usize,
-    item_inspect: usize,
-    item_listing: usize,
+    item_overview: u32,
+    item_inspect: u32,
+    item_listing: u32,
 }
 
 #[component]
@@ -158,11 +222,46 @@ pub fn InstrumentedRoutes() -> impl MatchNestedRoutes + Clone {
     .into_inner()
 }
 
+#[derive(Copy, Clone)]
+pub struct Ticket(pub u64);
+
+#[cfg(feature = "ssr")]
+fn inst_ticket() -> u64 {
+    // SSR will always use 0 for the ticket
+    0
+}
+
+#[cfg(not(feature = "ssr"))]
+fn inst_ticket() -> u64 {
+    // CSR will use a random number for the ticket
+    (js_sys::Math::random() * ((u64::MAX - 1) as f64) + 1f64) as u64
+}
+
 #[component]
 fn InstrumentedRoot() -> impl IntoView {
     let counters = RwSignal::new(SuspenseCounters::default());
     provide_context(counters);
     provide_field_nav_portlet_context();
+
+    // Generate a ID directly on this component.  Rather than relying on
+    // additional server functions, doing it this way emulates more
+    // standard workflows better and to avoid having to add another
+    // thing to instrument/interfere with the typical use case.
+    // Downside is that randomness has a chance to conflict.
+    //
+    // Furthermore, this approach **will** result in unintuitive
+    // behavior when it isn't accounted for - specifically, the reason
+    // for this design is that when SSR it will guarantee usage of `0`
+    // as the ticket, while CSR it will be of some other value as the
+    // version it uses will be random.  However, when trying to get back
+    // the counters associated with the ticket, rendering using SSR will
+    // always produce the SSR version and this quirk will need to be
+    // accounted for.
+    let ticket = inst_ticket();
+    leptos::logging::log!(
+        "Ticket for this InstrumentedRoot instance: {ticket}"
+    );
+    provide_context(Ticket(ticket));
 
     view! {
         <section id="instrumented">
@@ -202,9 +301,10 @@ fn InstrumentedTop() -> impl IntoView {
 
 #[component]
 fn ItemRoot() -> impl IntoView {
+    let ticket = expect_context::<Ticket>().0;
     provide_context(Resource::new_blocking(
         move || (),
-        move |_| async move { list_items().await },
+        move |_| async move { list_items(ticket).await },
     ));
 
     view! {
@@ -254,6 +354,7 @@ struct ItemTopParams {
 
 #[component]
 fn ItemTop() -> impl IntoView {
+    let ticket = expect_context::<Ticket>().0;
     let params = use_params::<ItemTopParams>();
     // map result to an option as the focus isn't error rendering
     provide_context(Resource::new_blocking(
@@ -261,7 +362,7 @@ fn ItemTop() -> impl IntoView {
         move |id| async move {
             match id {
                 Err(_) => None,
-                Ok(Some(id)) => get_item(id).await.ok(),
+                Ok(Some(id)) => get_item(ticket, id).await.ok(),
                 _ => None,
             }
         },
@@ -316,6 +417,7 @@ struct ItemInspectParams {
 
 #[component]
 fn ItemInspect() -> impl IntoView {
+    let ticket = expect_context::<Ticket>().0;
     let suspense_counters = expect_context::<RwSignal<SuspenseCounters>>();
     let params = use_params::<ItemInspectParams>();
     let res_overview = expect_context::<Resource<Option<GetItemResult>>>();
@@ -328,7 +430,7 @@ fn ItemInspect() -> impl IntoView {
             let result = match (overview, p) {
                 (Some(item), Ok(Some(path))) => {
                     leptos::logging::log!("res_inspect: inspect_item().await");
-                    inspect_item(item.0.id, path.clone()).await.ok()
+                    inspect_item(ticket, item.0.id, path.clone()).await.ok()
                 }
                 _ => None,
             };
@@ -398,41 +500,72 @@ fn ItemInspect() -> impl IntoView {
 
 #[component]
 fn ShowCounters() -> impl IntoView {
+    // There is _weirdness_ in this view.  The `Server Calls` counters
+    // will be acquired via the expected mode and be rendered as such.
+    //
+    // However, upon `Reset Counters`, the mode from which the reset
+    // was issued will result in the rendering be reflected as such, so
+    // if the intial state was SSR, resetting under CSR will result in
+    // the CSR counters be rendered after.  However for the intents and
+    // purpose for the testing only the CSR is cared for.
+    //
+    // At the end of the day, it is possible to have both these be
+    // separated out, but for the purpose of this test the focus is not
+    // on the SSR side of things (at least until further regression is
+    // discovered that affects SSR directly).
+    let ticket = expect_context::<Ticket>().0;
     let suspense_counters = expect_context::<RwSignal<SuspenseCounters>>();
     let reset_counters = ServerAction::<ResetCounters>::new();
-    let res_counter = Resource::new_blocking(
+    let res_counter = Resource::new(
         move || reset_counters.version().get(),
-        |_| async move { get_counters().await },
+        move |_| async move {
+            (
+                get_counters(ticket).await,
+                if ticket == 0 { "SSR" } else { "CSR" }.to_string(),
+                ticket,
+            )
+        },
     );
     let counter_view = move || {
         Suspend::new(async move {
-            res_counter.await.map(|counters| {
-            view! {
-                <dl>
-                    <dt>"list_items"</dt>
-                    <dd id="list_items">{counters.list_items}</dd>
-                    <dt>"get_item"</dt>
-                    <dd id="get_item">{counters.get_item}</dd>
-                    <dt>"inspect_item_root"</dt>
-                    <dd id="inspect_item_root">{counters.inspect_item_root}</dd>
-                    <dt>"inspect_item_field"</dt>
-                    <dd id="inspect_item_field">{counters.inspect_item_field}</dd>
-                </dl>
-            }
+            // ensure current mode and ticket are both updated
+            let (counters, mode, ticket) = res_counter.await;
+            counters.map(|counters| {
+                let clear_suspense_counters = move |_| {
+                    suspense_counters.update(|c| {
+                        leptos::logging::log!("resetting suspense counters");
+                        *c = SuspenseCounters::default();
+                    });
+                };
+                view! {
+                    <h3 id="server-calls">"Server Calls ("{mode}")"</h3>
+                    <dl>
+                        <dt>"list_items"</dt>
+                        <dd id="list_items">{counters.list_items}</dd>
+                        <dt>"get_item"</dt>
+                        <dd id="get_item">{counters.get_item}</dd>
+                        <dt>"inspect_item_root"</dt>
+                        <dd id="inspect_item_root">{counters.inspect_item_root}</dd>
+                        <dt>"inspect_item_field"</dt>
+                        <dd id="inspect_item_field">{counters.inspect_item_field}</dd>
+                    </dl>
+                    <ActionForm action=reset_counters>
+                        <input type="hidden" name="ticket" value=format!("{ticket}") />
+                        <input
+                            id="reset-counters"
+                            type="submit"
+                            value="Reset Counters"
+                            on:click=clear_suspense_counters/>
+                    </ActionForm>
+                }
+            })
         })
-        })
-    };
-    let clear_suspense_counters = move |_| {
-        suspense_counters.update(|c| {
-            leptos::logging::log!("resetting");
-            *c = SuspenseCounters::default();
-        });
     };
 
     view! {
         <h2>"Counters"</h2>
 
-        <h3>"Suspend Calls"</h3>
+        <h3 id="suspend-calls">"Suspend Calls"</h3>
         {move || suspense_counters.with(|c| view! {
             <dl>
                 <dt>"item_listing"</dt>
@@ -444,13 +577,9 @@ fn ShowCounters() -> impl IntoView {
             </dl>
         })}
 
-        <h3>"Server Calls"</h3>
         <Suspense>
             {counter_view}
         </Suspense>
-        <ActionForm action=reset_counters>
-            <input id="reset-counters" type="submit" value="Reset Counters" on:click=clear_suspense_counters/>
-        </ActionForm>
     }
 }
 
