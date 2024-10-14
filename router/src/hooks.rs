@@ -281,38 +281,3 @@ pub fn use_matched() -> Memo<String> {
         .0
         .into()
 }
-
-/*
-/// Returns a signal that tells you whether you are currently navigating backwards.
-pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
-    let router = use_router();
-    router.inner.is_back.read_only()
-}
-*/
-
-/* TODO check how this is used in 0.6 and use it
-/// Resolves a redirect location to an (absolute) URL.
-pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
-    let origin = match window().location().origin() {
-        Ok(origin) => origin,
-        Err(e) => {
-            leptos::logging::error!("Failed to get origin: {:#?}", e);
-            return None;
-        }
-    };
-
-    // TODO: Use server function's URL as base instead.
-    let base = origin;
-
-    match web_sys::Url::new_with_base(loc, &base) {
-        Ok(url) => Some(url),
-        Err(e) => {
-            leptos::logging::error!(
-                "Invalid redirect location: {}",
-                e.as_string().unwrap_or_default(),
-            );
-            None
-        }
-    }
-}
-*/
