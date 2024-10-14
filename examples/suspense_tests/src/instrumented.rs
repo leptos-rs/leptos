@@ -191,7 +191,7 @@ async fn reset_counters(ticket: u64) -> Result<(), ServerFnError> {
         .entry(ticket)
         .or_default()
         .reset();
-    leptos::logging::log!("counters for ticket {ticket} have been reset");
+    // leptos::logging::log!("counters for ticket {ticket} have been reset");
     Ok(())
 }
 
@@ -258,9 +258,9 @@ fn InstrumentedRoot() -> impl IntoView {
     // always produce the SSR version and this quirk will need to be
     // accounted for.
     let ticket = inst_ticket();
-    leptos::logging::log!(
-        "Ticket for this InstrumentedRoot instance: {ticket}"
-    );
+    // leptos::logging::log!(
+    //     "Ticket for this InstrumentedRoot instance: {ticket}"
+    // );
     provide_context(Ticket(ticket));
 
     view! {
@@ -279,6 +279,7 @@ fn InstrumentedRoot() -> impl IntoView {
                     <A href="item/4/">"Target 4##"</A>
                     <A href="item/4/path1/">"Target 41#"</A>
                     <A href="item/4/path2/">"Target 42#"</A>
+                    <A href="item/4/path2/field1">"Target 421"</A>
                     <A href="item/1/path2/field3">"Target 123"</A>
                 </nav>
             </footer>
@@ -424,18 +425,20 @@ fn ItemInspect() -> impl IntoView {
     let res_inspect = Resource::new_blocking(
         move || params.get().map(|p| p.path),
         move |p| async move {
-            leptos::logging::log!("res_inspect: res_overview.await");
+            // leptos::logging::log!("res_inspect: res_overview.await");
             let overview = res_overview.await;
-            leptos::logging::log!("res_inspect: resolved res_overview.await");
-            let result = match (overview, p) {
+            // leptos::logging::log!("res_inspect: resolved res_overview.await");
+            // let result =
+            match (overview, p) {
                 (Some(item), Ok(Some(path))) => {
-                    leptos::logging::log!("res_inspect: inspect_item().await");
+                    // leptos::logging::log!("res_inspect: inspect_item().await");
                     inspect_item(ticket, item.0.id, path.clone()).await.ok()
                 }
                 _ => None,
-            };
-            leptos::logging::log!("res_inspect: resolved inspect_item().await");
-            result
+            }
+            // ;
+            // leptos::logging::log!("res_inspect: resolved inspect_item().await");
+            // result
         },
     );
     on_cleanup(|| {
@@ -444,11 +447,11 @@ fn ItemInspect() -> impl IntoView {
         }
     });
     let inspect_view = move || {
-        leptos::logging::log!("inspect_view closure invoked");
+        // leptos::logging::log!("inspect_view closure invoked");
         Suspend::new(async move {
-            leptos::logging::log!("inspect_view Suspend::new() called");
+            // leptos::logging::log!("inspect_view Suspend::new() called");
             let result = res_inspect.await.map(|InspectItemResult(item, name, fields)| {
-                leptos::logging::log!("inspect_view res_inspect awaited");
+                // leptos::logging::log!("inspect_view res_inspect awaited");
                 let id = item.id;
                 expect_context::<WriteSignal<Option<FieldNavCtx>>>().set(Some(
                     fields.iter()
@@ -481,11 +484,11 @@ fn ItemInspect() -> impl IntoView {
                 }
             });
             suspense_counters.update_untracked(|c| c.item_inspect += 1);
-            leptos::logging::log!(
-                "returning result, result.is_some() = {}, count = {}",
-                result.is_some(),
-                suspense_counters.get().item_inspect,
-            );
+            // leptos::logging::log!(
+            //     "returning result, result.is_some() = {}, count = {}",
+            //     result.is_some(),
+            //     suspense_counters.get().item_inspect,
+            // );
             result
         })
     };
@@ -533,7 +536,7 @@ fn ShowCounters() -> impl IntoView {
             counters.map(|counters| {
                 let clear_suspense_counters = move |_| {
                     suspense_counters.update(|c| {
-                        leptos::logging::log!("resetting suspense counters");
+                        // leptos::logging::log!("resetting suspense counters");
                         *c = SuspenseCounters::default();
                     });
                 };
