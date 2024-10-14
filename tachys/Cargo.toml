@@ -180,6 +180,4 @@ tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]
-skip_feature_sets = [
-  ["ssr", "hydrate"],
-]
+skip_feature_sets = [["ssr", "hydrate"]]

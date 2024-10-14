@@ -52,10 +52,22 @@ axum = ["server_fn_macro/axum"]
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
 skip_feature_sets = [
-	["csr", "hydrate"],
-	["hydrate", "csr"],
-	["hydrate", "ssr"],
-	["actix", "axum"]
+	[
+		"csr",
+		"hydrate",
+	],
+	[
+		"hydrate",
+		"csr",
+	],
+	[
+		"hydrate",
+		"ssr",
+	],
+	[
+		"actix",
+		"axum",
+	],
 ]
 
 [package.metadata.docs.rs]

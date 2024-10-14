@@ -10,6 +10,7 @@ use reactive_graph::{
         Write,
     },
 };
+pub use reactive_stores_macro::*;
 use rustc_hash::FxHashMap;
 use std::{
     any::Any,
@@ -444,7 +445,6 @@ mod tests {
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Write},
     };
-    use reactive_stores_macro::{Patch, Store};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,

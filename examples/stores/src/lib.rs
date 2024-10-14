@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use chrono::{Local, NaiveDate};
 use leptos::prelude::*;
 use reactive_stores::{Field, Patch, Store};
-use reactive_stores_macro::{Patch, Store};
 use serde::{Deserialize, Serialize};
 
 // ID starts higher than 0 because we have a few starting todos by default
