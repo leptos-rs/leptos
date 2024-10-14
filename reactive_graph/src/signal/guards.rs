@@ -623,3 +623,46 @@ where
         Display::fmt(&**self, f)
     }
 }
+
+/// A wrapper that implements [`Deref`] and [`Borrow`] for itself.
+pub struct Derefable<T>(pub T);
+
+impl<T> Clone for Derefable<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Derefable(self.0.clone())
+    }
+}
+
+impl<T> std::ops::Deref for Derefable<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> Borrow<T> for Derefable<T> {
+    fn borrow(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<T> PartialEq<T> for Derefable<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &T) -> bool {
+        self.deref() == other
+    }
+}
+
+impl<T> Display for Derefable<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}

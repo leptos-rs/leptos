@@ -249,6 +249,7 @@ impl Executor {
         Ok(())
     }
 
+
     /// Globally sets a custom executor as the executor used to spawn tasks.
     ///
     /// Returns `Err(_)` if an executor has already been set.

@@ -606,9 +606,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::{config::LeptosOptions, context::provide_context, prelude::*};
 ///
 /// async fn custom_handler(
@@ -806,9 +806,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1025,9 +1025,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1093,9 +1093,9 @@ where
 /// use axum::{
 ///     body::Body,
 ///     extract::Path,
+///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use http::Request;
 /// use leptos::context::provide_context;
 ///
 /// async fn custom_handler(
@@ -1342,8 +1342,7 @@ where
         .with(|| {
             // stub out a path for now
             provide_context(RequestUrl::new(""));
-            let (mock_parts, _) =
-                http::Request::new(Body::from("")).into_parts();
+            let (mock_parts, _) = Request::new(Body::from("")).into_parts();
             let (mock_meta, _) = ServerMetaContext::new();
             provide_contexts("", &mock_meta, mock_parts, Default::default());
             additional_context();
@@ -1402,8 +1401,8 @@ impl StaticRouteGenerator {
             let add_context = additional_context.clone();
             move || {
                 let full_path = format!("http://leptos.dev{path}");
-                let mock_req = http::Request::builder()
-                    .method(http::Method::GET)
+                let mock_req = Request::builder()
+                    .method(Method::GET)
                     .header("Accept", "text/html")
                     .body(Body::empty())
                     .unwrap();
@@ -1495,10 +1494,12 @@ impl StaticRouteGenerator {
             _ = routes;
             _ = app_fn;
             _ = additional_context;
-            panic!(
-                "Static routes are not currently supported on WASM32 server \
-                 targets."
-            );
+            Self(Box::new(|_| {
+                panic!(
+                    "Static routes are not currently supported on WASM32 \
+                     server targets."
+                );
+            }))
         }
     }
 
@@ -1933,7 +1934,7 @@ where
 ///
 /// #[server]
 /// pub async fn request_method() -> Result<String, ServerFnError> {
-///     use http::Method;
+///     use axum::http::Method;
 ///     use leptos_axum::extract;
 ///
 ///     // you can extract anything that a regular Axum extractor can extract

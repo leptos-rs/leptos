@@ -434,6 +434,14 @@ pub struct OnceResource<T, Ser = JsonSerdeCodec> {
     defined_at: &'static Location<'static>,
 }
 
+impl<T, Ser> Clone for OnceResource<T, Ser> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T, Ser> Copy for OnceResource<T, Ser> {}
+
 impl<T, Ser> OnceResource<T, Ser>
 where
     T: Send + Sync + 'static,
