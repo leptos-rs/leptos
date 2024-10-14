@@ -249,6 +249,45 @@ impl Executor {
         Ok(())
     }
 
+    /// Globally sets the [`async_executor`] executor as the executor used to spawn tasks,
+    /// lazily creating a thread pool to spawn tasks into.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `async-executor` feature to be activated on this crate.
+    #[cfg(feature = "async-executor")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async-executor")))]
+    pub fn init_async_executor() -> Result<(), ExecutorError> {
+        use async_executor::{Executor, LocalExecutor};
+
+        static THREAD_POOL: OnceLock<Executor> = OnceLock::new();
+        thread_local! {
+            static LOCAL_POOL: LocalExecutor<'static> = const { LocalExecutor::new() };
+        }
+
+        fn get_thread_pool() -> &'static Executor<'static> {
+            THREAD_POOL.get_or_init(Executor::new)
+        }
+
+        SPAWN
+            .set(|fut| {
+                get_thread_pool().spawn(fut).detach();
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        SPAWN_LOCAL
+            .set(|fut| {
+                LOCAL_POOL.with(|pool| pool.spawn(fut).detach());
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        POLL_LOCAL
+            .set(|| {
+                LOCAL_POOL.with(|pool| pool.try_tick());
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        Ok(())
+    }
+}
+
     /// Globally sets a custom executor as the executor used to spawn tasks.
     ///
     /// Returns `Err(_)` if an executor has already been set.

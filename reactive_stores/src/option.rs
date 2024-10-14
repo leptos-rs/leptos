@@ -51,7 +51,6 @@ mod tests {
         effect::Effect,
         traits::{Get, Read, ReadUntracked, Set, Write},
     };
-    use reactive_stores_macro::Store;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
