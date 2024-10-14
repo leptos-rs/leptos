@@ -286,7 +286,6 @@ impl Executor {
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
     }
-}
 
     /// Globally sets a custom executor as the executor used to spawn tasks.
     ///
