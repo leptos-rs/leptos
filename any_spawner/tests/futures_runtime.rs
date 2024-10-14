@@ -1,3 +1,4 @@
+#[cfg(feature = "futures-executor")]
 use any_spawner::Executor;
 // All tests in this file use the same executor.
 

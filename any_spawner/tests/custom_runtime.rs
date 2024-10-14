@@ -1,3 +1,4 @@
+#[cfg(feature = "futures-executor")]
 use any_spawner::{CustomExecutor, Executor, PinnedFuture, PinnedLocalFuture};
 #[cfg(feature = "futures-executor")]
 #[test]
