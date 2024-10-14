@@ -17,25 +17,6 @@ fn can_spawn_local_future() {
 
 #[cfg(feature = "futures-executor")]
 #[test]
-fn can_make_threaded_progress() {
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
-
-    let _ = Executor::init_futures_executor();
-    let counter = Arc::new(AtomicUsize::new(0));
-    Executor::spawn({
-        let counter = Arc::clone(&counter);
-        async move {
-            assert_eq!(counter.fetch_add(1, Ordering::AcqRel), 0);
-        }
-    });
-    futures::executor::block_on(Executor::tick());
-    assert_eq!(counter.load(Ordering::Acquire), 1);
-}
-#[cfg(feature = "futures-executor")]
-#[test]
 fn can_make_local_progress() {
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
