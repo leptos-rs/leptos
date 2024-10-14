@@ -54,6 +54,24 @@ Feature: Instrumented Counters showing the expected values
             | inspect_item_root  | 0 |
             | inspect_item_field | 0 |
 
+    Scenario: Reset CSR Counters work as expected.
+        Given I see the app
+        When I access the instrumented counters via SSR
+        And I select the component Item Listing
+        And I click on Reset CSR Counters
+        And I select the component Counters
+        Then I see the following counters under section
+            | Suspend Calls      |   |
+            | item_listing       | 0 |
+            | item_overview      | 0 |
+            | item_inspect       | 0 |
+        And the following counters under section
+            | Server Calls (CSR) |   |
+            | list_items         | 0 |
+            | get_item           | 0 |
+            | inspect_item_root  | 0 |
+            | inspect_item_field | 0 |
+
     Scenario: Standard usage of the instruments traversing down
         Given I see the app
         When I select the following links

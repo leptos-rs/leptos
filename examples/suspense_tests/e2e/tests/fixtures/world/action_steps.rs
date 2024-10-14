@@ -71,6 +71,15 @@ async fn i_click_on_reset_counters(world: &mut AppWorld) -> Result<()> {
     Ok(())
 }
 
+#[given(expr = "I click on Reset CSR Counters")]
+#[when(expr = "I click on Reset CSR Counters")]
+async fn i_click_on_reset_csr_counters(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    action::click_reset_csr_counters_button(client).await?;
+
+    Ok(())
+}
+
 #[when(expr = "I access the instrumented counters via SSR")]
 async fn i_access_the_instrumented_counters_page_via_ssr(
     world: &mut AppWorld,

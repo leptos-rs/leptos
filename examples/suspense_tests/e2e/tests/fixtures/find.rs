@@ -99,7 +99,17 @@ pub async fn reset_counter(client: &Client) -> Result<Element> {
         .wait()
         .for_element(Locator::Id("reset-counters"))
         .await
-        .expect("Reset counter not found");
+        .expect("Reset counter input not found");
+
+    Ok(reset_button)
+}
+
+pub async fn reset_csr_counter(client: &Client) -> Result<Element> {
+    let reset_button = client
+        .wait()
+        .for_element(Locator::Id("reset-csr-counters"))
+        .await
+        .expect("Reset CSR counter input not found");
 
     Ok(reset_button)
 }

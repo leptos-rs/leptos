@@ -225,6 +225,9 @@ pub fn InstrumentedRoutes() -> impl MatchNestedRoutes + Clone {
 #[derive(Copy, Clone)]
 pub struct Ticket(pub u64);
 
+#[derive(Copy, Clone)]
+pub struct CSRTicket(pub u64);
+
 #[cfg(feature = "ssr")]
 fn inst_ticket() -> u64 {
     // SSR will always use 0 for the ticket
@@ -263,6 +266,15 @@ fn InstrumentedRoot() -> impl IntoView {
     // );
     provide_context(Ticket(ticket));
 
+    let csr_ticket = RwSignal::<Option<CSRTicket>>::new(None);
+
+    let reset_counters = ServerAction::<ResetCounters>::new();
+
+    Effect::new(move |_| {
+        let ticket = expect_context::<Ticket>().0;
+        csr_ticket.set(Some(CSRTicket(ticket)));
+    });
+
     view! {
         <section id="instrumented">
             <nav>
@@ -273,6 +285,26 @@ fn InstrumentedRoot() -> impl IntoView {
             </nav>
             <FieldNavPortlet/>
             <Outlet/>
+            <Suspense>{
+                move || Suspend::new(async move {
+                    let clear_suspense_counters = move |_| {
+                        counters.update(|c| *c = SuspenseCounters::default());
+                    };
+                    csr_ticket.get().map(|ticket| {
+                        let ticket = ticket.0;
+                        view! {
+                            <ActionForm action=reset_counters>
+                                <input type="hidden" name="ticket" value=format!("{ticket}") />
+                                <input
+                                    id="reset-csr-counters"
+                                    type="submit"
+                                    value="Reset CSR Counters"
+                                    on:click=clear_suspense_counters/>
+                            </ActionForm>
+                        }
+                    })
+                })
+            }</Suspense>
             <footer>
                 <nav>
                     <A href="item/3/">"Target 3##"</A>
