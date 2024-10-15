@@ -48,6 +48,7 @@
 //! there isn't an `RwLock` so you can't wrap in a [`ReadGuard`](crate::signal::guards::ReadGuard),
 //! but you can still implement [`WithUntracked`] and [`Track`], the same traits will still be implemented.
 
+pub use crate::trait_options::*;
 use crate::{
     effect::Effect,
     graph::{Observer, Source, Subscriber, ToAnySource},
