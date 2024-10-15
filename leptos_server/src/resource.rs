@@ -76,6 +76,38 @@ impl<T, Ser> Debug for ArcResource<T, Ser> {
     }
 }
 
+impl<T, Ser> From<ArcResource<T, Ser>> for Resource<T, Ser>
+where
+    T: Send + Sync,
+{
+    #[track_caller]
+    fn from(arc_resource: ArcResource<T, Ser>) -> Self {
+        Resource {
+            ser: PhantomData,
+            data: arc_resource.data.into(),
+            refetch: arc_resource.refetch.into(),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
+impl<T, Ser> From<Resource<T, Ser>> for ArcResource<T, Ser>
+where
+    T: Send + Sync,
+{
+    #[track_caller]
+    fn from(resource: Resource<T, Ser>) -> Self {
+        ArcResource {
+            ser: PhantomData,
+            data: resource.data.into(),
+            refetch: resource.refetch.into(),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
 impl<T, Ser> DefinedAt for ArcResource<T, Ser> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
