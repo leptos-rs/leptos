@@ -36,10 +36,9 @@ use std::{
 use throw_error::ErrorHook;
 
 /// A suspended `Future`, which can be used in the view.
-#[derive(Clone)]
-pub struct Suspend<Fut> {
+pub struct Suspend<T> {
     pub(crate) subscriber: SuspendSubscriber,
-    pub(crate) inner: Pin<Box<ScopedFuture<Fut>>>,
+    pub(crate) inner: Pin<Box<dyn Future<Output = T> + Send>>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,9 +113,9 @@ impl ToAnySubscriber for SuspendSubscriber {
     }
 }
 
-impl<Fut> Suspend<Fut> {
+impl<T> Suspend<T> {
     /// Creates a new suspended view.
-    pub fn new(fut: Fut) -> Self {
+    pub fn new(fut: impl Future<Output = T> + Send + 'static) -> Self {
         let subscriber = SuspendSubscriber::new();
         let any_subscriber = subscriber.to_any_subscriber();
         let inner =
@@ -125,7 +124,7 @@ impl<Fut> Suspend<Fut> {
     }
 }
 
-impl<Fut> Debug for Suspend<Fut> {
+impl<T> Debug for Suspend<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Suspend").finish()
     }
@@ -160,12 +159,11 @@ where
     }
 }
 
-impl<Fut> Render for Suspend<Fut>
+impl<T> Render for Suspend<T>
 where
-    Fut: Future + 'static,
-    Fut::Output: Render,
+    T: Render + 'static,
 {
-    type State = SuspendState<Fut::Output>;
+    type State = SuspendState<T>;
 
     fn build(self) -> Self::State {
         let Self { subscriber, inner } = self;
@@ -255,22 +253,12 @@ where
     }
 }
 
-impl<Fut> AddAnyAttr for Suspend<Fut>
+impl<T> AddAnyAttr for Suspend<T>
 where
-    Fut: Future + Send + 'static,
-    Fut::Output: AddAnyAttr,
+    T: Send + AddAnyAttr + 'static,
 {
-    type Output<SomeNewAttr: Attribute> = Suspend<
-        Pin<
-            Box<
-                dyn Future<
-                        Output = <Fut::Output as AddAnyAttr>::Output<
-                            SomeNewAttr::CloneableOwned,
-                        >,
-                    > + Send,
-            >,
-        >,
-    >;
+    type Output<SomeNewAttr: Attribute> =
+        Suspend<<T as AddAnyAttr>::Output<SomeNewAttr::CloneableOwned>>;
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
@@ -280,21 +268,20 @@ where
         Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
-        Suspend::new(Box::pin(async move {
+        Suspend::new(async move {
             let this = self.inner.await;
             this.add_any_attr(attr)
-        }))
+        })
     }
 }
 
-impl<Fut> RenderHtml for Suspend<Fut>
+impl<T> RenderHtml for Suspend<T>
 where
-    Fut: Future + Send + 'static,
-    Fut::Output: RenderHtml,
+    T: RenderHtml + Sized + 'static,
 {
-    type AsyncOutput = Option<Fut::Output>;
+    type AsyncOutput = Option<T>;
 
-    const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
 
     fn to_html_with_buf(
         self,
@@ -440,6 +427,23 @@ where
     }
 
     fn dry_resolve(&mut self) {
-        self.inner.as_mut().now_or_never();
+        // this is a little crazy, but if a Suspend is immediately available, we end up
+        // with a situation where polling it multiple times (here in dry_resolve and then in
+        // resolve) causes a runtime panic
+        // (see https://github.com/leptos-rs/leptos/issues/3113)
+        //
+        // at the same time, we do need to dry_resolve Suspend so that we can register synchronous
+        // resource reads that happen inside them
+        // (see https://github.com/leptos-rs/leptos/issues/2917)
+        //
+        // fuse()-ing the Future doesn't work, because that will cause the subsequent resolve()
+        // simply to be pending forever
+        //
+        // in this case, though, we can simply... discover that the data are already here, and then
+        // stuff them back into a new Future, which can safely be polled after its completion
+        if let Some(inner) = self.inner.as_mut().now_or_never() {
+            self.inner = Box::pin(async move { inner })
+                as Pin<Box<dyn Future<Output = T> + Send>>;
+        }
     }
 }

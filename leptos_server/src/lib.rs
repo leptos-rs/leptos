@@ -185,7 +185,7 @@ impl FromEncodedStr for [u8] {
 mod view_implementations {
     use crate::Resource;
     use reactive_graph::traits::Read;
-    use std::{future::Future, pin::Pin};
+    use std::future::Future;
     use tachys::{
         html::attribute::Attribute,
         hydration::Cursor,
@@ -219,16 +219,11 @@ mod view_implementations {
     {
         type Output<SomeNewAttr: Attribute> = Box<
             dyn FnMut() -> Suspend<
-                    Pin<
-                        Box<
-                            dyn Future<
-                                    Output = <T as AddAnyAttr>::Output<
-                                        <SomeNewAttr::CloneableOwned as Attribute>::CloneableOwned,
-                                    >,
-                                > + Send,
-                        >,
-                    >,
-                > + Send,
+                <T as AddAnyAttr>::Output<
+                    <SomeNewAttr::CloneableOwned as Attribute>::CloneableOwned,
+                >,
+            >
+            + Send
         >;
 
         fn add_any_attr<NewAttr: Attribute>(
