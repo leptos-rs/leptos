@@ -19,7 +19,6 @@ use reactive_graph::{
         ArcAsyncDerived, ArcMemo, AsyncDerived, AsyncDerivedFuture,
         AsyncDerivedRefFuture,
     },
-    effect::in_effect_scope,
     graph::{Source, ToAnySubscriber},
     owner::Owner,
     prelude::*,
@@ -130,7 +129,8 @@ where
         #[cfg(all(feature = "hydration", debug_assertions))]
         {
             use reactive_graph::{
-                computed::suspense::SuspenseContext, owner::use_context,
+                computed::suspense::SuspenseContext, effect::in_effect_scope,
+                owner::use_context,
             };
             if !in_effect_scope() && use_context::<SuspenseContext>().is_none()
             {
@@ -642,7 +642,8 @@ where
         #[cfg(all(feature = "hydration", debug_assertions))]
         {
             use reactive_graph::{
-                computed::suspense::SuspenseContext, owner::use_context,
+                computed::suspense::SuspenseContext, effect::in_effect_scope,
+                owner::use_context,
             };
             if !in_effect_scope() && use_context::<SuspenseContext>().is_none()
             {
