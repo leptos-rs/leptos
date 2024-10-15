@@ -11,7 +11,6 @@ use crate::{
 use reactive_graph::effect::RenderEffect;
 use std::{
     cell::RefCell,
-    future::Future,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -361,9 +360,8 @@ where
     }
 }
 
-impl<Fut, V> AttributeValue for Suspend<Fut>
+impl<V> AttributeValue for Suspend<V>
 where
-    Fut: Future<Output = V> + Send + 'static,
     V: AttributeValue + 'static,
     V::State: 'static,
 {

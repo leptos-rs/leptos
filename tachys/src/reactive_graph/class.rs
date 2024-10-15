@@ -1,11 +1,7 @@
-use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::class::IntoClass, renderer::Rndr};
-use futures::FutureExt;
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
-use std::{
-    borrow::Borrow, cell::RefCell, future::Future, ops::Deref, rc::Rc,
-    sync::Arc,
-};
+use std::{borrow::Borrow, ops::Deref, sync::Arc};
 
 impl<F, C> IntoClass for F
 where
@@ -709,6 +705,7 @@ mod stable {
     class_signal!(ArcSignal);
 }
 
+/*
 impl<Fut> IntoClass for Suspend<Fut>
 where
     Fut: Clone + Future + Send + 'static,
@@ -789,3 +786,4 @@ where
         self.inner.await
     }
 }
+*/

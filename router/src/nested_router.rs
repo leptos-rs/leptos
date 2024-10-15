@@ -440,9 +440,7 @@ where
     }
 }
 
-type OutletViewFn = Box<
-    dyn Fn() -> Suspend<Pin<Box<dyn Future<Output = AnyView> + Send>>> + Send,
->;
+type OutletViewFn = Box<dyn Fn() -> Suspend<AnyView> + Send>;
 
 pub(crate) struct RouteContext {
     id: RouteMatchId,

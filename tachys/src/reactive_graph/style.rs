@@ -1,8 +1,7 @@
-use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::style::IntoStyle, renderer::Rndr};
-use futures::FutureExt;
 use reactive_graph::effect::RenderEffect;
-use std::{borrow::Cow, cell::RefCell, future::Future, rc::Rc};
+use std::borrow::Cow;
 
 impl<F, S> IntoStyle for (&'static str, F)
 where
@@ -438,6 +437,7 @@ mod stable {
     style_signal!(ArcSignal);
 }
 
+/*
 impl<Fut> IntoStyle for Suspend<Fut>
 where
     Fut: Clone + Future + Send + 'static,
@@ -514,3 +514,4 @@ where
         self.inner.await
     }
 }
+*/
