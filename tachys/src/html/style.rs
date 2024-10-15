@@ -170,6 +170,80 @@ pub trait IntoStyle: Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
+impl<T: IntoStyle> IntoStyle for Option<T> {
+    type AsyncOutput = Option<T::AsyncOutput>;
+    type State = (crate::renderer::types::Element, Option<T::State>);
+    type Cloneable = Option<T::Cloneable>;
+    type CloneableOwned = Option<T::CloneableOwned>;
+
+    fn to_html(self, style: &mut String) {
+        if let Some(t) = self {
+            t.to_html(style);
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        if let Some(t) = self {
+            (el.clone(), Some(t.hydrate::<FROM_SERVER>(el)))
+        } else {
+            (el.clone(), None)
+        }
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        if let Some(t) = self {
+            (el.clone(), Some(t.build(el)))
+        } else {
+            (el.clone(), None)
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let el = &state.0;
+        let prev_state = &mut state.1;
+        let maybe_next_t_state = match (prev_state, self) {
+            (Some(_prev_t_state), None) => {
+                Rndr::remove_attribute(el, "style");
+                Some(None)
+            }
+            (None, Some(t)) => Some(Some(t.build(el))),
+            (Some(prev_t_state), Some(t)) => {
+                t.rebuild(prev_t_state);
+                None
+            }
+            (None, None) => Some(None),
+        };
+        if let Some(next_t_state) = maybe_next_t_state {
+            state.1 = next_t_state;
+        }
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.map(|t| t.into_cloneable())
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.map(|t| t.into_cloneable_owned())
+    }
+
+    fn dry_resolve(&mut self) {
+        if let Some(t) = self {
+            t.dry_resolve();
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        if let Some(t) = self {
+            Some(t.resolve().await)
+        } else {
+            None
+        }
+    }
+}
+
 impl<'a> IntoStyle for &'a str {
     type AsyncOutput = Self;
     type State = (crate::renderer::types::Element, &'a str);
