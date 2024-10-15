@@ -62,7 +62,7 @@ impl<'a> RenderHtml for &'a str {
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        if self.is_empty() {
+        if self.is_empty() && escape {
             buf.push(' ');
         } else if escape {
             let escaped = html_escape::encode_text(self);
