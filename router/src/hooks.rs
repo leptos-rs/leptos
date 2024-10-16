@@ -272,7 +272,7 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
     move |path: &str, options: NavigateOptions| cx.navigate(path, options)
 }
 
-/// Returns a reactive string that contains the route that was matched for 
+/// Returns a reactive string that contains the route that was matched for
 /// this [`Route`](crate::components::Route).
 #[track_caller]
 pub fn use_matched() -> Memo<String> {
