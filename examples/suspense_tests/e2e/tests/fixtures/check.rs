@@ -63,3 +63,21 @@ pub async fn second_count_is(client: &Client, expected: u32) -> Result<()> {
 
     Ok(())
 }
+
+pub async fn instrumented_counts(
+    client: &Client,
+    expected: &[(&str, u32)],
+) -> Result<()> {
+    let mut actual = Vec::<(&str, u32)>::new();
+
+    for (selector, _) in expected.iter() {
+        actual.push((
+            selector,
+            find::instrumented_count(client, selector).await?,
+        ))
+    }
+
+    assert_eq!(actual, expected);
+
+    Ok(())
+}
