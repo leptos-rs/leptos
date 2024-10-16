@@ -14,6 +14,8 @@ use reactive_graph::{
     traits::{Get, Update},
     wrappers::read::Signal,
 };
+#[cfg(feature = "reactive_stores")]
+use reactive_stores::{KeyedSubfield, Subfield};
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsValue;
 
@@ -339,6 +341,35 @@ where
 
     fn into_split_signal(self) -> (Self::Read, Self::Write) {
         self
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<Inner, Prev, T> IntoSplitSignal for Subfield<Inner, Prev, T>
+where
+    Self: Get<Value = T> + Update<Value = T> + Clone,
+{
+    type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<Inner, Prev, K, T> IntoSplitSignal for KeyedSubfield<Inner, Prev, K, T>
+where
+    Self: Get<Value = T> + Update<Value = T> + Clone,
+    for<'a> &'a T: IntoIterator,
+{
+    type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self.clone(), self.clone())
     }
 }
 
