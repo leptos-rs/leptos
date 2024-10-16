@@ -3,6 +3,7 @@ use crate::{
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
+    view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
 };
@@ -49,6 +50,7 @@ pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
     pub set_is_routing: Option<SignalSetter<bool>>,
+    pub transition: bool,
 }
 
 pub struct NestedRouteViewState<Fal>
@@ -173,11 +175,22 @@ where
                 );
 
                 let location = self.location.clone();
+                let is_back = location
+                    .as_ref()
+                    .map(|nav| nav.is_back().get_untracked())
+                    .unwrap_or(false);
                 Executor::spawn_local(async move {
                     let triggers = join_all(preloaders).await;
                     // tell each one of the outlet triggers that it's ready
-                    for trigger in triggers {
-                        trigger.notify();
+                    let notify = move || {
+                        for trigger in triggers {
+                            trigger.notify();
+                        }
+                    };
+                    if self.transition {
+                        start_view_transition(is_back, notify);
+                    } else {
+                        notify();
                     }
                 });
 
