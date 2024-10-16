@@ -101,9 +101,7 @@ pub trait MatchInterface {
 
     fn as_matched(&self) -> &str;
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>);
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>);
 }
 
 pub trait MatchParams {
@@ -114,7 +112,6 @@ pub trait MatchParams {
 
 pub trait MatchNestedRoutes {
     type Data;
-    type View;
     type Match: MatchInterface + MatchParams;
 
     fn match_nested<'a>(
