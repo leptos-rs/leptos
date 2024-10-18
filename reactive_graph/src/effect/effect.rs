@@ -13,7 +13,7 @@ use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{
     mem,
-    sync::{Arc, RwLock},
+    sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -109,6 +109,29 @@ fn effect_base() -> (Receiver, Owner, Arc<RwLock<EffectInner>>) {
     (rx, owner, inner)
 }
 
+thread_local! {
+    static EFFECT_SCOPE_ACTIVE: AtomicBool = const { AtomicBool::new(false) };
+}
+
+/// Returns whether the current thread is currently running an effect.
+pub fn in_effect_scope() -> bool {
+    EFFECT_SCOPE_ACTIVE
+        .with(|scope| scope.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// Set a static to true whilst running the given function.
+/// [`is_in_effect_scope`] will return true whilst the function is running.
+fn run_in_effect_scope<T>(fun: impl FnOnce() -> T) -> T {
+    // For the theoretical nested case, set back to initial value rather than false:
+    let initial = EFFECT_SCOPE_ACTIVE
+        .with(|scope| scope.swap(true, std::sync::atomic::Ordering::Relaxed));
+    let result = fun();
+    EFFECT_SCOPE_ACTIVE.with(|scope| {
+        scope.store(initial, std::sync::atomic::Ordering::Relaxed)
+    });
+    result
+}
+
 impl<S> Effect<S>
 where
     S: Storage<StoredEffect>,
@@ -157,7 +180,9 @@ impl Effect<LocalStorage> {
                             let old_value =
                                 mem::take(&mut *value.write().or_poisoned());
                             let new_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| fun.run(old_value))
+                                subscriber.with_observer(|| {
+                                    run_in_effect_scope(|| fun.run(old_value))
+                                })
                             });
                             *value.write().or_poisoned() = Some(new_value);
                         }
@@ -375,7 +400,9 @@ impl Effect<SyncStorage> {
                             let old_value =
                                 mem::take(&mut *value.write().or_poisoned());
                             let new_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| fun.run(old_value))
+                                subscriber.with_observer(|| {
+                                    run_in_effect_scope(|| fun.run(old_value))
+                                })
                             });
                             *value.write().or_poisoned() = Some(new_value);
                         }
@@ -419,7 +446,9 @@ impl Effect<SyncStorage> {
                         let old_value =
                             mem::take(&mut *value.write().or_poisoned());
                         let new_value = owner.with_cleanup(|| {
-                            subscriber.with_observer(|| fun.run(old_value))
+                            subscriber.with_observer(|| {
+                                run_in_effect_scope(|| fun.run(old_value))
+                            })
                         });
                         *value.write().or_poisoned() = Some(new_value);
                     }
