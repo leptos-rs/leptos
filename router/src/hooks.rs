@@ -272,6 +272,16 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
     move |path: &str, options: NavigateOptions| cx.navigate(path, options)
 }
 
+/// Returns a reactive string that contains the route that was matched for
+/// this [`Route`](crate::components::Route).
+#[track_caller]
+pub fn use_matched() -> Memo<String> {
+    use_context::<Matched>()
+        .expect("use_matched called outside a matched Route")
+        .0
+        .into()
+}
+
 /*
 /// Returns a signal that tells you whether you are currently navigating backwards.
 pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
