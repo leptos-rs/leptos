@@ -22,7 +22,9 @@ use web_sys::{Event, UrlSearchParams};
 #[derive(Clone)]
 pub struct BrowserUrl {
     url: ArcRwSignal<Url>,
-    pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    pub(crate) path_stack: ArcStoredValue<Vec<Url>>,
+    pub(crate) is_back: ArcRwSignal<bool>,
 }
 
 impl fmt::Debug for BrowserUrl {
@@ -59,10 +61,14 @@ impl LocationProvider for BrowserUrl {
 
     fn new() -> Result<Self, JsValue> {
         let url = ArcRwSignal::new(Self::current()?);
-        let pending_navigation = Default::default();
+        let path_stack = ArcStoredValue::new(
+            Self::current().map(|n| vec![n]).unwrap_or_default(),
+        );
         Ok(Self {
             url,
-            pending_navigation,
+            pending_navigation: Default::default(),
+            path_stack,
+            is_back: Default::default(),
         })
     }
 
@@ -114,6 +120,7 @@ impl LocationProvider for BrowserUrl {
         let navigate = {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
+            let this = self.clone();
             move |new_url: Url, loc| {
                 let same_path = {
                     let curr = url.read_untracked();
@@ -123,7 +130,7 @@ impl LocationProvider for BrowserUrl {
 
                 url.set(new_url.clone());
                 if same_path {
-                    Self::complete_navigation(&loc);
+                    this.complete_navigation(&loc);
                 }
                 let pending = Arc::clone(&pending);
                 let (tx, rx) = oneshot::channel::<()>();
@@ -131,6 +138,7 @@ impl LocationProvider for BrowserUrl {
                     *pending.lock().or_poisoned() = Some(tx);
                 }
                 let url = url.clone();
+                let this = this.clone();
                 async move {
                     if !same_path {
                         // if it has been canceled, ignore
@@ -141,7 +149,7 @@ impl LocationProvider for BrowserUrl {
                             // browser URL
                             let curr = url.read_untracked();
                             if curr == new_url {
-                                Self::complete_navigation(&loc);
+                                this.complete_navigation(&loc);
                             }
                         }
                     }
@@ -173,8 +181,19 @@ impl LocationProvider for BrowserUrl {
         // handle popstate event (forward/back navigation)
         let cb = {
             let url = self.url.clone();
+            let path_stack = self.path_stack.clone();
+            let is_back = self.is_back.clone();
             move || match Self::current() {
-                Ok(new_url) => url.set(new_url),
+                Ok(new_url) => {
+                    let stack = path_stack.read_value();
+                    let is_navigating_back = stack.len() == 1
+                        || (stack.len() >= 2
+                            && stack.get(stack.len() - 2) == Some(&new_url));
+
+                    is_back.set(is_navigating_back);
+
+                    url.set(new_url);
+                }
                 Err(e) => {
                     #[cfg(feature = "tracing")]
                     tracing::error!("{e:?}");
@@ -199,7 +218,7 @@ impl LocationProvider for BrowserUrl {
         }
     }
 
-    fn complete_navigation(loc: &LocationChange) {
+    fn complete_navigation(&self, loc: &LocationChange) {
         let history = window().history().unwrap();
 
         if loc.replace {
@@ -217,6 +236,14 @@ impl LocationProvider for BrowserUrl {
                 .push_state_with_url(state, "", Some(&loc.value))
                 .unwrap();
         }
+
+        // add this URL to the "path stack" for detecting back navigations, and
+        // unset "navigating back" state
+        if let Ok(url) = Self::current() {
+            self.path_stack.write_value().push(url);
+            self.is_back.set(false);
+        }
+
         // scroll to el
         Self::scroll_to_el(loc.scroll);
     }
@@ -237,6 +264,10 @@ impl LocationProvider for BrowserUrl {
         } else if let Err(e) = helpers::location().set_href(&url.href()) {
             leptos::logging::error!("Failed to redirect: {e:#?}");
         }
+    }
+
+    fn is_back(&self) -> ReadSignal<bool> {
+        self.is_back.read_only().into()
     }
 }
 

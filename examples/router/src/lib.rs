@@ -50,7 +50,7 @@ pub fn RouterExample() -> impl IntoView {
                 }>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>
             </nav>
             <main>
-                <Routes fallback=|| "This page could not be found.">
+                <Routes transition=true fallback=|| "This page could not be found.">
                     // paths can be created using the path!() macro, or provided as types like
                     // StaticSegment("about")
                     <Route path=path!("about") view=About/>

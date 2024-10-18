@@ -1,3 +1,8 @@
+.routing-progress {
+	width: 100%;
+	height: 20px;
+}
+
 a[aria-current] {
     font-weight: bold;
 }
@@ -12,12 +17,8 @@ a[aria-current] {
     padding: 1rem;
 }
 
-.fadeIn {
-  animation: 0.5s fadeIn forwards;
-}
-
-.fadeOut {
-  animation: 0.5s fadeOut forwards;
+.contact {
+	view-transition-name: contact;
 }
 
 @keyframes fadeIn {
@@ -40,12 +41,44 @@ a[aria-current] {
   }
 }
 
-.slideIn {
-  animation: 0.25s slideIn forwards;
+.router-outlet-0 main {
+  view-transition-name: main;
 }
 
-.slideOut {
-  animation: 0.25s slideOut forwards;
+.router-back main {
+  view-transition-name: main-back;
+}
+
+.router-outlet-1 .contact-list {
+  view-transition-name: contact;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(contact) {
+	  animation: 0.5s fadeOut;
+	}
+
+	::view-transition-new(contact) {
+	  animation: 0.5s fadeIn;
+	}
+
+	::view-transition-old(main) {
+	  animation: 0.5s slideOut;
+	}
+
+	::view-transition-new(main) {
+	  animation: 0.5s slideIn;
+	}
+
+	::view-transition-old(main-back) {
+		color: red;
+		animation: 0.5s slideOutBack;
+	}
+
+	::view-transition-new(main-back) {
+		color: blue;
+		animation: 0.5s slideInBack;
+	}
 }
 
 @keyframes slideIn {
@@ -64,14 +97,6 @@ a[aria-current] {
   to {
     transform: translate(-100vw, 0);
   }
-}
-
-.slideInBack {
-  animation: 0.25s slideInBack forwards;
-}
-
-.slideOutBack {
-  animation: 0.25s slideOutBack forwards;
 }
 
 @keyframes slideInBack {

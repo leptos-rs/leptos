@@ -3,6 +3,7 @@ use crate::{
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
+    view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
 };
@@ -13,7 +14,7 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, Owner},
     signal::ArcRwSignal,
-    traits::{ReadUntracked, Set},
+    traits::{GetUntracked, ReadUntracked, Set},
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
@@ -35,6 +36,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
     pub fallback: FalFn,
     pub outer_owner: Owner,
     pub set_is_routing: Option<SignalSetter<bool>>,
+    pub transition: bool,
 }
 
 pub struct FlatRoutesViewState<Defs, Fal>
@@ -198,6 +200,7 @@ where
             fallback,
             outer_owner,
             set_is_routing,
+            transition,
         } = self;
         let url_snapshot = current_url.read_untracked();
 
@@ -283,6 +286,10 @@ where
 
                 let spawned_path = url_snapshot.path().to_string();
 
+                let is_back = location
+                    .as_ref()
+                    .map(|nav| nav.is_back().get_untracked())
+                    .unwrap_or(false);
                 Executor::spawn_local(owner.with(|| {
                     ScopedFuture::new({
                         let state = Rc::clone(state);
@@ -310,8 +317,15 @@ where
                             if current_url.read_untracked().path()
                                 == spawned_path
                             {
-                                EitherOf3::C(view)
-                                    .rebuild(&mut state.borrow_mut().view);
+                                let rebuild = move || {
+                                    EitherOf3::C(view)
+                                        .rebuild(&mut state.borrow_mut().view);
+                                };
+                                if transition {
+                                    start_view_transition(0, is_back, rebuild);
+                                } else {
+                                    rebuild();
+                                }
                             }
 
                             if let Some(location) = location {

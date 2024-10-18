@@ -120,7 +120,7 @@ pub trait MatchNestedRoutes {
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match)>, &str);
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str);
 
     fn generate_routes(
         &self,
