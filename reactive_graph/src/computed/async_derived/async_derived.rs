@@ -109,6 +109,19 @@ where
     }
 }
 
+impl<T> From<AsyncDerived<T>> for ArcAsyncDerived<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: AsyncDerived<T>) -> Self {
+        value
+            .inner
+            .try_get_value()
+            .unwrap_or_else(unwrap_signal!(value))
+    }
+}
+
 impl<T> FromLocal<ArcAsyncDerived<T>> for AsyncDerived<T, LocalStorage>
 where
     T: 'static,
