@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 actix-files = { version = "0.6.6", optional = true }
 actix-web = { version = "4.8", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1.7"
+js-sys = { version = "0.3.70", optional = true }
 leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
@@ -19,7 +20,10 @@ serde = "1.0"
 tokio = { version = "1.39", features = ["time", "rt"], optional = true }
 
 [features]
-hydrate = ["leptos/hydrate"]
+hydrate = [
+  "dep:js-sys",
+  "leptos/hydrate",
+]
 ssr = [
   "dep:actix-files",
   "dep:actix-web",

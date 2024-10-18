@@ -37,3 +37,19 @@ pub async fn click_second_button(client: &Client) -> Result<()> {
 
     Ok(())
 }
+
+pub async fn click_reset_counters_button(client: &Client) -> Result<()> {
+    let reset_counter = find::reset_counter(client).await?;
+
+    reset_counter.click().await?;
+
+    Ok(())
+}
+
+pub async fn click_reset_csr_counters_button(client: &Client) -> Result<()> {
+    let reset_counter = find::reset_csr_counter(client).await?;
+
+    reset_counter.click().await?;
+
+    Ok(())
+}
