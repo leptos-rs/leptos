@@ -31,18 +31,21 @@ pub(crate) mod view_transition {
     use wasm_bindgen::{closure::Closure, intern, JsCast, JsValue};
 
     pub fn start_view_transition(
+        level: u8,
         is_back_navigation: bool,
         fun: impl FnOnce() + 'static,
     ) {
         let document = document();
         let document_element = document.document_element().unwrap();
+        let class_list = document_element.class_list();
         let svt = Reflect::get(
             &document,
             &JsValue::from_str(intern("startViewTransition")),
         )
         .and_then(|svt| svt.dyn_into::<Function>());
+        _ = class_list.add_1(&format!("router-outlet-{level}"));
         if is_back_navigation {
-            _ = document_element.class_list().add_1("router-back");
+            _ = class_list.add_1("router-back");
         }
         match svt {
             Ok(svt) => {
@@ -51,25 +54,27 @@ pub(crate) mod view_transition {
                 }));
                 match svt.call1(
                     document.unchecked_ref(),
-                    &cb.as_ref().unchecked_ref(),
+                    cb.as_ref().unchecked_ref(),
                 ) {
                     Ok(view_transition) => {
-                        if is_back_navigation {
-                            let finished = Reflect::get(
-                                &view_transition,
-                                &JsValue::from_str("finished"),
-                            )
-                            .expect("no `finished` property on ViewTransition")
-                            .unchecked_into::<Promise>();
-                            let cb = Closure::new(Box::new(move |_| {
-                                _ = document_element
-                                    .class_list()
-                                    .remove_1("router-back");
-                            })
-                                as Box<dyn FnMut(JsValue)>);
-                            _ = finished.then(&cb);
-                            cb.into_js_value();
-                        }
+                        let class_list = document_element.class_list();
+                        let finished = Reflect::get(
+                            &view_transition,
+                            &JsValue::from_str("finished"),
+                        )
+                        .expect("no `finished` property on ViewTransition")
+                        .unchecked_into::<Promise>();
+                        let cb = Closure::new(Box::new(move |_| {
+                            if is_back_navigation {
+                                class_list.remove_1("router-back").unwrap();
+                            }
+                            class_list
+                                .remove_1(&format!("router-outlet-{level}"))
+                                .unwrap();
+                        })
+                            as Box<dyn FnMut(JsValue)>);
+                        _ = finished.then(&cb);
+                        cb.into_js_value();
                     }
                     Err(e) => {
                         web_sys::console::log_1(&e);

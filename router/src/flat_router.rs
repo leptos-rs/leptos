@@ -322,7 +322,7 @@ where
                                         .rebuild(&mut state.borrow_mut().view);
                                 };
                                 if transition {
-                                    start_view_transition(is_back, rebuild);
+                                    start_view_transition(0, is_back, rebuild);
                                 } else {
                                     rebuild();
                                 }

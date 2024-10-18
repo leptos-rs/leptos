@@ -41,12 +41,16 @@ a[aria-current] {
   }
 }
 
-main {
+.router-outlet-0 main {
   view-transition-name: main;
 }
 
 .router-back main {
   view-transition-name: main-back;
+}
+
+.router-outlet-1 .contact-list {
+  view-transition-name: contact;
 }
 
 @media (prefers-reduced-motion: no-preference) {

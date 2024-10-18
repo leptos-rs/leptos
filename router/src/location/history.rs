@@ -12,7 +12,6 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     boxed::Box,
-    mem,
     string::String,
     sync::{Arc, Mutex},
 };
