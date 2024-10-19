@@ -28,7 +28,7 @@ paste = "1.0"
 rand = { version = "0.8.5", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = "2.0"
-tachys = { workspace = true, features = ["reactive_graph", "oco"] }
+tachys = { workspace = true, features = ["reactive_graph", "reactive_stores", "oco"] }
 thiserror = "1.0"
 tracing = { version = "0.1.40", optional = true }
 typed-builder = "0.19.1"
