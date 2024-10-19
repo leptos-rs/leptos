@@ -274,6 +274,8 @@ pub(crate) fn component_to_tokens(
     let mut component = quote! {
         {
             #[allow(unreachable_code)]
+            #[allow(unused_mut)]
+            #[allow(clippy::let_and_return)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#name,
