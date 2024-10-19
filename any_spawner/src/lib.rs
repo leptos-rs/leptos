@@ -29,9 +29,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use core::{future::Future, panic::Location, pin::Pin};
-use futures::channel::oneshot;
-use std::sync::OnceLock;
+use std::{future::Future, pin::Pin, sync::OnceLock};
 use thiserror::Error;
 
 /// A future that has been pinned.
@@ -39,18 +37,12 @@ pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 /// A future that has been pinned.
 pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
-/// Handle to spawn a new [`PinnedFuture`] on the initiated [`Executor`].
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
-
-/// Handle to spawn a new [`PinnedLocalFuture`] on the initiated [`Executor`].
-///
-/// It is useful when you have a Future that is not [`Send`].
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
 static POLL_LOCAL: OnceLock<fn()> = OnceLock::new();
 
 /// Errors that can occur when using the executor.
 #[derive(Error, Debug)]
-#[non_exhaustive]
 pub enum ExecutorError {
     /// The executor has already been set.
     #[error("Executor has already been set.")]
@@ -70,11 +62,7 @@ impl Executor {
     /// # }
     /// ```
     #[track_caller]
-    #[inline]
-    pub fn spawn<T>(fut: T)
-    where
-        T: Future<Output = ()> + Send + 'static,
-    {
+    pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
         if let Some(spawner) = SPAWN.get() {
             spawner(Box::pin(fut))
         } else {
@@ -82,13 +70,13 @@ impl Executor {
             tracing::error!(
                 "At {}, tried to spawn a Future with Executor::spawn() before \
                  the Executor had been set.",
-                Location::caller()
+                std::panic::Location::caller()
             );
             #[cfg(all(debug_assertions, not(feature = "tracing")))]
             panic!(
                 "At {}, tried to spawn a Future with Executor::spawn() before \
                  the Executor had been set.",
-                Location::caller()
+                std::panic::Location::caller()
             );
         }
     }
@@ -103,11 +91,7 @@ impl Executor {
     /// # }
     /// ```
     #[track_caller]
-    #[inline]
-    pub fn spawn_local<T>(fut: T)
-    where
-        T: Future<Output = ()> + 'static,
-    {
+    pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
         if let Some(spawner) = SPAWN_LOCAL.get() {
             spawner(Box::pin(fut))
         } else {
@@ -115,44 +99,21 @@ impl Executor {
             tracing::error!(
                 "At {}, tried to spawn a Future with Executor::spawn_local() \
                  before the Executor had been set.",
-                Location::caller()
+                std::panic::Location::caller()
             );
             #[cfg(all(debug_assertions, not(feature = "tracing")))]
             panic!(
                 "At {}, tried to spawn a Future with Executor::spawn_local() \
                  before the Executor had been set.",
-                Location::caller()
-            );
-        }
-    }
-
-    /// Run the [`Executor`].
-    #[track_caller]
-    #[inline]
-    pub fn run() {
-        if let Some(run) = RUN.get() {
-            run();
-        } else {
-            #[cfg(all(debug_assertions, feature = "tracing"))]
-            tracing::error!(
-                "At {}, tried to run an executor with Executor::run() \
-                 before the Executor had been set.",
-                Location::caller()
-            );
-            #[cfg(all(debug_assertions, not(feature = "tracing")))]
-            panic!(
-                "At {}, tried to run an executor with Executor::run() \
-                 before the Executor had been set.",
-                Location::caller()
+                std::panic::Location::caller()
             );
         }
     }
 
     /// Waits until the next "tick" of the current async executor.
-    #[inline]
     pub async fn tick() {
-        let (tx, rx) = oneshot::channel();
-        Self::spawn(async move {
+        let (tx, rx) = futures::channel::oneshot::channel();
+        Executor::spawn(async move {
             _ = tx.send(());
         });
         _ = rx.await;
