@@ -1,4 +1,6 @@
-use super::{fragment_to_tokens, TagType};
+use super::{
+    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+};
 use crate::view::{attribute_absolute, utils::filter_prefixed_attrs};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -44,9 +46,10 @@ pub(crate) fn component_to_tokens(
         })
         .unwrap_or_else(|| node.attributes().len());
 
-    let attrs = node
-        .attributes()
-        .iter()
+    // Initially using uncloned mutable reference, as the node.key might be mutated during prop extraction (for nostrip:)
+    let mut attrs = node
+        .attributes_mut()
+        .iter_mut()
         .filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
                 Some(node)
@@ -54,39 +57,46 @@ pub(crate) fn component_to_tokens(
                 None
             }
         })
-        .cloned()
         .collect::<Vec<_>>();
 
-    let props = attrs
-        .iter()
-        .enumerate()
-        .filter(|(idx, attr)| {
-            idx < &spread_marker && {
-                let attr_key = attr.key.to_string();
-                !is_attr_let(&attr.key)
-                    && !attr_key.starts_with("clone:")
-                    && !attr_key.starts_with("class:")
-                    && !attr_key.starts_with("style:")
-                    && !attr_key.starts_with("attr:")
-                    && !attr_key.starts_with("prop:")
-                    && !attr_key.starts_with("on:")
-                    && !attr_key.starts_with("use:")
-            }
-        })
-        .map(|(_, attr)| {
-            let name = &attr.key;
+    let mut required_props = vec![];
+    let mut optional_props = vec![];
+    for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
+        idx < &spread_marker && {
+            let attr_key = attr.key.to_string();
+            !is_attr_let(&attr.key)
+                && !attr_key.starts_with("clone:")
+                && !attr_key.starts_with("class:")
+                && !attr_key.starts_with("style:")
+                && !attr_key.starts_with("attr:")
+                && !attr_key.starts_with("prop:")
+                && !attr_key.starts_with("on:")
+                && !attr_key.starts_with("use:")
+        }
+    }) {
+        let optional = is_nostrip_optional_and_update_key(&mut attr.key);
+        let name = &attr.key;
 
-            let value = attr
-                .value()
-                .map(|v| {
-                    quote! { #v }
-                })
-                .unwrap_or_else(|| quote! { #name });
+        let value = attr
+            .value()
+            .map(|v| {
+                quote! { #v }
+            })
+            .unwrap_or_else(|| quote! { #name });
 
-            quote! {
+        if optional {
+            optional_props.push(quote! {
+                props.#name = { #value }.map(Into::into);
+            })
+        } else {
+            required_props.push(quote! {
                 .#name(#[allow(unused_braces)] { #value })
-            }
-        });
+            })
+        }
+    }
+
+    // Drop the mutable reference to the node, go to an owned clone:
+    let attrs = attrs.into_iter().map(|a| a.clone()).collect::<Vec<_>>();
 
     let items_to_bind = attrs
         .iter()
@@ -264,14 +274,20 @@ pub(crate) fn component_to_tokens(
     let mut component = quote! {
         {
             #[allow(unreachable_code)]
+            #[allow(unused_mut)]
+            #[allow(clippy::let_and_return)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#name,
-                ::leptos::component::component_props_builder(&#name #generics)
-                    #(#props)*
-                    #(#slots)*
-                    #children
-                    .build()
+                {
+                    let mut props = ::leptos::component::component_props_builder(&#name #generics)
+                        #(#required_props)*
+                        #(#slots)*
+                        #children
+                        .build();
+                    #(#optional_props)*
+                    props
+                }
             )
             #spreads
         }
