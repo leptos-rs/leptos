@@ -3,6 +3,7 @@ use crate::{
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
+    view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
 };
@@ -49,6 +50,7 @@ pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
     pub set_is_routing: Option<SignalSetter<bool>>,
+    pub transition: bool,
 }
 
 pub struct NestedRouteViewState<Fal>
@@ -161,7 +163,7 @@ where
 
                 let mut preloaders = Vec::new();
                 let mut full_loaders = Vec::new();
-                route.rebuild_nested_route(
+                let different_level = route.rebuild_nested_route(
                     &self.current_url.read_untracked(),
                     self.base,
                     &mut 0,
@@ -170,14 +172,26 @@ where
                     &mut state.outlets,
                     &self.outer_owner,
                     self.set_is_routing.is_some(),
+                    0,
                 );
 
                 let location = self.location.clone();
+                let is_back = location
+                    .as_ref()
+                    .map(|nav| nav.is_back().get_untracked())
+                    .unwrap_or(false);
                 Executor::spawn_local(async move {
                     let triggers = join_all(preloaders).await;
                     // tell each one of the outlet triggers that it's ready
-                    for trigger in triggers {
-                        trigger.notify();
+                    let notify = move || {
+                        for trigger in triggers {
+                            trigger.notify();
+                        }
+                    };
+                    if self.transition {
+                        start_view_transition(different_level, is_back, notify);
+                    } else {
+                        notify();
                     }
                 });
 
@@ -509,7 +523,8 @@ trait AddNestedRoute {
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
         set_is_routing: bool,
-    );
+        level: u8,
+    ) -> u8;
 }
 
 impl<Match> AddNestedRoute for Match
@@ -655,7 +670,8 @@ where
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
         set_is_routing: bool,
-    ) {
+        level: u8,
+    ) -> u8 {
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
             .take(*items)
@@ -666,6 +682,7 @@ where
             // if there's nothing currently in the routes at this point, build from here
             None => {
                 self.build_nested_route(url, base, preloaders, outlets, parent);
+                level
             }
             Some(current) => {
                 // a unique ID for each route, which allows us to compare when we get new matches
@@ -802,7 +819,7 @@ where
                         );
                     }
 
-                    return;
+                    return level;
                 }
 
                 // otherwise, set the params and URL signals,
@@ -822,7 +839,10 @@ where
                         outlets,
                         &owner,
                         set_is_routing,
-                    );
+                        level + 1,
+                    )
+                } else {
+                    level
                 }
             }
         }

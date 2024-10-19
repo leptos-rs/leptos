@@ -69,16 +69,16 @@ where
     Chil: IntoView,
 {
     #[cfg(feature = "ssr")]
-    let (current_url, redirect_hook) = {
+    let (location_provider, current_url, redirect_hook) = {
         let req = use_context::<RequestUrl>().expect("no RequestUrl provided");
         let parsed = req.parse().expect("could not parse RequestUrl");
         let current_url = ArcRwSignal::new(parsed);
 
-        (current_url, Box::new(move |_: &str| {}))
+        (None, current_url, Box::new(move |_: &str| {}))
     };
 
     #[cfg(not(feature = "ssr"))]
-    let (current_url, redirect_hook) = {
+    let (location_provider, current_url, redirect_hook) = {
         let location =
             BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
@@ -87,7 +87,7 @@ where
 
         let redirect_hook = Box::new(|loc: &str| BrowserUrl::redirect(loc));
 
-        (current_url, redirect_hook)
+        (Some(location), current_url, redirect_hook)
     };
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
@@ -103,6 +103,7 @@ where
         state,
         set_is_routing,
         query_mutations: Default::default(),
+        location_provider,
     });
 
     let children = children.into_inner();
@@ -118,6 +119,7 @@ pub(crate) struct RouterContext {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
+    pub location_provider: Option<BrowserUrl>,
 }
 
 impl RouterContext {
@@ -179,12 +181,14 @@ impl RouterContext {
             self.current_url.set(url);
         }
 
-        BrowserUrl::complete_navigation(&LocationChange {
-            value,
-            replace: options.replace,
-            scroll: options.scroll,
-            state: options.state,
-        });
+        if let Some(location_provider) = &self.location_provider {
+            location_provider.complete_navigation(&LocationChange {
+                value,
+                replace: options.replace,
+                scroll: options.scroll,
+                state: options.state,
+            });
+        }
     }
 
     pub fn resolve_path<'a>(
@@ -228,6 +232,9 @@ where
 #[component(transparent)]
 pub fn Routes<Defs, FallbackFn, Fallback>(
     fallback: FallbackFn,
+    /// Whether to use the View Transition API during navigation.
+    #[prop(optional)]
+    transition: bool,
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -267,6 +274,7 @@ where
             base: base.clone(),
             fallback: fallback.clone(),
             set_is_routing,
+            transition,
         }
     }
 }
@@ -274,6 +282,9 @@ where
 #[component(transparent)]
 pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
     fallback: FallbackFn,
+    /// Whether to use the View Transition API during navigation.
+    #[prop(optional)]
+    transition: bool,
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -317,6 +328,7 @@ where
             fallback: fallback.clone(),
             outer_owner: outer_owner.clone(),
             set_is_routing,
+            transition,
         }
     }
 }
