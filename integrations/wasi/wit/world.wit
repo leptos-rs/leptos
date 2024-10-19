@@ -1,5 +1,0 @@
-package leptos:server;
-
-world http {
-    include wasi:http/proxy@0.2.1;
-}

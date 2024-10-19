@@ -49,7 +49,6 @@ trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
 generic = ["server_fn_macro/generic"]
-wasi = ["server_fn_macro/wasi"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
