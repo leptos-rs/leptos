@@ -111,7 +111,6 @@ default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls"]
 reqwest = ["dep:reqwest"]
 ssr = ["inventory"]
-wasi = ["generic"]
 generic = []
 
 [package.metadata.docs.rs]

@@ -21,7 +21,6 @@ nightly = []
 ssr = []
 actix = []
 axum = []
-wasi = ["generic"]
 generic = []
 reqwest = []
 
