@@ -174,7 +174,9 @@ pub mod prelude {
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
-            view::{any_view::AnyView, template::ViewTemplate},
+            view::{
+                any_view::AnyView, fragment::Fragment, template::ViewTemplate,
+            },
         };
     }
     pub use export_types::*;
