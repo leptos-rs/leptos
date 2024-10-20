@@ -15,7 +15,7 @@ config = { version = "0.14.0", default-features = false, features = [
   "convert-case",
 ] }
 regex = "1.10"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 thiserror = "1.0"
 typed-builder = "0.19.1"
 
