@@ -1993,7 +1993,7 @@ where
     move |uri: Uri, State(options): State<S>, req: Request<Body>| {
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&options);
-            let res = get_static_file(uri, &options.site_root);
+            let res = get_static_file(uri, &options.site_root, req.headers());
             let res = res.await.unwrap();
 
             if res.status() == StatusCode::OK {
@@ -2027,14 +2027,26 @@ where
 async fn get_static_file(
     uri: Uri,
     root: &str,
+    headers: &HeaderMap<HeaderValue>,
 ) -> Result<Response<Body>, (StatusCode, String)> {
-    let req = Request::builder()
-        .uri(uri.clone())
-        .body(Body::empty())
-        .unwrap();
+    use axum::http::header::ACCEPT_ENCODING;
+
+    let req = Request::builder().uri(uri);
+
+    let req = match headers.get(ACCEPT_ENCODING) {
+        Some(value) => req.header(ACCEPT_ENCODING, value),
+        None => req,
+    };
+
+    let req = req.body(Body::empty()).unwrap();
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // This path is relative to the cargo root
-    match ServeDir::new(root).oneshot(req).await {
+    match ServeDir::new(root)
+        .precompressed_gzip()
+        .precompressed_br()
+        .oneshot(req)
+        .await
+    {
         Ok(res) => Ok(res.into_response()),
         Err(err) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
