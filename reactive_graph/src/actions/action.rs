@@ -6,7 +6,7 @@ use crate::{
         SyncStorage,
     },
     signal::{ArcRwSignal, RwSignal},
-    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update},
+    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Set, Update},
     unwrap_signal,
 };
 use any_spawner::Executor;
@@ -201,6 +201,15 @@ where
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
+    }
+
+    /// Clears the value of the action, setting its current value to `None`.
+    ///
+    /// This has no other effect: i.e., it will not cancel in-flight actions, set the
+    /// input, etc.
+    #[track_caller]
+    pub fn clear(&self) {
+        self.value.set(None);
     }
 }
 
@@ -675,6 +684,22 @@ where
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
+    }
+}
+
+impl<I, O, S> Action<I, O, S>
+where
+    I: 'static,
+    O: 'static,
+    S: Storage<ArcAction<I, O>>,
+{
+    /// Clears the value of the action, setting its current value to `None`.
+    ///
+    /// This has no other effect: i.e., it will not cancel in-flight actions, set the
+    /// input, etc.
+    #[track_caller]
+    pub fn clear(&self) {
+        self.inner.try_with_value(|inner| inner.value.set(None));
     }
 }
 
