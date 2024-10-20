@@ -14,7 +14,6 @@ impl MatchParams for () {
 
 impl MatchInterface for () {
     type Child = ();
-    type View = ();
 
     fn as_id(&self) -> RouteMatchId {
         RouteMatchId(0)
@@ -66,7 +65,6 @@ where
     A: MatchInterface + 'static,
 {
     type Child = A::Child;
-    type View = A::View;
 
     fn as_id(&self) -> RouteMatchId {
         self.0.as_id()
@@ -126,7 +124,6 @@ where
     B: MatchInterface,
 {
     type Child = Either<A::Child, B::Child>;
-    type View = Either<A::View, B::View>;
 
     fn as_id(&self) -> RouteMatchId {
         match self {
@@ -227,7 +224,6 @@ macro_rules! tuples {
             $($ty: MatchInterface + 'static),*,
         {
             type Child = $either<$($ty::Child,)*>;
-            type View = $either<$($ty::View,)*>;
 
             fn as_id(&self) -> RouteMatchId {
                 match self {

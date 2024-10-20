@@ -417,10 +417,7 @@ where
 {
     type AsyncOutput = Self;
 
-    const MIN_LENGTH: usize = <Either<
-        Fal,
-        <Defs::Match as MatchInterface>::View,
-    > as RenderHtml>::MIN_LENGTH;
+    const MIN_LENGTH: usize = <Either<Fal, AnyView> as RenderHtml>::MIN_LENGTH;
 
     fn dry_resolve(&mut self) {}
 

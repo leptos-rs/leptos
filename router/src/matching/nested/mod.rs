@@ -10,7 +10,6 @@ use std::{
     collections::HashSet,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::view::any_view::AnyView;
 
 mod tuples;
 
@@ -143,7 +142,6 @@ where
     View: ChooseView,
 {
     type Child = Child;
-    type View = AnyView;
 
     fn as_id(&self) -> RouteMatchId {
         self.id

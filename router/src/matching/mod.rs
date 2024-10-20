@@ -10,7 +10,6 @@ use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, collections::HashSet};
-use tachys::view::{Render, RenderHtml};
 pub use vertical::*;
 
 #[derive(Debug)]
@@ -95,7 +94,6 @@ pub struct RouteMatchId(pub(crate) u16);
 
 pub trait MatchInterface {
     type Child: MatchInterface + MatchParams + 'static;
-    type View: Render + RenderHtml + Send + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 
