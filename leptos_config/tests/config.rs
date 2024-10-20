@@ -50,9 +50,9 @@ async fn get_configuration_from_file_ok() {
     )
     .await;
 
-    assert_eq!(config.output_name, "app-test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app-test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -106,9 +106,9 @@ async fn get_config_from_file_ok() {
     )
     .await;
 
-    assert_eq!(config.output_name, "app-test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app-test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -151,9 +151,9 @@ fn get_config_from_str_content() {
         || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
     );
 
-    assert_eq!(config.output_name, "app-test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app-test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -178,9 +178,9 @@ async fn get_config_from_env() {
     )
     .await;
 
-    assert_eq!(config.output_name, "app-test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app-test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -202,8 +202,8 @@ async fn get_config_from_env() {
     )
     .await;
 
-    assert_eq!(config.site_root, "target/site");
-    assert_eq!(config.site_pkg_dir, "pkg");
+    assert_eq!(config.site_root.as_ref(), "target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
@@ -215,10 +215,10 @@ async fn get_config_from_env() {
 #[test]
 fn leptos_options_builder_default() {
     let conf = LeptosOptions::builder().output_name("app-test").build();
-    assert_eq!(conf.output_name, "app-test");
+    assert_eq!(conf.output_name.as_ref(), "app-test");
     assert!(matches!(conf.env, Env::DEV));
-    assert_eq!(conf.site_pkg_dir, "pkg");
-    assert_eq!(conf.site_root, ".");
+    assert_eq!(conf.site_pkg_dir.as_ref(), "pkg");
+    assert_eq!(conf.site_root.as_ref(), ".");
     assert_eq!(
         conf.site_addr,
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
@@ -242,9 +242,9 @@ fn environment_variable_override() {
         || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
     );
 
-    assert_eq!(config.output_name, "app-test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app-test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -265,9 +265,9 @@ fn environment_variable_override() {
         || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
     );
 
-    assert_eq!(config.output_name, "app-test2");
-    assert_eq!(config.site_root, "my_target/site2");
-    assert_eq!(config.site_pkg_dir, "my_pkg2");
+    assert_eq!(config.output_name.as_ref(), "app-test2");
+    assert_eq!(config.site_root.as_ref(), "my_target/site2");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg2");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:82").unwrap()
