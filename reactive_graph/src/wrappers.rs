@@ -968,6 +968,89 @@ pub mod read {
         }
     }
 
+    #[allow(deprecated)]
+    impl<T> From<MaybeSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeSignal<T>) -> Self {
+            match value {
+                MaybeSignal::Static(value) => Signal::stored(value),
+                MaybeSignal::Dynamic(signal) => signal,
+            }
+        }
+    }
+
+    #[allow(deprecated)]
+    impl<T> From<MaybeSignal<T, LocalStorage>> for Signal<T, LocalStorage>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeSignal<T, LocalStorage>) -> Self {
+            match value {
+                MaybeSignal::Static(value) => Signal::stored_local(value),
+                MaybeSignal::Dynamic(signal) => signal,
+            }
+        }
+    }
+
+    #[allow(deprecated)]
+    impl<T> From<MaybeSignal<T>> for Signal<Option<T>>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeSignal<T>) -> Self {
+            match value {
+                MaybeSignal::Static(value) => Signal::stored(Some(value)),
+                MaybeSignal::Dynamic(signal) => {
+                    Signal::derive(move || Some(signal.get()))
+                }
+            }
+        }
+    }
+
+    #[allow(deprecated)]
+    impl<T> From<MaybeSignal<T, LocalStorage>> for Signal<Option<T>, LocalStorage>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeSignal<T, LocalStorage>) -> Self {
+            match value {
+                MaybeSignal::Static(value) => Signal::stored_local(Some(value)),
+                MaybeSignal::Dynamic(signal) => {
+                    Signal::derive_local(move || Some(signal.get()))
+                }
+            }
+        }
+    }
+
+    #[allow(deprecated)]
+    impl<T> From<MaybeProp<T>> for Option<Signal<Option<T>>>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeProp<T>) -> Self {
+            value.0.map(|mb| mb.into())
+        }
+    }
+
+    #[allow(deprecated)]
+    impl<T> From<MaybeProp<T, LocalStorage>>
+        for Option<Signal<Option<T>, LocalStorage>>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MaybeProp<T, LocalStorage>) -> Self {
+            value.0.map(|mb| mb.into())
+        }
+    }
+
     /// A type alias for a [`Option<Signal<Option<T>>>`], which is a non-wrapped alternative to [`MaybeProp`].
     pub type OptProp<T> = Option<Signal<Option<T>>>;
 
