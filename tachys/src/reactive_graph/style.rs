@@ -3,13 +3,30 @@ use crate::{html::style::IntoStyle, renderer::Rndr};
 use reactive_graph::effect::RenderEffect;
 use std::borrow::Cow;
 
+pub struct RenderEffectWithCssStyleName<T>
+where
+    T: 'static,
+{
+    name: &'static str,
+    effect: RenderEffect<T>,
+}
+
+impl<T> RenderEffectWithCssStyleName<T>
+where
+    T: 'static,
+{
+    fn new(name: &'static str, effect: RenderEffect<T>) -> Self {
+        Self { effect, name }
+    }
+}
+
 impl<F, S> IntoStyle for (&'static str, F)
 where
     F: ReactiveFunction<Output = S>,
     S: Into<Cow<'static, str>> + 'static,
 {
     type AsyncOutput = Self;
-    type State = RenderEffect<(
+    type State = RenderEffectWithCssStyleName<(
         crate::renderer::types::CssStyleDeclaration,
         Cow<'static, str>,
     )>;
@@ -33,57 +50,63 @@ where
         let name = Rndr::intern(name);
         // TODO FROM_SERVER vs template
         let style = Rndr::style(el);
-        RenderEffect::new(move |prev| {
-            let value = f.invoke().into();
-            if let Some(mut state) = prev {
-                let (style, prev): &mut (
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
-                ) = &mut state;
-                if &value != prev {
-                    Rndr::set_css_property(style, name, &value);
+        RenderEffectWithCssStyleName::new(
+            name,
+            RenderEffect::new(move |prev| {
+                let value = f.invoke().into();
+                if let Some(mut state) = prev {
+                    let (style, prev): &mut (
+                        crate::renderer::types::CssStyleDeclaration,
+                        Cow<'static, str>,
+                    ) = &mut state;
+                    if &value != prev {
+                        Rndr::set_css_property(style, name, &value);
+                    }
+                    *prev = value;
+                    state
+                } else {
+                    // only set the style in template mode
+                    // in server mode, it's already been set
+                    if !FROM_SERVER {
+                        Rndr::set_css_property(&style, name, &value);
+                    }
+                    (style.clone(), value)
                 }
-                *prev = value;
-                state
-            } else {
-                // only set the style in template mode
-                // in server mode, it's already been set
-                if !FROM_SERVER {
-                    Rndr::set_css_property(&style, name, &value);
-                }
-                (style.clone(), value)
-            }
-        })
+            }),
+        )
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, mut f) = self;
         let name = Rndr::intern(name);
         let style = Rndr::style(el);
-        RenderEffect::new(move |prev| {
-            let value = f.invoke().into();
-            if let Some(mut state) = prev {
-                let (style, prev): &mut (
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
-                ) = &mut state;
-                if &value != prev {
-                    Rndr::set_css_property(style, name, &value);
+        RenderEffectWithCssStyleName::new(
+            name,
+            RenderEffect::new(move |prev| {
+                let value = f.invoke().into();
+                if let Some(mut state) = prev {
+                    let (style, prev): &mut (
+                        crate::renderer::types::CssStyleDeclaration,
+                        Cow<'static, str>,
+                    ) = &mut state;
+                    if &value != prev {
+                        Rndr::set_css_property(style, name, &value);
+                    }
+                    *prev = value;
+                    state
+                } else {
+                    // always set the style initially without checking
+                    Rndr::set_css_property(&style, name, &value);
+                    (style.clone(), value)
                 }
-                *prev = value;
-                state
-            } else {
-                // always set the style initially without checking
-                Rndr::set_css_property(&style, name, &value);
-                (style.clone(), value)
-            }
-        })
+            }),
+        )
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, mut f) = self;
-        let prev_value = state.take_value();
-        *state = RenderEffect::new_with_value(
+        let prev_value = state.effect.take_value();
+        state.effect = RenderEffect::new_with_value(
             move |prev| {
                 let value = f.invoke().into();
                 if let Some(mut state) = prev {
@@ -115,6 +138,23 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let name = state.name;
+        state.effect = RenderEffect::new_with_value(
+            move |prev| {
+                if let Some(mut state) = prev {
+                    let (style, prev) = &mut state;
+                    Rndr::remove_css_property(style, name);
+                    *prev = Cow::Borrowed("");
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            state.effect.take_value(),
+        );
     }
 }
 
@@ -195,6 +235,20 @@ where
     async fn resolve(mut self) -> Self::AsyncOutput {
         self.invoke().resolve().await
     }
+
+    fn reset(state: &mut Self::State) {
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                if let Some(mut state) = prev {
+                    C::reset(&mut state);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            state.take_value(),
+        );
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -248,6 +302,20 @@ mod stable {
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                C::reset(&mut state);
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.take_value(),
+                    );
+                }
             }
 
             impl<S> IntoStyle for (&'static str, $sig<S>)
@@ -256,7 +324,7 @@ mod stable {
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<(
+                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
                     crate::renderer::types::CssStyleDeclaration,
                     Cow<'static, str>,
                 )>;
@@ -300,6 +368,23 @@ mod stable {
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                let (style, prev) = &mut state;
+                                crate::reactive_graph::Rndr::remove_css_property(style, name);
+                                *prev = Cow::Borrowed("");
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.effect.take_value(),
+                    ));
                 }
             }
         };
@@ -356,6 +441,20 @@ mod stable {
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                C::reset(&mut state);
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.take_value(),
+                    );
+                }
             }
 
             impl<S, St> IntoStyle for (&'static str, $sig<S, St>)
@@ -366,7 +465,7 @@ mod stable {
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<(
+                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
                     crate::renderer::types::CssStyleDeclaration,
                     Cow<'static, str>,
                 )>;
@@ -410,6 +509,23 @@ mod stable {
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                let (style, prev) = &mut state;
+                                crate::reactive_graph::Rndr::remove_css_property(style, name);
+                                *prev = Cow::Borrowed("");
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.effect.take_value(),
+                    ));
                 }
             }
         };

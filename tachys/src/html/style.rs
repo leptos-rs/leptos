@@ -168,6 +168,9 @@ pub trait IntoStyle: Send {
 
     /// “Resolves” this into a type that is not waiting for any asynchronous data.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
+
+    /// Reset the styling to the state before this style was added.
+    fn reset(state: &mut Self::State);
 }
 
 impl<T: IntoStyle> IntoStyle for Option<T> {
@@ -204,14 +207,14 @@ impl<T: IntoStyle> IntoStyle for Option<T> {
     fn rebuild(self, state: &mut Self::State) {
         let el = &state.0;
         let prev_state = &mut state.1;
-        let maybe_next_t_state = match (prev_state, self) {
-            (Some(_prev_t_state), None) => {
-                Rndr::remove_attribute(el, "style");
+        let maybe_next_t_state = match (prev_state.take(), self) {
+            (Some(mut prev_t_state), None) => {
+                T::reset(&mut prev_t_state);
                 Some(None)
             }
             (None, Some(t)) => Some(Some(t.build(el))),
-            (Some(prev_t_state), Some(t)) => {
-                t.rebuild(prev_t_state);
+            (Some(mut prev_t_state), Some(t)) => {
+                t.rebuild(&mut prev_t_state);
                 None
             }
             (None, None) => Some(None),
@@ -240,6 +243,12 @@ impl<T: IntoStyle> IntoStyle for Option<T> {
             Some(t.resolve().await)
         } else {
             None
+        }
+    }
+
+    fn reset(state: &mut Self::State) {
+        if let Some(prev_t_state) = &mut state.1 {
+            T::reset(prev_t_state);
         }
     }
 }
@@ -288,6 +297,11 @@ impl<'a> IntoStyle for &'a str {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "style");
+    }
 }
 
 impl IntoStyle for Arc<str> {
@@ -333,6 +347,11 @@ impl IntoStyle for Arc<str> {
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "style");
     }
 }
 
@@ -380,11 +399,20 @@ impl IntoStyle for String {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "style");
+    }
 }
 
 impl IntoStyle for (Arc<str>, Arc<str>) {
     type AsyncOutput = Self;
-    type State = (crate::renderer::types::CssStyleDeclaration, Arc<str>);
+    type State = (
+        crate::renderer::types::CssStyleDeclaration,
+        Arc<str>,
+        Arc<str>,
+    );
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -401,23 +429,27 @@ impl IntoStyle for (Arc<str>, Arc<str>) {
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         let style = Rndr::style(el);
-        (style, self.1)
+        (style, self.0, self.1)
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = self;
         let style = Rndr::style(el);
         Rndr::set_css_property(&style, &name, &value);
-        (style, value)
+        (style, name, value)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, value) = self;
-        let (style, prev) = state;
-        if value != *prev {
+        // state.1 was the previous name, theoretically the css name could be changed:
+        if name != state.1 {
+            <(Arc<str>, Arc<str>) as IntoStyle>::reset(state);
+        }
+        let (style, _prev_name, prev_value) = state;
+        if value != *prev_value {
             Rndr::set_css_property(style, &name, &value);
         }
-        *prev = value;
+        *prev_value = value;
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -433,11 +465,21 @@ impl IntoStyle for (Arc<str>, Arc<str>) {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    /// Reset the renderer to the state before this style was added.
+    fn reset(state: &mut Self::State) {
+        let (style, name, _value) = state;
+        Rndr::remove_css_property(style, name);
+    }
 }
 
 impl<'a> IntoStyle for (&'a str, &'a str) {
     type AsyncOutput = Self;
-    type State = (crate::renderer::types::CssStyleDeclaration, &'a str);
+    type State = (
+        crate::renderer::types::CssStyleDeclaration,
+        &'a str,
+        &'a str,
+    );
     type Cloneable = Self;
     type CloneableOwned = (Arc<str>, Arc<str>);
 
@@ -454,23 +496,27 @@ impl<'a> IntoStyle for (&'a str, &'a str) {
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         let style = Rndr::style(el);
-        (style, self.1)
+        (style, self.0, self.1)
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = self;
         let style = Rndr::style(el);
         Rndr::set_css_property(&style, name, value);
-        (style, self.1)
+        (style, self.0, self.1)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, value) = self;
-        let (style, prev) = state;
-        if value != *prev {
+        // state.1 was the previous name, theoretically the css name could be changed:
+        if name != state.1 {
+            <(&'a str, &'a str) as IntoStyle>::reset(state);
+        }
+        let (style, _prev_name, prev_value) = state;
+        if value != *prev_value {
             Rndr::set_css_property(style, name, value);
         }
-        *prev = value;
+        *prev_value = value;
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -486,11 +532,17 @@ impl<'a> IntoStyle for (&'a str, &'a str) {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    /// Reset the renderer to the state before this style was added.
+    fn reset(state: &mut Self::State) {
+        let (style, name, _value) = state;
+        Rndr::remove_css_property(style, name);
+    }
 }
 
 impl<'a> IntoStyle for (&'a str, String) {
     type AsyncOutput = Self;
-    type State = (crate::renderer::types::CssStyleDeclaration, String);
+    type State = (crate::renderer::types::CssStyleDeclaration, &'a str, String);
     type Cloneable = (Arc<str>, Arc<str>);
     type CloneableOwned = (Arc<str>, Arc<str>);
 
@@ -507,23 +559,27 @@ impl<'a> IntoStyle for (&'a str, String) {
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         let style = Rndr::style(el);
-        (style, self.1)
+        (style, self.0, self.1)
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         let (name, value) = &self;
         let style = Rndr::style(el);
         Rndr::set_css_property(&style, name, value);
-        (style, self.1)
+        (style, self.0, self.1)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, value) = self;
-        let (style, prev) = state;
-        if value != *prev {
+        // state.1 was the previous name, theoretically the css name could be changed:
+        if name != state.1 {
+            <(&'a str, String) as IntoStyle>::reset(state);
+        }
+        let (style, _prev_name, prev_value) = state;
+        if value != *prev_value {
             Rndr::set_css_property(style, name, &value);
         }
-        *prev = value;
+        *prev_value = value;
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -538,6 +594,11 @@ impl<'a> IntoStyle for (&'a str, String) {
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (style, name, _value) = state;
+        Rndr::remove_css_property(style, name);
     }
 }
 
@@ -583,6 +644,8 @@ impl<'a, const V: &'static str> IntoStyle for (&'a str, Static<V>) {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(_state: &mut Self::State) {}
 }
 
 #[cfg(feature = "nightly")]
@@ -627,6 +690,8 @@ impl<const V: &'static str> IntoStyle for (Arc<str>, Static<V>) {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(_state: &mut Self::State) {}
 }
 
 #[cfg(feature = "nightly")]
@@ -666,6 +731,8 @@ impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(_state: &mut Self::State) {}
 }
 
 /*

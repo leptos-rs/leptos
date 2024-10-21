@@ -272,4 +272,9 @@ impl IntoStyle for Oco<'static, str> {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "style");
+    }
 }

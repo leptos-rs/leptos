@@ -383,6 +383,14 @@ impl Dom {
         );
     }
 
+    pub fn remove_css_property(style: &CssStyleDeclaration, name: &str) {
+        or_debug!(
+            style.remove_property(name),
+            style.unchecked_ref(),
+            "removeProperty"
+        );
+    }
+
     pub fn set_inner_html(el: &Element, html: &str) {
         el.set_inner_html(html);
     }
