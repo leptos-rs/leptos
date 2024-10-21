@@ -41,7 +41,8 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
-    redirect::REDIRECT_HEADER, request::actix::ActixRequest, ServerFnError,
+    actix::unregister_server_fns, redirect::REDIRECT_HEADER,
+    request::actix::ActixRequest, ServerFnError,
 };
 use std::{
     fmt::{Debug, Display},
@@ -1003,6 +1004,11 @@ where
     IV: IntoView + 'static,
 {
     let _ = any_spawner::Executor::init_tokio();
+
+    // remove any server fns that match excluded paths
+    if let Some(excluded) = &excluded_routes {
+        unregister_server_fns(excluded);
+    }
 
     let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
     let (mock_meta, _) = ServerMetaContext::new();
