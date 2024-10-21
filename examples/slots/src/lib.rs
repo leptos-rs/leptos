@@ -10,7 +10,7 @@ struct Then {
 // the type with Option<...> and marking the option as #[prop(optional)].
 #[slot]
 struct ElseIf {
-    cond: MaybeSignal<bool>,
+    cond: Signal<bool>,
     children: ChildrenFn,
 }
 
@@ -22,7 +22,7 @@ struct Fallback {
 // Slots are added to components like any other prop.
 #[component]
 fn SlotIf(
-    cond: MaybeSignal<bool>,
+    cond: Signal<bool>,
     then: Then,
     #[prop(default=vec![])] else_if: Vec<ElseIf>,
     #[prop(optional)] fallback: Option<Fallback>,
@@ -43,9 +43,9 @@ fn SlotIf(
 #[component]
 pub fn App() -> impl IntoView {
     let (count, set_count) = signal(0);
-    let is_even = MaybeSignal::derive(move || count.get() % 2 == 0);
-    let is_div5 = MaybeSignal::derive(move || count.get() % 5 == 0);
-    let is_div7 = MaybeSignal::derive(move || count.get() % 7 == 0);
+    let is_even = Signal::derive(move || count.get() % 2 == 0);
+    let is_div5 = Signal::derive(move || count.get() % 5 == 0);
+    let is_div7 = Signal::derive(move || count.get() % 7 == 0);
 
     view! {
         <button on:click=move |_| set_count.update(|value| *value += 1)>"+1"</button>
