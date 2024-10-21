@@ -500,6 +500,17 @@ pub mod axum {
             .map(|item| (item.path(), item.method()))
     }
 
+    /// Removes any server functions with an included path from the map of
+    /// registered server functions.
+    ///
+    /// Calling this will mean that these server functions are not found unless you provide
+    /// alternate handlers for them in your application.
+    pub fn unregister_server_fns(paths: &[String]) {
+        if !paths.is_empty() {
+            REGISTERED_SERVER_FUNCTIONS.retain(|(p, _), _| !paths.contains(p));
+        }
+    }
+
     /// An Axum handler that responds to a server function request.
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
         let path = req.uri().path();
@@ -586,6 +597,17 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS
             .iter()
             .map(|item| (item.path(), item.method()))
+    }
+
+    /// Removes any server functions with an included path from the map of
+    /// registered server functions.
+    ///
+    /// Calling this will mean that these server functions are not found unless you provide
+    /// alternate handlers for them in your application.
+    pub fn unregister_server_fns(paths: &[String]) {
+        if !paths.is_empty() {
+            REGISTERED_SERVER_FUNCTIONS.retain(|(p, _), _| !paths.contains(p));
+        }
     }
 
     /// An Actix handler that responds to a server function request.

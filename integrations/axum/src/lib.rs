@@ -71,7 +71,9 @@ use leptos_router::{
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
+use server_fn::{
+    axum::unregister_server_fns, redirect::REDIRECT_HEADER, ServerFnError,
+};
 #[cfg(feature = "default")]
 use std::path::Path;
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
@@ -1337,6 +1339,11 @@ where
     // do some basic reactive setup
     init_executor();
     let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+
+    // remove any server fns that match excluded paths
+    if let Some(excluded) = &excluded_routes {
+        unregister_server_fns(excluded);
+    }
 
     let routes = owner
         .with(|| {
