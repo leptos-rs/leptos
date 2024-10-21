@@ -1,23 +1,4 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
-use core::iter::Chain;
-
-macro_rules! chain_types {
-    ($first:ty, $second:ty, ) => {
-        Chain<
-            $first,
-            <<$second as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter
-        >
-    };
-    ($first:ty, $second:ty, $($rest:ty,)+) => {
-        chain_types!(
-            Chain<
-                $first,
-                <<$second as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter,
-            >,
-            $($rest,)+
-        )
-    }
-}
 
 macro_rules! tuples {
     ($first:ident => $($ty:ident),*) => {
@@ -27,34 +8,69 @@ macro_rules! tuples {
             $first: PossibleRouteMatch,
 			$($ty: PossibleRouteMatch),*,
         {
-            type ParamsIter = chain_types!(<<$first>::ParamsIter as IntoIterator>::IntoIter, $($ty,)*);
+            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+                // on the first run, include all optionals
+                let mut include_optionals = {
+                    [$first::OPTIONAL, $($ty::OPTIONAL),*].into_iter().filter(|n| *n).count()
+                };
 
-            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
-                let mut matched_len = 0;
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = &self;
-                let remaining = path;
-                let PartialPathMatch {
-                    remaining,
-                    matched,
-                    params
-                } = $first.test(remaining)?;
-                matched_len += matched.len();
-                let params_iter = params.into_iter();
-                $(
-                    let PartialPathMatch {
-                        remaining,
-                        matched,
-                        params
-                    } = $ty.test(remaining)?;
-                    matched_len += matched.len();
-                    let params_iter = params_iter.chain(params);
-                )*
-                Some(PartialPathMatch {
-                    remaining,
-                    matched: &path[0..matched_len],
-                    params: params_iter
-                })
+
+                loop {
+                    let mut nth_field = 0;
+                    let mut matched_len = 0;
+                    let mut r = path;
+
+                    let mut p = Vec::new();
+                    let mut m = String::new();
+
+                    if !$first::OPTIONAL || nth_field < include_optionals {
+                        match $first.test(r) {
+                            None => {
+                                return None;
+                            },
+                            Some(PartialPathMatch { remaining, matched, params }) => {
+                                p.extend(params.into_iter());
+                                m.push_str(matched);
+                                r = remaining;
+                            },
+                        }
+                    }
+
+                    matched_len += m.len();
+                    $(
+                        if $ty::OPTIONAL {
+                            nth_field += 1;
+                        }
+                        if !$ty::OPTIONAL || nth_field < include_optionals {
+                            let PartialPathMatch {
+                                remaining,
+                                matched,
+                                params
+                            } = match $ty.test(r) {
+                                None => if $ty::OPTIONAL {
+                                    return None;
+                                } else {
+                                    if include_optionals == 0 {
+                                        return None;
+                                    }
+                                    include_optionals -= 1;
+                                    continue;
+                                },
+                                Some(v) => v,
+                            };
+                            r = remaining;
+                            matched_len += matched.len();
+                            p.extend(params);
+                        }
+                    )*
+                    return Some(PartialPathMatch {
+                        remaining: r,
+                        matched: &path[0..matched_len],
+                        params: p
+                    });
+                }
             }
 
             fn generate_path(&self, path: &mut Vec<PathSegment>) {
@@ -74,12 +90,7 @@ where
     Self: core::fmt::Debug,
     A: PossibleRouteMatch,
 {
-    type ParamsIter = A::ParamsIter;
-
-    fn test<'a>(
-        &self,
-        path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let remaining = path;
         let PartialPathMatch {
             remaining,

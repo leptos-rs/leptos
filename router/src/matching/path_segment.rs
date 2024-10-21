@@ -5,6 +5,7 @@ pub enum PathSegment {
     Unit,
     Static(Cow<'static, str>),
     Param(Cow<'static, str>),
+    OptionalParam(Cow<'static, str>),
     Splat(Cow<'static, str>),
 }
 
@@ -14,6 +15,7 @@ impl PathSegment {
             PathSegment::Unit => "",
             PathSegment::Static(i) => i,
             PathSegment::Param(i) => i,
+            PathSegment::OptionalParam(i) => i,
             PathSegment::Splat(i) => i,
         }
     }

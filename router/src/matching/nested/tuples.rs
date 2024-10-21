@@ -5,10 +5,8 @@ use either_of::*;
 use std::borrow::Cow;
 
 impl MatchParams for () {
-    type Params = iter::Empty<(Cow<'static, str>, String)>;
-
-    fn to_params(&self) -> Self::Params {
-        iter::empty()
+    fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
+        Vec::new()
     }
 }
 
@@ -53,9 +51,7 @@ impl<A> MatchParams for (A,)
 where
     A: MatchParams,
 {
-    type Params = A::Params;
-
-    fn to_params(&self) -> Self::Params {
+    fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
         self.0.to_params()
     }
 }
@@ -105,15 +101,10 @@ where
     A: MatchParams,
     B: MatchParams,
 {
-    type Params = Either<
-        <A::Params as IntoIterator>::IntoIter,
-        <B::Params as IntoIterator>::IntoIter,
-    >;
-
-    fn to_params(&self) -> Self::Params {
+    fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
         match self {
-            Either::Left(i) => Either::Left(i.to_params().into_iter()),
-            Either::Right(i) => Either::Right(i.to_params().into_iter()),
+            Either::Left(i) => i.to_params(),
+            Either::Right(i) => i.to_params(),
         }
     }
 }
@@ -208,13 +199,9 @@ macro_rules! tuples {
         where
 			$($ty: MatchParams),*,
         {
-            type Params = $either<$(
-                <$ty::Params as IntoIterator>::IntoIter,
-            )*>;
-
-            fn to_params(&self) -> Self::Params {
+            fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
                 match self {
-                    $($either::$ty(i) => $either::$ty(i.to_params().into_iter()),)*
+                    $($either::$ty(i) => i.to_params(),)*
                 }
             }
         }

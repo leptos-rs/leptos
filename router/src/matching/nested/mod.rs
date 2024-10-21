@@ -96,21 +96,19 @@ impl<Segments, Data, View> NestedRoute<Segments, (), Data, View> {
 }
 
 #[derive(PartialEq, Eq)]
-pub struct NestedMatch<ParamsIter, Child, View> {
+pub struct NestedMatch<Child, View> {
     id: RouteMatchId,
     /// The portion of the full path matched only by this nested route.
     matched: String,
     /// The map of params matched only by this nested route.
-    params: ParamsIter,
+    params: Vec<(Cow<'static, str>, String)>,
     /// The nested route.
     child: Option<Child>,
     view_fn: View,
 }
 
-impl<ParamsIter, Child, View> fmt::Debug
-    for NestedMatch<ParamsIter, Child, View>
+impl<Child, View> fmt::Debug for NestedMatch<Child, View>
 where
-    ParamsIter: fmt::Debug,
     Child: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -122,21 +120,14 @@ where
     }
 }
 
-impl<ParamsIter, Child, View> MatchParams
-    for NestedMatch<ParamsIter, Child, View>
-where
-    ParamsIter: IntoIterator<Item = (Cow<'static, str>, String)> + Clone,
-{
-    type Params = ParamsIter;
-
+impl<Child, View> MatchParams for NestedMatch<Child, View> {
     #[inline(always)]
-    fn to_params(&self) -> Self::Params {
+    fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
         self.params.clone()
     }
 }
 
-impl<ParamsIter, Child, View> MatchInterface
-    for NestedMatch<ParamsIter, Child, View>
+impl<Child, View> MatchInterface for NestedMatch<Child, View>
 where
     Child: MatchInterface + MatchParams + 'static,
     View: ChooseView,
@@ -161,21 +152,13 @@ impl<Segments, Children, Data, View> MatchNestedRoutes
 where
     Self: 'static,
     Segments: PossibleRouteMatch + std::fmt::Debug,
-    <<Segments as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter: Clone,
     Children: MatchNestedRoutes,
-    <<<Children as MatchNestedRoutes>::Match as MatchParams>::Params as IntoIterator>::IntoIter: Clone,
-   Children::Match: MatchParams,
-   Children: 'static,
-   <Children::Match as MatchParams>::Params: Clone,
+    Children::Match: MatchParams,
+    Children: 'static,
     View: ChooseView + Clone,
 {
     type Data = Data;
-    type Match = NestedMatch<iter::Chain<
-        <Segments::ParamsIter as IntoIterator>::IntoIter,
-        Either<iter::Empty::<
-(Cow<'static, str>, String)
-            >, <<Children::Match as MatchParams>::Params as IntoIterator>::IntoIter>
-    >, Children::Match, View>;
+    type Match = NestedMatch<Children::Match, View>;
 
     fn match_nested<'a>(
         &'a self,
@@ -186,33 +169,34 @@ where
             .and_then(
                 |PartialPathMatch {
                      remaining,
-                     params,
+                     mut params,
                      matched,
                  }| {
                     let (_, inner, remaining) = match &self.children {
                         None => (None, None, remaining),
                         Some(children) => {
-                            let (inner, remaining) = children.match_nested(remaining);
+                            let (inner, remaining) =
+                                children.match_nested(remaining);
                             let (id, inner) = inner?;
-                           (Some(id), Some(inner), remaining)
+                            (Some(id), Some(inner), remaining)
                         }
                     };
-                    let params = params.into_iter();
-                    let inner_params = match &inner {
-                        None => Either::Left(iter::empty()),
-                        Some(inner) => Either::Right(inner.to_params().into_iter())
-                    };
+                    let inner_params = inner
+                        .as_ref()
+                        .map(|inner| inner.to_params())
+                        .unwrap_or_default();
 
                     let id = RouteMatchId(self.id);
 
                     if remaining.is_empty() || remaining == "/" {
+                        params.extend(inner_params);
                         Some((
                             Some((
                                 id,
                                 NestedMatch {
                                     id,
                                     matched: matched.to_string(),
-                                    params: params.chain(inner_params),
+                                    params,
                                     child: inner,
                                     view_fn: self.view.clone(),
                                 },
@@ -238,9 +222,9 @@ where
         let regenerate = match &ssr_mode {
             SsrMode::Static(data) => match data.regenerate.as_ref() {
                 None => vec![],
-                Some(regenerate) => vec![regenerate.clone()]
-            }
-            _ => vec![]
+                Some(regenerate) => vec![regenerate.clone()],
+            },
+            _ => vec![],
         };
 
         match children {
@@ -248,32 +232,41 @@ where
                 segments: segment_routes,
                 ssr_mode,
                 methods,
-                regenerate
+                regenerate,
             })),
             Some(children) => {
-                Either::Right(children.generate_routes().into_iter().map(move |child| {
-                    // extend this route's segments with child segments
-                    let segments = segment_routes.clone().into_iter().chain(child.segments).collect();
+                Either::Right(children.generate_routes().into_iter().map(
+                    move |child| {
+                        // extend this route's segments with child segments
+                        let segments = segment_routes
+                            .clone()
+                            .into_iter()
+                            .chain(child.segments)
+                            .collect();
 
-                    let mut methods = methods.clone();
-                    methods.extend(child.methods);
+                        let mut methods = methods.clone();
+                        methods.extend(child.methods);
 
-                    let mut regenerate = regenerate.clone();
-                    regenerate.extend(child.regenerate);
+                        let mut regenerate = regenerate.clone();
+                        regenerate.extend(child.regenerate);
 
-                    if child.ssr_mode > ssr_mode {
-                        GeneratedRouteData {
-                            segments,
-                            ssr_mode: child.ssr_mode,
-                            methods, regenerate
+                        if child.ssr_mode > ssr_mode {
+                            GeneratedRouteData {
+                                segments,
+                                ssr_mode: child.ssr_mode,
+                                methods,
+                                regenerate,
+                            }
+                        } else {
+                            GeneratedRouteData {
+                                segments,
+                                ssr_mode: ssr_mode.clone(),
+                                methods,
+                                regenerate,
+                            }
                         }
-                    } else {
-                        GeneratedRouteData {
-                            segments,
-                            ssr_mode: ssr_mode.clone(), methods, regenerate
-                        }
-                    }
-                }))
+                    },
+                ))
             }
         }
     }

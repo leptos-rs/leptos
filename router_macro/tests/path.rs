@@ -1,4 +1,6 @@
-use leptos_router::{ParamSegment, StaticSegment, WildcardSegment};
+use leptos_router::{
+    OptionalParamSegment, ParamSegment, StaticSegment, WildcardSegment,
+};
 use leptos_router_macro::path;
 
 #[test]
@@ -87,6 +89,12 @@ fn parses_single_param() {
 }
 
 #[test]
+fn parses_optional_param() {
+    let output = path!("/:id?");
+    assert_eq!(output, (OptionalParamSegment("id"),));
+}
+
+#[test]
 fn parses_static_and_param() {
     let output = path!("/home/:id");
     assert_eq!(output, (StaticSegment("home"), ParamSegment("id"),));
@@ -145,8 +153,21 @@ fn parses_consecutive_param() {
 }
 
 #[test]
+fn parses_consecutive_optional_param() {
+    let output = path!("/:foo?/:bar?/:baz?");
+    assert_eq!(
+        output,
+        (
+            OptionalParamSegment("foo"),
+            OptionalParamSegment("bar"),
+            OptionalParamSegment("baz")
+        )
+    );
+}
+
+#[test]
 fn parses_complex() {
-    let output = path!("/home/:id/foo/:bar/*any");
+    let output = path!("/home/:id/foo/:bar/:baz?/*any");
     assert_eq!(
         output,
         (
@@ -154,6 +175,7 @@ fn parses_complex() {
             ParamSegment("id"),
             StaticSegment("foo"),
             ParamSegment("bar"),
+            OptionalParamSegment("baz"),
             WildcardSegment("any"),
         )
     );
