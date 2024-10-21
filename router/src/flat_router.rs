@@ -1,11 +1,11 @@
 use crate::{
     hooks::Matched,
     location::{LocationProvider, Url},
-    matching::Routes,
+    matching::{Routes, MatchParams},
     params::ParamsMap,
     view_transition::start_view_transition,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
-    RouteList, RouteListing, RouteMatchId,
+    ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
+    RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::Either;

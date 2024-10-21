@@ -247,6 +247,7 @@ impl StaticPath {
                     }
                     paths = new_paths;
                 }
+                OptionalParam(_) => todo!(),
             }
         }
         paths

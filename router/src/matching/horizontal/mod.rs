@@ -1,5 +1,4 @@
 use super::{PartialPathMatch, PathSegment};
-use std::borrow::Cow;
 mod param_segments;
 mod static_segment;
 mod tuples;
@@ -13,12 +12,9 @@ pub use static_segment::*;
 /// as subsequent segments of the URL and tries to match them all. For a "vertical"
 /// matching that sees a tuple as alternatives to one another, see [`RouteChild`](super::RouteChild).
 pub trait PossibleRouteMatch {
-    type ParamsIter: IntoIterator<Item = (Cow<'static, str>, String)>;
+    const OPTIONAL: bool = false;
 
-    fn test<'a>(
-        &self,
-        path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>>;
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>;
 
     fn generate_path(&self, path: &mut Vec<PathSegment>);
 }
