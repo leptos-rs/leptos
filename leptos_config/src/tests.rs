@@ -76,9 +76,9 @@ fn try_from_env_test() {
         || LeptosOptions::try_from_env().unwrap(),
     );
 
-    assert_eq!(config.output_name, "app_test");
-    assert_eq!(config.site_root, "my_target/site");
-    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(config.output_name.as_ref(), "app_test");
+    assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()

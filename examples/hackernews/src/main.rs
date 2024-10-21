@@ -56,7 +56,7 @@ async fn main() -> std::io::Result<()> {
                         </html>
                     }
             }})
-            .service(Files::new("/", site_root))
+            .service(Files::new("/", site_root.as_ref()))
         //.wrap(middleware::Compress::default())
     })
     .bind(&addr)?

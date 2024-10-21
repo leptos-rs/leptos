@@ -54,7 +54,7 @@ pub fn HashedStylesheet(
                 path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
             })
             .unwrap_or_default()
-            .join(&options.hash_file);
+            .join(options.hash_file.as_ref());
         if hash_path.exists() {
             let hashes = std::fs::read_to_string(&hash_path)
                 .expect("failed to read hash file");
