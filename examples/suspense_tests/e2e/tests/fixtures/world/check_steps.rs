@@ -1,6 +1,6 @@
 use crate::fixtures::{check, world::AppWorld};
 use anyhow::{Ok, Result};
-use cucumber::then;
+use cucumber::{then, gherkin::Step};
 
 #[then(regex = r"^I see the page title is (.*)$")]
 async fn i_see_the_page_title_is(
@@ -76,6 +76,26 @@ async fn i_see_the_second_count_is(
 ) -> Result<()> {
     let client = &world.client;
     check::second_count_is(client, expected).await?;
+
+    Ok(())
+}
+
+#[then(expr = "I see the following counters under section")]
+#[then(expr = "the following counters under section")]
+async fn i_see_the_following_counters_under_section(
+    world: &mut AppWorld,
+    step: &Step,
+) -> Result<()> {
+    // FIXME ideally check the mode; for now leave it because effort
+    let client = &world.client;
+    if let Some(table) = step.table.as_ref() {
+        let expected = table.rows
+            .iter()
+            .skip(1)
+            .map(|row| (row[0].as_str(), row[1].parse::<u32>().unwrap()))
+            .collect::<Vec<_>>();
+        check::instrumented_counts(client, &expected).await?;
+    }
 
     Ok(())
 }
