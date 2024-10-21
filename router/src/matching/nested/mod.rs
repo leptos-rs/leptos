@@ -10,7 +10,6 @@ use std::{
     collections::HashSet,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::view::{Render, RenderHtml};
 
 mod tuples;
 
@@ -141,10 +140,8 @@ impl<ParamsIter, Child, View> MatchInterface
 where
     Child: MatchInterface + MatchParams + 'static,
     View: ChooseView,
-    View::Output: Render + RenderHtml + Send + 'static,
 {
     type Child = Child;
-    type View = View::Output;
 
     fn as_id(&self) -> RouteMatchId {
         self.id
@@ -154,9 +151,7 @@ where
         &self.matched
     }
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>) {
         (self.view_fn, self.child)
     }
 }
@@ -173,10 +168,8 @@ where
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
     View: ChooseView + Clone,
-    View::Output: Render + RenderHtml + Send + 'static,
 {
     type Data = Data;
-    type View = View::Output;
     type Match = NestedMatch<iter::Chain<
         <Segments::ParamsIter as IntoIterator>::IntoIter,
         Either<iter::Empty::<

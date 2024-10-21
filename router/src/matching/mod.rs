@@ -10,7 +10,6 @@ use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, collections::HashSet};
-use tachys::view::{Render, RenderHtml};
 pub use vertical::*;
 
 #[derive(Debug)]
@@ -95,15 +94,12 @@ pub struct RouteMatchId(pub(crate) u16);
 
 pub trait MatchInterface {
     type Child: MatchInterface + MatchParams + 'static;
-    type View: Render + RenderHtml + Send + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 
     fn as_matched(&self) -> &str;
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>);
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>);
 }
 
 pub trait MatchParams {
@@ -114,7 +110,6 @@ pub trait MatchParams {
 
 pub trait MatchNestedRoutes {
     type Data;
-    type View;
     type Match: MatchInterface + MatchParams;
 
     fn match_nested<'a>(
