@@ -12,6 +12,8 @@ pub mod axum;
 /// Request types for the browser.
 #[cfg(feature = "browser")]
 pub mod browser;
+#[cfg(feature = "generic")]
+pub mod generic;
 /// Request types for [`reqwest`].
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
