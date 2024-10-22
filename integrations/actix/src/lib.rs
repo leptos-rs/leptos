@@ -35,7 +35,7 @@ use leptos_router::{
     components::provide_server_redirect,
     location::RequestUrl,
     static_routes::{RegenerationFn, ResolvedStaticPath},
-    Method, PathSegment, RouteList, RouteListing, SsrMode,
+    ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
@@ -901,7 +901,7 @@ trait ActixPath {
     fn to_actix_path(&self) -> String;
 }
 
-impl ActixPath for &[PathSegment] {
+impl ActixPath for Vec<PathSegment> {
     fn to_actix_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
@@ -923,6 +923,14 @@ impl ActixPath for &[PathSegment] {
                     path.push_str(":.*}");
                 }
                 PathSegment::Unit => {}
+                PathSegment::OptionalParam(_) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!(
+                        "to_axum_path should only be called on expanded \
+                         paths, which do not have OptionalParam any longer"
+                    );
+                    Default::default()
+                }
             }
         }
         path
@@ -938,23 +946,34 @@ pub struct ActixRouteListing {
     regenerate: Vec<RegenerationFn>,
 }
 
-impl From<RouteListing> for ActixRouteListing {
-    fn from(value: RouteListing) -> Self {
-        let path = value.path().to_actix_path();
-        let path = if path.is_empty() {
-            "/".to_string()
-        } else {
-            path
-        };
-        let mode = value.mode();
-        let methods = value.methods().collect();
-        let regenerate = value.regenerate().into();
-        Self {
-            path,
-            mode: mode.clone(),
-            methods,
-            regenerate,
-        }
+trait IntoRouteListing: Sized {
+    fn into_route_listing(self) -> Vec<ActixRouteListing>;
+}
+
+impl IntoRouteListing for RouteListing {
+    fn into_route_listing(self) -> Vec<ActixRouteListing> {
+        self.path()
+            .to_vec()
+            .expand_optionals()
+            .into_iter()
+            .map(|path| {
+                let path = path.to_actix_path();
+                let path = if path.is_empty() {
+                    "/".to_string()
+                } else {
+                    path
+                };
+                let mode = self.mode();
+                let methods = self.methods().collect();
+                let regenerate = self.regenerate().into();
+                ActixRouteListing {
+                    path,
+                    mode: mode.clone(),
+                    methods,
+                    regenerate,
+                }
+            })
+            .collect()
     }
 }
 
@@ -1033,7 +1052,7 @@ where
     let mut routes = routes
         .into_inner()
         .into_iter()
-        .map(ActixRouteListing::from)
+        .flat_map(IntoRouteListing::into_route_listing)
         .collect::<Vec<_>>();
 
     (
