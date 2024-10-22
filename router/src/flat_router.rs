@@ -1,7 +1,7 @@
 use crate::{
     hooks::Matched,
     location::{LocationProvider, Url},
-    matching::{Routes, MatchParams},
+    matching::{MatchParams, Routes},
     params::ParamsMap,
     view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
