@@ -4,7 +4,7 @@ mod routes;
 use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
 use leptos_router::{
     components::{FlatRoutes, Route, Router, RoutingProgress},
-    ParamSegment, StaticSegment,
+    OptionalParamSegment, ParamSegment, StaticSegment,
 };
 use routes::{nav::*, stories::*, story::*, users::*};
 use std::time::Duration;
@@ -28,9 +28,7 @@ pub fn App() -> impl IntoView {
                 <FlatRoutes fallback=|| "Not found.">
                     <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
                     <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
-                    <Route path=ParamSegment("stories") view=Stories/>
-                    // TODO allow optional params without duplication
-                    <Route path=StaticSegment("") view=Stories/>
+                    <Route path=OptionalParamSegment("stories") view=Stories/>
                 </FlatRoutes>
             </main>
         </Router>

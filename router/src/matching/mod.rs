@@ -103,9 +103,7 @@ pub trait MatchInterface {
 }
 
 pub trait MatchParams {
-    type Params: IntoIterator<Item = (Cow<'static, str>, String)>;
-
-    fn to_params(&self) -> Self::Params;
+    fn to_params(&self) -> Vec<(Cow<'static, str>, String)>;
 }
 
 pub trait MatchNestedRoutes {
@@ -255,13 +253,13 @@ mod tests {
         );
 
         let matched = routes.match_route("/about").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert!(params.is_empty());
         let matched = routes.match_route("/blog").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert!(params.is_empty());
         let matched = routes.match_route("/blog/post/42").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert_eq!(params, vec![("id".into(), "42".into())]);
     }
 
@@ -297,34 +295,34 @@ mod tests {
         assert!(matched.is_none());
 
         let matched = routes.match_route("/portfolio/about").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert!(params.is_empty());
 
         let matched = routes.match_route("/portfolio/blog/post/42").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert_eq!(params, vec![("id".into(), "42".into())]);
 
         let matched = routes.match_route("/portfolio/contact").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert_eq!(params, vec![("any".into(), "".into())]);
 
         let matched = routes.match_route("/portfolio/contact/foobar").unwrap();
-        let params = matched.to_params().collect::<Vec<_>>();
+        let params = matched.to_params();
         assert_eq!(params, vec![("any".into(), "foobar".into())]);
     }
 }
 
 #[derive(Debug)]
-pub struct PartialPathMatch<'a, ParamsIter> {
+pub struct PartialPathMatch<'a> {
     pub(crate) remaining: &'a str,
-    pub(crate) params: ParamsIter,
+    pub(crate) params: Vec<(Cow<'static, str>, String)>,
     pub(crate) matched: &'a str,
 }
 
-impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
+impl<'a> PartialPathMatch<'a> {
     pub fn new(
         remaining: &'a str,
-        params: ParamsIter,
+        params: Vec<(Cow<'static, str>, String)>,
         matched: &'a str,
     ) -> Self {
         Self {
@@ -342,7 +340,7 @@ impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
         self.remaining
     }
 
-    pub fn params(self) -> ParamsIter {
+    pub fn params(self) -> Vec<(Cow<'static, str>, String)> {
         self.params
     }
 

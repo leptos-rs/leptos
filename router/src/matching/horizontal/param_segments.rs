@@ -14,14 +14,16 @@ use std::borrow::Cow;
 ///
 /// // Manual definition
 /// let manual = (ParamSegment("message"),);
-/// let (key, value) = manual.test(path)?.params().last()?;
+/// let params = manual.test(path)?.params();
+/// let (key, value) = params.last()?;
 ///
 /// assert_eq!(key, "message");
 /// assert_eq!(value, "hello");
 ///
 /// // Macro definition
 /// let using_macro = path!("/:message");
-/// let (key, value) = using_macro.test(path)?.params().last()?;
+/// let params = using_macro.test(path)?.params();
+/// let (key, value) = params.last()?;
 ///
 /// assert_eq!(key, "message");
 /// assert_eq!(value, "hello");
@@ -33,12 +35,7 @@ use std::borrow::Cow;
 pub struct ParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for ParamSegment {
-    type ParamsIter = iter::Once<(Cow<'static, str>, String)>;
-
-    fn test<'a>(
-        &self,
-        path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -66,10 +63,10 @@ impl PossibleRouteMatch for ParamSegment {
         }
 
         let (matched, remaining) = path.split_at(matched_len);
-        let param_value = iter::once((
+        let param_value = vec![(
             Cow::Borrowed(self.0),
             path[param_offset..param_len + param_offset].to_string(),
-        ));
+        )];
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
@@ -93,14 +90,16 @@ impl PossibleRouteMatch for ParamSegment {
 ///
 /// // Manual definition
 /// let manual = (StaticSegment("echo"), WildcardSegment("kitchen_sink"));
-/// let (key, value) = manual.test(path)?.params().last()?;
+/// let params = manual.test(path)?.params();
+/// let (key, value) = params.last()?;
 ///
 /// assert_eq!(key, "kitchen_sink");
 /// assert_eq!(value, "send/sync/and/static");
 ///
 /// // Macro definition
 /// let using_macro = path!("/echo/*else");
-/// let (key, value) = using_macro.test(path)?.params().last()?;
+/// let params = using_macro.test(path)?.params();
+/// let (key, value) = params.last()?;
 ///
 /// assert_eq!(key, "else");
 /// assert_eq!(value, "send/sync/and/static");
@@ -122,12 +121,7 @@ impl PossibleRouteMatch for ParamSegment {
 pub struct WildcardSegment(pub &'static str);
 
 impl PossibleRouteMatch for WildcardSegment {
-    type ParamsIter = iter::Once<(Cow<'static, str>, String)>;
-
-    fn test<'a>(
-        &self,
-        path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -148,7 +142,11 @@ impl PossibleRouteMatch for WildcardSegment {
             Cow::Borrowed(self.0),
             path[param_offset..param_len + param_offset].to_string(),
         ));
-        Some(PartialPathMatch::new(remaining, param_value, matched))
+        Some(PartialPathMatch::new(
+            remaining,
+            param_value.into_iter().collect(),
+            matched,
+        ))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
@@ -156,10 +154,64 @@ impl PossibleRouteMatch for WildcardSegment {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OptionalParamSegment(pub &'static str);
+
+impl PossibleRouteMatch for OptionalParamSegment {
+    const OPTIONAL: bool = true;
+
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+        let mut matched_len = 0;
+        let mut param_offset = 0;
+        let mut param_len = 0;
+        let mut test = path.chars();
+
+        // match an initial /
+        if let Some('/') = test.next() {
+            matched_len += 1;
+            param_offset = 1;
+        }
+        for char in test {
+            // when we get a closing /, stop matching
+            if char == '/' {
+                break;
+            }
+            // otherwise, push into the matched param
+            else {
+                matched_len += char.len_utf8();
+                param_len += char.len_utf8();
+            }
+        }
+
+        let matched_len = if matched_len == 1 && path.starts_with('/') {
+            0
+        } else {
+            matched_len
+        };
+        let (matched, remaining) = path.split_at(matched_len);
+        let param_value = (matched_len > 0)
+            .then(|| {
+                (
+                    Cow::Borrowed(self.0),
+                    path[param_offset..param_len + param_offset].to_string(),
+                )
+            })
+            .into_iter()
+            .collect();
+        Some(PartialPathMatch::new(remaining, param_value, matched))
+    }
+
+    fn generate_path(&self, path: &mut Vec<PathSegment>) {
+        path.push(PathSegment::OptionalParam(self.0.into()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::PossibleRouteMatch;
-    use crate::{ParamSegment, StaticSegment, WildcardSegment};
+    use crate::{
+        OptionalParamSegment, ParamSegment, StaticSegment, WildcardSegment,
+    };
 
     #[test]
     fn single_param_match() {
@@ -168,7 +220,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
-        let params = matched.params().collect::<Vec<_>>();
+        let params = matched.params();
         assert_eq!(params[0], ("a".into(), "foo".into()));
     }
 
@@ -179,7 +231,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
-        let params = matched.params().collect::<Vec<_>>();
+        let params = matched.params();
         assert_eq!(params[0], ("a".into(), "foo".into()));
     }
 
@@ -190,7 +242,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
-        let params = matched.params().collect::<Vec<_>>();
+        let params = matched.params();
         assert_eq!(params[0], ("a".into(), "foo".into()));
         assert_eq!(params[1], ("b".into(), "bar".into()));
     }
@@ -206,7 +258,94 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar/////");
         assert_eq!(matched.remaining(), "");
-        let params = matched.params().collect::<Vec<_>>();
+        let params = matched.params();
         assert_eq!(params[0], ("rest".into(), "////".into()));
+    }
+
+    #[test]
+    fn optional_param_can_match() {
+        let path = "/foo";
+        let def = OptionalParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+    }
+
+    #[test]
+    fn optional_param_can_not_match() {
+        let path = "/";
+        let def = OptionalParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "");
+        assert_eq!(matched.remaining(), "/");
+        let params = matched.params();
+        assert_eq!(params.first(), None);
+    }
+
+    #[test]
+    fn optional_params_match_first() {
+        let path = "/foo";
+        let def = (OptionalParamSegment("a"), OptionalParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+    }
+
+    #[test]
+    fn optional_params_can_match_both() {
+        let path = "/foo/bar";
+        let def = (OptionalParamSegment("a"), OptionalParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+        assert_eq!(params[1], ("b".into(), "bar".into()));
+    }
+
+    #[test]
+    fn matching_after_optional_param() {
+        let path = "/bar";
+        let def = (OptionalParamSegment("a"), StaticSegment("bar"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn multiple_optional_params_match_first() {
+        let path = "/foo/bar";
+        let def = (
+            OptionalParamSegment("a"),
+            OptionalParamSegment("b"),
+            StaticSegment("bar"),
+        );
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+    }
+
+    #[test]
+    fn multiple_optionals_can_match_both() {
+        let path = "/foo/qux/bar";
+        let def = (
+            OptionalParamSegment("a"),
+            OptionalParamSegment("b"),
+            StaticSegment("bar"),
+        );
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/qux/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+        assert_eq!(params[1], ("b".into(), "qux".into()));
     }
 }

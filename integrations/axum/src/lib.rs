@@ -66,7 +66,7 @@ use leptos_router::{
     components::provide_server_redirect,
     location::RequestUrl,
     static_routes::{RegenerationFn, StaticParamsMap},
-    PathSegment, RouteList, RouteListing, SsrMode,
+    ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
 };
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
@@ -1267,23 +1267,34 @@ pub struct AxumRouteListing {
     regenerate: Vec<RegenerationFn>,
 }
 
-impl From<RouteListing> for AxumRouteListing {
-    fn from(value: RouteListing) -> Self {
-        let path = value.path().to_axum_path();
-        let path = if path.is_empty() {
-            "/".to_string()
-        } else {
-            path
-        };
-        let mode = value.mode();
-        let methods = value.methods().collect();
-        let regenerate = value.regenerate().into();
-        Self {
-            path,
-            mode: mode.clone(),
-            methods,
-            regenerate,
-        }
+trait IntoRouteListing: Sized {
+    fn into_route_listing(self) -> Vec<AxumRouteListing>;
+}
+
+impl IntoRouteListing for RouteListing {
+    fn into_route_listing(self) -> Vec<AxumRouteListing> {
+        self.path()
+            .to_vec()
+            .expand_optionals()
+            .into_iter()
+            .map(|path| {
+                let path = path.to_axum_path();
+                let path = if path.is_empty() {
+                    "/".to_string()
+                } else {
+                    path
+                };
+                let mode = self.mode();
+                let methods = self.methods().collect();
+                let regenerate = self.regenerate().into();
+                AxumRouteListing {
+                    path,
+                    mode: mode.clone(),
+                    methods,
+                    regenerate,
+                }
+            })
+            .collect()
     }
 }
 
@@ -1367,7 +1378,7 @@ where
     let mut routes = routes
         .into_inner()
         .into_iter()
-        .map(AxumRouteListing::from)
+        .flat_map(IntoRouteListing::into_route_listing)
         .collect::<Vec<_>>();
 
     (
@@ -1700,7 +1711,7 @@ trait AxumPath {
     fn to_axum_path(&self) -> String;
 }
 
-impl AxumPath for &[PathSegment] {
+impl AxumPath for Vec<PathSegment> {
     fn to_axum_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
@@ -1720,6 +1731,14 @@ impl AxumPath for &[PathSegment] {
                     path.push_str(s);
                 }
                 PathSegment::Unit => {}
+                PathSegment::OptionalParam(_) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!(
+                        "to_axum_path should only be called on expanded \
+                         paths, which do not have OptionalParam any longer"
+                    );
+                    Default::default()
+                }
             }
         }
         path

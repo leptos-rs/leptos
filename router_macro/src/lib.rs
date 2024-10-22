@@ -14,12 +14,16 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 /// # Examples
 ///
 /// ```rust
-/// use leptos_router::{path, ParamSegment, StaticSegment, WildcardSegment};
+/// use leptos_router::{
+///     path, OptionalParamSegment, ParamSegment, StaticSegment,
+///     WildcardSegment,
+/// };
 ///
-/// let path = path!("/foo/:bar/*any");
+/// let path = path!("/foo/:bar/:baz?/*any");
 /// let output = (
 ///     StaticSegment("foo"),
 ///     ParamSegment("bar"),
+///     OptionalParamSegment("baz"),
 ///     WildcardSegment("any"),
 /// );
 ///
@@ -41,6 +45,7 @@ struct Segments(pub Vec<Segment>);
 enum Segment {
     Static(String),
     Param(String),
+    OptionalParam(String),
     Wildcard(String),
 }
 
@@ -93,7 +98,11 @@ impl SegmentParser {
 
         for segment in current_str.split('/') {
             if let Some(segment) = segment.strip_prefix(':') {
-                segments.push(Segment::Param(segment.to_string()));
+                if let Some(segment) = segment.strip_suffix('?') {
+                    segments.push(Segment::OptionalParam(segment.to_string()));
+                } else {
+                    segments.push(Segment::Param(segment.to_string()));
+                }
             } else if let Some(segment) = segment.strip_prefix('*') {
                 segments.push(Segment::Wildcard(segment.to_string()));
             } else {
@@ -155,6 +164,10 @@ impl ToTokens for Segment {
             }
             Segment::Param(p) => {
                 tokens.extend(quote! { leptos_router::ParamSegment(#p) });
+            }
+            Segment::OptionalParam(p) => {
+                tokens
+                    .extend(quote! { leptos_router::OptionalParamSegment(#p) });
             }
         }
     }
