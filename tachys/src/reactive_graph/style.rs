@@ -105,7 +105,8 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, mut f) = self;
-        let prev_value = state.effect.take_value();
+        // Name might've updated:
+        state.name = name;
         state.effect = RenderEffect::new_with_value(
             move |prev| {
                 let value = f.invoke().into();
@@ -120,7 +121,7 @@ where
                     unreachable!()
                 }
             },
-            prev_value,
+            state.effect.take_value(),
         );
     }
 

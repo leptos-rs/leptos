@@ -445,10 +445,11 @@ impl IntoStyle for (Arc<str>, Arc<str>) {
         if name != state.1 {
             <(Arc<str>, Arc<str>) as IntoStyle>::reset(state);
         }
-        let (style, _prev_name, prev_value) = state;
+        let (style, prev_name, prev_value) = state;
         if value != *prev_value {
             Rndr::set_css_property(style, &name, &value);
         }
+        *prev_name = name;
         *prev_value = value;
     }
 
@@ -512,10 +513,11 @@ impl<'a> IntoStyle for (&'a str, &'a str) {
         if name != state.1 {
             <(&'a str, &'a str) as IntoStyle>::reset(state);
         }
-        let (style, _prev_name, prev_value) = state;
+        let (style, prev_name, prev_value) = state;
         if value != *prev_value {
             Rndr::set_css_property(style, name, value);
         }
+        *prev_name = name;
         *prev_value = value;
     }
 
@@ -575,10 +577,11 @@ impl<'a> IntoStyle for (&'a str, String) {
         if name != state.1 {
             <(&'a str, String) as IntoStyle>::reset(state);
         }
-        let (style, _prev_name, prev_value) = state;
+        let (style, prev_name, prev_value) = state;
         if value != *prev_value {
             Rndr::set_css_property(style, name, &value);
         }
+        *prev_name = name;
         *prev_value = value;
     }
 
