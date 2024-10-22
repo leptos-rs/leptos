@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-test("should see the welcome message", async ({ page }) => {
+test("homepage has title 'Leptos + Tailwindcss'", async ({ page }) => {
   await page.goto("http://localhost:3000/");
 
-  await expect(page.locator("h2")).toHaveText("Welcome to Leptos with Tailwind");
+  await expect(page).toHaveTitle("Leptos + Tailwindcss");
 });
