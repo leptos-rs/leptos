@@ -1051,9 +1051,6 @@ pub mod read {
         }
     }
 
-    /// A type alias for a [`Option<Signal<Option<T>>>`], which is a non-wrapped alternative to [`MaybeProp`].
-    pub type OptProp<T> = Option<Signal<Option<T>>>;
-
     /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
     ///
     /// This allows you to create APIs that take either a reactive or a non-reactive value
