@@ -18,7 +18,7 @@ use std::{
 };
 
 pub struct ArcLocalResource<T> {
-    data: ArcAsyncDerived<T>,
+    data: ArcAsyncDerived<SendWrapper<T>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -59,8 +59,12 @@ impl<T> ArcLocalResource<T> {
                 }
             }
         };
+        let fetcher = SendWrapper::new(fetcher);
         Self {
-            data: ArcAsyncDerived::new_unsync(fetcher),
+            data: ArcAsyncDerived::new(move || {
+                let fut = fetcher();
+                SendWrapper::new(async move { SendWrapper::new(fut.await) })
+            }),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -72,9 +76,14 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = AsyncDerivedFuture<T>;
+    type IntoFuture = futures::future::Map<
+        AsyncDerivedFuture<SendWrapper<T>>,
+        fn(SendWrapper<T>) -> T,
+    >;
 
     fn into_future(self) -> Self::IntoFuture {
+        use futures::FutureExt;
+
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
         } else if cfg!(feature = "ssr") {
@@ -84,7 +93,7 @@ where
                  always pending on the server."
             );
         }
-        self.data.into_future()
+        self.data.into_future().map(|value| (*value).clone())
     }
 }
 
@@ -105,7 +114,8 @@ impl<T> ReadUntracked for ArcLocalResource<T>
 where
     T: 'static,
 {
-    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
+    type Value =
+        ReadGuard<Option<SendWrapper<T>>, AsyncPlain<Option<SendWrapper<T>>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
@@ -371,5 +381,25 @@ where
 
     fn clear_sources(&self, subscriber: &AnySubscriber) {
         self.data.clear_sources(subscriber);
+    }
+}
+
+impl<T: 'static> From<ArcLocalResource<T>> for LocalResource<T> {
+    fn from(arc: ArcLocalResource<T>) -> Self {
+        Self {
+            data: arc.data.into(),
+            #[cfg(debug_assertions)]
+            defined_at: arc.defined_at,
+        }
+    }
+}
+
+impl<T: 'static> From<LocalResource<T>> for ArcLocalResource<T> {
+    fn from(local: LocalResource<T>) -> Self {
+        Self {
+            data: local.data.into(),
+            #[cfg(debug_assertions)]
+            defined_at: local.defined_at,
+        }
     }
 }
