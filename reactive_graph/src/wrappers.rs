@@ -1035,7 +1035,7 @@ pub mod read {
     {
         #[track_caller]
         fn from(value: MaybeProp<T>) -> Self {
-            value.0.map(|mb| mb.into())
+            value.0
         }
     }
 
@@ -1047,7 +1047,7 @@ pub mod read {
     {
         #[track_caller]
         fn from(value: MaybeProp<T, LocalStorage>) -> Self {
-            value.0.map(|mb| mb.into())
+            value.0
         }
     }
 
@@ -1374,28 +1374,29 @@ pub mod read {
     #[derive(Debug, PartialEq, Eq)]
     #[allow(deprecated)]
     pub struct MaybeProp<T: 'static, S = SyncStorage>(
-        pub(crate) Option<MaybeSignal<Option<T>, S>>,
+        pub(crate) Option<Signal<Option<T>, S>>,
     )
     where
-        S: Storage<Option<T>>;
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>;
 
-    #[allow(deprecated)]
-    impl<T: Clone, S> Clone for MaybeProp<T, S>
+    impl<T, S> Clone for MaybeProp<T, S>
     where
-        S: Storage<Option<T>>,
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
     {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            *self
         }
     }
 
-    #[allow(deprecated)]
-    impl<T: Copy, S> Copy for MaybeProp<T, S> where S: Storage<Option<T>> {}
+    impl<T, S> Copy for MaybeProp<T, S> where
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>
+    {
+    }
 
     #[allow(deprecated)]
     impl<T, S> Default for MaybeProp<T, S>
     where
-        S: Storage<Option<T>>,
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
     {
         fn default() -> Self {
             Self(None)
@@ -1405,7 +1406,7 @@ pub mod read {
     #[allow(deprecated)]
     impl<T, S> DefinedAt for MaybeProp<T, S>
     where
-        S: Storage<Option<T>>,
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
     {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
             // TODO this can be improved by adding a defined_at field
@@ -1430,7 +1431,7 @@ pub mod read {
     impl<T, S> ReadUntracked for MaybeProp<T, S>
     where
         T: Clone,
-        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
+        S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
     {
         type Value = ReadGuard<Option<T>, SignalReadGuard<Option<T>, S>>;
 
@@ -1459,47 +1460,51 @@ pub mod read {
         pub fn derive(
             derived_signal: impl Fn() -> Option<T> + Send + Sync + 'static,
         ) -> Self {
-            Self(Some(MaybeSignal::derive(derived_signal)))
+            Self(Some(Signal::derive(derived_signal)))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<T> for MaybeProp<T>
     where
+        T: Send + Sync,
         SyncStorage: Storage<Option<T>>,
     {
         fn from(value: T) -> Self {
-            Self(Some(MaybeSignal::from(Some(value))))
+            Self(Some(Signal::stored(Some(value))))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<Option<T>> for MaybeProp<T>
     where
+        T: Send + Sync,
         SyncStorage: Storage<Option<T>>,
     {
         fn from(value: Option<T>) -> Self {
-            Self(Some(MaybeSignal::from(value)))
+            Self(Some(Signal::stored(value)))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<MaybeSignal<Option<T>>> for MaybeProp<T>
     where
+        T: Send + Sync,
         SyncStorage: Storage<Option<T>>,
     {
         fn from(value: MaybeSignal<Option<T>>) -> Self {
-            Self(Some(value))
+            Self(Some(value.into()))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<Option<MaybeSignal<Option<T>>>> for MaybeProp<T>
     where
+        T: Send + Sync,
         SyncStorage: Storage<Option<T>>,
     {
         fn from(value: Option<MaybeSignal<Option<T>>>) -> Self {
-            Self(value)
+            Self(value.map(Into::into))
         }
     }
 
@@ -1536,10 +1541,11 @@ pub mod read {
     #[allow(deprecated)]
     impl<T> From<Signal<Option<T>>> for MaybeProp<T>
     where
+        T: Send + Sync,
         SyncStorage: Storage<Option<T>>,
     {
         fn from(value: Signal<Option<T>>) -> Self {
-            Self(Some(value.into()))
+            Self(Some(value))
         }
     }
 
@@ -1549,7 +1555,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: ReadSignal<T>) -> Self {
-            Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+            Self(Some(Signal::derive(move || Some(value.get()))))
         }
     }
 
@@ -1559,7 +1565,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: RwSignal<T>) -> Self {
-            Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+            Self(Some(Signal::derive(move || Some(value.get()))))
         }
     }
 
@@ -1569,7 +1575,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: Memo<T>) -> Self {
-            Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+            Self(Some(Signal::derive(move || Some(value.get()))))
         }
     }
 
@@ -1579,14 +1585,14 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: Signal<T>) -> Self {
-            Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+            Self(Some(Signal::derive(move || Some(value.get()))))
         }
     }
 
     #[allow(deprecated)]
     impl From<&str> for MaybeProp<String> {
         fn from(value: &str) -> Self {
-            Self(Some(MaybeSignal::from(Some(value.to_string()))))
+            Self(Some(Signal::from(Some(value.to_string()))))
         }
     }
 
@@ -1597,39 +1603,43 @@ pub mod read {
         pub fn derive_local(
             derived_signal: impl Fn() -> Option<T> + 'static,
         ) -> Self {
-            Self(Some(MaybeSignal::derive_local(derived_signal)))
+            Self(Some(Signal::derive_local(derived_signal)))
         }
     }
 
     #[allow(deprecated)]
     impl<T> FromLocal<T> for MaybeProp<T, LocalStorage> {
         fn from_local(value: T) -> Self {
-            Self(Some(MaybeSignal::from_local(Some(value))))
+            Self(Some(Signal::stored_local(Some(value))))
         }
     }
 
     #[allow(deprecated)]
     impl<T> FromLocal<Option<T>> for MaybeProp<T, LocalStorage> {
         fn from_local(value: Option<T>) -> Self {
-            Self(Some(MaybeSignal::from_local(value)))
+            Self(Some(Signal::stored_local(value)))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<MaybeSignal<Option<T>, LocalStorage>>
         for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync,
     {
         fn from(value: MaybeSignal<Option<T>, LocalStorage>) -> Self {
-            Self(Some(value))
+            Self(Some(value.into()))
         }
     }
 
     #[allow(deprecated)]
     impl<T> From<Option<MaybeSignal<Option<T>, LocalStorage>>>
         for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync,
     {
         fn from(value: Option<MaybeSignal<Option<T>, LocalStorage>>) -> Self {
-            Self(value)
+            Self(value.map(Into::into))
         }
     }
 
@@ -1666,7 +1676,7 @@ pub mod read {
     #[allow(deprecated)]
     impl<T> From<Signal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage> {
         fn from(value: Signal<Option<T>, LocalStorage>) -> Self {
-            Self(Some(value.into()))
+            Self(Some(value))
         }
     }
 
@@ -1676,7 +1686,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: ReadSignal<T, LocalStorage>) -> Self {
-            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+            Self(Some(Signal::derive_local(move || Some(value.get()))))
         }
     }
 
@@ -1686,7 +1696,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: RwSignal<T, LocalStorage>) -> Self {
-            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+            Self(Some(Signal::derive_local(move || Some(value.get()))))
         }
     }
 
@@ -1696,7 +1706,7 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: Memo<T, LocalStorage>) -> Self {
-            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+            Self(Some(Signal::derive_local(move || Some(value.get()))))
         }
     }
 
@@ -1706,14 +1716,14 @@ pub mod read {
         T: Send + Sync + Clone,
     {
         fn from(value: Signal<T, LocalStorage>) -> Self {
-            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+            Self(Some(Signal::derive_local(move || Some(value.get()))))
         }
     }
 
     #[allow(deprecated)]
     impl From<&str> for MaybeProp<String, LocalStorage> {
         fn from(value: &str) -> Self {
-            Self(Some(MaybeSignal::from_local(Some(value.to_string()))))
+            Self(Some(Signal::stored_local(Some(value.to_string()))))
         }
     }
 

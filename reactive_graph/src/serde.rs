@@ -100,15 +100,8 @@ where
         S: serde::Serializer,
     {
         match &self.0 {
-            None | Some(MaybeSignal::Static(None)) => {
-                None::<T>.serialize(serializer)
-            }
-            Some(MaybeSignal::Static(Some(value))) => {
-                value.serialize(serializer)
-            }
-            Some(MaybeSignal::Dynamic(signal)) => {
-                signal.with(|value| value.serialize(serializer))
-            }
+            None => None::<T>.serialize(serializer),
+            Some(signal) => signal.with(|value| value.serialize(serializer)),
         }
     }
 }

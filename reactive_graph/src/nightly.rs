@@ -9,7 +9,7 @@ use crate::{
     },
     traits::{Get, Set},
     wrappers::{
-        read::{ArcSignal, Signal},
+        read::{ArcSignal, Signal, SignalTypes},
         write::SignalSetter,
     },
 };
@@ -115,7 +115,7 @@ macro_rules! impl_get_fn_traits_get_arena {
         $(
             #[cfg(feature = "nightly")]
             #[allow(deprecated)]
-            impl<T, S> FnOnce<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
+            impl<T, S> FnOnce<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>> {
                 type Output = <Self as Get>::Value;
 
                 #[inline(always)]
@@ -126,7 +126,7 @@ macro_rules! impl_get_fn_traits_get_arena {
 
             #[cfg(feature = "nightly")]
             #[allow(deprecated)]
-            impl<T, S> FnMut<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
+            impl<T, S> FnMut<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                     self.get()
@@ -135,7 +135,7 @@ macro_rules! impl_get_fn_traits_get_arena {
 
             #[cfg(feature = "nightly")]
             #[allow(deprecated)]
-            impl<T, S> Fn<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
+            impl<T, S> Fn<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                     self.get()
