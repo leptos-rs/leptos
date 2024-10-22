@@ -1083,9 +1083,8 @@ pub mod read {
     /// ```
     #[derive(Debug, PartialEq, Eq)]
     #[deprecated(
-        since = "0.7.0-gamma2",
-        note = "`MaybeSignal<T>` is inferior to `Signal<T>`, which now \
-                implements `From<T>` and `Copy` natively."
+        since = "0.7.0-rc0",
+        note = "`MaybeSignal<T>` is deprecated in favour of `Signal<T>` which is `Copy`, now has a more efficient From<T> implementation and other benefits in 0.7."
     )]
     pub enum MaybeSignal<T, S = SyncStorage>
     where
@@ -1374,12 +1373,6 @@ pub mod read {
     /// assert_eq!(above_3(&memoized_double_count.into()), true);
     /// ```
     #[derive(Debug, PartialEq, Eq)]
-    #[deprecated(
-        since = "0.7.0-gamma2",
-        note = "`MaybeProp` is inferior to `Option<Signal>`, which now also \
-                implements read-like traits, `From<Option<T>>` and `Copy` \
-                natively."
-    )]
     #[allow(deprecated)]
     pub struct MaybeProp<T: 'static, S = SyncStorage>(
         pub(crate) Option<MaybeSignal<Option<T>, S>>,
