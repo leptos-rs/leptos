@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use http::{uri::Parts, Uri};
-use throw_error::Error;
+use thiserror::Error;
 
 use wasi::{
     http::types::{IncomingBody, IncomingRequest, Method, Scheme},
@@ -12,7 +12,7 @@ use crate::CHUNK_BYTE_SIZE;
 pub struct Request(pub IncomingRequest);
 
 impl TryFrom<Request> for http::Request<Bytes> {
-    type Error = Error;
+    type Error = RequestError;
 
     fn try_from(req: Request) -> Result<Self, Self::Error> {
         let mut builder = http::Request::builder();
@@ -58,28 +58,36 @@ impl TryFrom<Request> for http::Request<Bytes> {
                 http::uri::Authority::from_maybe_shared(aut.into_bytes())
             })
             .transpose()
-            .map_err(Error::from)?;
+            .map_err(http::Error::from)?;
         uri_parts.path_and_query = req
             .path_with_query()
             .map(|paq| {
                 http::uri::PathAndQuery::from_maybe_shared(paq.into_bytes())
             })
             .transpose()
-            .map_err(Error::from)?;
+            .map_err(http::Error::from)?;
 
         drop(body_stream);
         IncomingBody::finish(incoming_body);
         builder
             .method(req_method)
-            .uri(Uri::from_parts(uri_parts).map_err(Error::from)?)
+            .uri(Uri::from_parts(uri_parts).map_err(http::Error::from)?)
             .body(Bytes::from(body_bytes))
-            .map_err(Error::from)
+            .map_err(RequestError::from)
     }
 }
 
-pub fn method_wasi_to_http(
-    value: Method,
-) -> Result<http::Method, http::method::InvalidMethod> {
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum RequestError {
+    #[error("failed to convert wasi bindings to http types")]
+    Http(#[from] http::Error),
+
+    #[error("error while processing wasi:http body stream")]
+    WasiIo(#[from] wasi::io::streams::StreamError),
+}
+
+pub fn method_wasi_to_http(value: Method) -> Result<http::Method, http::Error> {
     match value {
         Method::Connect => Ok(http::Method::CONNECT),
         Method::Delete => Ok(http::Method::DELETE),
@@ -90,16 +98,19 @@ pub fn method_wasi_to_http(
         Method::Post => Ok(http::Method::POST),
         Method::Put => Ok(http::Method::PUT),
         Method::Trace => Ok(http::Method::TRACE),
-        Method::Other(mtd) => http::Method::from_bytes(mtd.as_bytes()),
+        Method::Other(mtd) => {
+            http::Method::from_bytes(mtd.as_bytes()).map_err(http::Error::from)
+        }
     }
 }
 
 pub fn scheme_wasi_to_http(
     value: Scheme,
-) -> Result<http::uri::Scheme, http::uri::InvalidUri> {
+) -> Result<http::uri::Scheme, http::Error> {
     match value {
         Scheme::Http => Ok(http::uri::Scheme::HTTP),
         Scheme::Https => Ok(http::uri::Scheme::HTTPS),
-        Scheme::Other(oth) => http::uri::Scheme::try_from(oth.as_bytes()),
+        Scheme::Other(oth) => http::uri::Scheme::try_from(oth.as_bytes())
+            .map_err(http::Error::from),
     }
 }

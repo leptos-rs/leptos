@@ -7,9 +7,9 @@ use leptos_integration_utils::ExtendResponse;
 use parking_lot::RwLock;
 
 use server_fn::response::generic::Body as ServerFnBody;
-use throw_error::Error;
+use thiserror::Error;
 
-use wasi::http::types::Headers;
+use wasi::http::types::{HeaderError, Headers};
 
 /// This crate uses platform-agnostic [`http::Response`]
 /// with a custom [`Body`] and convert them under the hood to
@@ -22,7 +22,7 @@ use wasi::http::types::Headers;
 pub struct Response(pub http::Response<Body>);
 
 impl Response {
-    pub fn headers(&self) -> Result<Headers, Error> {
+    pub fn headers(&self) -> Result<Headers, ResponseError> {
         let headers = Headers::new();
         for (name, value) in self.0.headers() {
             headers.append(&name.to_string(), &Vec::from(value.as_bytes()))?;
@@ -47,7 +47,15 @@ pub enum Body {
     /// The response body will be written asynchronously,
     /// this execution model is also known as
     /// "streaming".
-    Async(Pin<Box<dyn Stream<Item = Result<Bytes, Error>> + Send + 'static>>),
+    Async(
+        Pin<
+            Box<
+                dyn Stream<Item = Result<Bytes, throw_error::Error>>
+                    + Send
+                    + 'static,
+            >,
+        >,
+    ),
 }
 
 impl From<ServerFnBody> for Body {
@@ -100,8 +108,9 @@ impl ExtendResponse for Response {
     fn from_stream(
         stream: impl Stream<Item = String> + Send + 'static,
     ) -> Self {
-        let stream =
-            stream.map(|data| Result::<Bytes, Error>::Ok(Bytes::from(data)));
+        let stream = stream.map(|data| {
+            Result::<Bytes, throw_error::Error>::Ok(Bytes::from(data))
+        });
 
         Self(http::Response::new(Body::Async(Box::pin(stream))))
     }
@@ -125,4 +134,11 @@ impl ExtendResponse for Response {
             );
         }
     }
+}
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum ResponseError {
+    #[error("failed to parse http::Response's headers")]
+    WasiHeaders(#[from] HeaderError),
 }

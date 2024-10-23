@@ -1,31 +1,46 @@
 //! This is (Yet Another) Async Runtime for WASI with first-class support
 //! for `.await`-ing on [`Pollable`]. It is an ad-hoc implementation
 //! tailored for Leptos but it could be exported into a standalone crate.
-//! 
+//!
 //! It is based on the `futures` crate's [`LocalPool`] and makes use of
 //! no `unsafe` code.
-//! 
+//!
 //! # Performance Notes
-//! 
+//!
 //! I haven't benchmarked this runtime but since it makes no use of unsafe code
 //! and Rust `core`'s `Context` was prematurely optimised for multi-threading
 //! environment, I had no choice but using synchronisation primitives to make
 //! the API happy.
-//! 
+//!
 //! IIRC, `wasm32` targets have an implementation of synchronisation primitives
 //! that are just stubs, downgrading them to their single-threaded counterpart
 //! so the overhead should be minimal.
-//! 
+//!
 //! Also, you can customise the behaviour of the [`Executor`] using the
 //! [`Mode`] enum to trade-off reactivity for less host context switch
 //! with the [`Mode::Stalled`] variant.
 
-use std::{cell::RefCell, future::Future, mem, rc::Rc, sync::{Arc, OnceLock}, task::{Context, Poll, Wake, Waker}};
+use std::{
+    cell::RefCell,
+    future::Future,
+    mem,
+    rc::Rc,
+    sync::{Arc, OnceLock},
+    task::{Context, Poll, Wake, Waker},
+};
 
 use any_spawner::CustomExecutor;
-use futures::{channel::mpsc::{UnboundedReceiver, UnboundedSender}, executor::{LocalPool, LocalSpawner}, task::{LocalSpawnExt, SpawnExt}, FutureExt, Stream};
+use futures::{
+    channel::mpsc::{UnboundedReceiver, UnboundedSender},
+    executor::{LocalPool, LocalSpawner},
+    task::{LocalSpawnExt, SpawnExt},
+    FutureExt, Stream,
+};
 use parking_lot::Mutex;
-use wasi::{clocks::monotonic_clock::{subscribe_duration, Duration}, io::poll::{poll, Pollable}};
+use wasi::{
+    clocks::monotonic_clock::{subscribe_duration, Duration},
+    io::poll::{poll, Pollable},
+};
 
 struct TableEntry(Pollable, Waker);
 
@@ -51,21 +66,22 @@ impl WaitPoll {
 impl Future for WaitPoll {
     type Output = ();
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Self::Output> {
         match &mut self.get_mut().0 {
             this @ WaitPollInner::Unregistered(_) => {
                 let waker = Arc::new(WaitPollWaker::new(cx.waker()));
 
                 if let Some(sender) = POLLABLE_SINK.get() {
-                    if let WaitPollInner::Unregistered(pollable) = mem::replace(this, WaitPollInner::Registered(waker.clone())) {
+                    if let WaitPollInner::Unregistered(pollable) = mem::replace(
+                        this,
+                        WaitPollInner::Registered(waker.clone()),
+                    ) {
                         sender
                             .clone()
-                            .unbounded_send(
-                                TableEntry(
-                                    pollable,
-                                    waker.into(),
-                                )
-                            )
+                            .unbounded_send(TableEntry(pollable, waker.into()))
                             .expect("cannot spawn a new WaitPoll");
 
                         Poll::Pending
@@ -73,9 +89,11 @@ impl Future for WaitPoll {
                         unreachable!();
                     }
                 } else {
-                    panic!("cannot create a WaitPoll before creating an Executor");
+                    panic!(
+                        "cannot create a WaitPoll before creating an Executor"
+                    );
                 }
-            },
+            }
             WaitPollInner::Registered(waker) => {
                 let mut lock = waker.0.lock();
                 if lock.done {
@@ -106,7 +124,7 @@ impl WaitPollWaker {
     fn new(waker: &Waker) -> Self {
         Self(Mutex::new(WaitPollWakerInner {
             done: false,
-            task_waker: waker.clone()
+            task_waker: waker.clone(),
         }))
     }
 }
@@ -175,7 +193,9 @@ impl Executor {
 
         loop {
             match rx.try_recv() {
-                Err(_) => panic!("internal error: sender of run until has been dropped"),
+                Err(_) => panic!(
+                    "internal error: sender of run until has been dropped"
+                ),
                 Ok(Some(val)) => return val,
                 Ok(None) => {
                     self.poll_local();
@@ -202,7 +222,9 @@ impl CustomExecutor for Executor {
         };
 
         match self.0.mode {
-            Mode::Premptive => { pool.try_run_one(); },
+            Mode::Premptive => {
+                pool.try_run_one();
+            }
             Mode::Stalled => pool.run_until_stalled(),
         };
 
@@ -210,13 +232,13 @@ impl CustomExecutor for Executor {
         let capacity = upper.unwrap_or(lower);
         let mut entries = Vec::with_capacity(capacity);
         let mut rx = self.0.rx.borrow_mut();
-        
+
         loop {
             match rx.try_next() {
                 Ok(None) => break,
                 Ok(Some(entry)) => {
                     entries.push(Some(entry));
-                },
+                }
                 Err(_) => break,
             }
         }
@@ -238,7 +260,7 @@ impl CustomExecutor for Executor {
 
         if let Some(sender) = POLLABLE_SINK.get() {
             let sender = sender.clone();
-            
+
             // Wakes futures subscribed to ready pollable.
             for index in ready {
                 let wake = entries[index as usize].take().unwrap().1;
@@ -247,9 +269,9 @@ impl CustomExecutor for Executor {
 
             // Requeue not ready pollable.
             for entry in entries.into_iter().flatten() {
-                    sender
-                        .unbounded_send(entry)
-                        .expect("the sender channel is closed");
+                sender
+                    .unbounded_send(entry)
+                    .expect("the sender channel is closed");
             }
         } else {
             unreachable!();

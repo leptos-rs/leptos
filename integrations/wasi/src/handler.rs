@@ -30,7 +30,7 @@ use leptos_router::{
 use mime_guess::MimeGuess;
 use routefinder::Router;
 use server_fn::middleware::Service;
-use throw_error::Error;
+use thiserror::Error;
 
 use wasi::http::types::{
     IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam,
@@ -119,7 +119,7 @@ impl Handler {
     pub fn build(
         req: IncomingRequest,
         res_out: ResponseOutparam,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, HandlerError> {
         Ok(Self {
             req: crate::request::Request(req).try_into()?,
             res_out,
@@ -310,7 +310,7 @@ impl Handler {
         self,
         app: impl Fn() -> IV + 'static + Send + Clone,
         additional_context: impl Fn() + 'static + Clone + Send,
-    ) -> Result<(), Error>
+    ) -> Result<(), HandlerError>
     where
         IV: IntoView + 'static,
     {
@@ -342,7 +342,7 @@ impl Handler {
 
                     let mut res = sfn.run(req).await;
 
-                    // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                    // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                     // Location set, then redirect to to Referer
                     if accepts_html {
                         if let Some(referrer) = referrer {
@@ -354,11 +354,6 @@ impl Handler {
                             }
                         }
                     }
-
-                    match res.body() {
-                        ServerFnBody::Async(_) => println!("cant print stream"),
-                        ServerFnBody::Sync(data) => println!("will send : {}", String::from_utf8_lossy(data))
-                    };
 
                     Some(res.into())
                 } else if let Some(best_match) = best_match {
@@ -452,16 +447,18 @@ impl Handler {
         };
 
         while let Some(buf) = input_stream.next().await {
-            let buf = buf?;
+            let buf = buf.map_err(HandlerError::ResponseStream)?;
             let chunks = buf.chunks(CHUNK_BYTE_SIZE);
             for chunk in chunks {
-                // TODO: better error handling there.
-                output_stream.blocking_write_and_flush(chunk)?;
+                output_stream
+                    .blocking_write_and_flush(chunk)
+                    .map_err(HandlerError::from)?;
             }
         }
 
         drop(output_stream);
-        OutgoingBody::finish(body, None)?;
+        OutgoingBody::finish(body, None)
+            .map_err(HandlerError::WasiResponseBody)?;
 
         Ok(())
     }
@@ -506,4 +503,22 @@ impl RouterPathRepresentation for &[PathSegment] {
         }
         path
     }
+}
+
+#[derive(Error, Debug)]
+pub enum HandlerError {
+    #[error("error handling request")]
+    Request(#[from] crate::request::RequestError),
+
+    #[error("error handling response")]
+    Response(#[from] crate::response::ResponseError),
+
+    #[error("response stream emitted an error")]
+    ResponseStream(throw_error::Error),
+
+    #[error("wasi stream failure")]
+    WasiStream(#[from] wasi::io::streams::StreamError),
+
+    #[error("failed to finish response body")]
+    WasiResponseBody(wasi::http::types::ErrorCode),
 }

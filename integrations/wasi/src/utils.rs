@@ -1,14 +1,10 @@
-use http::{
-    header::{self, ACCEPT},
-    request::Parts,
-    HeaderName, HeaderValue, StatusCode,
-};
+use http::{header, request::Parts, HeaderName, HeaderValue, StatusCode};
 use leptos::prelude::use_context;
 use server_fn::redirect::REDIRECT_HEADER;
 
 use crate::response::ResponseOptions;
 
-// Allow the user to perform redirection easily.
+/// Allow to return an HTTP redirection from components.
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
@@ -22,7 +18,7 @@ pub fn redirect(path: &str) {
 
         let accepts_html = req
             .headers
-            .get(ACCEPT)
+            .get(header::ACCEPT)
             .and_then(|v| v.to_str().ok())
             .map(|v| v.contains("text/html"))
             .unwrap_or(false);

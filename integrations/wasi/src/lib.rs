@@ -38,21 +38,21 @@
 //!
 //! We are using the bindings provided by the `wasi` crate.
 
+pub mod executor;
 pub mod handler;
 pub mod request;
 pub mod response;
 pub mod utils;
-pub mod executor;
 
 #[allow(clippy::pub_use)]
 pub mod prelude {
+    pub use crate::executor::Executor as WasiExecutor;
     pub use crate::handler::Handler;
     pub use crate::response::Body;
     pub use crate::utils::redirect;
     pub use wasi::exports::wasi::http::incoming_handler::{
         IncomingRequest, ResponseOutparam,
     };
-    pub use crate::executor::Executor as WasiExecutor;
 }
 
 /// When working with streams, this crate will try to chunk bytes with
