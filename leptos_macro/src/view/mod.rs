@@ -23,8 +23,8 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
-    spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
-    RangeLimits, Stmt,
+    spanned::Spanned, Expr, Expr::Tuple, ExprArray, ExprLit, ExprRange, Lit,
+    LitStr, RangeLimits, Stmt,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -650,6 +650,9 @@ pub(crate) fn element_to_tokens(
             _ => None,
         };
         match (key_a.as_deref(), key_b.as_deref()) {
+            (Some("class"), Some("class")) | (Some("style"), Some("style")) => {
+                Ordering::Equal
+            }
             (Some("class"), _) | (Some("style"), _) => Ordering::Less,
             (_, Some("class")) | (_, Some("style")) => Ordering::Greater,
             _ => Ordering::Equal,
@@ -661,9 +664,18 @@ pub(crate) fn element_to_tokens(
     for attr in node.attributes() {
         if let NodeAttribute::Attribute(attr) = attr {
             let mut name = attr.key.to_string();
-            if let Some(tuple_name) = tuple_name(&name, attr) {
-                name.push(':');
-                name.push_str(&tuple_name);
+            match tuple_name(&name, attr) {
+                TupleName::None => {}
+                TupleName::Str(tuple_name) => {
+                    name.push(':');
+                    name.push_str(&tuple_name);
+                }
+                TupleName::Array(names) => {
+                    for tuple_name in names {
+                        name.push(':');
+                        name.push_str(&tuple_name);
+                    }
+                }
             }
             if names.contains(&name) {
                 proc_macro_error2::emit_error!(
@@ -1183,6 +1195,32 @@ fn class_to_tokens(
     class: TokenStream,
     class_name: Option<&str>,
 ) -> TokenStream {
+    // case of class=(["foo", "bar"], /* something */)
+    // just expands to multiple uses of class:
+    if let Some(Tuple(tuple)) = node.value() {
+        if tuple.elems.len() == 2 {
+            let name = &tuple.elems[0];
+            let value = &tuple.elems[1];
+            if let Expr::Array(ExprArray { elems, .. }) = name {
+                return elems
+                    .iter()
+                    .map(|elem| match elem {
+                        Expr::Lit(ExprLit {
+                            lit: Lit::Str(s), ..
+                        }) => quote! {
+                            .#class((#s, #value))
+                        },
+                        _ => proc_macro_error2::abort!(
+                            elem.span(),
+                            "invalid name"
+                        ),
+                    })
+                    .collect();
+            }
+        }
+    }
+
+    // default case
     let value = attribute_value(node, false);
     if let Some(class_name) = class_name {
         quote! {
@@ -1617,7 +1655,7 @@ pub(crate) fn directive_call_from_attribute_node(
     quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }
 }
 
-fn tuple_name(name: &str, node: &KeyedAttribute) -> Option<String> {
+fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
     if name == "style" || name == "class" {
         if let Some(Tuple(tuple)) = node.value() {
             {
@@ -1627,12 +1665,37 @@ fn tuple_name(name: &str, node: &KeyedAttribute) -> Option<String> {
                         lit: Lit::Str(s), ..
                     }) = style_name
                     {
-                        return Some(s.value());
+                        return TupleName::Str(s.value());
+                    } else if let Expr::Array(ExprArray { elems, .. }) =
+                        style_name
+                    {
+                        return TupleName::Array(
+                            elems
+                                .iter()
+                                .filter_map(|elem| match elem {
+                                    Expr::Lit(ExprLit {
+                                        lit: Lit::Str(s),
+                                        ..
+                                    }) => Some(s.value()),
+                                    _ => proc_macro_error2::abort!(
+                                        elem.span(),
+                                        "invalid name"
+                                    ),
+                                })
+                                .collect(),
+                        );
                     }
                 }
             }
         }
     }
 
-    None
+    TupleName::None
+}
+
+#[derive(Debug)]
+enum TupleName {
+    None,
+    Str(String),
+    Array(Vec<String>),
 }
