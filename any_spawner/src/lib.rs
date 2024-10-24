@@ -293,7 +293,8 @@ impl Executor {
     pub fn init_custom_executor(
         custom_executor: impl CustomExecutor + Send + Sync + 'static,
     ) -> Result<(), ExecutorError> {
-        static EXECUTOR: OnceLock<Box<dyn CustomExecutor + Send + Sync>> = OnceLock::new();
+        static EXECUTOR: OnceLock<Box<dyn CustomExecutor + Send + Sync>> =
+            OnceLock::new();
         EXECUTOR
             .set(Box::new(custom_executor))
             .map_err(|_| ExecutorError::AlreadySet)?;
@@ -323,30 +324,23 @@ impl Executor {
             static EXECUTOR: OnceLock<Box<dyn CustomExecutor>> = OnceLock::new();
         }
         EXECUTOR.with(|this| {
-            this
-                .set(Box::new(custom_executor))
+            this.set(Box::new(custom_executor))
                 .map_err(|_| ExecutorError::AlreadySet)
         })?;
 
         SPAWN
             .set(|fut| {
-                EXECUTOR.with(|this| {
-                    this.get().unwrap().spawn(fut)
-                });
+                EXECUTOR.with(|this| this.get().unwrap().spawn(fut));
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         SPAWN_LOCAL
             .set(|fut| {
-                EXECUTOR.with(|this| {
-                    this.get().unwrap().spawn_local(fut)
-                });
+                EXECUTOR.with(|this| this.get().unwrap().spawn_local(fut));
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         POLL_LOCAL
             .set(|| {
-                EXECUTOR.with(|this| {
-                    this.get().unwrap().poll_local()
-                });
+                EXECUTOR.with(|this| this.get().unwrap().poll_local());
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
