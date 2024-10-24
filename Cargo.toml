@@ -30,7 +30,6 @@ members = [
   "integrations/actix",
   "integrations/axum",
   "integrations/utils",
-  "integrations/wasi",
 
   # libraries
   "meta",
