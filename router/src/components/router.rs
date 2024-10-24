@@ -322,11 +322,15 @@ impl RouterContextInner {
 
                         let resolved = resolved_to.to_string();
                         let state = options.state.clone();
-                        set_reference.update(move |r| *r = resolved);
 
-                        set_state.update({
-                            let next_state = state.clone();
-                            move |state| *state = next_state
+                        // batch these so the history update is atomic
+                        batch(|| {
+                            set_reference.update(move |r| *r = resolved);
+                            
+                            set_state.update({
+                                let next_state = state.clone();
+                                move |state| *state = next_state
+                            });
                         });
 
                         let global_suspense =
