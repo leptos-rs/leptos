@@ -168,9 +168,10 @@ pub fn provide_context<T: Send + Sync + 'static>(value: T) {
     }
 }
 
-/// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current reactive [`Owner`] and iterating
-/// through its parents, if any. When the value is found, it is cloned.
+/// Extracts a context value of type `T` from the reactive system.
+///
+/// This traverses the reactive ownership graph, beginning from the current reactive
+/// [`Owner`] and iterating through its parents, if any. When the value is found, it is cloned.
 ///
 /// The context value should have been provided elsewhere using
 /// [`provide_context`](provide_context).
@@ -212,9 +213,11 @@ pub fn use_context<T: Clone + 'static>() -> Option<T> {
     Owner::current().and_then(|owner| owner.use_context())
 }
 
-/// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current reactive [`Owner`] and iterating
-/// through its parents, if any. When the value is found, it is cloned.
+/// Extracts a context value of type `T` from the reactive system, and
+/// panics if it can't be found.
+///
+/// This traverses the reactive ownership graph, beginning from the current reactive
+/// [`Owner`] and iterating through its parents, if any. When the value is found, it is cloned.
 ///
 /// Panics if no value is found.
 ///
@@ -270,9 +273,11 @@ pub fn expect_context<T: Clone + 'static>() -> T {
     })
 }
 
-/// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current reactive [`Owner`] and iterating
-/// through its parents, if any. When the value is found, it is removed from the context,
+/// Extracts a context value of type `T` from the reactive system, and takes ownership,
+/// removing it from the context system.
+///
+/// This traverses the reactive ownership graph, beginning from the current reactive
+/// [`Owner`] and iterating through its parents, if any. When the value is found, it is removed,
 /// and is not available to any other [`use_context`] or [`take_context`] calls.
 ///
 /// If the value is `Clone`, use [`use_context`] instead.

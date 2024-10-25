@@ -1338,9 +1338,10 @@ pub mod read {
         }
     }
 
-    /// A wrapping type for an optional component prop, which can either be a signal or a
-    /// non-reactive value, and which may or may not have a value. In other words, this is
-    /// an `Option<MaybeSignal<Option<T>>>` that automatically flattens its getters.
+    /// A wrapping type for an optional component prop.
+    ///
+    /// This can either be a signal or a non-reactive value, and may or may not have a value.
+    /// In other words, this is an `Option<Signal<Option<T>>>`, but automatically flattens its getters.
     ///
     /// This creates an extremely flexible type for component libraries, etc.
     ///
