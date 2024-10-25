@@ -130,8 +130,9 @@ where
 
             changed
         } else {
-            let mut lock = self.write().or_poisoned();
-            lock.state = ReactiveNodeState::Clean;
+            if let Ok(mut lock) = self.try_write() {
+                lock.state = ReactiveNodeState::Clean;
+            }
             false
         }
     }
@@ -142,7 +143,9 @@ where
     S: Storage<T>,
 {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
-        self.write().or_poisoned().subscribers.subscribe(subscriber);
+        if let Ok(mut lock) = self.try_write() {
+            lock.subscribers.subscribe(subscriber);
+        }
     }
 
     fn remove_subscriber(&self, subscriber: &AnySubscriber) {
