@@ -1,7 +1,24 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::class::IntoClass, renderer::Rndr};
-use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
-use std::{borrow::Borrow, ops::Deref, sync::Arc};
+use reactive_graph::effect::RenderEffect;
+use std::borrow::Borrow;
+
+pub struct RenderEffectWithClassName<T>
+where
+    T: 'static,
+{
+    name: &'static str,
+    effect: RenderEffect<T>,
+}
+
+impl<T> RenderEffectWithClassName<T>
+where
+    T: 'static,
+{
+    fn new(name: &'static str, effect: RenderEffect<T>) -> Self {
+        Self { effect, name }
+    }
+}
 
 impl<F, C> IntoClass for F
 where
@@ -84,6 +101,20 @@ where
     async fn resolve(mut self) -> Self::AsyncOutput {
         self.invoke().resolve().await
     }
+
+    fn reset(state: &mut Self::State) {
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                if let Some(mut state) = prev {
+                    C::reset(&mut state);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            state.take_value(),
+        );
+    }
 }
 
 impl<F, T> IntoClass for (&'static str, F)
@@ -92,7 +123,8 @@ where
     T: Borrow<bool> + Send + 'static,
 {
     type AsyncOutput = (&'static str, bool);
-    type State = RenderEffect<(crate::renderer::types::ClassList, bool)>;
+    type State =
+        RenderEffectWithClassName<(crate::renderer::types::ClassList, bool)>;
     type Cloneable = (&'static str, SharedReactiveFunction<T>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<T>);
 
@@ -117,33 +149,15 @@ where
         let class_list = Rndr::class_list(el);
         let name = Rndr::intern(name);
 
-        RenderEffect::new(
-            move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
-                let include = *f.invoke().borrow();
-                if let Some((class_list, prev)) = prev {
-                    if include {
-                        if !prev {
-                            Rndr::add_class(&class_list, name);
-                        }
-                    } else if prev {
-                        Rndr::remove_class(&class_list, name);
-                    }
-                }
-                (class_list.clone(), include)
-            },
-        )
-    }
-
-    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let (name, mut f) = self;
-        let class_list = Rndr::class_list(el);
-        let name = Rndr::intern(name);
-
-        RenderEffect::new(
-            move |prev: Option<(crate::renderer::types::ClassList, bool)>| {
-                let include = *f.invoke().borrow();
-                match prev {
-                    Some((class_list, prev)) => {
+        RenderEffectWithClassName::new(
+            name,
+            RenderEffect::new(
+                move |prev: Option<(
+                    crate::renderer::types::ClassList,
+                    bool,
+                )>| {
+                    let include = *f.invoke().borrow();
+                    if let Some((class_list, prev)) = prev {
                         if include {
                             if !prev {
                                 Rndr::add_class(&class_list, name);
@@ -152,21 +166,52 @@ where
                             Rndr::remove_class(&class_list, name);
                         }
                     }
-                    None => {
-                        if include {
-                            Rndr::add_class(&class_list, name);
+                    (class_list.clone(), include)
+                },
+            ),
+        )
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        let (name, mut f) = self;
+        let class_list = Rndr::class_list(el);
+        let name = Rndr::intern(name);
+
+        RenderEffectWithClassName::new(
+            name,
+            RenderEffect::new(
+                move |prev: Option<(
+                    crate::renderer::types::ClassList,
+                    bool,
+                )>| {
+                    let include = *f.invoke().borrow();
+                    match prev {
+                        Some((class_list, prev)) => {
+                            if include {
+                                if !prev {
+                                    Rndr::add_class(&class_list, name);
+                                }
+                            } else if prev {
+                                Rndr::remove_class(&class_list, name);
+                            }
+                        }
+                        None => {
+                            if include {
+                                Rndr::add_class(&class_list, name);
+                            }
                         }
                     }
-                }
-                (class_list.clone(), include)
-            },
+                    (class_list.clone(), include)
+                },
+            ),
         )
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, mut f) = self;
-        let prev_value = state.take_value();
-        *state = RenderEffect::new_with_value(
+        // Name might've updated:
+        state.name = name;
+        state.effect = RenderEffect::new_with_value(
             move |prev| {
                 let include = *f.invoke().borrow();
                 match prev {
@@ -185,7 +230,7 @@ where
                     }
                 }
             },
-            prev_value,
+            state.effect.take_value(),
         );
     }
 
@@ -203,6 +248,23 @@ where
 
     async fn resolve(mut self) -> Self::AsyncOutput {
         (self.0, *self.1.invoke().borrow())
+    }
+
+    fn reset(state: &mut Self::State) {
+        let name = state.name;
+        state.effect = RenderEffect::new_with_value(
+            move |prev| {
+                if let Some(mut state) = prev {
+                    let (class_list, prev) = &mut state;
+                    Rndr::remove_class(class_list, name);
+                    *prev = false;
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            state.effect.take_value(),
+        );
     }
 }
 
@@ -339,6 +401,7 @@ where
 }
 */
 
+/*
 impl<G> IntoClass for ReadGuard<String, G>
 where
     G: Deref<Target = String> + Send,
@@ -447,9 +510,13 @@ where
         self
     }
 }
+*/
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
+    use super::RenderEffectWithClassName;
+    use crate::renderer::Rndr;
+
     macro_rules! class_signal_arena {
         ($sig:ident) => {
             #[allow(deprecated)]
@@ -506,6 +573,20 @@ mod stable {
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                C::reset(&mut state);
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.take_value(),
+                    );
+                }
             }
 
             #[allow(deprecated)]
@@ -516,8 +597,10 @@ mod stable {
                 S: Storage<bool>,
             {
                 type AsyncOutput = Self;
-                type State =
-                    RenderEffect<(crate::renderer::types::ClassList, bool)>;
+                type State = RenderEffectWithClassName<(
+                    crate::renderer::types::ClassList,
+                    bool,
+                )>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -566,6 +649,26 @@ mod stable {
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = RenderEffectWithClassName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| {
+                                if let Some(mut state) = prev {
+                                    let (class_list, prev) = &mut state;
+                                    Rndr::remove_class(class_list, name);
+                                    *prev = false;
+                                    state
+                                } else {
+                                    unreachable!()
+                                }
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
                 }
             }
         };
@@ -624,6 +727,20 @@ mod stable {
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            if let Some(mut state) = prev {
+                                C::reset(&mut state);
+                                state
+                            } else {
+                                unreachable!()
+                            }
+                        },
+                        state.take_value(),
+                    );
+                }
             }
 
             impl IntoClass for (&'static str, $sig<bool>)
@@ -631,8 +748,10 @@ mod stable {
                 $sig<bool>: Get<Value = bool>,
             {
                 type AsyncOutput = Self;
-                type State =
-                    RenderEffect<(crate::renderer::types::ClassList, bool)>;
+                type State = RenderEffectWithClassName<(
+                    crate::renderer::types::ClassList,
+                    bool,
+                )>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -681,6 +800,26 @@ mod stable {
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = RenderEffectWithClassName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| {
+                                if let Some(mut state) = prev {
+                                    let (class_list, prev) = &mut state;
+                                    Rndr::remove_class(class_list, name);
+                                    *prev = false;
+                                    state
+                                } else {
+                                    unreachable!()
+                                }
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
                 }
             }
         };

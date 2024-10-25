@@ -215,7 +215,7 @@ impl<T: IntoStyle> IntoStyle for Option<T> {
             (None, Some(t)) => Some(Some(t.build(el))),
             (Some(mut prev_t_state), Some(t)) => {
                 t.rebuild(&mut prev_t_state);
-                None
+                Some(Some(prev_t_state))
             }
             (None, None) => Some(None),
         };
