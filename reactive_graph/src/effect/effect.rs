@@ -17,6 +17,7 @@ use std::{
 };
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
+///
 /// Creating an effect runs the given function once after any current synchronous work is done.
 /// This tracks its reactive values read within it, and reruns the function whenever the value
 /// of a dependency changes.

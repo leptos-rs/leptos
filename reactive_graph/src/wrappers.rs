@@ -1028,7 +1028,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeProp<T>> for Option<Signal<Option<T>>>
     where
         T: Send + Sync + 'static,
@@ -1039,7 +1038,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeProp<T, LocalStorage>>
         for Option<Signal<Option<T>, LocalStorage>>
     where
@@ -1340,9 +1338,10 @@ pub mod read {
         }
     }
 
-    /// A wrapping type for an optional component prop, which can either be a signal or a
-    /// non-reactive value, and which may or may not have a value. In other words, this is
-    /// an `Option<MaybeSignal<Option<T>>>` that automatically flattens its getters.
+    /// A wrapping type for an optional component prop.
+    ///
+    /// This can either be a signal or a non-reactive value, and may or may not have a value.
+    /// In other words, this is an `Option<Signal<Option<T>>>`, but automatically flattens its getters.
     ///
     /// This creates an extremely flexible type for component libraries, etc.
     ///
@@ -1372,7 +1371,6 @@ pub mod read {
     /// assert_eq!(above_3(&memoized_double_count.into()), true);
     /// ```
     #[derive(Debug, PartialEq, Eq)]
-    #[allow(deprecated)]
     pub struct MaybeProp<T: 'static, S = SyncStorage>(
         pub(crate) Option<Signal<Option<T>, S>>,
     )
@@ -1393,7 +1391,6 @@ pub mod read {
     {
     }
 
-    #[allow(deprecated)]
     impl<T, S> Default for MaybeProp<T, S>
     where
         S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
@@ -1403,7 +1400,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T, S> DefinedAt for MaybeProp<T, S>
     where
         S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
@@ -1414,7 +1410,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T, S> Track for MaybeProp<T, S>
     where
         S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
@@ -1427,7 +1422,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T, S> ReadUntracked for MaybeProp<T, S>
     where
         T: Clone,
@@ -1450,7 +1444,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> MaybeProp<T>
     where
         T: Send + Sync,
@@ -1464,7 +1457,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<T> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1475,7 +1467,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Option<T>> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1508,7 +1499,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<ReadSignal<Option<T>>> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1518,7 +1508,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<RwSignal<Option<T>>> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1528,7 +1517,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Memo<Option<T>>> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1538,7 +1526,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Signal<Option<T>>> for MaybeProp<T>
     where
         T: Send + Sync,
@@ -1549,7 +1536,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<ReadSignal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
@@ -1559,7 +1545,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<RwSignal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
@@ -1569,7 +1554,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Memo<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
@@ -1579,7 +1563,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Signal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
@@ -1589,14 +1572,12 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl From<&str> for MaybeProp<String> {
         fn from(value: &str) -> Self {
             Self(Some(Signal::from(Some(value.to_string()))))
         }
     }
 
-    #[allow(deprecated)]
     impl<T> MaybeProp<T, LocalStorage> {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
@@ -1607,14 +1588,12 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> FromLocal<T> for MaybeProp<T, LocalStorage> {
         fn from_local(value: T) -> Self {
             Self(Some(Signal::stored_local(Some(value))))
         }
     }
 
-    #[allow(deprecated)]
     impl<T> FromLocal<Option<T>> for MaybeProp<T, LocalStorage> {
         fn from_local(value: Option<T>) -> Self {
             Self(Some(Signal::stored_local(value)))
@@ -1643,7 +1622,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<ReadSignal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync,
@@ -1653,7 +1631,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<RwSignal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync,
@@ -1663,7 +1640,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Memo<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync,
@@ -1673,14 +1649,12 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Signal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage> {
         fn from(value: Signal<Option<T>, LocalStorage>) -> Self {
             Self(Some(value))
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<ReadSignal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync + Clone,
@@ -1690,7 +1664,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<RwSignal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync + Clone,
@@ -1700,7 +1673,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Memo<T, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync + Clone,
@@ -1710,7 +1682,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<Signal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
     where
         T: Send + Sync + Clone,
@@ -1720,7 +1691,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl From<&str> for MaybeProp<String, LocalStorage> {
         fn from(value: &str) -> Self {
             Self(Some(Signal::stored_local(Some(value.to_string()))))

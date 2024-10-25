@@ -89,7 +89,6 @@ where
     }
 }
 
-#[allow(deprecated)]
 impl<T, St> Serialize for MaybeProp<T, St>
 where
     T: Send + Sync + Serialize,
