@@ -333,6 +333,7 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
         {
             #[allow(unused_braces)]
             {
+                use ::leptos::prelude::ElementChild;
                 #(#errors;)*
                 #nodes_output
             }
