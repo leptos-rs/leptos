@@ -1,3 +1,4 @@
+use crate::instrumented::InstrumentedRoutes;
 use leptos::prelude::*;
 use leptos_router::{
     components::{Outlet, ParentRoute, Redirect, Route, Router, Routes, A},
@@ -41,6 +42,7 @@ pub fn App() -> impl IntoView {
                 <A href="/out-of-order">"Out-of-Order"</A>
                 <A href="/in-order">"In-Order"</A>
                 <A href="/async">"Async"</A>
+                <A href="/instrumented/">"Instrumented"</A>
             </nav>
             <main>
                 <Routes fallback=|| "Page not found.">
@@ -110,6 +112,7 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("local") view=LocalResource/>
                         <Route path=StaticSegment("none") view=None/>
                     </ParentRoute>
+                    <InstrumentedRoutes/>
                 </Routes>
             </main>
         </Router>
