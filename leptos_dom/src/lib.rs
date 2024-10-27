@@ -8,5 +8,4 @@ pub mod helpers;
 pub mod macro_helpers;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
-#[macro_use]
 pub mod logging;
