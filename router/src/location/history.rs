@@ -253,7 +253,7 @@ impl LocationProvider for BrowserUrl {
         let Some(url) = resolve_redirect_url(loc) else {
             return; // resolve_redirect_url() already logs an error
         };
-        let current_origin = helpers::location().origin().unwrap();
+        let current_origin = location().origin().unwrap();
         if url.origin() == current_origin {
             let navigate = navigate.clone();
             // delay by a tick here, so that the Action updates *before* the redirect
@@ -261,7 +261,7 @@ impl LocationProvider for BrowserUrl {
                 navigate(&url.href(), Default::default());
             });
             // Use set_href() if the conditions for client-side navigation were not satisfied
-        } else if let Err(e) = helpers::location().set_href(&url.href()) {
+        } else if let Err(e) = location().set_href(&url.href()) {
             leptos::logging::error!("Failed to redirect: {e:#?}");
         }
     }

@@ -163,7 +163,7 @@ pub mod prelude {
             form::*, hydration::*, into_view::*, mount::*, suspense::*,
         };
         pub use leptos_config::*;
-        pub use leptos_dom::{helpers::*, *};
+        pub use leptos_dom::helpers::*;
         pub use leptos_macro::*;
         pub use leptos_server::*;
         pub use oco_ref::*;
