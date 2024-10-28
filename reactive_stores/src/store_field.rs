@@ -234,9 +234,7 @@ where
     S: StoreField,
 {
     fn track(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 

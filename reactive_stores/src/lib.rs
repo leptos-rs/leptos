@@ -291,9 +291,7 @@ where
 
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        let trigger = self.get_trigger(Default::default());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 

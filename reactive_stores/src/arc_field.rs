@@ -26,6 +26,7 @@ where
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
+    track_field: Arc<dyn Fn() + Send + Sync>,
 }
 
 pub struct StoreFieldReader<T>(Box<dyn Deref<Target = T>>);
@@ -128,6 +129,10 @@ where
                 let value = value.clone();
                 move || value.keys()
             }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
         }
     }
 }
@@ -161,6 +166,10 @@ where
             keys: Arc::new({
                 let value = value.clone();
                 move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
             }),
         }
     }
@@ -200,6 +209,10 @@ where
                 let value = value.clone();
                 move || value.keys()
             }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
         }
     }
 }
@@ -215,6 +228,7 @@ impl<T> Clone for ArcField<T> {
             read: Arc::clone(&self.read),
             write: Arc::clone(&self.write),
             keys: Arc::clone(&self.keys),
+            track_field: Arc::clone(&self.track_field),
         }
     }
 }
@@ -240,8 +254,7 @@ impl<T> Notify for ArcField<T> {
 
 impl<T> Track for ArcField<T> {
     fn track(&self) {
-        self.trigger.this.track();
-        self.trigger.children.track();
+        (self.track_field)();
     }
 }
 
