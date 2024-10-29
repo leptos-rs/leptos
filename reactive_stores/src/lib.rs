@@ -636,7 +636,10 @@ mod tests {
                 } else {
                     println!("next run");
                 }
-                println!("{:?}", store.todos().iter().collect::<Vec<_>>());
+                println!(
+                    "{:?}",
+                    store.todos().iter_unkeyed().collect::<Vec<_>>()
+                );
                 combined_count.store(1, Ordering::Relaxed);
             }
         });
