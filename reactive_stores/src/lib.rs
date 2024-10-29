@@ -39,7 +39,7 @@ pub use keyed::*;
 pub use option::*;
 pub use patch::*;
 pub use path::{StorePath, StorePathSegment};
-pub use store_field::{StoreField, Then};
+pub use store_field::StoreField;
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
