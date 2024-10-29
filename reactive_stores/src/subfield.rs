@@ -100,6 +100,16 @@ where
     fn keys(&self) -> Option<KeyMap> {
         self.inner.keys()
     }
+
+    fn track_field(&self) {
+        let inner = self
+            .inner
+            .get_trigger(self.inner.path().into_iter().collect());
+        inner.this.track();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.track();
+        trigger.children.track();
+    }
 }
 
 impl<Inner, Prev, T> DefinedAt for Subfield<Inner, Prev, T>
@@ -146,13 +156,7 @@ where
     T: 'static,
 {
     fn track(&self) {
-        let inner = self
-            .inner
-            .get_trigger(self.inner.path().into_iter().collect());
-        inner.this.track();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 
