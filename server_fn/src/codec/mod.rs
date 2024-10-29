@@ -3,7 +3,7 @@
 //! 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
 //! 2. The [`Client`] sends the request to the server.
 //! 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
-//! 4. The server calls calls [`ServerFn::run_body`] on the data.
+//! 4. The server calls [`ServerFn::run_body`] on the data.
 //! 5. [`IntoRes`]: The server serializes the [`ServerFn::Output`] type into an HTTP response.
 //! 6. The server integration applies any middleware from [`ServerFn::middlewares`] and responds to the request.
 //! 7. [`FromRes`]: The client deserializes the response back into the [`ServerFn::Output`] type.
