@@ -1,10 +1,13 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, StoreFieldTrigger,
-    Subfield,
+    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
+    StoreFieldTrigger, Subfield,
 };
-use reactive_graph::traits::{
-    DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+use reactive_graph::{
+    owner::Storage,
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+    },
 };
 use std::{
     fmt::Debug,
@@ -96,6 +99,62 @@ impl<T> StoreField for ArcField<T> {
 
     fn keys(&self) -> Option<KeyMap> {
         (self.keys)()
+    }
+}
+
+impl<T, S> From<Store<T, S>> for ArcField<T>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    #[track_caller]
+    fn from(value: Store<T, S>) -> Self {
+        ArcField {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new(move |path| value.get_trigger(path)),
+            read: Arc::new(move || value.reader().map(StoreFieldReader::new)),
+            write: Arc::new(move || value.writer().map(StoreFieldWriter::new)),
+            keys: Arc::new(move || value.keys()),
+            track_field: Arc::new(move || value.track_field()),
+        }
+    }
+}
+
+impl<T> From<ArcStore<T>> for ArcField<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcStore<T>) -> Self {
+        ArcField {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+        }
     }
 }
 
