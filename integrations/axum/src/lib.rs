@@ -1833,7 +1833,7 @@ where
         }
 
         // register router paths
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
 
             for method in listing.methods() {
@@ -1942,7 +1942,7 @@ where
         T: 'static,
     {
         let mut router = self;
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             for method in listing.methods() {
                 router = router.route(
                     listing.path(),

@@ -1403,7 +1403,7 @@ where
         }
 
         // register routes defined in Leptos's Router
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
 
@@ -1499,15 +1499,24 @@ impl LeptosRoutes for &mut ServiceConfig {
     {
         let mut router = self;
 
+        let excluded = paths
+            .iter()
+            .filter(|&p| p.exclude)
+            .map(|p| p.path.as_str())
+            .collect::<HashSet<_>>();
+
         // register server functions first to allow for wildcard route in Leptos's Router
         for (path, _) in server_fn::actix::server_fn_paths() {
-            let additional_context = additional_context.clone();
-            let handler = handle_server_fns_with_context(additional_context);
-            router = router.route(path, handler);
+            if !excluded.contains(path) {
+                let additional_context = additional_context.clone();
+                let handler =
+                    handle_server_fns_with_context(additional_context);
+                router = router.route(path, handler);
+            }
         }
 
         // register routes defined in Leptos's Router
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
 
