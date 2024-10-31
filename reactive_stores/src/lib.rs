@@ -39,7 +39,7 @@ pub use keyed::*;
 pub use option::*;
 pub use patch::*;
 pub use path::{StorePath, StorePathSegment};
-pub use store_field::{StoreField, Then};
+pub use store_field::StoreField;
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
@@ -636,7 +636,10 @@ mod tests {
                 } else {
                     println!("next run");
                 }
-                println!("{:?}", store.todos().iter().collect::<Vec<_>>());
+                println!(
+                    "{:?}",
+                    store.todos().iter_unkeyed().collect::<Vec<_>>()
+                );
                 combined_count.store(1, Ordering::Relaxed);
             }
         });
