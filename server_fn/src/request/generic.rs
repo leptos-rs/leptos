@@ -12,16 +12,14 @@
 //! * `wasm32-wasip*` integration crate `leptos_wasi` is using this
 //!   crate under the hood.
 
-use std::borrow::Cow;
-
+use crate::request::Req;
 use bytes::Bytes;
 use futures::{
     stream::{self, Stream},
     StreamExt,
 };
 use http::Request;
-
-use crate::request::Req;
+use std::borrow::Cow;
 
 impl<CustErr> Req<CustErr> for Request<Bytes>
 where

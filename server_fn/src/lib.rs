@@ -117,18 +117,15 @@ pub mod response;
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
-
 #[cfg(feature = "axum-no-default")]
 #[doc(hidden)]
 pub use ::axum as axum_export;
-
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
-
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
