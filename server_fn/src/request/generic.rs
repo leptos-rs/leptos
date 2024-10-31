@@ -45,7 +45,7 @@ where
         impl Stream<Item = Result<Bytes, crate::ServerFnError>> + Send + 'static,
         crate::ServerFnError<CustErr>,
     > {
-        Ok(stream::iter(self.into_body().into_iter())
+        Ok(stream::iter(self.into_body())
             .ready_chunks(16)
             .map(|chunk| Ok(Bytes::from(chunk))))
     }
