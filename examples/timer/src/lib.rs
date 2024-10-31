@@ -38,7 +38,7 @@ pub fn TimerDemo() -> impl IntoView {
 pub fn use_interval<T, F>(interval_millis: T, f: F)
 where
     F: Fn() + Clone + 'static,
-    T: Into<MaybeSignal<u64>> + 'static,
+    T: Into<Signal<u64>> + 'static,
 {
     let interval_millis = interval_millis.into();
     Effect::new(move |prev_handle: Option<IntervalHandle>| {

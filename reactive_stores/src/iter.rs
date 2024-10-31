@@ -152,9 +152,7 @@ where
     Prev::Output: Sized + 'static,
 {
     fn track(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 
@@ -197,9 +195,9 @@ pub trait StoreFieldIterator<Prev>
 where
     Self: StoreField<Value = Prev>,
 {
-    fn at(self, index: usize) -> AtIndex<Self, Prev>;
+    fn at_unkeyed(self, index: usize) -> AtIndex<Self, Prev>;
 
-    fn iter(self) -> StoreFieldIter<Self, Prev>;
+    fn iter_unkeyed(self) -> StoreFieldIter<Self, Prev>;
 }
 
 impl<Inner, Prev> StoreFieldIterator<Prev> for Inner
@@ -209,12 +207,12 @@ where
     Prev: IndexMut<usize> + AsRef<[Prev::Output]>,
 {
     #[track_caller]
-    fn at(self, index: usize) -> AtIndex<Inner, Prev> {
+    fn at_unkeyed(self, index: usize) -> AtIndex<Inner, Prev> {
         AtIndex::new(self.clone(), index)
     }
 
     #[track_caller]
-    fn iter(self) -> StoreFieldIter<Inner, Prev> {
+    fn iter_unkeyed(self) -> StoreFieldIter<Inner, Prev> {
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.track();

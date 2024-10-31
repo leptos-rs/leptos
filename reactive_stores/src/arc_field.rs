@@ -1,10 +1,13 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, StoreFieldTrigger,
-    Subfield,
+    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
+    StoreFieldTrigger, Subfield,
 };
-use reactive_graph::traits::{
-    DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+use reactive_graph::{
+    owner::Storage,
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+    },
 };
 use std::{
     fmt::Debug,
@@ -26,6 +29,7 @@ where
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
+    track_field: Arc<dyn Fn() + Send + Sync>,
 }
 
 pub struct StoreFieldReader<T>(Box<dyn Deref<Target = T>>);
@@ -98,6 +102,62 @@ impl<T> StoreField for ArcField<T> {
     }
 }
 
+impl<T, S> From<Store<T, S>> for ArcField<T>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    #[track_caller]
+    fn from(value: Store<T, S>) -> Self {
+        ArcField {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new(move |path| value.get_trigger(path)),
+            read: Arc::new(move || value.reader().map(StoreFieldReader::new)),
+            write: Arc::new(move || value.writer().map(StoreFieldWriter::new)),
+            keys: Arc::new(move || value.keys()),
+            track_field: Arc::new(move || value.track_field()),
+        }
+    }
+}
+
+impl<T> From<ArcStore<T>> for ArcField<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcStore<T>) -> Self {
+        ArcField {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+        }
+    }
+}
+
 impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for ArcField<T>
 where
     T: Send + Sync,
@@ -127,6 +187,10 @@ where
             keys: Arc::new({
                 let value = value.clone();
                 move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
             }),
         }
     }
@@ -161,6 +225,10 @@ where
             keys: Arc::new({
                 let value = value.clone();
                 move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
             }),
         }
     }
@@ -200,6 +268,10 @@ where
                 let value = value.clone();
                 move || value.keys()
             }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
         }
     }
 }
@@ -215,6 +287,7 @@ impl<T> Clone for ArcField<T> {
             read: Arc::clone(&self.read),
             write: Arc::clone(&self.write),
             keys: Arc::clone(&self.keys),
+            track_field: Arc::clone(&self.track_field),
         }
     }
 }
@@ -240,8 +313,7 @@ impl<T> Notify for ArcField<T> {
 
 impl<T> Track for ArcField<T> {
     fn track(&self) {
-        self.trigger.this.track();
-        self.trigger.children.track();
+        (self.track_field)();
     }
 }
 

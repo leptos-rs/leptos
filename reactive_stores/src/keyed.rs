@@ -124,6 +124,16 @@ where
     fn keys(&self) -> Option<KeyMap> {
         self.inner.keys()
     }
+
+    fn track_field(&self) {
+        let inner = self
+            .inner
+            .get_trigger(self.inner.path().into_iter().collect());
+        inner.this.track();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.track();
+        trigger.children.track();
+    }
 }
 
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
@@ -287,13 +297,7 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn track(&self) {
-        let inner = self
-            .inner
-            .get_trigger(self.inner.path().into_iter().collect());
-        inner.this.track();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 
@@ -551,9 +555,7 @@ where
     T::Output: Sized,
 {
     fn track(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        self.track_field();
     }
 }
 

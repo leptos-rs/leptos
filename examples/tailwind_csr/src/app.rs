@@ -22,24 +22,29 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn Home() -> impl IntoView {
-    let (count, set_count) = signal(0);
+    let (value, set_value) = signal(0);
 
+    // thanks to https://tailwindcomponents.com/component/blue-buttons-example for the showcase layout
     view! {
-        <div class="my-0 mx-auto max-w-3xl text-center">
-            <h2 class="p-6 text-4xl">"Welcome to Leptos with Tailwind"</h2>
-            <p class="px-10 pb-10 text-left">"Tailwind will scan your Rust files for Tailwind class names and compile them into a CSS file."</p>
-            <button
-                class="bg-amber-600 hover:bg-sky-700 px-5 py-3 text-white rounded-lg"
-                on:click=move |_| set_count.update(|count| *count += 1)
-            >
-                "Something's here | "
-                {move || if count.get() == 0 {
-                    "Click me!".to_string()
-                } else {
-                    count.get().to_string()
-                }}
-                " | Some more text"
-            </button>
-        </div>
+        <Title text="Leptos + Tailwindcss"/>
+        <main>
+            <div class="bg-gradient-to-tl from-blue-800 to-blue-500 text-white font-mono flex flex-col min-h-screen">
+                <div class="flex flex-row-reverse flex-wrap m-auto">
+                    <button on:click=move |_| set_value.update(|value| *value += 1) class="rounded px-3 py-2 m-1 border-b-4 border-l-2 shadow-lg bg-blue-700 border-blue-800 text-white">
+                        "+"
+                    </button>
+                    <button class="rounded px-3 py-2 m-1 border-b-4 border-l-2 shadow-lg bg-blue-800 border-blue-900 text-white">
+                        {value}
+                    </button>
+                    <button
+                        on:click=move |_| set_value.update(|value| *value -= 1)
+                        class="rounded px-3 py-2 m-1 border-b-4 border-l-2 shadow-lg bg-blue-700 border-blue-800 text-white"
+                        class:invisible=move || {value.get() < 1}
+                    >
+                        "-"
+                    </button>
+                </div>
+            </div>
+        </main>
     }
 }

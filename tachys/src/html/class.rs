@@ -178,6 +178,9 @@ pub trait IntoClass: Send {
 
     /// “Resolves” this into a type that is not waiting for any asynchronous data.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
+
+    /// Reset the class list to the state before this class was added.
+    fn reset(state: &mut Self::State);
 }
 
 impl<T: IntoClass> IntoClass for Option<T> {
@@ -218,15 +221,15 @@ impl<T: IntoClass> IntoClass for Option<T> {
     fn rebuild(self, state: &mut Self::State) {
         let el = &state.0;
         let prev_state = &mut state.1;
-        let maybe_next_t_state = match (prev_state, self) {
-            (Some(_prev_t_state), None) => {
-                Rndr::remove_attribute(el, "class");
+        let maybe_next_t_state = match (prev_state.take(), self) {
+            (Some(mut prev_t_state), None) => {
+                T::reset(&mut prev_t_state);
                 Some(None)
             }
             (None, Some(t)) => Some(Some(t.build(el))),
-            (Some(prev_t_state), Some(t)) => {
-                t.rebuild(prev_t_state);
-                None
+            (Some(mut prev_t_state), Some(t)) => {
+                t.rebuild(&mut prev_t_state);
+                Some(Some(prev_t_state))
             }
             (None, None) => Some(None),
         };
@@ -254,6 +257,12 @@ impl<T: IntoClass> IntoClass for Option<T> {
             Some(t.resolve().await)
         } else {
             None
+        }
+    }
+
+    fn reset(state: &mut Self::State) {
+        if let Some(prev_t_state) = &mut state.1 {
+            T::reset(prev_t_state);
         }
     }
 }
@@ -308,6 +317,11 @@ impl<'a> IntoClass for &'a str {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "class");
+    }
 }
 
 impl IntoClass for String {
@@ -359,6 +373,11 @@ impl IntoClass for String {
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "class");
     }
 }
 
@@ -412,11 +431,16 @@ impl IntoClass for Arc<str> {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "class");
+    }
 }
 
 impl IntoClass for (&'static str, bool) {
     type AsyncOutput = Self;
-    type State = (crate::renderer::types::ClassList, bool);
+    type State = (crate::renderer::types::ClassList, bool, &'static str);
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -440,7 +464,7 @@ impl IntoClass for (&'static str, bool) {
         if !FROM_SERVER && include {
             Rndr::add_class(&class_list, name);
         }
-        (class_list, self.1)
+        (class_list, self.1, name)
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
@@ -449,12 +473,12 @@ impl IntoClass for (&'static str, bool) {
         if include {
             Rndr::add_class(&class_list, name);
         }
-        (class_list, self.1)
+        (class_list, self.1, name)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, include) = self;
-        let (class_list, prev_include) = state;
+        let (class_list, prev_include, prev_name) = state;
         if include != *prev_include {
             if include {
                 Rndr::add_class(class_list, name);
@@ -463,6 +487,7 @@ impl IntoClass for (&'static str, bool) {
             }
         }
         *prev_include = include;
+        *prev_name = name;
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -477,6 +502,11 @@ impl IntoClass for (&'static str, bool) {
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (class_list, _, name) = state;
+        Rndr::remove_class(class_list, name);
     }
 }
 
@@ -526,6 +556,8 @@ impl<const V: &'static str> IntoClass for crate::view::static_types::Static<V> {
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn reset(_state: &mut Self::State) {}
 }
 
 /* #[cfg(test)]

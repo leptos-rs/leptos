@@ -1,8 +1,8 @@
 use crate::{
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField,
-    StoreFieldTrigger, Subfield,
+    ArcField, ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store,
+    StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::{ArenaItem, Storage, SyncStorage},
@@ -52,6 +52,36 @@ where
 
     fn keys(&self) -> Option<KeyMap> {
         self.inner.try_get_value().and_then(|n| n.keys())
+    }
+}
+
+impl<T, S> From<Store<T, S>> for Field<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>> + Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: Store<T, S>) -> Self {
+        Field {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<T, S> From<ArcStore<T>> for Field<T, S>
+where
+    T: Send + Sync + 'static,
+    S: Storage<ArcStore<T>> + Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: ArcStore<T>) -> Self {
+        Field {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value.into()),
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::{Local, NaiveDate};
+use leptos::logging::warn;
 use leptos::prelude::*;
 use reactive_stores::{Field, Patch, Store};
 use serde::{Deserialize, Serialize};
@@ -109,11 +110,7 @@ pub fn App() -> impl IntoView {
             // directly implements IntoIterator, so we can use it in <For/> and
             // it will manage reactivity for the store fields correctly
             <For
-                each=move || {
-                    leptos::logging::log!("RERUNNING FOR CALCULATION");
-                    store.todos()
-                }
-
+                each=move || store.todos()
                 key=|row| row.id().get()
                 let:todo
             >
