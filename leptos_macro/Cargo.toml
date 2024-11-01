@@ -69,6 +69,14 @@ skip_feature_sets = [
 		"actix",
 		"axum",
 	],
+	[
+		"actix",
+		"generic",
+	],
+	[
+		"generic",
+		"axum",
+	],
 ]
 
 [package.metadata.docs.rs]
