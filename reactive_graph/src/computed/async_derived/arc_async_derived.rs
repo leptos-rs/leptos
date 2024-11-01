@@ -290,6 +290,9 @@ macro_rules! spawn_derived {
             Some(ready_tx)
         };
 
+        if was_ready {
+            first_run.take();
+        }
         // begin loading eagerly but asynchronously, if not already loaded
         if !was_ready {
             any_subscriber.mark_dirty();
