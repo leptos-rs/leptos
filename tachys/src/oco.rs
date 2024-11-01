@@ -24,7 +24,7 @@ impl Render for Oco<'static, str> {
 
     fn rebuild(self, state: &mut Self::State) {
         let OcoStrState { node, str } = state;
-        if &self == str {
+        if &self != str {
             Rndr::set_text(node, &self);
             *str = self;
         }
