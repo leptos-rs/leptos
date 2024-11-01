@@ -1,4 +1,4 @@
-use crate::location::{unescape, Url};
+use crate::location::Url;
 use std::{borrow::Cow, str::FromStr, sync::Arc};
 use thiserror::Error;
 
@@ -25,7 +25,7 @@ impl ParamsMap {
     /// If a value with that key already exists, the new value will be added to it.
     /// To replace the value instead, see [`replace`].
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
-        let value = unescape(&value);
+        let value = Url::unescape(&value);
 
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
@@ -41,7 +41,7 @@ impl ParamsMap {
         key: impl Into<Cow<'static, str>>,
         value: String,
     ) {
-        let value = unescape(&value);
+        let value = Url::unescape(&value);
 
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {

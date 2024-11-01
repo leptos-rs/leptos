@@ -109,6 +109,33 @@ impl Url {
             .to_string()
         }
     }
+
+    pub fn unescape(s: &str) -> String {
+        #[cfg(feature = "ssr")]
+        {
+            percent_encoding::percent_decode_str(s)
+                .decode_utf8()
+                .unwrap()
+                .to_string()
+        }
+
+        #[cfg(not(feature = "ssr"))]
+        {
+            js_sys::decode_uri_component(s).unwrap().into()
+        }
+    }
+
+    pub fn unescape_minimal(s: &str) -> String {
+        #[cfg(not(feature = "ssr"))]
+        {
+            js_sys::decode_uri(s).unwrap().into()
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            Self::unescape(s)
+        }
+    }
 }
 
 /// A reactive description of the current URL, containing equivalents to the local parts of
@@ -237,29 +264,6 @@ where
     }
 }
 
-#[cfg(feature = "ssr")]
-pub(crate) fn unescape(s: &str) -> String {
-    percent_encoding::percent_decode_str(s)
-        .decode_utf8()
-        .unwrap()
-        .to_string()
-}
-
-#[cfg(not(feature = "ssr"))]
-pub(crate) fn unescape(s: &str) -> String {
-    js_sys::decode_uri_component(s).unwrap().into()
-}
-
-#[cfg(not(feature = "ssr"))]
-pub(crate) fn unescape_minimal(s: &str) -> String {
-    js_sys::decode_uri(s).unwrap().into()
-}
-
-#[cfg(feature = "ssr")]
-pub(crate) fn unescape_minimal(s: &str) -> String {
-    unescape(s)
-}
-
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
     parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,
@@ -314,7 +318,7 @@ where
             }
 
             let url = parse_with_base(href.as_str(), &origin).unwrap();
-            let path_name = unescape_minimal(&url.path);
+            let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain
             // or our base path
@@ -333,8 +337,8 @@ where
             ev.prevent_default();
             let to = path_name
                 + if url.search.is_empty() { "" } else { "?" }
-                + &unescape(&url.search)
-                + &unescape(&url.hash);
+                + &Url::unescape(&url.search)
+                + &Url::unescape(&url.hash);
             let state = Reflect::get(&a, &JsValue::from_str("state"))
                 .ok()
                 .and_then(|value| {
