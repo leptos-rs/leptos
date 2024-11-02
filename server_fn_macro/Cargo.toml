@@ -21,6 +21,7 @@ nightly = []
 ssr = []
 actix = []
 axum = []
+generic = []
 reqwest = []
 
 [package.metadata.docs.rs]
