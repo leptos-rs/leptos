@@ -57,9 +57,8 @@ use leptos::{
     IntoView,
 };
 use leptos_integration_utils::{
-    BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+    BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream, ServerExtension,
 };
-use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
@@ -489,7 +488,7 @@ pub type PinnedHtmlStream =
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_to_stream<IV>(
+pub fn render_app_to_stream<I, IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -498,9 +497,10 @@ pub fn render_app_to_stream<IV>(
        + Send
        + 'static
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
-    render_app_to_stream_with_context(|| {}, app_fn)
+    render_app_to_stream_with_context::<I, _>(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -512,7 +512,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_route<S, IV>(
+pub fn render_route<S, I, IV>(
     paths: Vec<AxumRouteListing>,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -523,11 +523,12 @@ pub fn render_route<S, IV>(
        + Send
        + 'static
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
     LeptosOptions: FromRef<S>,
     S: Send + 'static,
 {
-    render_route_with_context(paths, || {}, app_fn)
+    render_route_with_context::<_, I, _>(paths, || {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -584,7 +585,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_to_stream_in_order<IV>(
+pub fn render_app_to_stream_in_order<I, IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -593,9 +594,10 @@ pub fn render_app_to_stream_in_order<IV>(
        + Send
        + 'static
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
-    render_app_to_stream_in_order_with_context(|| {}, app_fn)
+    render_app_to_stream_in_order_with_context::<I, _>(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -638,7 +640,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_to_stream_with_context<IV>(
+pub fn render_app_to_stream_with_context<I, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -648,9 +650,10 @@ pub fn render_app_to_stream_with_context<IV>(
        + Send
        + 'static
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
-    render_app_to_stream_with_context_and_replace_blocks(
+    render_app_to_stream_with_context_and_replace_blocks::<I, _>(
         additional_context,
         app_fn,
         false,
@@ -666,7 +669,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_route_with_context<S, IV>(
+pub fn render_route_with_context<S, I: ServerExtension, IV>(
     paths: Vec<AxumRouteListing>,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -682,20 +685,20 @@ where
     LeptosOptions: FromRef<S>,
     S: Send + 'static,
 {
-    let ooo = render_app_to_stream_with_context(
+    let ooo = render_app_to_stream_with_context::<I, _>(
         additional_context.clone(),
         app_fn.clone(),
     );
-    let pb = render_app_to_stream_with_context_and_replace_blocks(
+    let pb = render_app_to_stream_with_context_and_replace_blocks::<I, _>(
         additional_context.clone(),
         app_fn.clone(),
         true,
     );
-    let io = render_app_to_stream_in_order_with_context(
+    let io = render_app_to_stream_in_order_with_context::<I, _>(
         additional_context.clone(),
         app_fn.clone(),
     );
-    let asyn = render_app_async_stream_with_context(
+    let asyn = render_app_async_stream_with_context::<I, _>(
         additional_context.clone(),
         app_fn.clone(),
     );
@@ -727,7 +730,7 @@ where
                 #[cfg(feature = "default")]
                 {
                     let regenerate = listing.regenerate.clone();
-                    handle_static_route(
+                    handle_static_route::<_, I, _>(
                         additional_context.clone(),
                         app_fn.clone(),
                         regenerate,
@@ -770,7 +773,10 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
+pub fn render_app_to_stream_with_context_and_replace_blocks<
+    I: ServerExtension,
+    IV,
+>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     replace_blocks: bool,
@@ -784,7 +790,7 @@ where
     IV: IntoView + 'static,
 {
     _ = replace_blocks; // TODO
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response::<I, _>(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             let app = if cfg!(feature = "dont-use-islands-router") {
                 app.to_html_stream_out_of_order_branching()
@@ -838,7 +844,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_to_stream_in_order_with_context<IV>(
+pub fn render_app_to_stream_in_order_with_context<I: ServerExtension, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -850,7 +856,7 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response::<I, _>(additional_context, app_fn, |app, chunks| {
         let app = if cfg!(feature = "dont-use-islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
@@ -862,7 +868,7 @@ where
     })
 }
 
-fn handle_response<IV>(
+fn handle_response<I: ServerExtension, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     stream_builder: fn(
@@ -876,11 +882,16 @@ where
     move |req: Request<Body>| {
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
-        handle_response_inner(additional_context, app_fn, req, stream_builder)
+        handle_response_inner::<I, _>(
+            additional_context,
+            app_fn,
+            req,
+            stream_builder,
+        )
     }
 }
 
-fn handle_response_inner<IV>(
+fn handle_response_inner<I, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl FnOnce() -> IV + Send + 'static,
     req: Request<Body>,
@@ -890,12 +901,13 @@ fn handle_response_inner<IV>(
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> PinnedFuture<Response<Body>>
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
     Box::pin(async move {
         let add_context = additional_context.clone();
         let res_options = ResponseOptions::default();
-        let (meta_context, meta_output) = ServerMetaContext::new();
+        let (meta_context, meta_output) = I::new();
 
         let additional_context = {
             let meta_context = meta_context.clone();
@@ -907,9 +919,9 @@ where
 
                 let full_path = format!("http://leptos.dev{path}");
                 let (_, req_parts) = generate_request_and_parts(req);
-                provide_contexts(
+                provide_contexts::<I>(
                     &full_path,
-                    &meta_context,
+                    meta_context,
                     req_parts,
                     res_options.clone(),
                 );
@@ -917,7 +929,7 @@ where
             }
         };
 
-        let res = AxumResponse::from_app(
+        let res = AxumResponse::from_app::<I, _>(
             app_fn,
             meta_output,
             additional_context,
@@ -934,14 +946,14 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-fn provide_contexts(
+fn provide_contexts<I: ServerExtension>(
     path: &str,
-    meta_context: &ServerMetaContext,
+    injected_context: I::Context,
     parts: Parts,
     default_res_options: ResponseOptions,
 ) {
     provide_context(RequestUrl::new(path));
-    provide_context(meta_context.clone());
+    I::provide_context(injected_context);
     provide_context(parts);
     provide_context(default_res_options);
     provide_server_redirect(redirect);
@@ -1002,7 +1014,7 @@ fn provide_contexts(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_async<IV>(
+pub fn render_app_async<I: ServerExtension, IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -1013,7 +1025,7 @@ pub fn render_app_async<IV>(
 where
     IV: IntoView + 'static,
 {
-    render_app_async_with_context(|| {}, app_fn)
+    render_app_async_with_context::<I, _>(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1057,7 +1069,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_async_stream_with_context<IV>(
+pub fn render_app_async_stream_with_context<I: ServerExtension, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -1069,7 +1081,7 @@ pub fn render_app_async_stream_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response::<I, _>(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             let app = if cfg!(feature = "dont-use-islands-router") {
                 app.to_html_stream_in_order_branching()
@@ -1125,7 +1137,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_app_async_with_context<IV>(
+pub fn render_app_async_with_context<I: ServerExtension, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -1137,7 +1149,7 @@ pub fn render_app_async_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, async_stream_builder)
+    handle_response::<I, _>(additional_context, app_fn, async_stream_builder)
 }
 
 fn async_stream_builder<IV>(
@@ -1166,13 +1178,13 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn generate_route_list<IV>(
+pub fn generate_route_list<I: ServerExtension, IV>(
     app_fn: impl Fn() -> IV + 'static + Clone + Send,
 ) -> Vec<AxumRouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None).0
+    generate_route_list_with_exclusions_and_ssg::<I, _>(app_fn, None).0
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use t.clone()his to automatically
@@ -1182,13 +1194,13 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn generate_route_list_with_ssg<IV>(
+pub fn generate_route_list_with_ssg<I: ServerExtension, IV>(
     app_fn: impl Fn() -> IV + 'static + Clone + Send,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None)
+    generate_route_list_with_exclusions_and_ssg::<I, _>(app_fn, None)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1199,14 +1211,15 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn generate_route_list_with_exclusions<IV>(
+pub fn generate_route_list_with_exclusions<I: ServerExtension, IV>(
     app_fn: impl Fn() -> IV + 'static + Clone + Send,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<AxumRouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
+    generate_route_list_with_exclusions_and_ssg::<I, _>(app_fn, excluded_routes)
+        .0
 }
 
 /// Builds all routes that have been defined using [`StaticRoute`].
@@ -1243,14 +1256,14 @@ pub async fn build_static_routes<IV>(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn generate_route_list_with_exclusions_and_ssg<IV>(
+pub fn generate_route_list_with_exclusions_and_ssg<I: ServerExtension, IV>(
     app_fn: impl Fn() -> IV + 'static + Clone + Send,
     excluded_routes: Option<Vec<String>>,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg_and_context(
+    generate_route_list_with_exclusions_and_ssg_and_context::<I, _>(
         app_fn,
         excluded_routes,
         || {},
@@ -1339,12 +1352,13 @@ impl AxumRouteListing {
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
+pub fn generate_route_list_with_exclusions_and_ssg_and_context<I, IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     excluded_routes: Option<Vec<String>>,
     additional_context: impl Fn() + Clone + Send + 'static,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
     // do some basic reactive setup
@@ -1361,14 +1375,19 @@ where
             // stub out a path for now
             provide_context(RequestUrl::new(""));
             let (mock_parts, _) = Request::new(Body::from("")).into_parts();
-            let (mock_meta, _) = ServerMetaContext::new();
-            provide_contexts("", &mock_meta, mock_parts, Default::default());
+            let (mock_context, _) = I::new();
+            provide_contexts::<I>(
+                "",
+                mock_context,
+                mock_parts,
+                Default::default(),
+            );
             additional_context();
             RouteList::generate(&app_fn)
         })
         .unwrap_or_default();
 
-    let generator = StaticRouteGenerator::new(
+    let generator = StaticRouteGenerator::new::<I, _>(
         &routes,
         app_fn.clone(),
         additional_context.clone(),
@@ -1409,12 +1428,14 @@ pub struct StaticRouteGenerator(
 
 impl StaticRouteGenerator {
     #[cfg(feature = "default")]
-    fn render_route<IV: IntoView + 'static>(
+    fn render_route<I: ServerExtension, IV: IntoView + 'static>(
         path: String,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
         additional_context: impl Fn() + Clone + Send + 'static,
     ) -> impl Future<Output = (Owner, String)> {
-        let (meta_context, meta_output) = ServerMetaContext::new();
+        use leptos_integration_utils::ResponseStreamInjector as _;
+
+        let (meta_context, meta_output) = I::new();
         let additional_context = {
             let add_context = additional_context.clone();
             move || {
@@ -1426,9 +1447,9 @@ impl StaticRouteGenerator {
                     .unwrap();
                 let (mock_parts, _) = mock_req.into_parts();
                 let res_options = ResponseOptions::default();
-                provide_contexts(
+                provide_contexts::<I>(
                     &full_path,
-                    &meta_context,
+                    meta_context,
                     mock_parts,
                     res_options,
                 );
@@ -1451,7 +1472,7 @@ impl StaticRouteGenerator {
             }
 
             let html = meta_output
-                .inject_meta_context(stream)
+                .inject_response(stream)
                 .await
                 .collect::<String>()
                 .await;
@@ -1460,12 +1481,13 @@ impl StaticRouteGenerator {
     }
 
     /// Creates a new static route generator from the given list of route definitions.
-    pub fn new<IV>(
+    pub fn new<I, IV>(
         routes: &RouteList,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
         additional_context: impl Fn() + Clone + Send + 'static,
     ) -> Self
     where
+        I: ServerExtension,
         IV: IntoView + 'static,
     {
         #[cfg(feature = "default")]
@@ -1479,7 +1501,7 @@ impl StaticRouteGenerator {
 
                     Box::pin(routes.generate_static_files(
                         move |path: &ResolvedStaticPath| {
-                            Self::render_route(
+                            Self::render_route::<I, _>(
                                 path.to_string(),
                                 app_fn.clone(),
                                 additional_context.clone(),
@@ -1578,7 +1600,7 @@ async fn write_static_route(
 }
 
 #[cfg(feature = "default")]
-fn handle_static_route<S, IV>(
+fn handle_static_route<S, I, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     regenerate: Vec<RegenerationFn>,
@@ -1592,6 +1614,7 @@ fn handle_static_route<S, IV>(
 where
     LeptosOptions: FromRef<S>,
     S: Send + 'static,
+    I: ServerExtension,
     IV: IntoView + 'static,
 {
     use tower_http::services::ServeFile;
@@ -1613,7 +1636,7 @@ where
                 let (owner, html) = path
                     .build(
                         move |path: &ResolvedStaticPath| {
-                            StaticRouteGenerator::render_route(
+                            StaticRouteGenerator::render_route::<I, _>(
                                 path.to_string(),
                                 app_fn.clone(),
                                 additional_context.clone(),
@@ -1678,16 +1701,17 @@ where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
 {
-    fn leptos_routes<IV>(
+    fn leptos_routes<I, IV>(
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
-        IV: IntoView + 'static;
+        IV: IntoView + 'static,
+        I: ServerExtension;
 
-    fn leptos_routes_with_context<IV>(
+    fn leptos_routes_with_context<I, IV>(
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
@@ -1695,7 +1719,8 @@ where
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
-        IV: IntoView + 'static;
+        IV: IntoView + 'static,
+        I: ServerExtension;
 
     fn leptos_routes_with_handler<H, T>(
         self,
@@ -1756,23 +1781,24 @@ where
         feature = "tracing",
         tracing::instrument(level = "trace", fields(error), skip_all)
     )]
-    fn leptos_routes<IV>(
+    fn leptos_routes<I, IV>(
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
+        I: ServerExtension,
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(state, paths, || {}, app_fn)
+        self.leptos_routes_with_context::<I, _>(state, paths, || {}, app_fn)
     }
 
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(level = "trace", fields(error), skip_all)
     )]
-    fn leptos_routes_with_context<IV>(
+    fn leptos_routes_with_context<I: ServerExtension, IV>(
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
@@ -1833,7 +1859,7 @@ where
                     {
                         router.route(
                             path,
-                            get(handle_static_route(
+                            get(handle_static_route::<_, I, _>(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                                 listing.regenerate.clone(),
@@ -1852,7 +1878,7 @@ where
                     path,
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
-                            let s = render_app_to_stream_with_context(
+                            let s = render_app_to_stream_with_context::<I, _>(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
@@ -1865,7 +1891,7 @@ where
                             }
                         }
                         SsrMode::PartiallyBlocked => {
-                            let s = render_app_to_stream_with_context_and_replace_blocks(
+                            let s = render_app_to_stream_with_context_and_replace_blocks::<I, _>(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                                 true
@@ -1879,7 +1905,7 @@ where
                             }
                         }
                         SsrMode::InOrder => {
-                            let s = render_app_to_stream_in_order_with_context(
+                            let s = render_app_to_stream_in_order_with_context::<I, _>(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
@@ -1892,7 +1918,7 @@ where
                             }
                         }
                         SsrMode::Async => {
-                            let s = render_app_async_with_context(
+                            let s = render_app_async_with_context::<I, _>(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
@@ -2001,7 +2027,7 @@ where
 }
 
 #[cfg(feature = "default")]
-pub fn file_and_error_handler<S, IV>(
+pub fn file_and_error_handler<S, I, IV>(
     shell: fn(LeptosOptions) -> IV,
 ) -> impl Fn(
     Uri,
@@ -2012,6 +2038,7 @@ pub fn file_and_error_handler<S, IV>(
        + Send
        + 'static
 where
+    I: ServerExtension,
     IV: IntoView + 'static,
     S: Send + 'static,
     LeptosOptions: FromRef<S>,
@@ -2025,7 +2052,7 @@ where
             if res.status() == StatusCode::OK {
                 res.into_response()
             } else {
-                let mut res = handle_response_inner(
+                let mut res = handle_response_inner::<I, _>(
                     || {},
                     move || shell(options),
                     req,
