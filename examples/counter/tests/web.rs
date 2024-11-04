@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use counter::*;
 use leptos::mount::mount_to;
 use leptos::prelude::*;
