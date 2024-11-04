@@ -44,6 +44,18 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 /// from the server to the client.
 pub struct SerializedDataId(usize);
 
+impl SerializedDataId {
+    /// Create a new instance of [`SerializedDataId`].
+    pub fn new(id: usize) -> Self {
+        SerializedDataId(id)
+    }
+
+    /// Consume into the inner usize identifier.
+    pub fn into_inner(self) -> usize {
+        self.0
+    }
+}
+
 impl From<SerializedDataId> for ErrorId {
     fn from(value: SerializedDataId) -> Self {
         value.0.into()
