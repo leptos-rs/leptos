@@ -1579,7 +1579,10 @@ where
         ServerFnError::new("HttpRequest should have been provided via context")
     })?;
 
-    T::extract(&req)
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+    SendWrapper::new(async move {
+        T::extract(&req)
+            .await
+            .map_err(|e| ServerFnError::ServerError(e.to_string()))
+    })
+    .await
 }
