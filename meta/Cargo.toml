@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.7.0-rc0"
+version = "0.7.0-rc1"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
