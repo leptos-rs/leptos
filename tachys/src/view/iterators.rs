@@ -436,7 +436,7 @@ where
     }
 
     fn html_len(&self) -> usize {
-        self.iter().map(RenderHtml::html_len).sum::<usize>() + 2
+        self.iter().map(RenderHtml::html_len).sum::<usize>()
     }
 
     fn to_html_with_buf(
@@ -449,7 +449,6 @@ where
         for child in self.into_iter() {
             child.to_html_with_buf(buf, position, escape, mark_branches);
         }
-        buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -469,7 +468,6 @@ where
                 mark_branches,
             );
         }
-        buf.push_sync("<!>");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
