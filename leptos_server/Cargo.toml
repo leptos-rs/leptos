@@ -16,7 +16,7 @@ hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
 server_fn = { workspace = true }
 tracing = { version = "0.1.40", optional = true }
-futures = "0.3.30"
+futures = "0.3.31"
 
 any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
@@ -25,8 +25,8 @@ send_wrapper = "0.6"
 
 # serialization formats
 serde = { version = "1.0" }
-js-sys = { version = "0.3.69", optional = true }
-wasm-bindgen = { version = "0.2.93", optional = true }
+js-sys = { version = "0.3.72", optional = true }
+wasm-bindgen = { version = "0.2.95", optional = true }
 serde_json = { version = "1.0" }
 
 [features]

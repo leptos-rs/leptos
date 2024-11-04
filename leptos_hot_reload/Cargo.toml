@@ -25,4 +25,4 @@ proc-macro2 = { version = "1.0", features = ["span-locations", "nightly"] }
 parking_lot = "0.12.3"
 walkdir = "2.5"
 camino = "1.1"
-indexmap = "2.3"
+indexmap = "2.6"
