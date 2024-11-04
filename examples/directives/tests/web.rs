@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use directives::App;
 use leptos::{prelude::*, task::tick};
 use wasm_bindgen::JsCast;
