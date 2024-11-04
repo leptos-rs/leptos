@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.1.0-rc0"
+version = "0.1.0-rc1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -182,4 +182,17 @@ tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]
-skip_feature_sets = [["ssr", "hydrate"], ["hydrate", "islands"], ["ssr", "delegation"]]
+skip_feature_sets = [
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "hydrate",
+    "islands",
+  ],
+  [
+    "ssr",
+    "delegation",
+  ],
+]

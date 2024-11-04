@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.0-rc0"
+version = "0.7.0-rc1"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -48,6 +48,7 @@ experimental-islands = []
 trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
+generic = ["server_fn_macro/generic"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
@@ -66,6 +67,14 @@ skip_feature_sets = [
 	],
 	[
 		"actix",
+		"axum",
+	],
+	[
+		"actix",
+		"generic",
+	],
+	[
+		"generic",
 		"axum",
 	],
 ]

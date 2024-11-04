@@ -71,12 +71,10 @@ use leptos_router::{
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use server_fn::{
-    axum::unregister_server_fns, redirect::REDIRECT_HEADER, ServerFnError,
-};
+use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 #[cfg(feature = "default")]
 use std::path::Path;
-use std::{fmt::Debug, io, pin::Pin, sync::Arc};
+use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
 #[cfg(feature = "default")]
@@ -1265,6 +1263,7 @@ pub struct AxumRouteListing {
     methods: Vec<leptos_router::Method>,
     #[allow(unused)]
     regenerate: Vec<RegenerationFn>,
+    exclude: bool,
 }
 
 trait IntoRouteListing: Sized {
@@ -1292,6 +1291,7 @@ impl IntoRouteListing for RouteListing {
                     mode: mode.clone(),
                     methods,
                     regenerate,
+                    exclude: false,
                 }
             })
             .collect()
@@ -1311,6 +1311,7 @@ impl AxumRouteListing {
             mode,
             methods: methods.into_iter().collect(),
             regenerate: regenerate.into(),
+            exclude: false,
         }
     }
 
@@ -1351,11 +1352,6 @@ where
     init_executor();
     let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
 
-    // remove any server fns that match excluded paths
-    if let Some(excluded) = &excluded_routes {
-        unregister_server_fns(excluded);
-    }
-
     let routes = owner
         .with(|| {
             // stub out a path for now
@@ -1381,24 +1377,33 @@ where
         .flat_map(IntoRouteListing::into_route_listing)
         .collect::<Vec<_>>();
 
-    (
-        if routes.is_empty() {
-            vec![AxumRouteListing::new(
-                "/".to_string(),
-                Default::default(),
-                [leptos_router::Method::Get],
-                vec![],
-            )]
-        } else {
-            // Routes to exclude from auto generation
-            if let Some(excluded_routes) = excluded_routes {
-                routes
-                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-            }
-            routes
-        },
-        generator,
-    )
+    let routes = if routes.is_empty() {
+        vec![AxumRouteListing::new(
+            "/".to_string(),
+            Default::default(),
+            [leptos_router::Method::Get],
+            vec![],
+        )]
+    } else {
+        // Routes to exclude from auto generation
+        if let Some(excluded_routes) = &excluded_routes {
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
+        routes
+    };
+    let excluded =
+        excluded_routes
+            .into_iter()
+            .flatten()
+            .map(|path| AxumRouteListing {
+                path,
+                mode: Default::default(),
+                methods: Vec::new(),
+                regenerate: Vec::new(),
+                exclude: true,
+            });
+
+    (routes.into_iter().chain(excluded).collect(), generator)
 }
 
 /// Allows generating any prerendered routes.
@@ -1794,32 +1799,41 @@ where
 
         let mut router = self;
 
+        let excluded = paths
+            .iter()
+            .filter(|&p| p.exclude)
+            .map(|p| p.path.as_str())
+            .collect::<HashSet<_>>();
+
         // register server functions
         for (path, method) in server_fn::axum::server_fn_paths() {
             let cx_with_state = cx_with_state.clone();
             let handler = move |req: Request<Body>| async move {
                 handle_server_fns_with_context(cx_with_state, req).await
             };
-            router = router.route(
-                path,
-                match method {
-                    Method::GET => get(handler),
-                    Method::POST => post(handler),
-                    Method::PUT => put(handler),
-                    Method::DELETE => delete(handler),
-                    Method::PATCH => patch(handler),
-                    _ => {
-                        panic!(
-                            "Unsupported server function HTTP method: \
-                             {method:?}"
-                        );
-                    }
-                },
-            );
+
+            if !excluded.contains(path) {
+                router = router.route(
+                    path,
+                    match method {
+                        Method::GET => get(handler),
+                        Method::POST => post(handler),
+                        Method::PUT => put(handler),
+                        Method::DELETE => delete(handler),
+                        Method::PATCH => patch(handler),
+                        _ => {
+                            panic!(
+                                "Unsupported server function HTTP method: \
+                                 {method:?}"
+                            );
+                        }
+                    },
+                );
+            }
         }
 
         // register router paths
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
 
             for method in listing.methods() {
@@ -1928,7 +1942,7 @@ where
         T: 'static,
     {
         let mut router = self;
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             for method in listing.methods() {
                 router = router.route(
                     listing.path(),

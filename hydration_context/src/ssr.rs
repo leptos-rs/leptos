@@ -58,6 +58,27 @@ impl SsrSharedContext {
             ..Default::default()
         }
     }
+
+    /// Consume the data buffers, awaiting all async resources,
+    /// returning both sync and async buffers.
+    /// Useful to implement custom hydration contexts.
+    ///
+    /// WARNING: this will clear the internal buffers, it should only be called once.
+    /// A second call would return an empty `vec![]`.
+    pub async fn consume_buffers(&self) -> Vec<(SerializedDataId, String)> {
+        let sync_data = mem::take(&mut *self.sync_buf.write().or_poisoned());
+        let async_data = mem::take(&mut *self.async_buf.write().or_poisoned());
+
+        let mut all_data = Vec::new();
+        for resolved in sync_data {
+            all_data.push((resolved.0, resolved.1));
+        }
+        for (id, fut) in async_data {
+            let data = fut.await;
+            all_data.push((id, data));
+        }
+        all_data
+    }
 }
 
 impl Debug for SsrSharedContext {

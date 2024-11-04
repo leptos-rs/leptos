@@ -291,9 +291,10 @@ impl Executor {
     ///
     /// Returns `Err(_)` if an executor has already been set.
     pub fn init_custom_executor(
-        custom_executor: impl CustomExecutor + 'static,
+        custom_executor: impl CustomExecutor + Send + Sync + 'static,
     ) -> Result<(), ExecutorError> {
-        static EXECUTOR: OnceLock<Box<dyn CustomExecutor>> = OnceLock::new();
+        static EXECUTOR: OnceLock<Box<dyn CustomExecutor + Send + Sync>> =
+            OnceLock::new();
         EXECUTOR
             .set(Box::new(custom_executor))
             .map_err(|_| ExecutorError::AlreadySet)?;
@@ -311,13 +312,46 @@ impl Executor {
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
     }
+
+    /// Locally sets a custom executor as the executor used to spawn tasks
+    /// in the current thread.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    pub fn init_local_custom_executor(
+        custom_executor: impl CustomExecutor + 'static,
+    ) -> Result<(), ExecutorError> {
+        thread_local! {
+            static EXECUTOR: OnceLock<Box<dyn CustomExecutor>> = OnceLock::new();
+        }
+        EXECUTOR.with(|this| {
+            this.set(Box::new(custom_executor))
+                .map_err(|_| ExecutorError::AlreadySet)
+        })?;
+
+        SPAWN
+            .set(|fut| {
+                EXECUTOR.with(|this| this.get().unwrap().spawn(fut));
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        SPAWN_LOCAL
+            .set(|fut| {
+                EXECUTOR.with(|this| this.get().unwrap().spawn_local(fut));
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        POLL_LOCAL
+            .set(|| {
+                EXECUTOR.with(|this| this.get().unwrap().poll_local());
+            })
+            .map_err(|_| ExecutorError::AlreadySet)?;
+        Ok(())
+    }
 }
 
 /// A trait for custom executors.
 /// Custom executors can be used to integrate with any executor that supports spawning futures.
 ///  
 /// All methods can be called recursively.
-pub trait CustomExecutor: Send + Sync {
+pub trait CustomExecutor {
     /// Spawns a future, usually on a thread pool.
     fn spawn(&self, fut: PinnedFuture<()>);
     /// Spawns a local future. May require calling `poll_local` to make progress.

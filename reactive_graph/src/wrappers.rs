@@ -1078,7 +1078,7 @@ pub mod read {
     /// ```
     #[derive(Debug, PartialEq, Eq)]
     #[deprecated(
-        since = "0.7.0-rc0",
+        since = "0.7.0-rc1",
         note = "`MaybeSignal<T>` is deprecated in favour of `Signal<T>` which \
                 is `Copy`, now has a more efficient From<T> implementation \
                 and other benefits in 0.7."

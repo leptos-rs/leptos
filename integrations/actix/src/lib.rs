@@ -41,10 +41,10 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
-    actix::unregister_server_fns, redirect::REDIRECT_HEADER,
-    request::actix::ActixRequest, ServerFnError,
+    redirect::REDIRECT_HEADER, request::actix::ActixRequest, ServerFnError,
 };
 use std::{
+    collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
     ops::{Deref, DerefMut},
@@ -944,6 +944,7 @@ pub struct ActixRouteListing {
     mode: SsrMode,
     methods: Vec<leptos_router::Method>,
     regenerate: Vec<RegenerationFn>,
+    exclude: bool,
 }
 
 trait IntoRouteListing: Sized {
@@ -971,6 +972,7 @@ impl IntoRouteListing for RouteListing {
                     mode: mode.clone(),
                     methods,
                     regenerate,
+                    exclude: false,
                 }
             })
             .collect()
@@ -990,6 +992,7 @@ impl ActixRouteListing {
             mode,
             methods: methods.into_iter().collect(),
             regenerate: regenerate.into(),
+            exclude: false,
         }
     }
 
@@ -1024,11 +1027,6 @@ where
 {
     let _ = any_spawner::Executor::init_tokio();
 
-    // remove any server fns that match excluded paths
-    if let Some(excluded) = &excluded_routes {
-        unregister_server_fns(excluded);
-    }
-
     let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
     let (mock_meta, _) = ServerMetaContext::new();
     let routes = owner
@@ -1055,24 +1053,34 @@ where
         .flat_map(IntoRouteListing::into_route_listing)
         .collect::<Vec<_>>();
 
-    (
-        if routes.is_empty() {
-            vec![ActixRouteListing::new(
-                "/".to_string(),
-                Default::default(),
-                [leptos_router::Method::Get],
-                vec![],
-            )]
-        } else {
-            // Routes to exclude from auto generation
-            if let Some(excluded_routes) = excluded_routes {
-                routes
-                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-            }
-            routes
-        },
-        generator,
-    )
+    let routes = if routes.is_empty() {
+        vec![ActixRouteListing::new(
+            "/".to_string(),
+            Default::default(),
+            [leptos_router::Method::Get],
+            vec![],
+        )]
+    } else {
+        // Routes to exclude from auto generation
+        if let Some(excluded_routes) = &excluded_routes {
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
+        routes
+    };
+
+    let excluded =
+        excluded_routes
+            .into_iter()
+            .flatten()
+            .map(|path| ActixRouteListing {
+                path,
+                mode: Default::default(),
+                methods: Vec::new(),
+                regenerate: Vec::new(),
+                exclude: true,
+            });
+
+    (routes.into_iter().chain(excluded).collect(), generator)
 }
 
 /// Allows generating any prerendered routes.
@@ -1378,15 +1386,24 @@ where
     {
         let mut router = self;
 
+        let excluded = paths
+            .iter()
+            .filter(|&p| p.exclude)
+            .map(|p| p.path.as_str())
+            .collect::<HashSet<_>>();
+
         // register server functions first to allow for wildcard route in Leptos's Router
         for (path, _) in server_fn::actix::server_fn_paths() {
-            let additional_context = additional_context.clone();
-            let handler = handle_server_fns_with_context(additional_context);
-            router = router.route(path, handler);
+            if !excluded.contains(path) {
+                let additional_context = additional_context.clone();
+                let handler =
+                    handle_server_fns_with_context(additional_context);
+                router = router.route(path, handler);
+            }
         }
 
         // register routes defined in Leptos's Router
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
 
@@ -1482,15 +1499,24 @@ impl LeptosRoutes for &mut ServiceConfig {
     {
         let mut router = self;
 
+        let excluded = paths
+            .iter()
+            .filter(|&p| p.exclude)
+            .map(|p| p.path.as_str())
+            .collect::<HashSet<_>>();
+
         // register server functions first to allow for wildcard route in Leptos's Router
         for (path, _) in server_fn::actix::server_fn_paths() {
-            let additional_context = additional_context.clone();
-            let handler = handle_server_fns_with_context(additional_context);
-            router = router.route(path, handler);
+            if !excluded.contains(path) {
+                let additional_context = additional_context.clone();
+                let handler =
+                    handle_server_fns_with_context(additional_context);
+                router = router.route(path, handler);
+            }
         }
 
         // register routes defined in Leptos's Router
-        for listing in paths.iter() {
+        for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
 
@@ -1579,7 +1605,10 @@ where
         ServerFnError::new("HttpRequest should have been provided via context")
     })?;
 
-    T::extract(&req)
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+    SendWrapper::new(async move {
+        T::extract(&req)
+            .await
+            .map_err(|e| ServerFnError::ServerError(e.to_string()))
+    })
+    .await
 }
