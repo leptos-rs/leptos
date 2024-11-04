@@ -12,9 +12,9 @@ edition.workspace = true
 [dependencies]
 any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
-futures = "0.3.30"
+futures = "0.3.31"
 hydration_context = { workspace = true, optional = true }
-pin-project-lite = "0.2.14"
+pin-project-lite = "0.2.15"
 rustc-hash = "2.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 slotmap = "1.0"
@@ -25,10 +25,10 @@ async-lock = "3.4.0"
 send_wrapper = { version = "0.6.0", features = ["futures"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-web-sys = "0.3.70"
+web-sys = "0.3.72"
 
 [dev-dependencies]
-tokio = { version = "1.39", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 

@@ -19,7 +19,7 @@ rustc-hash = "2.0"
 reactive_stores_macro = { workspace = true }
 
 [dev-dependencies]
-tokio = { version = "1.39", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_graph = { workspace = true, features = ["effects"] }

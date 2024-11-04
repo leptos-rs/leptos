@@ -10,14 +10,14 @@ edition.workspace = true
 
 [dependencies]
 async-executor = { version = "1.13.1", optional = true }
-futures = "0.3.30"
-glib = { version = "0.20.0", optional = true }
+futures = "0.3.31"
+glib = { version = "0.20.5", optional = true }
 thiserror = "1.0"
-tokio = { version = "1.39", optional = true, default-features = false, features = [
+tokio = { version = "1.41", optional = true, default-features = false, features = [
   "rt",
 ] }
 tracing = { version = "0.1.40", optional = true }
-wasm-bindgen-futures = { version = "0.4.42", optional = true }
+wasm-bindgen-futures = { version = "0.4.45", optional = true }
 
 [features]
 async-executor = ["dep:async-executor"]

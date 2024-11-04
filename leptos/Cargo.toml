@@ -40,7 +40,7 @@ server_fn = { workspace = true, features = [
   "browser",
   "url",
 ] }
-web-sys = { version = "0.3.70", features = [
+web-sys = { version = "0.3.72", features = [
   "ShadowRoot",
   "ShadowRootInit",
   "ShadowRootMode",
@@ -48,7 +48,7 @@ web-sys = { version = "0.3.70", features = [
 wasm-bindgen = "0.2.95"
 serde_qs = "0.13.0"
 slotmap = "1.0"
-futures = "0.3.30"
+futures = "0.3.31"
 send_wrapper = "0.6.0"
 
 [features]
