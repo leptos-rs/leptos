@@ -23,7 +23,7 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 2 |
+            | get_item           | 1 |
             | inspect_item_root  | 0 |
             | inspect_item_field | 0 |
 
@@ -42,8 +42,8 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 1 |
-            | inspect_item_root  | 2 |
+            | get_item           | 0 |
+            | inspect_item_root  | 1 |
             | inspect_item_field | 0 |
 
     Scenario: Emulate step 7 of issue #2961
@@ -62,8 +62,8 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 1 |
-            | inspect_item_root  | 3 |
+            | get_item           | 0 |
+            | inspect_item_root  | 2 |
             | inspect_item_field | 0 |
 
     Scenario: Emulate step 8, "not trigger double fetch".
@@ -82,7 +82,7 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 2 |
+            | get_item           | 1 |
             | inspect_item_root  | 1 |
             | inspect_item_field | 0 |
 
@@ -103,7 +103,7 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 3 |
+            | get_item           | 2 |
             | inspect_item_root  | 1 |
             | inspect_item_field | 0 |
 
@@ -124,21 +124,17 @@ Feature: Using instrumented counters for real
         And the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 2 |
+            | get_item           | 1 |
             | inspect_item_root  | 1 |
             | inspect_item_field | 0 |
 
-    # Currently, get_item is invoked with `3` as the argument upon
-    # selection of `Item Listing` despite that `Item Listing` doesn't
-    # need `get_item` calls.  Seems like it may be due to the system
-    # still reacting to the unmounting of the component that needed
-    # view that generated the original `Item 3` (hydrated from SSR).
-    # Tests above may also have this type of behavior, but is somewhat
-    # masked because the direction of going down and then back up, but
-    # if this behavior changes for the better (avoiding this spurious
-    # resource fetch) then the above tests may need updating to reflect
-    # the corrected behavior.  Note the difference with the fully CSR
-    # scenario after this one
+    # The following tests previously showed the clear difference between
+    # hydration and CSR, where hydration resulting in extra server API
+    # calls via the resource while CSR did not suffer from the issue.
+    # With #3182 merged the issue is corrected, going up to components
+    # specified by the parent route should no longer result in the
+    # superfluous fetches for resources needed by component about to be
+    # unmounted.
     Scenario: Emulate part of step 8 of issue #2961
         Given I select the link Target 3##
         And I refresh the page
@@ -147,12 +143,10 @@ Feature: Using instrumented counters for real
         Then I see the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 1 |
+            | get_item           | 0 |
             | inspect_item_root  | 0 |
             | inspect_item_field | 0 |
 
-    # Instead of refreshing the page like above, CSR counters is reset
-    # instead to keep the starting counter conditions identical.
     Scenario: Emulate above, instead of refresh page, reset csr counters
         Given I select the link Target 3##
         And I click on Reset CSR Counters
@@ -165,9 +159,7 @@ Feature: Using instrumented counters for real
             | inspect_item_root  | 0 |
             | inspect_item_field | 0 |
 
-    # Again, the following two sets demostrates resources making stale
-    # and redundant requests when hydrated, and not do so when under
-    # CSR.
+    # Further two sets for good measure.
     Scenario: Start with hydration from Target 41# and go up
         Given I select the link Target 41#
         And I refresh the page
@@ -177,11 +169,11 @@ Feature: Using instrumented counters for real
         Then I see the following counters under section
             | Server Calls (CSR) |   |
             | list_items         | 0 |
-            | get_item           | 1 |
-            | inspect_item_root  | 1 |
+            | get_item           | 0 |
+            | inspect_item_root  | 0 |
             | inspect_item_field | 0 |
 
-    Scenario: Start with hydration from Target 41# and go up
+    Scenario: Emulate the same csr counter reset, for Target 41#.
         Given I select the link Target 41#
         And I click on Reset CSR Counters
         When I select the link Target 4##
