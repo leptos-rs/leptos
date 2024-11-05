@@ -658,7 +658,10 @@ fn component_macro(
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_transparent(is_transparent).with_island(island).into_token_stream();
+        let expanded = model
+            .is_transparent(is_transparent)
+            .with_island(island)
+            .into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -670,14 +673,14 @@ fn component_macro(
             #expanded
 
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
     } else if let Ok(mut dummy) = dummy {
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
             #dummy
         }
     } else {
