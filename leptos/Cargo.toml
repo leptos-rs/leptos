@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
-any_spawner = { workspace = true, features = ["wasm-bindgen"] }
+any_spawner = { workspace = true, features = ["wasm-bindgen", "futures-executor"] }
 base64 = { version = "0.22.1", optional = true }
 cfg-if = "1.0"
 hydration_context = { workspace = true }
