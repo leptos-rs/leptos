@@ -124,3 +124,12 @@ async fn component_message(client: &Client, id: &str) -> Result<String> {
 
     Ok(text)
 }
+
+pub async fn link_with_text(client: &Client, text: &str) -> Result<Element> {
+    let link = client
+        .wait()
+        .for_element(Locator::LinkText(text))
+        .await
+        .expect(format!("Link not found by `{}`", text).as_str());
+    Ok(link)
+}
