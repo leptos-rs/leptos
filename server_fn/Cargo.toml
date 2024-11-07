@@ -51,7 +51,7 @@ postcard = { version = "1", features = ["alloc"], optional = true }
 hyper = { version = "1.5", optional = true }
 bytes = "1.8"
 http-body-util = { version = "0.1.2", optional = true }
-rkyv = { version = "0.7.45", optional = true }
+rkyv = { version = "0.8.8", optional = true }
 rmp-serde = { version = "1.3.0", optional = true }
 
 # client
