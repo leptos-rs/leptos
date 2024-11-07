@@ -16,15 +16,15 @@ leptos_router = { path = "../../router" }
 leptos_integration_utils = { path = "../../integrations/utils", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 axum = { version = "0.7.5", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.5.2", features = ["fs"], optional = true }
+tower = { version = "0.5.1", features = ["util"], optional = true }
+tower-http = { version = "0.6.1", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
 http = { version = "1.1" }
 sqlx = { version = "0.8.0", features = [
   "runtime-tokio-rustls",
   "sqlite",
 ], optional = true }
-thiserror = "1.0"
+thiserror = "2.0"
 wasm-bindgen = "0.2.93"
 
 [features]
