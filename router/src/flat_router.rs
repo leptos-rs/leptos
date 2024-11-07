@@ -265,6 +265,9 @@ where
                     provide_context(Matched(ArcMemo::from(new_matched)));
                     fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
+                if let Some(location) = location {
+                    location.ready_to_complete();
+                }
             }
             Some(new_match) => {
                 let (view, child) = new_match.into_view_and_child();
