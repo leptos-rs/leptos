@@ -7,7 +7,5 @@ updates:
   - package-ecosystem: "cargo"
     directories:
       - "/"
-      - "/examples/*"
-      - "/benchmarks"
     schedule:
       interval: "daily"
