@@ -17,6 +17,10 @@ use std::{
     sync::Arc,
 };
 
+/// Reference-counted access to a single field of type `T`.
+///
+/// This can be used to erase the chain of field-accessors, to make it easier to pass this into
+/// another component or function without needing to specify the full type signature.
 pub struct ArcField<T>
 where
     T: 'static,

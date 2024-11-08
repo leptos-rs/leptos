@@ -20,6 +20,7 @@ use std::{
     panic::Location,
 };
 
+/// Provides access to the data at some index in another collection.
 #[derive(Debug)]
 pub struct AtIndex<Inner, Prev> {
     #[cfg(debug_assertions)]
@@ -47,6 +48,7 @@ where
 impl<Inner, Prev> Copy for AtIndex<Inner, Prev> where Inner: Copy {}
 
 impl<Inner, Prev> AtIndex<Inner, Prev> {
+    /// Creates a new accessor for the inner collection at the given index.
     #[track_caller]
     pub fn new(inner: Inner, index: usize) -> Self {
         Self {
@@ -191,12 +193,15 @@ where
     }
 }
 
+/// Provides unkeyed reactive access to the fields of some collection.
 pub trait StoreFieldIterator<Prev>
 where
     Self: StoreField<Value = Prev>,
 {
+    /// Reactive access to the value at some index.
     fn at_unkeyed(self, index: usize) -> AtIndex<Self, Prev>;
 
+    /// An iterator over the values in the collection.
     fn iter_unkeyed(self) -> StoreFieldIter<Self, Prev>;
 }
 
@@ -231,6 +236,7 @@ where
     }
 }
 
+/// An iterator over the values in a collection, as reactive fields.
 pub struct StoreFieldIter<Inner, Prev> {
     inner: Inner,
     idx: usize,

@@ -22,6 +22,7 @@ use std::{
     panic::Location,
 };
 
+/// Provides access to a subfield that contains some kind of keyed collection.
 #[derive(Debug)]
 pub struct KeyedSubfield<Inner, Prev, K, T>
 where
@@ -65,6 +66,7 @@ impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
+    /// Creates a keyed subfield of the inner data type with the given key function.
     #[track_caller]
     pub fn new(
         inner: Inner,
@@ -154,6 +156,7 @@ where
     }
 }
 
+/// Gives keyed write access to a value in some collection.
 pub struct KeyedSubfieldWriteGuard<Inner, Prev, K, T, Guard>
 where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
@@ -347,6 +350,7 @@ where
     }
 }
 
+/// Gives access to the value in a collection based on some key.
 #[derive(Debug)]
 pub struct AtKeyed<Inner, Prev, K, T>
 where
@@ -386,6 +390,7 @@ impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
+    /// Provides access to the item in the inner collection at this key.
     #[track_caller]
     pub fn new(inner: KeyedSubfield<Inner, Prev, K, T>, key: K) -> Self {
         Self {
@@ -610,6 +615,7 @@ where
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
+    /// Generates a new set of keys and registers those keys with the parent store.
     pub fn update_keys(&self) {
         let inner_path = self.path().into_iter().collect();
         let keys = self
@@ -660,6 +666,7 @@ where
     }
 }
 
+/// An iterator over a [`KeyedSubfield`].
 pub struct StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
