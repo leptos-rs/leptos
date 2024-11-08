@@ -20,17 +20,23 @@ use crate::static_routes::StaticRoute;
 /// 5. **`Async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
 ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
 ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
-/// 6. **`Static`**:
+/// 6. **`Static`**: Renders the page when the server starts up, or incrementally, using the
+///    configuration provided by a [`StaticRoute`].
 ///
 /// The mode defaults to out-of-order streaming. For a path that includes multiple nested routes, the most
 /// restrictive mode will be used: i.e., if even a single nested route asks for `Async` rendering, the whole initial
 /// request will be rendered `Async`. (`Async` is the most restricted requirement, followed by `InOrder`, `PartiallyBlocked`, and `OutOfOrder`.)
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SsrMode {
+    /// Out-of-order streaming.
     #[default]
     OutOfOrder,
+    /// Partially-blocked out-of-order streaming.
     PartiallyBlocked,
+    /// In-order streaming.
     InOrder,
+    /// Async rendering.
     Async,
+    /// Static rendering.
     Static(StaticRoute),
 }

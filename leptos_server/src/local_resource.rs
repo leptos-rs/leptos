@@ -17,6 +17,7 @@ use std::{
     panic::Location,
 };
 
+/// A reference-counted resource that only loads its data locally on the client.
 pub struct ArcLocalResource<T> {
     data: ArcAsyncDerived<SendWrapper<T>>,
     #[cfg(debug_assertions)]
@@ -34,6 +35,10 @@ impl<T> Clone for ArcLocalResource<T> {
 }
 
 impl<T> ArcLocalResource<T> {
+    /// Creates the resource.
+    ///
+    /// This will only begin loading data if you are on the client (i.e., if you do not have the
+    /// `ssr` feature activated).
     #[track_caller]
     pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
@@ -192,6 +197,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
     }
 }
 
+/// A resource that only loads its data locally on the client.
 pub struct LocalResource<T> {
     data: AsyncDerived<SendWrapper<T>>,
     #[cfg(debug_assertions)]
@@ -207,6 +213,10 @@ impl<T> Clone for LocalResource<T> {
 impl<T> Copy for LocalResource<T> {}
 
 impl<T> LocalResource<T> {
+    /// Creates the resource.
+    ///
+    /// This will only begin loading data if you are on the client (i.e., if you do not have the
+    /// `ssr` feature activated).
     #[track_caller]
     pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where

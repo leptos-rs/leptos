@@ -37,9 +37,12 @@ use std::{
 pub(crate) static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool =
     AtomicBool::new(false);
 
+/// Used to prevent resources from actually loading, in environments (like server route generation)
+/// where they are not needed.
 pub struct SuppressResourceLoad;
 
 impl SuppressResourceLoad {
+    /// Prevents resources from loading until this is dropped.
     pub fn new() -> Self {
         IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::Relaxed);
         Self
@@ -58,6 +61,15 @@ impl Drop for SuppressResourceLoad {
     }
 }
 
+/// A reference-counted asynchronous resource.
+///
+/// Resources allow asynchronously loading data and serializing it from the server to the client,
+/// so that it loads on the server, and is then deserialized on the client. This improves
+/// performance by beginning data loading on the server when the request is made, rather than
+/// beginning it on the client after WASM has been loaded.
+///
+/// You can access the value of the resource either synchronously using `.get()` or asynchronously
+/// using `.await`.
 pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
     refetch: ArcRwSignal<usize>,
@@ -194,6 +206,21 @@ where
     <Ser as Encoder<T>>::Encoded: IntoEncodedString,
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding `Ser`.
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// If `blocking` is `true`, this is a blocking resource.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -278,6 +305,8 @@ where
         }
     }
 
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
     #[track_caller]
     pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
     where
@@ -351,6 +380,13 @@ where
     T: Send + Sync + 'static,
     E: Send + Sync + Clone + 'static,
 {
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
     #[track_caller]
     pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
         self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
@@ -367,6 +403,15 @@ where
     <JsonSerdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`JsonSerdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -380,6 +425,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`JsonSerdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -402,6 +460,15 @@ where
     <FromToStringCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <FromToStringCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`FromToStringCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_str<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -414,6 +481,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`FromToStringCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_str_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -436,6 +516,15 @@ where
     <JsonSerdeWasmCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`JsonSerdeWasmCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -449,6 +538,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`JsonSerdeWasmCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_wb_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -473,6 +575,15 @@ where
     <MiniserdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`MiniserdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_miniserde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -486,6 +597,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`MiniserdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_miniserde_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -509,6 +633,15 @@ where
     <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Encoded: IntoEncodedString,
     <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`SerdeLite`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_serde_lite<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -522,6 +655,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`SerdeLite`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_lite_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -547,6 +693,15 @@ where
     <RkyvCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding [`RkyvCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_rkyv<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -560,6 +715,19 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`RkyvCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_rkyv_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -590,11 +758,22 @@ impl<T, Ser> ArcResource<T, Ser>
 where
     T: 'static,
 {
+    /// Returns a new [`Future`] that is ready when the resource has loaded, and accesses its inner
+    /// value by reference.
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         self.data.by_ref()
     }
 }
 
+/// An asynchronous resource.
+///
+/// Resources allow asynchronously loading data and serializing it from the server to the client,
+/// so that it loads on the server, and is then deserialized on the client. This improves
+/// performance by beginning data loading on the server when the request is made, rather than
+/// beginning it on the client after WASM has been loaded.
+///
+/// You can access the value of the resource either synchronously using `.get()` or asynchronously
+/// using `.await`.
 pub struct Resource<T, Ser = JsonSerdeCodec>
 where
     T: Send + Sync + 'static,
@@ -707,6 +886,15 @@ where
     <FromToStringCodec as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`FromToStringCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_str<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -720,6 +908,19 @@ where
         Resource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`FromToStringCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_str_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -745,6 +946,15 @@ where
     <JsonSerdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`JsonSerdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -758,6 +968,19 @@ where
         Resource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`JsonSerdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -782,6 +1005,15 @@ where
     <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`JsonSerdeWasmCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -794,6 +1026,19 @@ where
         Resource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`JsonSerdeWasmCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_serde_wb_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -819,6 +1064,15 @@ where
     <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`MiniserdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_miniserde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -829,6 +1083,31 @@ where
         Fut: Future<Output = T> + Send + 'static,
     {
         Resource::new_with_options(source, fetcher, false)
+    }
+
+    /// Creates a new blocking resource with the encoding [`MiniserdeCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
+    pub fn new_miniserde_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -843,6 +1122,15 @@ where
     <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`SerdeLite`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_serde_lite<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -855,6 +1143,19 @@ where
         Resource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`SerdeLite`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_serde_lite_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -880,6 +1181,15 @@ where
     <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding [`RkyvCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_rkyv<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -892,6 +1202,19 @@ where
         Resource::new_with_options(source, fetcher, false)
     }
 
+    /// Creates a new blocking resource with the encoding [`RkyvCodec`].
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_rkyv_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -915,6 +1238,21 @@ where
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    /// Creates a new resource with the encoding `Ser`.
+    ///
+    /// This takes a `source` function and a `fetcher`. The resource memoizes and reactively tracks
+    /// the value returned by `source`. Whenever that value changes, it will run the `fetcher` to
+    /// generate a new [`Future`] to load data.
+    ///
+    /// On creation, if you are on the server, this will run the `fetcher` once to generate
+    /// a `Future` whose value will be serialized from the server to the client. If you are on
+    /// the client, the initial value will be deserialized without re-running that async task.
+    ///
+    /// If `blocking` is `true`, this is a blocking resource.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
@@ -937,6 +1275,8 @@ where
         }
     }
 
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
     pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         self.data
             .try_with(|n| n.as_ref().map(|n| Some(f(n))))?
@@ -961,6 +1301,13 @@ where
     T: Send + Sync,
     E: Send + Sync + Clone,
 {
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
     #[track_caller]
     pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
         self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
@@ -984,6 +1331,8 @@ impl<T, Ser> Resource<T, Ser>
 where
     T: Send + Sync + 'static,
 {
+    /// Returns a new [`Future`] that is ready when the resource has loaded, and accesses its inner
+    /// value by reference.
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         self.data.by_ref()
     }

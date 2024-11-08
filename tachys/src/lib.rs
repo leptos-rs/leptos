@@ -3,9 +3,11 @@
 //! This view tree is generic over rendering backends, and agnostic about reactivity/change
 //! detection.
 
-#![allow(incomplete_features)] // yolo
+// this is specifically used for `unsized_const_params` below
+// this allows us to use const generic &'static str for static text nodes and attributes
+#![allow(incomplete_features)]
 #![cfg_attr(feature = "nightly", feature(unsized_const_params))]
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 
 /// Commonly-used traits.
 pub mod prelude {

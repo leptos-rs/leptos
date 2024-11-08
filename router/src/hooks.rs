@@ -17,6 +17,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+/// See [`query_signal`].
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal` to match Rust naming \
                 conventions."]
@@ -29,6 +30,7 @@ where
     query_signal(key)
 }
 
+/// See [`query_signal_with_options`].
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal_with_options` to mtch \
                 Rust naming conventions."]
@@ -88,6 +90,9 @@ where
     query_signal_with_options::<T>(key, NavigateOptions::default())
 }
 
+/// Constructs a signal synchronized with a specific URL query parameter.
+///
+/// This is the same as [`query_signal`], but allows you to specify additional navigation options.
 #[track_caller]
 pub fn query_signal_with_options<T>(
     key: impl Into<Oco<'static, str>>,
@@ -205,6 +210,7 @@ fn use_url_raw() -> ArcRwSignal<Url> {
     })
 }
 
+/// Gives reactive access to the current URL.
 #[track_caller]
 pub fn use_url() -> ReadSignal<Url> {
     use_url_raw().read_only().into()

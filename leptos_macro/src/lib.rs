@@ -1,3 +1,5 @@
+//! Macros for use with the [`leptos`] framework.
+
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
@@ -5,6 +7,7 @@
 // FIXME? every use of quote! {} is warning here -- false positive?
 #![allow(unknown_lints)]
 #![allow(private_macro_use)]
+#![deny(missing_docs)]
 
 #[macro_use]
 extern crate proc_macro_error2;

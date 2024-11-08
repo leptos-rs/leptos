@@ -75,11 +75,13 @@ impl RouteListing {
         }
     }
 
+    /// Generates the set of static paths for this route listing, depending on prerendered params.
     pub async fn into_static_paths(self) -> Option<Vec<ResolvedStaticPath>> {
         let params = self.static_route()?.to_prerendered_params().await;
         Some(StaticPath::new(self.path).into_paths(params))
     }
 
+    /// Generates static files for this route listing.
     pub async fn generate_static_files<Fut, WriterFut>(
         mut self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
@@ -148,6 +150,7 @@ impl RouteListing {
     */
 }
 
+/// A set of routes generated from the route definitions.
 #[derive(Debug, Default, Clone)]
 pub struct RouteList(Vec<RouteListing>);
 
@@ -158,24 +161,29 @@ impl From<Vec<RouteListing>> for RouteList {
 }
 
 impl RouteList {
+    /// Adds a route listing.
     pub fn push(&mut self, data: RouteListing) {
         self.0.push(data);
     }
 }
 
 impl RouteList {
+    /// Creates an empty list of routes.
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// Returns the list of routes.
     pub fn into_inner(self) -> Vec<RouteListing> {
         self.0
     }
 
+    /// Returns and iterator over the list of routes.
     pub fn iter(&self) -> impl Iterator<Item = &RouteListing> {
         self.0.iter()
     }
 
+    /// Generates a list of resolved static paths based on the inner list of route listings.
     pub async fn into_static_paths(self) -> Vec<ResolvedStaticPath> {
         futures::future::join_all(
             self.into_inner()
@@ -189,6 +197,7 @@ impl RouteList {
         .collect::<Vec<_>>()
     }
 
+    /// Generates static files for the inner list of route listings.
     pub async fn generate_static_files<Fut, WriterFut>(
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
@@ -220,6 +229,7 @@ impl RouteList {
         static GENERATED: RefCell<Option<RouteList>> = const { RefCell::new(None) };
     }
 
+    /// Creates a list of routes, based on route definitions in the given app.
     pub fn generate<T>(app: impl FnOnce() -> T) -> Option<Self>
     where
         T: RenderHtml,
@@ -233,10 +243,12 @@ impl RouteList {
         Self::GENERATED.take()
     }
 
+    /// Returns `true` if we are currently in a [`RouteList::generate`] call.
     pub fn is_generating() -> bool {
         Self::IS_GENERATING.get()
     }
 
+    /// Sets the given routes as the list of generated routes.
     pub fn register(routes: RouteList) {
         Self::GENERATED.with(|inner| {
             *inner.borrow_mut() = Some(routes);

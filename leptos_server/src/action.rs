@@ -6,6 +6,10 @@ use reactive_graph::{
 use server_fn::{error::ServerFnErrorSerde, ServerFn, ServerFnError};
 use std::{ops::Deref, panic::Location, sync::Arc};
 
+/// An error that can be caused by a server action.
+///
+/// This is used for propagating errors from the server to the client when JS/WASM are not
+/// supported.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerActionError {
     path: Arc<str>,
@@ -13,6 +17,7 @@ pub struct ServerActionError {
 }
 
 impl ServerActionError {
+    /// Creates a new error associated with the given path.
     pub fn new(path: &str, err: &str) -> Self {
         Self {
             path: path.into(),
@@ -20,15 +25,18 @@ impl ServerActionError {
         }
     }
 
+    /// The path with which this error is associated.
     pub fn path(&self) -> &str {
         &self.path
     }
 
+    /// The error message.
     pub fn err(&self) -> &str {
         &self.err
     }
 }
 
+/// An [`ArcAction`] that can be used to call a server function.
 pub struct ArcServerAction<S>
 where
     S: ServerFn + 'static,
@@ -45,6 +53,7 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`ArcAction`] that will call the server function `S` when dispatched.
     #[track_caller]
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
@@ -116,6 +125,7 @@ where
     }
 }
 
+/// An [`Action`] that can be used to call a server function.
 pub struct ServerAction<S>
 where
     S: ServerFn + 'static,
@@ -132,6 +142,7 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`Action`] that will call the server function `S` when dispatched.
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)

@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 mod choose_view;
 mod path_segment;
 pub(crate) mod resolve_path;
@@ -13,12 +15,12 @@ use std::{borrow::Cow, collections::HashSet};
 pub use vertical::*;
 
 #[derive(Debug)]
-pub struct Routes<Children> {
+pub struct RouteDefs<Children> {
     base: Option<Cow<'static, str>>,
     children: Children,
 }
 
-impl<Children> Clone for Routes<Children>
+impl<Children> Clone for RouteDefs<Children>
 where
     Children: Clone,
 {
@@ -30,7 +32,7 @@ where
     }
 }
 
-impl<Children> Routes<Children> {
+impl<Children> RouteDefs<Children> {
     pub fn new(children: Children) -> Self {
         Self {
             base: None,
@@ -49,7 +51,7 @@ impl<Children> Routes<Children> {
     }
 }
 
-impl<Children> Routes<Children>
+impl<Children> RouteDefs<Children>
 where
     Children: MatchNestedRoutes,
 {
@@ -130,7 +132,7 @@ pub struct GeneratedRouteData {
 
 #[cfg(test)]
 mod tests {
-    use super::{NestedRoute, ParamSegment, Routes};
+    use super::{NestedRoute, ParamSegment, RouteDefs};
     use crate::{
         matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
         WildcardSegment,
@@ -140,7 +142,7 @@ mod tests {
     #[test]
     pub fn matches_single_root_route() {
         let routes =
-            Routes::<_>::new(NestedRoute::new(StaticSegment("/"), || ()));
+            RouteDefs::<_>::new(NestedRoute::new(StaticSegment("/"), || ()));
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         // this case seems like it should match, but implementing it interferes with
@@ -156,13 +158,14 @@ mod tests {
 
     #[test]
     pub fn matches_nested_route() {
-        let routes: Routes<_> =
-            Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
+        let routes: RouteDefs<_> = RouteDefs::new(
+            NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
                     || "Contact Me",
                 ),
-            ));
+            ),
+        );
 
         // route generation
         let (base, paths) = routes.generate_routes();
@@ -188,7 +191,7 @@ mod tests {
 
     #[test]
     pub fn does_not_match_route_unless_full_param_matches() {
-        let routes = Routes::<_>::new((
+        let routes = RouteDefs::<_>::new((
             NestedRoute::new(StaticSegment("/property-api"), || ()),
             NestedRoute::new(StaticSegment("/property"), || ()),
         ));
@@ -198,20 +201,21 @@ mod tests {
 
     #[test]
     pub fn does_not_match_incomplete_route() {
-        let routes: Routes<_> =
-            Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
+        let routes: RouteDefs<_> = RouteDefs::new(
+            NestedRoute::new(StaticSegment(""), || "Home").child(
                 NestedRoute::new(
                     (StaticSegment("author"), StaticSegment("contact")),
                     || "Contact Me",
                 ),
-            ));
+            ),
+        );
         let matched = routes.match_route("/");
         assert!(matched.is_none());
     }
 
     #[test]
     pub fn chooses_between_nested_routes() {
-        let routes: Routes<_> = Routes::new((
+        let routes: RouteDefs<_> = RouteDefs::new((
             NestedRoute::new(StaticSegment("/"), || ()).child((
                 NestedRoute::new(StaticSegment(""), || ()),
                 NestedRoute::new(StaticSegment("about"), || ()),
@@ -265,7 +269,7 @@ mod tests {
 
     #[test]
     pub fn arbitrary_nested_routes() {
-        let routes: Routes<_> = Routes::new_with_base(
+        let routes: RouteDefs<_> = RouteDefs::new_with_base(
             (
                 NestedRoute::new(StaticSegment("/"), || ()).child((
                     NestedRoute::new(StaticSegment("/"), || ()),

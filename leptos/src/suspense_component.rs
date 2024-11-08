@@ -87,7 +87,12 @@ use throw_error::ErrorHookFuture;
 /// ```
 #[component]
 pub fn Suspense<Chil>(
-    #[prop(optional, into)] fallback: ViewFnOnce,
+    /// A function that returns a fallback that will be shown while resources are still loading.
+    /// By default this is an empty view.
+    #[prop(optional, into)]
+    fallback: ViewFnOnce,
+    /// Children will be rendered once initially to catch any resource reads, then hidden until all
+    /// data have loaded.
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where

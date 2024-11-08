@@ -1,5 +1,6 @@
-#!rdeny(missing_docs)]
+#![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -287,6 +288,7 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
+/// Utilities for working with asynchronous tasks.
 pub mod task {
     pub use any_spawner::Executor;
     use std::future::Future;
