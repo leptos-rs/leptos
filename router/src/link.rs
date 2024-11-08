@@ -107,9 +107,9 @@ where
     ) -> impl IntoView {
         let RouterContext { current_url, .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
-        let is_active = ArcMemo::new({
+        let is_active = {
             let href = href.clone();
-            move |_| {
+            move || {
                 href.read().as_deref().is_some_and(|to| {
                     let path = to.split(['?', '#']).next().unwrap_or_default();
                     current_url.with(|loc| {
@@ -122,16 +122,13 @@ where
                     })
                 })
             }
-        });
+        };
 
         view! {
             <a
                 href=move || href.get().unwrap_or_default()
                 target=target
-                aria-current={
-                    let is_active = is_active.clone();
-                    move || if is_active.get() { Some("page") } else { None }
-                }
+                aria-current=move || if is_active() { Some("page") } else { None }
             >
 
                 {children()}
