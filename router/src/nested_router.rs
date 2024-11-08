@@ -155,6 +155,9 @@ where
                 EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
+                if let Some(loc) = self.location {
+                    loc.ready_to_complete();
+                }
             }
             Some(route) => {
                 if let Some(set_is_routing) = self.set_is_routing {
