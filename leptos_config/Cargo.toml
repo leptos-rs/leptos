@@ -21,7 +21,7 @@ typed-builder = "0.20.0"
 
 [dev-dependencies]
 tokio = { version = "1.41", features = ["rt", "macros"] }
-tempfile = "3.13"
+tempfile = "3.14"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
 
 [package.metadata.docs.rs]
