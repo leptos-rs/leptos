@@ -136,7 +136,7 @@ pub fn html_parts_separated(
                         idle(() => {{
                             import('{pkg_path}/{output_name}{js_hash}.js')
                                 .then(mod => {{
-                                    mod.default('{pkg_path}/{wasm_output_name}{wasm_hash}.wasm').then({import_callback});
+                                    mod.default({{module_or_path: '{pkg_path}/{wasm_output_name}{wasm_hash}.wasm'}}).then({import_callback});
                                 }})
                         }});
                     </script>
