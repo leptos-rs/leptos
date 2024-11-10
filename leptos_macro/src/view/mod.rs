@@ -1001,7 +1001,11 @@ pub(crate) fn attribute_absolute(
 ) -> Option<TokenStream> {
     let key = node.key.to_string();
     let contains_dash = key.contains('-');
-    let attr_colon = key.starts_with("attr:");
+    let attr_colon = key.starts_with("attr:")
+        || key.starts_with("style:")
+        || key.starts_with("class:")
+        || key.starts_with("prop:")
+        || key.starts_with("use:");
     // anything that follows the x:y pattern
     match &node.key {
         NodeName::Punctuated(parts) if !contains_dash || attr_colon => {
