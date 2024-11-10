@@ -14,15 +14,22 @@ use reactive_graph::{
 };
 use std::{iter, ops::Deref, sync::Arc};
 
+/// Describes a type that can be accessed as a reactive store field.
 pub trait StoreField: Sized {
+    /// The value this field contains.
     type Value;
+    /// A read guard to access this field.
     type Reader: Deref<Target = Self::Value>;
+    /// A write guard to update this field.
     type Writer: UntrackableGuard<Target = Self::Value>;
 
+    /// Returns the trigger that tracks access and updates for this field.
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger;
 
+    /// The path of this field (see [`StorePath`]).
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
+    /// Reactively tracks this field.
     fn track_field(&self) {
         let path = self.path().into_iter().collect();
         let trigger = self.get_trigger(path);
@@ -30,10 +37,13 @@ pub trait StoreField: Sized {
         trigger.children.track();
     }
 
+    /// Returns a read guard to access this field.
     fn reader(&self) -> Option<Self::Reader>;
 
+    /// Returns a write guard to update this field.
     fn writer(&self) -> Option<Self::Writer>;
 
+    /// The keys for this field, if it is a keyed field.
     fn keys(&self) -> Option<KeyMap>;
 }
 

@@ -2,14 +2,23 @@ use crate::{StoreField, Subfield};
 use reactive_graph::traits::Read;
 use std::ops::Deref;
 
+/// Extends optional store fields, with the ability to unwrap or map over them.
 pub trait OptionStoreExt
 where
     Self: StoreField<Value = Option<Self::Output>>,
 {
+    /// The inner type of the `Option<_>` this field holds.
     type Output;
 
+    /// Provides access to the inner value, as a subfield, unwrapping the outer value.
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
 
+    /// Reactively maps over the field.
+    ///
+    /// This returns `None` if the subfield is currently `None`,
+    /// and a new store subfield with the inner value if it is `Some`. This can be used in some  
+    /// other reactive context, which will cause it to re-run if the field toggles betwen `None`
+    /// and `Some(_)`.
     fn map<U>(
         self,
         map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,

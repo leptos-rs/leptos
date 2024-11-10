@@ -15,6 +15,7 @@ use reactive_graph::{
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
+/// Accesses a single field of a reactive structure.
 #[derive(Debug)]
 pub struct Subfield<Inner, Prev, T> {
     #[cfg(debug_assertions)]
@@ -46,6 +47,7 @@ where
 impl<Inner, Prev, T> Copy for Subfield<Inner, Prev, T> where Inner: Copy {}
 
 impl<Inner, Prev, T> Subfield<Inner, Prev, T> {
+    /// Creates an accessor for a single field of the inner structure.
     #[track_caller]
     pub fn new(
         inner: Inner,
