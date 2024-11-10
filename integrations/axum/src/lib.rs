@@ -63,10 +63,9 @@ use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
-    components::provide_server_redirect,
-    location::RequestUrl,
-    static_routes::{RegenerationFn, StaticParamsMap},
-    ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
+    components::provide_server_redirect, location::RequestUrl,
+    static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
+    RouteListing, SsrMode,
 };
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
@@ -1205,32 +1204,6 @@ where
     IV: IntoView + 'static,
 {
     generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
-}
-
-/// Builds all routes that have been defined using [`StaticRoute`].
-#[allow(unused)]
-pub async fn build_static_routes<IV>(
-    options: &LeptosOptions,
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
-    routes: &[RouteListing],
-    static_data_map: StaticParamsMap,
-) where
-    IV: IntoView + 'static,
-{
-    todo!()
-    /*
-    let options = options.clone();
-    let routes = routes.to_owned();
-    spawn_task!(async move {
-        leptos_router::build_static_routes(
-            &options,
-            app_fn,
-            &routes,
-            &static_data_map,
-        )
-        .await
-        .expect("could not build static routes")
-    });*/
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
