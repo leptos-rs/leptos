@@ -72,14 +72,17 @@
 //!
 //! Every struct field can be understood as an index. For example, given the following definition
 //! ```rust
-//! struct Todos {
-//!     user: String,
-//!     todos: Vec<Todo>,
+//! # use reactive_stores::{Store, Patch};
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct Name {
+//!     first: String,
+//!     last: String,
 //! }
 //! ```
-//! We can think of `user` as `0` and `todos` as `1`. This means that any deeply-nested field of a
+//! We can think of `first` as `0` and `last` as `1`. This means that any deeply-nested field of a
 //! struct can be described as a path of indices. So, for example:
 //! ```rust
+//! # use reactive_stores::{Store, Patch};
 //! #[derive(Debug, Store, Patch, Default)]
 //! struct User {
 //!     user: Name,
