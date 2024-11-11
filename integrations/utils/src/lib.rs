@@ -2,16 +2,98 @@ use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
     nonce::use_nonce,
+    prelude::provide_context,
     reactive::owner::{Owner, Sandboxed},
     IntoView,
 };
 use leptos_config::LeptosOptions;
-use leptos_meta::ServerMetaContextOutput;
+use leptos_meta::{ServerMetaContext, ServerMetaContextOutput};
 use std::{future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 pub type BoxedFnOnce<T> = Box<dyn FnOnce() -> T + Send>;
+
+pub trait ResponseStreamInjector {
+    fn inject_response(
+        self,
+        stream: impl Stream<Item = String> + Send + Unpin,
+    ) -> impl Future<Output = impl Stream<Item = String> + Send> + Send;
+}
+
+pub trait ServerExtension: 'static {
+    type Context: Send + Sync + Clone + 'static;
+    type Data: Send + ResponseStreamInjector + 'static;
+    fn new() -> (Self::Context, Self::Data);
+    fn provide_context(context: Self::Context) {
+        provide_context(context);
+    }
+}
+
+macro_rules! impl_tuples {
+    ($($cur:ident)*) => {
+        #[allow(non_snake_case)]
+        impl<$($cur: ResponseStreamInjector + Send,)*> ResponseStreamInjector for ($($cur,)*) {
+            async fn inject_response(
+                self,
+                stream: impl Stream<Item = String> + Send + Unpin,
+            ) -> impl Stream<Item = String> + Send {
+                let ($($cur,)*) = self;
+                // Probably it might be useful sometimes to inject
+                // response context in reverse order
+                $(
+                    let stream = Box::pin($cur.inject_response(stream).await);
+                )*
+                stream
+            }
+        }
+        #[allow(non_snake_case)]
+        impl<$($cur: ServerExtension,)*> ServerExtension for ($($cur,)*) {
+            type Context = ($($cur::Context,)*);
+            type Data = ($($cur::Data,)*);
+            fn new() -> (Self::Context, Self::Data) {
+                let ($($cur,)*) = ($($cur::new(),)*);
+                (
+                    ($($cur.0,)*),
+                    ($($cur.1,)*),
+                )
+            }
+            fn provide_context(context: Self::Context) {
+                let ($($cur,)*) = context;
+                $(
+                    $cur::provide_context($cur);
+                )*
+            }
+        }
+    };
+    ($($cur:ident)* @ $c:ident $($rest:ident)*) => {
+        impl_tuples!($($cur)*);
+        impl_tuples!($($cur)* $c @ $($rest)*);
+    };
+    ($($cur:ident)* @) => {
+        impl_tuples!($($cur)*);
+    };
+}
+
+impl_tuples!(@ A B C D E F);
+
+impl ResponseStreamInjector for ServerMetaContextOutput {
+    async fn inject_response(
+        self,
+        stream: impl Stream<Item = String> + Send + Unpin,
+    ) -> impl Stream<Item = String> + Send {
+        self.inject_meta_context(stream).await
+    }
+}
+
+impl ServerExtension for ServerMetaContext {
+    type Context = ServerMetaContext;
+    type Data = ServerMetaContextOutput;
+
+    fn new() -> (Self::Context, Self::Data) {
+        Self::new()
+    }
+}
 
 pub trait ExtendResponse: Sized {
     type ResponseOptions: Send;
@@ -23,9 +105,9 @@ pub trait ExtendResponse: Sized {
 
     fn set_default_content_type(&mut self, content_type: &str);
 
-    fn from_app<IV>(
+    fn from_app<I: ServerExtension, IV>(
         app_fn: impl FnOnce() -> IV + Send + 'static,
-        meta_context: ServerMetaContextOutput,
+        meta_context: I::Data,
         additional_context: impl FnOnce() + Send + 'static,
         res_options: Self::ResponseOptions,
         stream_builder: fn(
@@ -48,7 +130,7 @@ pub trait ExtendResponse: Sized {
             }
 
             let mut stream =
-                Box::pin(meta_context.inject_meta_context(stream).await);
+                Box::pin(meta_context.inject_response(stream).await);
 
             // wait for the first chunk of the stream, then set the status and headers
             let first_chunk = stream.next().await.unwrap_or_default();

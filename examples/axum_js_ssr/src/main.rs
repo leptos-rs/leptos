@@ -29,6 +29,7 @@ async fn main() {
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_meta::ServerMetaContext;
 
     latency::LATENCY.get_or_init(|| [0, 4, 40, 400].iter().cycle().into());
     latency::ES_LATENCY.get_or_init(|| [0].iter().cycle().into());
@@ -43,7 +44,7 @@ async fn main() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(App);
+    let routes = generate_route_list::<ServerMetaContext, _>(App);
 
     async fn highlight_js() -> impl IntoResponse {
         (
@@ -128,11 +129,11 @@ async fn main() {
 
     let app = Router::new()
         .route("/highlight.min.js", get(highlight_js))
-        .leptos_routes(&leptos_options, routes, {
+        .leptos_routes::<ServerMetaContext, _>(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
         })
-        .fallback(leptos_axum::file_and_error_handler(shell))
+        .fallback(leptos_axum::file_and_error_handler::<_, ServerMetaContext, _>(shell))
         .layer(middleware::from_fn(latency_for_highlight_js))
         .with_state(leptos_options);
 
