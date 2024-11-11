@@ -33,7 +33,10 @@ pub enum SsrMode {
     OutOfOrder,
     /// Partially-blocked out-of-order streaming.
     PartiallyBlocked,
-    /// In-order streaming.
+    /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
+    ///     - *Pros*: Does not require JS for HTML to appear in correct order.
+    ///     - *Cons*: Loads the shell more slowly than out-of-order streaming or synchronous rendering because it needs to pause at every `Suspense`. Cannot begin hydration until the entire page has loaded, so earlier pieces
+    ///       of the page will not be interactive until the suspended chunks have loaded.
     InOrder,
     /// Async rendering.
     Async,
