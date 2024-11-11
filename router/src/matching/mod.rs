@@ -11,7 +11,7 @@ mod vertical;
 use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, collections::HashSet};
+use std::{borrow::Cow, collections::HashSet, sync::atomic::Ordering};
 pub use vertical::*;
 
 #[derive(Debug)]
@@ -90,6 +90,13 @@ where
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u16);
+
+impl RouteMatchId {
+    ///
+    pub fn new_from_route_id() -> RouteMatchId {
+        RouteMatchId(ROUTE_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 pub trait MatchInterface {
     type Child: MatchInterface + MatchParams + 'static;
