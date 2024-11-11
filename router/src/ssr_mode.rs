@@ -28,7 +28,9 @@ use crate::static_routes::StaticRoute;
 /// request will be rendered `Async`. (`Async` is the most restricted requirement, followed by `InOrder`, `PartiallyBlocked`, and `OutOfOrder`.)
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SsrMode {
-    /// Out-of-order streaming.
+    /// **Out-of-order streaming** (`OutOfOrder`, the default): Serve an HTML shell that includes `fallback` for any `Suspense`. Load data on the **server**, streaming it down to the client as it resolves, and streaming down HTML for `Suspense` nodes.
+    ///     - *Pros*: Combines the best of **synchronous** and `Async`, with a very fast shell and resources that begin loading on the server.
+    ///     - *Cons*: Requires JS for suspended fragments to appear in correct order. Weaker meta tag support when it depends on data that's under suspense (has already streamed down `<head>`)
     #[default]
     OutOfOrder,
     /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
