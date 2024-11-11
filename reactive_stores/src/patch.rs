@@ -13,9 +13,12 @@ use std::{
     sync::Arc,
 };
 
+/// Allows updating a store or field in place with a new value.
 pub trait Patch {
+    /// The type of the new value.
     type Value;
 
+    /// Patches a store or field with a new value, only notifying fields that have changed.
     fn patch(&self, new: Self::Value);
 }
 
@@ -42,6 +45,7 @@ where
 
 /// Allows patching a store field with some new value.
 pub trait PatchField {
+    /// Patches the field with some new value, only notifying if the value has changed.
     fn patch_field(
         &mut self,
         new: Self,

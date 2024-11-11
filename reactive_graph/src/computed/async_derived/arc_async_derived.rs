@@ -286,10 +286,15 @@ macro_rules! spawn_derived {
 
         let mut first_run = {
             let (ready_tx, ready_rx) = oneshot::channel();
-            AsyncTransition::register(ready_rx);
+            if !was_ready {
+                AsyncTransition::register(ready_rx);
+            }
             Some(ready_tx)
         };
 
+        if was_ready {
+            first_run.take();
+        }
         // begin loading eagerly but asynchronously, if not already loaded
         if !was_ready {
             any_subscriber.mark_dirty();
@@ -339,7 +344,9 @@ macro_rules! spawn_derived {
                                     // register with global transition listener, if any
                                     let ready_tx = first_run.take().unwrap_or_else(|| {
                                         let (ready_tx, ready_rx) = oneshot::channel();
-                                        AsyncTransition::register(ready_rx);
+                                        if !was_ready {
+                                            AsyncTransition::register(ready_rx);
+                                        }
                                         ready_tx
                                     });
 

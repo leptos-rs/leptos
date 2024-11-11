@@ -159,9 +159,7 @@ Sure! Obviously the `view` macro is for generating DOM nodes but you can use the
 - Use event listeners to update signals
 - Create effects to update the UI
 
-I've put together a [very simple GTK example](https://github.com/leptos-rs/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
-
-The new rendering approach being developed for 0.7 supports “universal rendering,” i.e., it can use any rendering library that supports a small set of 6-8 functions. (This is intended as a layer over typical retained-mode, OOP-style GUI toolkits like the DOM, GTK, etc.) That future rendering work will allow creating native UI in a way that is much more similar to the declarative approach used by the web framework.
+The 0.7 update originally set out to create a "generic rendering" approach that would allow us to reuse most of the same view logic to do all of the above. Unfortunately, this has had to be shelved for now due to difficulties encountered by the Rust compiler when building larger-scale applications with the number of generics spread throughout the codebase that this required. It's an approach I'm looking forward to exploring again in the future; feel free to reach out if you're interested in this kind of work.
 
 ### How is this different from Yew?
 

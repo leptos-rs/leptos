@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use counter_without_macros::counter;
 use leptos::{prelude::*, task::tick};
 use pretty_assertions::assert_eq;

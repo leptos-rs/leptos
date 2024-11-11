@@ -1,3 +1,111 @@
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
+//! Stores are a primitive for creating deeply-nested reactive state, based on [`reactive_graph`].
+//!
+//! Reactive signals allow you to define atomic units of reactive state. However, signals are
+//! imperfect as a mechanism for tracking reactive change in structs or collections, because
+//! they do not allow you to track access to individual struct fields or individual items in a
+//! collection, rather than the struct as a whole or the collection as a whole. Reactivity for
+//! individual fields can be achieved by creating a struct of signals, but this has issues; it
+//! means that a struct is no longer a plain data structure, but requires wrappers on each field.
+//!
+//! Stores attempt to solve this problem by allowing arbitrarily-deep access to the fields of some
+//! data structure, while still maintaining fine-grained reactivity.
+//!
+//! The [`Store`](macro@Store) macro adds getters and setters for the fields of a struct. Call those getters or
+//! setters on a reactive [`Store`](struct@Store) or [`ArcStore`], or to a subfield, gives you
+//! access to a reactive subfield. This value of this field can be accessed via the ordinary signal
+//! traits (`Get`, `Set`, and so on).
+//!
+//! The [`Patch`](macro@Patch) macro allows you to annotate a struct such that stores and fields have a
+//! [`.patch()`](Patch::patch) method, which allows you to provide an entirely new value, but only
+//! notify fields that have changed.
+//!
+//! Updating a field will notify its parents and children, but not its siblings.
+//!
+//! Stores can therefore
+//! 1) work with plain Rust data types, and
+//! 2) provide reactive access to individual fields
+//!
+//! ### Example
+//!
+//! ```rust
+//! use reactive_graph::{
+//!     effect::Effect,
+//!     traits::{Read, Write},
+//! };
+//! use reactive_stores::{Patch, Store};
+//!
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct Todos {
+//!     user: String,
+//!     todos: Vec<Todo>,
+//! }
+//!
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct Todo {
+//!     label: String,
+//!     completed: bool,
+//! }
+//!
+//! let store = Store::new(Todos {
+//!     user: "Alice".to_string(),
+//!     todos: Vec::new(),
+//! });
+//!
+//! # if false { // don't run effect in doctests
+//! Effect::new(move |_| {
+//!     // you can access individual store withs field a getter
+//!     println!("todos: {:?}", &*store.todos().read());
+//! });
+//! # }
+//!
+//! // won't notify the effect that listen to `todos`
+//! store.todos().write().push(Todo {
+//!     label: "Test".to_string(),
+//!     completed: false,
+//! });
+//! ```
+//!
+//! ### Implementation Notes
+//!
+//! Every struct field can be understood as an index. For example, given the following definition
+//! ```rust
+//! # use reactive_stores::{Store, Patch};
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct Name {
+//!     first: String,
+//!     last: String,
+//! }
+//! ```
+//! We can think of `first` as `0` and `last` as `1`. This means that any deeply-nested field of a
+//! struct can be described as a path of indices. So, for example:
+//! ```rust
+//! # use reactive_stores::{Store, Patch};
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct User {
+//!     user: Name,
+//! }
+//!
+//! #[derive(Debug, Store, Patch, Default)]
+//! struct Name {
+//!     first: String,
+//!     last: String,
+//! }
+//! ```
+//! Here, given a `User`, `first` can be understood as [`0`, `0`] and `last` is [`0`, `1`].
+//!
+//! This means we can implement a store as the combination of two things:
+//! 1) An `Arc<RwLock<T>>` that holds the actual value
+//! 2) A map from field paths to reactive "triggers," which are signals that have no value but
+//!    track reactivity
+//!
+//! Accessing a field via its getters returns an iterator-like data structure that describes how to
+//! get to that subfield. Calling `.read()` returns a guard that dereferences to the value of that
+//! field in the signal inner `Arc<RwLock<_>>`, and tracks the trigger that corresponds with its
+//! path; calling `.write()` returns a writeable guard, and notifies that same trigger.
+
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
@@ -10,7 +118,7 @@ use reactive_graph::{
         Write,
     },
 };
-pub use reactive_stores_macro::*;
+pub use reactive_stores_macro::{Patch, Store};
 use rustc_hash::FxHashMap;
 use std::{
     any::Any,
@@ -45,13 +153,15 @@ pub use subfield::Subfield;
 #[derive(Debug, Default)]
 struct TriggerMap(FxHashMap<StorePath, StoreFieldTrigger>);
 
+/// The reactive trigger that can be used to track updates to a store field.
 #[derive(Debug, Clone, Default)]
 pub struct StoreFieldTrigger {
-    pub this: ArcTrigger,
-    pub children: ArcTrigger,
+    pub(crate) this: ArcTrigger,
+    pub(crate) children: ArcTrigger,
 }
 
 impl StoreFieldTrigger {
+    /// Creates a new trigger.
     pub fn new() -> Self {
         Self::default()
     }
@@ -74,7 +184,8 @@ impl TriggerMap {
     }
 }
 
-pub struct FieldKeys<K> {
+/// Manages the keys for a keyed field, including the ability to remove and reuse keys.
+pub(crate) struct FieldKeys<K> {
     spare_keys: Vec<StorePathSegment>,
     current_key: usize,
     keys: FxHashMap<K, (StorePathSegment, usize)>,
@@ -84,6 +195,7 @@ impl<K> FieldKeys<K>
 where
     K: Debug + Hash + PartialEq + Eq,
 {
+    /// Creates a new set of keys.
     pub fn new(from_keys: Vec<K>) -> Self {
         let mut keys = FxHashMap::with_capacity_and_hasher(
             from_keys.len(),
@@ -106,7 +218,7 @@ impl<K> FieldKeys<K>
 where
     K: Hash + PartialEq + Eq,
 {
-    pub fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
+    fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
         self.keys.get(key).copied()
     }
 
@@ -117,7 +229,7 @@ where
         })
     }
 
-    pub fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+    fn update(&mut self, iter: impl IntoIterator<Item = K>) {
         let new_keys = iter
             .into_iter()
             .enumerate()
@@ -159,11 +271,12 @@ impl<K> Default for FieldKeys<K> {
     }
 }
 
+/// A map of the keys for a keyed subfield.
 #[derive(Default, Clone)]
 pub struct KeyMap(Arc<RwLock<HashMap<StorePath, Box<dyn Any + Send + Sync>>>>);
 
 impl KeyMap {
-    pub fn with_field_keys<K, T>(
+    fn with_field_keys<K, T>(
         &self,
         path: StorePath,
         fun: impl FnOnce(&mut FieldKeys<K>) -> T,
@@ -195,6 +308,12 @@ impl KeyMap {
     }
 }
 
+/// A reference-counted container for a reactive store.
+///
+/// The type `T` should be a struct that has been annotated with `#[derive(Store)]`.
+///
+/// This adds a getter method for each field to `Store<T>`, which allow accessing reactive versions
+/// of each individual field of the struct.
 pub struct ArcStore<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -204,6 +323,7 @@ pub struct ArcStore<T> {
 }
 
 impl<T> ArcStore<T> {
+    /// Creates a new store from the initial value.
     pub fn new(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
@@ -303,6 +423,15 @@ impl<T: 'static> Notify for ArcStore<T> {
     }
 }
 
+/// An arena-allocated container for a reactive store.
+///
+/// The type `T` should be a struct that has been annotated with `#[derive(Store)]`.
+///
+/// This adds a getter method for each field to `Store<T>`, which allow accessing reactive versions
+/// of each individual field of the struct.
+///
+/// This follows the same ownership rules as arena-allocated types like
+/// [`RwSignal`](reactive_graph::signal::RwSignal).
 pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -313,6 +442,7 @@ impl<T> Store<T>
 where
     T: Send + Sync + 'static,
 {
+    /// Creates a new store with the initial value.
     pub fn new(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
@@ -326,6 +456,9 @@ impl<T> Store<T, LocalStorage>
 where
     T: 'static,
 {
+    /// Creates a new store for a type that is `!Send`.
+    ///
+    /// This pins the value to the current thread. Accessing it from any other thread will panic.
     pub fn new_local(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]

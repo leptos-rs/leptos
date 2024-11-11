@@ -220,7 +220,7 @@ impl StaticPath {
                     paths = paths
                         .into_iter()
                         .map(|p| {
-                            if s.starts_with("/") {
+                            if s.starts_with("/") || s.is_empty() {
                                 ResolvedStaticPath {
                                     path: format!("{}{s}", p.path),
                                 }
@@ -267,7 +267,7 @@ impl StaticPath {
 }
 
 /// A path to be used in static route generation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedStaticPath {
     pub(crate) path: String,
 }
@@ -375,5 +375,69 @@ impl ResolvedStaticPath {
         });
 
         rx.await.unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn static_path_segments_into_path_ignore_empty_segments() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("".into()),
+            PathSegment::Static("post".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/post")]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_flatten_param() {
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["first".into(), "second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Param("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/post/first"),
+                ResolvedStaticPath::new("/post/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_no_double_slash() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Static("/leptos".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/post/leptos")]
+        );
+
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["/first".into(), "/second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Param("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/post/first"),
+                ResolvedStaticPath::new("/post/second")
+            ]
+        );
     }
 }

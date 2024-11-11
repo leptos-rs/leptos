@@ -9,10 +9,10 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-actix-http = "3.8"
+actix-http = "3.9"
 actix-files = "0.6"
-actix-web = "4.8"
-futures = "0.3.30"
+actix-web = "4.9"
+futures = "0.3.31"
 any_spawner = { workspace = true, features = ["tokio"] }
 hydration_context = { workspace = true }
 leptos = { workspace = true, features = ["nonce", "ssr"] }
@@ -24,7 +24,7 @@ server_fn = { workspace = true, features = ["actix"] }
 serde_json = "1.0"
 parking_lot = "0.12.3"
 tracing = { version = "0.1", optional = true }
-tokio = { version = "1.39", features = ["rt", "fs"] }
+tokio = { version = "1.41", features = ["rt", "fs"] }
 send_wrapper = "0.6.0"
 dashmap = "6"
 once_cell = "1"

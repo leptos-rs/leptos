@@ -170,10 +170,9 @@ impl Effect<LocalStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if first_run
-                            || subscriber.with_observer(|| {
-                                subscriber.update_if_necessary()
-                            })
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
                         {
                             first_run = false;
                             subscriber.clear_sources(&subscriber);
@@ -322,10 +321,9 @@ impl Effect<LocalStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if first_run
-                            || subscriber.with_observer(|| {
-                                subscriber.update_if_necessary()
-                            })
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
                         {
                             subscriber.clear_sources(&subscriber);
 
@@ -390,10 +388,9 @@ impl Effect<SyncStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if first_run
-                            || subscriber.with_observer(|| {
-                                subscriber.update_if_necessary()
-                            })
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
                         {
                             first_run = false;
                             subscriber.clear_sources(&subscriber);
@@ -437,9 +434,9 @@ impl Effect<SyncStorage> {
 
             async move {
                 while rx.next().await.is_some() {
-                    if first_run
-                        || subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
+                    if subscriber
+                        .with_observer(|| subscriber.update_if_necessary())
+                        || first_run
                     {
                         first_run = false;
                         subscriber.clear_sources(&subscriber);
@@ -490,10 +487,9 @@ impl Effect<SyncStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if first_run
-                            || subscriber.with_observer(|| {
-                                subscriber.update_if_necessary()
-                            })
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
                         {
                             subscriber.clear_sources(&subscriber);
 

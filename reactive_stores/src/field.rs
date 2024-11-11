@@ -11,6 +11,10 @@ use reactive_graph::{
 };
 use std::{fmt::Debug, hash::Hash, ops::IndexMut, panic::Location};
 
+/// Wraps access to a single field of type `T`.
+///
+/// This can be used to erase the chain of field-accessors, to make it easier to pass this into
+/// another component or function without needing to specify the full type signature.
 pub struct Field<T, S = SyncStorage>
 where
     T: 'static,

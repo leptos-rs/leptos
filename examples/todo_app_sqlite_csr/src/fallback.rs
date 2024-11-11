@@ -9,7 +9,7 @@ use leptos::{
     hydration::{AutoReload, HydrationScripts},
     prelude::*,
 };
-use tower::ServiceExt;
+use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 
 pub async fn file_or_index_handler(

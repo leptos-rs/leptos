@@ -7,7 +7,6 @@ updates:
   - package-ecosystem: "cargo"
     directories:
       - "/"
-      - "/examples/*"
-      - "/benchmarks"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 10
