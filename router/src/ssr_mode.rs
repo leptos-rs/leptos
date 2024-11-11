@@ -45,6 +45,7 @@ pub enum SsrMode {
      ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
      ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
     Async,
-    /// Static rendering.
+    /// **`Static`**: Renders the page when the server starts up, or incrementally, using the
+    ///    configuration provided by a [`StaticRoute`].
     Static(StaticRoute),
 }
