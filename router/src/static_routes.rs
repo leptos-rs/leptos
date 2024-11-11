@@ -208,7 +208,7 @@ impl StaticPath {
                     paths = paths
                         .into_iter()
                         .map(|p| {
-                            if s.starts_with("/") {
+                            if s.starts_with("/") || s.is_empty() {
                                 ResolvedStaticPath {
                                     path: format!("{}{s}", p.path),
                                 }
