@@ -28,10 +28,17 @@ jobs:
 
           echo "Running Clippy against each member's features (default features included)"
           for member in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | .name'); do
-              features=$(cargo metadata --no-deps --format-version 1 | jq -r ".packages[] | select(.name == \"$member\") | .features | keys[]")
               echo "Working on member $member":
+              echo -e "\tdefault-features/no-features:"
+              # this will also run on members with no features or default features
+              cargo clippy --allow-dirty --fix --lib --package "$member"
+
+              features=$(cargo metadata --no-deps --format-version 1 | jq -r ".packages[] | select(.name == \"$member\") | .features | keys[]")
               for feature in $features; do
-                  echo -e "\t feature $feature"
+                  if [ "$feature" = "default" ]; then
+                    continue
+                  fi
+                  echo -e "\tfeature $feature"
                   cargo clippy --allow-dirty --fix --lib --package "$member" --features "$feature"
               done
           done
