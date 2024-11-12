@@ -223,14 +223,14 @@ mod tests {
     #[test]
     fn clone_callback() {
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
-        let _cloned = callback.clone();
+        let _cloned = callback;
     }
 
     #[test]
     fn clone_unsync_callback() {
         let callback =
             UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
-        let _cloned = callback.clone();
+        let _cloned = callback;
     }
 
     #[test]

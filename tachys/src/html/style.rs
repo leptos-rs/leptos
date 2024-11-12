@@ -606,7 +606,7 @@ impl<'a> IntoStyle for (&'a str, String) {
 }
 
 #[cfg(feature = "nightly")]
-impl<'a, const V: &'static str> IntoStyle for (&'a str, Static<V>) {
+impl<const V: &'static str> IntoStyle for (&str, Static<V>) {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);

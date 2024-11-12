@@ -267,7 +267,7 @@ impl<T: IntoClass> IntoClass for Option<T> {
     }
 }
 
-impl<'a> IntoClass for &'a str {
+impl IntoClass for &str {
     type AsyncOutput = Self;
     type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
