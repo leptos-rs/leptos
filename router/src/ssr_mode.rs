@@ -44,8 +44,8 @@ pub enum SsrMode {
     ///       of the page will not be interactive until the suspended chunks have loaded.
     InOrder,
     /// **`Async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
-     ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
-     ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
+     ///    - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
+     ///    - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
     Async,
     /// **`Static`**: Renders the page when the server starts up, or incrementally, using the
     ///    configuration provided by a [`StaticRoute`].
