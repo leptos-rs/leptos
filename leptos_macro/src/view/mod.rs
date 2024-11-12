@@ -197,7 +197,7 @@ enum InertElementBuilder<'a> {
     },
 }
 
-impl<'a> ToTokens for InertElementBuilder<'a> {
+impl ToTokens for InertElementBuilder<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             InertElementBuilder::GlobalClass { strs, .. } => {
@@ -219,7 +219,7 @@ enum GlobalClassItem<'a> {
     String(String),
 }
 
-impl<'a> ToTokens for GlobalClassItem<'a> {
+impl ToTokens for GlobalClassItem<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let addl_tokens = match self {
             GlobalClassItem::Global(v) => v.to_token_stream(),

@@ -70,7 +70,7 @@ pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     Owned(<T as ToOwned>::Owned),
 }
 
-impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
+impl<T: ?Sized + ToOwned> Oco<'_, T> {
     /// Converts the value into an owned value.
     pub fn into_owned(self) -> <T as ToOwned>::Owned {
         match self {
@@ -339,7 +339,7 @@ where
     }
 }
 
-impl<'a, 'b, A: ?Sized, B: ?Sized> PartialEq<Oco<'b, B>> for Oco<'a, A>
+impl<'b, A: ?Sized, B: ?Sized> PartialEq<Oco<'b, B>> for Oco<'_, A>
 where
     A: PartialEq<B>,
     A: ToOwned,
@@ -352,7 +352,7 @@ where
 
 impl<T: ?Sized + ToOwned + Eq> Eq for Oco<'_, T> {}
 
-impl<'a, 'b, A: ?Sized, B: ?Sized> PartialOrd<Oco<'b, B>> for Oco<'a, A>
+impl<'b, A: ?Sized, B: ?Sized> PartialOrd<Oco<'b, B>> for Oco<'_, A>
 where
     A: PartialOrd<B>,
     A: ToOwned,
@@ -551,7 +551,7 @@ impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, &'b [T
 impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), Oco<'_, [T]>, Vec<T>);
 impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, Cow<'b, [T]>);
 
-impl<'a, 'b> Add<&'b str> for Oco<'a, str> {
+impl<'b> Add<&'b str> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: &'b str) -> Self::Output {
@@ -559,7 +559,7 @@ impl<'a, 'b> Add<&'b str> for Oco<'a, str> {
     }
 }
 
-impl<'a, 'b> Add<Cow<'b, str>> for Oco<'a, str> {
+impl<'b> Add<Cow<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: Cow<'b, str>) -> Self::Output {
@@ -567,7 +567,7 @@ impl<'a, 'b> Add<Cow<'b, str>> for Oco<'a, str> {
     }
 }
 
-impl<'a, 'b> Add<Oco<'b, str>> for Oco<'a, str> {
+impl<'b> Add<Oco<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: Oco<'b, str>) -> Self::Output {

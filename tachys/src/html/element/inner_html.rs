@@ -308,7 +308,7 @@ impl InnerHtmlValue for Arc<str> {
     }
 }
 
-impl<'a> InnerHtmlValue for &'a str {
+impl InnerHtmlValue for &str {
     type AsyncOutput = Self;
     type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;

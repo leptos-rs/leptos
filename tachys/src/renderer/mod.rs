@@ -209,7 +209,6 @@ pub trait DomRenderer: Renderer {
 /// This works in a similar way to `TryFrom`. We implement it as a separate trait
 /// simply so we don't have to create wrappers for the `web_sys` types; it can't be
 /// implemented on them directly because of the orphan rules.
-
 pub trait CastFrom<T>
 where
     Self: Sized,

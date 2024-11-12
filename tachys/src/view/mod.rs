@@ -197,7 +197,6 @@ where
     /// Renders a view to an out-of-order stream of HTML with branch markers. This can be used to support libraries that diff
     /// HTML pages against one another, by marking sections of the view that branch to different
     /// types with marker comments.
-
     fn to_html_stream_out_of_order_branching(self) -> StreamBuilder
     where
         Self: Sized,

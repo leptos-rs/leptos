@@ -30,14 +30,14 @@ fn ws_from_str_test() {
 
 #[test]
 fn env_w_default_test() {
-    _ = temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
+    temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
         assert_eq!(
             env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
             String::from("custom")
         );
     });
 
-    _ = temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
+    temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
         assert_eq!(
             env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
             String::from("default")
@@ -47,14 +47,14 @@ fn env_w_default_test() {
 
 #[test]
 fn env_wo_default_test() {
-    _ = temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
+    temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
         assert_eq!(
             env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(),
             Some(String::from("custom"))
         );
     });
 
-    _ = temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
+    temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
         assert_eq!(env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
     });
 }
