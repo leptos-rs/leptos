@@ -92,7 +92,10 @@ where
 pub struct RouteMatchId(pub(crate) u16);
 
 impl RouteMatchId {
+    /// Creates a new match ID based on the current route ID used in nested route generation.
     ///
+    /// In general, you do not need this; it should only be used for custom route matching behavior
+    /// in a library that creates its own route types.
     pub fn new_from_route_id() -> RouteMatchId {
         RouteMatchId(ROUTE_ID.fetch_add(1, Ordering::Relaxed))
     }
