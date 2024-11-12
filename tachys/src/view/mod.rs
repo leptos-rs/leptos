@@ -371,7 +371,7 @@ pub trait ToTemplate {
     /// The `style` attribute content known at compile time.
     const STYLE: &'static str = "";
     /// The length of the template.
-    const LEN: usize = Self::TEMPLATE.as_bytes().len();
+    const LEN: usize = Self::TEMPLATE.len();
 
     /// Renders a view type to a template. This does not take actual view data,
     /// but can be used for constructing part of an HTML `<template>` that corresponds
