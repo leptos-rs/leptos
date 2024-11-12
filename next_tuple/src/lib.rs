@@ -1,6 +1,10 @@
+//! Defines a trait that allows you to extend a tuple, by returning
+//! a new tuple with an element of an arbitrary type added.
+
 #![no_std]
 #![allow(non_snake_case)]
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 /// Allows extending a tuple, or creating a new tuple, by adding the next value.
 pub trait NextTuple {

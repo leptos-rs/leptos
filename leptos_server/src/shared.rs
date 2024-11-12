@@ -31,6 +31,7 @@ pub struct SharedValue<T, Ser = JsonSerdeCodec> {
 }
 
 impl<T, Ser> SharedValue<T, Ser> {
+    /// Returns the inner value.
     pub fn into_inner(self) -> T {
         self.value
     }
@@ -46,6 +47,12 @@ where
     <<JsonSerdeCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`JsonSerdeCodec`] encoding.
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
@@ -61,6 +68,12 @@ where
     <<FromToStringCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`FromToStringCodec`] encoding.
     pub fn new_str(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
@@ -77,7 +90,13 @@ where
     <<SerdeLite<JsonSerdeCodec> as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
-    pub fn new(initial: impl FnOnce() -> T) -> Self {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`SerdeLite`] encoding.
+    pub fn new_serde_lite(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }
@@ -93,7 +112,13 @@ where
     <<JsonSerdeWasmCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
-    pub fn new(initial: impl FnOnce() -> T) -> Self {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`JsonSerdeWasmCodec`] encoding.
+    pub fn new_serde_wb(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }
@@ -109,7 +134,13 @@ where
     <<MiniserdeCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
-    pub fn new(initial: impl FnOnce() -> T) -> Self {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`MiniserdeCodec`] encoding.
+    pub fn new_miniserde(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }
@@ -125,7 +156,13 @@ where
     <<RkyvCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
-    pub fn new(initial: impl FnOnce() -> T) -> Self {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`RkyvCodec`] encoding.
+    pub fn new_rkyv(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }
@@ -140,6 +177,12 @@ where
     <<Ser as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
         Debug,
 {
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses `Ser` as an encoding.
     pub fn new_with_encoding(initial: impl FnOnce() -> T) -> Self {
         let value: T;
         #[cfg(feature = "hydration")]

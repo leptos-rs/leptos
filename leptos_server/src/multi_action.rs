@@ -5,6 +5,7 @@ use reactive_graph::{
 use server_fn::{ServerFn, ServerFnError};
 use std::{ops::Deref, panic::Location};
 
+/// An [`ArcMultiAction`] that can be used to call a server function.
 pub struct ArcServerMultiAction<S>
 where
     S: ServerFn + 'static,
@@ -21,6 +22,7 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`ArcMultiAction`] which, when dispatched, will call the server function `S`.
     #[track_caller]
     pub fn new() -> Self {
         Self {
@@ -87,6 +89,7 @@ where
     }
 }
 
+/// A [`MultiAction`] that can be used to call a server function.
 pub struct ServerMultiAction<S>
 where
     S: ServerFn + 'static,
@@ -114,6 +117,7 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`MultiAction`] which, when dispatched, will call the server function `S`.
     pub fn new() -> Self {
         Self {
             inner: MultiAction::new(|input: &S| {

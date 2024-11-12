@@ -5,7 +5,22 @@ use wasm_bindgen::JsValue;
 /// A DOM renderer.
 pub mod dom;
 
+/// The renderer being used for the application.
+///
+/// ### Note
+/// This was designed to be included as a generic on view types, to support different rendering
+/// backends using the same view tree structure. However, adding the number of generics that was
+/// required to make this work caused catastrophic compile times and linker errors on larger
+/// applications, so this "generic rendering" approach was removed before 0.7.0 release.
+///
+/// It is possible that we will try a different approach to achieve the same functionality in the
+/// future, so to the extent possible the rest of the crate tries to stick to using [`Renderer`]
+/// methods rather than directly manipulating the DOM inline.
 pub type Rndr = dom::Dom;
+
+/// Types used by the renderer.
+///
+/// See [`Rndr`] for additional information on this rendering approach.
 pub mod types {
     pub use super::dom::{
         ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,

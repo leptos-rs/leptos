@@ -11,7 +11,7 @@ use crate::{
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
     resolve_path::resolve_path,
-    ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
+    ChooseView, MatchNestedRoutes, NestedRoute, RouteDefs, SsrMode,
 };
 use either_of::Either;
 use leptos::prelude::*;
@@ -30,10 +30,13 @@ use std::{
 };
 use tachys::view::any_view::AnyView;
 
+/// A wrapper that allows passing route definitions as children to a component like [`Routes`],
+/// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
 #[derive(Debug)]
 pub struct RouteChildren<Children>(Children);
 
 impl<Children> RouteChildren<Children> {
+    /// Extracts the inner route definition.
     pub fn into_inner(self) -> Children {
         self.0
     }
@@ -211,30 +214,15 @@ impl Debug for RouterContext {
     }
 }
 
-/*
-#[component]
-pub fn FlatRouter<Children, FallbackFn, Fallback>(
-    #[prop(optional, into)] base: Option<Cow<'static, str>>,
-    fallback: FallbackFn,
-    children: RouteChildren<Children>,
-) -> FlatRouter<Dom, BrowserUrl, Children, FallbackFn>
-where
-    FallbackFn: Fn() -> Fallback,
-{
-    let children = Routes::new(children.into_inner());
-    if let Some(base) = base {
-        FlatRouter::new_with_base(base, children, fallback)
-    } else {
-        FlatRouter::new(children, fallback)
-    }
-}*/
-
 #[component(transparent)]
 pub fn Routes<Defs, FallbackFn, Fallback>(
+    /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
     #[prop(optional)]
     transition: bool,
+    /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
+    /// components.
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -255,7 +243,7 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new_with_base(
+    let routes = RouteDefs::new_with_base(
         children.into_inner(),
         base.clone().unwrap_or_default(),
     );
@@ -281,10 +269,13 @@ where
 
 #[component(transparent)]
 pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
+    /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
     #[prop(optional)]
     transition: bool,
+    /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
+    /// components.
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -308,7 +299,7 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new_with_base(
+    let routes = RouteDefs::new_with_base(
         children.into_inner(),
         base.clone().unwrap_or_default(),
     );
@@ -333,11 +324,20 @@ where
     }
 }
 
+/// Describes a portion of the nested layout of the app, specifying the route it should match
+/// and the element it should display.
 #[component(transparent)]
 pub fn Route<Segments, View>(
+    /// The path fragment that this route should match. This can be created using the [`path`]
+    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
+    /// [`OptionalParamSegment`]).
     path: Segments,
+    /// The view for this route.
     view: View,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, (), (), View>
 where
     View: ChooseView,
@@ -345,12 +345,22 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
+/// Describes a portion of the nested layout of the app, specifying the route it should match
+/// and the element it should display.
 #[component(transparent)]
 pub fn ParentRoute<Segments, View, Children>(
+    /// The path fragment that this route should match. This can be created using the [`path`]
+    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
+    /// [`OptionalParamSegment`]).
     path: Segments,
+    /// The view for this route.
     view: View,
+    /// Nested child routes.
     children: RouteChildren<Children>,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, Children, (), View>
 where
     View: ChooseView,
@@ -359,13 +369,27 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
 
+/// Describes a route that is guarded by a certain condition. This works the same way as
+/// [`<Route/>`], except that if the `condition` function evaluates to `Some(false)`, it
+/// redirects to `redirect_path` instead of displaying its `view`.
 #[component(transparent)]
 pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
+    /// The path fragment that this route should match. This can be created using the [`path`]
+    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
+    /// [`OptionalParamSegment`]).
     path: Segments,
+    /// The view for this route.
     view: ViewFn,
+    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+    /// information is still loading.
     condition: C,
+    /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
@@ -403,12 +427,24 @@ where
 
 #[component(transparent)]
 pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
+    /// The path fragment that this route should match. This can be created using the [`path`]
+    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
+    /// [`OptionalParamSegment`]).
     path: Segments,
+    /// The view for this route.
     view: ViewFn,
+    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+    /// information is still loading.
     condition: C,
+    /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
+    /// Nested child routes.
     children: RouteChildren<Children>,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,

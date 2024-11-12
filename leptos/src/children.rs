@@ -228,6 +228,7 @@ impl ViewFnOnce {
 pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T> + Send>);
 
 impl<T> TypedChildren<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> impl FnOnce() -> View<T> + Send {
         self.0
     }
@@ -256,6 +257,7 @@ impl<T> Debug for TypedChildrenMut<T> {
 }
 
 impl<T> TypedChildrenMut<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> impl FnMut() -> View<T> + Send {
         self.0
     }
@@ -284,6 +286,7 @@ impl<T> Debug for TypedChildrenFn<T> {
 }
 
 impl<T> TypedChildrenFn<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> Arc<dyn Fn() -> View<T> + Send + Sync> {
         self.0
     }

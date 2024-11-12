@@ -1,3 +1,7 @@
+//! A macro to make path definitions easier with [`leptos_router`].
+
+#![deny(missing_docs)]
+
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
 use proc_macro_error2::abort;

@@ -251,12 +251,16 @@ where
     ) -> Result<Self, serde_qs::Error>;
 }
 
+/// Errors that can arise when coverting from an HTML event or form into a Rust data type.
 #[derive(Error, Debug)]
 pub enum FromFormDataError {
+    /// Could not find a `<form>` connected to the event.
     #[error("Could not find <form> connected to event.")]
     MissingForm(Event),
+    /// Could not create `FormData` from the form.
     #[error("Could not create FormData from <form>: {0:?}")]
     FormData(JsValue),
+    /// Failed to deserialize this Rust type from the form data.
     #[error("Deserialization error: {0:?}")]
     Deserialization(serde_qs::Error),
 }

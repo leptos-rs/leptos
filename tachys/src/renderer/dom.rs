@@ -1,3 +1,7 @@
+#![allow(missing_docs)]
+
+//! See [`Renderer`](super::Renderer) and [`Rndr`](super::Rndr) for additional information.
+
 use super::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},

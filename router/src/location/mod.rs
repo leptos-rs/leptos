@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use any_spawner::Executor;
 use core::fmt::Debug;
 use js_sys::Reflect;
