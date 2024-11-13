@@ -96,7 +96,7 @@ async fn main() {
     let client = oauth2::basic::BasicClient::new(
         oauth2::ClientId::new(
             std::env::var("G_AUTH_CLIENT_ID")
-                .expect("G_AUTH_CLIENT Env var to be set."),
+                .expect("G_AUTH_CLIENT_ID Env var to be set."),
         ),
         Some(oauth2::ClientSecret::new(
             std::env::var("G_AUTH_SECRET")
