@@ -318,10 +318,10 @@ pub mod task {
 }
 
 // these reexports are used in islands
-#[cfg(feature = "experimental-islands")]
+#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde;
-#[cfg(feature = "experimental-islands")]
+#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde_json;
 #[cfg(feature = "tracing")]

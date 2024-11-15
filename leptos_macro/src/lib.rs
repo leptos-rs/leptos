@@ -559,10 +559,10 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 }
 
 /// Defines a component as an interactive island when you are using the
-/// `experimental-islands` feature of Leptos. Apart from the macro name,
+/// `islands` feature of Leptos. Apart from the macro name,
 /// the API is the same as the [`component`](macro@component) macro.
 ///
-/// When you activate the `experimental-islands` feature, every `#[component]`
+/// When you activate the `islands` feature, every `#[component]`
 /// is server-only by default. This "default to server" behavior is important:
 /// you opt into shipping code to the client, rather than opting out. You can
 /// opt into client-side interactivity for any given component by changing from
