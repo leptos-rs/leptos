@@ -16,7 +16,7 @@
 //! - `default`: supports running in a typical native Tokio/Axum environment
 //! - `wasm`: with `default-features = false`, supports running in a JS Fetch-based
 //!   environment
-//! - `experimental-islands`: activates Leptos [islands mode](https://leptos-rs.github.io/leptos/islands.html)
+//! - `islands`: activates Leptos [islands mode](https://leptos-rs.github.io/leptos/islands.html)
 //!
 //! ### Important Note
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively

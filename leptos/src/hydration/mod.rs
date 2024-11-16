@@ -47,7 +47,7 @@ pub fn AutoReload(
 pub fn HydrationScripts(
     /// Configuration options for this project.
     options: LeptosOptions,
-    /// Should be `true` to hydrate in `experimental-islands` mode.
+    /// Should be `true` to hydrate in `islands` mode.
     #[prop(optional)]
     islands: bool,
     /// A base url, not including a trailing slash
