@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 any_spawner = { workspace = true, features = ["tokio"] }
 hydration_context = { workspace = true }
-axum = { version = "0.7.7", default-features = false, features = [
+axum = { version = "0.7.8", default-features = false, features = [
   "matched-path",
 ] }
 dashmap = "6"
@@ -30,7 +30,7 @@ tower-http = "0.6.1"
 tracing = { version = "0.1.40", optional = true }
 
 [dev-dependencies]
-axum = "0.7.7"
+axum = "0.7.8"
 tokio = { version = "1.41", features = ["net", "rt-multi-thread"] }
 
 [features]
