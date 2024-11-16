@@ -31,24 +31,50 @@ impl From<ServerFnError> for Error {
     Clone,
     Copy,
 )]
-#[cfg_attr(
-    feature = "rkyv",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
-pub struct NoCustomError;
+pub enum NoCustomError {}
+
+#[cfg(feature = "rkyv")]
+impl rkyv::Archive for NoCustomError {
+    const COPY_OPTIMIZATION: rkyv::traits::CopyOptimization<Self> =
+        rkyv::traits::CopyOptimization::disable();
+    type Archived = ();
+    type Resolver = ();
+    fn resolve(&self, _: Self::Resolver, _: rkyv::Place<Self::Archived>) {
+        match *self {}
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<T, D: rkyv::rancor::Fallible + ?Sized> rkyv::Deserialize<T, D>
+    for NoCustomError
+{
+    fn deserialize(&self, _: &mut D) -> Result<T, D::Error> {
+        match *self {}
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<S: rkyv::rancor::Fallible + ?Sized> rkyv::Serialize<S> for NoCustomError {
+    fn serialize(
+        &self,
+        _: &mut S,
+    ) -> Result<Self::Resolver, <S as rkyv::rancor::Fallible>::Error> {
+        match *self {}
+    }
+}
 
 // Implement `Display` for `NoCustomError`
 impl fmt::Display for NoCustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unit Type Displayed")
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        match *self {}
     }
 }
 
 impl FromStr for NoCustomError {
     type Err = ();
 
-    fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        Ok(NoCustomError)
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Err(())
     }
 }
 
@@ -93,13 +119,6 @@ impl<E: ServerFnErrorKind + std::error::Error + Clone> ViaError<E>
 pub(crate) trait ServerFnErrorKind {}
 
 impl ServerFnErrorKind for ServerFnError {}
-
-// This impl should catch passing () or nothing to server_fn_error
-impl ViaError<NoCustomError> for &&&WrapError<()> {
-    fn to_server_error(&self) -> ServerFnError {
-        ServerFnError::WrappedServerError(NoCustomError)
-    }
-}
 
 // This impl will catch any type that implements any type that impls
 // Error and Clone, so that it can be wrapped into ServerFnError
