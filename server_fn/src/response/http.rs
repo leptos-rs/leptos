@@ -1,6 +1,6 @@
 use super::Res;
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+    ServerFnError, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
 };
 use axum::body::Body;
 use bytes::Bytes;
@@ -46,7 +46,7 @@ where
             + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
         let body =
-            Body::from_stream(data.map(|n| n.map_err(ServerFnErrorErr::from)));
+            Body::from_stream(data.map(|n| n.map_err(|e| server_fn_error!(e))));
         let builder = http::Response::builder();
         builder
             .status(200)

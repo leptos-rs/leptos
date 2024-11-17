@@ -14,7 +14,7 @@
 
 use super::Res;
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+    ServerFnError, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
 };
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
@@ -83,7 +83,7 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::Async(Box::pin(
-                data.map_err(ServerFnErrorErr::from).map_err(Error::from),
+                data.map_err(|e|server_fn_error!(e)).map_err(Error::from),
             )))
             .map_err(|e| ServerFnError::Response(e.to_string()))
     }

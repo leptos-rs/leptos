@@ -11,12 +11,6 @@ use url::Url;
 /// A custom header that can be used to indicate a server function returned an error.
 pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
-impl From<ServerFnError> for Error {
-    fn from(e: ServerFnError) -> Self {
-        Error::from(ServerFnErrorErr::from(e))
-    }
-}
-
 /// An empty value indicating that there is no custom error type associated
 /// with this server function.
 #[derive(
@@ -136,30 +130,39 @@ impl<E> ViaError<E> for WrapError<E> {
 /// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](trait@std::error::Error).
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Error,Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub enum ServerFnError<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
+    #[error("internal error: {0}")]
     WrappedServerError(E),
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
+    #[error("error while trying to register the server function: {0}")]
     Registration(String),
     /// Occurs on the client if there is a network error while trying to run function on server.
+    #[error("error reaching server to call server function: {0}")]
     Request(String),
-    /// Occurs on the server if there is an error creating an HTTP response.
-    Response(String),
     /// Occurs when there is an error while actually running the function on the server.
+    #[error("error running server function: {0}")]
     ServerError(String),
     /// Occurs on the client if there is an error deserializing the server's response.
+    #[error("error deserializing server function results: {0}")]
     Deserialization(String),
     /// Occurs on the client if there is an error serializing the server function arguments.
+    #[error("error serializing server function arguments: {0}")]
     Serialization(String),
     /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
+    #[error("error deserializing server function arguments: {0}")]
     Args(String),
     /// Occurs on the server if there's a missing argument.
+    #[error("missing argument {0}")]
     MissingArg(String),
+    /// Occurs on the server if there is an error creating an HTTP response.
+    #[error("error creating response {0}")]
+    Response(String),
 }
 
 impl ServerFnError<NoCustomError> {
@@ -175,44 +178,6 @@ impl<CustErr> From<CustErr> for ServerFnError<CustErr> {
     }
 }
 
-impl<E: std::error::Error> From<E> for ServerFnError {
-    fn from(value: E) -> Self {
-        ServerFnError::ServerError(value.to_string())
-    }
-}
-
-impl<CustErr> Display for ServerFnError<CustErr>
-where
-    CustErr: Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ServerFnError::Registration(s) => format!(
-                    "error while trying to register the server function: {s}"
-                ),
-                ServerFnError::Request(s) => format!(
-                    "error reaching server to call server function: {s}"
-                ),
-                ServerFnError::ServerError(s) =>
-                    format!("error running server function: {s}"),
-                ServerFnError::Deserialization(s) =>
-                    format!("error deserializing server function results: {s}"),
-                ServerFnError::Serialization(s) =>
-                    format!("error serializing server function arguments: {s}"),
-                ServerFnError::Args(s) => format!(
-                    "error deserializing server function arguments: {s}"
-                ),
-                ServerFnError::MissingArg(s) => format!("missing argument {s}"),
-                ServerFnError::Response(s) =>
-                    format!("error generating HTTP response: {s}"),
-                ServerFnError::WrappedServerError(e) => format!("{e}"),
-            }
-        )
-    }
-}
 
 /// A serializable custom server function error type.
 ///
@@ -298,87 +263,6 @@ where
     }
 }
 
-impl<E> std::error::Error for ServerFnError<E>
-where
-    E: std::error::Error + 'static,
-    ServerFnError<E>: std::fmt::Display,
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ServerFnError::WrappedServerError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-/// Type for errors that can occur when using server functions.
-///
-/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
-/// it can be used in situations in which the `Error` trait is required, but it’s
-/// not possible to create a blanket implementation that converts other errors into
-/// this type.
-///
-/// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
-/// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-pub enum ServerFnErrorErr<E = NoCustomError> {
-    /// A user-defined custom error type, which defaults to [`NoCustomError`].
-    #[error("internal error: {0}")]
-    WrappedServerError(E),
-    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
-    #[error("error while trying to register the server function: {0}")]
-    Registration(String),
-    /// Occurs on the client if there is a network error while trying to run function on server.
-    #[error("error reaching server to call server function: {0}")]
-    Request(String),
-    /// Occurs when there is an error while actually running the function on the server.
-    #[error("error running server function: {0}")]
-    ServerError(String),
-    /// Occurs on the client if there is an error deserializing the server's response.
-    #[error("error deserializing server function results: {0}")]
-    Deserialization(String),
-    /// Occurs on the client if there is an error serializing the server function arguments.
-    #[error("error serializing server function arguments: {0}")]
-    Serialization(String),
-    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
-    #[error("error deserializing server function arguments: {0}")]
-    Args(String),
-    /// Occurs on the server if there's a missing argument.
-    #[error("missing argument {0}")]
-    MissingArg(String),
-    /// Occurs on the server if there is an error creating an HTTP response.
-    #[error("error creating response {0}")]
-    Response(String),
-}
-
-impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
-    fn from(value: ServerFnError<CustErr>) -> Self {
-        match value {
-            ServerFnError::Registration(value) => {
-                ServerFnErrorErr::Registration(value)
-            }
-            ServerFnError::Request(value) => ServerFnErrorErr::Request(value),
-            ServerFnError::ServerError(value) => {
-                ServerFnErrorErr::ServerError(value)
-            }
-            ServerFnError::Deserialization(value) => {
-                ServerFnErrorErr::Deserialization(value)
-            }
-            ServerFnError::Serialization(value) => {
-                ServerFnErrorErr::Serialization(value)
-            }
-            ServerFnError::Args(value) => ServerFnErrorErr::Args(value),
-            ServerFnError::MissingArg(value) => {
-                ServerFnErrorErr::MissingArg(value)
-            }
-            ServerFnError::WrappedServerError(value) => {
-                ServerFnErrorErr::WrappedServerError(value)
-            }
-            ServerFnError::Response(value) => ServerFnErrorErr::Response(value),
-        }
-    }
-}
-
 /// Associates a particular server function error with the server function
 /// found at a particular path.
 ///
@@ -456,8 +340,3 @@ impl<CustErr> From<ServerFnUrlError<CustErr>> for ServerFnError<CustErr> {
     }
 }
 
-impl<CustErr> From<ServerFnUrlError<CustErr>> for ServerFnErrorErr<CustErr> {
-    fn from(error: ServerFnUrlError<CustErr>) -> Self {
-        error.error.into()
-    }
-}
