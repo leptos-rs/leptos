@@ -1,7 +1,5 @@
 use super::Res;
-use crate::error::{
-    ServerFnError, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
-};
+use crate::error::{ServerFnError, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER};
 use axum::body::Body;
 use bytes::Bytes;
 use futures::{Stream, StreamExt};

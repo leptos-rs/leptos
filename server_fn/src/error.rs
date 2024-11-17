@@ -5,7 +5,6 @@ use std::{
     str::FromStr,
 };
 use thiserror::Error;
-use throw_error::Error;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
@@ -130,7 +129,7 @@ impl<E> ViaError<E> for WrapError<E> {
 /// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](trait@std::error::Error).
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
-#[derive(Debug, Error,Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Error, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
@@ -177,7 +176,6 @@ impl<CustErr> From<CustErr> for ServerFnError<CustErr> {
         ServerFnError::WrappedServerError(value)
     }
 }
-
 
 /// A serializable custom server function error type.
 ///
@@ -339,4 +337,3 @@ impl<CustErr> From<ServerFnUrlError<CustErr>> for ServerFnError<CustErr> {
         error.error
     }
 }
-
