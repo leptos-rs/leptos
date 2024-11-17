@@ -64,10 +64,7 @@ where
                 } else {
                     (base.as_ref(), path)
                 };
-                match path.strip_prefix(base) {
-                    Some(path) => path,
-                    None => return None,
-                }
+                path.strip_prefix(base)?
             }
         };
 
