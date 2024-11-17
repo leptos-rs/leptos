@@ -606,33 +606,6 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync + 'static> From<T> for ArcSignal<T, SyncStorage> {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            ArcSignal::stored(value)
-        }
-    }
-
-    impl<T> From<T> for Signal<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored(value)
-        }
-    }
-
-    impl<T> From<T> for Signal<T, LocalStorage>
-    where
-        T: 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored_local(value)
-        }
-    }
-
     impl<T> From<ArcSignal<T, SyncStorage>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -840,7 +813,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeSignal<T>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -854,7 +826,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeSignal<T, LocalStorage>> for Signal<T, LocalStorage>
     where
         T: Send + Sync + 'static,
@@ -868,7 +839,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeSignal<T>> for Signal<Option<T>>
     where
         T: Clone + Send + Sync + 'static,
@@ -884,7 +854,6 @@ pub mod read {
         }
     }
 
-    #[allow(deprecated)]
     impl<T> From<MaybeSignal<T, LocalStorage>> for Signal<Option<T>, LocalStorage>
     where
         T: Clone + Send + Sync + 'static,
@@ -897,27 +866,6 @@ pub mod read {
                     Signal::derive_local(move || Some(signal.get()))
                 }
             }
-        }
-    }
-
-    impl<T> From<MaybeProp<T>> for Option<Signal<Option<T>>>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: MaybeProp<T>) -> Self {
-            value.0
-        }
-    }
-
-    impl<T> From<MaybeProp<T, LocalStorage>>
-        for Option<Signal<Option<T>, LocalStorage>>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: MaybeProp<T, LocalStorage>) -> Self {
-            value.0
         }
     }
 
@@ -949,12 +897,6 @@ pub mod read {
     /// assert_eq!(above_3(&memoized_double_count.into()), true);
     /// ```
     #[derive(Debug, PartialEq, Eq)]
-    #[deprecated(
-        since = "0.7.0-rc1",
-        note = "`MaybeSignal<T>` is deprecated in favour of `Signal<T>` which \
-                is `Copy`, now has a more efficient From<T> implementation \
-                and other benefits in 0.7."
-    )]
     pub enum MaybeSignal<T, S = SyncStorage>
     where
         T: 'static,
