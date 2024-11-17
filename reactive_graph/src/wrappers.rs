@@ -606,33 +606,6 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync + 'static> From<T> for ArcSignal<T, SyncStorage> {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            ArcSignal::stored(value)
-        }
-    }
-
-    impl<T> From<T> for Signal<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored(value)
-        }
-    }
-
-    impl<T> From<T> for Signal<T, LocalStorage>
-    where
-        T: 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored_local(value)
-        }
-    }
-
     impl<T> From<ArcSignal<T, SyncStorage>> for Signal<T>
     where
         T: Send + Sync + 'static,
@@ -856,36 +829,6 @@ pub mod read {
         }
     }
 
-    impl<T> From<T> for Signal<Option<T>>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Signal::stored(Some(value))
-        }
-    }
-
-    impl<T> From<T> for Signal<Option<T>, LocalStorage>
-    where
-        T: 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Signal::stored_local(Some(value))
-        }
-    }
-
-    impl<T> From<Signal<T>> for Signal<Option<T>>
-    where
-        T: Clone + Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: Signal<T>) -> Self {
-            Signal::derive(move || Some(value.get()))
-        }
-    }
-
     impl<T> From<Signal<T, LocalStorage>> for Signal<Option<T>, LocalStorage>
     where
         T: Clone + 'static,
@@ -1080,8 +1023,8 @@ pub mod read {
     #[deprecated(
         since = "0.7.0-rc1",
         note = "`MaybeSignal<T>` is deprecated in favour of `Signal<T>` which \
-                is `Copy`, now has a more efficient From<T> implementation \
-                and other benefits in 0.7."
+                is `Copy`, and has other benefits in 0.7. `Signal<T>` can be \
+                created from `T` with `Signal::stored()`."
     )]
     pub enum MaybeSignal<T, S = SyncStorage>
     where
@@ -1574,7 +1517,7 @@ pub mod read {
 
     impl From<&str> for MaybeProp<String> {
         fn from(value: &str) -> Self {
-            Self(Some(Signal::from(Some(value.to_string()))))
+            Self(Some(Signal::stored(Some(value.to_string()))))
         }
     }
 
