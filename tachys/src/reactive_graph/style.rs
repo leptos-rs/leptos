@@ -393,7 +393,6 @@ mod stable {
 
     macro_rules! style_signal_arena {
         ($sig:ident) => {
-            #[allow(deprecated)]
             impl<C, S> IntoStyle for $sig<C, S>
             where
                 $sig<C, S>: Get<Value = C>,
@@ -459,7 +458,6 @@ mod stable {
                 }
             }
 
-            #[allow(deprecated)]
             impl<S, St> IntoStyle for (&'static str, $sig<S, St>)
             where
                 $sig<S, St>: Get<Value = S>,
@@ -536,14 +534,12 @@ mod stable {
 
     use super::RenderEffect;
     use crate::html::style::IntoStyle;
-    #[allow(deprecated)]
-    use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
     use std::borrow::Cow;
 

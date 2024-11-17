@@ -84,7 +84,6 @@ pub mod owner;
 #[cfg(feature = "serde")]
 mod serde;
 pub mod signal;
-mod trait_options;
 pub mod traits;
 pub mod transition;
 pub mod wrappers;

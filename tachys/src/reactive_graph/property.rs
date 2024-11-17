@@ -82,15 +82,13 @@ where
 #[cfg(not(feature = "nightly"))]
 mod stable {
     use crate::html::property::IntoProperty;
-    #[allow(deprecated)]
-    use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,
         owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     macro_rules! property_signal {
@@ -138,7 +136,6 @@ mod stable {
 
     macro_rules! property_signal_arena {
         ($sig:ident) => {
-            #[allow(deprecated)]
             impl<V, S> IntoProperty for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,

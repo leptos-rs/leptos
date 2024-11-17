@@ -519,7 +519,6 @@ mod stable {
 
     macro_rules! class_signal_arena {
         ($sig:ident) => {
-            #[allow(deprecated)]
             impl<C, S> IntoClass for $sig<C, S>
             where
                 $sig<C, S>: Get<Value = C>,
@@ -589,7 +588,6 @@ mod stable {
                 }
             }
 
-            #[allow(deprecated)]
             impl<S> IntoClass for (&'static str, $sig<bool, S>)
             where
                 $sig<bool, S>: Get<Value = bool>,
@@ -827,14 +825,12 @@ mod stable {
 
     use super::RenderEffect;
     use crate::html::class::IntoClass;
-    #[allow(deprecated)]
-    use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     class_signal_arena!(RwSignal);
