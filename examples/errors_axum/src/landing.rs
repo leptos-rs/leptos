@@ -48,6 +48,7 @@ pub fn App() -> impl IntoView {
                 <Routes fallback=|| {
                     let mut errors = Errors::default();
                     errors.insert_with_default_key(AppError::NotFound);
+                    let errors = Signal::stored(errors);
                     view! {
                         <ErrorTemplate errors/>
                     }
