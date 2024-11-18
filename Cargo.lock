@@ -364,9 +364,9 @@ dependencies = [
 
 [[package]]
 name = "attribute-derive"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1800e974930e9079c965b9ffbcb6667a40401063a26396c7b4f15edc92da690"
+checksum = "0053e96dd3bec5b4879c23a138d6ef26f2cb936c9cdc96274ac2b9ed44b5bb54"
 dependencies = [
  "attribute-derive-macro",
  "derive-where",
@@ -378,9 +378,9 @@ dependencies = [
 
 [[package]]
 name = "attribute-derive-macro"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d908eb786ef94296bff86f90130b3b748b49401dc81fd2bb8b3dccd44cfacbd"
+checksum = "463b53ad0fd5b460af4b1915fe045ff4d946d025fb6c4dc3337752eaa980f71b"
 dependencies = [
  "collection_literals",
  "interpolator",
