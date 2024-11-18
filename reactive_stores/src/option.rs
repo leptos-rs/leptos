@@ -1,5 +1,5 @@
 use crate::{StoreField, Subfield};
-use reactive_graph::traits::Read;
+use reactive_graph::traits::{Read, ReadUntracked};
 use std::ops::Deref;
 
 /// Extends optional store fields, with the ability to unwrap or map over them.
@@ -23,12 +23,23 @@ where
         self,
         map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
     ) -> Option<U>;
+
+    /// Unreactively maps over the field.
+    ///
+    /// This returns `None` if the subfield is currently `None`,
+    /// and a new store subfield with the inner value if it is `Some`. This is an unreactive variant of
+    /// `[OptionStoreExt::map]`, and will not cause the reactive context to re-run if the field changes.
+    fn map_untracked<U>(
+        self,
+        map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
+    ) -> Option<U>;
 }
 
 impl<T, S> OptionStoreExt for S
 where
-    S: StoreField<Value = Option<T>> + Read,
+    S: StoreField<Value = Option<T>> + Read + ReadUntracked,
     <S as Read>::Value: Deref<Target = Option<T>>,
+    <S as ReadUntracked>::Value: Deref<Target = Option<T>>,
 {
     type Output = T;
 
@@ -46,6 +57,17 @@ where
         map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
     ) -> Option<U> {
         if self.read().is_some() {
+            Some(map_fn(self.unwrap()))
+        } else {
+            None
+        }
+    }
+
+    fn map_untracked<U>(
+        self,
+        map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
+    ) -> Option<U> {
+        if self.read_untracked().is_some() {
             Some(map_fn(self.unwrap()))
         } else {
             None
