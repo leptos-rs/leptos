@@ -70,7 +70,7 @@
 //! - **Generic server fns must be explicitly registered with the type.** Each server function creates
 //!   a separate API endpoint, which means that the URL can change depending on the generic type. As a
 //!   result, server functions that are generic must be explicitly registered with the
-//!   [`axum::register_explicit`] or [`actix::register_explicit`] function call with your generic type 
+//!   [`axum::register_explicit`] or [`actix::register_explicit`] function call with your generic type
 //!   passed into it as an argument.
 //! - **Arguments and return types must be serializable.** We support a variety of different encodings,
 //!   but one way or another arguments need to be serialized to be sent to the server and deserialized
