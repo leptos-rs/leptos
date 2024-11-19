@@ -7,6 +7,7 @@ use reactive_graph::{
     owner::Storage,
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Write,
     },
 };
 use std::{
@@ -31,7 +32,8 @@ where
     trigger: StoreFieldTrigger,
     get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
-    write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
+    pub(crate) write:
+        Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
     track_field: Arc<dyn Fn() + Send + Sync>,
 }
@@ -326,6 +328,22 @@ impl<T> ReadUntracked for ArcField<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         (self.read)()
+    }
+}
+
+impl<T> Write for ArcField<T> {
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        (self.write)()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut guard = (self.write)()?;
+        guard.untrack();
+        Some(guard)
     }
 }
 
