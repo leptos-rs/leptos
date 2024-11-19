@@ -13,8 +13,8 @@ use crate::{
     resolve_path::resolve_path,
     ChooseView, MatchNestedRoutes, NestedRoute, RouteDefs, SsrMode,
 };
-use either_of::Either;
-use leptos::prelude::*;
+use either_of::EitherOf3;
+use leptos::{children, prelude::*};
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
@@ -386,6 +386,9 @@ pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
     condition: C,
     /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
+    /// Will be displayed while the condition is pending. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: children::ViewFn,
     /// The mode that this route prefers during server-side rendering.
     /// Defaults to out-of-order streaming.
     #[prop(optional)]
@@ -398,23 +401,26 @@ where
     PathFn: Fn() -> P + Send + Clone + 'static,
     P: Display + 'static,
 {
+    let fallback = move || fallback.run();
     let view = move || {
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
         let view = view.clone();
+        let fallback = fallback.clone();
         (view! {
-            <Transition>
+            <Transition fallback=fallback.clone()>
                 {move || {
                     let condition = condition();
                     let view = view.clone();
                     let redirect_path = redirect_path.clone();
+                    let fallback = fallback.clone();
                     Unsuspend::new(move || match condition {
-                        Some(true) => Either::Left(view()),
+                        Some(true) => EitherOf3::A(view()),
                         #[allow(clippy::unit_arg)]
                         Some(false) => {
-                            Either::Right(view! { <Redirect path=redirect_path()/> }.into_inner())
+                            EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
                         }
-                        None => Either::Right(()),
+                        None => EitherOf3::C(fallback()),
                     })
                 }}
 
@@ -437,6 +443,9 @@ pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
     /// the page, `Some(false)` means the user cannot access the page, and `None` means this
     /// information is still loading.
     condition: C,
+    /// Will be displayed while the condition is pending. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: children::ViewFn,
     /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
     /// Nested child routes.
@@ -453,17 +462,21 @@ where
     PathFn: Fn() -> P + Send + Clone + 'static,
     P: Display + 'static,
 {
+    let fallback = move || fallback.run();
     let children = children.into_inner();
     let view = move || {
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
+        let fallback = fallback.clone();
         let view = view.clone();
         let owner = Owner::current().unwrap();
         let view = {
+            let fallback = fallback.clone();
             move || {
                 let condition = condition();
                 let view = view.clone();
                 let redirect_path = redirect_path.clone();
+                let fallback = fallback.clone();
                 let owner = owner.clone();
                 Unsuspend::new(move || match condition {
                     // reset the owner so that things like providing context work
@@ -472,16 +485,16 @@ where
                     //
                     // clippy: not redundant, a FnOnce vs FnMut issue
                     #[allow(clippy::redundant_closure)]
-                    Some(true) => Either::Left(owner.with(|| view())),
+                    Some(true) => EitherOf3::A(owner.with(|| view())),
                     #[allow(clippy::unit_arg)]
-                    Some(false) => Either::Right(
+                    Some(false) => EitherOf3::B(
                         view! { <Redirect path=redirect_path()/> }.into_inner(),
                     ),
-                    None => Either::Right(()),
+                    None => EitherOf3::C(fallback()),
                 })
             }
         };
-        (view! { <Transition>{view}</Transition> }).into_any()
+        (view! { <Transition fallback>{view}</Transition> }).into_any()
     };
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
