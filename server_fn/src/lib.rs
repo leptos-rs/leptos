@@ -225,7 +225,7 @@ where
     /// custom error type, this can be `NoCustomError` by default.)
     type Error: FromStr + Display;
 
-    /// Returns [`Self::PATH`].
+    /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
     fn url() -> &'static str;
 
     /// Middleware that should be applied to this server function.
