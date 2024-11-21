@@ -253,7 +253,8 @@ where
     }
 }
 
-/// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
+/// A [`Future`] that is ready when an
+/// [`ArcAsyncDerived`](reactive_graph::computed::ArcAsyncDerived) is finished loading or reloading,
 /// and contains its value. `.await`ing this clones the value `T`.
 pub struct OnceResourceFuture<T> {
     source: AnySource,

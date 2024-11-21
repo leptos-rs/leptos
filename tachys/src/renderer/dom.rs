@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-//! See [`Renderer`](super::Renderer) and [`Rndr`](super::Rndr) for additional information.
+//! See [`Renderer`](crate::renderer::Renderer) and [`Rndr`](crate::renderer::Rndr) for additional information.
 
 use super::{CastFrom, RemoveEventHandler};
 use crate::{
@@ -15,7 +15,7 @@ use std::{any::TypeId, borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{Comment, HtmlTemplateElement};
 
-/// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
+/// A [`Renderer`](crate::renderer::Renderer) that uses `web-sys` to manipulate DOM elements in the browser.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Dom;
 

@@ -7,8 +7,7 @@
 //! using the [`Leptos`](https://github.com/leptos-rs/leptos) web framework.
 //!
 //! Document metadata is updated automatically when running in the browser. For server-side
-//! rendering, after the component tree is rendered to HTML, [`MetaContext::dehydrate`] can generate
-//! HTML that should be injected into the `<head>` of the HTML document being rendered.
+//! rendering, after the component tree is rendered to HTML, [`ServerMetaContextOutput::inject_meta_context`] will inject meta tags into a stream of HTML inside the `<head>`.
 //!
 //! ```
 //! use leptos::prelude::*;
