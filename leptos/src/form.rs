@@ -3,7 +3,8 @@ use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
-    client::Client, codec::PostUrl, request::ClientReq, ServerFn, ServerFnError,
+    client::Client, codec::PostUrl, error::ServerFnErrorErr,
+    request::ClientReq, ServerFn,
 };
 use tachys::{
     either::Either,
@@ -123,9 +124,10 @@ where
                         "Error converting form field into server function \
                          arguments: {err:?}"
                     );
-                    value.set(Some(Err(ServerFnError::Serialization(
+                    value.set(Some(Err(ServerFnErrorErr::Serialization(
                         err.to_string(),
-                    ))));
+                    )
+                    .into())));
                     version.update(|n| *n += 1);
                 }
             }
@@ -191,9 +193,10 @@ where
                 action.dispatch(new_input);
             }
             Err(err) => {
-                action.dispatch_sync(Err(ServerFnError::Serialization(
+                action.dispatch_sync(Err(ServerFnErrorErr::Serialization(
                     err.to_string(),
-                )));
+                )
+                .into()));
             }
         }
     };
