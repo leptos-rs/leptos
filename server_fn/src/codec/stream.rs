@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes, IntoReq};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
     IntoRes, ServerFnError,
@@ -215,7 +215,8 @@ where
         let s = TextStream::new(data.map(|chunk| {
             chunk.and_then(|bytes| {
                 String::from_utf8(bytes.to_vec()).map_err(|e| {
-                    ServerFnErrorErr::Deserialization(e.to_string()).into()
+                    ServerFnErrorErr::Deserialization(e.to_string())
+                        .into_app_error()
                 })
             })
         }));
@@ -246,7 +247,8 @@ where
         Ok(TextStream(Box::pin(stream.map(|chunk| {
             chunk.and_then(|bytes| {
                 String::from_utf8(bytes.into()).map_err(|e| {
-                    ServerFnErrorErr::Deserialization(e.to_string()).into()
+                    ServerFnErrorErr::Deserialization(e.to_string())
+                        .into_app_error()
                 })
             })
         }))))

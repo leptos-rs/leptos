@@ -38,7 +38,7 @@ pub trait Client<E> {
 pub mod browser {
     use super::Client;
     use crate::{
-        error::{FromServerFnError, ServerFnErrorErr},
+        error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::browser::{BrowserRequest, RequestInner},
         response::browser::BrowserResponse,
     };
@@ -66,7 +66,8 @@ pub mod browser {
                     .await
                     .map(|res| BrowserResponse(SendWrapper::new(res)))
                     .map_err(|e| {
-                        ServerFnErrorErr::Request(e.to_string()).into()
+                        ServerFnErrorErr::Request(e.to_string())
+                            .into_app_error()
                     });
 
                 // at this point, the future has successfully resolved without being dropped, so we
@@ -85,7 +86,7 @@ pub mod browser {
 pub mod reqwest {
     use super::Client;
     use crate::{
-        error::{FromServerFnError, ServerFnErrorErr},
+        error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::reqwest::CLIENT,
     };
     use futures::TryFutureExt;
@@ -102,9 +103,9 @@ pub mod reqwest {
         fn send(
             req: Self::Request,
         ) -> impl Future<Output = Result<Self::Response, E>> + Send {
-            CLIENT
-                .execute(req)
-                .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into())
+            CLIENT.execute(req).map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
         }
     }
 }

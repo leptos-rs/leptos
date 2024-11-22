@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
     IntoReq, IntoRes,
@@ -23,9 +23,11 @@ where
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let data = serde_json::to_string(&self.serialize().map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?)
-        .map_err(|e| E::from(ServerFnErrorErr::Serialization(e.to_string())))?;
+        .map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post(path, accepts, SerdeLite::CONTENT_TYPE, data)
     }
 }
@@ -38,11 +40,10 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
-        Self::deserialize(
-            &serde_json::from_str(&string_data)
-                .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))?,
-        )
-        .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))
+        Self::deserialize(&serde_json::from_str(&string_data).map_err(|e| {
+            ServerFnErrorErr::Args(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
@@ -54,9 +55,11 @@ where
 {
     async fn into_res(self) -> Result<Response, E> {
         let data = serde_json::to_string(&self.serialize().map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?)
-        .map_err(|e| E::from(ServerFnErrorErr::Serialization(e.to_string())))?;
+        .map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Response::try_from_string(SerdeLite::CONTENT_TYPE, data)
     }
 }
@@ -69,10 +72,11 @@ where
 {
     async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_string().await?;
-        Self::deserialize(
-            &serde_json::from_str(&data)
-                .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))?,
-        )
-        .map_err(|e| E::from(ServerFnErrorErr::Deserialization(e.to_string())))
+        Self::deserialize(&serde_json::from_str(&data).map_err(|e| {
+            ServerFnErrorErr::Args(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }

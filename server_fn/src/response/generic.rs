@@ -14,7 +14,7 @@
 
 use super::Res;
 use crate::error::{
-    FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper,
+    FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
     SERVER_FN_ERROR_HEADER,
 };
 use bytes::Bytes;
@@ -51,7 +51,9 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(data.into())
-            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, E> {
@@ -60,7 +62,9 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::Sync(data))
-            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn try_from_stream(
@@ -74,7 +78,9 @@ where
             .body(Body::Async(Box::pin(
                 data.map_err(ServerFnErrorWrapper).map_err(Error::from),
             )))
-            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn error_response(path: &str, err: &E) -> Self {

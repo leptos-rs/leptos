@@ -1,5 +1,5 @@
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
 };
 use actix_web::{web::Payload, HttpRequest};
@@ -62,7 +62,8 @@ where
         SendWrapper::new(async move {
             let payload = self.0.take().1;
             payload.to_bytes().await.map_err(|e| {
-                ServerFnErrorErr::Deserialization(e.to_string()).into()
+                ServerFnErrorErr::Deserialization(e.to_string())
+                    .into_app_error()
             })
         })
     }
@@ -73,10 +74,14 @@ where
         SendWrapper::new(async move {
             let payload = self.0.take().1;
             let bytes = payload.to_bytes().await.map_err(|e| {
-                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
             })?;
             String::from_utf8(bytes.into()).map_err(|e| {
-                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
             })
         })
     }

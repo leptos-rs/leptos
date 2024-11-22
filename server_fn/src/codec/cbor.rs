@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
 };
@@ -25,7 +25,7 @@ where
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let mut buffer: Vec<u8> = Vec::new();
         ciborium::ser::into_writer(&self, &mut buffer).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
         Request::try_new_post_bytes(
             path,
@@ -45,7 +45,7 @@ where
     async fn from_req(req: Request) -> Result<Self, E> {
         let body_bytes = req.try_into_bytes().await?;
         ciborium::de::from_reader(body_bytes.as_ref())
-            .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
@@ -58,7 +58,7 @@ where
     async fn into_res(self) -> Result<Response, E> {
         let mut buffer: Vec<u8> = Vec::new();
         ciborium::ser::into_writer(&self, &mut buffer).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
         Response::try_from_bytes(Cbor::CONTENT_TYPE, Bytes::from(buffer))
     }
@@ -73,7 +73,7 @@ where
     async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
         ciborium::de::from_reader(data.as_ref())
-            .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 

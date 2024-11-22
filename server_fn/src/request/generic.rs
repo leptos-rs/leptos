@@ -13,7 +13,7 @@
 //!   crate under the hood.
 
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
 };
 use bytes::Bytes;
@@ -34,7 +34,7 @@ where
 
     async fn try_into_string(self) -> Result<String, E> {
         String::from_utf8(self.into_body().into()).map_err(|err| {
-            ServerFnErrorErr::Deserialization(err.to_string()).into()
+            ServerFnErrorErr::Deserialization(err.to_string()).into_app_error()
         })
     }
 

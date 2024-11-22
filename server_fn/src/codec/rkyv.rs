@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
 };
@@ -39,7 +39,7 @@ where
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let encoded = rkyv::to_bytes::<rancor::Error>(&self).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Request::try_new_post_bytes(path, accepts, Rkyv::CONTENT_TYPE, bytes)
@@ -63,7 +63,7 @@ where
                     return Err(ServerFnErrorErr::Deserialization(
                         e.to_string(),
                     )
-                    .into())
+                    .into_app_error());
                 }
                 Ok(bytes) => {
                     for byte in bytes {
@@ -73,7 +73,7 @@ where
             }
         }
         rkyv::from_bytes::<T, rancor::Error>(aligned.as_ref())
-            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
@@ -88,7 +88,7 @@ where
 {
     async fn into_res(self) -> Result<Response, E> {
         let encoded = rkyv::to_bytes::<rancor::Error>(&self).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(format!("{e:?}")))
+            ServerFnErrorErr::Serialization(format!("{e:?}")).into_app_error()
         })?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Response::try_from_bytes(Rkyv::CONTENT_TYPE, bytes)
@@ -106,7 +106,7 @@ where
     async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
         rkyv::from_bytes::<T, rancor::Error>(&data).map_err(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into()
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
     }
 }

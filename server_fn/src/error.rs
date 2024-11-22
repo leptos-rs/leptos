@@ -12,7 +12,7 @@ pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
 impl From<ServerFnError> for Error {
     fn from(e: ServerFnError) -> Self {
-        Error::from(ServerFnErrorErr::from(e))
+        Error::from(ServerFnErrorWrapper(e))
     }
 }
 
@@ -286,10 +286,7 @@ where
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-pub enum ServerFnErrorErr<E = NoCustomError> {
-    /// A user-defined custom error type, which defaults to [`NoCustomError`].
-    #[error("internal error: {0}")]
-    WrappedServerError(E),
+pub enum ServerFnErrorErr {
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     #[error("error while trying to register the server function: {0}")]
     Registration(String),
@@ -319,33 +316,33 @@ pub enum ServerFnErrorErr<E = NoCustomError> {
     Response(String),
 }
 
-impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
-    fn from(value: ServerFnError<CustErr>) -> Self {
+impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+where
+    CustErr: std::fmt::Debug + Display + Serialize + DeserializeOwned + 'static,
+{
+    fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
         match value {
-            ServerFnError::Registration(value) => {
-                ServerFnErrorErr::Registration(value)
+            ServerFnErrorErr::Registration(value) => {
+                ServerFnError::Registration(value)
             }
-            ServerFnError::Request(value) => ServerFnErrorErr::Request(value),
-            ServerFnError::ServerError(value) => {
-                ServerFnErrorErr::ServerError(value)
+            ServerFnErrorErr::Request(value) => ServerFnError::Request(value),
+            ServerFnErrorErr::ServerError(value) => {
+                ServerFnError::ServerError(value)
             }
-            ServerFnError::MiddlewareError(value) => {
-                ServerFnErrorErr::MiddlewareError(value)
+            ServerFnErrorErr::MiddlewareError(value) => {
+                ServerFnError::MiddlewareError(value)
             }
-            ServerFnError::Deserialization(value) => {
-                ServerFnErrorErr::Deserialization(value)
+            ServerFnErrorErr::Deserialization(value) => {
+                ServerFnError::Deserialization(value)
             }
-            ServerFnError::Serialization(value) => {
-                ServerFnErrorErr::Serialization(value)
+            ServerFnErrorErr::Serialization(value) => {
+                ServerFnError::Serialization(value)
             }
-            ServerFnError::Args(value) => ServerFnErrorErr::Args(value),
-            ServerFnError::MissingArg(value) => {
-                ServerFnErrorErr::MissingArg(value)
+            ServerFnErrorErr::Args(value) => ServerFnError::Args(value),
+            ServerFnErrorErr::MissingArg(value) => {
+                ServerFnError::MissingArg(value)
             }
-            ServerFnError::WrappedServerError(value) => {
-                ServerFnErrorErr::WrappedServerError(value)
-            }
-            ServerFnError::Response(value) => ServerFnErrorErr::Response(value),
+            ServerFnErrorErr::Response(value) => ServerFnError::Response(value),
         }
     }
 }
@@ -423,14 +420,14 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
             Ok(decoded) => decoded,
             Err(err) => {
                 return ServerFnErrorErr::Deserialization(err.to_string())
-                    .into()
+                    .into_app_error();
             }
         };
         let s = match String::from_utf8(decoded) {
             Ok(s) => s,
             Err(err) => {
                 return ServerFnErrorErr::Deserialization(err.to_string())
-                    .into()
+                    .into_app_error();
             }
         };
         E::de(&s)
@@ -468,12 +465,25 @@ impl<E: FromServerFnError> std::error::Error for ServerFnErrorWrapper<E> {
 
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError:
-    Display
-    + std::fmt::Debug
-    + ServerFnErrorSerde
-    + From<ServerFnErrorErr>
-    + 'static
+    Display + std::fmt::Debug + ServerFnErrorSerde + 'static
 {
+    /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
+    fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
+}
+
+/// A helper trait for converting a [`ServerFnErrorErr`] into an application-specific custom error type that implements [`FromServerFnError`].
+pub trait IntoAppError<E> {
+    /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
+    fn into_app_error(self) -> E;
+}
+
+impl<E> IntoAppError<E> for ServerFnErrorErr
+where
+    E: FromServerFnError,
+{
+    fn into_app_error(self) -> E {
+        E::from_server_fn_error(self)
+    }
 }
 
 #[test]
@@ -481,15 +491,6 @@ fn assert_from_server_fn_error_impl() {
     fn assert_impl<T: FromServerFnError>() {}
 
     assert_impl::<ServerFnError>();
-}
-
-impl<E> FromServerFnError for E where
-    E: Display
-        + std::fmt::Debug
-        + ServerFnErrorSerde
-        + From<ServerFnErrorErr>
-        + 'static
-{
 }
 
 impl<E> ServerFnErrorSerde for E

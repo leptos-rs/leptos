@@ -3,8 +3,11 @@ use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
-    client::Client, codec::PostUrl, error::ServerFnErrorErr,
-    request::ClientReq, ServerFn,
+    client::Client,
+    codec::PostUrl,
+    error::{IntoAppError, ServerFnErrorErr},
+    request::ClientReq,
+    ServerFn,
 };
 use tachys::{
     either::Either,
@@ -127,7 +130,7 @@ where
                     value.set(Some(Err(ServerFnErrorErr::Serialization(
                         err.to_string(),
                     )
-                    .into())));
+                    .into_app_error())));
                     version.update(|n| *n += 1);
                 }
             }
@@ -196,7 +199,7 @@ where
                 action.dispatch_sync(Err(ServerFnErrorErr::Serialization(
                     err.to_string(),
                 )
-                .into()));
+                .into_app_error()));
             }
         }
     };

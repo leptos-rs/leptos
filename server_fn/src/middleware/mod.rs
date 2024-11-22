@@ -32,6 +32,7 @@ mod axum {
     use crate::{
         error::{FromServerFnError, ServerFnErrorErr},
         response::Res,
+        ServerFnError,
     };
     use axum::body::Body;
     use http::{Request, Response};
@@ -51,7 +52,7 @@ mod axum {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = S::Error::from(
+                    let err = S::Error::from_server_fn_error(
                         ServerFnErrorErr::MiddlewareError(e.to_string()),
                     );
                     Response::<Body>::error_response(&path, &err)
@@ -64,7 +65,7 @@ mod axum {
         for BoxedService<Request<Body>, Response<Body>>
     {
         type Response = Response<Body>;
-        type Error = ServerFnErrorErr;
+        type Error = ServerFnError;
         type Future = Pin<
             Box<
                 dyn std::future::Future<
@@ -127,7 +128,7 @@ mod actix {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = S::Error::from(
+                    let err = S::Error::from_server_fn_error(
                         ServerFnErrorErr::MiddlewareError(e.to_string()),
                     );
                     ActixResponse::error_response(&path, &err).take()
@@ -150,7 +151,7 @@ mod actix {
             let inner = self.call(req.0.take().0);
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {
-                    let err = S::Error::from(
+                    let err = S::Error::from_server_fn_error(
                         ServerFnErrorErr::MiddlewareError(e.to_string()),
                     );
                     ActixResponse::error_response(&path, &err).take()

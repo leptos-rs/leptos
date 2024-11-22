@@ -1,6 +1,6 @@
 use super::Res;
 use crate::error::{
-    FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper,
+    FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
     SERVER_FN_ERROR_HEADER,
 };
 use axum::body::Body;
@@ -18,7 +18,9 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
-            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, E> {
@@ -27,7 +29,9 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
-            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn try_from_stream(
@@ -40,7 +44,9 @@ where
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(body)
-            .map_err(|e| E::from(ServerFnErrorErr::Response(e.to_string())))
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn error_response(path: &str, err: &E) -> Self {

@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
 };
@@ -24,7 +24,7 @@ where
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let data = rmp_serde::to_vec(&self).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
         Request::try_new_post_bytes(
             path,
@@ -44,7 +44,7 @@ where
     async fn from_req(req: Request) -> Result<Self, E> {
         let data = req.try_into_bytes().await?;
         rmp_serde::from_slice::<T>(&data)
-            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
@@ -56,7 +56,7 @@ where
 {
     async fn into_res(self) -> Result<Response, E> {
         let data = rmp_serde::to_vec(&self).map_err(|e| {
-            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
         Response::try_from_bytes(MsgPack::CONTENT_TYPE, Bytes::from(data))
     }
@@ -71,7 +71,7 @@ where
     async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
         rmp_serde::from_slice(&data).map_err(|e| {
-            E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
     }
 }

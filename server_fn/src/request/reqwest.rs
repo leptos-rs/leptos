@@ -1,7 +1,7 @@
 use super::ClientReq;
 use crate::{
     client::get_server_url,
-    error::{FromServerFnError, ServerFnErrorErr},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
 };
 use bytes::Bytes;
 use futures::Stream;
@@ -24,15 +24,20 @@ where
         query: &str,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
-        let mut url = Url::try_from(url.as_str())
-            .map_err(|e| E::from(ServerFnErrorErr::Request(e.to_string())))?;
+        let mut url = Url::try_from(url.as_str()).map_err(|e| {
+            E::from_server_fn_error(ServerFnErrorErr::Request(e.to_string()))
+        })?;
         url.set_query(Some(query));
         let req = CLIENT
             .get(url)
             .header(CONTENT_TYPE, content_type)
             .header(ACCEPT, accepts)
             .build()
-            .map_err(|e| E::from(ServerFnErrorErr::Request(e.to_string())))?;
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?;
         Ok(req)
     }
 
@@ -49,7 +54,9 @@ where
             .header(ACCEPT, accepts)
             .body(body)
             .build()
-            .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
     }
 
     fn try_new_post_bytes(
@@ -65,7 +72,9 @@ where
             .header(ACCEPT, accepts)
             .body(body)
             .build()
-            .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
     }
 
     fn try_new_multipart(
@@ -78,7 +87,9 @@ where
             .header(ACCEPT, accepts)
             .multipart(body)
             .build()
-            .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
     }
 
     fn try_new_post_form_data(
@@ -93,7 +104,9 @@ where
             .header(ACCEPT, accepts)
             .multipart(body)
             .build()
-            .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into())
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
     }
 
     fn try_new_streaming(

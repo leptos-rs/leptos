@@ -114,7 +114,9 @@ where
                 .abort_signal(abort_signal.as_ref())
                 .build()
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
                 })?,
             abort_ctrl,
         })))
@@ -138,7 +140,9 @@ where
                 .abort_signal(abort_signal.as_ref())
                 .body(body)
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
                 })?,
             abort_ctrl,
         })))
@@ -164,7 +168,9 @@ where
                 .abort_signal(abort_signal.as_ref())
                 .body(body)
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
                 })?,
             abort_ctrl,
         })))
@@ -186,7 +192,9 @@ where
                 .abort_signal(abort_signal.as_ref())
                 .body(body.0.take())
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
                 })?,
             abort_ctrl,
         })))
@@ -203,7 +211,7 @@ where
         let url_params =
             UrlSearchParams::new_with_str_sequence_sequence(&form_data)
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Serialization(
+                    E::from_server_fn_error(ServerFnErrorErr::Serialization(
                         e.as_string().unwrap_or_else(|| {
                             "Could not serialize FormData to URLSearchParams"
                                 .to_string()
@@ -217,7 +225,9 @@ where
                 .abort_signal(abort_signal.as_ref())
                 .body(url_params)
                 .map_err(|e| {
-                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
                 })?,
             abort_ctrl,
         })))
@@ -232,7 +242,11 @@ where
         // TODO abort signal
         let (request, abort_ctrl) =
             streaming_request(path, accepts, content_type, body).map_err(
-                |e| E::from(ServerFnErrorErr::Request(format!("{e:?}"))),
+                |e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(format!(
+                        "{e:?}"
+                    )))
+                },
             )?;
         Ok(Self(SendWrapper::new(RequestInner {
             request,
