@@ -24,7 +24,7 @@ impl ParamsMap {
     /// Inserts a value into the map.
     ///
     /// If a value with that key already exists, the new value will be added to it.
-    /// To replace the value instead, see [`replace`].
+    /// To replace the value instead, see [`replace`](Self::replace).
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = Url::unescape(&value);
 

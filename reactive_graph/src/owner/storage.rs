@@ -30,7 +30,7 @@ impl<T> StorageAccess<T> for SendWrapper<T> {
     }
 }
 
-/// A way of storing a [`ArenaItem`], either as itself or with a wrapper to make it threadsafe.
+/// A way of storing an [`ArenaItem`](super::arena_item::ArenaItem), either as itself or with a wrapper to make it threadsafe.
 ///
 /// This exists because all items stored in the arena must be `Send + Sync`, but in single-threaded
 /// environments you might want or need to use thread-unsafe types.

@@ -17,7 +17,8 @@
 //!    and are rendered by different components. This means you can navigate between siblings
 //!    in this tree without re-rendering or triggering any change in the parent routes.
 //!
-//! 3. **Progressive enhancement.** The [`A`] and [`Form`] components resolve any relative
+//! 3. **Progressive enhancement.** The [`A`](crate::components::A) and
+//!    [`Form`](crate::components::Form) components resolve any relative
 //!    nested routes, render actual `<a>` and `<form>` elements, and (when possible)
 //!    upgrading them to handle those navigations with client-side routing. If you’re using
 //!    them with server-side rendering (with or without hydration), they just work,

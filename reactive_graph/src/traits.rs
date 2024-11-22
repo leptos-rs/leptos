@@ -16,7 +16,7 @@
 //! | Trait             | Mode  | Description                                                                           |
 //! |-------------------|-------|---------------------------------------------------------------------------------------|
 //! | [`Track`]         | —     | Tracks changes to this value, adding it as a source of the current reactive observer. |
-//! | [`Trigger`]       | —     | Notifies subscribers that this value has changed.                                     |
+//! | [`Notify`]       | —      | Notifies subscribers that this value has changed.                                     |
 //! | [`ReadUntracked`] | Guard | Gives immutable access to the value of this signal.                                   |
 //! | [`Write`]     | Guard | Gives mutable access to the value of this signal.
 //!
@@ -34,7 +34,7 @@
 //! | Trait               | Mode          | Composition                       | Description
 //! |---------------------|---------------|-----------------------------------|------------
 //! | [`UpdateUntracked`] | `fn(&mut T)`  | [`Write`]                     | Applies closure to the current value to update it, but doesn't notify subscribers.
-//! | [`Update`]          | `fn(&mut T)`  | [`UpdateUntracked`] + [`Trigger`] | Applies closure to the current value to update it, and notifies subscribers.
+//! | [`Update`]          | `fn(&mut T)`  | [`UpdateUntracked`] + [`Notify`] | Applies closure to the current value to update it, and notifies subscribers.
 //! | [`Set`]             | `T`           | [`Update`]                        | Sets the value to a new value, and notifies subscribers.
 //!
 //! ## Using the Traits

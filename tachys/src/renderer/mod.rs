@@ -14,7 +14,8 @@ pub mod dom;
 /// applications, so this "generic rendering" approach was removed before 0.7.0 release.
 ///
 /// It is possible that we will try a different approach to achieve the same functionality in the
-/// future, so to the extent possible the rest of the crate tries to stick to using [`Renderer`]
+/// future, so to the extent possible the rest of the crate tries to stick to using
+/// [`Renderer`].
 /// methods rather than directly manipulating the DOM inline.
 pub type Rndr = dom::Dom;
 

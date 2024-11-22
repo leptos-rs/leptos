@@ -1,4 +1,4 @@
-//! Utilities for communicating between the server and the client with [`leptos`].
+//! Utilities for communicating between the server and the client with Leptos.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]

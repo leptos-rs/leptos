@@ -31,13 +31,13 @@
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.run(input)`.
+//! - All callbacks implement the [`Callable`](leptos::callback::Callable) trait, and can be invoked with `my_callback.run(input)`.
 //! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
-//! - [`Callback`]
-//! - [`UnsyncCallback`]
+//! - [`Callback`](leptos::callback::Callback)
+//! - [`UnsyncCallback`](leptos::callback::UnsyncCallback)
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 

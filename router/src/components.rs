@@ -64,8 +64,8 @@ pub fn Router<Chil>(
     //#[prop(optional)]
     //trailing_slash: TrailingSlash,
     /// The `<Router/>` should usually wrap your whole page. It can contain
-    /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
-    /// to define and display [`Route`](crate::Route)s.
+    /// any elements, and should include a [`Routes`] component somewhere
+    /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
@@ -328,9 +328,10 @@ where
 /// and the element it should display.
 #[component(transparent)]
 pub fn Route<Segments, View>(
-    /// The path fragment that this route should match. This can be created using the [`path`]
-    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
-    /// [`OptionalParamSegment`]).
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
     /// The view for this route.
     view: View,
@@ -349,9 +350,10 @@ where
 /// and the element it should display.
 #[component(transparent)]
 pub fn ParentRoute<Segments, View, Children>(
-    /// The path fragment that this route should match. This can be created using the [`path`]
-    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
-    /// [`OptionalParamSegment`]).
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
     /// The view for this route.
     view: View,
@@ -374,9 +376,10 @@ where
 /// redirects to `redirect_path` instead of displaying its `view`.
 #[component(transparent)]
 pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
-    /// The path fragment that this route should match. This can be created using the [`path`]
-    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
-    /// [`OptionalParamSegment`]).
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
     /// The view for this route.
     view: ViewFn,
@@ -433,9 +436,10 @@ where
 
 #[component(transparent)]
 pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
-    /// The path fragment that this route should match. This can be created using the [`path`]
-    /// macro, or path segments ([`StaticSegment`], [`ParamSegment`], [`WildcardSegment`], and
-    /// [`OptionalParamSegment`]).
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
     /// The view for this route.
     view: ViewFn,

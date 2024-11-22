@@ -246,7 +246,7 @@ where
     }
 }
 
-/// A typed equivalent to [`ChildrenMut`], which takes a generic but preserves type information to
+/// A typed equivalent to [`ChildrenFnMut`], which takes a generic but preserves type information to
 /// allow the compiler to optimize the view more effectively.
 pub struct TypedChildrenMut<T>(Box<dyn FnMut() -> View<T> + Send>);
 
