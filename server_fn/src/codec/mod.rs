@@ -82,7 +82,7 @@ pub use stream::*;
 ///     ) -> Result<Request, E> {
 ///         // try to serialize the data
 ///         let data = serde_json::to_string(&self)
-///             .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()).into())?;
+///             .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()).into_app_error())?;
 ///         // and use it as the body of a POST request
 ///         Request::try_new_post(path, accepts, Json::CONTENT_TYPE, data)
 ///     }
@@ -119,7 +119,7 @@ pub trait IntoReq<Encoding, Request, E> {
 ///         let string_data = req.try_into_string().await?;
 ///         // deserialize the data
 ///         serde_json::from_str(&string_data)
-///             .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())
+///             .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
 ///     }
 /// }
 /// ```
@@ -187,7 +187,7 @@ pub trait IntoRes<Encoding, Response, E> {
 ///         let data = res.try_into_string().await?;
 ///         // and tries to deserialize it as JSON
 ///         serde_json::from_str(&data)
-///             .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()).into())
+///             .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()).into_app_error())
 ///     }
 /// }
 /// ```
