@@ -113,7 +113,14 @@ thread_local! {
 pub(crate) fn set_currently_hydrating(
     location: Option<&'static Location<'static>>,
 ) {
-    CURRENTLY_HYDRATING.set(location);
+    #[cfg(debug_assertions)]
+    {
+        CURRENTLY_HYDRATING.set(location);
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        _ = location;
+    }
 }
 
 pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
