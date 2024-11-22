@@ -131,16 +131,16 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
 pub use const_format;
 use dashmap::DashMap;
-use error::FromServerFnError;
 pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
+use error::{FromServerFnError, ServerFnErrorErr};
 use http::Method;
-use middleware::{Layer, Service};
+use middleware::{BoxedService, Layer, Service};
 use once_cell::sync::Lazy;
 use redirect::RedirectHook;
 use request::Req;
-use response::{ClientRes, Res};
+use response::{ClientRes, Res, TryRes};
 #[cfg(feature = "rkyv")]
 pub use rkyv;
 #[doc(hidden)]
@@ -203,7 +203,7 @@ where
     type ServerRequest: Req<Self::Error> + Send;
 
     /// The type of the HTTP response returned by the server function on the server side.
-    type ServerResponse: Res<Self::Error> + Send;
+    type ServerResponse: Res + TryRes<Self::Error> + Send;
 
     /// The return type of the server function.
     ///
@@ -264,7 +264,10 @@ where
                 .map(|res| (res, None))
                 .unwrap_or_else(|e| {
                     (
-                        Self::ServerResponse::error_response(Self::PATH, &e),
+                        Self::ServerResponse::error_response(
+                            Self::PATH,
+                            e.ser(),
+                        ),
                         Some(e),
                     )
                 });
@@ -383,21 +386,20 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
+    ser: fn(ServerFnErrorErr) -> String,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
     /// Converts the relevant parts of a server function into a trait object.
-    pub const fn new(
-        path: &'static str,
-        method: Method,
+    pub const fn new<S: ServerFn<ServerRequest = Req, ServerResponse = Res>>(
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
-        middleware: fn() -> MiddlewareSet<Req, Res>,
     ) -> Self {
         Self {
-            path,
-            method,
+            path: S::PATH,
+            method: S::InputEncoding::METHOD,
             handler,
-            middleware,
+            middleware: S::middlewares,
+            ser: |e| S::Error::from_server_fn_error(e).ser(),
         }
     }
 
@@ -420,6 +422,16 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
     pub fn middleware(&self) -> MiddlewareSet<Req, Res> {
         (self.middleware)()
     }
+
+    /// Converts the server function into a boxed service.
+    pub fn boxed(self) -> BoxedService<Req, Res>
+    where
+        Self: Service<Req, Res>,
+        Req: 'static,
+        Res: 'static,
+    {
+        BoxedService::new(self.ser, self)
+    }
 }
 
 impl<Req, Res> Service<Req, Res> for ServerFnTraitObj<Req, Res>
@@ -427,7 +439,11 @@ where
     Req: Send + 'static,
     Res: 'static,
 {
-    fn run(&mut self, req: Req) -> Pin<Box<dyn Future<Output = Res> + Send>> {
+    fn run(
+        &mut self,
+        req: Req,
+        _ser: fn(ServerFnErrorErr) -> String,
+    ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })
     }
@@ -440,6 +456,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
             method: self.method.clone(),
             handler: self.handler,
             middleware: self.middleware,
+            ser: self.ser,
         }
     }
 }
@@ -463,8 +480,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        middleware::{BoxedService, Service},
-        Encoding, LazyServerFnMap, ServerFn, ServerFnTraitObj,
+        middleware::BoxedService, Encoding, LazyServerFnMap, ServerFn,
+        ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -486,12 +503,7 @@ pub mod axum {
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
             (T::PATH.into(), T::InputEncoding::METHOD),
-            ServerFnTraitObj::new(
-                T::PATH,
-                T::InputEncoding::METHOD,
-                |req| Box::pin(T::run_on_server(req)),
-                T::middlewares,
-            ),
+            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }
 
@@ -535,7 +547,7 @@ pub mod axum {
         let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS.get(&key).map(|server_fn| {
             let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(server_fn.clone());
+            let mut service = server_fn.clone().boxed();
             for middleware in middleware {
                 service = middleware.layer(service);
             }
@@ -574,12 +586,7 @@ pub mod actix {
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
             (T::PATH.into(), T::InputEncoding::METHOD),
-            ServerFnTraitObj::new(
-                T::PATH,
-                T::InputEncoding::METHOD,
-                |req| Box::pin(T::run_on_server(req)),
-                T::middlewares,
-            ),
+            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }
 
@@ -599,7 +606,6 @@ pub mod actix {
         let method = req.method();
         if let Some(mut service) = get_server_fn_service(path, method) {
             service
-                .0
                 .run(ActixRequest::from((req, payload)))
                 .await
                 .0
@@ -640,7 +646,7 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS.get(&(path.into(), method)).map(
             |server_fn| {
                 let middleware = (server_fn.middleware)();
-                let mut service = BoxedService::new(server_fn.clone());
+                let mut service = server_fn.clone().boxed();
                 for middleware in middleware {
                     service = middleware.layer(service);
                 }

@@ -2,7 +2,7 @@ use super::{Encoding, FromReq, FromRes, Streaming};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
     IntoReq, IntoRes,
 };
 use bytes::Bytes;
@@ -47,7 +47,7 @@ where
 
 impl<E, T, Response> IntoRes<Json, Response, E> for T
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     T: Serialize + Send,
     E: FromServerFnError,
 {
@@ -184,7 +184,7 @@ where
 
 impl<E, T, Response> IntoRes<StreamingJson, Response, E> for JsonStream<T, E>
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     T: Serialize + 'static,
     E: FromServerFnError,
 {

@@ -2,7 +2,7 @@ use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
 };
 use bytes::Bytes;
 use futures::StreamExt;
@@ -60,10 +60,7 @@ where
         while let Some(chunk) = body_stream.next().await {
             match chunk {
                 Err(e) => {
-                    return Err(ServerFnErrorErr::Deserialization(
-                        e.to_string(),
-                    )
-                    .into_app_error());
+                    return Err(e);
                 }
                 Ok(bytes) => {
                     for byte in bytes {
@@ -79,7 +76,7 @@ where
 
 impl<E, T, Response> IntoRes<Rkyv, Response, E> for T
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     T: Send,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>

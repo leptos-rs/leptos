@@ -84,7 +84,7 @@ where
             .expect("couldn't parse boundary");
         let stream = req.try_into_stream()?;
         let data = multer::Multipart::new(
-            stream.map(|data| data.map_err(|e| e.to_string())),
+            stream.map(|data| data.map_err(|e| e.ser())),
             boundary,
         );
         Ok(MultipartData::Server(data).into())

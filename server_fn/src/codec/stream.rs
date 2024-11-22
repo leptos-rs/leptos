@@ -2,7 +2,7 @@ use super::{Encoding, FromReq, FromRes, IntoReq};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
     IntoRes, ServerFnError,
 };
 use bytes::Bytes;
@@ -102,7 +102,7 @@ where
 
 impl<E, Response> IntoRes<Streaming, Response, E> for ByteStream<E>
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     E: 'static,
 {
     async fn into_res(self) -> Result<Response, E> {
@@ -226,7 +226,7 @@ where
 
 impl<E, Response> IntoRes<StreamingText, Response, E> for TextStream<E>
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     E: 'static,
 {
     async fn into_res(self) -> Result<Response, E> {

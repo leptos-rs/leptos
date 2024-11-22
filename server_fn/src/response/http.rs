@@ -1,4 +1,4 @@
-use super::Res;
+use super::{Res, TryRes};
 use crate::error::{
     FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
     SERVER_FN_ERROR_HEADER,
@@ -8,7 +8,7 @@ use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
 use http::{header, HeaderValue, Response, StatusCode};
 
-impl<E> Res<E> for Response<Body>
+impl<E> TryRes<E> for Response<Body>
 where
     E: Send + Sync + FromServerFnError,
 {
@@ -48,12 +48,14 @@ where
                 ServerFnErrorErr::Response(e.to_string()).into_app_error()
             })
     }
+}
 
-    fn error_response(path: &str, err: &E) -> Self {
+impl Res for Response<Body> {
+    fn error_response(path: &str, err: String) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)
-            .body(err.ser().into())
+            .body(err.into())
             .unwrap()
     }
 

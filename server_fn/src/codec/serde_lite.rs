@@ -2,7 +2,7 @@ use super::{Encoding, FromReq, FromRes};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
     IntoReq, IntoRes,
 };
 use http::Method;
@@ -49,7 +49,7 @@ where
 
 impl<E, T, Response> IntoRes<SerdeLite, Response, E> for T
 where
-    Response: Res<E>,
+    Response: TryRes<E>,
     T: Serialize + Send,
     E: FromServerFnError,
 {

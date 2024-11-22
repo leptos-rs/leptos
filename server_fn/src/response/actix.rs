@@ -1,4 +1,4 @@
-use super::Res;
+use super::{Res, TryRes};
 use crate::error::{
     FromServerFnError, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
@@ -34,7 +34,7 @@ impl From<HttpResponse> for ActixResponse {
     }
 }
 
-impl<E> Res<E> for ActixResponse
+impl<E> TryRes<E> for ActixResponse
 where
     E: FromServerFnError,
 {
@@ -67,12 +67,14 @@ where
                 .streaming(data.map(|data| data.map_err(ServerFnErrorWrapper))),
         )))
     }
+}
 
-    fn error_response(path: &str, err: &E) -> Self {
+impl Res for ActixResponse {
+    fn error_response(path: &str, err: String) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
-                .body(err.ser()),
+                .body(err),
         ))
     }
 

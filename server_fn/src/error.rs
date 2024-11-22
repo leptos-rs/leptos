@@ -502,11 +502,11 @@ impl<E> From<ServerFnUrlError<ServerFnError<E>>> for ServerFnError<E> {
 #[derive(Debug)]
 #[doc(hidden)]
 /// Only used instantly only when a framework needs E: Error.
-pub struct ServerFnErrorWrapper<E>(pub E);
+pub struct ServerFnErrorWrapper<E: FromServerFnError>(pub E);
 
 impl<E: FromServerFnError> Display for ServerFnErrorWrapper<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.ser())
     }
 }
 
@@ -518,7 +518,7 @@ impl<E: FromServerFnError> std::error::Error for ServerFnErrorWrapper<E> {
 
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError:
-    Display + std::fmt::Debug + Serialize + DeserializeOwned + 'static
+    std::fmt::Debug + Serialize + DeserializeOwned + 'static
 {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;

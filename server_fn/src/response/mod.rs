@@ -18,7 +18,7 @@ use futures::Stream;
 use std::future::Future;
 
 /// Represents the response as created by the server;
-pub trait Res<E>
+pub trait TryRes<E>
 where
     Self: Sized,
 {
@@ -33,9 +33,12 @@ where
         content_type: &str,
         data: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
     ) -> Result<Self, E>;
+}
 
+/// Represents the response as created by the server;
+pub trait Res {
     /// Converts an error into a response, with a `500` status code and the error text as its body.
-    fn error_response(path: &str, err: &E) -> Self;
+    fn error_response(path: &str, err: String) -> Self;
 
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);
@@ -75,7 +78,7 @@ pub trait ClientRes<E> {
 /// server response type when compiling for the client.
 pub struct BrowserMockRes;
 
-impl<E> Res<E> for BrowserMockRes {
+impl<E> TryRes<E> for BrowserMockRes {
     fn try_from_string(_content_type: &str, _data: String) -> Result<Self, E> {
         unreachable!()
     }
@@ -84,14 +87,16 @@ impl<E> Res<E> for BrowserMockRes {
         unreachable!()
     }
 
-    fn error_response(_path: &str, _err: &E) -> Self {
-        unreachable!()
-    }
-
     fn try_from_stream(
         _content_type: &str,
         _data: impl Stream<Item = Result<Bytes, E>>,
     ) -> Result<Self, E> {
+        unreachable!()
+    }
+}
+
+impl Res for BrowserMockRes {
+    fn error_response(_path: &str, _err: String) -> Self {
         unreachable!()
     }
 
