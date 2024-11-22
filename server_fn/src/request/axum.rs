@@ -41,14 +41,22 @@ where
         let (_parts, body) = self.into_parts();
 
         body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into()
+            E::from(ServerFnErrorErr::Deserialization(e.to_string()))
         })
     }
 
     async fn try_into_string(self) -> Result<String, E> {
-        let bytes = self.try_into_bytes().await?;
+        // from:
+        let (_parts, body) = self.into_parts();
+
+        let bytes =
+            body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
+                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+            })?;
+        // here: is the same as try_into_bytes, but rustc complains if `self.try_into_bytes()` called.
+
         String::from_utf8(bytes.to_vec()).map_err(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into()
+            E::from(ServerFnErrorErr::Deserialization(e.to_string()))
         })
     }
 
@@ -57,7 +65,7 @@ where
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
         Ok(self.into_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
-                ServerFnErrorErr::Deserialization(e.to_string()).into()
+                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
             })
         }))
     }

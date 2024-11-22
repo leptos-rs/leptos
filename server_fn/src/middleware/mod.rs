@@ -64,7 +64,7 @@ mod axum {
         for BoxedService<Request<Body>, Response<Body>>
     {
         type Response = Response<Body>;
-        type Error = ServerFnErrorErr;
+        type Error = crate::ServerFnError;
         type Future = Pin<
             Box<
                 dyn std::future::Future<

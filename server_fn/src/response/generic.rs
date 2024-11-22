@@ -14,7 +14,7 @@
 
 use super::Res;
 use crate::error::{
-    FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper,
+    FromServerFnError, ServerFnErrorErr, ServerFnErrorSerde, ServerFnErrorWrapper,
     SERVER_FN_ERROR_HEADER,
 };
 use bytes::Bytes;

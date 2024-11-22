@@ -1,7 +1,7 @@
 use super::Res;
 use crate::error::{
-    FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper,
-    SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorErr, ServerFnErrorSerde,
+    ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
 use axum::body::Body;
 use bytes::Bytes;
