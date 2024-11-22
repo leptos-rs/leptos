@@ -117,6 +117,7 @@ pub struct ArcAsyncDerived<T> {
     pub(crate) loading: Arc<AtomicBool>,
 }
 
+#[allow(dead_code)]
 pub(crate) trait BlockingLock<T> {
     fn blocking_read_arc(self: &Arc<Self>)
         -> async_lock::RwLockReadGuardArc<T>;
@@ -583,19 +584,17 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.blocking_read().is_none() {
-                let handle = suspense_context.task_id();
-                let ready = SpecialNonReactiveFuture::new(self.ready());
-                crate::spawn(async move {
-                    ready.await;
-                    drop(handle);
-                });
-                self.inner
-                    .write()
-                    .or_poisoned()
-                    .suspenses
-                    .push(suspense_context);
-            }
+            let handle = suspense_context.task_id();
+            let ready = SpecialNonReactiveFuture::new(self.ready());
+            crate::spawn(async move {
+                ready.await;
+                drop(handle);
+            });
+            self.inner
+                .write()
+                .or_poisoned()
+                .suspenses
+                .push(suspense_context);
         }
         AsyncPlain::try_new(&self.value).map(ReadGuard::new)
     }
