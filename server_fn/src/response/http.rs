@@ -53,7 +53,7 @@ where
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)
-            .body(err.ser().unwrap_or_else(|_| err.to_string()).into())
+            .body(err.ser().into())
             .unwrap()
     }
 

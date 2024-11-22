@@ -72,7 +72,7 @@ where
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
-                .body(err.ser().unwrap_or_else(|_| err.to_string())),
+                .body(err.ser()),
         ))
     }
 

@@ -131,10 +131,10 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
 pub use const_format;
 use dashmap::DashMap;
+use error::FromServerFnError;
 pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
-use error::{FromServerFnError, ServerFnErrorSerde};
 use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;

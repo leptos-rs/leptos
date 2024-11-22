@@ -2,7 +2,10 @@
 
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{fmt, fmt::Display, str::FromStr};
+use std::{
+    fmt::{self, Display, Write},
+    str::FromStr,
+};
 use thiserror::Error;
 use throw_error::Error;
 use url::Url;
@@ -246,19 +249,6 @@ where
     }
 }
 
-#[doc(hidden)]
-/// An extension trait for types that can be serialized and deserialized to a [`String`].
-pub trait ServerFnErrorSerde: Sized {
-    /// The error type that can occur when serializing the custom error type.
-    type Error: std::error::Error;
-
-    /// Converts the custom error type to a [`String`].
-    fn ser(&self) -> Result<String, Self::Error>;
-
-    /// Deserializes the custom error type from a [`String`].
-    fn de(data: &str) -> Self;
-}
-
 impl<E> std::error::Error for ServerFnError<E>
 where
     E: std::error::Error + 'static,
@@ -318,7 +308,13 @@ pub enum ServerFnErrorErr {
 
 impl<CustErr> FromServerFnError for ServerFnError<CustErr>
 where
-    CustErr: std::fmt::Debug + Display + Serialize + DeserializeOwned + 'static,
+    CustErr: std::fmt::Debug
+        + Display
+        + Serialize
+        + DeserializeOwned
+        + 'static
+        + FromStr
+        + Display,
 {
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
         match value {
@@ -344,6 +340,74 @@ where
             }
             ServerFnErrorErr::Response(value) => ServerFnError::Response(value),
         }
+    }
+
+    fn ser(&self) -> String {
+        let mut buf = String::new();
+        let result = match self {
+            ServerFnError::WrappedServerError(e) => {
+                write!(&mut buf, "WrappedServerFn|{e}")
+            }
+            ServerFnError::Registration(e) => {
+                write!(&mut buf, "Registration|{e}")
+            }
+            ServerFnError::Request(e) => write!(&mut buf, "Request|{e}"),
+            ServerFnError::Response(e) => write!(&mut buf, "Response|{e}"),
+            ServerFnError::ServerError(e) => {
+                write!(&mut buf, "ServerError|{e}")
+            }
+            ServerFnError::MiddlewareError(e) => {
+                write!(&mut buf, "MiddlewareError|{e}")
+            }
+            ServerFnError::Deserialization(e) => {
+                write!(&mut buf, "Deserialization|{e}")
+            }
+            ServerFnError::Serialization(e) => {
+                write!(&mut buf, "Serialization|{e}")
+            }
+            ServerFnError::Args(e) => write!(&mut buf, "Args|{e}"),
+            ServerFnError::MissingArg(e) => {
+                write!(&mut buf, "MissingArg|{e}")
+            }
+        };
+        match result {
+            Ok(()) => buf,
+            Err(_) => "Serialization|".to_string(),
+        }
+    }
+
+    fn de(data: &str) -> Self {
+        data.split_once('|')
+            .and_then(|(ty, data)| match ty {
+                "WrappedServerFn" => match CustErr::from_str(data) {
+                    Ok(d) => Some(ServerFnError::WrappedServerError(d)),
+                    Err(_) => None,
+                },
+                "Registration" => {
+                    Some(ServerFnError::Registration(data.to_string()))
+                }
+                "Request" => Some(ServerFnError::Request(data.to_string())),
+                "Response" => Some(ServerFnError::Response(data.to_string())),
+                "ServerError" => {
+                    Some(ServerFnError::ServerError(data.to_string()))
+                }
+                "Deserialization" => {
+                    Some(ServerFnError::Deserialization(data.to_string()))
+                }
+                "Serialization" => {
+                    Some(ServerFnError::Serialization(data.to_string()))
+                }
+                "Args" => Some(ServerFnError::Args(data.to_string())),
+                "MissingArg" => {
+                    Some(ServerFnError::MissingArg(data.to_string()))
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                ServerFnError::Deserialization(format!(
+                    "Could not deserialize error {data:?}"
+                ))
+            })
     }
 }
 
@@ -384,10 +448,7 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
         let mut url = Url::parse(base)?;
         url.query_pairs_mut()
             .append_pair("__path", &self.path)
-            .append_pair(
-                "__err",
-                &URL_SAFE.encode(self.error.ser().unwrap_or_default()),
-            );
+            .append_pair("__err", &URL_SAFE.encode(self.error.ser()));
         Ok(url)
     }
 
@@ -465,10 +526,30 @@ impl<E: FromServerFnError> std::error::Error for ServerFnErrorWrapper<E> {
 
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError:
-    Display + std::fmt::Debug + ServerFnErrorSerde + 'static
+    Display + std::fmt::Debug + Serialize + DeserializeOwned + 'static
 {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
+
+    /// Converts the custom error type to a [`String`]. Defaults to serializing to JSON.
+    fn ser(&self) -> String {
+        serde_json::to_string(self).unwrap_or_else(|e| {
+            serde_json::to_string(&Self::from_server_fn_error(
+                ServerFnErrorErr::Serialization(e.to_string()),
+            ))
+            .expect(
+                "error serializing should success at least with the \
+                 Serialization error",
+            )
+        })
+    }
+
+    /// Deserializes the custom error type from a [`&str`]. Defaults to deserializing from JSON.
+    fn de(data: &str) -> Self {
+        serde_json::from_str(data).unwrap_or_else(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
+    }
 }
 
 /// A helper trait for converting a [`ServerFnErrorErr`] into an application-specific custom error type that implements [`FromServerFnError`].
@@ -491,19 +572,4 @@ fn assert_from_server_fn_error_impl() {
     fn assert_impl<T: FromServerFnError>() {}
 
     assert_impl::<ServerFnError>();
-}
-
-impl<E> ServerFnErrorSerde for E
-where
-    E: Serialize + DeserializeOwned,
-{
-    type Error = serde_json::Error;
-
-    fn ser(&self) -> Result<String, Self::Error> {
-        serde_json::to_string(self)
-    }
-
-    fn de(data: &str) -> Self {
-        serde_json::from_str(data).unwrap()
-    }
 }

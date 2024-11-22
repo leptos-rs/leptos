@@ -3,10 +3,7 @@ use reactive_graph::{
     owner::use_context,
     traits::DefinedAt,
 };
-use server_fn::{
-    error::{FromServerFnError, ServerFnErrorSerde},
-    ServerFn,
-};
+use server_fn::{error::FromServerFnError, ServerFn};
 use std::{ops::Deref, panic::Location, sync::Arc};
 
 /// An error that can be caused by a server action.
