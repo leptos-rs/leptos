@@ -155,8 +155,8 @@ impl<E> ViaError<E> for WrapError<E> {
     }
 }
 
-/// Type for errors that can occur when using server functions.
-/// This type is intended to be used as the return type of the server function for easy error conversion with `?` operator.
+/// A type that can be used as the return type of the server function for easy error conversion with `?` operator.
+/// This type can be replaced with any other error type that implements `FromServerFnError`.
 ///
 /// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](trait@std::error::Error).
 /// This means that other error types can easily be converted into it using the
@@ -367,15 +367,7 @@ where
     }
 }
 
-/// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `From<ServerFnErrorErr>` for your custom error type.
-///
-/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
-/// it can be used in situations in which the `Error` trait is required, but it’s
-/// not possible to create a blanket implementation that converts other errors into
-/// this type.
-///
-/// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
-/// it is easy to convert between the two types.
+/// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `FromServerFnError` for your custom error type.
 #[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "rkyv",
