@@ -2,7 +2,12 @@ use crate::{
     renderer::{CastFrom, Rndr},
     view::{Position, PositionState},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    panic::Location,
+    rc::Rc,
+};
+use web_sys::{Comment, Element, Node, Text};
 
 /// Hydration works by walking over the DOM, adding interactivity as needed.
 ///
@@ -95,13 +100,114 @@ where
         }
         let marker = self.current();
         position.set(Position::NextChild);
-        crate::renderer::types::Placeholder::cast_from(marker)
-            .expect("could not convert current node into marker node")
-        /*let marker2 = marker.clone();
-        Rndr::Placeholder::cast_from(marker).unwrap_or_else(|| {
-            crate::dom::log("expecting to find a marker. instead, found");
-            Rndr::log_node(&marker2);
-            panic!("oops.");
-        })*/
+        crate::renderer::types::Placeholder::cast_from(marker.clone())
+            .unwrap_or_else(|| failed_to_cast_marker_node(marker))
+    }
+}
+
+#[cfg(debug_assertions)]
+thread_local! {
+    static CURRENTLY_HYDRATING: Cell<Option<&'static Location<'static>>> = const { Cell::new(None) };
+}
+
+pub(crate) fn set_currently_hydrating(
+    location: Option<&'static Location<'static>>,
+) {
+    CURRENTLY_HYDRATING.set(location);
+}
+
+pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
+    #[cfg(not(debug_assertions))]
+    {
+        _ = node;
+        unreachable!();
+    }
+    #[cfg(debug_assertions)]
+    {
+        let hydrating = CURRENTLY_HYDRATING
+            .take()
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "{unknown}".to_string());
+        web_sys::console::error_3(
+            &wasm_bindgen::JsValue::from_str(&format!(
+                "A hydration error occurred while trying to hydrate an \
+                 element defined at {hydrating}.\n\nThe framework expected an \
+                 HTML <{tag_name}> element, but found this instead: ",
+            )),
+            &node,
+            &wasm_bindgen::JsValue::from_str(
+                "\n\nThe hydration mismatch may have occurred slightly \
+                 earlier, but this is the first time the framework found a \
+                 node of an unexpected type.",
+            ),
+        );
+        panic!(
+            "Unrecoverable hydration error. Please read the error message \
+             directly above this for more details."
+        );
+    }
+}
+
+pub(crate) fn failed_to_cast_marker_node(node: Node) -> Comment {
+    #[cfg(not(debug_assertions))]
+    {
+        _ = node;
+        unreachable!();
+    }
+    #[cfg(debug_assertions)]
+    {
+        let hydrating = CURRENTLY_HYDRATING
+            .take()
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "{unknown}".to_string());
+        web_sys::console::error_3(
+            &wasm_bindgen::JsValue::from_str(&format!(
+                "A hydration error occurred while trying to hydrate an \
+                 element defined at {hydrating}.\n\nThe framework expected a \
+                 marker node, but found this instead: ",
+            )),
+            &node,
+            &wasm_bindgen::JsValue::from_str(
+                "\n\nThe hydration mismatch may have occurred slightly \
+                 earlier, but this is the first time the framework found a \
+                 node of an unexpected type.",
+            ),
+        );
+        panic!(
+            "Unrecoverable hydration error. Please read the error message \
+             directly above this for more details."
+        );
+    }
+}
+
+pub(crate) fn failed_to_cast_text_node(node: Node) -> Text {
+    #[cfg(not(debug_assertions))]
+    {
+        _ = node;
+        unreachable!();
+    }
+    #[cfg(debug_assertions)]
+    {
+        let hydrating = CURRENTLY_HYDRATING
+            .take()
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "{unknown}".to_string());
+        web_sys::console::error_3(
+            &wasm_bindgen::JsValue::from_str(&format!(
+                "A hydration error occurred while trying to hydrate an \
+                 element defined at {hydrating}.\n\nThe framework expected a \
+                 text node, but found this instead: ",
+            )),
+            &node,
+            &wasm_bindgen::JsValue::from_str(
+                "\n\nThe hydration mismatch may have occurred slightly \
+                 earlier, but this is the first time the framework found a \
+                 node of an unexpected type.",
+            ),
+        );
+        panic!(
+            "Unrecoverable hydration error. Please read the error message \
+             directly above this for more details."
+        );
     }
 }

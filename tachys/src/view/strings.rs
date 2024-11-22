@@ -90,8 +90,10 @@ impl RenderHtml for &str {
         }
 
         let node = cursor.current();
-        let node = crate::renderer::types::Text::cast_from(node)
-            .expect("couldn't cast text node from node");
+        let node = crate::renderer::types::Text::cast_from(node.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_text_node(node)
+            });
 
         if !FROM_SERVER {
             Rndr::set_text(&node, self);
