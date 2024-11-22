@@ -1,6 +1,6 @@
 [package]
 name = "next_tuple"
-version = "0.1.0-rc1"
+version = "0.1.0-rc2"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
