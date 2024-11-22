@@ -14,15 +14,16 @@ macro_rules! svg_elements {
                 /// An SVG element.
                 // `tag()` function
                 #[allow(non_snake_case)]
+                #[track_caller]
                 pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
-
                 {
                     HtmlElement {
+                        #[cfg(debug_assertions)]
+                        defined_at: std::panic::Location::caller(),
                         tag: [<$tag:camel>],
                         attributes: (),
                         children: (),
-
                     }
                 }
 
@@ -153,9 +154,12 @@ svg_elements![
 
 /// An SVG element.
 #[allow(non_snake_case)]
+#[track_caller]
 pub fn r#use() -> HtmlElement<Use, (), ()>
 where {
     HtmlElement {
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
         tag: Use,
         attributes: (),
         children: (),

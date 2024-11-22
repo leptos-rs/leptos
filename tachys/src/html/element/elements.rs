@@ -25,10 +25,11 @@ macro_rules! html_element_inner {
 
             {
                 HtmlElement {
+                    #[cfg(debug_assertions)]
+                    defined_at: std::panic::Location::caller(),
                     tag: $struct_name,
                     attributes: (),
                     children: (),
-
                 }
             }
 
@@ -55,10 +56,17 @@ macro_rules! html_element_inner {
                         At: NextTuple,
                         <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
-                        let HtmlElement { tag, children, attributes } = self;
-                        HtmlElement {
+                        let HtmlElement {
+                            #[cfg(debug_assertions)]
+                            defined_at,
                             tag,
-
+                            children,
+                            attributes
+                        } = self;
+                        HtmlElement {
+                            #[cfg(debug_assertions)]
+                            defined_at,
+                            tag,
                             children,
                             attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
                         }
@@ -118,14 +126,16 @@ macro_rules! html_self_closing_elements {
         paste::paste! {
             $(
                 #[$meta]
+                #[track_caller]
                 pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
 
                 {
                     HtmlElement {
+                        #[cfg(debug_assertions)]
+                        defined_at: std::panic::Location::caller(),
                         attributes: (),
                         children: (),
-
                         tag: [<$tag:camel>],
                     }
                 }
@@ -138,7 +148,6 @@ macro_rules! html_self_closing_elements {
                 impl<At> HtmlElement<[<$tag:camel>], At, ()>
                 where
                     At: Attribute,
-
                 {
                     $(
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
@@ -151,13 +160,18 @@ macro_rules! html_self_closing_elements {
                             V: AttributeValue,
                             At: NextTuple,
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
-
                         {
-                            let HtmlElement { tag, children, attributes,
+                            let HtmlElement {
+                                 #[cfg(debug_assertions)]
+                                 defined_at,
+                                tag,
+                                children,
+                                attributes,
                             } = self;
                             HtmlElement {
+                                #[cfg(debug_assertions)]
+                                defined_at,
                                 tag,
-
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
                             }

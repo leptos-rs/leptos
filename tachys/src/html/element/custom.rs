@@ -9,8 +9,9 @@ where
     E: AsRef<str>,
 {
     HtmlElement {
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
         tag: Custom(tag),
-
         attributes: (),
         children: (),
     }

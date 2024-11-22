@@ -1,6 +1,8 @@
+#[cfg(debug_assertions)]
+use crate::hydration::set_currently_hydrating;
 use crate::{
     html::attribute::Attribute,
-    hydration::Cursor,
+    hydration::{failed_to_cast_element, Cursor},
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
@@ -24,10 +26,14 @@ pub use custom::*;
 pub use element_ext::*;
 pub use elements::*;
 pub use inner_html::*;
+#[cfg(debug_assertions)]
+use std::panic::Location;
 
 /// The typed representation of an HTML element.
 #[derive(Debug, PartialEq, Eq)]
 pub struct HtmlElement<E, At, Ch> {
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static Location<'static>,
     pub(crate) tag: E,
     pub(crate) attributes: At,
     pub(crate) children: Ch,
@@ -36,8 +42,9 @@ pub struct HtmlElement<E, At, Ch> {
 impl<E: Clone, At: Clone, Ch: Clone> Clone for HtmlElement<E, At, Ch> {
     fn clone(&self) -> Self {
         HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
             tag: self.tag.clone(),
-
             attributes: self.attributes.clone(),
             children: self.children.clone(),
         }
@@ -75,14 +82,16 @@ where
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at,
             tag,
-
             attributes,
             children,
         } = self;
         HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at,
             tag,
-
             attributes,
             children: children.next_tuple(child.into_render()),
         }
@@ -103,11 +112,15 @@ where
         attr: NewAttr,
     ) -> Self::Output<NewAttr> {
         let HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at,
             tag,
             attributes,
             children,
         } = self;
         HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at,
             tag,
             attributes: attributes.add_any_attr(attr),
             children,
@@ -229,8 +242,9 @@ where
         let (attributes, children) =
             join(self.attributes.resolve(), self.children.resolve()).await;
         HtmlElement {
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
             tag: self.tag,
-
             attributes,
             children,
         }
@@ -336,6 +350,11 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        #[cfg(debug_assertions)]
+        {
+            set_currently_hydrating(Some(self.defined_at));
+        }
+
         // non-Static custom elements need special support in templates
         // because they haven't been inserted type-wise
         if E::TAG.is_empty() && !FROM_SERVER {
@@ -349,7 +368,9 @@ where
             cursor.sibling();
         }
         let el = crate::renderer::types::Element::cast_from(cursor.current())
-            .unwrap();
+            .unwrap_or_else(|| {
+                failed_to_cast_element(E::TAG, cursor.current())
+            });
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
