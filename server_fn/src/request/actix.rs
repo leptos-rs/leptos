@@ -1,4 +1,7 @@
-use crate::{error::ServerFnError, request::Req};
+use crate::{
+    error::{FromServerFnError, ServerFnErrorErr},
+    request::Req,
+};
 use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
 use futures::Stream;
@@ -33,9 +36,9 @@ impl From<(HttpRequest, Payload)> for ActixRequest {
     }
 }
 
-impl<CustErr> Req<CustErr> for ActixRequest
+impl<E> Req<E> for ActixRequest
 where
-    CustErr: 'static,
+    E: FromServerFnError,
 {
     fn as_query(&self) -> Option<&str> {
         self.0 .0.uri().query()
@@ -53,44 +56,34 @@ where
         self.header("Referer")
     }
 
-    fn try_into_bytes(
-        self,
-    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
-    {
+    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, E>> + Send {
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
             let payload = self.0.take().1;
-            payload
-                .to_bytes()
-                .await
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            payload.to_bytes().await.map_err(|e| {
+                ServerFnErrorErr::Deserialization(e.to_string()).into()
+            })
         })
     }
 
-    fn try_into_string(
-        self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
-    {
+    fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send {
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
             let payload = self.0.take().1;
-            let bytes = payload
-                .to_bytes()
-                .await
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-            String::from_utf8(bytes.into())
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            let bytes = payload.to_bytes().await.map_err(|e| {
+                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+            })?;
+            String::from_utf8(bytes.into()).map_err(|e| {
+                E::from(ServerFnErrorErr::Deserialization(e.to_string()))
+            })
         })
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
-        ServerFnError<CustErr>,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
         Ok(futures::stream::once(async { todo!() }))
     }
 }

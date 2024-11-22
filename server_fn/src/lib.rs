@@ -131,10 +131,9 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
 pub use const_format;
 use dashmap::DashMap;
-pub use error::ServerFnError;
-use error::ServerFnErrorSerde;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
+use error::{FromServerFnError, ServerFnErrorSerde};
 use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
@@ -148,7 +147,7 @@ pub use serde;
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
-use std::{fmt::Display, future::Future, pin::Pin, str::FromStr, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -222,9 +221,8 @@ where
     /// The [`Encoding`] used in the response for the result of the server function.
     type OutputEncoding: Encoding;
 
-    /// The type of the custom error on [`ServerFnError`], if any. (If there is no
-    /// custom error type, this can be `NoCustomError` by default.)
-    type Error: FromStr + Display;
+    /// The type of the error on the server function. Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type Error: FromServerFnError;
 
     /// Returns [`Self::PATH`].
     fn url() -> &'static str {
@@ -240,7 +238,7 @@ where
     /// The body of the server function. This will only run on the server.
     fn run_body(
         self,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send;
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
 
     #[doc(hidden)]
     fn run_on_server(
@@ -298,8 +296,7 @@ where
     #[doc(hidden)]
     fn run_on_client(
         self,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
-    {
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
         async move {
             // create and send request on client
             let req =
@@ -313,8 +310,7 @@ where
     fn run_on_client_with_req(
         req: <Self::Client as Client<Self::Error>>::Request,
         redirect_hook: Option<&RedirectHook>,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
-    {
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
         async move {
             let res = Self::Client::send(req).await?;
 
@@ -325,7 +321,7 @@ where
             // if it returns an error status, deserialize the error using FromStr
             let res = if (400..=599).contains(&status) {
                 let text = res.try_into_string().await?;
-                Err(ServerFnError::<Self::Error>::de(&text))
+                Err(Self::Error::de(&text))
             } else {
                 // otherwise, deserialize the body as is
                 Ok(Self::Output::from_res(res).await)
@@ -345,9 +341,8 @@ where
     #[doc(hidden)]
     fn execute_on_server(
         req: Self::ServerRequest,
-    ) -> impl Future<
-        Output = Result<Self::ServerResponse, ServerFnError<Self::Error>>,
-    > + Send {
+    ) -> impl Future<Output = Result<Self::ServerResponse, Self::Error>> + Send
+    {
         async {
             let this = Self::from_req(req).await?;
             let output = this.run_body().await?;

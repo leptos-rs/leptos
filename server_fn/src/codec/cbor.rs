@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
 };
@@ -16,19 +16,17 @@ impl Encoding for Cbor {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<Cbor, Request, CustErr> for T
+impl<E, T, Request> IntoReq<Cbor, Request, E> for T
 where
-    Request: ClientReq<CustErr>,
+    Request: ClientReq<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let mut buffer: Vec<u8> = Vec::new();
-        ciborium::ser::into_writer(&self, &mut buffer)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        ciborium::ser::into_writer(&self, &mut buffer).map_err(|e| {
+            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+        })?;
         Request::try_new_post_bytes(
             path,
             accepts,
@@ -38,40 +36,44 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<Cbor, Request, CustErr> for T
+impl<E, T, Request> FromReq<Cbor, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: DeserializeOwned,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let body_bytes = req.try_into_bytes().await?;
         ciborium::de::from_reader(body_bytes.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))
     }
 }
 
-impl<CustErr, T, Response> IntoRes<Cbor, Response, CustErr> for T
+impl<E, T, Response> IntoRes<Cbor, Response, E> for T
 where
-    Response: Res<CustErr>,
+    Response: Res<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
+    async fn into_res(self) -> Result<Response, E> {
         let mut buffer: Vec<u8> = Vec::new();
-        ciborium::ser::into_writer(&self, &mut buffer)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        ciborium::ser::into_writer(&self, &mut buffer).map_err(|e| {
+            E::from(ServerFnErrorErr::Serialization(e.to_string()))
+        })?;
         Response::try_from_bytes(Cbor::CONTENT_TYPE, Bytes::from(buffer))
     }
 }
 
-impl<CustErr, T, Response> FromRes<Cbor, Response, CustErr> for T
+impl<E, T, Response> FromRes<Cbor, Response, E> for T
 where
-    Response: ClientRes<CustErr> + Send,
+    Response: ClientRes<E> + Send,
     T: DeserializeOwned + Send,
+    E: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
         ciborium::de::from_reader(data.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| E::from(ServerFnErrorErr::Args(e.to_string())))
     }
 }
 
@@ -114,20 +116,20 @@ where
     <ResponseBody as HttpBody>::Data: Send ,
     <RequestBody as HttpBody>::Data: Send ,
 {
-    async fn from_req(req: http::Request<RequestBody>) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: http::Request<RequestBody>) -> Result<Self, ServerFnError<E>> {
         let (_parts, body) = req.into_parts();
 
         let body_bytes = body
             .collect()
             .await
             .map(|c| c.to_bytes())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+            .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()).into())?;
         let data = ciborium::de::from_reader(body_bytes.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))?;
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())?;
         Ok(data)
     }
 
-    async fn into_req(self) -> Result<http::Request<Body>, ServerFnError<CustErr>> {
+    async fn into_req(self) -> Result<http::Request<Body>, ServerFnError<E>> {
         let mut buffer: Vec<u8> = Vec::new();
         ciborium::ser::into_writer(&self, &mut buffer)?;
         let req = http::Request::builder()
@@ -139,17 +141,17 @@ where
             .body(Body::from(buffer))?;
         Ok(req)
     }
-    async fn from_res(res: http::Response<ResponseBody>) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_res(res: http::Response<ResponseBody>) -> Result<Self, ServerFnError<E>> {
         let (_parts, body) = res.into_parts();
 
         let body_bytes = body
             .collect()
             .await
             .map(|c| c.to_bytes())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+            .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()).into())?;
 
         ciborium::de::from_reader(body_bytes.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())
     }
 
     async fn into_res(self) -> http::Response<Body> {

@@ -1,5 +1,8 @@
 use super::ClientReq;
-use crate::{client::get_server_url, error::ServerFnError};
+use crate::{
+    client::get_server_url,
+    error::{FromServerFnError, ServerFnErrorErr},
+};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Request;
@@ -83,7 +86,10 @@ fn abort_signal() -> (Option<AbortOnDrop>, Option<AbortSignal>) {
     (ctrl.map(|ctrl| AbortOnDrop(Some(ctrl))), signal)
 }
 
-impl<CustErr> ClientReq<CustErr> for BrowserRequest {
+impl<E> ClientReq<E> for BrowserRequest
+where
+    E: FromServerFnError,
+{
     type FormData = BrowserFormData;
 
     fn try_new_get(
@@ -91,7 +97,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         content_type: &str,
         query: &str,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(
@@ -107,7 +113,9 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Accept", accepts)
                 .abort_signal(abort_signal.as_ref())
                 .build()
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| {
+                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                })?,
             abort_ctrl,
         })))
     }
@@ -117,7 +125,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         content_type: &str,
         body: String,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
@@ -129,7 +137,9 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Accept", accepts)
                 .abort_signal(abort_signal.as_ref())
                 .body(body)
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| {
+                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                })?,
             abort_ctrl,
         })))
     }
@@ -139,7 +149,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         content_type: &str,
         body: Bytes,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
@@ -153,7 +163,9 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Accept", accepts)
                 .abort_signal(abort_signal.as_ref())
                 .body(body)
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| {
+                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                })?,
             abort_ctrl,
         })))
     }
@@ -162,7 +174,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         path: &str,
         accepts: &str,
         body: Self::FormData,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
@@ -173,7 +185,9 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Accept", accepts)
                 .abort_signal(abort_signal.as_ref())
                 .body(body.0.take())
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| {
+                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                })?,
             abort_ctrl,
         })))
     }
@@ -183,17 +197,17 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         content_type: &str,
         body: Self::FormData,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let form_data = body.0.take();
         let url_params =
             UrlSearchParams::new_with_str_sequence_sequence(&form_data)
                 .map_err(|e| {
-                    ServerFnError::Serialization(e.as_string().unwrap_or_else(
-                        || {
+                    E::from(ServerFnErrorErr::Serialization(
+                        e.as_string().unwrap_or_else(|| {
                             "Could not serialize FormData to URLSearchParams"
                                 .to_string()
-                        },
+                        }),
                     ))
                 })?;
         Ok(Self(SendWrapper::new(RequestInner {
@@ -202,7 +216,9 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Accept", accepts)
                 .abort_signal(abort_signal.as_ref())
                 .body(url_params)
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| {
+                    E::from(ServerFnErrorErr::Request(e.to_string()))
+                })?,
             abort_ctrl,
         })))
     }
@@ -212,11 +228,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         content_type: &str,
         body: impl Stream<Item = Bytes> + 'static,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    ) -> Result<Self, E> {
         // TODO abort signal
         let (request, abort_ctrl) =
-            streaming_request(path, accepts, content_type, body)
-                .map_err(|e| ServerFnError::Request(format!("{e:?}")))?;
+            streaming_request(path, accepts, content_type, body).map_err(
+                |e| E::from(ServerFnErrorErr::Request(format!("{e:?}"))),
+            )?;
         Ok(Self(SendWrapper::new(RequestInner {
             request,
             abort_ctrl,

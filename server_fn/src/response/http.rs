@@ -1,61 +1,49 @@
 use super::Res;
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper,
+    SERVER_FN_ERROR_HEADER,
 };
 use axum::body::Body;
 use bytes::Bytes;
-use futures::{Stream, StreamExt};
+use futures::{Stream, TryStreamExt};
 use http::{header, HeaderValue, Response, StatusCode};
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
 
-impl<CustErr> Res<CustErr> for Response<Body>
+impl<E> Res<E> for Response<Body>
 where
-    CustErr: Send + Sync + Debug + FromStr + Display + 'static,
+    E: Send + Sync + FromServerFnError,
 {
-    fn try_from_string(
-        content_type: &str,
-        data: String,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_string(content_type: &str, data: String) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
     }
 
-    fn try_from_bytes(
-        content_type: &str,
-        data: Bytes,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Response(e.to_string()).into())
     }
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>
-            + Send
-            + 'static,
-    ) -> Result<Self, ServerFnError<CustErr>> {
-        let body =
-            Body::from_stream(data.map(|n| n.map_err(ServerFnErrorErr::from)));
+        data: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+    ) -> Result<Self, E> {
+        let body = Body::from_stream(data.map_err(|e| ServerFnErrorWrapper(e)));
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(body)
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| E::from(ServerFnErrorErr::Response(e.to_string())))
     }
 
-    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
+    fn error_response(path: &str, err: &E) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)
