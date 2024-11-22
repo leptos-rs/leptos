@@ -1,6 +1,12 @@
+#![allow(deprecated)]
+
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    fmt,
+    fmt::{Display, Write},
+    str::FromStr,
+};
 use thiserror::Error;
 use throw_error::Error;
 use url::Url;
@@ -10,7 +16,143 @@ pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
 impl From<ServerFnError> for Error {
     fn from(e: ServerFnError) -> Self {
-        Error::from(ServerFnErrorWrapper(e))
+        Error::from(ServerFnErrorErr::from(e))
+    }
+}
+
+/// An empty value indicating that there is no custom error type associated
+/// with this server function.
+#[derive(
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[deprecated(
+    since = "0.8.0",
+    note = "Now server_fn can return any error type other than ServerFnError, \
+            so the WrappedServerError variant will be removed in 0.9.0"
+)]
+pub struct NoCustomError;
+
+// Implement `Display` for `NoCustomError`
+impl fmt::Display for NoCustomError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Unit Type Displayed")
+    }
+}
+
+impl FromStr for NoCustomError {
+    type Err = ();
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        Ok(NoCustomError)
+    }
+}
+
+/// Wraps some error type, which may implement any of [`Error`](trait@std::error::Error), [`Clone`], or
+/// [`Display`].
+#[derive(Debug)]
+#[deprecated(
+    since = "0.8.0",
+    note = "Now server_fn can return any error type other than ServerFnError, \
+            so the WrappedServerError variant will be removed in 0.9.0"
+)]
+pub struct WrapError<T>(pub T);
+
+/// A helper macro to convert a variety of different types into `ServerFnError`.
+/// This should mostly be used if you are implementing `From<ServerFnError>` for `YourError`.
+#[macro_export]
+#[deprecated(
+    since = "0.8.0",
+    note = "Now server_fn can return any error type other than ServerFnError, \
+            so the WrappedServerError variant will be removed in 0.9.0"
+)]
+macro_rules! server_fn_error {
+    () => {{
+        use $crate::{ViaError, WrapError};
+        (&&&&&WrapError(())).to_server_error()
+    }};
+    ($err:expr) => {{
+        use $crate::error::{ViaError, WrapError};
+        match $err {
+            error => (&&&&&WrapError(error)).to_server_error(),
+        }
+    }};
+}
+
+/// This trait serves as the conversion method between a variety of types
+/// and [`ServerFnError`].
+#[deprecated(
+    since = "0.8.0",
+    note = "Now server_fn can return any error type other than ServerFnError, \
+            so users should place their custom error type instead of \
+            ServerFnError"
+)]
+pub trait ViaError<E> {
+    /// Converts something into an error.
+    fn to_server_error(&self) -> ServerFnError<E>;
+}
+
+// This impl should catch if you fed it a [`ServerFnError`] already.
+impl<E: ServerFnErrorKind + std::error::Error + Clone> ViaError<E>
+    for &&&&WrapError<ServerFnError<E>>
+{
+    fn to_server_error(&self) -> ServerFnError<E> {
+        self.0.clone()
+    }
+}
+
+// A type tag for ServerFnError so we can special case it
+#[deprecated]
+pub(crate) trait ServerFnErrorKind {}
+
+impl ServerFnErrorKind for ServerFnError {}
+
+// This impl should catch passing () or nothing to server_fn_error
+impl ViaError<NoCustomError> for &&&WrapError<()> {
+    fn to_server_error(&self) -> ServerFnError {
+        ServerFnError::WrappedServerError(NoCustomError)
+    }
+}
+
+// This impl will catch any type that implements any type that impls
+// Error and Clone, so that it can be wrapped into ServerFnError
+impl<E: std::error::Error + Clone> ViaError<E> for &&WrapError<E> {
+    fn to_server_error(&self) -> ServerFnError<E> {
+        ServerFnError::WrappedServerError(self.0.clone())
+    }
+}
+
+// If it doesn't impl Error, but does impl Display and Clone,
+// we can still wrap it in String form
+impl<E: Display + Clone> ViaError<E> for &WrapError<E> {
+    fn to_server_error(&self) -> ServerFnError<E> {
+        ServerFnError::ServerError(self.0.to_string())
+    }
+}
+
+// This is what happens if someone tries to pass in something that does
+// not meet the above criteria
+impl<E> ViaError<E> for WrapError<E> {
+    #[track_caller]
+    fn to_server_error(&self) -> ServerFnError<E> {
+        panic!(
+            "At {}, you call `to_server_error()` or use  `server_fn_error!` \
+             with a value that does not implement `Clone` and either `Error` \
+             or `Display`.",
+            std::panic::Location::caller()
+        );
     }
 }
 
@@ -25,7 +167,15 @@ impl From<ServerFnError> for Error {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
-pub enum ServerFnError {
+pub enum ServerFnError<E = NoCustomError> {
+    #[deprecated(
+        since = "0.8.0",
+        note = "Now server_fn can return any error type other than \
+                ServerFnError, so users should place their custom error type \
+                instead of ServerFnError"
+    )]
+    /// A user-defined custom error type, which defaults to [`NoCustomError`].
+    WrappedServerError(E),
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     Registration(String),
     /// Occurs on the client if there is a network error while trying to run function on server.
@@ -46,10 +196,16 @@ pub enum ServerFnError {
     MissingArg(String),
 }
 
-impl ServerFnError {
+impl ServerFnError<NoCustomError> {
     /// Constructs a new [`ServerFnError::ServerError`] from some other type.
     pub fn new(msg: impl ToString) -> Self {
         Self::ServerError(msg.to_string())
+    }
+}
+
+impl<CustErr> From<CustErr> for ServerFnError<CustErr> {
+    fn from(value: CustErr) -> Self {
+        ServerFnError::WrappedServerError(value)
     }
 }
 
@@ -59,7 +215,10 @@ impl<E: std::error::Error> From<E> for ServerFnError {
     }
 }
 
-impl Display for ServerFnError {
+impl<CustErr> Display for ServerFnError<CustErr>
+where
+    CustErr: Display,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -85,6 +244,7 @@ impl Display for ServerFnError {
                 ServerFnError::MissingArg(s) => format!("missing argument {s}"),
                 ServerFnError::Response(s) =>
                     format!("error generating HTTP response: {s}"),
+                ServerFnError::WrappedServerError(e) => format!("{e}"),
             }
         )
     }
@@ -103,6 +263,93 @@ pub trait ServerFnErrorSerde: Sized {
     fn de(data: &str) -> Self;
 }
 
+impl<CustErr> ServerFnErrorSerde for ServerFnErrorErr<CustErr>
+where
+    CustErr: FromStr + Display,
+{
+    type Error = std::fmt::Error;
+
+    fn ser(&self) -> Result<String, Self::Error> {
+        let mut buf = String::new();
+        match self {
+            ServerFnErrorErr::WrappedServerError(e) => {
+                write!(&mut buf, "WrappedServerFn|{e}")
+            }
+            ServerFnErrorErr::Registration(e) => {
+                write!(&mut buf, "Registration|{e}")
+            }
+            ServerFnErrorErr::Request(e) => write!(&mut buf, "Request|{e}"),
+            ServerFnErrorErr::Response(e) => write!(&mut buf, "Response|{e}"),
+            ServerFnErrorErr::ServerError(e) => {
+                write!(&mut buf, "ServerError|{e}")
+            }
+            ServerFnErrorErr::MiddlewareError(e) => {
+                write!(&mut buf, "MiddlewareError|{e}")
+            }
+            ServerFnErrorErr::Deserialization(e) => {
+                write!(&mut buf, "Deserialization|{e}")
+            }
+            ServerFnErrorErr::Serialization(e) => {
+                write!(&mut buf, "Serialization|{e}")
+            }
+            ServerFnErrorErr::Args(e) => write!(&mut buf, "Args|{e}"),
+            ServerFnErrorErr::MissingArg(e) => {
+                write!(&mut buf, "MissingArg|{e}")
+            }
+        }?;
+        Ok(buf)
+    }
+
+    fn de(data: &str) -> Self {
+        data.split_once('|')
+            .and_then(|(ty, data)| match ty {
+                "WrappedServerFn" => match CustErr::from_str(data) {
+                    Ok(d) => Some(ServerFnErrorErr::WrappedServerError(d)),
+                    Err(_) => None,
+                },
+                "Registration" => {
+                    Some(ServerFnErrorErr::Registration(data.to_string()))
+                }
+                "Request" => Some(ServerFnErrorErr::Request(data.to_string())),
+                "Response" => {
+                    Some(ServerFnErrorErr::Response(data.to_string()))
+                }
+                "ServerError" => {
+                    Some(ServerFnErrorErr::ServerError(data.to_string()))
+                }
+                "Deserialization" => {
+                    Some(ServerFnErrorErr::Deserialization(data.to_string()))
+                }
+                "Serialization" => {
+                    Some(ServerFnErrorErr::Serialization(data.to_string()))
+                }
+                "Args" => Some(ServerFnErrorErr::Args(data.to_string())),
+                "MissingArg" => {
+                    Some(ServerFnErrorErr::MissingArg(data.to_string()))
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                ServerFnErrorErr::Deserialization(format!(
+                    "Could not deserialize error {data:?}"
+                ))
+            })
+    }
+}
+
+impl<E> std::error::Error for ServerFnError<E>
+where
+    E: std::error::Error + 'static,
+    ServerFnError<E>: std::fmt::Display,
+{
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ServerFnError::WrappedServerError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 /// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `From<ServerFnErrorErr>` for your custom error type.
 ///
 /// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
@@ -112,12 +359,11 @@ pub trait ServerFnErrorSerde: Sized {
 ///
 /// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
 /// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "rkyv",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
-pub enum ServerFnErrorErr {
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum ServerFnErrorErr<E = NoCustomError> {
+    /// A user-defined custom error type, which defaults to [`NoCustomError`].
+    #[error("internal error: {0}")]
+    WrappedServerError(E),
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     #[error("error while trying to register the server function: {0}")]
     Registration(String),
@@ -145,6 +391,37 @@ pub enum ServerFnErrorErr {
     /// Occurs on the server if there is an error creating an HTTP response.
     #[error("error creating response {0}")]
     Response(String),
+}
+
+impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
+    fn from(value: ServerFnError<CustErr>) -> Self {
+        match value {
+            ServerFnError::Registration(value) => {
+                ServerFnErrorErr::Registration(value)
+            }
+            ServerFnError::Request(value) => ServerFnErrorErr::Request(value),
+            ServerFnError::ServerError(value) => {
+                ServerFnErrorErr::ServerError(value)
+            }
+            ServerFnError::MiddlewareError(value) => {
+                ServerFnErrorErr::MiddlewareError(value)
+            }
+            ServerFnError::Deserialization(value) => {
+                ServerFnErrorErr::Deserialization(value)
+            }
+            ServerFnError::Serialization(value) => {
+                ServerFnErrorErr::Serialization(value)
+            }
+            ServerFnError::Args(value) => ServerFnErrorErr::Args(value),
+            ServerFnError::MissingArg(value) => {
+                ServerFnErrorErr::MissingArg(value)
+            }
+            ServerFnError::WrappedServerError(value) => {
+                ServerFnErrorErr::WrappedServerError(value)
+            }
+            ServerFnError::Response(value) => ServerFnErrorErr::Response(value),
+        }
+    }
 }
 
 /// Associates a particular server function error with the server function
@@ -234,6 +511,18 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
     }
 }
 
+impl<E> From<ServerFnUrlError<E>> for ServerFnError<E> {
+    fn from(error: ServerFnUrlError<E>) -> Self {
+        error.error.into()
+    }
+}
+
+impl<E> From<ServerFnUrlError<ServerFnError<E>>> for ServerFnError<E> {
+    fn from(error: ServerFnUrlError<ServerFnError<E>>) -> Self {
+        error.error
+    }
+}
+
 #[derive(Debug)]
 #[doc(hidden)]
 /// Only used instantly only when a framework needs E: Error.
@@ -255,10 +544,8 @@ impl<E: FromServerFnError> std::error::Error for ServerFnErrorWrapper<E> {
 pub trait FromServerFnError:
     Display
     + std::fmt::Debug
+    + ServerFnErrorSerde
     + From<ServerFnErrorErr>
-    + Serialize
-    + DeserializeOwned
-    + for<'a> Deserialize<'a>
     + 'static
 {
 }
@@ -273,17 +560,15 @@ fn assert_from_server_fn_error_impl() {
 impl<E> FromServerFnError for E where
     E: Display
         + std::fmt::Debug
+        + ServerFnErrorSerde
         + From<ServerFnErrorErr>
-        + Serialize
-        + DeserializeOwned
-        + for<'a> Deserialize<'a>
         + 'static
 {
 }
 
 impl<E> ServerFnErrorSerde for E
 where
-    E: FromServerFnError,
+    E: Serialize + DeserializeOwned,
 {
     type Error = serde_json::Error;
 
@@ -292,8 +577,6 @@ where
     }
 
     fn de(data: &str) -> Self {
-        serde_json::from_str(data).unwrap_or_else(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into()
-        })
+        serde_json::from_str(data).unwrap()
     }
 }

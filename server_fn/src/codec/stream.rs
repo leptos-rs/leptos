@@ -3,7 +3,7 @@ use crate::{
     error::{FromServerFnError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, Res},
-    IntoRes, ServerFnError,
+    IntoRes,
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
@@ -151,9 +151,7 @@ impl Encoding for StreamingText {
 /// end before the output will begin.
 ///
 /// Streaming requests are only allowed over HTTP2 or HTTP3.
-pub struct TextStream<E = ServerFnError>(
-    Pin<Box<dyn Stream<Item = Result<String, E>> + Send>>,
-);
+pub struct TextStream<E>(Pin<Box<dyn Stream<Item = Result<String, E>> + Send>>);
 
 impl<E> Debug for TextStream<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

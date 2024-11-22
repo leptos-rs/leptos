@@ -1,7 +1,6 @@
 use super::Res;
 use crate::error::{
-    FromServerFnError, ServerFnErrorSerde, ServerFnErrorWrapper,
-    SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
 use actix_web::{
     http::{
