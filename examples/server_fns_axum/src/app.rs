@@ -9,6 +9,7 @@ use server_fn::{
         MultipartFormData, Postcard, Rkyv, SerdeLite, StreamingText,
         TextStream,
     },
+    error::{FromServerFnError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, Res},
 };
@@ -18,7 +19,7 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
     Mutex,
 };
-use strum::{Display, EnumString};
+use strum::Display;
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
@@ -652,9 +653,7 @@ pub fn FileWatcher() -> impl IntoView {
 /// implementations if you'd like. However, it's much lighter weight to use something like `strum`
 /// simply to generate those trait implementations.
 #[server]
-pub async fn ascii_uppercase(
-    text: String,
-) -> Result<String, ServerFnError<InvalidArgument>> {
+pub async fn ascii_uppercase(text: String) -> Result<String, InvalidArgument> {
     if text.len() < 5 {
         Err(InvalidArgument::TooShort.into())
     } else if text.len() > 15 {
@@ -667,11 +666,18 @@ pub async fn ascii_uppercase(
 }
 
 // The EnumString and Display derive macros are provided by strum
-#[derive(Debug, Clone, EnumString, Display)]
+#[derive(Debug, Clone, Display, Serialize, Deserialize)]
 pub enum InvalidArgument {
     TooShort,
     TooLong,
     NotAscii,
+    ServerFnError(ServerFnErrorErr),
+}
+
+impl From<ServerFnErrorErr> for InvalidArgument {
+    fn from(value: ServerFnErrorErr) -> Self {
+        InvalidArgument::ServerFnError(value)
+    }
 }
 
 #[component]
@@ -726,14 +732,11 @@ impl<T, Request, Err> IntoReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: ClientReq<Err>,
     T: Serialize,
+    Err: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<Err>> {
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, Err> {
         let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+            .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()))?;
         Request::try_new_post(path, Toml::CONTENT_TYPE, accepts, data)
     }
 }
@@ -742,12 +745,13 @@ impl<T, Request, Err> FromReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: Req<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
+    async fn from_req(req: Request) -> Result<Self, Err> {
         let string_data = req.try_into_string().await?;
         toml::from_str::<T>(&string_data)
             .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into())
     }
 }
 
@@ -755,10 +759,11 @@ impl<T, Response, Err> IntoRes<Toml, Response, Err> for TomlEncoded<T>
 where
     Response: Res<Err>,
     T: Serialize + Send,
+    Err: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
+    async fn into_res(self) -> Result<Response, Err> {
         let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+            .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()))?;
         Response::try_from_string(Toml::CONTENT_TYPE, data)
     }
 }
@@ -767,12 +772,13 @@ impl<T, Response, Err> FromRes<Toml, Response, Err> for TomlEncoded<T>
 where
     Response: ClientRes<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
+    async fn from_res(res: Response) -> Result<Self, Err> {
         let data = res.try_into_string().await?;
-        toml::from_str(&data)
-            .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        toml::from_str(&data).map(TomlEncoded).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into()
+        })
     }
 }
 
@@ -835,7 +841,10 @@ pub fn CustomClientExample() -> impl IntoView {
     pub struct CustomClient;
 
     // Implement the `Client` trait for it.
-    impl<CustErr> Client<CustErr> for CustomClient {
+    impl<E> Client<E> for CustomClient
+    where
+        E: FromServerFnError,
+    {
         // BrowserRequest and BrowserResponse are the defaults used by other server functions.
         // They are wrappers for the underlying Web Fetch API types.
         type Request = BrowserRequest;
@@ -844,8 +853,7 @@ pub fn CustomClientExample() -> impl IntoView {
         // Our custom `send()` implementation does all the work.
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
-               + Send {
+        ) -> impl Future<Output = Result<Self::Response, E>> + Send {
             // BrowserRequest derefs to the underlying Request type from gloo-net,
             // so we can get access to the headers here
             let headers = req.headers();
