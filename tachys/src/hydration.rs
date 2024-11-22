@@ -2,11 +2,9 @@ use crate::{
     renderer::{CastFrom, Rndr},
     view::{Position, PositionState},
 };
-use std::{
-    cell::{Cell, RefCell},
-    panic::Location,
-    rc::Rc,
-};
+#[cfg(debug_assertions)]
+use std::cell::Cell;
+use std::{cell::RefCell, panic::Location, rc::Rc};
 use web_sys::{Comment, Element, Node, Text};
 
 /// Hydration works by walking over the DOM, adding interactivity as needed.

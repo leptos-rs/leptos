@@ -1,6 +1,8 @@
+#[cfg(debug_assertions)]
+use crate::hydration::set_currently_hydrating;
 use crate::{
     html::attribute::Attribute,
-    hydration::{failed_to_cast_element, set_currently_hydrating, Cursor},
+    hydration::{failed_to_cast_element, Cursor},
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
