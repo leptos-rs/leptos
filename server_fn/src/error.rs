@@ -1,8 +1,6 @@
-#![allow(deprecated)]
-
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{fmt, fmt::Display};
+use std::fmt::{self, Display};
 use thiserror::Error;
 use throw_error::Error;
 use url::Url;
@@ -92,15 +90,8 @@ impl Display for ServerFnError {
     }
 }
 
-/// A serializable custom server function error type.
-///
-/// This is implemented for all types that implement [`FromStr`] + [`Display`].
-///
-/// This means you do not necessarily need the overhead of `serde` for a custom error type.
-/// Instead, you can use something lie `strum` to derive `FromStr` and `Display` for your
-/// custom error type.
-///
-/// This is implemented for the default [`ServerFnError`], which uses [`NoCustomError`].
+#[doc(hidden)]
+/// An extension trait for types that can be serialized and deserialized to a [`String`].
 pub trait ServerFnErrorSerde: Sized {
     /// The error type that can occur when serializing the custom error type.
     type Error: std::error::Error;
