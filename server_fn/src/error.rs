@@ -249,63 +249,6 @@ where
     }
 }
 
-impl<E> std::error::Error for ServerFnError<E>
-where
-    E: std::error::Error + 'static,
-    ServerFnError<E>: std::fmt::Display,
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ServerFnError::WrappedServerError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-/// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `From<ServerFnErrorErr>` for your custom error type.
-///
-/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
-/// it can be used in situations in which the `Error` trait is required, but it’s
-/// not possible to create a blanket implementation that converts other errors into
-/// this type.
-///
-/// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
-/// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "rkyv",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
-pub enum ServerFnErrorErr {
-    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
-    #[error("error while trying to register the server function: {0}")]
-    Registration(String),
-    /// Occurs on the client if there is a network error while trying to run function on server.
-    #[error("error reaching server to call server function: {0}")]
-    Request(String),
-    /// Occurs when there is an error while actually running the function on the server.
-    #[error("error running server function: {0}")]
-    ServerError(String),
-    /// Occurs when there is an error while actually running the middleware on the server.
-    #[error("error running middleware: {0}")]
-    MiddlewareError(String),
-    /// Occurs on the client if there is an error deserializing the server's response.
-    #[error("error deserializing server function results: {0}")]
-    Deserialization(String),
-    /// Occurs on the client if there is an error serializing the server function arguments.
-    #[error("error serializing server function arguments: {0}")]
-    Serialization(String),
-    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
-    #[error("error deserializing server function arguments: {0}")]
-    Args(String),
-    /// Occurs on the server if there's a missing argument.
-    #[error("missing argument {0}")]
-    MissingArg(String),
-    /// Occurs on the server if there is an error creating an HTTP response.
-    #[error("error creating response {0}")]
-    Response(String),
-}
-
 impl<CustErr> FromServerFnError for ServerFnError<CustErr>
 where
     CustErr: std::fmt::Debug
@@ -409,6 +352,63 @@ where
                 ))
             })
     }
+}
+
+impl<E> std::error::Error for ServerFnError<E>
+where
+    E: std::error::Error + 'static,
+    ServerFnError<E>: std::fmt::Display,
+{
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ServerFnError::WrappedServerError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+/// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `From<ServerFnErrorErr>` for your custom error type.
+///
+/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
+/// it can be used in situations in which the `Error` trait is required, but it’s
+/// not possible to create a blanket implementation that converts other errors into
+/// this type.
+///
+/// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
+/// it is easy to convert between the two types.
+#[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum ServerFnErrorErr {
+    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
+    #[error("error while trying to register the server function: {0}")]
+    Registration(String),
+    /// Occurs on the client if there is a network error while trying to run function on server.
+    #[error("error reaching server to call server function: {0}")]
+    Request(String),
+    /// Occurs when there is an error while actually running the function on the server.
+    #[error("error running server function: {0}")]
+    ServerError(String),
+    /// Occurs when there is an error while actually running the middleware on the server.
+    #[error("error running middleware: {0}")]
+    MiddlewareError(String),
+    /// Occurs on the client if there is an error deserializing the server's response.
+    #[error("error deserializing server function results: {0}")]
+    Deserialization(String),
+    /// Occurs on the client if there is an error serializing the server function arguments.
+    #[error("error serializing server function arguments: {0}")]
+    Serialization(String),
+    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
+    #[error("error deserializing server function arguments: {0}")]
+    Args(String),
+    /// Occurs on the server if there's a missing argument.
+    #[error("missing argument {0}")]
+    MissingArg(String),
+    /// Occurs on the server if there is an error creating an HTTP response.
+    #[error("error creating response {0}")]
+    Response(String),
 }
 
 /// Associates a particular server function error with the server function
