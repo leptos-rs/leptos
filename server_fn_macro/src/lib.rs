@@ -716,12 +716,12 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, \
-         ServerFnError<E>>",
+        "server functions should return Result<T, E> where E: \
+         FromServerFnError",
     ))
 }
 
-fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
+fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
             if let PathArguments::AngleBracketed(args) =
@@ -732,25 +732,8 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
                     return Ok(None);
                 }
                 // Result<T, _>
-                else if let GenericArgument::Type(Type::Path(pat)) =
-                    &args.args[1]
-                {
-                    if let Some(segment) = pat.path.segments.last() {
-                        if segment.ident == "ServerFnError" {
-                            let args = &segment.arguments;
-                            match args {
-                                // Result<T, ServerFnError>
-                                PathArguments::None => return Ok(None),
-                                // Result<T, ServerFnError<E>>
-                                PathArguments::AngleBracketed(args) => {
-                                    if args.args.len() == 1 {
-                                        return Ok(Some(&args.args[0]));
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
+                else if let GenericArgument::Type(ty) = &args.args[1] {
+                    return Ok(Some(ty));
                 }
             }
         }
@@ -758,8 +741,8 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, \
-         ServerFnError<E>>",
+        "server functions should return Result<T, E> where E: \
+         FromServerFnError",
     ))
 }
 
