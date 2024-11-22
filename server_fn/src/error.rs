@@ -2,11 +2,7 @@
 
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
-    fmt,
-    fmt::{Display, Write},
-    str::FromStr,
-};
+use std::{fmt, fmt::Display, str::FromStr};
 use thiserror::Error;
 use throw_error::Error;
 use url::Url;
@@ -263,80 +259,6 @@ pub trait ServerFnErrorSerde: Sized {
     fn de(data: &str) -> Self;
 }
 
-impl<CustErr> ServerFnErrorSerde for ServerFnErrorErr<CustErr>
-where
-    CustErr: FromStr + Display,
-{
-    type Error = std::fmt::Error;
-
-    fn ser(&self) -> Result<String, Self::Error> {
-        let mut buf = String::new();
-        match self {
-            ServerFnErrorErr::WrappedServerError(e) => {
-                write!(&mut buf, "WrappedServerFn|{e}")
-            }
-            ServerFnErrorErr::Registration(e) => {
-                write!(&mut buf, "Registration|{e}")
-            }
-            ServerFnErrorErr::Request(e) => write!(&mut buf, "Request|{e}"),
-            ServerFnErrorErr::Response(e) => write!(&mut buf, "Response|{e}"),
-            ServerFnErrorErr::ServerError(e) => {
-                write!(&mut buf, "ServerError|{e}")
-            }
-            ServerFnErrorErr::MiddlewareError(e) => {
-                write!(&mut buf, "MiddlewareError|{e}")
-            }
-            ServerFnErrorErr::Deserialization(e) => {
-                write!(&mut buf, "Deserialization|{e}")
-            }
-            ServerFnErrorErr::Serialization(e) => {
-                write!(&mut buf, "Serialization|{e}")
-            }
-            ServerFnErrorErr::Args(e) => write!(&mut buf, "Args|{e}"),
-            ServerFnErrorErr::MissingArg(e) => {
-                write!(&mut buf, "MissingArg|{e}")
-            }
-        }?;
-        Ok(buf)
-    }
-
-    fn de(data: &str) -> Self {
-        data.split_once('|')
-            .and_then(|(ty, data)| match ty {
-                "WrappedServerFn" => match CustErr::from_str(data) {
-                    Ok(d) => Some(ServerFnErrorErr::WrappedServerError(d)),
-                    Err(_) => None,
-                },
-                "Registration" => {
-                    Some(ServerFnErrorErr::Registration(data.to_string()))
-                }
-                "Request" => Some(ServerFnErrorErr::Request(data.to_string())),
-                "Response" => {
-                    Some(ServerFnErrorErr::Response(data.to_string()))
-                }
-                "ServerError" => {
-                    Some(ServerFnErrorErr::ServerError(data.to_string()))
-                }
-                "Deserialization" => {
-                    Some(ServerFnErrorErr::Deserialization(data.to_string()))
-                }
-                "Serialization" => {
-                    Some(ServerFnErrorErr::Serialization(data.to_string()))
-                }
-                "Args" => Some(ServerFnErrorErr::Args(data.to_string())),
-                "MissingArg" => {
-                    Some(ServerFnErrorErr::MissingArg(data.to_string()))
-                }
-                _ => None,
-            })
-            .unwrap_or_else(|| {
-                ServerFnErrorErr::Deserialization(format!(
-                    "Could not deserialize error {data:?}"
-                ))
-            })
-    }
-}
-
 impl<E> std::error::Error for ServerFnError<E>
 where
     E: std::error::Error + 'static,
@@ -359,7 +281,11 @@ where
 ///
 /// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
 /// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum ServerFnErrorErr<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
     #[error("internal error: {0}")]
