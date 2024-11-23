@@ -290,7 +290,7 @@ pub mod logging {
 
 /// Utilities for working with asynchronous tasks.
 pub mod task {
-    pub use any_spawner::Executor;
+    pub use any_spawner::{self, CustomExecutor, Executor};
     use std::future::Future;
 
     /// Spawns a thread-safe [`Future`].
