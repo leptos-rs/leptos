@@ -11,7 +11,7 @@ use server_fn::{
     },
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
-    response::{browser::BrowserResponse, ClientRes, Res},
+    response::{browser::BrowserResponse, ClientRes, TryRes},
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -796,7 +796,7 @@ where
 
 impl<T, Response, Err> IntoRes<Toml, Response, Err> for TomlEncoded<T>
 where
-    Response: Res<Err>,
+    Response: TryRes<Err>,
     T: Serialize + Send,
     Err: FromServerFnError,
 {

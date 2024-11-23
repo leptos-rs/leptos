@@ -368,13 +368,8 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::inventory::submit! {{
                 use #server_fn_path::{ServerFn, codec::Encoding};
-                #server_fn_path::ServerFnTraitObj::new(
-                    #wrapped_struct_name_turbofish::PATH,
-                    <#wrapped_struct_name as ServerFn>::InputEncoding::METHOD,
-                    |req| {
-                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
-                    },
-                    #wrapped_struct_name_turbofish::middlewares
+                #server_fn_path::ServerFnTraitObj::new::<#wrapped_struct_name>(
+                    |req| Box::pin(#wrapped_struct_name_turbofish::run_on_server(req)),
                 )
             }}
         }
