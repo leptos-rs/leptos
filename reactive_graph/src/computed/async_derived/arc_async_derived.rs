@@ -339,12 +339,9 @@ macro_rules! spawn_derived {
                                     this.loading.store(true, Ordering::Relaxed);
 
                                     if first_run.is_none() {
-                                        owner.with(|| {
-                                            let _  = this.try_read_untracked();
-                                            for sub in (&this.inner.read().or_poisoned().subscribers).into_iter() {
-                                                sub.mark_dirty();
-                                            }
-                                        });
+                                        for sub in (&this.inner.read().or_poisoned().subscribers).into_iter() {
+                                            sub.mark_dirty();
+                                        }
                                     }
 
                                     // generate new Future
