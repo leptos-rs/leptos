@@ -365,8 +365,6 @@ macro_rules! spawn_derived {
                                         Box::pin(fut)
                                     });
 
-                                    this.loading.store(true, Ordering::Relaxed);
-
                                     // register with global transition listener, if any
                                     let ready_tx = first_run.take().unwrap_or_else(|| {
                                         let (ready_tx, ready_rx) = oneshot::channel();
