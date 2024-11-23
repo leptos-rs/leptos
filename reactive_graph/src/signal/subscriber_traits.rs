@@ -105,7 +105,7 @@ where
                 AnySource(
                     Arc::as_ptr(subs) as usize,
                     Arc::downgrade(subs) as Weak<dyn Source + Send + Sync>,
-                    #[cfg(debug_assertions)]
+                    #[cfg(any(debug_assertions, locations))]
                     self.defined_at().expect("no DefinedAt in debug mode"),
                 )
             })

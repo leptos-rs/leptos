@@ -25,7 +25,7 @@ macro_rules! html_element_inner {
 
             {
                 HtmlElement {
-                    #[cfg(debug_assertions)]
+                    #[cfg(any(debug_assertions, locations))]
                     defined_at: std::panic::Location::caller(),
                     tag: $struct_name,
                     attributes: (),
@@ -57,14 +57,14 @@ macro_rules! html_element_inner {
                         <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
                         let HtmlElement {
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, locations))]
                             defined_at,
                             tag,
                             children,
                             attributes
                         } = self;
                         HtmlElement {
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, locations))]
                             defined_at,
                             tag,
                             children,
@@ -132,7 +132,7 @@ macro_rules! html_self_closing_elements {
 
                 {
                     HtmlElement {
-                        #[cfg(debug_assertions)]
+                        #[cfg(any(debug_assertions, locations))]
                         defined_at: std::panic::Location::caller(),
                         attributes: (),
                         children: (),
@@ -162,14 +162,14 @@ macro_rules! html_self_closing_elements {
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
                             let HtmlElement {
-                                 #[cfg(debug_assertions)]
+                                 #[cfg(any(debug_assertions, locations))]
                                  defined_at,
                                 tag,
                                 children,
                                 attributes,
                             } = self;
                             HtmlElement {
-                                #[cfg(debug_assertions)]
+                                #[cfg(any(debug_assertions, locations))]
                                 defined_at,
                                 tag,
                                 children,
