@@ -311,8 +311,6 @@ macro_rules! spawn_derived {
                 let inner = Arc::downgrade(&this.inner);
                 let wakers = Arc::downgrade(&this.wakers);
                 let loading = Arc::downgrade(&this.loading);
-                #[cfg(debug_assertions)]
-                let defined_at = this.defined_at;
                 let fut = async move {
                     while rx.next().await.is_some() {
                         let update_if_necessary = if $should_track {
@@ -325,21 +323,12 @@ macro_rules! spawn_derived {
                         if update_if_necessary || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
-                                    let this = ArcAsyncDerived {
-                                        #[cfg(debug_assertions)]
-                                        defined_at,
-                                        value,
-                                        wakers,
-                                        inner,
-                                        loading,
-                                    };
+                                    let owner = inner.read().or_poisoned().owner.clone();
 
-                                    let owner = this.inner.read().or_poisoned().owner.clone();
-
-                                    this.loading.store(true, Ordering::Relaxed);
+                                    loading.store(true, Ordering::Relaxed);
 
                                     if first_run.is_none() {
-                                        for sub in (&this.inner.read().or_poisoned().subscribers).into_iter() {
+                                        for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
                                             sub.mark_dirty();
                                         }
                                     }
@@ -372,7 +361,7 @@ macro_rules! spawn_derived {
                                     });
 
                                     let (this_version, suspense_ids) = {
-                                        let mut guard = this.inner.write().or_poisoned();
+                                        let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
                                         let version = guard.version;
                                         let suspense_ids = mem::take(&mut guard.suspenses)
@@ -386,10 +375,10 @@ macro_rules! spawn_derived {
 
                                     drop(suspense_ids);
 
-                                    let latest_version = this.inner.read().or_poisoned().version;
+                                    let latest_version = inner.read().or_poisoned().version;
 
                                     if latest_version == this_version {
-                                        Self::set_inner_value(new_value, this.value, this.wakers, this.inner, this.loading, Some(ready_tx)).await;
+                                        Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
                                     }
                                 }
                                 _ => break,
