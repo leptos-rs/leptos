@@ -19,3 +19,6 @@ quote = "1.0"
 
 [dev-dependencies]
 leptos_router = { path = "../router" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(locations)'] }
