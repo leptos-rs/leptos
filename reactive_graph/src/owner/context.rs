@@ -384,7 +384,7 @@ pub fn take_context<T: 'static>() -> Option<T> {
 ///     provide_context(String::from("foo"));
 ///
 ///     Effect::new(move |_| {
-///         let value = with_context::<String>(|val| val.to_string())
+///         let value = with_context::<String, _>(|val| val.to_string())
 ///             .expect("could not find String in context");
 ///         assert_eq!(value, "foo");
 ///     });
@@ -422,7 +422,7 @@ pub fn with_context<T: 'static, R>(cb: impl FnOnce(&T) -> R) -> Option<R> {
 ///     provide_context(String::from("foo"));
 ///
 ///     Effect::new(move |_| {
-///         let value = update_context::<String>(|val| {
+///         let value = update_context::<String, _>(|val| {
 ///             std::mem::replace(val, "bar".to_string())
 ///         })
 ///         .expect("could not find String in context");
