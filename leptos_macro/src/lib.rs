@@ -639,7 +639,7 @@ pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             abort!(
                 transparent,
                 "only `transparent` is supported";
-                help = "try `#[component(transparent)]` or `#[component]`"
+                help = "try `#[island(transparent)]` or `#[island]`"
             );
         }
 
