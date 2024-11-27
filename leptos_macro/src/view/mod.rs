@@ -755,7 +755,7 @@ pub(crate) fn element_to_tokens(
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
-            quote! { ::leptos::tachys::html::element::#custom(#name) }
+            quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#custom(#name) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
             let name = if tag == "use" || tag == "use_" {
@@ -763,33 +763,33 @@ pub(crate) fn element_to_tokens(
             } else {
                 name.to_token_stream()
             };
-            quote! { ::leptos::tachys::svg::#name() }
+            quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
-            quote! { ::leptos::tachys::mathml::#name() }
+            quote_spanned! { node.name().span() => ::leptos::tachys::mathml::#name() }
         } else if is_ambiguous_element(&tag) {
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
                     /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
-                    quote! {
+                    quote_spanned! { node.name().span() =>
                         ::leptos::tachys::html::element::#name()
                     }
                 }
                 TagType::Html => {
-                    quote! { ::leptos::tachys::html::element::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#name() }
                 }
                 TagType::Svg => {
-                    quote! { ::leptos::tachys::svg::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
                 }
                 TagType::Math => {
-                    quote! { ::leptos::tachys::math::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::math::#name() }
                 }
             }
         } else {
             parent_type = TagType::Html;
-            quote! { ::leptos::tachys::html::element::#name() }
+            quote_spanned! { name.span() => ::leptos::tachys::html::element::#name() }
         };
 
         /* TODO restore this
