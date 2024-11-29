@@ -19,7 +19,7 @@ reactive_graph = { workspace = true }
 tachys = { workspace = true, features = ["reactive_graph"] }
 futures = "0.3.31"
 url = "2.5"
-js-sys = { version = "0.3.72" }
+js-sys = { version = "0.3.73" }
 wasm-bindgen = { version = "0.2.95" }
 tracing = { version = "0.1.40", optional = true }
 once_cell = "1.20"
