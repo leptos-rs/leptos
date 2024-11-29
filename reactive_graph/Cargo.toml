@@ -25,7 +25,7 @@ async-lock = "3.4.0"
 send_wrapper = { version = "0.6.0", features = ["futures"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-web-sys = "0.3.72"
+web-sys = "0.3.73"
 
 [dev-dependencies]
 tokio = { version = "1.41", features = ["rt-multi-thread", "macros"] }

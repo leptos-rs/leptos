@@ -15,11 +15,11 @@ or_poisoned = { workspace = true }
 indexmap = "2.6"
 send_wrapper = "0.6.0"
 tracing = { version = "0.1.40", optional = true }
-wasm-bindgen = "0.2.95"
+wasm-bindgen = "0.2.96"
 futures = "0.3.31"
 
 [dependencies.web-sys]
-version = "0.3.72"
+version = "0.3.73"
 features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
