@@ -1,3 +1,8 @@
+// #[wasm_bindgen(thread_local)] is deprecated in wasm-bindgen 0.2.96
+// but the replacement is also only shipped in that version
+// as a result, we'll just allow deprecated for now
+#![allow(deprecated)]
+
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use core::fmt::Debug;
