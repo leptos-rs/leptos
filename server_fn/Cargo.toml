@@ -56,7 +56,7 @@ rmp-serde = { version = "1.3.0", optional = true }
 
 # client
 gloo-net = { version = "0.6.0", optional = true }
-js-sys = { version = "0.3.72", optional = true }
+js-sys = { version = "0.3.74", optional = true }
 wasm-bindgen = { version = "0.2.95", optional = true }
 wasm-bindgen-futures = { version = "0.4.45", optional = true }
 wasm-streams = { version = "0.4.2", optional = true }
