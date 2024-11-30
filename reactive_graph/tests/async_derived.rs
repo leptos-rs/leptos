@@ -1,9 +1,10 @@
 use any_spawner::Executor;
 use reactive_graph::{
     computed::{ArcAsyncDerived, AsyncDerived},
-    owner::Owner,
+    effect::Effect,
+    owner::{Owner, StoredValue},
     signal::RwSignal,
-    traits::{Get, Read, Set, With, WithUntracked},
+    traits::{Get, GetValue, Read, Set, With, WithUntracked, WriteValue},
 };
 use std::future::pending;
 
@@ -136,4 +137,41 @@ async fn async_derived_with_initial() {
     // setting multiple dependencies will hold until the latest change is ready
     signal2.set(1);
     assert_eq!(derived.await, 2);
+}
+
+#[tokio::test]
+async fn only_notifies_once_per_run() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let signal = RwSignal::new(0);
+    let derived1 = AsyncDerived::new(move || async move {
+        Executor::tick().await;
+        signal.get() + 1
+    });
+    let derived2 = AsyncDerived::new(move || async move {
+        let value = derived1.await;
+        value * 2
+    });
+
+    let effect_runs = StoredValue::new(0);
+    Effect::new_isomorphic(move |_| {
+        *effect_runs.write_value() += 1;
+        println!("{:?}", derived2.get());
+    });
+
+    Executor::tick().await;
+    assert_eq!(derived2.await, 2);
+    assert_eq!(effect_runs.get_value(), 1);
+
+    signal.set(2);
+    Executor::tick().await;
+    assert_eq!(derived2.await, 6);
+    assert_eq!(effect_runs.get_value(), 2);
+
+    signal.set(3);
+    Executor::tick().await;
+    assert_eq!(derived2.await, 8);
+    assert_eq!(effect_runs.get_value(), 3);
 }

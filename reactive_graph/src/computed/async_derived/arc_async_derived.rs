@@ -325,13 +325,12 @@ macro_rules! spawn_derived {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                     let owner = inner.read().or_poisoned().owner.clone();
 
-                                    loading.store(true, Ordering::Relaxed);
 
-                                    if first_run.is_none() {
-                                        for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
-                                            sub.mark_dirty();
-                                        }
+                                    inner.write().or_poisoned().state = AsyncDerivedState::Notifying;
+                                    for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
+                                        sub.mark_dirty();
                                     }
+                                    inner.write().or_poisoned().state = AsyncDerivedState::Clean;
 
                                     // generate new Future
                                     let fut = initial_fut.take().unwrap_or_else(|| {
@@ -359,6 +358,8 @@ macro_rules! spawn_derived {
                                         }
                                         ready_tx
                                     });
+
+                                    loading.store(true, Ordering::Relaxed);
 
                                     let (this_version, suspense_ids) = {
                                         let mut guard = inner.write().or_poisoned();
@@ -407,8 +408,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
         loading: Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        *value.write().await = Some(new_value);
-        Self::notify_subs(&wakers, &inner, &loading, ready_tx);
+        let mut guard = value.write().await;
+        let is_first_value = guard.is_none();
+        *guard = Some(new_value);
+        Self::notify_subs(&wakers, &inner, &loading, ready_tx, is_first_value);
     }
 
     fn notify_subs(
@@ -416,6 +419,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         inner: &Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: &Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
+        notify_sync_subs: bool,
     ) {
         loading.store(false, Ordering::Relaxed);
 
@@ -430,8 +434,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
         }
 
         // notify reactive subscribers that we're not loading any more
-        for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
-            sub.mark_dirty();
+        if notify_sync_subs {
+            for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
+                sub.mark_dirty();
+            }
         }
 
         // notify async .awaiters
@@ -589,9 +595,7 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        if self.loading.load(Ordering::Relaxed)
-            || self.value.blocking_read().is_none()
-        {
+        if self.value.blocking_read().is_none() {
             if let Some(suspense_context) = use_context::<SuspenseContext>() {
                 let handle = suspense_context.task_id();
                 let ready = SpecialNonReactiveFuture::new(self.ready());
@@ -612,7 +616,7 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
 
 impl<T: 'static> Notify for ArcAsyncDerived<T> {
     fn notify(&self) {
-        Self::notify_subs(&self.wakers, &self.inner, &self.loading, None);
+        Self::notify_subs(&self.wakers, &self.inner, &self.loading, None, true);
     }
 }
 
