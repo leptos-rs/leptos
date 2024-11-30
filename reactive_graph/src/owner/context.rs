@@ -360,7 +360,8 @@ pub fn take_context<T: 'static>() -> Option<T> {
 /// Access a reference to a context value of type `T` in the reactive system.
 ///
 /// This traverses the reactive ownership graph, beginning from the current reactive
-/// [`Owner`] and iterating through its parents, if any. When the value is found, it is cloned.
+/// [`Owner`] and iterating through its parents, if any. When the value is found,
+/// the function that you pass is applied to an immutable reference to it.
 ///
 /// The context value should have been provided elsewhere using
 /// [`provide_context`](provide_context).
@@ -398,7 +399,8 @@ pub fn with_context<T: 'static, R>(cb: impl FnOnce(&T) -> R) -> Option<R> {
 /// Update a context value of type `T` in the reactive system.
 ///
 /// This traverses the reactive ownership graph, beginning from the current reactive
-/// [`Owner`] and iterating through its parents, if any. When the value is found, it is cloned.
+/// [`Owner`] and iterating through its parents, if any. When the value is found,
+/// the function that you pass is applied to a mutable reference to it.
 ///
 /// The context value should have been provided elsewhere using
 /// [`provide_context`](provide_context).
