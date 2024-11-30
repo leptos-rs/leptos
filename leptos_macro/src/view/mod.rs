@@ -652,6 +652,18 @@ pub(crate) fn element_to_tokens(
             },
             _ => None,
         };
+
+        if let NodeAttribute::Attribute(a) = a {
+            if let Some(Tuple(_)) = a.value() {
+                return Ordering::Greater;
+            }
+        }
+        if let NodeAttribute::Attribute(b) = b {
+            if let Some(Tuple(_)) = b.value() {
+                return Ordering::Less;
+            }
+        }
+
         match (key_a.as_deref(), key_b.as_deref()) {
             (Some("class"), Some("class")) | (Some("style"), Some("style")) => {
                 Ordering::Equal
@@ -1710,7 +1722,7 @@ fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
     TupleName::None
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum TupleName {
     None,
     Str(String),
