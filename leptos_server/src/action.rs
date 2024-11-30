@@ -221,7 +221,7 @@ where
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, locations)))]
         {
             None
         }
