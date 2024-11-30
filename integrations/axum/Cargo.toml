@@ -27,7 +27,7 @@ parking_lot = "0.12.3"
 tokio = { version = "1.41", default-features = false }
 tower = { version = "0.5.1", features = ["util"] }
 tower-http = "0.6.2"
-tracing = { version = "0.1.40", optional = true }
+tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
 axum = "0.7.9"
