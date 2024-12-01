@@ -715,7 +715,7 @@ where
     pub fn new_local<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         Self {
             inner: ArenaItem::new_local(ArcAction::new_unsync(action_fn)),
