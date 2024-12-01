@@ -399,8 +399,8 @@ async fn handle_server_fns_inner(
                     // actually run the server fn
                     let mut res = AxumResponse(service.run(req).await);
 
-                    // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                    // Location set, then redirect to to Referer
+                    // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                    // Location set, then redirect to the Referer
                     if accepts_html {
                         if let Some(referrer) = referrer {
                             let has_location =
@@ -412,7 +412,7 @@ async fn handle_server_fns_inner(
                         }
                     }
 
-                    // apply status code and headers if used changed them
+                    // apply status code and headers if user changed them
                     res.extend_response(&res_options);
                     Ok(res.0)
                 })
