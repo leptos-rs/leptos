@@ -27,7 +27,7 @@ leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
 uuid = { version = "1.11", features = ["v4"] }
-tracing = { version = "0.1.40", optional = true }
+tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
 log = "0.4.22"
