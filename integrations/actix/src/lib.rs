@@ -375,8 +375,8 @@ pub fn handle_server_fns_with_context(
                                     .take(),
                             );
 
-                            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                            // Location set, then redirect to to Referer
+                            // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                            // Location set, then redirect to the Referer
                             if accepts_html {
                                 if let Some(referrer) = referrer {
                                     let has_location =
@@ -390,7 +390,20 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
 
-                            // apply status code and headers if used changed them
+                            // the Location header may have been set to Referer, so any redirection by the
+                            // user must overwrite it
+                            {
+                                let mut res_options = res_options.0.write();
+                                let headers = res.0.headers_mut();
+
+                                for location in
+                                    res_options.headers.remove(header::LOCATION)
+                                {
+                                    headers.insert(header::LOCATION, location);
+                                }
+                            }
+
+                            // apply status code and headers if user changed them
                             res.extend_response(&res_options);
                             res.0
                         })
