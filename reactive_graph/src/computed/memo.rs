@@ -207,7 +207,7 @@ where
 
     /// Creates a new memo by passing a function that computes the value.
     ///
-    /// Unlike [`ArcMemo::new`](), this receives ownership of the previous value. As a result, it
+    /// Unlike [`Memo::new`](), this receives ownership of the previous value. As a result, it
     /// must return both the new value and a `bool` that is `true` if the value has changed.
     ///
     /// This is lazy: the function will not be called until the memo's value is read for the first
