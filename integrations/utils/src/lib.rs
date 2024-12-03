@@ -40,15 +40,28 @@ pub trait ExtendResponse: Sized {
             let (owner, stream) =
                 build_response(app_fn, additional_context, stream_builder);
 
+            let sc = owner.shared_context().unwrap();
+
             let stream = stream.await.ready_chunks(32).map(|n| n.join(""));
 
-            let sc = owner.shared_context().unwrap();
             while let Some(pending) = sc.await_deferred() {
                 pending.await;
             }
 
-            let mut stream =
-                Box::pin(meta_context.inject_meta_context(stream).await);
+            let mut stream = Box::pin(
+                meta_context.inject_meta_context(stream).await.then({
+                    let sc = Arc::clone(&sc);
+                    move |chunk| {
+                        let sc = Arc::clone(&sc);
+                        async move {
+                            while let Some(pending) = sc.await_deferred() {
+                                pending.await;
+                            }
+                            chunk
+                        }
+                    }
+                }),
+            );
 
             // wait for the first chunk of the stream, then set the status and headers
             let first_chunk = stream.next().await.unwrap_or_default();
