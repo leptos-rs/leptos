@@ -12,7 +12,7 @@ edition.workspace = true
 tachys = { workspace = true }
 reactive_graph = { workspace = true }
 or_poisoned = { workspace = true }
-js-sys = "0.3.72"
+js-sys = "0.3.74"
 send_wrapper = "0.6.0"
 tracing = { version = "0.1.40", optional = true }
 wasm-bindgen = "0.2.95"
