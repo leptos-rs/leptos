@@ -50,21 +50,24 @@ where
     A: Attribute,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
-        AttrInterceptor<T, <A as NextAttribute>::Output<SomeNewAttr>>;
+        AttrInterceptor<T, <<A as NextAttribute>::Output<SomeNewAttr> as Attribute>::CloneableOwned>;
 
-    fn add_any_attr<NewAttr: leptos::attr::Attribute>(self, attr: NewAttr) -> Self::Output<NewAttr>
+    fn add_any_attr<NewAttr: leptos::attr::Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        let attributes = self.attributes.add_any_attr(attr);
+        let attributes =
+            self.attributes.add_any_attr(attr).into_cloneable_owned();
 
-        // I think I want to do something like this but we can't move attributes into the
-        // children_builder and still store it here to keep track of new attributes.
-        // let children = (self.children_builder)(attributes.into_any_attr());
-        
+        let children =
+            (self.children_builder)(attributes.clone().into_any_attr());
+
         AttrInterceptor {
             children_builder: self.children_builder,
-            children: self.children,
+            children,
             attributes,
         }
     }
