@@ -72,6 +72,22 @@ pub struct AnyView {
     hydrate_from_server: fn(Erased, &Cursor, &PositionState) -> AnyViewState,
 }
 
+impl Debug for AnyView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyView")
+            .field("type_id", &self.type_id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Debug for AnyView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyView")
+            .field("type_id", &self.type_id)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Retained view state for [`AnyView`].
 pub struct AnyViewState {
     type_id: TypeId,

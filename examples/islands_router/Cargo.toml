@@ -23,6 +23,7 @@ tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
 wasm-bindgen = "0.2.93"
+serde_json = "1.0.133"
 
 [features]
 hydrate = ["leptos/hydrate"]
@@ -59,7 +60,7 @@ style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "127.0.0.1:3000"
+site-addr = "127.0.0.1:3002"
 # The port to use for automatic reload monitoring
 reload-port = 3001
 #  The browserlist query used for optimizing the CSS.
