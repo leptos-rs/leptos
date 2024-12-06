@@ -224,7 +224,7 @@ where
         if let Some(first) = self.states.first() {
             first.insert_before_this(child)
         } else {
-            false
+            self.marker.insert_before_this(child)
         }
     }
 }
