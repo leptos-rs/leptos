@@ -197,6 +197,29 @@ macro_rules! either {
             $e_pattern => $crate::EitherOf6::E($e_expression),
             $f_pattern => $crate::EitherOf6::F($f_expression),
         }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf7::A($a_expression),
+            $b_pattern => $crate::EitherOf7::B($b_expression),
+            $c_pattern => $crate::EitherOf7::C($c_expression),
+            $d_pattern => $crate::EitherOf7::D($d_expression),
+            $e_pattern => $crate::EitherOf7::E($e_expression),
+            $f_pattern => $crate::EitherOf7::F($f_expression),
+            $g_pattern => $crate::EitherOf7::G($g_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf8::A($a_expression),
+            $b_pattern => $crate::EitherOf8::B($b_expression),
+            $c_pattern => $crate::EitherOf8::C($c_expression),
+            $d_pattern => $crate::EitherOf8::D($d_expression),
+            $e_pattern => $crate::EitherOf8::E($e_expression),
+            $f_pattern => $crate::EitherOf8::F($f_expression),
+            $g_pattern => $crate::EitherOf8::G($g_expression),
+            $h_pattern => $crate::EitherOf8::H($h_expression),
+        }
     }; // if you need more eithers feel free to open a PR ;-)
 }
 
