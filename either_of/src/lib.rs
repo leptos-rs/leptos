@@ -134,7 +134,7 @@ tuples!(EitherOf14 + EitherOf14Future + EitherOf14FutureProj => A, B, C, D, E, F
 tuples!(EitherOf15 + EitherOf15Future + EitherOf15FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuples!(EitherOf16 + EitherOf16Future + EitherOf16FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
-/// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf6`])
+/// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf8`])
 /// composed of the values returned by the match arms.
 ///
 /// The pattern syntax is exactly the same as found in a match arm.
