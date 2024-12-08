@@ -5,7 +5,7 @@ use super::{
 use crate::{
     html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
     hydration::Cursor,
-    renderer::Rndr,
+    renderer::{CastFrom, Rndr},
 };
 use std::marker::PhantomData;
 
@@ -180,8 +180,11 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        if escape {
-            buf.push_str(&html_escape::encode_text(V));
+        if V.is_empty() && escape {
+            buf.push(' ');
+        } else if escape {
+            let escaped = html_escape::encode_text(V);
+            buf.push_str(&escaped);
         } else {
             buf.push_str(V);
         }
@@ -198,13 +201,18 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         } else {
             cursor.sibling();
         }
+
+        // separating placeholder marker comes before text node
         if matches!(position.get(), Position::NextChildAfterText) {
             cursor.sibling();
         }
-        position.set(Position::NextChildAfterText);
 
-        // no view state is created when hydrating, because this is static
-        None
+        let node = cursor.current();
+        let node = crate::renderer::types::Text::cast_from(node.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_text_node(node)
+            });
+        Some(node)
     }
 }
 
