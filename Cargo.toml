@@ -78,3 +78,6 @@ opt-level = 'z'
 
 [workspace.metadata.cargo-all-features]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(locations)', 'cfg(erase_components)'] }

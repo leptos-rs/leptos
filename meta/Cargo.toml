@@ -32,3 +32,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(locations)'] }
