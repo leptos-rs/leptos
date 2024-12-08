@@ -265,7 +265,7 @@ fn either_macro() {
         17 => 2i8,
         _ => 12,
     );
-    let _: EitherOf7<&str, f64, char, f32, u8, i8, u32, i32> = either!(12,
+    let _: EitherOf8<&str, f64, char, f32, u8, i8, u32, i32> = either!(12,
         12 => "12",
         13 => 0.0,
         14 => ' ',
