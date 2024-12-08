@@ -369,7 +369,6 @@ pub fn handle_server_fns_with_context(
                             // actually run the server fn
                             let mut res = ActixResponse(
                                 service
-                                    .0
                                     .run(ActixRequest::from((req, payload)))
                                     .await
                                     .take(),

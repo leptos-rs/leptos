@@ -1,4 +1,3 @@
-use crate::error::ServerFnError;
 use bytes::Bytes;
 use futures::Stream;
 use std::{borrow::Cow, future::Future};
@@ -19,7 +18,7 @@ pub mod generic;
 pub mod reqwest;
 
 /// Represents a request as made by the client.
-pub trait ClientReq<CustErr>
+pub trait ClientReq<E>
 where
     Self: Sized,
 {
@@ -32,7 +31,7 @@ where
         content_type: &str,
         accepts: &str,
         query: &str,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 
     /// Attempts to construct a new `POST` request with a text body.
     fn try_new_post(
@@ -40,7 +39,7 @@ where
         content_type: &str,
         accepts: &str,
         body: String,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 
     /// Attempts to construct a new `POST` request with a binary body.
     fn try_new_post_bytes(
@@ -48,7 +47,7 @@ where
         content_type: &str,
         accepts: &str,
         body: Bytes,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 
     /// Attempts to construct a new `POST` request with form data as the body.
     fn try_new_post_form_data(
@@ -56,14 +55,14 @@ where
         accepts: &str,
         content_type: &str,
         body: Self::FormData,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 
     /// Attempts to construct a new `POST` request with a multipart body.
     fn try_new_multipart(
         path: &str,
         accepts: &str,
         body: Self::FormData,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 
     /// Attempts to construct a new `POST` request with a streaming body.
     fn try_new_streaming(
@@ -71,11 +70,11 @@ where
         accepts: &str,
         content_type: &str,
         body: impl Stream<Item = Bytes> + Send + 'static,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    ) -> Result<Self, E>;
 }
 
 /// Represents the request as received by the server.
-pub trait Req<CustErr>
+pub trait Req<E>
 where
     Self: Sized,
 {
@@ -92,32 +91,22 @@ where
     fn referer(&self) -> Option<Cow<'_, str>>;
 
     /// Attempts to extract the body of the request into [`Bytes`].
-    fn try_into_bytes(
-        self,
-    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send;
+    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, E>> + Send;
 
     /// Attempts to convert the body of the request into a string.
-    fn try_into_string(
-        self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send;
+    fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send;
 
     /// Attempts to convert the body of the request into a stream of bytes.
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
-        ServerFnError<CustErr>,
-    >;
+    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E>;
 }
 
 /// A mocked request type that can be used in place of the actual server request,
 /// when compiling for the browser.
 pub struct BrowserMockReq;
 
-impl<CustErr> Req<CustErr> for BrowserMockReq
-where
-    CustErr: 'static,
-{
+impl<E: 'static> Req<E> for BrowserMockReq {
     fn as_query(&self) -> Option<&str> {
         unreachable!()
     }
@@ -133,20 +122,17 @@ where
     fn referer(&self) -> Option<Cow<'_, str>> {
         unreachable!()
     }
-    async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
+    async fn try_into_bytes(self) -> Result<Bytes, E> {
         unreachable!()
     }
 
-    async fn try_into_string(self) -> Result<String, ServerFnError<CustErr>> {
+    async fn try_into_string(self) -> Result<String, E> {
         unreachable!()
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
-        ServerFnError<CustErr>,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 }
