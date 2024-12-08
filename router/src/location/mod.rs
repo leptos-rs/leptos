@@ -359,7 +359,8 @@ where
             let change = LocationChange {
                 value: to,
                 replace,
-                scroll: true,
+                scroll: !a.has_attribute("noscroll")
+                    && !a.has_attribute("data-noscroll"),
                 state: State::new(state),
             };
 
