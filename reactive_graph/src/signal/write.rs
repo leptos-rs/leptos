@@ -1,7 +1,10 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
     owner::{ArenaItem, Storage, SyncStorage},
-    traits::{DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Write},
+    traits::{
+        DefinedAt, Dispose, IntoInner, IsDisposed, Notify, UntrackableGuard,
+        Write,
+    },
 };
 use core::fmt::Debug;
 use guardian::ArcRwLockWriteGuardian;
@@ -111,6 +114,18 @@ impl<T, S> DefinedAt for WriteSignal<T, S> {
 impl<T, S> IsDisposed for WriteSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for WriteSignal<T, S>
+where
+    S: Storage<ArcWriteSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 

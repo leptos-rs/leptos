@@ -630,6 +630,18 @@ pub trait IsDisposed {
     fn is_disposed(&self) -> bool;
 }
 
+/// Turns a signal back into a raw value.
+pub trait IntoInner {
+    /// The type of the value contained in the signal.
+    type Value;
+
+    /// Returns the inner value if this is the only reference to to the signal.
+    /// Otherwise, returns `None` and drops this reference.
+    /// # Panics
+    /// Panics if the inner lock is poisoned.
+    fn into_inner(self) -> Option<Self::Value>;
+}
+
 /// Describes where the signal was defined. This is used for diagnostic warnings and is purely a
 /// debug-mode tool.
 pub trait DefinedAt {

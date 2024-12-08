@@ -6,7 +6,7 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Notify},
-    traits::{DefinedAt, ReadUntracked, UntrackableGuard, Write},
+    traits::{DefinedAt, IntoInner, ReadUntracked, UntrackableGuard, Write},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -227,6 +227,15 @@ impl<T> IsDisposed for ArcRwSignal<T> {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcRwSignal<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }
 
