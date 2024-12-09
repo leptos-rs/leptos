@@ -121,8 +121,11 @@ pub mod sandboxed {
     }
 
     impl<T> Sandboxed<T> {
-        /// Wraps the given [`Future`], ensuring that any [`ArenaItem`] created while it is being
-        /// polled will be associated with the same arena that was active when this was called.
+        /// Wraps the given [`Future`], ensuring that any [`ArenaItem`][item] created while it is
+        /// being polled will be associated with the same arena that was active when this was
+        /// called.
+        ///
+        /// [item]:[crate::owner::ArenaItem]
         pub fn new(inner: T) -> Self {
             let arena = MAP.with_borrow(|n| n.as_ref().and_then(Weak::upgrade));
             Self { arena, inner }

@@ -97,7 +97,7 @@ pub mod read {
     /// or derived signal closure.
     ///
     /// This allows you to create APIs that take any kind of `ArcSignal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
+    /// rather than adding a generic `F: Fn() -> T`. Values can be accessed with the same
     /// function call, `with()`, and `get()` APIs as other signals.
     pub struct ArcSignal<T: 'static, S = SyncStorage>
     where
@@ -333,7 +333,7 @@ pub mod read {
     /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure.
     ///
     /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
+    /// rather than adding a generic `F: Fn() -> T`. Values can be accessed with the same
     /// function call, `with()`, and `get()` APIs as other signals.
     pub struct Signal<T, S = SyncStorage>
     where
