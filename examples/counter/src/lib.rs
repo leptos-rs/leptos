@@ -1,4 +1,4 @@
-use leptos::{attribute_interceptor::AttrInterceptor, prelude::*};
+use leptos::prelude::*;
 
 /// A simple counter component.
 ///
@@ -12,12 +12,12 @@ pub fn SimpleCounter(
 ) -> impl IntoView {
     let (value, set_value) = signal(initial_value);
 
-    AttrInterceptor::new(move |attrs|view! {
+    view! {
         <div>
             <button on:click=move |_| set_value.set(0)>"Clear"</button>
             <button on:click=move |_| *set_value.write() -= step>"-1"</button>
-            <span {..attrs}>"Value: " {value} "!"</span>
+            <span>"Value: " {value} "!"</span>
             <button on:click=move |_| set_value.update(|value| *value += step)>"+1"</button>
         </div>
-    })
+    }
 }

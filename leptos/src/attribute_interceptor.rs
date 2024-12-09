@@ -5,17 +5,58 @@ use crate::attr::{
 use leptos::prelude::*;
 
 /// Function stored to build/rebuild the wrapped children when attributes are added.
-pub type AiChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
+type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
+
+/// Intercepts attributes passed to your component, allowing passing them to any element.
+/// 
+/// By default, Leptos passes any attributes passed to your component (e.g. `<MyComponent
+/// attr:class="some-class"/>`) to the top-level element in the view returned by your component.
+/// [`AttributeInterceptor`] allows you to intercept this behavior and pass it onto any element in
+/// your component instead.
+///
+/// Must be the top level element in your component's view.
+///
+/// ## Example
+///
+/// Any attributes passed to MyComponent will be passed to the #inner element.
+///
+/// ```
+/// # use leptos::prelude::*;
+/// use leptos::attribute_interceptor::AttributeInterceptor;
+///
+/// #[component]
+/// pub fn MyComponent() -> impl IntoView {
+///     view!{
+///         <AttributeInterceptor let:attrs>
+///             <div id="wrapper">
+///                 <div id="inner" {..attrs} />
+///             </div>
+///         </AttributeInterceptor>
+///     }
+/// }
+/// ```
+#[component]
+pub fn AttributeInterceptor<Chil, T>(
+    /// The elements that will be rendered, with the attributes this component received as a
+    /// parameter.
+    children: Chil
+) -> impl IntoView
+where
+    Chil: Fn(AnyAttribute) -> T + Send + Sync + 'static,
+    T: IntoView,
+{
+    AttributeInterceptorInner::new(children)
+}
 
 /// Wrapper to intercept attributes passed to a component so you can apply them to a different
 /// element.
-pub struct AttrInterceptor<T: IntoView, A> {
-    children_builder: Box<AiChildBuilder<T>>,
+struct AttributeInterceptorInner<T: IntoView, A> {
+    children_builder: Box<ChildBuilder<T>>,
     children: T,
     attributes: A,
 }
 
-impl<T: IntoView> AttrInterceptor<T, ()> {
+impl<T: IntoView> AttributeInterceptorInner<T, ()> {
     /// Use this as the returned view from your component to collect the attributes that are passed
     /// to your component so you can manually handle them.
     pub fn new<F>(children: F) -> Self
@@ -33,7 +74,7 @@ impl<T: IntoView> AttrInterceptor<T, ()> {
     }
 }
 
-impl<T: IntoView, A: Attribute> Render for AttrInterceptor<T, A> {
+impl<T: IntoView, A: Attribute> Render for AttributeInterceptorInner<T, A> {
     type State = <T as Render>::State;
 
     fn build(self) -> Self::State {
@@ -45,12 +86,12 @@ impl<T: IntoView, A: Attribute> Render for AttrInterceptor<T, A> {
     }
 }
 
-impl<T: IntoView, A> AddAnyAttr for AttrInterceptor<T, A>
+impl<T: IntoView, A> AddAnyAttr for AttributeInterceptorInner<T, A>
 where
     A: Attribute,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
-        AttrInterceptor<T, <<A as NextAttribute>::Output<SomeNewAttr> as Attribute>::CloneableOwned>;
+        AttributeInterceptorInner<T, <<A as NextAttribute>::Output<SomeNewAttr> as Attribute>::CloneableOwned>;
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute>(
         self,
@@ -65,7 +106,7 @@ where
         let children =
             (self.children_builder)(attributes.clone().into_any_attr());
 
-        AttrInterceptor {
+        AttributeInterceptorInner {
             children_builder: self.children_builder,
             children,
             attributes,
@@ -73,7 +114,7 @@ where
     }
 }
 
-impl<T: IntoView, A: Attribute> RenderHtml for AttrInterceptor<T, A> {
+impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
     type AsyncOutput = T::AsyncOutput;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
@@ -82,7 +123,9 @@ impl<T: IntoView, A: Attribute> RenderHtml for AttrInterceptor<T, A> {
         self.children.dry_resolve()
     }
 
-    fn resolve(self) -> impl std::future::Future<Output = Self::AsyncOutput> + Send {
+    fn resolve(
+        self,
+    ) -> impl std::future::Future<Output = Self::AsyncOutput> + Send {
         self.children.resolve()
     }
 
@@ -105,4 +148,3 @@ impl<T: IntoView, A: Attribute> RenderHtml for AttrInterceptor<T, A> {
         self.children.hydrate::<FROM_SERVER>(cursor, position)
     }
 }
-
