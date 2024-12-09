@@ -8,7 +8,7 @@ use leptos::prelude::*;
 type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
 
 /// Intercepts attributes passed to your component, allowing passing them to any element.
-/// 
+///
 /// By default, Leptos passes any attributes passed to your component (e.g. `<MyComponent
 /// attr:class="some-class"/>`) to the top-level element in the view returned by your component.
 /// [`AttributeInterceptor`] allows you to intercept this behavior and pass it onto any element in
@@ -26,7 +26,7 @@ type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
 ///
 /// #[component]
 /// pub fn MyComponent() -> impl IntoView {
-///     view!{
+///     view! {
 ///         <AttributeInterceptor let:attrs>
 ///             <div id="wrapper">
 ///                 <div id="inner" {..attrs} />
@@ -39,7 +39,7 @@ type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
 pub fn AttributeInterceptor<Chil, T>(
     /// The elements that will be rendered, with the attributes this component received as a
     /// parameter.
-    children: Chil
+    children: Chil,
 ) -> impl IntoView
 where
     Chil: Fn(AnyAttribute) -> T + Send + Sync + 'static,
