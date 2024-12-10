@@ -1,4 +1,4 @@
-use super::{inner::MemoInner, ArcMemo};
+use super::ArcMemo;
 use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
@@ -306,7 +306,8 @@ where
     T: 'static,
     S: Storage<ArcMemo<T, S>> + Storage<T>,
 {
-    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>;
+    type Value =
+        ReadGuard<T, Mapped<Plain<Option<<S as Storage<T>>::Wrapped>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
