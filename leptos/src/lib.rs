@@ -192,6 +192,9 @@ pub mod callback;
 /// Types that can be passed as the `children` prop of a component.
 pub mod children;
 
+/// Wrapper for intercepting component attributes.
+pub mod attribute_interceptor;
+
 #[doc(hidden)]
 /// Traits used to implement component constructors.
 pub mod component;
