@@ -256,6 +256,99 @@ pub fn server_macro_impl(
                 #server_fn_path::codec::Json
             }
         });
+
+    let (impl_generics, ty_generics, where_clause) =
+        body.generics.split_for_impl();
+    let turbofish_ty_generics = ty_generics.as_turbofish();
+
+    // For the struct declaration, add a where clause where all the fields in the struct have a : Send + 'static bound
+    let struct_decl_where_clause =
+        where_clause.cloned().map(|mut where_clause| {
+            where_clause.predicates = where_clause
+                .predicates
+                .into_iter()
+                .map(|predicate| {
+                    if let WherePredicate::Type(mut t) = predicate {
+                        // Check if the type is used in the struct
+                        let is_type_used =
+                            body.inputs.iter().any(|f| match f {
+                                FnArg::Receiver(_) => false,
+                                FnArg::Typed(typed) => {
+                                    *typed.ty == t.bounded_ty
+                                }
+                            });
+
+                        if is_type_used {
+                            // If the type is used in the struct, add the bounds
+                            t.bounds.push(TypeParamBound::Trait(TraitBound {
+                                paren_token: None,
+                                modifier: TraitBoundModifier::None,
+                                lifetimes: None,
+                                path: syn::parse_quote!(Send),
+                            }));
+                            t.bounds.push(TypeParamBound::Lifetime(
+                                syn::parse_quote!('static),
+                            ));
+                        }
+                        WherePredicate::Type(t)
+                    } else {
+                        predicate
+                    }
+                })
+                .collect();
+            where_clause
+        });
+
+    // Add a `: Serialize + for<'leptos_lifetime_param> Deserialize<'leptos_lifetime_param> + Send + 'static` bound to all types that are used in the struct
+    let where_clause = where_clause.cloned().map(|mut where_clause| {
+        where_clause.predicates = where_clause
+            .predicates
+            .into_iter()
+            .map(|predicate| {
+                if let WherePredicate::Type(mut t) = predicate {
+                    // Check if the type is used in the struct
+                    let is_type_used = body.inputs.iter().any(|f| match f {
+                        FnArg::Receiver(_) => false,
+                        FnArg::Typed(typed) => *typed.ty == t.bounded_ty,
+                    });
+
+                    if is_type_used {
+                        // If the type is used in the struct, add the bounds
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: syn::parse_quote!(
+                                #server_fn_path::serde::Serialize
+                            ),
+                        }));
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: Some(syn::parse_quote!(for<'leptos_param_lifetime>)),
+                            path: syn::parse_quote!(
+                                #server_fn_path::serde::Deserialize::<'leptos_param_lifetime>
+                            ),
+                        }));
+                        t.bounds.push(TypeParamBound::Trait(TraitBound {
+                            paren_token: None,
+                            modifier: TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: syn::parse_quote!(Send),
+                        }));
+                        t.bounds.push(TypeParamBound::Lifetime(
+                            syn::parse_quote!('static),
+                        ));
+                    }
+                    WherePredicate::Type(t)
+                } else {
+                    predicate
+                }
+            })
+            .collect();
+        where_clause
+    });
+
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -267,15 +360,15 @@ pub fn server_macro_impl(
 
     // struct name, wrapped in any custom-encoding newtype wrapper
     let wrapped_struct_name = if let Some(wrapper) = custom_wrapper.as_ref() {
-        quote! { #wrapper<#struct_name> }
+        quote! { #wrapper::<#struct_name #ty_generics> }
     } else {
-        quote! { #struct_name }
+        quote! { #struct_name #ty_generics }
     };
     let wrapped_struct_name_turbofish =
         if let Some(wrapper) = custom_wrapper.as_ref() {
-            quote! { #wrapper::<#struct_name> }
+            quote! { #wrapper::<#struct_name #turbofish_ty_generics> }
         } else {
-            quote! { #struct_name }
+            quote! { #struct_name #turbofish_ty_generics }
         };
 
     // build struct for type
@@ -310,21 +403,22 @@ pub fn server_macro_impl(
     let impl_from = impl_from.map(|v| v.value).unwrap_or(true);
     let from_impl = (body.inputs.len() == 1
         && first_field.is_some()
+        && body.generics.params.is_empty()
         && impl_from)
         .then(|| {
             let field = first_field.unwrap();
             let (name, ty) = field;
             quote! {
-                impl From<#struct_name> for #ty {
-                    fn from(value: #struct_name) -> Self {
-                        let #struct_name { #name } = value;
+                impl #impl_generics From<#struct_name #ty_generics> for #ty #where_clause {
+                    fn from(value: #struct_name #ty_generics) -> Self {
+                        let #struct_name #turbofish_ty_generics { #name } = value;
                         #name
                     }
                 }
 
-                impl From<#ty> for #struct_name {
+                impl #impl_generics From<#ty> for #struct_name #ty_generics #where_clause {
                     fn from(#name: #ty) -> Self {
-                        #struct_name { #name }
+                        #struct_name #turbofish_ty_generics { #name }
                     }
                 }
             }
@@ -377,34 +471,15 @@ pub fn server_macro_impl(
         .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
         .collect::<TokenStream2>();
 
-    // auto-registration with inventory
-    let inventory = if cfg!(feature = "ssr") {
-        quote! {
-            #server_fn_path::inventory::submit! {{
-                use #server_fn_path::{ServerFn, codec::Encoding};
-                #server_fn_path::ServerFnTraitObj::new(
-                    #wrapped_struct_name_turbofish::PATH,
-                    <#wrapped_struct_name as ServerFn>::InputEncoding::METHOD,
-                    |req| {
-                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
-                    },
-                    #wrapped_struct_name_turbofish::middlewares
-                )
-            }}
-        }
-    } else {
-        quote! {}
-    };
-
     // run_body in the trait implementation
-    let run_body = if cfg!(feature = "ssr") {
+    let (run_body_lint_supressor, run_body) = if cfg!(feature = "ssr") {
         let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
             quote! {
-                let #wrapper(#struct_name { #(#field_names),* }) = self;
+                let #wrapper(#struct_name #turbofish_ty_generics { #(#field_names),* }) = self;
             }
         } else {
             quote! {
-                let #struct_name { #(#field_names),* } = self;
+                let #struct_name #turbofish_ty_generics { #(#field_names),* } = self;
             }
         };
 
@@ -420,32 +495,35 @@ pub fn server_macro_impl(
             #destructure
             #dummy_name(#(#field_names),*).await
         };
-        let body = if cfg!(feature = "actix") {
+        (
             quote! {
-                #server_fn_path::actix::SendWrapper::new(async move {
+                // we need this for Actix, for the SendWrapper to count as impl Future
+                // but non-Actix will have a clippy warning otherwise
+                #[allow(clippy::manual_async_fn)]
+            },
+            if cfg!(feature = "actix") {
+                quote! {
+                    #server_fn_path::actix::SendWrapper::new(async move {
+                        #body
+                    })
+                }
+            } else {
+                quote! { async move {
                     #body
-                })
-            }
-        } else {
-            quote! { async move {
-                #body
-            }}
-        };
-        quote! {
-            // we need this for Actix, for the SendWrapper to count as impl Future
-            // but non-Actix will have a clippy warning otherwise
-            #[allow(clippy::manual_async_fn)]
-            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
-                #body
-            }
-        }
+                }}
+            },
+        )
     } else {
-        quote! {
-            #[allow(unused_variables)]
-            async fn run_body(self) -> #return_ty {
-                unreachable!()
-            }
-        }
+        (
+            quote! {
+                #[allow(unused_variables, clippy::manual_async_fn)]
+            },
+            quote! {
+                async move {
+                    unreachable!()
+                }
+            },
+        )
     };
 
     // the actual function definition
@@ -453,7 +531,7 @@ pub fn server_macro_impl(
         quote! {
             #docs
             #(#attrs)*
-            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+            #vis async fn #fn_name #ty_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
                 #dummy_name(#(#field_names),*).await
             }
         }
@@ -461,18 +539,18 @@ pub fn server_macro_impl(
         let restructure = if let Some(custom_wrapper) = custom_wrapper.as_ref()
         {
             quote! {
-                let data = #custom_wrapper(#struct_name { #(#field_names),* });
+                let data = #custom_wrapper(#struct_name #turbofish_ty_generics { #(#field_names),* });
             }
         } else {
             quote! {
-                let data = #struct_name { #(#field_names),* };
+                let data = #struct_name #turbofish_ty_generics { #(#field_names),* };
             }
         };
         quote! {
             #docs
             #(#attrs)*
             #[allow(unused_variables)]
-            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+            #vis async fn #fn_name #ty_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
                 use #server_fn_path::ServerFn;
                 #restructure
                 data.run_on_client().await
@@ -642,20 +720,39 @@ pub fn server_macro_impl(
         quote! { vec![] }
     };
 
+    // auto-registration with inventory only if there are no generics
+    let inventory = if cfg!(feature = "ssr")
+        && ty_generics.clone().into_token_stream().is_empty()
+    {
+        quote! {
+            #server_fn_path::inventory::submit! {{
+                use #server_fn_path::{ServerFn, codec::Encoding};
+                #server_fn_path::ServerFnTraitObj::new(
+                    #path,
+                    #input::METHOD,
+                    |req| {
+                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
+                    },
+                    #wrapped_struct_name_turbofish::middlewares
+                )
+            }}
+        }
+    } else {
+        quote! {}
+    };
+
     Ok(quote::quote! {
         #args_docs
         #docs
         #[derive(Debug, #derives)]
         #addl_path
-        pub struct #struct_name {
+        pub struct #struct_name #ty_generics #struct_decl_where_clause {
             #(#fields),*
         }
 
         #from_impl
 
-        impl #server_fn_path::ServerFn for #wrapped_struct_name {
-            const PATH: &'static str = #path;
-
+        impl #impl_generics #server_fn_path::ServerFn for #wrapped_struct_name #where_clause {
             type Client = #client;
             type ServerRequest = #req;
             type ServerResponse = #res;
@@ -664,11 +761,18 @@ pub fn server_macro_impl(
             type OutputEncoding = #output;
             type Error = #error_ty;
 
+            fn url() -> &'static str {
+                #path
+            }
+
             fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<#req, #res>>> {
                 #middlewares
             }
 
-            #run_body
+            #run_body_lint_supressor
+            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
+                #run_body
+            }
         }
 
         #inventory
@@ -1059,7 +1163,7 @@ impl Parse for ServerFnBody {
 
         let fn_token = input.parse()?;
         let ident = input.parse()?;
-        let generics: Generics = input.parse()?;
+        let mut generics = input.parse::<Generics>()?;
 
         let content;
         let _paren_token = syn::parenthesized!(content in input);
@@ -1068,6 +1172,7 @@ impl Parse for ServerFnBody {
 
         let output_arrow = input.parse()?;
         let return_ty = input.parse()?;
+        generics.where_clause = input.parse()?;
 
         let block = input.parse()?;
 
@@ -1135,10 +1240,11 @@ impl ServerFnBody {
             block,
             ..
         } = &self;
+        let where_clause = generics.where_clause.as_ref();
         quote! {
             #[doc(hidden)]
             #(#attrs)*
-            #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty
+            #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty #where_clause
             #block
         }
     }
