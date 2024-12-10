@@ -623,10 +623,15 @@ where
             .keys()
             .expect("updating keys on a store with no keys");
 
+        // generating the latest keys out here means that if we have
+        // nested keyed fields, the second field will not try to take a
+        // read-lock on the key map to get the field while the first field
+        // is still holding the write-lock in the closure below
+        let latest = self.latest_keys();
         keys.with_field_keys(
             inner_path,
             |keys| {
-                keys.update(self.latest_keys());
+                keys.update(latest);
             },
             || self.latest_keys(),
         );
