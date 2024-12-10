@@ -4,7 +4,9 @@ use super::{
 };
 use crate::{
     signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
-    traits::{DefinedAt, Dispose, IsDisposed, ReadValue, WriteValue},
+    traits::{
+        DefinedAt, Dispose, IntoInner, IsDisposed, ReadValue, WriteValue,
+    },
     unwrap_signal,
 };
 use std::{
@@ -159,6 +161,19 @@ impl<T, S> IsDisposed for StoredValue<T, S> {
 impl<T, S> Dispose for StoredValue<T, S> {
     fn dispose(self) {
         self.value.dispose();
+    }
+}
+
+impl<T, S> IntoInner for StoredValue<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStoredValue<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.value.into_inner()?.into_inner()
     }
 }
 

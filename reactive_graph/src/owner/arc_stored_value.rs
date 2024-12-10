@@ -1,6 +1,6 @@
 use crate::{
     signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
-    traits::{DefinedAt, IsDisposed, ReadValue, WriteValue},
+    traits::{DefinedAt, IntoInner, IsDisposed, ReadValue, WriteValue},
 };
 use std::{
     fmt::{Debug, Formatter},
@@ -122,5 +122,14 @@ where
 impl<T> IsDisposed for ArcStoredValue<T> {
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcStoredValue<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }

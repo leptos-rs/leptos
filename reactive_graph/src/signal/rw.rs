@@ -8,7 +8,7 @@ use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
+        DefinedAt, Dispose, IntoInner, IsDisposed, Notify, ReadUntracked,
         UntrackableGuard, Write,
     },
     unwrap_signal,
@@ -310,6 +310,18 @@ impl<T, S> DefinedAt for RwSignal<T, S> {
 impl<T: 'static, S> IsDisposed for RwSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for RwSignal<T, S>
+where
+    S: Storage<ArcRwSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 

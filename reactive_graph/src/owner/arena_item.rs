@@ -2,7 +2,7 @@ use super::{
     arena::{Arena, NodeId},
     LocalStorage, Storage, SyncStorage, OWNER,
 };
-use crate::traits::{Dispose, IsDisposed};
+use crate::traits::{Dispose, IntoInner, IsDisposed};
 use send_wrapper::SendWrapper;
 use std::{any::Any, hash::Hash, marker::PhantomData};
 
@@ -132,5 +132,14 @@ impl<T, S> IsDisposed for ArenaItem<T, S> {
 impl<T, S> Dispose for ArenaItem<T, S> {
     fn dispose(self) {
         Arena::with_mut(|arena| arena.remove(self.node));
+    }
+}
+
+impl<T, S: Storage<T>> IntoInner for ArenaItem<T, S> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        S::take(self.node)
     }
 }
