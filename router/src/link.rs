@@ -92,6 +92,9 @@ pub fn A<H>(
     /// a trailing slash.
     #[prop(optional)]
     strict_trailing_slash: bool,
+    /// If `true`, the router will scroll to the top of the window at the end of navigation. Defaults to `true`.
+    #[prop(default = true)]
+    scroll: bool,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -104,6 +107,7 @@ where
         exact: bool,
         children: Children,
         strict_trailing_slash: bool,
+        scroll: bool,
     ) -> impl IntoView {
         let RouterContext { current_url, .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
@@ -129,6 +133,7 @@ where
                 href=move || href.get().unwrap_or_default()
                 target=target
                 aria-current=move || if is_active() { Some("page") } else { None }
+                data-noscroll=!scroll
             >
 
                 {children()}
@@ -137,7 +142,7 @@ where
     }
 
     let href = use_resolved_path(move || href.to_href()());
-    inner(href, target, exact, children, strict_trailing_slash)
+    inner(href, target, exact, children, strict_trailing_slash, scroll)
 }
 
 // Test if `href` is active for `location`.  Assumes _both_ `href` and `location` begin with a `'/'`.
