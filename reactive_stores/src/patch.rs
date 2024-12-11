@@ -78,6 +78,7 @@ patch_primitives! {
     Arc<str>,
     Rc<str>,
     Cow<'_, str>,
+    usize,
     u8,
     u16,
     u32,
