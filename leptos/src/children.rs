@@ -285,6 +285,13 @@ impl<T> Debug for TypedChildrenFn<T> {
     }
 }
 
+impl<T> Clone for TypedChildrenFn<T> {
+    // Manual implementation to avoid the `T: Clone` bound.
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<T> TypedChildrenFn<T> {
     /// Extracts the inner `children` function.
     pub fn into_inner(self) -> Arc<dyn Fn() -> View<T> + Send + Sync> {
