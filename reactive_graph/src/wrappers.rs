@@ -93,12 +93,30 @@ pub mod read {
     }
 
     /// A wrapper for any kind of reference-counted reactive signal:
-    /// an [`ArcReadSignal`], [`ArcMemo`], [`ArcRwSignal`],
-    /// or derived signal closure.
+    /// an [`ArcReadSignal`], [`ArcMemo`], [`ArcRwSignal`], or derived signal closure,
+    /// or a plain value of the same type
     ///
-    /// This allows you to create APIs that take any kind of `ArcSignal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be accessed with the same
-    /// function call, `with()`, and `get()` APIs as other signals.
+    /// This allows you to create APIs that take `T` or any reactive value that returns `T`
+    /// as an argument, rather than adding a generic `F: Fn() -> T`.
+    ///
+    /// Values can be accessed with the same function call, `read()`, `with()`, and `get()`
+    /// APIs as other signals.
+    ///
+    /// ## Important Notes about Derived Signals
+    ///
+    /// `Signal::derive()` is simply a way to box and type-erase a “derived signal,” which
+    /// is a plain closure that accesses one or more signals. It does *not* cache the value
+    /// of that computation. Accessing the value of a `Signal<_>` that is created using `Signal::derive()`
+    /// will run the closure again every time you call `.read()`, `.with()`, or `.get()`.
+    ///
+    /// If you want the closure to run the minimal number of times necessary to update its state,
+    /// and then to cache its value, you should use a [`Memo`] (and convert it into a `Signal<_>`)
+    /// rather than using `Signal::derive()`.
+    ///
+    /// Note that for many computations, it is nevertheless less expensive to use a derived signal
+    /// than to create a separate memo and to cache the value: creating a new reactive node and
+    /// taking the lock on that cached value whenever you access the signal is *more* expensive than
+    /// simply re-running the calculation in many cases.
     pub struct ArcSignal<T: 'static, S = SyncStorage>
     where
         S: Storage<T>,
@@ -330,11 +348,30 @@ pub mod read {
     }
 
     /// A wrapper for any kind of arena-allocated reactive signal:
-    /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure.
+    /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure,
+    /// or a plain value of the same type
     ///
-    /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be accessed with the same
-    /// function call, `with()`, and `get()` APIs as other signals.
+    /// This allows you to create APIs that take `T` or any reactive value that returns `T`
+    /// as an argument, rather than adding a generic `F: Fn() -> T`.
+    ///
+    /// Values can be accessed with the same function call, `read()`, `with()`, and `get()`
+    /// APIs as other signals.
+    ///
+    /// ## Important Notes about Derived Signals
+    ///
+    /// `Signal::derive()` is simply a way to box and type-erase a “derived signal,” which
+    /// is a plain closure that accesses one or more signals. It does *not* cache the value
+    /// of that computation. Accessing the value of a `Signal<_>` that is created using `Signal::derive()`
+    /// will run the closure again every time you call `.read()`, `.with()`, or `.get()`.
+    ///
+    /// If you want the closure to run the minimal number of times necessary to update its state,
+    /// and then to cache its value, you should use a [`Memo`] (and convert it into a `Signal<_>`)
+    /// rather than using `Signal::derive()`.
+    ///
+    /// Note that for many computations, it is nevertheless less expensive to use a derived signal
+    /// than to create a separate memo and to cache the value: creating a new reactive node and
+    /// taking the lock on that cached value whenever you access the signal is *more* expensive than
+    /// simply re-running the calculation in many cases.
     pub struct Signal<T, S = SyncStorage>
     where
         S: Storage<T>,
