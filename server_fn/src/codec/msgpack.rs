@@ -1,8 +1,8 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
 };
 use bytes::Bytes;
 use http::Method;
@@ -16,18 +16,16 @@ impl Encoding for MsgPack {
     const METHOD: Method = Method::POST;
 }
 
-impl<T, Request, Err> IntoReq<MsgPack, Request, Err> for T
+impl<T, Request, E> IntoReq<MsgPack, Request, E> for T
 where
-    Request: ClientReq<Err>,
+    Request: ClientReq<E>,
     T: Serialize,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<Err>> {
-        let data = rmp_serde::to_vec(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = rmp_serde::to_vec(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post_bytes(
             path,
             MsgPack::CONTENT_TYPE,
@@ -37,38 +35,43 @@ where
     }
 }
 
-impl<T, Request, Err> FromReq<MsgPack, Request, Err> for T
+impl<T, Request, E> FromReq<MsgPack, Request, E> for T
 where
-    Request: Req<Err> + Send,
+    Request: Req<E> + Send,
     T: DeserializeOwned,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let data = req.try_into_bytes().await?;
         rmp_serde::from_slice::<T>(&data)
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
-impl<T, Response, Err> IntoRes<MsgPack, Response, Err> for T
+impl<T, Response, E> IntoRes<MsgPack, Response, E> for T
 where
-    Response: Res<Err>,
+    Response: TryRes<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
-        let data = rmp_serde::to_vec(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    async fn into_res(self) -> Result<Response, E> {
+        let data = rmp_serde::to_vec(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Response::try_from_bytes(MsgPack::CONTENT_TYPE, Bytes::from(data))
     }
 }
 
-impl<T, Response, Err> FromRes<MsgPack, Response, Err> for T
+impl<T, Response, E> FromRes<MsgPack, Response, E> for T
 where
-    Response: ClientRes<Err> + Send,
+    Response: ClientRes<E> + Send,
     T: DeserializeOwned,
+    E: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
+    async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
-        rmp_serde::from_slice(&data)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        rmp_serde::from_slice(&data).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }
