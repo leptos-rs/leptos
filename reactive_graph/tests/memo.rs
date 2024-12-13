@@ -448,6 +448,9 @@ fn unsync_derived_signal_and_memo() {
 fn memo_updates_even_if_not_read_until_later() {
     #![allow(clippy::bool_assert_comparison)]
 
+    let owner = Owner::new();
+    owner.set();
+
     // regression test for https://github.com/leptos-rs/leptos/issues/3339
 
     let input = RwSignal::new(0);
