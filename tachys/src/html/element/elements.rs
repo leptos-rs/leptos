@@ -340,7 +340,7 @@ html_elements! {
     /// The `<nav>` HTML element represents a section of a page whose purpose is to provide navigation links, either within the current document or to other documents. Common examples of navigation sections are menus, tables of contents, and indexes.
     nav HtmlElement [] true,
     /// The `<noscript>` HTML element defines a section of HTML to be inserted if a script type on the page is unsupported or if scripting is currently turned off in the browser.
-    noscript HtmlElement [] true,
+    noscript HtmlElement [] false,
     /// The `<object>` HTML element represents an external resource, which can be treated as an image, a nested browsing context, or a resource to be handled by a plugin.
     object HtmlObjectElement [data, form, height, name, r#type, usemap, width] true,
     /// The `<ol>` HTML element represents an ordered list of items — typically rendered as a numbered list.
