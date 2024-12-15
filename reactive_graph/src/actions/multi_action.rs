@@ -46,7 +46,7 @@ use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 /// ```
 pub struct MultiAction<I, O, S = SyncStorage> {
     inner: ArenaItem<ArcMultiAction<I, O>, S>,
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -62,11 +62,11 @@ where
     O: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -130,7 +130,7 @@ where
     {
         Self {
             inner: ArenaItem::new_with_storage(ArcMultiAction::new(action_fn)),
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }

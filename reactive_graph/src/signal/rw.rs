@@ -100,7 +100,7 @@ use std::{
 /// assert_eq!(double_count(), 2);
 /// ```
 pub struct RwSignal<T, S = SyncStorage> {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: ArenaItem<ArcRwSignal<T>, S>,
 }
@@ -139,7 +139,7 @@ where
     #[track_caller]
     pub fn new_with_storage(value: T) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcRwSignal::new(value)),
         }
@@ -172,7 +172,7 @@ where
     #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T, S> {
         ReadSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 self.inner
@@ -194,7 +194,7 @@ where
     #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T, S> {
         WriteSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 self.inner
@@ -231,10 +231,10 @@ where
             (Some(read), Some(write)) => {
                 if Arc::ptr_eq(&read.inner, &write.inner) {
                     Some(Self {
-                        #[cfg(any(debug_assertions, locations))]
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
                         defined_at: Location::caller(),
                         inner: ArenaItem::new_with_storage(ArcRwSignal {
-                            #[cfg(any(debug_assertions, locations))]
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
                             defined_at: Location::caller(),
                             value: Arc::clone(&read.value),
                             inner: Arc::clone(&read.inner),
@@ -296,11 +296,11 @@ impl<T, S> Hash for RwSignal<T, S> {
 
 impl<T, S> DefinedAt for RwSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -378,7 +378,7 @@ where
     #[track_caller]
     fn from(value: ArcRwSignal<T>) -> Self {
         RwSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -402,7 +402,7 @@ where
     #[track_caller]
     fn from_local(value: ArcRwSignal<T>) -> Self {
         RwSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }

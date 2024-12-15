@@ -54,7 +54,7 @@ use std::{
 /// assert_eq!(count.get(), 3);
 /// ```
 pub struct ArcWriteSignal<T> {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
@@ -64,7 +64,7 @@ impl<T> Clone for ArcWriteSignal<T> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -98,11 +98,11 @@ impl<T> Hash for ArcWriteSignal<T> {
 impl<T> DefinedAt for ArcWriteSignal<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

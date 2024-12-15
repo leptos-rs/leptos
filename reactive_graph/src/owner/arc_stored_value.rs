@@ -19,7 +19,7 @@ use std::{
 /// accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 pub struct ArcStoredValue<T> {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     value: Arc<RwLock<T>>,
 }
@@ -27,7 +27,7 @@ pub struct ArcStoredValue<T> {
 impl<T> Clone for ArcStoredValue<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
         }
@@ -47,7 +47,7 @@ impl<T: Default> Default for ArcStoredValue<T> {
     #[track_caller]
     fn default() -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(T::default())),
         }
@@ -70,11 +70,11 @@ impl<T> Hash for ArcStoredValue<T> {
 
 impl<T> DefinedAt for ArcStoredValue<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -90,7 +90,7 @@ impl<T> ArcStoredValue<T> {
     #[track_caller]
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
         }

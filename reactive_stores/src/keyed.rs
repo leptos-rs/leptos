@@ -28,7 +28,7 @@ pub struct KeyedSubfield<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path_segment: StorePathSegment,
     inner: Inner,
@@ -44,7 +44,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path_segment: self.path_segment,
             inner: self.inner.clone(),
@@ -76,7 +76,7 @@ where
         write: fn(&mut Prev) -> &mut T,
     ) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             path_segment,
@@ -254,11 +254,11 @@ where
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -356,7 +356,7 @@ pub struct AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: KeyedSubfield<Inner, Prev, K, T>,
     key: K,
@@ -370,7 +370,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: self.inner.clone(),
             key: self.key.clone(),
@@ -394,7 +394,7 @@ where
     #[track_caller]
     pub fn new(inner: KeyedSubfield<Inner, Prev, K, T>, key: K) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             key,
@@ -511,11 +511,11 @@ where
     for<'a> &'a T: IntoIterator,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

@@ -26,17 +26,17 @@ pub trait Source: ReactiveNode {
 pub struct AnySource(
     pub(crate) usize,
     pub(crate) Weak<dyn Source + Send + Sync>,
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate)  &'static Location<'static>,
 );
 
 impl DefinedAt for AnySource {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.2)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

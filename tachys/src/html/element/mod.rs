@@ -1,4 +1,4 @@
-#[cfg(any(debug_assertions, locations))]
+#[cfg(any(debug_assertions, leptos_debuginfo))]
 use crate::hydration::set_currently_hydrating;
 use crate::{
     html::attribute::Attribute,
@@ -26,13 +26,13 @@ pub use custom::*;
 pub use element_ext::*;
 pub use elements::*;
 pub use inner_html::*;
-#[cfg(any(debug_assertions, locations))]
+#[cfg(any(debug_assertions, leptos_debuginfo))]
 use std::panic::Location;
 
 /// The typed representation of an HTML element.
 #[derive(Debug, PartialEq, Eq)]
 pub struct HtmlElement<E, At, Ch> {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) tag: E,
     pub(crate) attributes: At,
@@ -42,7 +42,7 @@ pub struct HtmlElement<E, At, Ch> {
 impl<E: Clone, At: Clone, Ch: Clone> Clone for HtmlElement<E, At, Ch> {
     fn clone(&self) -> Self {
         HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             tag: self.tag.clone(),
             attributes: self.attributes.clone(),
@@ -82,14 +82,14 @@ where
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             tag,
             attributes,
             children,
         } = self;
         HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             tag,
             attributes,
@@ -112,14 +112,14 @@ where
         attr: NewAttr,
     ) -> Self::Output<NewAttr> {
         let HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             tag,
             attributes,
             children,
         } = self;
         HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             tag,
             attributes: attributes.add_any_attr(attr),
@@ -242,7 +242,7 @@ where
         let (attributes, children) =
             join(self.attributes.resolve(), self.children.resolve()).await;
         HtmlElement {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             tag: self.tag,
             attributes,
@@ -350,7 +350,7 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             set_currently_hydrating(Some(self.defined_at));
         }

@@ -93,7 +93,7 @@ pub struct ArcMemo<T, S = SyncStorage>
 where
     S: Storage<T>,
 {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: Arc<RwLock<MemoInner<T, S>>>,
 }
@@ -164,7 +164,7 @@ where
             RwLock::new(MemoInner::new(Arc::new(fun), subscriber))
         });
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
         }
@@ -177,7 +177,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: Arc::clone(&self.inner),
         }
@@ -190,11 +190,11 @@ where
 {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -272,7 +272,7 @@ where
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
             Arc::downgrade(&self.inner) as Weak<dyn Source + Send + Sync>,
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             self.defined_at,
         )
     }

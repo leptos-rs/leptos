@@ -94,7 +94,7 @@ use std::{
 /// assert_eq!(double_count(), 2);
 /// ```
 pub struct ArcRwSignal<T> {
-    #[cfg(any(debug_assertions, locations))]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
@@ -104,7 +104,7 @@ impl<T> Clone for ArcRwSignal<T> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -154,7 +154,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             inner: Arc::new(RwLock::new(SubscriberSet::new())),
@@ -165,7 +165,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn read_only(&self) -> ArcReadSignal<T> {
         ArcReadSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -176,7 +176,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn write_only(&self) -> ArcWriteSignal<T> {
         ArcWriteSignal {
-            #[cfg(any(debug_assertions, locations))]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -198,7 +198,7 @@ impl<T> ArcRwSignal<T> {
     ) -> Option<Self> {
         if Arc::ptr_eq(&read.inner, &write.inner) {
             Some(Self {
-                #[cfg(any(debug_assertions, locations))]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: Location::caller(),
                 value: read.value,
                 inner: read.inner,
@@ -212,11 +212,11 @@ impl<T> ArcRwSignal<T> {
 impl<T> DefinedAt for ArcRwSignal<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(any(debug_assertions, locations))]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(any(debug_assertions, locations)))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

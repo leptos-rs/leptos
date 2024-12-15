@@ -49,4 +49,4 @@ rustdoc-args = ["--cfg", "docsrs"]
 denylist = ["tracing"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(locations)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
