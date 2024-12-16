@@ -444,7 +444,8 @@ impl Dom {
         // TODO can be optimized to cache HTML strings or cache <template>?
         let tpl = document().create_element("template").unwrap();
         tpl.set_inner_html(html);
-        Self::clone_template(tpl.unchecked_ref())
+        let tpl = Self::clone_template(tpl.unchecked_ref());
+        tpl.first_element_child().unwrap_or(tpl)
     }
 }
 
