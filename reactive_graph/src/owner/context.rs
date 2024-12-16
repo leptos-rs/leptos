@@ -15,35 +15,14 @@ impl Owner {
     }
 
     fn use_context<T: Clone + 'static>(&self) -> Option<T> {
-        let ty = TypeId::of::<T>();
-        let inner = self.inner.read().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-        let contexts = &self.inner.read().or_poisoned().contexts;
-        if let Some(context) = contexts.get(&ty) {
-            context.downcast_ref::<T>().cloned()
-        } else {
-            while let Some(ref this_parent) = parent.clone() {
-                let this_parent = this_parent.read().or_poisoned();
-                let contexts = &this_parent.contexts;
-                let value = contexts.get(&ty);
-                let downcast = value
-                    .and_then(|context| context.downcast_ref::<T>().cloned());
-                if let Some(value) = downcast {
-                    return Some(value);
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
-                }
-            }
-            None
-        }
+        self.with_context(Clone::clone)
     }
 
     fn take_context<T: 'static>(&self) -> Option<T> {
         let ty = TypeId::of::<T>();
-        let inner = self.inner.read().or_poisoned();
+        let mut inner = self.inner.write().or_poisoned();
         let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-        let contexts = &mut self.inner.write().or_poisoned().contexts;
+        let contexts = &mut inner.contexts;
         if let Some(context) = contexts.remove(&ty) {
             context.downcast::<T>().ok().map(|n| *n)
         } else {
@@ -62,6 +41,64 @@ impl Owner {
             }
             None
         }
+    }
+
+    fn with_context<T: 'static, R>(
+        &self,
+        cb: impl FnOnce(&T) -> R,
+    ) -> Option<R> {
+        let ty = TypeId::of::<T>();
+        let inner = self.inner.read().or_poisoned();
+        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+        let contexts = &inner.contexts;
+        let reference = if let Some(context) = contexts.get(&ty) {
+            context.downcast_ref::<T>()
+        } else {
+            while let Some(ref this_parent) = parent.clone() {
+                let this_parent = this_parent.read().or_poisoned();
+                let contexts = &this_parent.contexts;
+                let value = contexts.get(&ty);
+                let downcast =
+                    value.and_then(|context| context.downcast_ref::<T>());
+                if let Some(value) = downcast {
+                    return Some(cb(value));
+                } else {
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
+                }
+            }
+            None
+        };
+        reference.map(cb)
+    }
+
+    fn update_context<T: 'static, R>(
+        &self,
+        cb: impl FnOnce(&mut T) -> R,
+    ) -> Option<R> {
+        let ty = TypeId::of::<T>();
+        let mut inner = self.inner.write().or_poisoned();
+        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+        let contexts = &mut inner.contexts;
+        let reference = if let Some(context) = contexts.get_mut(&ty) {
+            context.downcast_mut::<T>()
+        } else {
+            while let Some(ref this_parent) = parent.clone() {
+                let mut this_parent = this_parent.write().or_poisoned();
+                let contexts = &mut this_parent.contexts;
+                let value = contexts.get_mut(&ty);
+                let downcast =
+                    value.and_then(|context| context.downcast_mut::<T>());
+                if let Some(value) = downcast {
+                    return Some(cb(value));
+                } else {
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
+                }
+            }
+            None
+        };
+        reference.map(cb)
     }
 
     /// Searches for items stored in context in either direction, either among parents or among
@@ -318,4 +355,87 @@ pub fn expect_context<T: Clone + 'static>() -> T {
 /// ```
 pub fn take_context<T: 'static>() -> Option<T> {
     Owner::current().and_then(|owner| owner.take_context())
+}
+
+/// Access a reference to a context value of type `T` in the reactive system.
+///
+/// This traverses the reactive ownership graph, beginning from the current reactive
+/// [`Owner`] and iterating through its parents, if any. When the value is found,
+/// the function that you pass is applied to an immutable reference to it.
+///
+/// The context value should have been provided elsewhere using
+/// [`provide_context`](provide_context).
+///
+/// This is useful for passing values down to components or functions lower in a
+/// hierarchy without needs to “prop drill” by passing them through each layer as
+/// arguments to a function or properties of a component.
+///
+/// Context works similarly to variable scope: a context that is provided higher in
+/// the reactive graph can be used lower down, but a context that is provided lower
+/// in the tree cannot be used higher up.
+///
+/// ```rust
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
+/// # use reactive_graph::effect::Effect;
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
+/// Effect::new(move |_| {
+///     provide_context(String::from("foo"));
+///
+///     Effect::new(move |_| {
+///         let value = with_context::<String, _>(|val| val.to_string())
+///             .expect("could not find String in context");
+///         assert_eq!(value, "foo");
+///     });
+/// });
+/// # });
+/// ```
+pub fn with_context<T: 'static, R>(cb: impl FnOnce(&T) -> R) -> Option<R> {
+    Owner::current().and_then(|owner| owner.with_context(cb))
+}
+
+/// Update a context value of type `T` in the reactive system.
+///
+/// This traverses the reactive ownership graph, beginning from the current reactive
+/// [`Owner`] and iterating through its parents, if any. When the value is found,
+/// the function that you pass is applied to a mutable reference to it.
+///
+/// The context value should have been provided elsewhere using
+/// [`provide_context`](provide_context).
+///
+/// This is useful for passing values down to components or functions lower in a
+/// hierarchy without needs to “prop drill” by passing them through each layer as
+/// arguments to a function or properties of a component.
+///
+/// Context works similarly to variable scope: a context that is provided higher in
+/// the reactive graph can be used lower down, but a context that is provided lower
+/// in the tree cannot be used higher up.
+///
+/// ```rust
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::owner::*;
+/// # let owner = Owner::new(); owner.set();
+/// # use reactive_graph::effect::Effect;
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
+/// Effect::new(move |_| {
+///     provide_context(String::from("foo"));
+///
+///     Effect::new(move |_| {
+///         let value = update_context::<String, _>(|val| {
+///             std::mem::replace(val, "bar".to_string())
+///         })
+///         .expect("could not find String in context");
+///         assert_eq!(value, "foo");
+///         assert_eq!(expect_context::<String>(), "bar");
+///     });
+/// });
+/// # });
+/// ```
+pub fn update_context<T: 'static, R>(
+    cb: impl FnOnce(&mut T) -> R,
+) -> Option<R> {
+    Owner::current().and_then(|owner| owner.update_context(cb))
 }
