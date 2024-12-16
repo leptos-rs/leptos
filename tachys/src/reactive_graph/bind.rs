@@ -9,8 +9,9 @@ use crate::{
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+#[cfg(feature = "reactive_stores")]
+use reactive_graph::owner::Storage;
 use reactive_graph::{
-    owner::Storage,
     signal::{ReadSignal, RwSignal, WriteSignal},
     traits::{Get, Update},
     wrappers::read::Signal,
