@@ -348,7 +348,7 @@ pub mod read {
     }
 
     /// A wrapper for any kind of arena-allocated reactive signal:
-    /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure,
+    /// a [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure,
     /// or a plain value of the same type
     ///
     /// This allows you to create APIs that take `T` or any reactive value that returns `T`
