@@ -43,7 +43,7 @@ where
     S::Output: 'static,
 {
     inner: ArcAction<S, Result<S::Output, ServerFnError<S::Error>>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -65,7 +65,7 @@ where
             inner: ArcAction::new_with_value(err, |input: &S| {
                 S::run_on_client(input.clone())
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -91,7 +91,7 @@ where
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -114,11 +114,11 @@ where
     S::Output: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -132,7 +132,7 @@ where
     S::Output: 'static,
 {
     inner: Action<S, Result<S::Output, ServerFnError<S::Error>>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -153,7 +153,7 @@ where
             inner: Action::new_with_value(err, |input: &S| {
                 S::run_on_client(input.clone())
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -217,11 +217,11 @@ where
     S::Output: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

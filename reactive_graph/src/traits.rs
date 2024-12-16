@@ -67,10 +67,10 @@ use std::{
 #[macro_export]
 macro_rules! unwrap_signal {
     ($signal:ident) => {{
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let location = std::panic::Location::caller();
         || {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             {
                 panic!(
                     "{}",
@@ -80,7 +80,7 @@ macro_rules! unwrap_signal {
                     )
                 );
             }
-            #[cfg(not(debug_assertions))]
+            #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
             {
                 panic!(
                     "Tried to access a reactive value that has already been \

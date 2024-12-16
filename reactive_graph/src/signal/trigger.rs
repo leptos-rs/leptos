@@ -18,7 +18,7 @@ use std::{
 /// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted trigger that lives
 /// as long as a reference to it is alive, see [`ArcTrigger`].
 pub struct Trigger {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: ArenaItem<ArcTrigger>,
 }
@@ -28,7 +28,7 @@ impl Trigger {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new(ArcTrigger::new()),
         }
@@ -83,11 +83,11 @@ impl AsSubscriberSet for Trigger {
 impl DefinedAt for Trigger {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

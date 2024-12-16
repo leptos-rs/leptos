@@ -23,7 +23,7 @@ use std::{
 /// Provides access to the data at some index in another collection.
 #[derive(Debug)]
 pub struct AtIndex<Inner, Prev> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: Inner,
     index: usize,
@@ -36,7 +36,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: self.inner.clone(),
             index: self.index,
@@ -52,7 +52,7 @@ impl<Inner, Prev> AtIndex<Inner, Prev> {
     #[track_caller]
     pub fn new(inner: Inner, index: usize) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             index,
@@ -115,11 +115,11 @@ where
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

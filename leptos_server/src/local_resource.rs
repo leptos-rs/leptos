@@ -20,7 +20,7 @@ use std::{
 /// A reference-counted resource that only loads its data locally on the client.
 pub struct ArcLocalResource<T> {
     data: ArcAsyncDerived<SendWrapper<T>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -28,7 +28,7 @@ impl<T> Clone for ArcLocalResource<T> {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -70,7 +70,7 @@ impl<T> ArcLocalResource<T> {
                 let fut = fetcher();
                 SendWrapper::new(async move { SendWrapper::new(fut.await) })
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -104,11 +104,11 @@ where
 
 impl<T> DefinedAt for ArcLocalResource<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -200,7 +200,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
 /// A resource that only loads its data locally on the client.
 pub struct LocalResource<T> {
     data: AsyncDerived<SendWrapper<T>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -253,7 +253,7 @@ impl<T> LocalResource<T> {
                     SendWrapper::new(async move { SendWrapper::new(fut.await) })
                 })
             },
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -287,11 +287,11 @@ where
 
 impl<T> DefinedAt for LocalResource<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -398,7 +398,7 @@ impl<T: 'static> From<ArcLocalResource<T>> for LocalResource<T> {
     fn from(arc: ArcLocalResource<T>) -> Self {
         Self {
             data: arc.data.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: arc.defined_at,
         }
     }
@@ -408,7 +408,7 @@ impl<T: 'static> From<LocalResource<T>> for ArcLocalResource<T> {
     fn from(local: LocalResource<T>) -> Self {
         Self {
             data: local.data.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: local.defined_at,
         }
     }

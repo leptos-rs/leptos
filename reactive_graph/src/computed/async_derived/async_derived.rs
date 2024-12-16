@@ -83,7 +83,7 @@ use std::{future::Future, ops::DerefMut, panic::Location};
 /// - [`IntoFuture`](std::future::Future) allows you to create a [`Future`] that resolves
 ///   when this resource is done loading.
 pub struct AsyncDerived<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     pub(crate) inner: ArenaItem<ArcAsyncDerived<T>, S>,
 }
@@ -99,10 +99,10 @@ where
     T: Send + Sync + 'static,
 {
     fn from(value: ArcAsyncDerived<T>) -> Self {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let defined_at = value.defined_at;
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             inner: ArenaItem::new_with_storage(value),
         }
@@ -127,10 +127,10 @@ where
     T: 'static,
 {
     fn from_local(value: ArcAsyncDerived<T>) -> Self {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let defined_at = value.defined_at;
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
             inner: ArenaItem::new_with_storage(value),
         }
@@ -152,7 +152,7 @@ where
         Fut: Future<Output = T> + Send + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcAsyncDerived::new(fun)),
         }
@@ -170,7 +170,7 @@ where
         Fut: Future<Output = T> + Send + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_with_initial(initial_value, fun),
@@ -187,7 +187,7 @@ impl<T> AsyncDerived<SendWrapper<T>> {
         Fut: Future<Output = T> + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
         }
@@ -209,7 +209,7 @@ where
         Fut: Future<Output = T> + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_unsync(
                 fun,
@@ -230,7 +230,7 @@ where
         Fut: Future<Output = T> + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 ArcAsyncDerived::new_unsync_with_initial(initial_value, fun),
@@ -278,11 +278,11 @@ where
 impl<T, S> DefinedAt for AsyncDerived<T, S> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

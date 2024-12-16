@@ -23,3 +23,6 @@ tokio = { version = "1.41", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_graph = { workspace = true, features = ["effects"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
