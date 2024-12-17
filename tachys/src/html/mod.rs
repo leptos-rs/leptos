@@ -2,8 +2,11 @@ use self::attribute::Attribute;
 use crate::{
     hydration::Cursor,
     no_attrs,
-    prelude::AddAnyAttr,
-    renderer::{CastFrom, Rndr},
+    prelude::{AddAnyAttr, Mountable},
+    renderer::{
+        dom::{Element, Node},
+        CastFrom, Rndr,
+    },
     view::{Position, PositionState, Render, RenderHtml},
 };
 use std::borrow::Cow;
@@ -90,14 +93,41 @@ impl InertElement {
     }
 }
 
-impl Render for InertElement {
-    type State = crate::renderer::types::Element;
+/// Retained view state for [`InertElement`].
+pub struct InertElementState(Cow<'static, str>, Element);
 
-    fn build(self) -> Self::State {
-        Rndr::create_element_from_html(&self.html)
+impl Mountable for InertElementState {
+    fn unmount(&mut self) {
+        self.1.unmount();
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
+        self.1.mount(parent, marker)
+    }
+
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+        self.1.insert_before_this(child)
+    }
+}
+
+impl Render for InertElement {
+    type State = InertElementState;
+
+    fn build(self) -> Self::State {
+        let el = Rndr::create_element_from_html(&self.html);
+        InertElementState(self.html, el)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let InertElementState(prev, el) = state;
+        if &self.html != prev {
+            let mut new_el = Rndr::create_element_from_html(&self.html);
+            el.insert_before_this(&mut new_el);
+            el.unmount();
+            *el = new_el;
+            *prev = self.html;
+        }
+    }
 }
 
 impl AddAnyAttr for InertElement {
@@ -157,6 +187,6 @@ impl RenderHtml for InertElement {
         let el = crate::renderer::types::Element::cast_from(cursor.current())
             .unwrap();
         position.set(Position::NextChild);
-        el
+        InertElementState(self.html, el)
     }
 }
