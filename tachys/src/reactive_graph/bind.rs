@@ -371,7 +371,7 @@ where
     type Write = Self;
 
     fn into_split_signal(self) -> (Self::Read, Self::Write) {
-        (self.clone(), self.clone())
+        (self, self)
     }
 }
 
