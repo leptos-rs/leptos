@@ -241,11 +241,9 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
 
 #[cfg(test)]
 mod tests {
-    use reactive_graph::traits::Dispose;
-
-    use crate::callback::{Callback, UnsyncCallback};
-
     use super::Callable;
+    use crate::callback::{Callback, UnsyncCallback};
+    use reactive_graph::traits::Dispose;
 
     struct NoClone {}
 
