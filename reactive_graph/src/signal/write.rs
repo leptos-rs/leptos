@@ -1,6 +1,6 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
-    owner::{ArenaItem, Storage, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     traits::{
         DefinedAt, Dispose, IntoInner, IsDisposed, Notify, UntrackableGuard,
         Write,
@@ -107,6 +107,34 @@ impl<T, S> DefinedAt for WriteSignal<T, S> {
         #[cfg(not(debug_assertions))]
         {
             None
+        }
+    }
+}
+
+impl<T> From<ArcWriteSignal<T>> for WriteSignal<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcWriteSignal<T>) -> Self {
+        WriteSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
+        }
+    }
+}
+
+impl<T> FromLocal<ArcWriteSignal<T>> for WriteSignal<T, LocalStorage>
+where
+    T: 'static,
+{
+    #[track_caller]
+    fn from_local(value: ArcWriteSignal<T>) -> Self {
+        WriteSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
