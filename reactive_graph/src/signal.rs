@@ -113,7 +113,8 @@ pub fn arc_signal<T>(value: T) -> (ArcReadSignal<T>, ArcWriteSignal<T>) {
 pub fn signal<T: Send + Sync + 'static>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
-    RwSignal::new(value).split()
+    let (r, w) = arc_signal(value);
+    (r.into(), w.into())
 }
 
 /// Creates an arena-allocated signal.

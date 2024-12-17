@@ -54,6 +54,10 @@ pub trait Storage<T>: Send + Sync + 'static {
 
     /// Sets a new value for the stored value. If it has been disposed, returns `Some(T)`.
     fn try_set(node: NodeId, value: T) -> Option<T>;
+
+    /// Takes an item from the arena if it exists and can be accessed from this thread.
+    /// If it cannot be casted, it will still be removed from the arena.
+    fn take(node: NodeId) -> Option<T>;
 }
 
 /// A form of [`Storage`] that stores the type as itself, with no wrapper.
@@ -97,6 +101,16 @@ where
                     None
                 }
                 None => Some(value),
+            }
+        })
+    }
+
+    fn take(node: NodeId) -> Option<T> {
+        Arena::with_mut(|arena| {
+            let m = arena.remove(node)?;
+            match m.downcast::<T>() {
+                Ok(inner) => Some(*inner),
+                Err(_) => None,
             }
         })
     }
@@ -145,6 +159,16 @@ where
                     None
                 }
                 None => Some(value),
+            }
+        })
+    }
+
+    fn take(node: NodeId) -> Option<T> {
+        Arena::with_mut(|arena| {
+            let m = arena.remove(node)?;
+            match m.downcast::<SendWrapper<T>>() {
+                Ok(inner) => Some(inner.take()),
+                Err(_) => None,
             }
         })
     }
