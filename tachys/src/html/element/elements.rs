@@ -250,7 +250,7 @@ html_elements! {
     /// The `<body>` HTML element represents the content of an HTML document. There can be only one `<body>` element in a document.
     body HtmlBodyElement [] true,
     /// The `<button>` HTML element represents a clickable button, used to submit forms or anywhere in a document for accessible, standard button functionality.
-    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value] true,
+    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value, popovertarget, popovertargetaction] true,
     /// Use the HTML `<canvas>` element with either the canvas scripting API or the WebGL API to draw graphics and animations.
     canvas HtmlCanvasElement [height, width] true,
     /// The `<caption>` HTML element specifies the caption (or title) of a table.
