@@ -44,6 +44,33 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 ///   }
 /// }
 /// ```
+///
+/// For convenience, you can also choose to write template code directly in the `<For>`
+/// component, using the `let` syntax:
+///
+/// ```
+///  <For
+///    each=move || counters.get()
+///    key=|counter| counter.id
+///    let(counter)
+///  >
+///      <button>"Value: " {move || counter.count.get()}</button>
+///  </For>
+/// ```
+///
+/// The `let` syntax also supports destructuring the pattern of your data.
+/// `let((one, two))` in the case of tuples, and `let(Struct { field_one, field_two })`
+/// in the case of structs.
+///
+/// ```
+///  <For
+///    each=move || counters.get()
+///    key=|counter| counter.id
+///    let(Counter { id, count })
+///  >
+///      <button>"Value: " {move || count.get()}</button>
+///  </For>
+/// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn For<IF, I, T, EF, N, KF, K>(
