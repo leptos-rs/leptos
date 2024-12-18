@@ -18,7 +18,7 @@ use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 /// Accesses a single field of a reactive structure.
 #[derive(Debug)]
 pub struct Subfield<Inner, Prev, T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path_segment: StorePathSegment,
     inner: Inner,
@@ -33,7 +33,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path_segment: self.path_segment,
             inner: self.inner.clone(),
@@ -56,7 +56,7 @@ impl<Inner, Prev, T> Subfield<Inner, Prev, T> {
         write: fn(&mut Prev) -> &mut T,
     ) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             path_segment,
@@ -119,11 +119,11 @@ where
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

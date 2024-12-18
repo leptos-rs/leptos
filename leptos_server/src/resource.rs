@@ -74,7 +74,7 @@ pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
     refetch: ArcRwSignal<usize>,
     data: ArcAsyncDerived<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -82,7 +82,7 @@ impl<T, Ser> Debug for ArcResource<T, Ser> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut d = f.debug_struct("ArcResource");
         d.field("ser", &self.ser).field("data", &self.data);
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         d.field("defined_at", self.defined_at);
         d.finish_non_exhaustive()
     }
@@ -98,7 +98,7 @@ where
             ser: PhantomData,
             data: arc_resource.data.into(),
             refetch: arc_resource.refetch.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -114,7 +114,7 @@ where
             ser: PhantomData,
             data: resource.data.into(),
             refetch: resource.refetch.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -122,11 +122,11 @@ where
 
 impl<T, Ser> DefinedAt for ArcResource<T, Ser> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -139,7 +139,7 @@ impl<T, Ser> Clone for ArcResource<T, Ser> {
             ser: self.ser,
             refetch: self.refetch.clone(),
             data: self.data.clone(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -300,7 +300,7 @@ where
             ser: PhantomData,
             data,
             refetch,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -781,7 +781,7 @@ where
     ser: PhantomData<Ser>,
     data: AsyncDerived<T>,
     refetch: RwSignal<usize>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -792,7 +792,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut d = f.debug_struct("ArcResource");
         d.field("ser", &self.ser).field("data", &self.data);
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         d.field("defined_at", self.defined_at);
         d.finish_non_exhaustive()
     }
@@ -803,11 +803,11 @@ where
     T: Send + Sync + 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -1270,7 +1270,7 @@ where
             ser: PhantomData,
             data: data.into(),
             refetch: refetch.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }

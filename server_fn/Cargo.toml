@@ -232,3 +232,6 @@ skip_feature_sets = [
     "rkyv",
   ],
 ]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

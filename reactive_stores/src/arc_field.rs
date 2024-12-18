@@ -26,7 +26,7 @@ pub struct ArcField<T>
 where
     T: 'static,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path: StorePath,
     trigger: StoreFieldTrigger,
@@ -116,7 +116,7 @@ where
     #[track_caller]
     fn from(value: Store<T, S>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -136,7 +136,7 @@ where
     #[track_caller]
     fn from(value: ArcStore<T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -174,7 +174,7 @@ where
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -212,7 +212,7 @@ where
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -254,7 +254,7 @@ where
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -285,7 +285,7 @@ where
 impl<T> Clone for ArcField<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path: self.path.clone(),
             trigger: self.trigger.clone(),
@@ -300,11 +300,11 @@ impl<T> Clone for ArcField<T> {
 
 impl<T> DefinedAt for ArcField<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

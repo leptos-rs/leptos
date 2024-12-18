@@ -107,7 +107,7 @@ use std::{
 /// - [`IntoFuture`](std::future::Future) allows you to create a [`Future`] that resolves
 ///   when this resource is done loading.
 pub struct ArcAsyncDerived<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
     pub(crate) value: Arc<AsyncRwLock<Option<T>>>,
@@ -184,7 +184,7 @@ impl<T> BlockingLock<T> for AsyncRwLock<T> {
 impl<T> Clone for ArcAsyncDerived<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             wakers: Arc::clone(&self.wakers),
@@ -197,7 +197,7 @@ impl<T> Clone for ArcAsyncDerived<T> {
 impl<T> Debug for ArcAsyncDerived<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("ArcAsyncDerived");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         f.field("defined_at", &self.defined_at);
         f.finish_non_exhaustive()
     }
@@ -206,11 +206,11 @@ impl<T> Debug for ArcAsyncDerived<T> {
 impl<T> DefinedAt for ArcAsyncDerived<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -241,7 +241,7 @@ macro_rules! spawn_derived {
         let wakers = Arc::new(RwLock::new(Vec::new()));
 
         let this = ArcAsyncDerived {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&value),
             wakers,
@@ -632,7 +632,7 @@ impl<T: 'static> ToAnySource for ArcAsyncDerived<T> {
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
             Arc::downgrade(&self.inner) as Weak<dyn Source + Send + Sync>,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             self.defined_at,
         )
     }

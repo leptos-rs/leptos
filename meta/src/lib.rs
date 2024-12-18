@@ -37,14 +37,10 @@
 //! }
 //! ```
 //! # Feature Flags
-//! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
-//!   of calling signals as functions. Enable this feature to support `stable` Rust.
+//! - `tracing` Adds integration with the `tracing` crate.
 //!
-//! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
-//! which mode your app is operating in.
+//! **Important Note:** If you’re using server-side rendering, you should enable `ssr`.
 
 use futures::{Stream, StreamExt};
 use leptos::{

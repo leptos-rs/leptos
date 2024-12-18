@@ -2,7 +2,7 @@ use crate::{
     renderer::{CastFrom, Rndr},
     view::{Position, PositionState},
 };
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, leptos_debuginfo))]
 use std::cell::Cell;
 use std::{cell::RefCell, panic::Location, rc::Rc};
 use web_sys::{Comment, Element, Node, Text};
@@ -103,7 +103,7 @@ where
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, leptos_debuginfo))]
 thread_local! {
     static CURRENTLY_HYDRATING: Cell<Option<&'static Location<'static>>> = const { Cell::new(None) };
 }
@@ -111,23 +111,23 @@ thread_local! {
 pub(crate) fn set_currently_hydrating(
     location: Option<&'static Location<'static>>,
 ) {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     {
         CURRENTLY_HYDRATING.set(location);
     }
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
     {
         _ = location;
     }
 }
 
 pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
     {
         _ = node;
         unreachable!();
     }
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     {
         let hydrating = CURRENTLY_HYDRATING
             .take()
@@ -154,12 +154,12 @@ pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
 }
 
 pub(crate) fn failed_to_cast_marker_node(node: Node) -> Comment {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
     {
         _ = node;
         unreachable!();
     }
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     {
         let hydrating = CURRENTLY_HYDRATING
             .take()
@@ -186,12 +186,12 @@ pub(crate) fn failed_to_cast_marker_node(node: Node) -> Comment {
 }
 
 pub(crate) fn failed_to_cast_text_node(node: Node) -> Text {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
     {
         _ = node;
         unreachable!();
     }
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     {
         let hydrating = CURRENTLY_HYDRATING
             .take()

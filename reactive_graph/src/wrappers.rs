@@ -93,17 +93,35 @@ pub mod read {
     }
 
     /// A wrapper for any kind of reference-counted reactive signal:
-    /// an [`ArcReadSignal`], [`ArcMemo`], [`ArcRwSignal`],
-    /// or derived signal closure.
+    /// an [`ArcReadSignal`], [`ArcMemo`], [`ArcRwSignal`], or derived signal closure,
+    /// or a plain value of the same type
     ///
-    /// This allows you to create APIs that take any kind of `ArcSignal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
-    /// function call, `with()`, and `get()` APIs as other signals.
+    /// This allows you to create APIs that take `T` or any reactive value that returns `T`
+    /// as an argument, rather than adding a generic `F: Fn() -> T`.
+    ///
+    /// Values can be accessed with the same function call, `read()`, `with()`, and `get()`
+    /// APIs as other signals.
+    ///
+    /// ## Important Notes about Derived Signals
+    ///
+    /// `Signal::derive()` is simply a way to box and type-erase a “derived signal,” which
+    /// is a plain closure that accesses one or more signals. It does *not* cache the value
+    /// of that computation. Accessing the value of a `Signal<_>` that is created using `Signal::derive()`
+    /// will run the closure again every time you call `.read()`, `.with()`, or `.get()`.
+    ///
+    /// If you want the closure to run the minimal number of times necessary to update its state,
+    /// and then to cache its value, you should use a [`Memo`] (and convert it into a `Signal<_>`)
+    /// rather than using `Signal::derive()`.
+    ///
+    /// Note that for many computations, it is nevertheless less expensive to use a derived signal
+    /// than to create a separate memo and to cache the value: creating a new reactive node and
+    /// taking the lock on that cached value whenever you access the signal is *more* expensive than
+    /// simply re-running the calculation in many cases.
     pub struct ArcSignal<T: 'static, S = SyncStorage>
     where
         S: Storage<T>,
     {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         defined_at: &'static Location<'static>,
         inner: SignalTypes<T, S>,
     }
@@ -114,7 +132,7 @@ pub mod read {
     {
         fn clone(&self) -> Self {
             Self {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: self.defined_at,
                 inner: self.inner.clone(),
             }
@@ -128,7 +146,7 @@ pub mod read {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut s = f.debug_struct("ArcSignal");
             s.field("inner", &self.inner);
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             s.field("defined_at", &self.defined_at);
             s.finish()
         }
@@ -184,7 +202,7 @@ pub mod read {
 
             Self {
                 inner: SignalTypes::DerivedSignal(Arc::new(derived_signal)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -194,7 +212,7 @@ pub mod read {
         pub fn stored(value: T) -> Self {
             Self {
                 inner: SignalTypes::Stored(ArcStoredValue::new(value)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -214,7 +232,7 @@ pub mod read {
         fn from(value: ArcReadSignal<T>) -> Self {
             Self {
                 inner: SignalTypes::ReadSignal(value),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -225,7 +243,7 @@ pub mod read {
         fn from(value: ArcRwSignal<T>) -> Self {
             Self {
                 inner: SignalTypes::ReadSignal(value.read_only()),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -239,7 +257,7 @@ pub mod read {
         fn from(value: ArcMemo<T, S>) -> Self {
             Self {
                 inner: SignalTypes::Memo(value),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -250,11 +268,11 @@ pub mod read {
         S: Storage<T>,
     {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             {
                 Some(self.defined_at)
             }
-            #[cfg(not(debug_assertions))]
+            #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
             {
                 None
             }
@@ -330,16 +348,35 @@ pub mod read {
     }
 
     /// A wrapper for any kind of arena-allocated reactive signal:
-    /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure.
+    /// a [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure,
+    /// or a plain value of the same type
     ///
-    /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
-    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
-    /// function call, `with()`, and `get()` APIs as other signals.
+    /// This allows you to create APIs that take `T` or any reactive value that returns `T`
+    /// as an argument, rather than adding a generic `F: Fn() -> T`.
+    ///
+    /// Values can be accessed with the same function call, `read()`, `with()`, and `get()`
+    /// APIs as other signals.
+    ///
+    /// ## Important Notes about Derived Signals
+    ///
+    /// `Signal::derive()` is simply a way to box and type-erase a “derived signal,” which
+    /// is a plain closure that accesses one or more signals. It does *not* cache the value
+    /// of that computation. Accessing the value of a `Signal<_>` that is created using `Signal::derive()`
+    /// will run the closure again every time you call `.read()`, `.with()`, or `.get()`.
+    ///
+    /// If you want the closure to run the minimal number of times necessary to update its state,
+    /// and then to cache its value, you should use a [`Memo`] (and convert it into a `Signal<_>`)
+    /// rather than using `Signal::derive()`.
+    ///
+    /// Note that for many computations, it is nevertheless less expensive to use a derived signal
+    /// than to create a separate memo and to cache the value: creating a new reactive node and
+    /// taking the lock on that cached value whenever you access the signal is *more* expensive than
+    /// simply re-running the calculation in many cases.
     pub struct Signal<T, S = SyncStorage>
     where
         S: Storage<T>,
     {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         defined_at: &'static Location<'static>,
         inner: ArenaItem<SignalTypes<T, S>, S>,
     }
@@ -371,7 +408,7 @@ pub mod read {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut s = f.debug_struct("Signal");
             s.field("inner", &self.inner);
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             s.field("defined_at", &self.defined_at);
             s.finish()
         }
@@ -393,11 +430,11 @@ pub mod read {
         S: Storage<T>,
     {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             {
                 Some(self.defined_at)
             }
-            #[cfg(not(debug_assertions))]
+            #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
             {
                 None
             }
@@ -530,7 +567,7 @@ pub mod read {
                 inner: ArenaItem::new_with_storage(SignalTypes::DerivedSignal(
                     Arc::new(derived_signal),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -542,7 +579,7 @@ pub mod read {
                 inner: ArenaItem::new_with_storage(SignalTypes::Stored(
                     ArcStoredValue::new(value),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -569,7 +606,7 @@ pub mod read {
                 inner: ArenaItem::new_local(SignalTypes::DerivedSignal(
                     Arc::new(derived_signal),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -582,7 +619,7 @@ pub mod read {
                 inner: ArenaItem::new_local(SignalTypes::Stored(
                     ArcStoredValue::new(value),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -640,7 +677,7 @@ pub mod read {
         #[track_caller]
         fn from(value: ArcSignal<T, SyncStorage>) -> Self {
             Signal {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: Location::caller(),
                 inner: ArenaItem::new(value.inner),
             }
@@ -654,7 +691,7 @@ pub mod read {
         #[track_caller]
         fn from_local(value: ArcSignal<T, LocalStorage>) -> Self {
             Signal {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: Location::caller(),
                 inner: ArenaItem::new_local(value.inner),
             }
@@ -668,7 +705,7 @@ pub mod read {
         #[track_caller]
         fn from(value: Signal<T, S>) -> Self {
             ArcSignal {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: Location::caller(),
                 inner: value
                     .inner
@@ -686,7 +723,7 @@ pub mod read {
         fn from(value: ReadSignal<T>) -> Self {
             Self {
                 inner: ArenaItem::new(SignalTypes::ReadSignal(value.into())),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -702,7 +739,7 @@ pub mod read {
                 inner: ArenaItem::new_local(SignalTypes::ReadSignal(
                     value.into(),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -716,7 +753,7 @@ pub mod read {
         fn from(value: ArcReadSignal<T>) -> Self {
             Self {
                 inner: ArenaItem::new(SignalTypes::ReadSignal(value)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -730,7 +767,7 @@ pub mod read {
         fn from(value: ArcReadSignal<T>) -> Self {
             Self {
                 inner: ArenaItem::new_local(SignalTypes::ReadSignal(value)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -746,7 +783,7 @@ pub mod read {
                 inner: ArenaItem::new(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -762,7 +799,7 @@ pub mod read {
                 inner: ArenaItem::new_local(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -778,7 +815,7 @@ pub mod read {
                 inner: ArenaItem::new(SignalTypes::ReadSignal(
                     value.read_only(),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -794,7 +831,7 @@ pub mod read {
                 inner: ArenaItem::new_local(SignalTypes::ReadSignal(
                     value.read_only(),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -808,7 +845,7 @@ pub mod read {
         fn from(value: Memo<T>) -> Self {
             Self {
                 inner: ArenaItem::new(SignalTypes::Memo(value.into())),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -822,7 +859,7 @@ pub mod read {
         fn from(value: Memo<T, LocalStorage>) -> Self {
             Self {
                 inner: ArenaItem::new_local(SignalTypes::Memo(value.into())),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -836,7 +873,7 @@ pub mod read {
         fn from(value: ArcMemo<T>) -> Self {
             Self {
                 inner: ArenaItem::new(SignalTypes::Memo(value)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -850,7 +887,7 @@ pub mod read {
         fn from(value: ArcMemo<T, LocalStorage>) -> Self {
             Self {
                 inner: ArenaItem::new_local(SignalTypes::Memo(value)),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -1831,7 +1868,7 @@ pub mod write {
         T: 'static,
     {
         inner: SignalSetterTypes<T, S>,
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         defined_at: &'static std::panic::Location<'static>,
     }
 
@@ -1846,7 +1883,7 @@ pub mod write {
         fn default() -> Self {
             Self {
                 inner: SignalSetterTypes::Default,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -1899,7 +1936,7 @@ pub mod write {
                 inner: SignalSetterTypes::Mapped(ArenaItem::new_with_storage(
                     Box::new(mapped_setter),
                 )),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -1910,7 +1947,7 @@ pub mod write {
         fn from(value: WriteSignal<T, S>) -> Self {
             Self {
                 inner: SignalSetterTypes::Write(value),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -1925,7 +1962,7 @@ pub mod write {
         fn from(value: RwSignal<T, S>) -> Self {
             Self {
                 inner: SignalSetterTypes::Write(value.write_only()),
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
         }

@@ -50,7 +50,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// assert_eq!(count.get(), 3);
 /// ```
 pub struct WriteSignal<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: ArenaItem<ArcWriteSignal<T>, S>,
 }
@@ -97,11 +97,11 @@ impl<T, S> Hash for WriteSignal<T, S> {
 
 impl<T, S> DefinedAt for WriteSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
