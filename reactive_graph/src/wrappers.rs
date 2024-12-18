@@ -643,30 +643,36 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync + 'static> From<T> for ArcSignal<T, SyncStorage> {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            ArcSignal::stored(value)
-        }
-    }
-
-    impl<T> From<T> for Signal<T>
+    impl<F, T> From<F> for Signal<T>
     where
+        F: Fn() -> T + Send + Sync + 'static,
         T: Send + Sync + 'static,
     {
         #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored(value)
+        fn from(value: F) -> Self {
+            Self::derive(value)
         }
     }
 
-    impl<T> From<T> for Signal<T, LocalStorage>
+    impl<F, T> From<F> for Signal<T, LocalStorage>
     where
+        F: Fn() -> T + 'static,
         T: 'static,
     {
         #[track_caller]
-        fn from(value: T) -> Self {
-            Self::stored_local(value)
+        fn from(value: F) -> Self {
+            Self::derive_local(value)
+        }
+    }
+
+    impl<F, T> From<F> for ArcSignal<T, SyncStorage>
+    where
+        F: Fn() -> T + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: F) -> Self {
+            Self::derive(value)
         }
     }
 
@@ -890,26 +896,6 @@ pub mod read {
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
-        }
-    }
-
-    impl<T> From<T> for Signal<Option<T>>
-    where
-        T: Send + Sync + 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Signal::stored(Some(value))
-        }
-    }
-
-    impl<T> From<T> for Signal<Option<T>, LocalStorage>
-    where
-        T: 'static,
-    {
-        #[track_caller]
-        fn from(value: T) -> Self {
-            Signal::stored_local(Some(value))
         }
     }
 
@@ -1611,7 +1597,7 @@ pub mod read {
 
     impl From<&str> for MaybeProp<String> {
         fn from(value: &str) -> Self {
-            Self(Some(Signal::from(Some(value.to_string()))))
+            Self(Some(Signal::stored(Some(value.to_string()))))
         }
     }
 
