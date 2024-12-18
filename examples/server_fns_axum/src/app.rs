@@ -72,6 +72,8 @@ pub fn HomePage() -> impl IntoView {
         <FileWatcher/>
         <CustomEncoding/>
         <CustomClientExample/>
+        <h2>"Generic Server Functions"</h2>
+        <SimpleGenericServerFnComponent/>
     }
 }
 
@@ -942,6 +944,53 @@ pub fn PostcardExample() -> impl IntoView {
             // Display the result from the server, which will update automatically
             // when the input changes due to the resource
             <p>"Result: " {move || postcard_result.get().map(|r| format!("{:?}", r))}</p>
+        </Transition>
+    }
+}
+
+use std::fmt::Display;
+
+/// This server function is generic over S which implements Display.
+/// It's registered for String and u8, which means that it will create unique routes for each specific type.
+#[server]
+#[register(<String>,<u8>)]
+pub async fn server_fn_to_string<S: Display>(
+    s: S,
+) -> Result<String, ServerFnError> {
+    Ok(format!("{s}"))
+}
+
+pub fn SimpleGenericServerFnComponent() -> impl IntoView {
+    let string_to_string = Resource::new(
+        move || (),
+        |_| async move {
+            server_fn_to_string(String::from(
+                "No wait, I'm already a string!!!",
+            ))
+            .await
+        },
+    );
+    let u8_to_string = Resource::new(
+        move || (),
+        |_| async move { server_fn_to_string(42).await },
+    );
+
+    view! {
+        <h3>Using generic function over display</h3>
+        <p>"This example demonstrates creating a generic function that takes any type that implements display that we've registered."</p>
+
+        <Transition>
+            <p> Result 1
+            {
+                move || string_to_string.get().map(|r| r.map(|r|format!("{r}")))
+            }
+            </p>
+            <p> Result 2
+            {
+                move || u8_to_string.get().map(|r| r.map(|r|format!("{r}")))
+            }
+            </p>
+
         </Transition>
     }
 }

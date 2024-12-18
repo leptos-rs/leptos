@@ -23,6 +23,7 @@ actix = []
 axum = []
 generic = []
 reqwest = []
+ssr_generics = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

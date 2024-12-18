@@ -114,6 +114,10 @@ pub mod request;
 /// Types and traits for HTTP responses.
 pub mod response;
 
+/// Helpers for creating isomorphic generic code.
+#[cfg(feature = "ssr_generics")]
+pub mod ssr_generics;
+
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
