@@ -44,4 +44,10 @@ fn default_with_invalid_value(
     _ = default;
 }
 
+#[component]
+fn destructure_without_name((default, value): (bool, i32)) -> impl IntoView {
+    _ = default;
+    _ = value;
+}
+
 fn main() {}
