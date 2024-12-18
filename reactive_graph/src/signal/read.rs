@@ -6,7 +6,7 @@ use super::{
 use crate::{
     graph::SubscriberSet,
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
-    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
+    traits::{DefinedAt, Dispose, IntoInner, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -119,6 +119,18 @@ impl<T, S> DefinedAt for ReadSignal<T, S> {
 impl<T, S> IsDisposed for ReadSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for ReadSignal<T, S>
+where
+    S: Storage<ArcReadSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 

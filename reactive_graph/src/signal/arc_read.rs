@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    traits::{DefinedAt, IsDisposed, ReadUntracked},
+    traits::{DefinedAt, IntoInner, IsDisposed, ReadUntracked},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -125,6 +125,15 @@ impl<T> IsDisposed for ArcReadSignal<T> {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcReadSignal<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }
 
