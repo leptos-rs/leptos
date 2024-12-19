@@ -49,13 +49,30 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 /// component, using the `let` syntax:
 ///
 /// ```
-///  <For
-///    each=move || counters.get()
-///    key=|counter| counter.id
-///    let(counter)
-///  >
-///      <button>"Value: " {move || counter.count.get()}</button>
-///  </For>
+/// # use leptos::prelude::*;
+///
+/// # #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// # struct Counter {
+/// #   id: usize,
+/// #   count: RwSignal<i32>
+/// # }
+/// #
+/// # #[component]
+/// # fn Counters() -> impl IntoView {
+/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #
+///   view! {
+///     <div>
+///         <For
+///           each=move || counters.get()
+///           key=|counter| counter.id
+///           let(counter)
+///         >
+///             <button>"Value: " {move || counter.count.get()}</button>
+///         </For>
+///     </div>
+///   }
+/// # }
 /// ```
 ///
 /// The `let` syntax also supports destructuring the pattern of your data.
@@ -63,13 +80,30 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 /// in the case of structs.
 ///
 /// ```
-///  <For
-///    each=move || counters.get()
-///    key=|counter| counter.id
-///    let(Counter { id, count })
-///  >
-///      <button>"Value: " {move || count.get()}</button>
-///  </For>
+/// # use leptos::prelude::*;
+///
+/// # #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// # struct Counter {
+/// #   id: usize,
+/// #   count: RwSignal<i32>
+/// # }
+/// #
+/// # #[component]
+/// # fn Counters() -> impl IntoView {
+/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #
+///   view! {
+///     <div>
+///         <For
+///           each=move || counters.get()
+///           key=|counter| counter.id
+///           let(Counter { id, count })
+///         >
+///             <button>"Value: " {move || count.get()}</button>
+///         </For>
+///     </div>
+///   }
+/// # }
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
