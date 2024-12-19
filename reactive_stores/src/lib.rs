@@ -569,6 +569,20 @@ where
     }
 }
 
+impl<T, S> From<ArcStore<T>> for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: value.defined_at,
+            inner: ArenaItem::new_with_storage(value),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
