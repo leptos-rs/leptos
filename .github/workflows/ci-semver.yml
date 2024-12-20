@@ -8,6 +8,8 @@ on:
     branches:
       - main
       - leptos_0.6
+env:
+  DEBIAN_FRONTEND: noninteractive
 jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
@@ -17,6 +19,10 @@ jobs:
     name: Run semver check (nightly-2024-08-01)
     runs-on: ubuntu-latest
     steps:
+      - name: Install Glib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev
       - name: Checkout
         uses: actions/checkout@v4
       - name: Semver Checks
