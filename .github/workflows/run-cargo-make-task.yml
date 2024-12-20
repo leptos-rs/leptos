@@ -14,6 +14,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  DEBIAN_FRONTEND: noninteractive
 jobs:
   test:
     name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
@@ -33,6 +34,10 @@ jobs:
           echo "Disk space after cleanup:"
           df -h
       # Setup environment
+      - name: Install Glib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev
       - uses: actions/checkout@v4
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
