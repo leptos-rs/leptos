@@ -655,14 +655,44 @@ impl Prop {
                 abort!(e.span(), e.to_string());
             });
 
-        let name = if let Pat::Ident(i) = *typed.pat {
-            i
-        } else {
-            abort!(
-                typed.pat,
-                "only `prop: bool` style types are allowed within the \
-                 `#[component]` macro"
-            );
+        let name = match *typed.pat {
+            Pat::Ident(i) => {
+                if let Some(name) = &prop_opts.name {
+                    PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: Ident::new(name, i.span()),
+                        subpat: None,
+                    }
+                } else {
+                    i
+                }
+            }
+            Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_) => {
+                if let Some(name) = &prop_opts.name {
+                    PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: Ident::new(name, typed.pat.span()),
+                        subpat: None,
+                    }
+                } else {
+                    abort!(
+                        typed.pat,
+                        "destructured props must be given a name e.g. \
+                         #[prop(name = \"data\")]"
+                    );
+                }
+            }
+            _ => {
+                abort!(
+                    typed.pat,
+                    "only `prop: bool` style types are allowed within the \
+                     `#[component]` macro"
+                );
+            }
         };
 
         Self {
@@ -865,6 +895,7 @@ struct PropOpt {
     default: Option<syn::Expr>,
     into: bool,
     attrs: bool,
+    name: Option<String>,
 }
 
 struct TypedBuilderOpts {
