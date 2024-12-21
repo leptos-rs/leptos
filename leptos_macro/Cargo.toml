@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -83,4 +83,7 @@ skip_feature_sets = [
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)', 'cfg(erase_components)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+	'cfg(leptos_debuginfo)',
+	'cfg(erase_components)',
+] }
