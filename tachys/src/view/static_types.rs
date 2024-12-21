@@ -212,6 +212,9 @@ impl<const V: &'static str> RenderHtml for Static<V> {
             .unwrap_or_else(|| {
                 crate::hydration::failed_to_cast_text_node(node)
             });
+
+        position.set(Position::NextChildAfterText);
+
         Some(node)
     }
 }
