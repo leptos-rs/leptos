@@ -61,17 +61,18 @@ pub trait ServerType {
 /// ```
 ///
 /// It also implements a hidden trait ServerType under an ssr feature flag whose associated type is the original server only type.
+#[macro_export]
 macro_rules! ssr_type_shim{
     ($($type_name:ident),*) => {
         $(
-            paste::paste!{
+            $crate::paste_export::paste!{
                 /// An isomorphic marker type for $type_name
                 pub struct  [<$type_name Phantom>];
              }
         )*
         $(
             #[cfg(feature="ssr")]
-            paste::paste! { impl ServerType for [<$type_name Phantom>] {
+            $crate::paste_export::paste! { impl $crate::ssr_generics::ServerType for [<$type_name Phantom>] {
                 type ServerType = $type_name;
             }
             }
@@ -87,11 +88,11 @@ macro_rules! ssr_type_shim{
 /// // Will generate code
 /// // pub trait SpecificTraitConstraint{}
 /// ```
-///
+#[macro_export]
 macro_rules! ssr_trait_shim{
     ($($trait_name:ident),*) => {
         $(
-            paste::paste! {
+            $crate::paste_export::paste! {
                 /// An empty isomorphic trait to mirror $trait_name
                 pub trait [<$trait_name Constraint>]  {}
             }
@@ -105,12 +106,13 @@ macro_rules! ssr_trait_shim{
 ///     // uses traditional + syntax for additonal traits past 1 like in normal trait bounds.
 ///     ssr_impl_shim!(BackendType:BackendTrait, BackendType2:BackendTrait + BackendTrait2);
 /// ```
+#[macro_export]
 macro_rules! ssr_impl_shim{
      ($($type_name:ident : $trait_name:ident $(+ $trait_name_tail:ident)*),*) => {
         $(
-           paste:: paste! { impl [<$trait_name Constraint>] for [<$type_name Phantom>] {} }
+            $crate::paste_export:: paste! { impl [<$trait_name Constraint>] for [<$type_name Phantom>] {} }
             $(
-               paste:: paste! { impl [<$trait_name_tail Constraint>] for [<$type_name Phantom>] {} }
+                ::server_fn::paste_export:: paste! { impl [<$trait_name_tail Constraint>] for [<$type_name Phantom>] {} }
             )*
         )*
     }

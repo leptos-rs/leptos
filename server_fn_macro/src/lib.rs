@@ -59,13 +59,44 @@ fn extract_register(body: &mut ServerFnBody) -> Result<Option<Register>> {
     Ok(register.get(0).cloned())
 }
 
+/// Takes body, and returns a list of field types to compare to.
+fn input_types(body: &ServerFnBody) -> Vec<Ident> {
+    body.inputs
+        .iter()
+        .filter_map(|input| {
+            if let FnArg::Typed(pat) = input {
+                let ty = pat.ty.clone();
+                let ident: Ident = parse_quote!(#ty);
+                Some(ident)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+}
+
+fn extend_fields_with_phantom_types(
+    fields: Vec<TokenStream2>,
+    phantom_types: Vec<Ident>,
+) -> Vec<TokenStream2> {
+    if !phantom_types.is_empty() {
+        let mut fields = fields;
+        let q = quote! {
+                #[serde(skip)]
+                #[allow(unused_parens)]
+                pub _marker: ::std::marker::PhantomData<(#(#phantom_types),*)>
+
+        };
+        // panic!("{:?}",phantom_types);
+        fields.push(q);
+        fields
+    } else {
+        fields
+    }
+}
+
 /// construct typed fields for our server functions structure, making use of the attributes on the server function inputs.
 fn fields(body: &mut ServerFnBody) -> Result<Vec<TokenStream2>> {
-    /*
-       For each function argument we figure out it's attributes,
-       we create a list of token streams, each item is a field the server function structure
-       whose type is the type from the server fn arg with the attributes from the server fn arg.
-    */
     body.inputs
         .iter_mut()
         .map(|f| {
@@ -284,7 +315,7 @@ fn struct_name_ident(struct_name: Option<Ident>, body: &ServerFnBody) -> Ident {
 fn possibly_wrap_struct_name(
     struct_name: &Ident,
     custom_wrapper: &Option<Path>,
-    ty_generics:Option<&TypeGenerics>
+    ty_generics: Option<&TypeGenerics>,
 ) -> TokenStream2 {
     if let Some(wrapper) = custom_wrapper {
         quote! { #wrapper<#struct_name #ty_generics> }
@@ -293,14 +324,12 @@ fn possibly_wrap_struct_name(
     }
 }
 
-
-
 /// If there is a custom wrapper, we create a version with turbofish, where the argument to the turbo fish is the struct name.
 /// otherwise its just the struct name.
 fn possibly_wrapped_struct_name_turbofish(
     struct_name: &Ident,
     custom_wrapper: &Option<Path>,
-    ty_generics:Option<&TypeGenerics>,
+    ty_generics: Option<&TypeGenerics>,
 ) -> TokenStream2 {
     if let Some(wrapper) = custom_wrapper.as_ref() {
         if let Some(ty_generics) = ty_generics {
@@ -440,18 +469,44 @@ fn run_body_tokens(
     dummy_name: &Ident,
     server_fn_path: &TokenStream2,
     return_ty: &Type,
+    has_marker: bool,
+    specific_ty_phantom_suffix_removed: Option<&TypeGenerics>,
 ) -> TokenStream2 {
     if cfg!(feature = "ssr") {
+        let marker: Box<Pat> = Box::new(parse_quote!(_marker));
+        // We are taking references in the function, I don't want to propagate type changes so I wrote this instead.
+        let possibly_extend_field_names_with_marker =
+            |field_names: &Vec<&Box<Pat>>| -> Vec<Box<Pat>> {
+                if has_marker {
+                    let mut field_names = field_names.clone();
+                    field_names.push(&marker);
+                    field_names
+                        .into_iter()
+                        .map(|t| t.clone())
+                        .collect::<Vec<_>>()
+                } else {
+                    field_names
+                        .clone()
+                        .into_iter()
+                        .map(|t| t.clone())
+                        .collect::<Vec<_>>()
+                }
+            };
         let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
+            let field_names =
+                possibly_extend_field_names_with_marker(field_names);
             quote! {
                 let #wrapper(#struct_name { #(#field_names),* }) = self;
             }
         } else {
+            let field_names =
+                possibly_extend_field_names_with_marker(field_names);
             quote! {
                 let #struct_name { #(#field_names),* } = self;
             }
         };
-
+        let specific_ty =
+            specific_ty_phantom_suffix_removed.map(|ty| ty.as_turbofish());
         // using the impl Future syntax here is thanks to Actix
         //
         // if we use Actix types inside the function, here, it becomes !Send
@@ -462,7 +517,7 @@ fn run_body_tokens(
         // however, SendWrapper<Future<Output = T>> impls Future<Output = T>
         let body = quote! {
             #destructure
-            #dummy_name(#(#field_names),*).await
+            #dummy_name #specific_ty (#(#field_names),*).await
         };
         let body = if cfg!(feature = "actix") {
             quote! {
@@ -493,6 +548,83 @@ fn run_body_tokens(
     }
 }
 
+/// Our function that we use on the server (and wraps the dummy function), if it has types that take Traits that end with Constraint
+/// Then we map those into their ServerTypes and pass them to the dummy function.
+fn extend_generics_phantom_suffix_with_server_type_trait(
+    impl_generics: Option<&ImplGenerics>,
+    where_clause: Option<&WhereClause>,
+) -> (Generics, TokenStream2) {
+    let signature: Signature =
+        parse_quote!(fn dummy #impl_generics () #where_clause);
+    let mut g: Generics = signature.generics;
+    let server_type: Type = parse_quote!(::server_fn::ssr_generics::ServerType);
+    let mut server_type_predicates = Vec::new();
+    let mut type_has_trait_constraints = std::collections::HashSet::new();
+    // Go through each type parameters in the generics for our original server function
+    for ty in g.type_params_mut() {
+        let mut server_type_constraints: Punctuated<Ident, Token![+]> =
+            Punctuated::new();
+        let mut propagate_flag = false;
+        // Type is a ssr only type if it implements a TraitConstraint for an ssr only trait,
+        // strip the constraint suffix and propagate the bounds to our ServerType where predicate
+        for type_bound in ty.bounds.iter() {
+            if let TypeParamBound::Trait(trait_bound) = type_bound {
+                if let Some(last) = trait_bound.path.segments.last() {
+                    let ident = last.ident.clone();
+                    let ident_str = ident.to_string();
+                    let ident = if ident_str.ends_with("Constraint")
+                        && ident_str.len() > "Constraint".len()
+                    {
+                        type_has_trait_constraints.insert(ty.ident.clone());
+                        propagate_flag = true;
+                        Ident::new(
+                            &ident_str[0..ident_str.len() - "Constraint".len()],
+                            Span::call_site(),
+                        )
+                    } else {
+                        ident
+                    };
+                    server_type_constraints.push(ident);
+                }
+            }
+        }
+        let ident = &ty.ident;
+        if propagate_flag {
+            // Add a where predicate to the public ssr server function that requires that TPhantom implement ServerType.
+            ty.bounds.push(parse_quote!(#server_type));
+            // Now add the where predicate we've constructed for the server type.
+            let predicate: WherePredicate = parse_quote!(< #ident as #server_type > :: ServerType : #server_type_constraints);
+
+            server_type_predicates.push(predicate);
+        }
+    }
+    let where_clause = g.make_where_clause();
+    for predicate in server_type_predicates {
+        where_clause.predicates.push(predicate);
+    }
+    // No we have the generics for the ssr server function, we need to construct the canonocalized generics for our dummy function that we call inside of the server function,
+    let generics_for_ssr_server_function = g;
+    let signature: Signature = parse_quote!(fn dummy #impl_generics ());
+    // Our dummy function doesn't take TPhantom, it instead takes <TPhantom as ServerType>::ServerType.
+    let mut g: Generics = signature.generics;
+    let mut types: Punctuated<TokenStream2, Token![,]> = Punctuated::new();
+    for ty in g.type_params_mut() {
+        let ident = &ty.ident;
+        // if the original server function is accepting a T : TraitConstraint
+        if type_has_trait_constraints.contains(ident) {
+            types.push(quote!(< #ident as #server_type> :: ServerType));
+        } else {
+            types.push(quote!(#ident))
+        }
+    }
+    // we return the generics for the outer function and the turbo fish types for the dummy function
+    let dummy_fish = if types.is_empty() {
+        quote!()
+    } else {
+        quote!(:: < #types >)
+    };
+    (generics_for_ssr_server_function, dummy_fish)
+}
 /// We generate the function that is actually called from the users code. This generates both the function called from the server,
 /// and the function called from the client.
 fn func_tokens(
@@ -509,30 +641,48 @@ fn func_tokens(
     struct_name: &Ident,
     server_fn_path: &TokenStream2,
     impl_generics: Option<&ImplGenerics>,
+    impl_generics_with_trait_constraints_and_phantom_suffix: Option<
+        &ImplGenerics,
+    >,
     ty_generics: Option<&TypeGenerics>,
-    where_clause : Option<&WhereClause>,
-    output_ty:&GenericArgument,
-    error_ty:&TokenStream2
+    where_clause: Option<&WhereClause>,
+    output_ty: &GenericArgument,
+    error_ty: &TokenStream2,
+    has_marker: bool,
 ) -> TokenStream2 {
     if cfg!(feature = "ssr") {
+        let (outer_generics, dummy_types) =
+            extend_generics_phantom_suffix_with_server_type_trait(
+                impl_generics_with_trait_constraints_and_phantom_suffix,
+                where_clause,
+            );
+
+        let (impl_generics, _, where_clause) = outer_generics.split_for_impl();
         quote! {
             #docs
             #(#attrs)*
             #vis async fn #fn_name #impl_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
-                #dummy_name(#(#field_names),*).await
+                #dummy_name #dummy_types (#(#field_names),*).await
             }
         }
     } else {
         // where clause might be empty even though others are not
         let where_clause = {
-            if ty_generics.is_some() || impl_generics.is_some() {
-                Some(WhereClause{where_token:Where{span:Span::call_site()},predicates:Punctuated::new()})
+            if ty_generics.is_some()
+                || impl_generics_with_trait_constraints_and_phantom_suffix
+                    .is_some()
+            {
+                Some(WhereClause {
+                    where_token: Where {
+                        span: Span::call_site(),
+                    },
+                    predicates: Punctuated::new(),
+                })
             } else {
                 where_clause.cloned()
             }
         };
-        let where_clause = 
-        where_clause.map(|mut where_clause|{
+        let where_clause = where_clause.map(|mut where_clause|{
             // we need to extend the where clause of our restructure so that we can call .run_on_client on our data
             // since our serverfn is only implemented for the types we've specified in register, we need to specify we are only calling
             // run_on_client where we have implemented server fn.
@@ -541,7 +691,19 @@ fn func_tokens(
             );
             where_clause
         });
-        let ty_generics = ty_generics.map(|this|this.as_turbofish());
+        let ty_generics = ty_generics.map(|this| this.as_turbofish());
+        let mut field_names = field_names.clone();
+        let marker = Box::new(parse_quote!(_marker));
+        if has_marker {
+            field_names.push(&marker);
+        }
+        let make_marker = if has_marker {
+            let turbo_fish =
+                ty_generics.clone().expect("has_marker iff ty_generics");
+            quote!(let _marker = ::std::marker::PhantomData #turbo_fish ;)
+        } else {
+            quote!()
+        };
         let restructure = if let Some(custom_wrapper) = custom_wrapper.as_ref()
         {
             quote! {
@@ -556,8 +718,9 @@ fn func_tokens(
             #docs
             #(#attrs)*
             #[allow(unused_variables)]
-            #vis async fn #fn_name #impl_generics (#(#fn_args),*) #output_arrow #return_ty #where_clause {
+            #vis async fn #fn_name #impl_generics_with_trait_constraints_and_phantom_suffix  (#(#fn_args),*) #output_arrow #return_ty #where_clause {
                 use #server_fn_path::ServerFn;
+                #make_marker
                 #restructure
                 data.run_on_client().await
             }
@@ -713,7 +876,7 @@ fn path_tokens(
     server_fn_path: &TokenStream2,
     prefix: &Literal,
     fn_name_as_str: &String,
-    specified_generics:Option<&Punctuated<Ident,Token![,]>>,
+    specified_generics: Option<&Punctuated<Ident, Token![,]>>,
 ) -> TokenStream2 {
     let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
         Some(_) => "SERVER_FN_OVERRIDE_KEY",
@@ -736,11 +899,11 @@ fn path_tokens(
         } else {
             quote! { concat!("/", #endpoint) }
         };
-        let mut generics = vec![];
-        for ident in specified_generics.unwrap_or(&Punctuated::new()).iter() {
-            generics.push(format!("{ident}"));
-        }
-    
+    let mut generics = vec![];
+    for ident in specified_generics.unwrap_or(&Punctuated::new()).iter() {
+        generics.push(format!("{ident}"));
+    }
+
     let path = quote! {
         if #endpoint.is_empty() {
             #server_fn_path::const_format::concatcp!(
@@ -762,6 +925,7 @@ fn path_tokens(
     path
 }
 
+/// Convert our middlewares list into a token stream for interpolation.
 fn middlewares_tokens(middlewares: &Vec<Middleware>) -> TokenStream2 {
     if cfg!(feature = "ssr") {
         quote! {
@@ -817,6 +981,7 @@ pub fn server_macro_impl(
     let middlewares = extract_middlewares(&mut body);
     let maybe_register = extract_register(&mut body)?;
     let fields = fields(&mut body)?;
+
     let dummy = body.to_dummy_output();
     // the dummy name is the name prefixed with __ so server_fn() -> __server_fn
     let dummy_name = body.to_dummy_ident();
@@ -847,7 +1012,7 @@ pub fn server_macro_impl(
     let endpoint = endpoint.unwrap_or_else(|| Literal::string(""));
 
     let input_ident = input_to_string(&input);
-    
+
     // build struct for type
     let struct_name = struct_name_ident(struct_name, &body);
     let fn_name = &body.ident;
@@ -876,29 +1041,191 @@ pub fn server_macro_impl(
 
     // pass through docs
     let docs = docs_tokens(&body);
-   // for the server function structure
-   let (additional_path, derives) = additional_path_and_derives_tokens(
-    input_ident,
-    &input_derive,
-    &server_fn_path_token,
-    &serde_path,
+    // for the server function structure
+    let (additional_path, derives) = additional_path_and_derives_tokens(
+        input_ident,
+        &input_derive,
+        &server_fn_path_token,
+        &serde_path,
     );
     // for the associated types that are not PATH
     let client = client_tokens(&client, &server_fn_path_token);
-            let req = req_tokens(&server_fn_path_token, &req_ty, &preset_req);
-            let res = resp_tokens(&server_fn_path_token, &res_ty, &preset_res);
-            let output_ty = output_type(return_ty)?;
-            let input_encoding =
-                input_encoding_tokens(input, builtin_encoding, &server_fn_path);
-            let output_encoding =
-                output_encoding_tokens(output, builtin_encoding, &server_fn_path);
-            let error_ty = error_ty_tokens(return_ty, &server_fn_path)?;
+    let req = req_tokens(&server_fn_path_token, &req_ty, &preset_req);
+    let res = resp_tokens(&server_fn_path_token, &res_ty, &preset_res);
+    let output_ty = output_type(return_ty)?;
+    let input_encoding =
+        input_encoding_tokens(input, builtin_encoding, &server_fn_path);
+    let output_encoding =
+        output_encoding_tokens(output, builtin_encoding, &server_fn_path);
+    let error_ty = error_ty_tokens(return_ty, &server_fn_path)?;
 
-            // only emit the dummy (unmodified server-only body) for the server build
-            let dummy = cfg!(feature = "ssr").then_some(dummy);
+    // only emit the dummy (unmodified server-only body) for the server build
+    let dummy = cfg!(feature = "ssr").then_some(dummy);
     if let Some(register) = maybe_register {
-        let (impl_generics, ty_generics, where_clause) = body.generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) =
+            body.generics.split_for_impl();
 
+        let input_types = input_types(&body);
+
+        // let InputFieldTypes = {T ∈ InputFieldTypes | T is a type in the InputTypes of the OriginalServerFunction}
+        // let PhantomTypes = {U ∈ GenericParameters of OriginalServerFunction | U ∉ InputFieldTypes}
+        // If PhantomTypes is not empty, then we need to add a _marker field to our GenericServerFunctionStructure
+        // Whose type is PhantomData<(∀Ui​∈U)>
+
+        // PhantomTypes are not types that end in the word Phantom. But types that are in PhantomData<...> lol
+        let phantom_types = {
+            let mut phantom_types = body
+                .generics
+                .type_params()
+                .map(|ty| ty.ident.clone())
+                .collect::<Vec<_>>();
+            phantom_types.retain(|ty| !input_types.contains(ty));
+            phantom_types
+        };
+        let has_marker = !phantom_types.is_empty();
+
+        // for each register entry, we generate a unique implementation and inventory.
+        let mut implementations_and_inventories = vec![];
+
+        for RegisterEntry { internal, endpoint } in
+            register.as_registered_entries()
+        {
+            let specific_ty = Punctuated::<Ident, Token![,]>::from_iter(
+                internal.iter().map(|i| i.specific_ty.clone()),
+            );
+            let specific_ty_phantom_suffix_removed = specific_ty
+                .clone()
+                .into_iter()
+                .map(|ident| {
+                    let ident_str = ident.to_string();
+                    if ident_str.ends_with("Phantom")
+                        && ident_str.len() > "Phantom".len()
+                    {
+                        syn::Ident::new(
+                            &ident_str[..ident_str.len() - "Phantom".len()],
+                            ident.span(),
+                        )
+                    } else {
+                        ident
+                    }
+                })
+                .collect::<Punctuated<Ident, Token![,]>>();
+            let g: Generics = parse_quote!(< #specific_ty >);
+            let (_, ty_generics, _) = g.split_for_impl();
+            let g: Generics =
+                parse_quote!(< #specific_ty_phantom_suffix_removed >);
+            let (_, ty_generics_phantom_suffix_removed, _) = g.split_for_impl();
+            // These will be the struct name with the specific generics for a given register arg
+            // i.e register(<String>) -> #struct_name <String>
+            let wrapped_struct_name = possibly_wrap_struct_name(
+                &struct_name,
+                &custom_wrapper,
+                Some(&ty_generics),
+            );
+            let wrapped_struct_name_turbofish =
+                possibly_wrapped_struct_name_turbofish(
+                    &struct_name,
+                    &custom_wrapper,
+                    Some(&ty_generics),
+                );
+            // auto-registration with inventory
+            let inventory = inventory_tokens(
+                &server_fn_path_token,
+                &wrapped_struct_name_turbofish,
+                &wrapped_struct_name,
+            );
+
+            let run_body = run_body_tokens(
+                &custom_wrapper,
+                &struct_name,
+                &field_names,
+                &dummy_name,
+                &server_fn_path_token,
+                return_ty,
+                has_marker,
+                Some(&ty_generics_phantom_suffix_removed),
+            );
+            // the endpoint of our path should be specified in the register attribute if at all.
+            let endpoint = Literal::string(
+                &endpoint.map(|e| e.value()).unwrap_or_default(),
+            );
+            let path = path_tokens(
+                &endpoint,
+                &server_fn_path_token,
+                &prefix,
+                &fn_name_as_str,
+                Some(&specific_ty),
+            );
+
+            let middlewares = middlewares_tokens(&middlewares);
+
+            implementations_and_inventories.push(quote!(
+                impl #server_fn_path_token::ServerFn for #wrapped_struct_name {
+                    const PATH: &'static str = #path;
+
+                    type Client = #client;
+                    type ServerRequest = #req;
+                    type ServerResponse = #res;
+                    type Output = #output_ty;
+                    type InputEncoding = #input_encoding;
+                    type OutputEncoding = #output_encoding;
+                    type Error = #error_ty;
+
+                    fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path_token::middleware::Layer<#req, #res>>> {
+                        #middlewares
+                    }
+
+                    #run_body
+                }
+
+                #inventory
+            ))
+        }
+
+        let traits_that_should_be_constraints =
+            register.produce_trait_idents_that_should_be_constraints();
+        let types_that_should_have_phantom_suffix =
+            register.produce_type_idents_that_should_have_phantom_suffix();
+        let mut g = body.generics.clone();
+        for ty in g.type_params_mut() {
+            if types_that_should_have_phantom_suffix.contains(&ty.ident) {
+                ty.ident = Ident::new(
+                    &format!("{}Phantom", &ty.ident),
+                    ty.ident.span(),
+                );
+            }
+
+            ty.bounds = ty
+                .bounds
+                .clone()
+                .into_iter()
+                .map(|ty| {
+                    if let TypeParamBound::Trait(ref trait_bound) = ty {
+                        if let Some(ident) = trait_bound.path.get_ident() {
+                            if traits_that_should_be_constraints.contains(ident)
+                            {
+                                let ident = Ident::new(
+                                    &format!("{ident}Constraint"),
+                                    Span::call_site(),
+                                );
+                                let bound: TraitBound = parse_quote!(#ident);
+                                TypeParamBound::Trait(bound)
+                            } else {
+                                ty
+                            }
+                        } else {
+                            ty
+                        }
+                    } else {
+                        ty
+                    }
+                })
+                .collect::<Punctuated<TypeParamBound, Token![+]>>();
+        }
+        // this will include the defaults for the generic
+        let params_with_trait_constraints = g.params.clone();
+        let (impl_generics_with_trait_constraints, _, _) = g.split_for_impl();
+        let fields = extend_fields_with_phantom_types(fields, phantom_types);
         let func = func_tokens(
             &docs,
             attrs,
@@ -913,105 +1240,34 @@ pub fn server_macro_impl(
             &struct_name,
             &server_fn_path_token,
             Some(&impl_generics),
+            Some(&impl_generics_with_trait_constraints),
             Some(&ty_generics),
             where_clause,
             output_ty,
             &error_ty,
+            has_marker,
         );
 
-        // for each register entry, we generate a unique implementation and inventory.
-        let mut implementations_and_inventories = vec![];
-        for RegisterEntry {
-            specific_ty,
-            endpoint,
-        } in register.into_registered_entries()
-        {
-            let g : Generics = parse_quote!(< #specific_ty >);
-            let (_,ty_generics,_) = g.split_for_impl();
-            // These will be the struct name with the specific generics for a given register arg
-            // i.e register(<String>) -> #struct_name <String>
-            let wrapped_struct_name =
-            possibly_wrap_struct_name(&struct_name, &custom_wrapper,Some(&ty_generics));
-            let wrapped_struct_name_turbofish =
-            possibly_wrapped_struct_name_turbofish(
-                &struct_name,
-                &custom_wrapper,
-                Some(&ty_generics),
-            );
-               // auto-registration with inventory
-        let inventory = inventory_tokens(
-            &server_fn_path_token,
-            &wrapped_struct_name_turbofish,
-            &wrapped_struct_name,
-        );
-            // let wrapped_struct_name include the specific_ty from RegisterEntry
-
-            // let path = the endpoint, or else create the endpoint and stringify the specific_ty as part of the hashing.
-
-               // run_body in the trait implementation
-        let run_body = run_body_tokens(
-            &custom_wrapper,
-            &struct_name,
-            &field_names,
-            &dummy_name,
-            &server_fn_path_token,
-            return_ty,
-        );
-        // the endpoint of our path should be specified in the register attribute if at all.
-        let endpoint = Literal::string(&endpoint.map(|e|e.value()).unwrap_or_default());
-        let path = path_tokens(
-            &endpoint,
-            &server_fn_path_token,
-            &prefix,
-            &fn_name_as_str,
-            Some(&specific_ty)
-        );
-        
-        let middlewares = middlewares_tokens(&middlewares);
-
-
-            implementations_and_inventories.push(quote!(
-                impl #server_fn_path_token::ServerFn for #wrapped_struct_name {
-                    const PATH: &'static str = #path;
-    
-                    type Client = #client;
-                    type ServerRequest = #req;
-                    type ServerResponse = #res;
-                    type Output = #output_ty;
-                    type InputEncoding = #input_encoding;
-                    type OutputEncoding = #output_encoding;
-                    type Error = #error_ty;
-    
-                    fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path_token::middleware::Layer<#req, #res>>> {
-                        #middlewares
-                    }
-    
-                    #run_body
-                }
-    
-                #inventory
-            ))
-        }
         Ok(quote!(
-            #args_docs
-            #docs
-            #[derive(Debug, #derives)]
-            #additional_path
-            pub struct #struct_name #impl_generics #where_clause {
-                #(#fields),*
-            }
+        #args_docs
+        #docs
+        #[derive(Debug, #derives)]
+        #additional_path
+        pub struct #struct_name < #params_with_trait_constraints > #where_clause {
+            #(#fields),*
+        }
 
-            #(#implementations_and_inventories)*
+        #(#implementations_and_inventories)*
 
-            #func
+        #func
 
-            #dummy
-            
-            ))
+        #dummy
+
+        ))
     } else {
         // struct name, wrapped in any custom-encoding newtype wrapper (if it exists, otherwise it's just the struct name)
         let wrapped_struct_name =
-            possibly_wrap_struct_name(&struct_name, &custom_wrapper,None);
+            possibly_wrap_struct_name(&struct_name, &custom_wrapper, None);
         let wrapped_struct_name_turbofish =
             possibly_wrapped_struct_name_turbofish(
                 &struct_name,
@@ -1019,11 +1275,8 @@ pub fn server_macro_impl(
                 None,
             );
 
-        
-
         let from_impl = impl_from_tokens(&body, impl_from, &struct_name);
 
-        
         // auto-registration with inventory
         let inventory = inventory_tokens(
             &server_fn_path_token,
@@ -1039,6 +1292,8 @@ pub fn server_macro_impl(
             &dummy_name,
             &server_fn_path_token,
             return_ty,
+            false,
+            None,
         );
 
         // the actual function definition
@@ -1055,23 +1310,23 @@ pub fn server_macro_impl(
             &custom_wrapper,
             &struct_name,
             &server_fn_path_token,
-            None,None,None,
+            None,
+            None,
+            None,
+            None,
             output_ty,
-            &error_ty
+            &error_ty,
+            false,
         );
-
-     
 
         let path = path_tokens(
             &endpoint,
             &server_fn_path_token,
             &prefix,
             &fn_name_as_str,
-            None
+            None,
         );
-        
 
-     
         let middlewares = middlewares_tokens(&middlewares);
 
         Ok(quote::quote! {
@@ -1151,31 +1406,108 @@ impl Parse for Middleware {
 #[derive(Debug, Clone)]
 struct Register {
     /// Matches something like: (<Type1,...,TypeN> = "some_string", <Type1,...,TypeN>, ...)
-    type_value_pairs:
-        Punctuated<(Punctuated<Ident, Token![,]>, Option<LitStr>), Token![,]>,
+    type_value_pairs: Punctuated<
+        (Punctuated<InternalRegisterEntry, Token![,]>, Option<LitStr>),
+        Token![,],
+    >,
+}
+
+impl Register {
+    fn produce_trait_idents_that_should_be_constraints(&self) -> Vec<Ident> {
+        let mut result = Vec::new();
+        for (entry, _) in self.type_value_pairs.iter() {
+            for internal_entry in entry {
+                if let Some(ref trait_list) = internal_entry.maybe_trait_list {
+                    for trait_ident in trait_list {
+                        let ident_str = trait_ident.to_string();
+                        if ident_str.ends_with("Constraint")
+                            && ident_str.len() > "Constraint".len()
+                        {
+                            result.push(Ident::new(
+                                &ident_str
+                                    [0..&ident_str.len() - "Constraint".len()],
+                                trait_ident.span(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+    fn produce_type_idents_that_should_have_phantom_suffix(
+        &self,
+    ) -> Vec<Ident> {
+        let mut result = Vec::new();
+        for (entry, _) in self.type_value_pairs.iter() {
+            for internal_entry in entry {
+                let ty = internal_entry.specific_ty.clone();
+                let ident_str = ty.to_string();
+                if ident_str.ends_with("Phantom")
+                    && ident_str.len() > "Phantom".len()
+                {
+                    result.push(Ident::new(
+                        &ident_str[0..&ident_str.len() - "Phantom".len()],
+                        ty.span(),
+                    ));
+                }
+            }
+        }
+        result
+    }
+}
+/// When we use PhantomTypes for our backends we can specify that they are over Trait constraints which are shadows for our ssr only traits.
+/// ```rust,ignore
+/// #[server]
+/// #[register(<SsrOnlyTypePhantom:SsrOnlyTraitConstraint + SsrOnlyTrait2Constraint>)]
+/// pub async fn example::<SsrOnlyType:SsrOnlyTrait + SsrOnlyTrait2 + Display>() -> Result<(),ServerFnError> {
+///     // ...
+/// }
+/// ```
+#[derive(Debug, Clone)]
+struct InternalRegisterEntry {
+    specific_ty: Ident,
+    maybe_colon: Option<Token![:]>,
+    maybe_trait_list: Option<Punctuated<Ident, Token![+]>>,
+}
+impl Parse for InternalRegisterEntry {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let specific_ty = input.parse::<Ident>()?;
+        let maybe_colon = if input.peek(Token![:]) {
+            Some(input.parse::<Token![:]>()?)
+        } else {
+            None
+        };
+        if maybe_colon.is_none() {
+            Ok(Self {
+                specific_ty,
+                maybe_colon,
+                maybe_trait_list: None,
+            })
+        } else {
+            let maybe_trait_list =
+                Some(Punctuated::<Ident, Token![+]>::parse_separated_nonempty(
+                    input,
+                )?);
+            return Ok(Self {
+                specific_ty,
+                maybe_colon,
+                maybe_trait_list,
+            });
+        }
+    }
 }
 struct RegisterEntry {
-    specific_ty: Punctuated<Ident, Token![,]>,
+    internal: Punctuated<InternalRegisterEntry, Token![,]>,
     endpoint: Option<LitStr>,
 }
 impl Register {
-    fn into_registered_entries(self) -> Vec<RegisterEntry> {
+    fn as_registered_entries(&self) -> Vec<RegisterEntry> {
         self.type_value_pairs
+            .clone()
             .into_iter()
-            .map(|(specific_ty, endpoint)| RegisterEntry {
-                specific_ty,
-                endpoint,
-            })
+            .map(|(internal, endpoint)| RegisterEntry { internal, endpoint })
             .collect()
-    }
-    /// If any specific registered type in the register attribute ends with the word Phantom and we have enabled ssr_generics then
-    /// we have backend generics
-    fn has_backend_generics(&self) -> bool {
-        self.type_value_pairs.iter().any(|(specific_ty, _)| {
-            specific_ty
-                .iter()
-                .any(|ty| ty.to_string().ends_with("Phantom"))
-        }) && cfg!(feature = "ssr_generics")
     }
 }
 impl Parse for Register {
@@ -1186,7 +1518,7 @@ impl Parse for Register {
             // Parse the angle bracketed ident list
             input.parse::<Token![<]>()?;
             let idents =
-                Punctuated::<Ident, Token![,]>::parse_separated_nonempty(
+                Punctuated::<InternalRegisterEntry, Token![,]>::parse_separated_nonempty(
                     input,
                 )?;
             input.parse::<Token![>]>()?;
@@ -1223,7 +1555,7 @@ impl Parse for Register {
         for (p, _) in &register.type_value_pairs {
             if p.len() != expected_len {
                 return Err(syn::Error::new(
-                    p.span(),
+                    Span::call_site(),
                     "All bracketed lists must have the same length in register",
                 ));
             }
@@ -1654,7 +1986,7 @@ impl ServerFnBody {
             ..
         } = &self;
         // will all be empty if no generics...
-        let (impl_generics,_,where_clause) = generics.split_for_impl();
+        let (impl_generics, _, where_clause) = generics.split_for_impl();
         quote! {
             #[doc(hidden)]
             #(#attrs)*

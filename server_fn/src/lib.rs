@@ -117,7 +117,6 @@ pub mod response;
 /// Helpers for creating isomorphic generic code.
 #[cfg(feature = "ssr_generics")]
 pub mod ssr_generics;
-
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
@@ -130,6 +129,9 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
+#[cfg(feature = "ssr_generics")]
+#[doc(hidden)]
+pub use ::paste as paste_export;
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]

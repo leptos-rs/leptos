@@ -57,7 +57,8 @@ pub fn App() -> impl IntoView {
 #[component]
 pub fn HomePage() -> impl IntoView {
     view! {
-        <h2>"Some Simple Server Functions"</h2>
+
+      <h2>"Some Simple Server Functions"</h2>
         <SpawnLocal/>
         <WithAnAction/>
         <WithActionForm/>
@@ -74,6 +75,11 @@ pub fn HomePage() -> impl IntoView {
         <CustomClientExample/>
         <h2>"Generic Server Functions"</h2>
         <SimpleGenericServerFnComponent/>
+        <GenericHelloWorld/>
+                <GenericHelloWorldWithDefaults/>
+
+        <GenericSsrOnlyTypes/>
+
     }
 }
 
@@ -957,40 +963,201 @@ use std::fmt::Display;
 pub async fn server_fn_to_string<S: Display>(
     s: S,
 ) -> Result<String, ServerFnError> {
+    println!("Type {} got arg {s}", std::any::type_name::<S>());
     Ok(format!("{s}"))
 }
 
+#[component]
 pub fn SimpleGenericServerFnComponent() -> impl IntoView {
     let string_to_string = Resource::new(
-        move || (),
-        |_| async move {
-            server_fn_to_string(String::from(
-                "No wait, I'm already a string!!!",
-            ))
-            .await
-        },
+        || (),
+        |_| server_fn_to_string(String::from("I'm a String.")),
     );
     let u8_to_string = Resource::new(
         move || (),
-        |_| async move { server_fn_to_string(42).await },
+        |_| async move { server_fn_to_string::<u8>(42).await },
     );
-
     view! {
         <h3>Using generic function over display</h3>
         <p>"This example demonstrates creating a generic function that takes any type that implements display that we've registered."</p>
 
-        <Transition>
-            <p> Result 1
-            {
-                move || string_to_string.get().map(|r| r.map(|r|format!("{r}")))
-            }
-            </p>
-            <p> Result 2
-            {
-                move || u8_to_string.get().map(|r| r.map(|r|format!("{r}")))
-            }
-            </p>
+        <ErrorBoundary fallback=move |err|leptos::logging::log!("{err:?}")>
 
-        </Transition>
+        <Suspense >
+       <h4>Result 1</h4>
+           <p>
+            {
+                move || string_to_string.get()
+            }
+           </p>
+           <h4>Result 2</h4>
+           <p>
+           {
+               move || u8_to_string.get()
+           }
+           </p>
+        </Suspense>
+        </ErrorBoundary >
+
+
+    }
+}
+
+pub trait SomeTrait {
+    fn some_method() -> String;
+}
+
+pub struct AStruct;
+pub struct AStruct2;
+impl SomeTrait for AStruct {
+    fn some_method() -> String {
+        String::from("Hello world...")
+    }
+}
+impl SomeTrait for AStruct2 {
+    fn some_method() -> String {
+        String::from("HELLO WORLD")
+    }
+}
+
+#[server]
+#[register(<AStruct>,<AStruct2>)]
+pub async fn server_hello_world_generic<S: SomeTrait>(
+) -> Result<String, ServerFnError> {
+    Ok(S::some_method())
+}
+
+#[component]
+pub fn GenericHelloWorld() -> impl IntoView {
+    let s = RwSignal::new(String::new());
+    Effect::new(move |_| {
+        spawn_local(async move {
+            match server_hello_world_generic::<AStruct>().await {
+                Ok(hello) => s.set(hello),
+                Err(err) => leptos::logging::log!("{err:?}"),
+            }
+        })
+    });
+    let s2 = RwSignal::new(String::new());
+    Effect::new(move |_| {
+        spawn_local(async move {
+            match server_hello_world_generic::<AStruct2>().await {
+                Ok(hello) => s2.set(hello),
+                Err(err) => leptos::logging::log!("{err:?}"),
+            }
+        })
+    });
+    view! {
+        <h3>Using generic functions without generic inputs</h3>
+        <p>"This example demonstrates creating a generic server function that doesn't take any generic input."</p>
+        <h4>{"Results"}</h4>
+        <p>{ move || format!("With generic specified to {} we get {} from the server", std::any::type_name::<AStruct>(), s.get())}</p>
+        <p>{ move || format!("With generic specified to {} we get {} from the server", std::any::type_name::<AStruct2>(), s2.get())}</p>
+
+    }
+}
+
+#[derive(Clone)]
+struct SomeDefault;
+impl SomeTrait for SomeDefault {
+    fn some_method() -> String {
+        String::from("just a default hello world...")
+    }
+}
+
+#[server]
+#[register(<SomeDefault>)]
+pub async fn server_hello_world_generic_with_default<
+    S: SomeTrait = SomeDefault,
+>() -> Result<String, ServerFnError> {
+    Ok(S::some_method())
+}
+
+#[component]
+pub fn GenericHelloWorldWithDefaults() -> impl IntoView {
+    let action = ServerAction::<ServerHelloWorldGenericWithDefault>::new();
+    Effect::new(move |_| {
+        action.dispatch(ServerHelloWorldGenericWithDefault {
+            _marker: std::marker::PhantomData,
+        });
+    });
+
+    view! {
+        <h3>Using generic functions without generic inputs but a specified default type</h3>
+        <p>"This example demonstrates creating a generic server function that doesn't take any generic input and has a default generic type."</p>
+        <h4>{"Results"}</h4>
+        <p>{ move || action.value_local().read_only().get().map(|s|s.map(|s|format!("With default generic we get {s} from the server", )))}</p>
+    }
+}
+
+#[cfg(feature = "ssr")]
+pub struct ServerOnlyStruct;
+#[cfg(feature = "ssr")]
+pub struct SsrOnlyStructButDifferent;
+#[cfg(feature = "ssr")]
+pub trait ServerOnlyTrait {
+    fn some_method() -> String {
+        String::from("I'm a backend!")
+    }
+}
+
+#[cfg(feature = "ssr")]
+impl ServerOnlyTrait for ServerOnlyStruct {}
+#[cfg(feature = "ssr")]
+impl ServerOnlyTrait for SsrOnlyStructButDifferent {
+    fn some_method() -> String {
+        String::from("I'm a different backend!")
+    }
+}
+server_fn::ssr_type_shim! {ServerOnlyStruct, SsrOnlyStructButDifferent}
+server_fn::ssr_trait_shim! {ServerOnlyTrait}
+server_fn::ssr_impl_shim! {ServerOnlyStruct:ServerOnlyTrait,SsrOnlyStructButDifferent:ServerOnlyTrait}
+
+#[server]
+#[register(<ServerOnlyStructPhantom:ServerOnlyTraitConstraint>,
+    <SsrOnlyStructButDifferentPhantom:ServerOnlyTraitConstraint>
+)]
+pub async fn generic_server_with_ssr_only_types<T: ServerOnlyTrait>(
+) -> Result<String, ServerFnError> {
+    Ok(T::some_method())
+}
+
+#[component]
+pub fn GenericSsrOnlyTypes() -> impl IntoView {
+    let s = RwSignal::new(String::new());
+    // spawn on the client
+    Effect::new(move |_| {
+        spawn_local(async move {
+            match generic_server_with_ssr_only_types::<ServerOnlyStructPhantom>(
+            )
+            .await
+            {
+                Ok(hello) => s.set(hello),
+                Err(err) => leptos::logging::log!("{err:?}"),
+            }
+        });
+    });
+
+    let s2 = RwSignal::new(String::new());
+    // spawn on the client
+    Effect::new(move |_| {
+        spawn_local(async move {
+            match generic_server_with_ssr_only_types::<
+                SsrOnlyStructButDifferentPhantom,
+            >()
+            .await
+            {
+                Ok(hello) => s2.set(hello),
+                Err(err) => leptos::logging::log!("{err:?}"),
+            }
+        });
+    });
+    view! {
+        <h3>Using generic functions with a type that only exists on the server.</h3>
+        <p>"This example demonstrates how to make use of the helper macros and phantom types to make your backend generic and specifiable from your frontend."</p>
+        <h4>{"Results"}</h4>
+        <p>{ move || format!("With backend 1 we get {} from the server", s.get())}</p>
+        <p>{ move || format!("With backend 2 we get {} from the server", s2.get())}</p>
+
     }
 }
