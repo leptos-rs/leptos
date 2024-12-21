@@ -479,14 +479,9 @@ fn run_body_tokens(
                 if has_marker {
                     let mut field_names = field_names.clone();
                     field_names.push(&marker);
-                    field_names
-                        .into_iter().cloned()
-                        .collect::<Vec<_>>()
+                    field_names.into_iter().cloned().collect::<Vec<_>>()
                 } else {
-                    field_names
-                        .clone()
-                        .into_iter().cloned()
-                        .collect::<Vec<_>>()
+                    field_names.clone().into_iter().cloned().collect::<Vec<_>>()
                 }
             };
         let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
