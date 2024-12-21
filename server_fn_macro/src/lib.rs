@@ -468,7 +468,8 @@ fn run_body_tokens(
     field_names: &Vec<&Box<Pat>>,
     dummy_name: &Ident,
     server_fn_path: &TokenStream2,
-    return_ty: &Type,
+    output_ty: &GenericArgument,
+    error_ty: &TokenStream2,
     has_marker: bool,
     specific_ty_phantom_suffix_removed: Option<&TypeGenerics>,
 ) -> TokenStream2 {
@@ -534,14 +535,14 @@ fn run_body_tokens(
             // we need this for Actix, for the SendWrapper to count as impl Future
             // but non-Actix will have a clippy warning otherwise
             #[allow(clippy::manual_async_fn)]
-            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
+            fn run_body(self) -> impl std::future::Future<Output = Result< #output_ty, #server_fn_path::error::ServerFnError< #error_ty >>> + Send {
                 #body
             }
         }
     } else {
         quote! {
             #[allow(unused_variables)]
-            async fn run_body(self) -> #return_ty {
+            async fn run_body(self) -> Result< #output_ty, #server_fn_path::error::ServerFnError< #error_ty >> {
                 unreachable!()
             }
         }
@@ -1093,6 +1094,11 @@ pub fn server_macro_impl(
             let specific_ty = Punctuated::<Ident, Token![,]>::from_iter(
                 internal.iter().map(|i| i.specific_ty.clone()),
             );
+            let output_ty = canonicalize_output_type_generic(
+                &parse_quote!(#ty_generics),
+                &specific_ty,
+                output_ty,
+            );
             let specific_ty_phantom_suffix_removed = specific_ty
                 .clone()
                 .into_iter()
@@ -1141,7 +1147,8 @@ pub fn server_macro_impl(
                 &field_names,
                 &dummy_name,
                 &server_fn_path_token,
-                return_ty,
+                &output_ty,
+                &error_ty,
                 has_marker,
                 Some(&ty_generics_phantom_suffix_removed),
             );
@@ -1291,7 +1298,8 @@ pub fn server_macro_impl(
             &field_names,
             &dummy_name,
             &server_fn_path_token,
-            return_ty,
+            &output_ty,
+            &error_ty,
             false,
             None,
         );
@@ -1564,6 +1572,7 @@ impl Parse for Register {
         Ok(register)
     }
 }
+
 fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
@@ -1582,6 +1591,40 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
         "server functions should return Result<T, ServerFnError> or Result<T, \
          ServerFnError<E>>",
     ))
+}
+
+/// In our ServerFn implementation, when we canonocalize the generic of our server function to our specific registed types
+/// if one of those types appear as the T in Result<T,E> then we need to canonicalize the output type as well.
+fn canonicalize_output_type_generic(
+    generics: &Generics,
+    specific_ty: &Punctuated<Ident, Token![,]>,
+    output_type: &GenericArgument,
+) -> GenericArgument {
+    match output_type {
+        GenericArgument::Lifetime(lifetime) => todo!(),
+        GenericArgument::Type(ty) => {
+            // if generics include the output type, then the output type is generic.
+            if let Type::Path(type_path) = ty {
+                if let Some(pos) = generics.type_params().position(|inner_ty| {
+                    Some(&inner_ty.ident) == type_path.path.get_ident()
+                }) {
+                    let normal_form = specific_ty.get(pos).expect(
+                        "Specific types should have length of generics",
+                    );
+                    GenericArgument::Type(parse_quote!(#normal_form))
+                } else {
+                    output_type.clone()
+                }
+            } else {
+                output_type.clone()
+            }
+        }
+        GenericArgument::Const(expr) => todo!(),
+        GenericArgument::AssocType(assoc_type) => todo!(),
+        GenericArgument::AssocConst(assoc_const) => todo!(),
+        GenericArgument::Constraint(constraint) => todo!(),
+        _ => todo!(),
+    }
 }
 
 fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {

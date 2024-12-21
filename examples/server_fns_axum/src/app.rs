@@ -76,10 +76,9 @@ pub fn HomePage() -> impl IntoView {
         <h2>"Generic Server Functions"</h2>
         <SimpleGenericServerFnComponent/>
         <GenericHelloWorld/>
-                <GenericHelloWorldWithDefaults/>
-
+        <GenericHelloWorldWithDefaults/>
         <GenericSsrOnlyTypes/>
-
+        <GenericServerFnResult/>
     }
 }
 
@@ -1160,4 +1159,21 @@ pub fn GenericSsrOnlyTypes() -> impl IntoView {
         <p>{ move || format!("With backend 2 we get {} from the server", s2.get())}</p>
 
     }
+}
+
+#[server]
+#[register(<String>,<u8>)]
+pub async fn generic_default_result<R: Default>() -> Result<R, ServerFnError> {
+    Ok(R::default())
+}
+
+#[component]
+pub fn GenericServerFnResult() -> impl IntoView {
+    Suspend::new(async move {
+        format!(
+            " Default u8 is {} \n Default String is {}",
+            generic_default_result::<String>().await.unwrap(),
+            generic_default_result::<u8>().await.unwrap(),
+        )
+    })
 }
