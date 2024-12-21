@@ -56,7 +56,7 @@ fn extract_register(body: &mut ServerFnBody) -> Result<Option<Register>> {
             "cannot use more than 1 register attribute",
         ));
     }
-    Ok(register.get(0).cloned())
+    Ok(register.first().cloned())
 }
 
 /// Takes body, and returns a list of field types to compare to.
@@ -338,13 +338,11 @@ fn possibly_wrapped_struct_name_turbofish(
         } else {
             quote! { #wrapper::<#struct_name> }
         }
+    } else if let Some(ty_generics) = ty_generics {
+        let ty_generics = ty_generics.as_turbofish();
+        quote! { #struct_name #ty_generics }
     } else {
-        if let Some(ty_generics) = ty_generics {
-            let ty_generics = ty_generics.as_turbofish();
-            quote! { #struct_name #ty_generics }
-        } else {
-            quote! { #struct_name #ty_generics }
-        }
+        quote! { #struct_name #ty_generics }
     }
 }
 
@@ -482,14 +480,12 @@ fn run_body_tokens(
                     let mut field_names = field_names.clone();
                     field_names.push(&marker);
                     field_names
-                        .into_iter()
-                        .map(|t| t.clone())
+                        .into_iter().cloned()
                         .collect::<Vec<_>>()
                 } else {
                     field_names
                         .clone()
-                        .into_iter()
-                        .map(|t| t.clone())
+                        .into_iter().cloned()
                         .collect::<Vec<_>>()
                 }
             };
@@ -1298,7 +1294,7 @@ pub fn server_macro_impl(
             &field_names,
             &dummy_name,
             &server_fn_path_token,
-            &output_ty,
+            output_ty,
             &error_ty,
             false,
             None,
@@ -1497,11 +1493,11 @@ impl Parse for InternalRegisterEntry {
                 Some(Punctuated::<Ident, Token![+]>::parse_separated_nonempty(
                     input,
                 )?);
-            return Ok(Self {
+            Ok(Self {
                 specific_ty,
                 maybe_colon,
                 maybe_trait_list,
-            });
+            })
         }
     }
 }
