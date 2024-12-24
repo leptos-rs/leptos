@@ -450,10 +450,7 @@ where
         let inner = self.inner.reader()?;
 
         let inner_path = self.inner.path().into_iter().collect();
-        let keys = self
-            .inner
-            .keys()
-            .expect("using keys on a store with no keys");
+        let keys = self.inner.keys()?;
         let index = keys
             .with_field_keys(
                 inner_path,
@@ -461,8 +458,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(MappedMutArc::new(
             inner,
@@ -654,8 +650,8 @@ where
     #[track_caller]
     fn into_iter(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
         // reactively track changes to this field
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
+        self.update_keys();
+        self.track_field();
 
         // get the current length of the field by accessing slice
         let reader = self
