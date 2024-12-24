@@ -1994,12 +1994,12 @@ pub fn file_and_error_handler<S, IV>(
        + 'static
 where
     IV: IntoView + 'static,
-    S: Send + 'static,
+    S: Send + Sync + Clone + 'static,
     LeptosOptions: FromRef<S>,
 {
-    move |uri: Uri, State(options): State<S>, req: Request<Body>| {
+    move |uri: Uri, State(state): State<S>, req: Request<Body>| {
         Box::pin(async move {
-            let options = LeptosOptions::from_ref(&options);
+            let options = LeptosOptions::from_ref(&state);
             let res = get_static_file(uri, &options.site_root, req.headers());
             let res = res.await.unwrap();
 
@@ -2007,7 +2007,9 @@ where
                 res.into_response()
             } else {
                 let mut res = handle_response_inner(
-                    || {},
+                    move || {
+                        provide_context(state.clone());
+                    },
                     move || shell(options),
                     req,
                     |app, chunks| {
