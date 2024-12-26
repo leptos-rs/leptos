@@ -50,6 +50,7 @@ serde_qs = "0.13.0"
 slotmap = "1.0"
 futures = "0.3.31"
 send_wrapper = "0.6.0"
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [features]
 hydration = [
@@ -58,12 +59,13 @@ hydration = [
   "hydration_context/browser",
   "leptos_dom/hydration"
 ]
-csr = ["leptos_macro/csr", "reactive_graph/effects"]
+csr = ["leptos_macro/csr", "reactive_graph/effects", "dep:getrandom"]
 hydrate = [
   "leptos_macro/hydrate",
   "hydration",
   "tachys/hydrate",
   "reactive_graph/effects",
+  "dep:getrandom"
 ]
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
