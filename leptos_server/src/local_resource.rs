@@ -12,7 +12,7 @@ use reactive_graph::{
         guards::{AsyncPlain, ReadGuard},
         ArcRwSignal, RwSignal,
     },
-    traits::{DefinedAt, Get, IsDisposed, ReadUntracked, Update, Write},
+    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Update, Write},
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -74,12 +74,9 @@ impl<T> ArcLocalResource<T> {
         let data = {
             let refetch = refetch.clone();
             ArcAsyncDerived::new(move || {
-                let refetch = refetch.clone();
+                refetch.track();
                 let fut = fetcher();
-                SendWrapper::new(async move {
-                    let _refetch_tiggered = refetch.get();
-                    SendWrapper::new(fut.await)
-                })
+                SendWrapper::new(async move { SendWrapper::new(fut.await) })
             })
         };
         Self {
@@ -271,11 +268,9 @@ impl<T> LocalResource<T> {
             } else {
                 let fetcher = SendWrapper::new(fetcher);
                 AsyncDerived::new(move || {
+                    refetch.track();
                     let fut = fetcher();
-                    SendWrapper::new(async move {
-                        let _refetch_tiggered = refetch.get();
-                        SendWrapper::new(fut.await)
-                    })
+                    SendWrapper::new(async move { SendWrapper::new(fut.await) })
                 })
             },
             refetch,
