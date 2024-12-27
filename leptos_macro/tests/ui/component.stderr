@@ -8,19 +8,19 @@ error: `optional` conflicts with mutually exclusive `optional_no_strip`
   --> tests/ui/component.rs:16:12
    |
 16 |     #[prop(optional, optional_no_strip)] conflicting: bool,
-   |            ^^^^^^^^
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: `optional` conflicts with mutually exclusive `strip_option`
   --> tests/ui/component.rs:23:12
    |
 23 |     #[prop(optional, strip_option)] conflicting: bool,
-   |            ^^^^^^^^
+   |            ^^^^^^^^^^^^^^^^^^^^^^
 
 error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
   --> tests/ui/component.rs:30:12
    |
 30 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
-   |            ^^^^^^^^^^^^^^^^^
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: unexpected end of input, expected `=` or `(`
 
