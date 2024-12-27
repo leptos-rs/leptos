@@ -175,7 +175,7 @@ impl TextStream {
     pub fn new(
         value: impl Stream<Item = Result<String, ServerFnError>> + Send + 'static,
     ) -> Self {
-        Self(Box::pin(value.map(|value| value.map(Into::into))))
+        Self(Box::pin(value.map(|value| value)))
     }
 }
 
