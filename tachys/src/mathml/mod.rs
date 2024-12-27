@@ -132,7 +132,7 @@ macro_rules! mathml_elements {
 
 mathml_elements![
     math [display, xmlns],
-    mi [],
+    mi [mathvariant],
     mn [],
     mo [
         accent, fence, lspace, maxsize, minsize, movablelimits,
