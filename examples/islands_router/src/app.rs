@@ -102,10 +102,10 @@ pub fn Home() -> impl IntoView {
                                 let:user
                             >
                                 <tr>
-                                    <td><input type="checkbox"/></td>
                                     <td>{user.first_name}</td>
                                     <td>{user.last_name}</td>
                                     <td>{user.email}</td>
+                                    <td><input type="checkbox"/></td>
                                 </tr>
                             </For>
                         </tbody>

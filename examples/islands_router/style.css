@@ -1,3 +1,11 @@
 .pending {
 	color: purple;
 }
+
+td {
+	width: 10rem;
+}
+
+td:last-child {
+	width: 2rem;
+}

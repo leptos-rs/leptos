@@ -7,7 +7,7 @@ window.addEventListener("click", async (ev) => {
 	}
 
 	ev.preventDefault();
-	await navigateToPage(req);
+	await navigateToPage(req, true);
 });
 
 window.addEventListener("submit", async (ev) => {
@@ -17,10 +17,10 @@ window.addEventListener("submit", async (ev) => {
 	}
 
 	ev.preventDefault();
-	await navigateToPage(req);
+	await navigateToPage(req, false);
 });
 
-async function navigateToPage(req) {
+async function navigateToPage(req, useViewTransition) {
 	NAVIGATION += 1;
 	const currentNav = NAVIGATION;
 
@@ -38,7 +38,7 @@ async function navigateToPage(req) {
 			}
 		};
 		// Not all browsers support startViewTransition; see https://caniuse.com/?search=startViewTransition
-		if (document.startViewTransition) {
+		if (useViewTransition && document.startViewTransition) {
 			await document.startViewTransition(transition);
 		} else {
 			await transition()
