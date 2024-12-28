@@ -17,7 +17,7 @@ window.addEventListener("submit", async (ev) => {
 	}
 
 	ev.preventDefault();
-	await navigateToPage(req, false);
+	await navigateToPage(req, true);
 });
 
 async function navigateToPage(req, useViewTransition) {
