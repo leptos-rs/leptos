@@ -810,6 +810,7 @@ pub(crate) fn element_to_tokens(
         } */
 
         let attributes = node.attributes();
+        /*
         let attributes = if attributes.len() == 1 {
             Some(attribute_to_tokens(
                 parent_type,
@@ -825,6 +826,16 @@ pub(crate) fn element_to_tokens(
                 #(#nodes)*
             })
         };
+        */
+        let attributes = attributes.iter().flat_map(|attr| match attr {
+            NodeAttribute::Block(node) => as_spread_attr(node)
+                .flatten()
+                .map(|expr| expr.to_token_stream()),
+            NodeAttribute::Attribute(attr) => attribute_absolute(attr, true),
+        });
+        let attributes = Some(quote! {
+            .add_any_attr((#(#attributes),*))
+        });
 
         let global_class_expr = global_class.map(|class| {
             quote! { .class((#class, true)) }
