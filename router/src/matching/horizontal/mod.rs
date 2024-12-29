@@ -17,3 +17,17 @@ pub trait PossibleRouteMatch {
 
     fn generate_path(&self, path: &mut Vec<PathSegment>);
 }
+
+impl PossibleRouteMatch for Box<dyn PossibleRouteMatch> {
+    fn optional(&self) -> bool {
+        (**self).optional()
+    }
+
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+        (**self).test(path)
+    }
+
+    fn generate_path(&self, path: &mut Vec<PathSegment>) {
+        (**self).generate_path(path);
+    }
+}
