@@ -1,4 +1,5 @@
 use super::{PartialPathMatch, PathSegment};
+use std::sync::Arc;
 mod param_segments;
 mod static_segment;
 mod tuples;
@@ -18,7 +19,21 @@ pub trait PossibleRouteMatch {
     fn generate_path(&self, path: &mut Vec<PathSegment>);
 }
 
-impl PossibleRouteMatch for Box<dyn PossibleRouteMatch> {
+impl PossibleRouteMatch for Box<dyn PossibleRouteMatch + Send + Sync> {
+    fn optional(&self) -> bool {
+        (**self).optional()
+    }
+
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+        (**self).test(path)
+    }
+
+    fn generate_path(&self, path: &mut Vec<PathSegment>) {
+        (**self).generate_path(path);
+    }
+}
+
+impl PossibleRouteMatch for Arc<dyn PossibleRouteMatch + Send + Sync> {
     fn optional(&self) -> bool {
         (**self).optional()
     }
