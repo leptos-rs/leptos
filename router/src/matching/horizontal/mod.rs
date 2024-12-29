@@ -11,7 +11,7 @@ pub use static_segment::*;
 /// This is a "horizontal" matching: i.e., it treats a tuple of route segments
 /// as subsequent segments of the URL and tries to match them all.
 pub trait PossibleRouteMatch {
-    const OPTIONAL: bool = false;
+    fn optional(&self) -> bool;
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>;
 
