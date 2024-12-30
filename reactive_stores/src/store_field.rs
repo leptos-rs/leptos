@@ -30,6 +30,7 @@ pub trait StoreField: Sized {
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
     /// Reactively tracks this field.
+    #[track_caller]
     fn track_field(&self) {
         let path = self.path().into_iter().collect();
         let trigger = self.get_trigger(path);
