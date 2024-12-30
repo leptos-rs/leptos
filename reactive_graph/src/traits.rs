@@ -404,6 +404,7 @@ where
 /// Notifies subscribers of a change in this signal.
 pub trait Notify {
     /// Notifies subscribers of a change in this signal.
+    #[track_caller]
     fn notify(&self);
 }
 
