@@ -103,6 +103,7 @@ where
         self.inner.keys()
     }
 
+    #[track_caller]
     fn track_field(&self) {
         let inner = self
             .inner
@@ -144,6 +145,7 @@ where
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
+    #[track_caller]
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.notify();
@@ -157,6 +159,7 @@ where
     Prev: 'static,
     T: 'static,
 {
+    #[track_caller]
     fn track(&self) {
         self.track_field();
     }
