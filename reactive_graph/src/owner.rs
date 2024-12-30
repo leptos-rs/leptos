@@ -292,6 +292,8 @@ impl Owner {
     #[cfg(feature = "hydration")]
     pub fn with_hydration<T>(fun: impl FnOnce() -> T + 'static) -> T {
         fn inner<T>(fun: Box<dyn FnOnce() -> T>) -> T {
+            provide_context(IsHydrating(true));
+
             let sc = OWNER.with_borrow(|o| {
                 o.as_ref()
                     .and_then(|current| current.shared_context.clone())
@@ -315,6 +317,8 @@ impl Owner {
     #[cfg(feature = "hydration")]
     pub fn with_no_hydration<T>(fun: impl FnOnce() -> T + 'static) -> T {
         fn inner<T>(fun: Box<dyn FnOnce() -> T>) -> T {
+            provide_context(IsHydrating(false));
+
             let sc = OWNER.with_borrow(|o| {
                 o.as_ref()
                     .and_then(|current| current.shared_context.clone())
@@ -334,6 +338,10 @@ impl Owner {
         inner(Box::new(fun))
     }
 }
+
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct IsHydrating(pub bool);
 
 /// Registers a function to be run the next time the current owner is cleaned up.
 ///
