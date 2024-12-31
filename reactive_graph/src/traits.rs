@@ -103,6 +103,7 @@ pub trait Dispose {
 /// Allows tracking the value of some reactive data.
 pub trait Track {
     /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+    #[track_caller]
     fn track(&self);
 }
 
@@ -404,6 +405,7 @@ where
 /// Notifies subscribers of a change in this signal.
 pub trait Notify {
     /// Notifies subscribers of a change in this signal.
+    #[track_caller]
     fn notify(&self);
 }
 
