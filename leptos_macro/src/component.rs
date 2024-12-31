@@ -343,12 +343,20 @@ impl ToTokens for Model {
                     let children = Box::new(|| {
                         let sc = ::leptos::reactive::owner::Owner::current_shared_context().unwrap();
                         let prev = sc.get_is_hydrating();
-                        let value = ::leptos::reactive::owner::Owner::new().with(|| {
-                            ::leptos::reactive::owner::Owner::with_no_hydration(|| {
+                        let owner = ::leptos::reactive::owner::Owner::new();
+                        let value = owner.clone().with(|| {
+                            ::leptos::reactive::owner::Owner::with_no_hydration(move || {
                                 ::leptos::tachys::reactive_graph::OwnedView::new({
-                                    ::leptos::tachys::html::islands::IslandChildren::new({
-                                        children()
-                                    })
+                                    ::leptos::tachys::html::islands::IslandChildren::new_with_on_hydrate(
+                                        children(),
+                                        {
+                                            let owner = owner.clone();
+                                            move || {
+                                                owner.set()
+                                            }
+                                        }
+
+                                    )
                                 }).into_any()
                             })
                         });
@@ -434,20 +442,21 @@ impl ToTokens for Model {
                     };
                 let children = if is_island_with_children {
                     quote! {
-                        .children({Box::new(|| {
+                        .children({
+                            let owner = leptos::reactive::owner::Owner::current();
+                            Box::new(move || {
                             use leptos::tachys::view::any_view::IntoAny;
-                            ::leptos::tachys::html::islands::IslandChildren::new(
-                                // TODO owner restoration for context
-                                ()
+                            ::leptos::tachys::html::islands::IslandChildren::new_with_on_hydrate(
+                                (),
+                                {
+                                    let owner = owner.clone();
+                                    move || {
+                                        if let Some(owner) = &owner {
+                                            owner.set()
+                                        }
+                                    }
+                                }
                             ).into_any()})})
-                        //.children(children)
-                        /*.children(Box::new(|| {
-                            use leptos::tachys::view::any_view::IntoAny;
-                            ::leptos::tachys::html::islands::IslandChildren::new(
-                                // TODO owner restoration for context
-                                ()
-                            ).into_any()
-                        }))*/
                     }
                 } else {
                     quote! {}

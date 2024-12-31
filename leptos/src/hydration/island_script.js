@@ -36,6 +36,14 @@
 	function hydrateIsland(el, id, mod) {
 		const islandFn = mod[id];
 		if (islandFn) {
+			const parent = el.closest("leptos-children");
+			if (parent) {
+				const on_hydrate = parent.$$on_hydrate;
+				console.warn("onHydrate", el, on_hydrate);
+				if(on_hydrate) {
+					on_hydrate();
+				}
+			}
 			islandFn(el);
 		} else {
 			console.warn(`Could not find WASM function for the island ${id}.`);
