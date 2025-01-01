@@ -31,24 +31,50 @@ impl From<ServerFnError> for Error {
     Clone,
     Copy,
 )]
-#[cfg_attr(
-    feature = "rkyv",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
-pub struct NoCustomError;
+pub enum NoCustomError {}
+
+#[cfg(feature = "rkyv")]
+impl rkyv::Archive for NoCustomError {
+    const COPY_OPTIMIZATION: rkyv::traits::CopyOptimization<Self> =
+        rkyv::traits::CopyOptimization::disable();
+    type Archived = ();
+    type Resolver = ();
+    fn resolve(&self, _: Self::Resolver, _: rkyv::Place<Self::Archived>) {
+        match *self {}
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<T, D: rkyv::rancor::Fallible + ?Sized> rkyv::Deserialize<T, D>
+    for NoCustomError
+{
+    fn deserialize(&self, _: &mut D) -> Result<T, D::Error> {
+        match *self {}
+    }
+}
+
+#[cfg(feature = "rkyv")]
+impl<S: rkyv::rancor::Fallible + ?Sized> rkyv::Serialize<S> for NoCustomError {
+    fn serialize(
+        &self,
+        _: &mut S,
+    ) -> Result<Self::Resolver, <S as rkyv::rancor::Fallible>::Error> {
+        match *self {}
+    }
+}
 
 // Implement `Display` for `NoCustomError`
 impl fmt::Display for NoCustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unit Type Displayed")
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        match *self {}
     }
 }
 
 impl FromStr for NoCustomError {
     type Err = ();
 
-    fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        Ok(NoCustomError)
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Err(())
     }
 }
 
@@ -93,13 +119,6 @@ impl<E: ServerFnErrorKind + std::error::Error + Clone> ViaError<E>
 pub(crate) trait ServerFnErrorKind {}
 
 impl ServerFnErrorKind for ServerFnError {}
-
-// This impl should catch passing () or nothing to server_fn_error
-impl ViaError<NoCustomError> for &&&WrapError<()> {
-    fn to_server_error(&self) -> ServerFnError {
-        ServerFnError::WrappedServerError(NoCustomError)
-    }
-}
 
 // This impl will catch any type that implements any type that impls
 // Error and Clone, so that it can be wrapped into ServerFnError
@@ -178,6 +197,195 @@ impl<CustErr> From<CustErr> for ServerFnError<CustErr> {
 impl<E: std::error::Error> From<E> for ServerFnError {
     fn from(value: E) -> Self {
         ServerFnError::ServerError(value.to_string())
+    }
+}
+
+/// Helper trait to convert from `Result<T, ServerFnError<FromCustErr>>` to `Result<T, ServerFnError<CustErr>>`
+///
+/// This is meant to ease the use of the `?` operator:
+/// ```
+/// use server_fn::{error::ConvertServerFnResult, ServerFnError};
+///
+/// enum Helper1Error {
+///     ErrorCase1,
+/// }
+/// fn helper1() -> Result<u8, ServerFnError<Helper1Error>> {
+///     Err(ServerFnError::WrappedServerError(Helper1Error::ErrorCase1))
+/// }
+///
+/// enum Helper2Error {
+///     ErrorCase2,
+/// }
+/// fn helper2() -> Result<u8, ServerFnError<Helper2Error>> {
+///     Err(ServerFnError::WrappedServerError(Helper2Error::ErrorCase2))
+/// }
+///
+/// enum FnError {
+///     ErrorCase1,
+///     ErrorCase2,
+/// }
+/// fn server_fn() -> Result<u8, ServerFnError<FnError>> {
+///     Ok(helper1().convert_custom_error()?
+///         + helper2().convert_custom_error()?)
+/// }
+///
+/// impl From<Helper1Error> for FnError {
+///     fn from(e: Helper1Error) -> Self {
+///         match e {
+///             Helper1Error::ErrorCase1 => Self::ErrorCase1,
+///         }
+///     }
+/// }
+///
+/// impl From<Helper2Error> for FnError {
+///     fn from(e: Helper2Error) -> Self {
+///         match e {
+///             Helper2Error::ErrorCase2 => Self::ErrorCase2,
+///         }
+///     }
+/// }
+/// ```
+///
+/// See also [`ConvertDefaultServerFnResult`] for conversion from the default [`ServerFnError<NoCustomError>`]
+/// and [`ConvertServerFnResult`] for conversion between different custom error types.
+pub trait ConvertServerFnResult<T, CustErr> {
+    /// Converts a `Result<T, ServerFnError<FromCustErr>>` into a `Result<T, ServerFnError<CustError>>`.
+    ///
+    /// `FromCustErr` must implement `Into<CustErr>`.
+    ///
+    /// See the [trait-level documentation](ConvertServerFnResult) for usage examples.
+    fn convert_custom_error(self) -> Result<T, ServerFnError<CustErr>>;
+}
+
+impl<FromCustErr, CustErr, T> ConvertServerFnResult<T, CustErr>
+    for Result<T, ServerFnError<FromCustErr>>
+where
+    FromCustErr: Into<CustErr>,
+{
+    fn convert_custom_error(self) -> Result<T, ServerFnError<CustErr>> {
+        self.map_err(|err| match err {
+            ServerFnError::<FromCustErr>::MissingArg(s) => {
+                ServerFnError::<CustErr>::MissingArg(s)
+            }
+            ServerFnError::<FromCustErr>::Args(s) => {
+                ServerFnError::<CustErr>::Args(s)
+            }
+            ServerFnError::<FromCustErr>::Serialization(s) => {
+                ServerFnError::<CustErr>::Serialization(s)
+            }
+            ServerFnError::<FromCustErr>::ServerError(s) => {
+                ServerFnError::<CustErr>::ServerError(s)
+            }
+            ServerFnError::<FromCustErr>::Response(s) => {
+                ServerFnError::<CustErr>::Response(s)
+            }
+            ServerFnError::<FromCustErr>::Registration(s) => {
+                ServerFnError::<CustErr>::Registration(s)
+            }
+            ServerFnError::<FromCustErr>::Request(s) => {
+                ServerFnError::<CustErr>::Request(s)
+            }
+            ServerFnError::<FromCustErr>::Deserialization(s) => {
+                ServerFnError::<CustErr>::Deserialization(s)
+            }
+            ServerFnError::<FromCustErr>::WrappedServerError(o) => {
+                ServerFnError::<CustErr>::WrappedServerError(o.into())
+            }
+        })
+    }
+}
+
+/// Helper trait to convert from `Result<T, ServerFnError>` to `Result<T, ServerFnError<CustErr>>`
+///
+/// This is meant to ease the use of the `?` operator:
+/// ```
+/// use server_fn::{error::ConvertDefaultServerFnResult, ServerFnError};
+///
+/// fn helper() -> Result<u8, ServerFnError> {
+///     Err(ServerFnError::ServerError(String::from("Server error")))
+/// }
+///
+/// enum FnError {
+///     TypedError,
+/// }
+/// fn server_fn() -> Result<u8, ServerFnError<FnError>> {
+///     Ok(helper().convert_custom_error()?)
+/// }
+/// ```
+///
+/// See also [`ConvertServerFnResult`] for conversion between different custom error types
+/// and [`IntoServerFnResult`] for string-based conversion from any [`std::error::Error`].
+pub trait ConvertDefaultServerFnResult<T, CustErr> {
+    /// Converts a `Result<T, ServerFnError>` into a `Result<T, ServerFnError<CustError>>`.
+    ///
+    /// See the [trait-level documentation](ConvertDefaultServerFnResult) for usage examples.
+    fn convert_custom_error(self) -> Result<T, ServerFnError<CustErr>>;
+}
+impl<CustErr, T> ConvertDefaultServerFnResult<T, CustErr>
+    for Result<T, ServerFnError>
+{
+    fn convert_custom_error(self) -> Result<T, ServerFnError<CustErr>> {
+        self.map_err(|err| match err {
+            ServerFnError::MissingArg(s) => {
+                ServerFnError::<CustErr>::MissingArg(s)
+            }
+            ServerFnError::Args(s) => ServerFnError::<CustErr>::Args(s),
+            ServerFnError::Serialization(s) => {
+                ServerFnError::<CustErr>::Serialization(s)
+            }
+            ServerFnError::ServerError(s) => {
+                ServerFnError::<CustErr>::ServerError(s)
+            }
+            ServerFnError::Response(s) => ServerFnError::<CustErr>::Response(s),
+            ServerFnError::Registration(s) => {
+                ServerFnError::<CustErr>::Registration(s)
+            }
+            ServerFnError::Request(s) => ServerFnError::<CustErr>::Request(s),
+            ServerFnError::Deserialization(s) => {
+                ServerFnError::<CustErr>::Deserialization(s)
+            }
+        })
+    }
+}
+
+/// Helper trait to convert from `Result<T, E>` to `Result<T, ServerFnError<CustErr>>`
+///
+/// This is meant to ease the use of the `?` operator:
+/// ```
+/// use server_fn::{error::IntoServerFnResult, ServerFnError};
+///
+/// fn helper() -> Result<u8, std::num::ParseIntError> {
+///     "3".parse()
+/// }
+///
+/// enum FnError {
+///     ErrorCase1,
+/// }
+/// fn server_fn() -> Result<u8, ServerFnError<FnError>> {
+///     Ok(helper().into_server_fn_result()?)
+/// }
+/// ```
+///
+/// See also [`ConvertDefaultServerFnResult`] for conversion from the default [`ServerFnError<NoCustomError>`]
+/// and [`ConvertServerFnResult`] for conversion between different custom error types.
+pub trait IntoServerFnResult<T, CustErr> {
+    /// Converts a `Result<T, E>` into a `Result<T, ServerFnError<CustError>>`.
+    ///
+    /// Maps the error to [`ServerFnError::ServerError()`] using [`Error::to_string()`].
+    ///
+    /// When using the default [`NoCustomError`], one can directly use [`Into`] instead.
+    ///
+    /// See the [trait-level documentation](IntoServerFnResult) for usage examples.
+    fn into_server_fn_result(self) -> Result<T, ServerFnError<CustErr>>;
+}
+
+impl<CustErr, T, E: std::error::Error> IntoServerFnResult<T, CustErr>
+    for Result<T, E>
+{
+    fn into_server_fn_result(self) -> Result<T, ServerFnError<CustErr>> {
+        self.map_err(|err| {
+            ServerFnError::<CustErr>::ServerError(err.to_string())
+        })
     }
 }
 
