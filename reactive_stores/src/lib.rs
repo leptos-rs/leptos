@@ -335,6 +335,12 @@ impl<T> ArcStore<T> {
     }
 }
 
+impl<T: Default> Default for ArcStore<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T: Debug> Debug for ArcStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("ArcStore");
@@ -465,6 +471,24 @@ where
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
+    }
+}
+
+impl<T> Default for Store<T>
+where
+    T: Default + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T> Default for Store<T, LocalStorage>
+where
+    T: Default + 'static,
+{
+    fn default() -> Self {
+        Self::new_local(T::default())
     }
 }
 
