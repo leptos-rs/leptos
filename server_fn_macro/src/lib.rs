@@ -230,6 +230,7 @@ pub fn server_macro_impl(
         None => Some("PostUrl".to_string()),
         _ => None,
     };
+
     let input = input
         .map(|n| {
             if builtin_encoding {
@@ -604,17 +605,28 @@ pub fn server_macro_impl(
     } else {
         quote! { concat!("/", #fn_path) }
     };
+
+    let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
+
     let path = quote! {
         if #fn_path.is_empty() {
-            #server_fn_path::const_format::concatcp!(
-                #prefix,
-                "/",
-                #fn_name_as_str,
-                #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
-                    0
+            if #enable_hash {
+                #server_fn_path::const_format::concatcp!(
+                    #prefix,
+                    "/",
+                    #fn_name_as_str,
+                    #server_fn_path::xxhash_rust::const_xxh64::xxh64(
+                        concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                        0
+                    )
                 )
-            )
+            } else {
+                #server_fn_path::const_format::concatcp!(
+                    #prefix,
+                    "/",
+                    #fn_name_as_str,
+                )
+            }
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
