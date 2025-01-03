@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.8.1", optional = true }
 console_error_panic_hook = "0.1.7"
 leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
