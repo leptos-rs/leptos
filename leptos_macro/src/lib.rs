@@ -918,7 +918,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         args.into(),
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
-        "/api",
+        option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
     ) {
