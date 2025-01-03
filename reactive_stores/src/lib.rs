@@ -114,8 +114,8 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Write,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
+        UntrackableGuard, Write,
     },
 };
 pub use reactive_stores_macro::{Patch, Store};
@@ -532,6 +532,15 @@ where
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> Dispose for Store<T, S>
+where
+    T: 'static,
+{
+    fn dispose(self) {
+        self.inner.dispose();
     }
 }
 
