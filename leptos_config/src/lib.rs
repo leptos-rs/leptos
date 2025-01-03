@@ -78,6 +78,12 @@ pub struct LeptosOptions {
     #[builder(default = default_hash_files())]
     #[serde(default = "default_hash_files")]
     pub hash_files: bool,
+    #[builder(default, setter(strip_option))]
+    #[serde(default)]
+    pub server_fn_prefix: Option<String>,
+    #[builder(default)]
+    #[serde(default)]
+    pub disable_server_fn_hash: bool,
 }
 
 impl LeptosOptions {
@@ -120,6 +126,9 @@ impl LeptosOptions {
             hash_file: env_w_default("LEPTOS_HASH_FILE_NAME", "hash.txt")?
                 .into(),
             hash_files: env_w_default("LEPTOS_HASH_FILES", "false")?.parse()?,
+            server_fn_prefix: env_wo_default("SERVER_FN_PREFIX")?,
+            disable_server_fn_hash: env_wo_default("DISABLE_SERVER_FN_HASH")?
+                .is_some(),
         })
     }
 }
