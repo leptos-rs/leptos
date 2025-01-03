@@ -484,7 +484,7 @@ pub type PinnedHtmlStream =
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -508,7 +508,7 @@ where
 )]
 pub fn render_route<S, IV>(
     paths: Vec<AxumRouteListing>,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     State<S>,
     Request<Body>,
@@ -572,7 +572,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -625,13 +625,14 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
        + Send
+       + Sync
        + 'static
 where
     IV: IntoView + 'static,
@@ -654,8 +655,8 @@ where
 )]
 pub fn render_route_with_context<S, IV>(
     paths: Vec<AxumRouteListing>,
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     State<S>,
     Request<Body>,
@@ -756,14 +757,15 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
        + Send
+       + Sync
        + 'static
 where
     IV: IntoView + 'static,
@@ -823,8 +825,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -847,13 +849,17 @@ where
 }
 
 fn handle_response<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
     ) -> PinnedFuture<PinnedStream<String>>,
-) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>> + Clone + Send + 'static
+) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>>
+       + Clone
+       + Send
+       + Sync
+       + 'static
 where
     IV: IntoView + 'static,
 {
@@ -980,7 +986,7 @@ fn provide_contexts(
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1034,8 +1040,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1101,8 +1107,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1641,7 +1647,7 @@ where
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1656,8 +1662,8 @@ where
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1727,7 +1733,7 @@ where
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1743,8 +1749,8 @@ where
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
