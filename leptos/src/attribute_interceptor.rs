@@ -35,7 +35,7 @@ type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
 ///     }
 /// }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn AttributeInterceptor<Chil, T>(
     /// The elements that will be rendered, with the attributes this component received as a
     /// parameter.
