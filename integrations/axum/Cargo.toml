@@ -30,7 +30,7 @@ tower-http = "0.6.2"
 tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
-axum = "0.7.9"
+axum = "0.8.1"
 tokio = { version = "1.41", features = ["net", "rt-multi-thread"] }
 
 [features]
