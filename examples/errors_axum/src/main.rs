@@ -45,7 +45,7 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/special/:id", get(custom_handler))
+        .route("/special/{id}", get(custom_handler))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
