@@ -335,6 +335,20 @@ impl<T> ArcStore<T> {
     }
 }
 
+impl<T> PartialEq for ArcStore<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.value, &other.value)
+    }
+}
+
+impl<T> Eq for ArcStore<T> {}
+
+impl<T> Hash for ArcStore<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(&Arc::as_ptr(&self.value), state);
+    }
+}
+
 impl<T: Default> Default for ArcStore<T> {
     fn default() -> Self {
         Self::new(T::default())
@@ -471,6 +485,20 @@ where
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
+    }
+}
+
+impl<T, S> PartialEq for Store<T, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T, S> Eq for Store<T, S> {}
+
+impl<T, S> Hash for Store<T, S> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
     }
 }
 
