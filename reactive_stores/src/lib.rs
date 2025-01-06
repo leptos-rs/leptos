@@ -111,7 +111,7 @@ use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Plain, ReadGuard, WriteGuard},
-        ArcTrigger,
+        ArcTrigger, Scoped,
     },
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
@@ -429,6 +429,15 @@ impl<T: 'static> Notify for ArcStore<T> {
     }
 }
 
+impl<T> std::convert::From<ArcStore<T>> for Scoped<Store<T>>
+where
+    T: Send + Sync + 'static,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self::new::<ArcStore<T>>(value)
+    }
+}
+
 /// An arena-allocated container for a reactive store.
 ///
 /// The type `T` should be a struct that has been annotated with `#[derive(Store)]`.
@@ -618,10 +627,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
+    use crate::{
+        self as reactive_stores, ArcStore, Patch, Store, StoreFieldIterator,
+    };
     use reactive_graph::{
-        effect::Effect,
-        traits::{Read, ReadUntracked, Set, Update, Write},
+        effect::Effect, owner::Owner, signal::Scoped, traits::*,
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -883,6 +893,19 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn scoped_store() {
+        let owner = Owner::new();
+        owner.set();
+
+        let arc_store = ArcStore::new(0);
+        let a = Scoped::from(arc_store);
+        assert_eq!(a.read(), 0);
+        assert_eq!(a.get(), 0);
+        assert_eq!(a.with_untracked(|n| n + 1), 1);
+        assert_eq!(a.with(|n| n + 1), 1);
     }
 
     #[derive(Debug, Store)]

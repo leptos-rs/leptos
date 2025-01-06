@@ -12,7 +12,7 @@ mod subscriber_traits;
 mod trigger;
 mod write;
 
-use crate::owner::LocalStorage;
+use crate::owner::{LocalStorage, Owner};
 pub use arc_read::*;
 pub use arc_rw::*;
 pub use arc_trigger::*;
@@ -195,4 +195,77 @@ pub fn create_rw_signal<T: Send + Sync + 'static>(value: T) -> RwSignal<T> {
                 Please use `ArcTrigger::new()` instead."]
 pub fn create_trigger() -> ArcTrigger {
     ArcTrigger::new()
+}
+
+/// A utility wrapper around a signal that scopes the lifetime of the signal
+/// to the scope in which it was created.
+pub struct Scoped<T> {
+    #[allow(unused)]
+    owner: Owner,
+    signal: T,
+}
+
+impl<T> Scoped<T> {
+    /// Creates a new scoped signal.
+    pub fn new<U>(value: U) -> Self
+    where
+        U: 'static,
+        T: std::convert::From<U>,
+    {
+        Self::from_fn(move || T::from(value))
+    }
+
+    /// Creates a new scoped signal.
+    pub fn from_fn<F>(fun: F) -> Self
+    where
+        F: FnOnce() -> T + 'static,
+    {
+        let owner = Owner::new();
+        owner.set();
+        Self {
+            owner,
+            signal: fun(),
+        }
+    }
+}
+
+impl<T> std::ops::Deref for Scoped<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.signal
+    }
+}
+
+impl<T> std::ops::DerefMut for Scoped<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.signal
+    }
+}
+
+impl<T> std::convert::From<ArcReadSignal<T>> for Scoped<ReadSignal<T>>
+where
+    T: Send + Sync + 'static,
+{
+    fn from(value: ArcReadSignal<T>) -> Self {
+        Self::new::<ArcReadSignal<T>>(value)
+    }
+}
+
+impl<T> std::convert::From<ArcRwSignal<T>> for Scoped<RwSignal<T>>
+where
+    T: Send + Sync + 'static,
+{
+    fn from(value: ArcRwSignal<T>) -> Self {
+        Self::new::<ArcRwSignal<T>>(value)
+    }
+}
+
+impl<T> std::convert::From<ArcWriteSignal<T>> for Scoped<WriteSignal<T>>
+where
+    T: Send + Sync + 'static,
+{
+    fn from(value: ArcWriteSignal<T>) -> Self {
+        Self::new::<ArcWriteSignal<T>>(value)
+    }
 }
