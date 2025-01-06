@@ -84,7 +84,10 @@ ssr = [
   "tachys/ssr",
 ]
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
-rkyv = ["server_fn/rkyv"]
+rkyv = [
+  "server_fn/rkyv",
+  "leptos_server/rkyv"
+]
 tracing = [
   "dep:tracing",
   "reactive_graph/tracing",
