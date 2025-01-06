@@ -641,6 +641,7 @@ impl ToTokens for PatchModel {
                                 };
                                 notify(&new_path);
                             }
+                            new_path.replace_last(#idx + 1);
                         }
                     } else {
                         quote! {

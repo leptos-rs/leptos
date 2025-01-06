@@ -889,13 +889,13 @@ mod tests {
     async fn patching_only_notifies_changed_field_with_custom_patch() {
         #[derive(Debug, Store, Patch, Default)]
         struct CustomTodos {
+            #[patch(|this, new| *this = new)]
             user: String,
             todos: Vec<CustomTodo>,
         }
 
         #[derive(Debug, Store, Patch, Default)]
         struct CustomTodo {
-            #[patch(|this, new| *this = new)]
             label: String,
             completed: bool,
         }
@@ -917,7 +917,7 @@ mod tests {
                 } else {
                     println!("next run");
                 }
-                println!("{:?}", *store.todos().read());
+                println!("{:?}", *store.user().read());
                 combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
@@ -928,12 +928,13 @@ mod tests {
             todos: vec![],
         });
         tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
         store.patch(CustomTodos {
             user: "Carol".into(),
             todos: vec![],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
 
         store.patch(CustomTodos {
             user: "Carol".into(),
@@ -943,7 +944,7 @@ mod tests {
             }],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[derive(Debug, Store)]
