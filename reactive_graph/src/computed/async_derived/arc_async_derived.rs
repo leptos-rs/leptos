@@ -413,7 +413,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     ) {
         loading.store(false, Ordering::Relaxed);
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Notifying;
+        let prev_state = mem::replace(
+            &mut inner.write().or_poisoned().state,
+            AsyncDerivedState::Notifying,
+        );
 
         if let Some(ready_tx) = ready_tx {
             // if it's an Err, that just means the Receiver was dropped
@@ -433,7 +436,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
             waker.wake();
         }
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Clean;
+        // if this was marked dirty before notifications began, this means it
+        // had been notified while loading; marking it clean will cause it not to
+        // run on the next tick of the async loop, so here it should be left dirty
+        inner.write().or_poisoned().state = prev_state;
     }
 }
 
