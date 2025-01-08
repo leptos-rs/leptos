@@ -156,7 +156,6 @@ where
 {
     // inlining allows the compiler to remove the unused functions
     // i.e., doesn't ship HTML-generating code that isn't used
-    #[inline(always)]
     fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]
         let html_len = self.html_len();
