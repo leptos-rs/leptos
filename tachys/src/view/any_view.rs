@@ -268,24 +268,25 @@ impl AnyView {
                         }
                     };
 
-                let rebuild = |new_type_id: TypeId,
-                               value: Box<dyn Any>,
-                               state: &mut AnyViewState| {
-                    let value = value
-                        .downcast::<T>()
-                        .expect("AnyView::rebuild couldn't downcast value");
-                    if new_type_id == state.type_id {
-                        let state = state.state.downcast_mut().expect(
-                            "AnyView::rebuild couldn't downcast state",
-                        );
-                        value.rebuild(state);
-                    } else {
-                        let mut new = value.into_any().build();
-                        state.insert_before_this(&mut new);
-                        state.unmount();
-                        *state = new;
-                    }
-                };
+                let rebuild =
+                    |new_type_id: TypeId,
+                     value: Box<dyn Any>,
+                     state: &mut AnyViewState| {
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView::rebuild couldn't downcast value");
+                        if new_type_id == state.type_id {
+                            let state = state.state.downcast_mut().expect(
+                                "AnyView::rebuild couldn't downcast state",
+                            );
+                            value.rebuild(state);
+                        } else {
+                            let mut new = value.into_any().build();
+                            state.insert_before_this(&mut new);
+                            state.unmount();
+                            *state = new;
+                        }
+                    };
 
                 // 2) Key fix Attempt: only call into_any() once via from_box.
                 let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
@@ -334,7 +335,6 @@ where
         AnyView::from_box(Box::new(self))
     }
 }
-
 
 impl Render for AnyView {
     type State = AnyViewState;
