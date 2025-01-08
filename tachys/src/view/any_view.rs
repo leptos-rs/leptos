@@ -128,22 +128,20 @@ where
     state.insert_before_this(child)
 }
 
-impl<T> IntoAny for T
-where
-    T: Send,
-    T: RenderHtml + 'static,
-    T::State: 'static,
-{
-    // inlining allows the compiler to remove the unused functions
-    // i.e., doesn't ship HTML-generating code that isn't used
-    fn into_any(self) -> AnyView {
+// 1) Define a small constructor to box up a T (RenderHtml).
+impl AnyView {
+    fn from_box<T>(value: Box<T>) -> Self
+    where
+        T: Send + RenderHtml + 'static,
+    {
         #[cfg(feature = "ssr")]
-        let html_len = self.html_len();
+        let html_len = value.html_len();
 
-        let value = Box::new(self) as Box<dyn Any + Send>;
+        // Convert the concrete box into a `Box<dyn Any + Send>`.
+        let value = value as Box<dyn Any + Send>;
 
+        // If it's already an AnyView, don't double-wrap.
         match value.downcast::<AnyView>() {
-            // if it's already an AnyView, we don't need to double-wrap it
             Ok(any_view) => *any_view,
             Err(value) => {
                 #[cfg(feature = "ssr")]
@@ -162,6 +160,7 @@ where
                     Box::pin(async move { value.resolve().await.into_any() })
                         as Pin<Box<dyn Future<Output = AnyView> + Send>>
                 };
+
                 #[cfg(feature = "ssr")]
                 let to_html =
                     |value: Box<dyn Any>,
@@ -188,6 +187,7 @@ where
                             buf.close_branch(&type_id);
                         }
                     };
+
                 #[cfg(feature = "ssr")]
                 let to_html_async =
                     |value: Box<dyn Any>,
@@ -214,6 +214,7 @@ where
                             buf.close_branch(&type_id);
                         }
                     };
+
                 #[cfg(feature = "ssr")]
                 let to_html_async_ooo =
                     |value: Box<dyn Any>,
@@ -231,6 +232,7 @@ where
                             mark_branches,
                         );
                     };
+
                 let build = |value: Box<dyn Any>| {
                     let value = value
                         .downcast::<T>()
@@ -240,12 +242,12 @@ where
                     AnyViewState {
                         type_id: TypeId::of::<T>(),
                         state,
-
                         mount: mount_any::<T>,
                         unmount: unmount_any::<T>,
                         insert_before_this: insert_before_this::<T>,
                     }
                 };
+
                 #[cfg(feature = "hydrate")]
                 let hydrate_from_server =
                     |value: Box<dyn Any>,
@@ -260,38 +262,39 @@ where
                         AnyViewState {
                             type_id: TypeId::of::<T>(),
                             state,
-
                             mount: mount_any::<T>,
                             unmount: unmount_any::<T>,
                             insert_before_this: insert_before_this::<T>,
                         }
                     };
 
-                let rebuild =
-                    |new_type_id: TypeId,
-                     value: Box<dyn Any>,
-                     state: &mut AnyViewState| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView::rebuild couldn't downcast value");
-                        if new_type_id == state.type_id {
-                            let state = state.state.downcast_mut().expect(
-                                "AnyView::rebuild couldn't downcast state",
-                            );
-                            value.rebuild(state);
-                        } else {
-                            let mut new = value.into_any().build();
-                            state.insert_before_this(&mut new);
-                            state.unmount();
-                            *state = new;
-                        }
-                    };
+                let rebuild = |new_type_id: TypeId,
+                               value: Box<dyn Any>,
+                               state: &mut AnyViewState| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::rebuild couldn't downcast value");
+                    if new_type_id == state.type_id {
+                        let state = state.state.downcast_mut().expect(
+                            "AnyView::rebuild couldn't downcast state",
+                        );
+                        value.rebuild(state);
+                    } else {
+                        let mut new = value.into_any().build();
+                        state.insert_before_this(&mut new);
+                        state.unmount();
+                        *state = new;
+                    }
+                };
 
+                // 2) Key fix Attempt: only call into_any() once via from_box.
                 let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
                     let value = value
                         .downcast::<T>()
                         .expect("AnyView::add_any_attr could not be downcast");
-                    value.add_any_attr(attr).into_any()
+                    let updated = value.add_any_attr(attr);
+                    // Re-wrap exactly once:
+                    AnyView::from_box(Box::new(updated))
                 };
 
                 AnyView {
@@ -319,6 +322,19 @@ where
         }
     }
 }
+
+impl<T> IntoAny for T
+where
+    T: Send,
+    T: RenderHtml + 'static,
+    T::State: 'static,
+{
+    fn into_any(self) -> AnyView {
+        // Use our from_box constructor to avoid repeated into_any() calls.
+        AnyView::from_box(Box::new(self))
+    }
+}
+
 
 impl Render for AnyView {
     type State = AnyViewState;
