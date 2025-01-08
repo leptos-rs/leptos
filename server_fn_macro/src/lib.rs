@@ -606,6 +606,18 @@ pub fn server_macro_impl(
         quote! { concat!("/", #fn_path) }
     };
 
+    let enable_server_fn_mod_path = option_env!("SERVER_FN_MOD_PATH").is_some();
+    let mod_path = if enable_server_fn_mod_path {
+        quote! {
+            #server_fn_path::const_format::concatcp!(
+                #server_fn_path::const_str::replace!(module_path!(), "::", "/"),
+                "/"
+            )
+        }
+    } else {
+        quote! { "" }
+    };
+
     let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
     let hash = if !enable_hash {
         quote! {
@@ -623,12 +635,14 @@ pub fn server_macro_impl(
             #server_fn_path::const_format::concatcp!(
                 #prefix,
                 "/",
+                #mod_path,
                 #fn_name_as_str,
                 #hash
             )
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
+                #mod_path,
                 #fn_path
             )
         }

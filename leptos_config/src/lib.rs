@@ -105,6 +105,15 @@ pub struct LeptosOptions {
     #[builder(default)]
     #[serde(default)]
     pub disable_server_fn_hash: bool,
+    /// Include the module path of the server function in the API route. This is an alternative
+    /// strategy to prevent duplicate server function API routes (the default strategy is to add
+    /// a hash to the end of the route). Each element of the module path will be separated by a `/`.
+    /// For example, a server function with a fully qualified name of `parent::child::server_fn`
+    /// would have an API route of `/api/parent/child/server_fn` (possibly with a
+    /// different prefix and a hash suffix depending on the values of the other server fn configs).
+    #[builder(default)]
+    #[serde(default)]
+    pub server_fn_mod_path: bool,
 }
 
 impl LeptosOptions {
@@ -150,6 +159,7 @@ impl LeptosOptions {
             server_fn_prefix: env_wo_default("SERVER_FN_PREFIX")?,
             disable_server_fn_hash: env_wo_default("DISABLE_SERVER_FN_HASH")?
                 .is_some(),
+            server_fn_mod_path: env_wo_default("SERVER_FN_MOD_PATH")?.is_some(),
         })
     }
 }

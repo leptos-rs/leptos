@@ -130,6 +130,8 @@ use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
 pub use const_format;
+#[doc(hidden)]
+pub use const_str;
 use dashmap::DashMap;
 pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
