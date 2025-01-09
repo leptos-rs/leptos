@@ -7,7 +7,7 @@ use super::{
 use crate::{
     html::attribute::{
         any_attribute::{AnyAttribute, IntoAnyAttribute},
-        Attribute,
+        Attribute, NextAttribute,
     },
     hydration::Cursor,
     ssr::StreamBuilder,
@@ -51,7 +51,7 @@ pub struct AnyView {
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
+    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output=AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Box<dyn Any + Send>),
     #[cfg(feature = "hydrate")]
@@ -128,20 +128,22 @@ where
     state.insert_before_this(child)
 }
 
-// 1) Define a small constructor to box up a T (RenderHtml).
-impl AnyView {
-    fn from_box<T>(value: Box<T>) -> Self
-    where
-        T: Send + RenderHtml + 'static,
-    {
+impl<T> IntoAny for T
+where
+    T: Send,
+    T: RenderHtml + 'static,
+    T::State: 'static,
+{
+    // inlining allows the compiler to remove the unused functions
+    // i.e., doesn't ship HTML-generating code that isn't used
+    fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]
-        let html_len = value.html_len();
+        let html_len = self.html_len();
 
-        // Convert the concrete box into a `Box<dyn Any + Send>`.
-        let value = value as Box<dyn Any + Send>;
+        let value = Box::new(self) as Box<dyn Any + Send>;
 
-        // If it's already an AnyView, don't double-wrap.
         match value.downcast::<AnyView>() {
+            // if it's already an AnyView, we don't need to double-wrap it
             Ok(any_view) => *any_view,
             Err(value) => {
                 #[cfg(feature = "ssr")]
@@ -158,9 +160,8 @@ impl AnyView {
                         .downcast::<T>()
                         .expect("AnyView::resolve could not be downcast");
                     Box::pin(async move { value.resolve().await.into_any() })
-                        as Pin<Box<dyn Future<Output = AnyView> + Send>>
+                        as Pin<Box<dyn Future<Output=AnyView> + Send>>
                 };
-
                 #[cfg(feature = "ssr")]
                 let to_html =
                     |value: Box<dyn Any>,
@@ -187,7 +188,6 @@ impl AnyView {
                             buf.close_branch(&type_id);
                         }
                     };
-
                 #[cfg(feature = "ssr")]
                 let to_html_async =
                     |value: Box<dyn Any>,
@@ -214,7 +214,6 @@ impl AnyView {
                             buf.close_branch(&type_id);
                         }
                     };
-
                 #[cfg(feature = "ssr")]
                 let to_html_async_ooo =
                     |value: Box<dyn Any>,
@@ -232,7 +231,6 @@ impl AnyView {
                             mark_branches,
                         );
                     };
-
                 let build = |value: Box<dyn Any>| {
                     let value = value
                         .downcast::<T>()
@@ -242,12 +240,12 @@ impl AnyView {
                     AnyViewState {
                         type_id: TypeId::of::<T>(),
                         state,
+
                         mount: mount_any::<T>,
                         unmount: unmount_any::<T>,
                         insert_before_this: insert_before_this::<T>,
                     }
                 };
-
                 #[cfg(feature = "hydrate")]
                 let hydrate_from_server =
                     |value: Box<dyn Any>,
@@ -262,6 +260,7 @@ impl AnyView {
                         AnyViewState {
                             type_id: TypeId::of::<T>(),
                             state,
+
                             mount: mount_any::<T>,
                             unmount: unmount_any::<T>,
                             insert_before_this: insert_before_this::<T>,
@@ -288,14 +287,11 @@ impl AnyView {
                         }
                     };
 
-                // 2) Key fix Attempt: only call into_any() once via from_box.
                 let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
                     let value = value
                         .downcast::<T>()
                         .expect("AnyView::add_any_attr could not be downcast");
-                    let updated = value.add_any_attr(attr);
-                    // Re-wrap exactly once:
-                    AnyView::from_box(Box::new(updated))
+                    value.add_any_attr(attr).into_any()
                 };
 
                 AnyView {
@@ -324,18 +320,6 @@ impl AnyView {
     }
 }
 
-impl<T> IntoAny for T
-where
-    T: Send,
-    T: RenderHtml + 'static,
-    T::State: 'static,
-{
-    fn into_any(self) -> AnyView {
-        // Use our from_box constructor to avoid repeated into_any() calls.
-        AnyView::from_box(Box::new(self))
-    }
-}
-
 impl Render for AnyView {
     type State = AnyViewState;
 
@@ -349,17 +333,16 @@ impl Render for AnyView {
 }
 
 impl AddAnyAttr for AnyView {
-    type Output<SomeNewAttr: Attribute> = Self;
+    type Output<SomeNewAttr: Attribute> = AttrStaged;
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml,
-    {
-        let attr = attr.into_cloneable_owned();
-        (self.add_any_attr)(self.value, attr.into_any_attr())
+    ) -> Self::Output<NewAttr> {
+        AttrStaged {
+            attr: attr.into_cloneable_owned().into_any_attr(),
+            view: self,
+        }
     }
 }
 
@@ -478,16 +461,102 @@ impl RenderHtml for AnyView {
             );
         }
     }
+}
+
+/// A helper struct that stages the addition of an attributes to an `AnyView`.
+/// Attributes are accumulated until apply() is called, which combines them with the underlying
+/// view to produce the final AnyView. By staging multiple attribute additions before returning an
+/// `AnyView`, we avoid repeatedly converting to and from type-erased forms that would occur if we
+/// did `add_any_attr().into_any()` for each attribute.
+pub struct AttrStaged {
+    attr: AnyAttribute,
+    view: AnyView,
+}
+
+impl AttrStaged {
+    #[inline(always)]
+    fn apply(self) -> AnyView {
+        (self.view.add_any_attr)(self.view.value, self.attr)
+    }
+}
+
+impl AddAnyAttr for AttrStaged {
+    type Output<SomeNewAttr: Attribute> = AttrStaged;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        AttrStaged {
+            attr: self.attr.add_any_attr(attr.into_cloneable_owned()).into_any_attr(),
+            view: self.view,
+        }
+    }
+}
+
+impl Render for AttrStaged {
+    type State = AnyViewState;
+
+    fn build(self) -> Self::State {
+        self.apply().build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        self.apply().rebuild(state)
+    }
+}
+
+impl RenderHtml for AttrStaged {
+    type AsyncOutput = AnyView;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.apply().resolve().await
+    }
 
     fn html_len(&self) -> usize {
-        #[cfg(feature = "ssr")]
-        {
-            self.html_len
-        }
-        #[cfg(not(feature = "ssr"))]
-        {
-            0
-        }
+        self.view.html_len()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.apply().to_html_with_buf(buf, position, escape, mark_branches)
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.apply().to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.apply().hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
