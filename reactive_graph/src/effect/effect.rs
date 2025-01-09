@@ -12,7 +12,9 @@ use any_spawner::Executor;
 use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{
+    future::Future,
     mem,
+    pin::Pin,
     sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
@@ -189,6 +191,57 @@ impl Effect<LocalStorage> {
                     }
                 }
             });
+
+            ArenaItem::new_with_storage(Some(inner))
+        });
+
+        Self { inner }
+    }
+
+    /// Creates a new effect, which runs once on the next “tick”, and then runs again when reactive values
+    /// that are read inside it change.
+    ///
+    /// This spawns a task on the local thread using
+    /// [`spawn_local`](any_spawner::Executor::spawn_local). For an effect that can be spawned on
+    /// any thread, use [`new_sync`](Effect::new_sync).
+    pub fn new_with_runtime<T, M>(
+        mut fun: impl EffectFunction<T, M> + 'static,
+        pass_to_rt: impl FnOnce(Pin<Box<dyn Future<Output = ()> + 'static>>),
+    ) -> Self
+    where
+        T: 'static,
+    {
+        let inner = cfg!(feature = "effects").then(|| {
+            let (mut rx, owner, inner) = effect_base();
+            let value = Arc::new(RwLock::new(None::<T>));
+            let mut first_run = true;
+
+            let task = Box::pin({
+                let value = Arc::clone(&value);
+                let subscriber = inner.to_any_subscriber();
+
+                async move {
+                    while rx.next().await.is_some() {
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
+                        {
+                            first_run = false;
+                            subscriber.clear_sources(&subscriber);
+
+                            let old_value =
+                                mem::take(&mut *value.write().or_poisoned());
+                            let new_value = owner.with_cleanup(|| {
+                                subscriber.with_observer(|| {
+                                    run_in_effect_scope(|| fun.run(old_value))
+                                })
+                            });
+                            *value.write().or_poisoned() = Some(new_value);
+                        }
+                    }
+                }
+            });
+            pass_to_rt(task);
 
             ArenaItem::new_with_storage(Some(inner))
         });
@@ -407,6 +460,55 @@ impl Effect<SyncStorage> {
                     }
                 }
             });
+
+            ArenaItem::new_with_storage(Some(inner))
+        });
+
+        Self { inner }
+    }
+
+    /// See [`Self::new_sync`]. This function additional allows for a custom
+    /// runtime to be supplied by the caller.
+    pub fn new_sync_with_runtime<T, M>(
+        mut fun: impl EffectFunction<T, M> + Send + Sync + 'static,
+        pass_to_rt: impl FnOnce(
+            Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
+        ),
+    ) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        let inner = cfg!(feature = "effects").then(|| {
+            let (mut rx, owner, inner) = effect_base();
+            let mut first_run = true;
+            let value = Arc::new(RwLock::new(None::<T>));
+
+            let task = {
+                let value = Arc::clone(&value);
+                let subscriber = inner.to_any_subscriber();
+
+                Box::pin(async move {
+                    while rx.next().await.is_some() {
+                        if subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run
+                        {
+                            first_run = false;
+                            subscriber.clear_sources(&subscriber);
+
+                            let old_value =
+                                mem::take(&mut *value.write().or_poisoned());
+                            let new_value = owner.with_cleanup(|| {
+                                subscriber.with_observer(|| {
+                                    run_in_effect_scope(|| fun.run(old_value))
+                                })
+                            });
+                            *value.write().or_poisoned() = Some(new_value);
+                        }
+                    }
+                })
+            };
+            pass_to_rt(task);
 
             ArenaItem::new_with_storage(Some(inner))
         });
