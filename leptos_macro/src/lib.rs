@@ -23,6 +23,7 @@ mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod lazy;
 mod memo;
 mod slice;
 mod slot;
@@ -1001,4 +1002,21 @@ pub fn slice(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
+}
+
+/// TODO docs for lazy macros.
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    lazy::lazy_impl(args, s)
+}
+
+/// TODO docs for lazy macros.
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn lazy_route(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> TokenStream {
+    lazy::lazy_route_impl(args, s)
 }
