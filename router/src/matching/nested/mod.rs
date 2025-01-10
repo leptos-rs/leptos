@@ -151,7 +151,7 @@ impl<Segments, Children, Data, View> MatchNestedRoutes
     for NestedRoute<Segments, Children, Data, View>
 where
     Self: 'static,
-    Segments: PossibleRouteMatch + std::fmt::Debug,
+    Segments: PossibleRouteMatch,
     Children: MatchNestedRoutes,
     Children::Match: MatchParams,
     Children: 'static,
