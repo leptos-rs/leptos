@@ -5,7 +5,12 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{
+        any_attribute::{AnyAttribute, IntoAnyAttribute},
+        Attribute, NextAttribute,
+    },
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -29,6 +34,7 @@ pub struct AnyView {
     value: Box<dyn Any + Send>,
     build: fn(Box<dyn Any>) -> AnyViewState,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
+    add_any_attr: fn(Box<dyn Any>, AnyAttribute) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -45,7 +51,7 @@ pub struct AnyView {
         fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
+    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output=AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Box<dyn Any + Send>),
     #[cfg(feature = "hydrate")]
@@ -130,7 +136,6 @@ where
 {
     // inlining allows the compiler to remove the unused functions
     // i.e., doesn't ship HTML-generating code that isn't used
-    #[inline(always)]
     fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]
         let html_len = self.html_len();
@@ -155,7 +160,7 @@ where
                         .downcast::<T>()
                         .expect("AnyView::resolve could not be downcast");
                     Box::pin(async move { value.resolve().await.into_any() })
-                        as Pin<Box<dyn Future<Output = AnyView> + Send>>
+                        as Pin<Box<dyn Future<Output=AnyView> + Send>>
                 };
                 #[cfg(feature = "ssr")]
                 let to_html =
@@ -282,11 +287,19 @@ where
                         }
                     };
 
+                let add_any_attr = |value: Box<dyn Any>, attr: AnyAttribute| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::add_any_attr could not be downcast");
+                    value.add_any_attr(attr).into_any()
+                };
+
                 AnyView {
                     type_id: TypeId::of::<T>(),
                     value,
                     build,
                     rebuild,
+                    add_any_attr,
                     #[cfg(feature = "ssr")]
                     resolve,
                     #[cfg(feature = "ssr")]
@@ -320,16 +333,16 @@ impl Render for AnyView {
 }
 
 impl AddAnyAttr for AnyView {
-    type Output<SomeNewAttr: Attribute> = Self;
+    type Output<SomeNewAttr: Attribute> = AttrStaged;
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
-        _attr: NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml,
-    {
-        self
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        AttrStaged {
+            attr: attr.into_cloneable_owned().into_any_attr(),
+            view: self,
+        }
     }
 }
 
@@ -448,16 +461,102 @@ impl RenderHtml for AnyView {
             );
         }
     }
+}
+
+/// A helper struct that stages the addition of an attributes to an `AnyView`.
+/// Attributes are accumulated until apply() is called, which combines them with the underlying
+/// view to produce the final AnyView. By staging multiple attribute additions before returning an
+/// `AnyView`, we avoid repeatedly converting to and from type-erased forms that would occur if we
+/// did `add_any_attr().into_any()` for each attribute.
+pub struct AttrStaged {
+    attr: AnyAttribute,
+    view: AnyView,
+}
+
+impl AttrStaged {
+    #[inline(always)]
+    fn apply(self) -> AnyView {
+        (self.view.add_any_attr)(self.view.value, self.attr)
+    }
+}
+
+impl AddAnyAttr for AttrStaged {
+    type Output<SomeNewAttr: Attribute> = AttrStaged;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        AttrStaged {
+            attr: self.attr.add_any_attr(attr.into_cloneable_owned()).into_any_attr(),
+            view: self.view,
+        }
+    }
+}
+
+impl Render for AttrStaged {
+    type State = AnyViewState;
+
+    fn build(self) -> Self::State {
+        self.apply().build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        self.apply().rebuild(state)
+    }
+}
+
+impl RenderHtml for AttrStaged {
+    type AsyncOutput = AnyView;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.apply().resolve().await
+    }
 
     fn html_len(&self) -> usize {
-        #[cfg(feature = "ssr")]
-        {
-            self.html_len
-        }
-        #[cfg(not(feature = "ssr"))]
-        {
-            0
-        }
+        self.view.html_len()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.apply().to_html_with_buf(buf, position, escape, mark_branches)
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.apply().to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.apply().hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
