@@ -541,8 +541,13 @@ struct PatchModel {
 }
 
 enum PatchModelTy {
-    Struct { fields: Vec<Field> },
-    Enum { variants: Vec<Variant> },
+    Struct {
+        fields: Vec<Field>,
+    },
+    #[allow(dead_code)]
+    Enum {
+        variants: Vec<Variant>,
+    },
 }
 
 impl Parse for PatchModel {
