@@ -132,7 +132,9 @@ impl AnimationFrameRequestHandle {
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
@@ -162,7 +164,9 @@ fn closure_once(cb: impl FnOnce() + 'static) -> JsValue {
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame),
 /// returning a cancelable handle.
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_animation_frame_with_handle(
@@ -202,7 +206,9 @@ impl IdleCallbackHandle {
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback(cb: impl Fn() + 'static) {
@@ -213,7 +219,9 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback),
 /// returning a cancelable handle.
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback_with_handle(
@@ -276,7 +284,9 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(
   feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
@@ -288,7 +298,9 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(
   feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
@@ -346,7 +358,9 @@ pub fn set_timeout_with_handle(
 /// }
 /// ```
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 pub fn debounce<T: 'static>(
     delay: Duration,
     mut cb: impl FnMut(T) + 'static,
@@ -415,7 +429,9 @@ impl IntervalHandle {
 /// Repeatedly calls the given function, with a delay of the given duration between calls.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(
   feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
@@ -428,7 +444,9 @@ pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(
   feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
@@ -472,7 +490,9 @@ pub fn set_interval_with_handle(
 /// Adds an event listener to the `Window`, typed as a generic `Event`,
 /// returning a cancelable handle.
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 #[cfg_attr(
   feature = "tracing",
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
@@ -542,7 +562,9 @@ pub fn window_event_listener_untyped(
 /// }
 /// ```
 ///
-/// <div class="warning">The callback is called outside of the ownership tree, this means that if you want to access for example the context you need to reestablish the owner.</div>
+/// ### Note about Context
+///
+/// The callback is called outside of the reactive ownership tree. This means that it does not have access to context via [`use_context`](reactive_graph::owner::use_context). If you want to use context inside the callback, you should either call `use_context` in the body of the component, and move the value into the callback, or access the current owner inside the component body using [`Owner::current`](reactive_graph::owner::Owner::current) and reestablish it in the callback with [`Owner::with`](reactive_graph::owner::Owner::with).
 pub fn window_event_listener<E: EventDescriptor + 'static>(
     event: E,
     cb: impl Fn(E::EventType) + 'static,
