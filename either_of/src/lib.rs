@@ -427,13 +427,13 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.next(),)*
                 }
             }
-            
+
             fn size_hint(&self) -> (usize, Option<usize>) {
                 match self {
                     $($name::$ty(i) => i.size_hint(),)*
                 }
             }
-            
+
             fn count(self) -> usize
             where
                 Self: Sized,
@@ -442,7 +442,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.count(),)*
                 }
             }
-            
+
             fn last(self) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -451,13 +451,13 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.last(),)*
                 }
             }
-            
+
             fn nth(&mut self, n: usize) -> Option<Self::Item> {
                 match self {
                     $($name::$ty(i) => i.nth(n),)*
                 }
             }
-            
+
             fn for_each<Fun>(self, f: Fun)
             where
                 Self: Sized,
@@ -467,7 +467,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.for_each(f),)*
                 }
             }
-            
+
             fn collect<Col: FromIterator<Self::Item>>(self) -> Col
             where
                 Self: Sized,
@@ -476,7 +476,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.collect(),)*
                 }
             }
-            
+
             fn partition<Col, Fun>(self, f: Fun) -> (Col, Col)
             where
                 Self: Sized,
@@ -487,7 +487,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.partition(f),)*
                 }
             }
-            
+
             fn fold<Acc, Fun>(self, init: Acc, f: Fun) -> Acc
             where
                 Self: Sized,
@@ -497,7 +497,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.fold(init, f),)*
                 }
             }
-            
+
             fn reduce<Fun>(self, f: Fun) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -507,7 +507,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.reduce(f),)*
                 }
             }
-            
+
             fn all<Fun>(&mut self, f: Fun) -> bool
             where
                 Self: Sized,
@@ -517,7 +517,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.all(f),)*
                 }
             }
-            
+
             fn any<Fun>(&mut self, f: Fun) -> bool
             where
                 Self: Sized,
@@ -527,7 +527,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.any(f),)*
                 }
             }
-            
+
             fn find<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -537,7 +537,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.find(predicate),)*
                 }
             }
-            
+
             fn find_map<Out, Fun>(&mut self, f: Fun) -> Option<Out>
             where
                 Self: Sized,
@@ -547,7 +547,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.find_map(f),)*
                 }
             }
-            
+
             fn position<Pre>(&mut self, predicate: Pre) -> Option<usize>
             where
                 Self: Sized,
@@ -557,7 +557,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.position(predicate),)*
                 }
             }
-            
+
             fn max(self) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -567,7 +567,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.max(),)*
                 }
             }
-            
+
             fn min(self) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -577,7 +577,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.min(),)*
                 }
             }
-            
+
             fn max_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -587,7 +587,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.max_by_key(f),)*
                 }
             }
-            
+
             fn max_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -597,7 +597,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.max_by(compare),)*
                 }
             }
-            
+
             fn min_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -607,7 +607,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.min_by_key(f),)*
                 }
             }
-            
+
             fn min_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
             where
                 Self: Sized,
@@ -617,7 +617,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.min_by(compare),)*
                 }
             }
-            
+
             fn sum<Out>(self) -> Out
             where
                 Self: Sized,
@@ -627,7 +627,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.sum(),)*
                 }
             }
-            
+
             fn product<Out>(self) -> Out
             where
                 Self: Sized,
@@ -637,7 +637,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.product(),)*
                 }
             }
-            
+
             fn cmp<Other>(self, other: Other) -> Ordering
             where
                 Other: IntoIterator<Item = Self::Item>,
@@ -648,7 +648,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.cmp(other),)*
                 }
             }
-            
+
             fn partial_cmp<Other>(self, other: Other) -> Option<Ordering>
             where
                 Other: IntoIterator,
@@ -659,7 +659,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.partial_cmp(other),)*
                 }
             }
-            
+
             fn is_sorted(self) -> bool
             where
                 Self: Sized,
@@ -669,7 +669,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.is_sorted(),)*
                 }
             }
-            
+
             fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
             where
                 Self: Sized,
@@ -679,7 +679,7 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.is_sorted_by(compare),)*
                 }
             }
-            
+
             fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
             where
                 Self: Sized,
@@ -691,7 +691,7 @@ macro_rules! tuples {
                 }
             }
         }
-        
+
         impl<Item, $($ty,)*> ExactSizeIterator for $name<$($ty,)*>
         where
             $($ty: ExactSizeIterator<Item = Item>,)*
@@ -702,7 +702,7 @@ macro_rules! tuples {
                 }
             }
         }
-        
+
         impl<Item, $($ty,)*> DoubleEndedIterator for $name<$($ty,)*>
         where
             $($ty: DoubleEndedIterator<Item = Item>,)*
@@ -712,13 +712,13 @@ macro_rules! tuples {
                     $($name::$ty(i) => i.next_back(),)*
                 }
             }
-            
+
             fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
                 match self {
                     $($name::$ty(i) => i.nth_back(n),)*
                 }
             }
-            
+
             fn rfind<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
             where
                 Pre: FnMut(&Self::Item) -> bool,
