@@ -4,11 +4,14 @@
 //! Utilities for working with enumerated types that contain one of `2..n` other types.
 
 use core::{
+    cmp::Ordering,
     fmt::Display,
     future::Future,
+    iter::{Product, Sum},
     pin::Pin,
     task::{Context, Poll},
 };
+
 use pin_project_lite::pin_project;
 
 #[derive(Debug, Clone, Copy)]
@@ -28,6 +31,339 @@ where
         match self {
             Either::Left(i) => i.next(),
             Either::Right(i) => i.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Either::Left(i) => i.size_hint(),
+            Either::Right(i) => i.size_hint(),
+        }
+    }
+
+    fn count(self) -> usize
+    where
+        Self: Sized,
+    {
+        match self {
+            Either::Left(i) => i.count(),
+            Either::Right(i) => i.count(),
+        }
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        match self {
+            Either::Left(i) => i.last(),
+            Either::Right(i) => i.last(),
+        }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        match self {
+            Either::Left(i) => i.nth(n),
+            Either::Right(i) => i.nth(n),
+        }
+    }
+
+    fn for_each<Fun>(self, f: Fun)
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item),
+    {
+        match self {
+            Either::Left(i) => i.for_each(f),
+            Either::Right(i) => i.for_each(f),
+        }
+    }
+
+    fn collect<Col: FromIterator<Self::Item>>(self) -> Col
+    where
+        Self: Sized,
+    {
+        match self {
+            Either::Left(i) => i.collect(),
+            Either::Right(i) => i.collect(),
+        }
+    }
+
+    fn partition<Col, Fun>(self, f: Fun) -> (Col, Col)
+    where
+        Self: Sized,
+        Col: Default + Extend<Self::Item>,
+        Fun: FnMut(&Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.partition(f),
+            Either::Right(i) => i.partition(f),
+        }
+    }
+
+    fn fold<Acc, Fun>(self, init: Acc, f: Fun) -> Acc
+    where
+        Self: Sized,
+        Fun: FnMut(Acc, Self::Item) -> Acc,
+    {
+        match self {
+            Either::Left(i) => i.fold(init, f),
+            Either::Right(i) => i.fold(init, f),
+        }
+    }
+
+    fn reduce<Fun>(self, f: Fun) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item, Self::Item) -> Self::Item,
+    {
+        match self {
+            Either::Left(i) => i.reduce(f),
+            Either::Right(i) => i.reduce(f),
+        }
+    }
+
+    fn all<Fun>(&mut self, f: Fun) -> bool
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.all(f),
+            Either::Right(i) => i.all(f),
+        }
+    }
+
+    fn any<Fun>(&mut self, f: Fun) -> bool
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.any(f),
+            Either::Right(i) => i.any(f),
+        }
+    }
+
+    fn find<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Pre: FnMut(&Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.find(predicate),
+            Either::Right(i) => i.find(predicate),
+        }
+    }
+
+    fn find_map<Out, Fun>(&mut self, f: Fun) -> Option<Out>
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item) -> Option<Out>,
+    {
+        match self {
+            Either::Left(i) => i.find_map(f),
+            Either::Right(i) => i.find_map(f),
+        }
+    }
+
+    fn position<Pre>(&mut self, predicate: Pre) -> Option<usize>
+    where
+        Self: Sized,
+        Pre: FnMut(Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.position(predicate),
+            Either::Right(i) => i.position(predicate),
+        }
+    }
+
+    fn max(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Self::Item: Ord,
+    {
+        match self {
+            Either::Left(i) => i.max(),
+            Either::Right(i) => i.max(),
+        }
+    }
+
+    fn min(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Self::Item: Ord,
+    {
+        match self {
+            Either::Left(i) => i.min(),
+            Either::Right(i) => i.min(),
+        }
+    }
+
+    fn max_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Fun: FnMut(&Self::Item) -> Key,
+    {
+        match self {
+            Either::Left(i) => i.max_by_key(f),
+            Either::Right(i) => i.max_by_key(f),
+        }
+    }
+
+    fn max_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        match self {
+            Either::Left(i) => i.max_by(compare),
+            Either::Right(i) => i.max_by(compare),
+        }
+    }
+
+    fn min_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Fun: FnMut(&Self::Item) -> Key,
+    {
+        match self {
+            Either::Left(i) => i.min_by_key(f),
+            Either::Right(i) => i.min_by_key(f),
+        }
+    }
+
+    fn min_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        match self {
+            Either::Left(i) => i.min_by(compare),
+            Either::Right(i) => i.min_by(compare),
+        }
+    }
+
+    fn sum<Out>(self) -> Out
+    where
+        Self: Sized,
+        Out: Sum<Self::Item>,
+    {
+        match self {
+            Either::Left(i) => i.sum(),
+            Either::Right(i) => i.sum(),
+        }
+    }
+
+    fn product<Out>(self) -> Out
+    where
+        Self: Sized,
+        Out: Product<Self::Item>,
+    {
+        match self {
+            Either::Left(i) => i.product(),
+            Either::Right(i) => i.product(),
+        }
+    }
+
+    fn cmp<Other>(self, other: Other) -> Ordering
+    where
+        Other: IntoIterator<Item = Self::Item>,
+        Self::Item: Ord,
+        Self: Sized,
+    {
+        match self {
+            Either::Left(i) => i.cmp(other),
+            Either::Right(i) => i.cmp(other),
+        }
+    }
+
+    fn partial_cmp<Other>(self, other: Other) -> Option<Ordering>
+    where
+        Other: IntoIterator,
+        Self::Item: PartialOrd<Other::Item>,
+        Self: Sized,
+    {
+        match self {
+            Either::Left(i) => i.partial_cmp(other),
+            Either::Right(i) => i.partial_cmp(other),
+        }
+    }
+
+    fn is_sorted(self) -> bool
+    where
+        Self: Sized,
+        Self::Item: PartialOrd,
+    {
+        match self {
+            Either::Left(i) => i.is_sorted(),
+            Either::Right(i) => i.is_sorted(),
+        }
+    }
+
+    fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
+    where
+        Self: Sized,
+        Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.is_sorted_by(compare),
+            Either::Right(i) => i.is_sorted_by(compare),
+        }
+    }
+
+    fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
+    where
+        Self: Sized,
+        Fun: FnMut(Self::Item) -> Key,
+        Key: PartialOrd,
+    {
+        match self {
+            Either::Left(i) => i.is_sorted_by_key(f),
+            Either::Right(i) => i.is_sorted_by_key(f),
+        }
+    }
+}
+
+impl<Item, A, B> ExactSizeIterator for Either<A, B>
+where
+    A: ExactSizeIterator<Item = Item>,
+    B: ExactSizeIterator<Item = Item>,
+{
+    fn len(&self) -> usize {
+        match self {
+            Either::Left(i) => i.len(),
+            Either::Right(i) => i.len(),
+        }
+    }
+}
+
+impl<Item, A, B> DoubleEndedIterator for Either<A, B>
+where
+    A: DoubleEndedIterator<Item = Item>,
+    B: DoubleEndedIterator<Item = Item>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self {
+            Either::Left(i) => i.next_back(),
+            Either::Right(i) => i.next_back(),
+        }
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        match self {
+            Either::Left(i) => i.nth_back(n),
+            Either::Right(i) => i.nth_back(n),
+        }
+    }
+
+    fn rfind<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
+    where
+        Pre: FnMut(&Self::Item) -> bool,
+    {
+        match self {
+            Either::Left(i) => i.rfind(predicate),
+            Either::Right(i) => i.rfind(predicate),
         }
     }
 }
@@ -89,6 +425,306 @@ macro_rules! tuples {
             fn next(&mut self) -> Option<Self::Item> {
                 match self {
                     $($name::$ty(i) => i.next(),)*
+                }
+            }
+            
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                match self {
+                    $($name::$ty(i) => i.size_hint(),)*
+                }
+            }
+            
+            fn count(self) -> usize
+            where
+                Self: Sized,
+            {
+                match self {
+                    $($name::$ty(i) => i.count(),)*
+                }
+            }
+            
+            fn last(self) -> Option<Self::Item>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $($name::$ty(i) => i.last(),)*
+                }
+            }
+            
+            fn nth(&mut self, n: usize) -> Option<Self::Item> {
+                match self {
+                    $($name::$ty(i) => i.nth(n),)*
+                }
+            }
+            
+            fn for_each<Fun>(self, f: Fun)
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item),
+            {
+                match self {
+                    $($name::$ty(i) => i.for_each(f),)*
+                }
+            }
+            
+            fn collect<Col: FromIterator<Self::Item>>(self) -> Col
+            where
+                Self: Sized,
+            {
+                match self {
+                    $($name::$ty(i) => i.collect(),)*
+                }
+            }
+            
+            fn partition<Col, Fun>(self, f: Fun) -> (Col, Col)
+            where
+                Self: Sized,
+                Col: Default + Extend<Self::Item>,
+                Fun: FnMut(&Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.partition(f),)*
+                }
+            }
+            
+            fn fold<Acc, Fun>(self, init: Acc, f: Fun) -> Acc
+            where
+                Self: Sized,
+                Fun: FnMut(Acc, Self::Item) -> Acc,
+            {
+                match self {
+                    $($name::$ty(i) => i.fold(init, f),)*
+                }
+            }
+            
+            fn reduce<Fun>(self, f: Fun) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item, Self::Item) -> Self::Item,
+            {
+                match self {
+                    $($name::$ty(i) => i.reduce(f),)*
+                }
+            }
+            
+            fn all<Fun>(&mut self, f: Fun) -> bool
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.all(f),)*
+                }
+            }
+            
+            fn any<Fun>(&mut self, f: Fun) -> bool
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.any(f),)*
+                }
+            }
+            
+            fn find<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Pre: FnMut(&Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.find(predicate),)*
+                }
+            }
+            
+            fn find_map<Out, Fun>(&mut self, f: Fun) -> Option<Out>
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item) -> Option<Out>,
+            {
+                match self {
+                    $($name::$ty(i) => i.find_map(f),)*
+                }
+            }
+            
+            fn position<Pre>(&mut self, predicate: Pre) -> Option<usize>
+            where
+                Self: Sized,
+                Pre: FnMut(Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.position(predicate),)*
+                }
+            }
+            
+            fn max(self) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Self::Item: Ord,
+            {
+                match self {
+                    $($name::$ty(i) => i.max(),)*
+                }
+            }
+            
+            fn min(self) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Self::Item: Ord,
+            {
+                match self {
+                    $($name::$ty(i) => i.min(),)*
+                }
+            }
+            
+            fn max_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Fun: FnMut(&Self::Item) -> Key,
+            {
+                match self {
+                    $($name::$ty(i) => i.max_by_key(f),)*
+                }
+            }
+            
+            fn max_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
+            {
+                match self {
+                    $($name::$ty(i) => i.max_by(compare),)*
+                }
+            }
+            
+            fn min_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Fun: FnMut(&Self::Item) -> Key,
+            {
+                match self {
+                    $($name::$ty(i) => i.min_by_key(f),)*
+                }
+            }
+            
+            fn min_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
+            where
+                Self: Sized,
+                Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
+            {
+                match self {
+                    $($name::$ty(i) => i.min_by(compare),)*
+                }
+            }
+            
+            fn sum<Out>(self) -> Out
+            where
+                Self: Sized,
+                Out: Sum<Self::Item>,
+            {
+                match self {
+                    $($name::$ty(i) => i.sum(),)*
+                }
+            }
+            
+            fn product<Out>(self) -> Out
+            where
+                Self: Sized,
+                Out: Product<Self::Item>,
+            {
+                match self {
+                    $($name::$ty(i) => i.product(),)*
+                }
+            }
+            
+            fn cmp<Other>(self, other: Other) -> Ordering
+            where
+                Other: IntoIterator<Item = Self::Item>,
+                Self::Item: Ord,
+                Self: Sized,
+            {
+                match self {
+                    $($name::$ty(i) => i.cmp(other),)*
+                }
+            }
+            
+            fn partial_cmp<Other>(self, other: Other) -> Option<Ordering>
+            where
+                Other: IntoIterator,
+                Self::Item: PartialOrd<Other::Item>,
+                Self: Sized,
+            {
+                match self {
+                    $($name::$ty(i) => i.partial_cmp(other),)*
+                }
+            }
+            
+            fn is_sorted(self) -> bool
+            where
+                Self: Sized,
+                Self::Item: PartialOrd,
+            {
+                match self {
+                    $($name::$ty(i) => i.is_sorted(),)*
+                }
+            }
+            
+            fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
+            where
+                Self: Sized,
+                Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.is_sorted_by(compare),)*
+                }
+            }
+            
+            fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
+            where
+                Self: Sized,
+                Fun: FnMut(Self::Item) -> Key,
+                Key: PartialOrd,
+            {
+                match self {
+                    $($name::$ty(i) => i.is_sorted_by_key(f),)*
+                }
+            }
+        }
+        
+        impl<Item, $($ty,)*> ExactSizeIterator for $name<$($ty,)*>
+        where
+            $($ty: ExactSizeIterator<Item = Item>,)*
+        {
+            fn len(&self) -> usize {
+                match self {
+                    $($name::$ty(i) => i.len(),)*
+                }
+            }
+        }
+        
+        impl<Item, $($ty,)*> DoubleEndedIterator for $name<$($ty,)*>
+        where
+            $($ty: DoubleEndedIterator<Item = Item>,)*
+        {
+            fn next_back(&mut self) -> Option<Self::Item> {
+                match self {
+                    $($name::$ty(i) => i.next_back(),)*
+                }
+            }
+            
+            fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+                match self {
+                    $($name::$ty(i) => i.nth_back(n),)*
+                }
+            }
+            
+            fn rfind<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
+            where
+                Pre: FnMut(&Self::Item) -> bool,
+            {
+                match self {
+                    $($name::$ty(i) => i.rfind(predicate),)*
                 }
             }
         }
