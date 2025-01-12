@@ -13,395 +13,14 @@ use core::{
 };
 use pin_project_lite::pin_project;
 
-#[derive(Debug, Clone, Copy)]
-pub enum Either<A, B> {
-    Left(A),
-    Right(B),
-}
-
-impl<Item, A, B> Iterator for Either<A, B>
-where
-    A: Iterator<Item = Item>,
-    B: Iterator<Item = Item>,
-{
-    type Item = Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Either::Left(i) => i.next(),
-            Either::Right(i) => i.next(),
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            Either::Left(i) => i.size_hint(),
-            Either::Right(i) => i.size_hint(),
-        }
-    }
-
-    fn count(self) -> usize
-    where
-        Self: Sized,
-    {
-        match self {
-            Either::Left(i) => i.count(),
-            Either::Right(i) => i.count(),
-        }
-    }
-
-    fn last(self) -> Option<Self::Item>
-    where
-        Self: Sized,
-    {
-        match self {
-            Either::Left(i) => i.last(),
-            Either::Right(i) => i.last(),
-        }
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        match self {
-            Either::Left(i) => i.nth(n),
-            Either::Right(i) => i.nth(n),
-        }
-    }
-
-    fn for_each<Fun>(self, f: Fun)
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item),
-    {
-        match self {
-            Either::Left(i) => i.for_each(f),
-            Either::Right(i) => i.for_each(f),
-        }
-    }
-
-    fn collect<Col: FromIterator<Self::Item>>(self) -> Col
-    where
-        Self: Sized,
-    {
-        match self {
-            Either::Left(i) => i.collect(),
-            Either::Right(i) => i.collect(),
-        }
-    }
-
-    fn partition<Col, Fun>(self, f: Fun) -> (Col, Col)
-    where
-        Self: Sized,
-        Col: Default + Extend<Self::Item>,
-        Fun: FnMut(&Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.partition(f),
-            Either::Right(i) => i.partition(f),
-        }
-    }
-
-    fn fold<Acc, Fun>(self, init: Acc, f: Fun) -> Acc
-    where
-        Self: Sized,
-        Fun: FnMut(Acc, Self::Item) -> Acc,
-    {
-        match self {
-            Either::Left(i) => i.fold(init, f),
-            Either::Right(i) => i.fold(init, f),
-        }
-    }
-
-    fn reduce<Fun>(self, f: Fun) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item, Self::Item) -> Self::Item,
-    {
-        match self {
-            Either::Left(i) => i.reduce(f),
-            Either::Right(i) => i.reduce(f),
-        }
-    }
-
-    fn all<Fun>(&mut self, f: Fun) -> bool
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.all(f),
-            Either::Right(i) => i.all(f),
-        }
-    }
-
-    fn any<Fun>(&mut self, f: Fun) -> bool
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.any(f),
-            Either::Right(i) => i.any(f),
-        }
-    }
-
-    fn find<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Pre: FnMut(&Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.find(predicate),
-            Either::Right(i) => i.find(predicate),
-        }
-    }
-
-    fn find_map<Out, Fun>(&mut self, f: Fun) -> Option<Out>
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item) -> Option<Out>,
-    {
-        match self {
-            Either::Left(i) => i.find_map(f),
-            Either::Right(i) => i.find_map(f),
-        }
-    }
-
-    fn position<Pre>(&mut self, predicate: Pre) -> Option<usize>
-    where
-        Self: Sized,
-        Pre: FnMut(Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.position(predicate),
-            Either::Right(i) => i.position(predicate),
-        }
-    }
-
-    fn max(self) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Self::Item: Ord,
-    {
-        match self {
-            Either::Left(i) => i.max(),
-            Either::Right(i) => i.max(),
-        }
-    }
-
-    fn min(self) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Self::Item: Ord,
-    {
-        match self {
-            Either::Left(i) => i.min(),
-            Either::Right(i) => i.min(),
-        }
-    }
-
-    fn max_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Fun: FnMut(&Self::Item) -> Key,
-    {
-        match self {
-            Either::Left(i) => i.max_by_key(f),
-            Either::Right(i) => i.max_by_key(f),
-        }
-    }
-
-    fn max_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
-    {
-        match self {
-            Either::Left(i) => i.max_by(compare),
-            Either::Right(i) => i.max_by(compare),
-        }
-    }
-
-    fn min_by_key<Key: Ord, Fun>(self, f: Fun) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Fun: FnMut(&Self::Item) -> Key,
-    {
-        match self {
-            Either::Left(i) => i.min_by_key(f),
-            Either::Right(i) => i.min_by_key(f),
-        }
-    }
-
-    fn min_by<Cmp>(self, compare: Cmp) -> Option<Self::Item>
-    where
-        Self: Sized,
-        Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
-    {
-        match self {
-            Either::Left(i) => i.min_by(compare),
-            Either::Right(i) => i.min_by(compare),
-        }
-    }
-
-    fn sum<Out>(self) -> Out
-    where
-        Self: Sized,
-        Out: Sum<Self::Item>,
-    {
-        match self {
-            Either::Left(i) => i.sum(),
-            Either::Right(i) => i.sum(),
-        }
-    }
-
-    fn product<Out>(self) -> Out
-    where
-        Self: Sized,
-        Out: Product<Self::Item>,
-    {
-        match self {
-            Either::Left(i) => i.product(),
-            Either::Right(i) => i.product(),
-        }
-    }
-
-    fn cmp<Other>(self, other: Other) -> Ordering
-    where
-        Other: IntoIterator<Item = Self::Item>,
-        Self::Item: Ord,
-        Self: Sized,
-    {
-        match self {
-            Either::Left(i) => i.cmp(other),
-            Either::Right(i) => i.cmp(other),
-        }
-    }
-
-    fn partial_cmp<Other>(self, other: Other) -> Option<Ordering>
-    where
-        Other: IntoIterator,
-        Self::Item: PartialOrd<Other::Item>,
-        Self: Sized,
-    {
-        match self {
-            Either::Left(i) => i.partial_cmp(other),
-            Either::Right(i) => i.partial_cmp(other),
-        }
-    }
-
-    fn is_sorted(self) -> bool
-    where
-        Self: Sized,
-        Self::Item: PartialOrd,
-    {
-        match self {
-            Either::Left(i) => i.is_sorted(),
-            Either::Right(i) => i.is_sorted(),
-        }
-    }
-
-    fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
-    where
-        Self: Sized,
-        Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.is_sorted_by(compare),
-            Either::Right(i) => i.is_sorted_by(compare),
-        }
-    }
-
-    fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
-    where
-        Self: Sized,
-        Fun: FnMut(Self::Item) -> Key,
-        Key: PartialOrd,
-    {
-        match self {
-            Either::Left(i) => i.is_sorted_by_key(f),
-            Either::Right(i) => i.is_sorted_by_key(f),
-        }
-    }
-}
-
-impl<Item, A, B> ExactSizeIterator for Either<A, B>
-where
-    A: ExactSizeIterator<Item = Item>,
-    B: ExactSizeIterator<Item = Item>,
-{
-    fn len(&self) -> usize {
-        match self {
-            Either::Left(i) => i.len(),
-            Either::Right(i) => i.len(),
-        }
-    }
-}
-
-impl<Item, A, B> DoubleEndedIterator for Either<A, B>
-where
-    A: DoubleEndedIterator<Item = Item>,
-    B: DoubleEndedIterator<Item = Item>,
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self {
-            Either::Left(i) => i.next_back(),
-            Either::Right(i) => i.next_back(),
-        }
-    }
-
-    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        match self {
-            Either::Left(i) => i.nth_back(n),
-            Either::Right(i) => i.nth_back(n),
-        }
-    }
-
-    fn rfind<Pre>(&mut self, predicate: Pre) -> Option<Self::Item>
-    where
-        Pre: FnMut(&Self::Item) -> bool,
-    {
-        match self {
-            Either::Left(i) => i.rfind(predicate),
-            Either::Right(i) => i.rfind(predicate),
-        }
-    }
-}
-
-pin_project! {
-    #[project = EitherFutureProj]
-    pub enum EitherFuture<A, B> {
-        Left { #[pin] inner: A },
-        Right { #[pin] inner: B },
-    }
-}
-
-impl<A, B> Future for EitherFuture<A, B>
-where
-    A: Future,
-    B: Future,
-{
-    type Output = Either<A::Output, B::Output>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this {
-            EitherFutureProj::Left { inner } => match inner.poll(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(inner) => Poll::Ready(Either::Left(inner)),
-            },
-            EitherFutureProj::Right { inner } => match inner.poll(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(inner) => Poll::Ready(Either::Right(inner)),
-            },
-        }
-    }
-}
-
 macro_rules! tuples {
     ($name:ident + $fut_name:ident + $fut_proj:ident => $($ty:ident),*) => {
+        tuples!($name + $fut_name + $fut_proj => $($ty($ty)),*);
+    };
+    ($name:ident + $fut_name:ident + $fut_proj:ident => $($variant:ident($ty:ident)),*) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
         pub enum $name<$($ty,)*> {
-            $($ty ($ty),)*
+            $($variant ($ty),)*
         }
 
         impl<$($ty,)*> Display for $name<$($ty,)*>
@@ -410,7 +29,7 @@ macro_rules! tuples {
         {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 match self {
-                    $($name::$ty(this) => this.fmt(f),)*
+                    $($name::$variant(this) => this.fmt(f),)*
                 }
             }
         }
@@ -423,13 +42,13 @@ macro_rules! tuples {
 
             fn next(&mut self) -> Option<Self::Item> {
                 match self {
-                    $($name::$ty(i) => i.next(),)*
+                    $($name::$variant(i) => i.next(),)*
                 }
             }
 
             fn size_hint(&self) -> (usize, Option<usize>) {
                 match self {
-                    $($name::$ty(i) => i.size_hint(),)*
+                    $($name::$variant(i) => i.size_hint(),)*
                 }
             }
 
@@ -438,7 +57,7 @@ macro_rules! tuples {
                 Self: Sized,
             {
                 match self {
-                    $($name::$ty(i) => i.count(),)*
+                    $($name::$variant(i) => i.count(),)*
                 }
             }
 
@@ -447,13 +66,13 @@ macro_rules! tuples {
                 Self: Sized,
             {
                 match self {
-                    $($name::$ty(i) => i.last(),)*
+                    $($name::$variant(i) => i.last(),)*
                 }
             }
 
             fn nth(&mut self, n: usize) -> Option<Self::Item> {
                 match self {
-                    $($name::$ty(i) => i.nth(n),)*
+                    $($name::$variant(i) => i.nth(n),)*
                 }
             }
 
@@ -463,7 +82,7 @@ macro_rules! tuples {
                 Fun: FnMut(Self::Item),
             {
                 match self {
-                    $($name::$ty(i) => i.for_each(f),)*
+                    $($name::$variant(i) => i.for_each(f),)*
                 }
             }
 
@@ -472,7 +91,7 @@ macro_rules! tuples {
                 Self: Sized,
             {
                 match self {
-                    $($name::$ty(i) => i.collect(),)*
+                    $($name::$variant(i) => i.collect(),)*
                 }
             }
 
@@ -483,7 +102,7 @@ macro_rules! tuples {
                 Fun: FnMut(&Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.partition(f),)*
+                    $($name::$variant(i) => i.partition(f),)*
                 }
             }
 
@@ -493,7 +112,7 @@ macro_rules! tuples {
                 Fun: FnMut(Acc, Self::Item) -> Acc,
             {
                 match self {
-                    $($name::$ty(i) => i.fold(init, f),)*
+                    $($name::$variant(i) => i.fold(init, f),)*
                 }
             }
 
@@ -503,7 +122,7 @@ macro_rules! tuples {
                 Fun: FnMut(Self::Item, Self::Item) -> Self::Item,
             {
                 match self {
-                    $($name::$ty(i) => i.reduce(f),)*
+                    $($name::$variant(i) => i.reduce(f),)*
                 }
             }
 
@@ -513,7 +132,7 @@ macro_rules! tuples {
                 Fun: FnMut(Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.all(f),)*
+                    $($name::$variant(i) => i.all(f),)*
                 }
             }
 
@@ -523,7 +142,7 @@ macro_rules! tuples {
                 Fun: FnMut(Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.any(f),)*
+                    $($name::$variant(i) => i.any(f),)*
                 }
             }
 
@@ -533,7 +152,7 @@ macro_rules! tuples {
                 Pre: FnMut(&Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.find(predicate),)*
+                    $($name::$variant(i) => i.find(predicate),)*
                 }
             }
 
@@ -543,7 +162,7 @@ macro_rules! tuples {
                 Fun: FnMut(Self::Item) -> Option<Out>,
             {
                 match self {
-                    $($name::$ty(i) => i.find_map(f),)*
+                    $($name::$variant(i) => i.find_map(f),)*
                 }
             }
 
@@ -553,7 +172,7 @@ macro_rules! tuples {
                 Pre: FnMut(Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.position(predicate),)*
+                    $($name::$variant(i) => i.position(predicate),)*
                 }
             }
 
@@ -563,7 +182,7 @@ macro_rules! tuples {
                 Self::Item: Ord,
             {
                 match self {
-                    $($name::$ty(i) => i.max(),)*
+                    $($name::$variant(i) => i.max(),)*
                 }
             }
 
@@ -573,7 +192,7 @@ macro_rules! tuples {
                 Self::Item: Ord,
             {
                 match self {
-                    $($name::$ty(i) => i.min(),)*
+                    $($name::$variant(i) => i.min(),)*
                 }
             }
 
@@ -583,7 +202,7 @@ macro_rules! tuples {
                 Fun: FnMut(&Self::Item) -> Key,
             {
                 match self {
-                    $($name::$ty(i) => i.max_by_key(f),)*
+                    $($name::$variant(i) => i.max_by_key(f),)*
                 }
             }
 
@@ -593,7 +212,7 @@ macro_rules! tuples {
                 Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
             {
                 match self {
-                    $($name::$ty(i) => i.max_by(compare),)*
+                    $($name::$variant(i) => i.max_by(compare),)*
                 }
             }
 
@@ -603,7 +222,7 @@ macro_rules! tuples {
                 Fun: FnMut(&Self::Item) -> Key,
             {
                 match self {
-                    $($name::$ty(i) => i.min_by_key(f),)*
+                    $($name::$variant(i) => i.min_by_key(f),)*
                 }
             }
 
@@ -613,7 +232,7 @@ macro_rules! tuples {
                 Cmp: FnMut(&Self::Item, &Self::Item) -> Ordering,
             {
                 match self {
-                    $($name::$ty(i) => i.min_by(compare),)*
+                    $($name::$variant(i) => i.min_by(compare),)*
                 }
             }
 
@@ -623,7 +242,7 @@ macro_rules! tuples {
                 Out: Sum<Self::Item>,
             {
                 match self {
-                    $($name::$ty(i) => i.sum(),)*
+                    $($name::$variant(i) => i.sum(),)*
                 }
             }
 
@@ -633,7 +252,7 @@ macro_rules! tuples {
                 Out: Product<Self::Item>,
             {
                 match self {
-                    $($name::$ty(i) => i.product(),)*
+                    $($name::$variant(i) => i.product(),)*
                 }
             }
 
@@ -644,7 +263,7 @@ macro_rules! tuples {
                 Self: Sized,
             {
                 match self {
-                    $($name::$ty(i) => i.cmp(other),)*
+                    $($name::$variant(i) => i.cmp(other),)*
                 }
             }
 
@@ -655,7 +274,7 @@ macro_rules! tuples {
                 Self: Sized,
             {
                 match self {
-                    $($name::$ty(i) => i.partial_cmp(other),)*
+                    $($name::$variant(i) => i.partial_cmp(other),)*
                 }
             }
 
@@ -665,7 +284,7 @@ macro_rules! tuples {
                 Self::Item: PartialOrd,
             {
                 match self {
-                    $($name::$ty(i) => i.is_sorted(),)*
+                    $($name::$variant(i) => i.is_sorted(),)*
                 }
             }
 
@@ -675,7 +294,7 @@ macro_rules! tuples {
                 Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.is_sorted_by(compare),)*
+                    $($name::$variant(i) => i.is_sorted_by(compare),)*
                 }
             }
 
@@ -686,7 +305,7 @@ macro_rules! tuples {
                 Key: PartialOrd,
             {
                 match self {
-                    $($name::$ty(i) => i.is_sorted_by_key(f),)*
+                    $($name::$variant(i) => i.is_sorted_by_key(f),)*
                 }
             }
         }
@@ -697,7 +316,7 @@ macro_rules! tuples {
         {
             fn len(&self) -> usize {
                 match self {
-                    $($name::$ty(i) => i.len(),)*
+                    $($name::$variant(i) => i.len(),)*
                 }
             }
         }
@@ -708,13 +327,13 @@ macro_rules! tuples {
         {
             fn next_back(&mut self) -> Option<Self::Item> {
                 match self {
-                    $($name::$ty(i) => i.next_back(),)*
+                    $($name::$variant(i) => i.next_back(),)*
                 }
             }
 
             fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
                 match self {
-                    $($name::$ty(i) => i.nth_back(n),)*
+                    $($name::$variant(i) => i.nth_back(n),)*
                 }
             }
 
@@ -723,7 +342,7 @@ macro_rules! tuples {
                 Pre: FnMut(&Self::Item) -> bool,
             {
                 match self {
-                    $($name::$ty(i) => i.rfind(predicate),)*
+                    $($name::$variant(i) => i.rfind(predicate),)*
                 }
             }
         }
@@ -731,7 +350,7 @@ macro_rules! tuples {
         pin_project! {
             #[project = $fut_proj]
             pub enum $fut_name<$($ty,)*> {
-                $($ty { #[pin] inner: $ty },)*
+                $($variant { #[pin] inner: $ty },)*
             }
         }
 
@@ -744,9 +363,9 @@ macro_rules! tuples {
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let this = self.project();
                 match this {
-                    $($fut_proj::$ty { inner } => match inner.poll(cx) {
+                    $($fut_proj::$variant { inner } => match inner.poll(cx) {
                         Poll::Pending => Poll::Pending,
-                        Poll::Ready(inner) => Poll::Ready($name::$ty(inner)),
+                        Poll::Ready(inner) => Poll::Ready($name::$variant(inner)),
                     },)*
                 }
             }
@@ -754,6 +373,7 @@ macro_rules! tuples {
     }
 }
 
+tuples!(Either + EitherFuture + EitherFutureProj => Left(A), Right(B));
 tuples!(EitherOf3 + EitherOf3Future + EitherOf3FutureProj => A, B, C);
 tuples!(EitherOf4 + EitherOf4Future + EitherOf4FutureProj => A, B, C, D);
 tuples!(EitherOf5 + EitherOf5Future + EitherOf5FutureProj => A, B, C, D, E);
