@@ -278,36 +278,37 @@ macro_rules! tuples {
                 }
             }
 
-            fn is_sorted(self) -> bool
-            where
-                Self: Sized,
-                Self::Item: PartialOrd,
-            {
-                match self {
-                    $($name::$variant(i) => i.is_sorted(),)*
-                }
-            }
-
-            fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
-            where
-                Self: Sized,
-                Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
-            {
-                match self {
-                    $($name::$variant(i) => i.is_sorted_by(compare),)*
-                }
-            }
-
-            fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
-            where
-                Self: Sized,
-                Fun: FnMut(Self::Item) -> Key,
-                Key: PartialOrd,
-            {
-                match self {
-                    $($name::$variant(i) => i.is_sorted_by_key(f),)*
-                }
-            }
+            // TODO: uncomment once MSRV is >= 1.82.0
+            // fn is_sorted(self) -> bool
+            // where
+            //     Self: Sized,
+            //     Self::Item: PartialOrd,
+            // {
+            //     match self {
+            //         $($name::$variant(i) => i.is_sorted(),)*
+            //     }
+            // }
+            // 
+            // fn is_sorted_by<Cmp>(self, compare: Cmp) -> bool
+            // where
+            //     Self: Sized,
+            //     Cmp: FnMut(&Self::Item, &Self::Item) -> bool,
+            // {
+            //     match self {
+            //         $($name::$variant(i) => i.is_sorted_by(compare),)*
+            //     }
+            // }
+            // 
+            // fn is_sorted_by_key<Fun, Key>(self, f: Fun) -> bool
+            // where
+            //     Self: Sized,
+            //     Fun: FnMut(Self::Item) -> Key,
+            //     Key: PartialOrd,
+            // {
+            //     match self {
+            //         $($name::$variant(i) => i.is_sorted_by_key(f),)*
+            //     }
+            // }
         }
 
         impl<Item, $($ty,)*> ExactSizeIterator for $name<$($ty,)*>
