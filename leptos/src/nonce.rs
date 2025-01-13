@@ -51,6 +51,13 @@ use tachys::html::attribute::AttributeValue;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Nonce(pub(crate) Arc<str>);
 
+impl Nonce {
+    /// Returns a reference to the inner reference-counted string slice representing the nonce.
+    pub fn as_inner(&self) -> &Arc<str> {
+        &self.0
+    }
+}
+
 impl Deref for Nonce {
     type Target = str;
 
