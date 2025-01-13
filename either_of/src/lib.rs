@@ -118,7 +118,7 @@ macro_rules! tuples {
         {
             fn source(&self) -> Option<&(dyn Error + 'static)> {
                 match self {
-                    $($name::$variant(this) => Some(this),)+
+                    $($name::$variant(this) => this.source(),)+
                 }
             }
         }
