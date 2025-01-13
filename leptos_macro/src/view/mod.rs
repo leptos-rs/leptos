@@ -1651,7 +1651,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .path
             .segments
             .iter()
-            .last()
+            .next_back()
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
