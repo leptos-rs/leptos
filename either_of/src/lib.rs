@@ -14,10 +14,6 @@ use core::{
 use paste::paste;
 use pin_project_lite::pin_project;
 
-macro_rules! mapped_variant {
-    ($name:ident<$($ty:ident),+>, ^ $new_ty:ident) => {};
-}
-
 macro_rules! tuples {
     ($name:ident + $fut_name:ident + $fut_proj:ident {
         $($ty:ident => ($($rest_variant:ident),*) + <$($mapped_ty:ident),+>),+$(,)?
@@ -36,6 +32,7 @@ macro_rules! tuples {
 
         impl<$($ty,)+> $name<$($ty,)+> {
             paste! {
+                #[allow(clippy::too_many_arguments)]
                 pub fn map<$([<F $ty>]),+, $([<$ty 1>]),+>(self, $([<$variant:lower>]: [<F $ty>]),+) -> $name<$([<$ty 1>]),+>
                 where
                     $([<F $ty>]: FnOnce($ty) -> [<$ty 1>],)+
