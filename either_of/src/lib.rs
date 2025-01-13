@@ -5,6 +5,7 @@
 
 use core::{
     cmp::Ordering,
+    error::Error,
     fmt::Display,
     future::Future,
     iter::{Product, Sum},
@@ -26,11 +27,11 @@ macro_rules! tuples {
         $($variant:ident($ty:ident) => ($($rest_variant:ident),*) + <$($mapped_ty:ident),+>),+$(,)?
     }) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-        pub enum $name<$($ty,)+> {
+        pub enum $name<$($ty),+> {
             $($variant ($ty),)+
         }
 
-        impl<$($ty,)+> $name<$($ty,)+> {
+        impl<$($ty),+> $name<$($ty),+> {
             paste! {
                 #[allow(clippy::too_many_arguments)]
                 pub fn map<$([<F $ty>]),+, $([<$ty 1>]),+>(self, $([<$variant:lower>]: [<F $ty>]),+) -> $name<$([<$ty 1>]),+>
@@ -100,7 +101,7 @@ macro_rules! tuples {
             }
         }
 
-        impl<$($ty,)+> Display for $name<$($ty,)+>
+        impl<$($ty),+> Display for $name<$($ty),+>
         where
             $($ty: Display,)+
         {
@@ -111,7 +112,18 @@ macro_rules! tuples {
             }
         }
 
-        impl<Item, $($ty,)+> Iterator for $name<$($ty,)+>
+        impl<$($ty),+> Error for $name<$($ty),+>
+        where
+            $($ty: Error,)+
+        {
+            fn source(&self) -> Option<&(dyn Error + 'static)> {
+                match self {
+                    $($name::$variant(this) => Some(this),)+
+                }
+            }
+        }
+
+        impl<Item, $($ty),+> Iterator for $name<$($ty),+>
         where
             $($ty: Iterator<Item = Item>,)+
         {
@@ -388,7 +400,7 @@ macro_rules! tuples {
             // }
         }
 
-        impl<Item, $($ty,)+> ExactSizeIterator for $name<$($ty,)+>
+        impl<Item, $($ty),+> ExactSizeIterator for $name<$($ty),+>
         where
             $($ty: ExactSizeIterator<Item = Item>,)+
         {
@@ -399,7 +411,7 @@ macro_rules! tuples {
             }
         }
 
-        impl<Item, $($ty,)+> DoubleEndedIterator for $name<$($ty,)+>
+        impl<Item, $($ty),+> DoubleEndedIterator for $name<$($ty),+>
         where
             $($ty: DoubleEndedIterator<Item = Item>,)+
         {
@@ -427,16 +439,16 @@ macro_rules! tuples {
 
         pin_project! {
             #[project = $fut_proj]
-            pub enum $fut_name<$($ty,)+> {
+            pub enum $fut_name<$($ty),+> {
                 $($variant { #[pin] inner: $ty },)+
             }
         }
 
-        impl<$($ty,)+> Future for $fut_name<$($ty,)+>
+        impl<$($ty),+> Future for $fut_name<$($ty),+>
         where
             $($ty: Future,)+
         {
-            type Output = $name<$($ty::Output,)+>;
+            type Output = $name<$($ty::Output),+>;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let this = self.project();
@@ -461,6 +473,15 @@ impl<A, B> Either<A, B> {
         match self {
             Either::Left(a) => Either::Right(a),
             Either::Right(b) => Either::Left(b),
+        }
+    }
+}
+
+impl<A, B> From<Result<A, B>> for Either<B, A> {
+    fn from(value: Result<A, B>) -> Self {
+        match value {
+            Ok(right) => Either::Right(right),
+            Err(left) => Either::Left(left),
         }
     }
 }
