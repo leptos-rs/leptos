@@ -4,8 +4,7 @@ use proc_macro2::Ident;
 use proc_macro_error2::abort;
 use quote::quote;
 use syn::{
-    spanned::Spanned, Block, ImplItem, ImplItemFn, ItemFn, ItemImpl, Path,
-    Type, TypePath,
+    spanned::Spanned, Block, ImplItem, ItemFn, ItemImpl, Path, Type, TypePath,
 };
 
 pub fn lazy_impl(
@@ -74,7 +73,7 @@ pub fn lazy_route_impl(
         Some(fun) => {
             let body = fun.block.clone();
             let new_block = quote! {{
-                    #[cfg_attr(feature = "split", wasm_split::wasm_split(view_c))]
+                    #[cfg_attr(feature = "split", wasm_split::wasm_split(#lazy_view_ident))]
                     async fn view(this: #self_ty) -> ::leptos::prelude::AnyView {
                         #body
                     }
