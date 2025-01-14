@@ -1,4 +1,4 @@
-use crate::register;
+use crate::{register, OrDefaultNonce};
 use leptos::{
     component, oco::Oco, prelude::*, tachys::html::element::script, IntoView,
 };
@@ -74,7 +74,7 @@ pub fn Script(
             .fetchpriority(fetchpriority)
             .integrity(integrity)
             .nomodule(nomodule)
-            .nonce(nonce)
+            .nonce(nonce.or_default_nonce())
             .referrerpolicy(referrerpolicy)
             .src(src)
             .r#type(type_)
