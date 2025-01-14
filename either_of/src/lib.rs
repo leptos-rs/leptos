@@ -1,4 +1,4 @@
-#![cfg_attr(feature="no_std", no_std)]
+#![cfg_attr(feature = "no_std", no_std)]
 #![forbid(unsafe_code)]
 
 //! Utilities for working with enumerated types that contain one of `2..n` other types.
@@ -11,10 +11,10 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
-#[cfg(not(feature = "no_std"))]
-use std::error::Error; // TODO: replace with core::error::Error once MSRV is >= 1.81.0
 use paste::paste;
 use pin_project_lite::pin_project;
+#[cfg(not(feature = "no_std"))]
+use std::error::Error; // TODO: replace with core::error::Error once MSRV is >= 1.81.0
 
 macro_rules! tuples {
     ($name:ident + $fut_name:ident + $fut_proj:ident {
