@@ -47,6 +47,7 @@ use leptos::{
     attr::NextAttribute,
     component,
     logging::debug_warn,
+    oco::Oco,
     reactive::owner::{provide_context, use_context},
     tachys::{
         dom::document,
@@ -564,5 +565,27 @@ impl RenderHtml for MetaTagsView {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+}
+
+pub(crate) trait OrDefaultNonce {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>>;
+}
+
+impl OrDefaultNonce for Option<Oco<'static, str>> {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>> {
+        #[cfg(feature = "nonce")]
+        {
+            use leptos::nonce::use_nonce;
+
+            match self {
+                Some(nonce) => Some(nonce),
+                None => use_nonce().map(|n| Arc::clone(n.as_inner()).into()),
+            }
+        }
+        #[cfg(not(feature = "nonce"))]
+        {
+            self
+        }
     }
 }

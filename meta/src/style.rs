@@ -1,4 +1,4 @@
-use crate::register;
+use crate::{register, OrDefaultNonce};
 use leptos::{
     component, oco::Oco, prelude::*, tachys::html::element::style, IntoView,
 };
@@ -48,7 +48,7 @@ pub fn Style(
         style()
             .id(id)
             .media(media)
-            .nonce(nonce)
+            .nonce(nonce.or_default_nonce())
             .title(title)
             .blocking(blocking)
             .child(children.map(|c| c())),

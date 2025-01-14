@@ -6,6 +6,7 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -162,6 +163,24 @@ impl StreamBuilder {
     ) where
         View: RenderHtml,
     {
+        self.push_async_out_of_order_with_nonce(
+            view,
+            position,
+            mark_branches,
+            None,
+        );
+    }
+
+    /// Injects an out-of-order chunk into the stream, using the given nonce for `<script>` tags.
+    pub fn push_async_out_of_order_with_nonce<View>(
+        &mut self,
+        view: impl Future<Output = Option<View>> + Send + 'static,
+        position: &mut Position,
+        mark_branches: bool,
+        nonce: Option<Arc<str>>,
+    ) where
+        View: RenderHtml,
+    {
         let id = self.clone_id();
         // copy so it's not updated by additional iterations
         // i.e., restart in the same position we were at when we suspended
@@ -196,6 +215,7 @@ impl StreamBuilder {
                     id,
                     chunks,
                     replace,
+                    nonce,
                 }
             }),
         });
@@ -234,6 +254,7 @@ pub struct OooChunk {
     id: String,
     chunks: VecDeque<StreamChunk>,
     replace: bool,
+    nonce: Option<Arc<str>>,
 }
 
 impl OooChunk {
@@ -247,11 +268,25 @@ impl OooChunk {
 
     /// Pushes a closing `</template>` and update script into the buffer.
     pub fn push_end(replace: bool, id: &str, buf: &mut String) {
+        Self::push_end_with_nonce(replace, id, buf, None);
+    }
+
+    /// Pushes a closing `</template>` and update script with the given nonce into the buffer.
+    pub fn push_end_with_nonce(
+        replace: bool,
+        id: &str,
+        buf: &mut String,
+        nonce: Option<&str>,
+    ) {
         buf.push_str("</template>");
 
-        // TODO nonce
-        buf.push_str("<script");
-        buf.push_str(r#">(function() { let id = ""#);
+        if let Some(nonce) = nonce {
+            buf.push_str("<script nonce=\"");
+            buf.push_str(nonce);
+            buf.push_str(r#"">(function() { let id = ""#);
+        } else {
+            buf.push_str(r#"<script>(function() { let id = ""#);
+        }
         buf.push_str(id);
         buf.push_str(
             "\";let open = undefined;let close = undefined;let walker = \
@@ -324,6 +359,7 @@ impl Stream for StreamBuilder {
                                 id,
                                 chunks,
                                 replace,
+                                nonce,
                             }) => {
                                 let opening = format!("<!--s-{id}o-->");
                                 let placeholder_at =
@@ -369,10 +405,11 @@ impl Stream for StreamBuilder {
                                             this.chunks.push_front(chunk);
                                         }
                                     }
-                                    OooChunk::push_end(
+                                    OooChunk::push_end_with_nonce(
                                         replace,
                                         &id,
                                         &mut this.sync_buf,
+                                        nonce.as_deref(),
                                     );
                                 }
                                 self.poll_next(cx)

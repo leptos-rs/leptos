@@ -26,6 +26,7 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 default = []
 ssr = []
 tracing = ["dep:tracing"]
+nonce = ["leptos/nonce"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
