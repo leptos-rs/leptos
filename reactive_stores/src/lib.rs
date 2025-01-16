@@ -131,6 +131,7 @@ use std::{
 };
 
 mod arc_field;
+mod deref;
 mod field;
 mod iter;
 mod keyed;
@@ -141,6 +142,7 @@ mod store_field;
 mod subfield;
 
 pub use arc_field::ArcField;
+pub use deref::*;
 pub use field::Field;
 pub use iter::*;
 pub use keyed::*;
