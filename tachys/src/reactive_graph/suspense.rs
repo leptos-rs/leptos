@@ -339,6 +339,12 @@ where
                             &mut fallback_position,
                             mark_branches,
                         );
+
+                        // TODO in 0.8: this should include a nonce
+                        // we do have access to nonces via context (because this is the `reactive_graph` module)
+                        // but unfortunately the Nonce type is defined in `leptos`, not in `tachys`
+                        //
+                        // missing it here only affects top-level Suspend, not Suspense components
                         buf.push_async_out_of_order(
                             fut,
                             position,

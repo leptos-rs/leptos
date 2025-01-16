@@ -114,8 +114,8 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Write,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
+        UntrackableGuard, Write,
     },
 };
 pub use reactive_stores_macro::{Patch, Store};
@@ -315,7 +315,7 @@ impl KeyMap {
 /// This adds a getter method for each field to `Store<T>`, which allow accessing reactive versions
 /// of each individual field of the struct.
 pub struct ArcStore<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     signals: Arc<RwLock<TriggerMap>>,
@@ -326,7 +326,7 @@ impl<T> ArcStore<T> {
     /// Creates a new store from the initial value.
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             signals: Default::default(),
@@ -335,10 +335,16 @@ impl<T> ArcStore<T> {
     }
 }
 
+impl<T: Default> Default for ArcStore<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T: Debug> Debug for ArcStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("ArcStore");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let f = f.field("defined_at", &self.defined_at);
         f.field("value", &self.value)
             .field("signals", &self.signals)
@@ -349,7 +355,7 @@ impl<T: Debug> Debug for ArcStore<T> {
 impl<T> Clone for ArcStore<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             signals: Arc::clone(&self.signals),
@@ -360,11 +366,11 @@ impl<T> Clone for ArcStore<T> {
 
 impl<T> DefinedAt for ArcStore<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -433,7 +439,7 @@ impl<T: 'static> Notify for ArcStore<T> {
 /// This follows the same ownership rules as arena-allocated types like
 /// [`RwSignal`](reactive_graph::signal::RwSignal).
 pub struct Store<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: ArenaItem<ArcStore<T>, S>,
 }
@@ -445,7 +451,7 @@ where
     /// Creates a new store with the initial value.
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
@@ -461,10 +467,28 @@ where
     /// This pins the value to the current thread. Accessing it from any other thread will panic.
     pub fn new_local(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
+    }
+}
+
+impl<T> Default for Store<T>
+where
+    T: Default + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T> Default for Store<T, LocalStorage>
+where
+    T: Default + 'static,
+{
+    fn default() -> Self {
+        Self::new_local(T::default())
     }
 }
 
@@ -474,7 +498,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("Store");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let f = f.field("defined_at", &self.defined_at);
         f.field("inner", &self.inner).finish()
     }
@@ -490,11 +514,11 @@ impl<T, S> Copy for Store<T, S> {}
 
 impl<T, S> DefinedAt for Store<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -508,6 +532,15 @@ where
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> Dispose for Store<T, S>
+where
+    T: 'static,
+{
+    fn dispose(self) {
+        self.inner.dispose();
     }
 }
 
@@ -565,6 +598,20 @@ where
     fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
             inner.notify();
+        }
+    }
+}
+
+impl<T, S> From<ArcStore<T>> for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: value.defined_at,
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }

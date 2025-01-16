@@ -1,6 +1,6 @@
 [package]
 name = "hydration_context"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -25,3 +25,6 @@ browser = ["dep:wasm-bindgen", "dep:js-sys"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

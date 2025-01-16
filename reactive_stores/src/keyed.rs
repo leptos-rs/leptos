@@ -28,7 +28,7 @@ pub struct KeyedSubfield<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path_segment: StorePathSegment,
     inner: Inner,
@@ -44,7 +44,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path_segment: self.path_segment,
             inner: self.inner.clone(),
@@ -76,7 +76,7 @@ where
         write: fn(&mut Prev) -> &mut T,
     ) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             path_segment,
@@ -254,11 +254,11 @@ where
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -356,7 +356,7 @@ pub struct AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: KeyedSubfield<Inner, Prev, K, T>,
     key: K,
@@ -370,7 +370,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: self.inner.clone(),
             key: self.key.clone(),
@@ -394,7 +394,7 @@ where
     #[track_caller]
     pub fn new(inner: KeyedSubfield<Inner, Prev, K, T>, key: K) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             key,
@@ -450,10 +450,7 @@ where
         let inner = self.inner.reader()?;
 
         let inner_path = self.inner.path().into_iter().collect();
-        let keys = self
-            .inner
-            .keys()
-            .expect("using keys on a store with no keys");
+        let keys = self.inner.keys()?;
         let index = keys
             .with_field_keys(
                 inner_path,
@@ -461,8 +458,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(MappedMutArc::new(
             inner,
@@ -511,11 +507,11 @@ where
     for<'a> &'a T: IntoIterator,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -623,10 +619,15 @@ where
             .keys()
             .expect("updating keys on a store with no keys");
 
+        // generating the latest keys out here means that if we have
+        // nested keyed fields, the second field will not try to take a
+        // read-lock on the key map to get the field while the first field
+        // is still holding the write-lock in the closure below
+        let latest = self.latest_keys();
         keys.with_field_keys(
             inner_path,
             |keys| {
-                keys.update(self.latest_keys());
+                keys.update(latest);
             },
             || self.latest_keys(),
         );
@@ -649,8 +650,8 @@ where
     #[track_caller]
     fn into_iter(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
         // reactively track changes to this field
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
+        self.update_keys();
+        self.track_field();
 
         // get the current length of the field by accessing slice
         let reader = self

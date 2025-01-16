@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.7.0"
+version = "0.7.4"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -26,9 +26,13 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 default = []
 ssr = []
 tracing = ["dep:tracing"]
+nonce = ["leptos/nonce"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

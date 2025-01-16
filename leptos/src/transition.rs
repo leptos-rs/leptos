@@ -85,41 +85,44 @@ pub fn Transition<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
-    let (starts_local, id) = {
-        Owner::current_shared_context()
-            .map(|sc| {
-                let id = sc.next_id();
-                (sc.get_incomplete_chunk(&id), id)
-            })
-            .unwrap_or_else(|| (false, Default::default()))
-    };
-    let fallback = fallback.run();
-    let children = children.into_inner()();
-    let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
-    provide_context(SuspenseContext {
-        tasks: tasks.clone(),
-    });
-    let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
-        tasks.track();
-        if prev.is_none() && starts_local {
-            false
-        } else {
-            tasks.with(SlotMap::is_empty)
-        }
-    });
-    if let Some(set_pending) = set_pending {
-        Effect::new_isomorphic({
-            let none_pending = none_pending.clone();
-            move |_| {
-                set_pending.set(!none_pending.get());
+    let owner = Owner::new();
+    owner.with(|| {
+        let (starts_local, id) = {
+            Owner::current_shared_context()
+                .map(|sc| {
+                    let id = sc.next_id();
+                    (sc.get_incomplete_chunk(&id), id)
+                })
+                .unwrap_or_else(|| (false, Default::default()))
+        };
+        let fallback = fallback.run();
+        let children = children.into_inner()();
+        let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
+        provide_context(SuspenseContext {
+            tasks: tasks.clone(),
+        });
+        let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
+            tasks.track();
+            if prev.is_none() && starts_local {
+                false
+            } else {
+                tasks.with(SlotMap::is_empty)
             }
         });
-    }
+        if let Some(set_pending) = set_pending {
+            Effect::new_isomorphic({
+                let none_pending = none_pending.clone();
+                move |_| {
+                    set_pending.set(!none_pending.get());
+                }
+            });
+        }
 
-    OwnedView::new(SuspenseBoundary::<true, _, _> {
-        id,
-        none_pending,
-        fallback,
-        children,
+        OwnedView::new(SuspenseBoundary::<true, _, _> {
+            id,
+            none_pending,
+            fallback,
+            children,
+        })
     })
 }

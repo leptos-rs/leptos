@@ -1,7 +1,10 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
-    owner::{ArenaItem, Storage, SyncStorage},
-    traits::{DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Write},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
+    traits::{
+        DefinedAt, Dispose, IntoInner, IsDisposed, Notify, UntrackableGuard,
+        Write,
+    },
 };
 use core::fmt::Debug;
 use guardian::ArcRwLockWriteGuardian;
@@ -50,7 +53,7 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// assert_eq!(count.get(), 3);
 /// ```
 pub struct WriteSignal<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: ArenaItem<ArcWriteSignal<T>, S>,
 }
@@ -97,13 +100,41 @@ impl<T, S> Hash for WriteSignal<T, S> {
 
 impl<T, S> DefinedAt for WriteSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
+        }
+    }
+}
+
+impl<T> From<ArcWriteSignal<T>> for WriteSignal<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcWriteSignal<T>) -> Self {
+        WriteSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
+        }
+    }
+}
+
+impl<T> FromLocal<ArcWriteSignal<T>> for WriteSignal<T, LocalStorage>
+where
+    T: 'static,
+{
+    #[track_caller]
+    fn from_local(value: ArcWriteSignal<T>) -> Self {
+        WriteSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -111,6 +142,18 @@ impl<T, S> DefinedAt for WriteSignal<T, S> {
 impl<T, S> IsDisposed for WriteSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for WriteSignal<T, S>
+where
+    S: Storage<ArcWriteSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 

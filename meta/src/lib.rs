@@ -37,20 +37,17 @@
 //! }
 //! ```
 //! # Feature Flags
-//! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
-//!   of calling signals as functions. Enable this feature to support `stable` Rust.
+//! - `tracing` Adds integration with the `tracing` crate.
 //!
-//! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
-//! which mode your app is operating in.
+//! **Important Note:** If you’re using server-side rendering, you should enable `ssr`.
 
 use futures::{Stream, StreamExt};
 use leptos::{
     attr::NextAttribute,
     component,
     logging::debug_warn,
+    oco::Oco,
     reactive::owner::{provide_context, use_context},
     tachys::{
         dom::document,
@@ -568,5 +565,27 @@ impl RenderHtml for MetaTagsView {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+}
+
+pub(crate) trait OrDefaultNonce {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>>;
+}
+
+impl OrDefaultNonce for Option<Oco<'static, str>> {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>> {
+        #[cfg(feature = "nonce")]
+        {
+            use leptos::nonce::use_nonce;
+
+            match self {
+                Some(nonce) => Some(nonce),
+                None => use_nonce().map(|n| Arc::clone(n.as_inner()).into()),
+            }
+        }
+        #[cfg(not(feature = "nonce"))]
+        {
+            self
+        }
     }
 }

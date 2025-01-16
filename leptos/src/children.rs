@@ -85,7 +85,7 @@ type BoxedChildrenFn = Box<dyn Fn() -> AnyView + Send>;
 ///     )
 /// }
 pub trait ToChildren<F> {
-    /// Convert the provided type to (generally a closure) to Self (generally a "children" type,
+    /// Convert the provided type (generally a closure) to Self (generally a "children" type,
     /// e.g., [Children]). See the implementations to see exactly which input types are supported
     /// and which "children" type they are converted to.
     fn to_children(f: F) -> Self;
@@ -282,6 +282,13 @@ pub struct TypedChildrenFn<T>(Arc<dyn Fn() -> View<T> + Send + Sync>);
 impl<T> Debug for TypedChildrenFn<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("TypedChildrenFn").finish()
+    }
+}
+
+impl<T> Clone for TypedChildrenFn<T> {
+    // Manual implementation to avoid the `T: Clone` bound.
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.1.0"
+version = "0.1.4"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -196,3 +196,6 @@ skip_feature_sets = [
     "delegation",
   ],
 ]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

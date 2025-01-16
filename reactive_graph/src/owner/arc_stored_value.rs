@@ -1,6 +1,6 @@
 use crate::{
     signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
-    traits::{DefinedAt, IsDisposed, ReadValue, WriteValue},
+    traits::{DefinedAt, IntoInner, IsDisposed, ReadValue, WriteValue},
 };
 use std::{
     fmt::{Debug, Formatter},
@@ -19,7 +19,7 @@ use std::{
 /// accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 pub struct ArcStoredValue<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     value: Arc<RwLock<T>>,
 }
@@ -27,7 +27,7 @@ pub struct ArcStoredValue<T> {
 impl<T> Clone for ArcStoredValue<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
         }
@@ -47,7 +47,7 @@ impl<T: Default> Default for ArcStoredValue<T> {
     #[track_caller]
     fn default() -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(T::default())),
         }
@@ -70,11 +70,11 @@ impl<T> Hash for ArcStoredValue<T> {
 
 impl<T> DefinedAt for ArcStoredValue<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -90,7 +90,7 @@ impl<T> ArcStoredValue<T> {
     #[track_caller]
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
         }
@@ -122,5 +122,14 @@ where
 impl<T> IsDisposed for ArcStoredValue<T> {
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcStoredValue<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }

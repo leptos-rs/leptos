@@ -108,9 +108,12 @@ pub(crate) fn component_to_tokens(
             let KeyedAttributeValue::Binding(binding) = &attr.possible_value
             else {
                 if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
-                    let ident1 =
-                        format_ident!("{ident}", span = attr.key.span());
-                    return Some(quote! { #ident1 });
+                    let span = match &attr.key {
+                        NodeName::Punctuated(path) => path[1].span(),
+                        _ => unreachable!(),
+                    };
+                    let ident1 = format_ident!("{ident}", span = span);
+                    return Some(quote_spanned! { span => #ident1 });
                 } else {
                     return None;
                 }

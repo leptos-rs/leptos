@@ -32,7 +32,7 @@ use tachys::view::any_view::AnyView;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RouteChildren<Children>(Children);
 
 impl<Children> RouteChildren<Children> {
@@ -82,13 +82,18 @@ where
 
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
+        let owner = Owner::current();
         let location =
             BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();
 
-        let redirect_hook = Box::new(|loc: &str| BrowserUrl::redirect(loc));
+        let redirect_hook = Box::new(move |loc: &str| {
+            if let Some(owner) = &owner {
+                owner.with(|| BrowserUrl::redirect(loc));
+            }
+        });
 
         (Some(location), current_url, redirect_hook)
     };

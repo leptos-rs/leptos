@@ -1,4 +1,4 @@
-error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `default`, `into` and `attrs`
+error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `default`, `into`, `attrs` and `name`
  --> tests/ui/component_absolute.rs:5:31
   |
 5 | fn unknown_prop_option(#[prop(hello)] test: bool) -> impl ::leptos::IntoView {

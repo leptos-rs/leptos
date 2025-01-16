@@ -1,7 +1,7 @@
 use crate::{error::ServerFnError, request::Req};
 use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 
@@ -91,6 +91,10 @@ where
         impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
         ServerFnError<CustErr>,
     > {
-        Ok(futures::stream::once(async { todo!() }))
+        let payload = self.0.take().1;
+        let stream = payload.map(|res| {
+            res.map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        });
+        Ok(SendWrapper::new(stream))
     }
 }

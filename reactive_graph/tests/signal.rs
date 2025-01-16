@@ -2,8 +2,8 @@ use reactive_graph::{
     owner::Owner,
     signal::{arc_signal, signal, ArcRwSignal, RwSignal},
     traits::{
-        Get, GetUntracked, Read, Set, Update, UpdateUntracked, With,
-        WithUntracked, Write,
+        Dispose, Get, GetUntracked, IntoInner, Read, Set, Update,
+        UpdateUntracked, With, WithUntracked, Write,
     },
 };
 
@@ -107,4 +107,36 @@ fn update_signal() {
     assert_eq!(a.get(), 3);
     set_a.set(4);
     assert_eq!(a.get(), 4);
+}
+
+#[test]
+fn into_inner_signal() {
+    let owner = Owner::new();
+    owner.set();
+
+    let rw_signal = RwSignal::new(1);
+    assert_eq!(rw_signal.get(), 1);
+    assert_eq!(rw_signal.into_inner(), Some(1));
+}
+
+#[test]
+fn into_inner_arc_signal() {
+    let owner = Owner::new();
+    owner.set();
+
+    let (a, b) = arc_signal(2);
+    assert_eq!(a.get(), 2);
+    std::mem::drop(b);
+    assert_eq!(a.into_inner(), Some(2));
+}
+
+#[test]
+fn into_inner_non_arc_signal() {
+    let owner = Owner::new();
+    owner.set();
+
+    let (a, b) = signal(2);
+    assert_eq!(a.get(), 2);
+    b.dispose();
+    assert_eq!(a.into_inner(), Some(2));
 }

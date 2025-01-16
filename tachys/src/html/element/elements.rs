@@ -25,7 +25,7 @@ macro_rules! html_element_inner {
 
             {
                 HtmlElement {
-                    #[cfg(debug_assertions)]
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
                     defined_at: std::panic::Location::caller(),
                     tag: $struct_name,
                     attributes: (),
@@ -57,14 +57,14 @@ macro_rules! html_element_inner {
                         <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
                         let HtmlElement {
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
                             defined_at,
                             tag,
                             children,
                             attributes
                         } = self;
                         HtmlElement {
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
                             defined_at,
                             tag,
                             children,
@@ -132,7 +132,7 @@ macro_rules! html_self_closing_elements {
 
                 {
                     HtmlElement {
-                        #[cfg(debug_assertions)]
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
                         defined_at: std::panic::Location::caller(),
                         attributes: (),
                         children: (),
@@ -162,14 +162,14 @@ macro_rules! html_self_closing_elements {
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
                             let HtmlElement {
-                                 #[cfg(debug_assertions)]
+                                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                                  defined_at,
                                 tag,
                                 children,
                                 attributes,
                             } = self;
                             HtmlElement {
-                                #[cfg(debug_assertions)]
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
                                 defined_at,
                                 tag,
                                 children,
@@ -250,7 +250,7 @@ html_elements! {
     /// The `<body>` HTML element represents the content of an HTML document. There can be only one `<body>` element in a document.
     body HtmlBodyElement [] true,
     /// The `<button>` HTML element represents a clickable button, used to submit forms or anywhere in a document for accessible, standard button functionality.
-    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value] true,
+    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value, popovertarget, popovertargetaction] true,
     /// Use the HTML `<canvas>` element with either the canvas scripting API or the WebGL API to draw graphics and animations.
     canvas HtmlCanvasElement [height, width] true,
     /// The `<caption>` HTML element specifies the caption (or title) of a table.
@@ -340,7 +340,7 @@ html_elements! {
     /// The `<nav>` HTML element represents a section of a page whose purpose is to provide navigation links, either within the current document or to other documents. Common examples of navigation sections are menus, tables of contents, and indexes.
     nav HtmlElement [] true,
     /// The `<noscript>` HTML element defines a section of HTML to be inserted if a script type on the page is unsupported or if scripting is currently turned off in the browser.
-    noscript HtmlElement [] true,
+    noscript HtmlElement [] false,
     /// The `<object>` HTML element represents an external resource, which can be treated as an image, a nested browsing context, or a resource to be handled by a plugin.
     object HtmlObjectElement [data, form, height, name, r#type, usemap, width] true,
     /// The `<ol>` HTML element represents an ordered list of items — typically rendered as a numbered list.

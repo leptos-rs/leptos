@@ -9,13 +9,15 @@ use crate::{
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+#[cfg(feature = "reactive_stores")]
+use reactive_graph::owner::Storage;
 use reactive_graph::{
     signal::{ReadSignal, RwSignal, WriteSignal},
     traits::{Get, Update},
     wrappers::read::Signal,
 };
 #[cfg(feature = "reactive_stores")]
-use reactive_stores::{KeyedSubfield, Subfield};
+use reactive_stores::{ArcField, Field, KeyedSubfield, Subfield};
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsValue;
 
@@ -355,6 +357,21 @@ where
 
     fn into_split_signal(self) -> (Self::Read, Self::Write) {
         (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<T, S> IntoSplitSignal for Field<T, S>
+where
+    Self: Get<Value = T> + Update<Value = T> + Clone,
+    S: Storage<ArcField<T>>,
+{
+    type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self, self)
     }
 }
 

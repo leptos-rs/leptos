@@ -444,6 +444,7 @@ fn unsync_derived_signal_and_memo() {
     assert_eq!(f.get_untracked(), 6);
 }
 
+
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn test_memo_multiple_read_guards() {
@@ -505,4 +506,44 @@ async fn test_memo_read_guard_held() {
             Executor::tick().await;
         })
         .await
+}
+
+#[test]
+fn memo_updates_even_if_not_read_until_later() {
+    #![allow(clippy::bool_assert_comparison)]
+
+    let owner = Owner::new();
+    owner.set();
+
+    // regression test for https://github.com/leptos-rs/leptos/issues/3339
+
+    let input = RwSignal::new(0);
+    let first_memo = Memo::new(move |_| input.get() == 1);
+    let second_memo = Memo::new(move |_| first_memo.get());
+
+    assert_eq!(input.get(), 0);
+    assert_eq!(first_memo.get(), false);
+
+    println!("update to 1");
+    input.set(1);
+    assert_eq!(input.get(), 1);
+    println!("read memo 1");
+    assert_eq!(first_memo.get(), true);
+    println!("read memo 2");
+    assert_eq!(second_memo.get(), true);
+
+    // this time, we don't read the memo
+    println!("\nupdate to 2");
+    input.set(2);
+    assert_eq!(input.get(), 2);
+    println!("read memo 1");
+    assert_eq!(first_memo.get(), false);
+
+    println!("\nupdate to 3");
+    input.set(3);
+    assert_eq!(input.get(), 3);
+    println!("read memo 1");
+    assert_eq!(first_memo.get(), false);
+    println!("read memo 2");
+    assert_eq!(second_memo.get(), false);
 }

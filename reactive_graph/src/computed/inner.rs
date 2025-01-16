@@ -74,7 +74,9 @@ where
     fn mark_check(&self) {
         {
             let mut lock = self.reactivity.write().or_poisoned();
-            lock.state = ReactiveNodeState::Check;
+            if lock.state != ReactiveNodeState::Dirty {
+                lock.state = ReactiveNodeState::Check;
+            }
         }
         for sub in
             (&self.reactivity.read().or_poisoned().subscribers).into_iter()
