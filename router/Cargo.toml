@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.7.3"
+version = "0.7.4"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
