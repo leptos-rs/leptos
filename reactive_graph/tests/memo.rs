@@ -444,7 +444,6 @@ fn unsync_derived_signal_and_memo() {
     assert_eq!(f.get_untracked(), 6);
 }
 
-
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn test_memo_multiple_read_guards() {
