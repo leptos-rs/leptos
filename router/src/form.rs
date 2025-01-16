@@ -4,6 +4,7 @@ use crate::{
     location::{BrowserUrl, LocationProvider},
     NavigateOptions,
 };
+use either_of::Either;
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -52,6 +53,9 @@ pub fn Form<A>(
     /// Sets whether the page should replace the current location in the history when the form is submitted.
     #[prop(optional)]
     replace: bool,
+    /// A [`NodeRef`] in which the `<form>` element should be stored.
+    #[prop(optional)]
+    node_ref: Option<NodeRef<leptos::html::Form>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -94,6 +98,7 @@ where
         on_form_data: Option<OnFormData>,
         on_response: Option<OnResponse>,
         on_error: Option<OnError>,
+        node_ref: Option<NodeRef<leptos::html::Form>>,
         children: Children,
         noscroll: bool,
         replace: bool,
@@ -299,12 +304,17 @@ where
 
         let method = method.unwrap_or("get");
 
-        form()
+        let form = form()
             .attr("method", method)
             .attr("action", move || action.get())
             .attr("enctype", enctype)
             .on(ev::submit, on_submit)
-            .child(children())
+            .child(children());
+        if let Some(node_ref) = node_ref {
+            Either::Left(form.node_ref(node_ref))
+        } else {
+            Either::Right(form)
+        }
     }
 
     let has_router = has_router();
@@ -323,6 +333,7 @@ where
         on_form_data,
         on_response,
         on_error,
+        node_ref,
         children,
         noscroll,
         replace,
