@@ -114,8 +114,8 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Write,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
+        UntrackableGuard, Write,
     },
 };
 pub use reactive_stores_macro::{Patch, Store};
@@ -335,6 +335,12 @@ impl<T> ArcStore<T> {
     }
 }
 
+impl<T: Default> Default for ArcStore<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T: Debug> Debug for ArcStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("ArcStore");
@@ -468,6 +474,24 @@ where
     }
 }
 
+impl<T> Default for Store<T>
+where
+    T: Default + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T> Default for Store<T, LocalStorage>
+where
+    T: Default + 'static,
+{
+    fn default() -> Self {
+        Self::new_local(T::default())
+    }
+}
+
 impl<T: Debug, S> Debug for Store<T, S>
 where
     S: Debug,
@@ -508,6 +532,15 @@ where
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> Dispose for Store<T, S>
+where
+    T: 'static,
+{
+    fn dispose(self) {
+        self.inner.dispose();
     }
 }
 
@@ -850,6 +883,68 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn patching_only_notifies_changed_field_with_custom_patch() {
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodos {
+            #[patch(|this, new| *this = new)]
+            user: String,
+            todos: Vec<CustomTodo>,
+        }
+
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodo {
+            label: String,
+            completed: bool,
+        }
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(CustomTodos {
+            user: "Alice".into(),
+            todos: vec![],
+        });
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.user().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.patch(CustomTodos {
+            user: "Bob".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![CustomTodo {
+                label: "First CustomTodo".into(),
+                completed: false,
+            }],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[derive(Debug, Store)]

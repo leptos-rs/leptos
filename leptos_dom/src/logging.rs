@@ -29,13 +29,8 @@ macro_rules! error {
 macro_rules! debug_warn {
     ($($x:tt)*) => {
         {
-            #[cfg(debug_assertions)]
-            {
+            if cfg!(debug_assertions) {
                 $crate::warn!($($x)*)
-            }
-            #[cfg(not(debug_assertions))]
-            {
-                ($($x)*)
             }
         }
     }

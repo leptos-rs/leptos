@@ -32,7 +32,7 @@ use tachys::view::any_view::AnyView;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RouteChildren<Children>(Children);
 
 impl<Children> RouteChildren<Children> {

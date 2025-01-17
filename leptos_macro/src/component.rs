@@ -201,13 +201,35 @@ impl ToTokens for Model {
         ) = {
             #[cfg(feature = "tracing")]
             {
+                /* TODO for 0.8: fix this
+                 *
+                 * The problem is that cargo now warns about an expected "tracing" cfg if
+                 * you don't have a "tracing" feature in your actual crate
+                 *
+                 * However, until https://github.com/tokio-rs/tracing/pull/1819 is merged
+                 * (?), you can't provide an alternate path for `tracing` (for example,
+                 * ::leptos::tracing), which means that if you're going to use the macro
+                 * you *must* have `tracing` in your Cargo.toml.
+                 *
+                 * Including the feature-check here causes cargo warnings on
+                 * previously-working projects.
+                 *
+                 * Removing the feature-check here breaks any project that uses leptos with
+                 * the tracing feature turned on, but without a tracing dependency in its
+                 * Cargo.toml.
+                 * /
+                 */
+                let instrument = cfg!(feature = "trace-components").then(|| quote! {
+                    #[cfg_attr(
+                        feature = "tracing",
+                        ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
+                    )]
+                });
+
                 (
                     quote! {
                         #[allow(clippy::let_with_type_underscore)]
-                        #[cfg_attr(
-                            feature = "tracing",
-                            ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
-                        )]
+                        #instrument
                     },
                     quote! {
                         let __span = ::leptos::tracing::Span::current();

@@ -1,5 +1,8 @@
 use super::ClientRes;
-use crate::{error::ServerFnError, redirect::REDIRECT_HEADER};
+use crate::{
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+    redirect::REDIRECT_HEADER,
+};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Response;
@@ -12,48 +15,39 @@ use wasm_streams::ReadableStream;
 /// The response to a `fetch` request made in the browser.
 pub struct BrowserResponse(pub(crate) SendWrapper<Response>);
 
-impl<CustErr> ClientRes<CustErr> for BrowserResponse {
-    fn try_into_string(
-        self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
-    {
+impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
+    fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send {
         // the browser won't send this async work between threads (because it's single-threaded)
         // so we can safely wrap this
         SendWrapper::new(async move {
-            self.0
-                .text()
-                .await
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            self.0.text().await.map_err(|e| {
+                ServerFnErrorErr::Deserialization(e.to_string())
+                    .into_app_error()
+            })
         })
     }
 
-    fn try_into_bytes(
-        self,
-    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
-    {
+    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, E>> + Send {
         // the browser won't send this async work between threads (because it's single-threaded)
         // so we can safely wrap this
         SendWrapper::new(async move {
-            self.0
-                .binary()
-                .await
-                .map(Bytes::from)
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            self.0.binary().await.map(Bytes::from).map_err(|e| {
+                ServerFnErrorErr::Deserialization(e.to_string())
+                    .into_app_error()
+            })
         })
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
-        ServerFnError<CustErr>,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
         let stream = ReadableStream::from_raw(self.0.body().unwrap())
             .into_stream()
             .map(|data| match data {
                 Err(e) => {
                     web_sys::console::error_1(&e);
-                    Err(ServerFnError::Request(format!("{e:?}")))
+                    Err(ServerFnErrorErr::Request(format!("{e:?}"))
+                        .into_app_error())
                 }
                 Ok(data) => {
                     let data = data.unchecked_into::<Uint8Array>();

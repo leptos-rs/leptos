@@ -272,7 +272,10 @@ macro_rules! spawn_derived {
                 // so that the correct value is set synchronously
                 let initial = initial_fut.as_mut().now_or_never();
                 match initial {
-                    None => (false, Some(initial_fut)),
+                    None => {
+                        inner.write().or_poisoned().notifier.notify();
+                        (false, Some(initial_fut))
+                    }
                     Some(orig_value) => {
                         let mut guard = this.inner.write().or_poisoned();
 
@@ -296,10 +299,6 @@ macro_rules! spawn_derived {
         if was_ready {
             first_run.take();
         }
-        // begin loading eagerly but asynchronously, if not already loaded
-        if !was_ready {
-            any_subscriber.mark_dirty();
-        }
 
         if let Some(source) = $source {
             any_subscriber.with_observer(|| source.track());
@@ -312,6 +311,18 @@ macro_rules! spawn_derived {
                 let wakers = Arc::downgrade(&this.wakers);
                 let loading = Arc::downgrade(&this.loading);
                 let fut = async move {
+                    // if the AsyncDerived has *already* been marked dirty (i.e., one of its
+                    // sources has changed after creation), we should throw out the Future
+                    // we already created, because its values might be stale
+                    let already_dirty = inner.upgrade()
+                        .as_ref()
+                        .and_then(|inner| inner.read().ok())
+                        .map(|inner| inner.state == AsyncDerivedState::Dirty)
+                        .unwrap_or(false);
+                    if already_dirty {
+                        initial_fut.take();
+                    }
+
                     while rx.next().await.is_some() {
                         let update_if_necessary = if $should_track {
                             any_subscriber
@@ -413,7 +424,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     ) {
         loading.store(false, Ordering::Relaxed);
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Notifying;
+        let prev_state = mem::replace(
+            &mut inner.write().or_poisoned().state,
+            AsyncDerivedState::Notifying,
+        );
 
         if let Some(ready_tx) = ready_tx {
             // if it's an Err, that just means the Receiver was dropped
@@ -433,7 +447,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
             waker.wake();
         }
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Clean;
+        // if this was marked dirty before notifications began, this means it
+        // had been notified while loading; marking it clean will cause it not to
+        // run on the next tick of the async loop, so here it should be left dirty
+        inner.write().or_poisoned().state = prev_state;
     }
 }
 
