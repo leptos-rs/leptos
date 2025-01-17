@@ -11,21 +11,34 @@ use reactive_graph::{
     },
 };
 use std::{
-    marker::PhantomData,
     ops::{Deref, DerefMut},
     panic::Location,
 };
 
-/// TODO
-pub trait Unbox: Sized {
-    /// TODO
-    fn unbox(self) -> Unboxed<Self>;
+/// Maps a store field that is a smart pointer to a subfield of the dereferenced inner type.
+pub trait DerefField
+where
+    Self: StoreField,
+    Self::Value: Deref + DerefMut,
+    <Self::Value as Deref>::Target: Sized + 'static,
+{
+    /// Returns a new store field with the value mapped to the target type of dereferencing this
+    /// field
+    ///
+    /// For example, if you have a store field with a `Box<T>`, `.deref_field()` will return a
+    /// new store field containing a `T`.
+    fn deref_field(self) -> DerefedField<Self>;
 }
 
-impl<S> Unbox for S {
+impl<S> DerefField for S
+where
+    S: StoreField,
+    S::Value: Deref + DerefMut,
+    <S::Value as Deref>::Target: Sized + 'static,
+{
     #[track_caller]
-    fn unbox(self) -> Unboxed<Self> {
-        Unboxed {
+    fn deref_field(self) -> DerefedField<Self> {
+        DerefedField {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
             inner: self,
@@ -33,15 +46,16 @@ impl<S> Unbox for S {
     }
 }
 
-/// TODO
+/// A wrapper from a store field containing a smart pointer to a store field containing the
+/// dereferenced target type of that smart pointer.
 #[derive(Debug, Copy, Clone)]
-pub struct Unboxed<S> {
+pub struct DerefedField<S> {
     inner: S,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
-impl<S> StoreField for Unboxed<S>
+impl<S> StoreField for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,
@@ -71,7 +85,7 @@ where
     }
 }
 
-impl<S> DefinedAt for Unboxed<S>
+impl<S> DefinedAt for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,
@@ -88,7 +102,7 @@ where
         }
     }
 }
-impl<S> IsDisposed for Unboxed<S>
+impl<S> IsDisposed for DerefedField<S>
 where
     S: IsDisposed,
 {
@@ -96,7 +110,7 @@ where
         self.inner.is_disposed()
     }
 }
-impl<S> Notify for Unboxed<S>
+impl<S> Notify for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,
@@ -108,7 +122,7 @@ where
         trigger.children.notify();
     }
 }
-impl<S> Track for Unboxed<S>
+impl<S> Track for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,
@@ -118,7 +132,7 @@ where
         self.track_field();
     }
 }
-impl<S> ReadUntracked for Unboxed<S>
+impl<S> ReadUntracked for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,
@@ -129,7 +143,7 @@ where
         self.reader()
     }
 }
-impl<S> Write for Unboxed<S>
+impl<S> Write for DerefedField<S>
 where
     S: StoreField,
     S::Value: Deref + DerefMut,

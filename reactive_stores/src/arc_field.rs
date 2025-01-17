@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
-    StoreFieldTrigger, Subfield, Unboxed,
+    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield, Store,
+    StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::Storage,
@@ -202,14 +202,14 @@ where
     }
 }
 
-impl<Inner, T> From<Unboxed<Inner>> for ArcField<T>
+impl<Inner, T> From<DerefedField<Inner>> for ArcField<T>
 where
     Inner: Clone + StoreField + Send + Sync + 'static,
     Inner::Value: Deref<Target = T> + DerefMut,
     T: Sized + 'static,
 {
     #[track_caller]
-    fn from(value: Unboxed<Inner>) -> Self {
+    fn from(value: DerefedField<Inner>) -> Self {
         ArcField {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
