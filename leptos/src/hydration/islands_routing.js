@@ -10,6 +10,12 @@ window.addEventListener("click", async (ev) => {
 	await navigateToPage(req, true);
 });
 
+window.addEventListener("popstate", async (ev) => {
+	const req = new Request(window.location);
+	ev.preventDefault();
+	await navigateToPage(req, true, true);
+});
+
 window.addEventListener("submit", async (ev) => {
 	const req = submitToReq(ev);
 	if(!req) {
@@ -20,12 +26,13 @@ window.addEventListener("submit", async (ev) => {
 	await navigateToPage(req, true);
 });
 
-async function navigateToPage(req, useViewTransition) {
+async function navigateToPage(req, useViewTransition, replace) {
 	NAVIGATION += 1;
 	const currentNav = NAVIGATION;
 
 	// fetch the new page
 	const resp = await fetch(req);
+	const redirected = resp.redirected;
 	const htmlString = await resp.text();
 
 	if(NAVIGATION === currentNav) {
@@ -33,6 +40,12 @@ async function navigateToPage(req, useViewTransition) {
 		const transition = async () => {
 			try {
 				diffPages(htmlString);
+				for(const island of document.querySelectorAll("leptos-island")) {
+					if(!island.$$hydrated) {
+						__hydrateIsland(island, island.dataset.component);
+						island.$$hydrated = true;
+					}
+				}
 			} catch(e) {
 				console.error(e);
 			}
@@ -43,7 +56,14 @@ async function navigateToPage(req, useViewTransition) {
 		} else {
 			await transition()
 		}
-		window.history.pushState(undefined, null, req.url);
+
+		const url = redirected ? resp.url : req.url;
+
+		if(replace) {
+			window.history.replaceState(undefined, null, url);
+		} else {
+			window.history.pushState(undefined, null, url);
+		}
 	}
 }
 
@@ -110,16 +130,20 @@ function submitToReq(ev) {
 	const requestInit = {};
 	const data = new FormData(form);
 
+	const params = new URLSearchParams();
+	for (const [key, value] of data.entries()) {
+		params.append(key, value);
+	}
+
+	requestInit.headers = { 
+		Accept: "text/html"
+	};
 	if(method === "GET") {
-		const params = new URLSearchParams();
-		for (const [key, value] of data.entries()) {
-			params.append(key, value);
-		}
 		path += `?${params.toString()}`;
 	}
 	else {
 		requestInit.method = "POST";
-		requestInit.body = data; 
+		requestInit.body = params; 
 	}
 
 
@@ -143,6 +167,7 @@ function diffPages(htmlString) {
 	while(oldDocWalker.nextNode() && newDocWalker.nextNode()) {
 		oldNode = oldDocWalker.currentNode;
 		newNode = newDocWalker.currentNode;
+
 		// if the nodes are different, we need to replace the old with the new
 		// because of the typed view tree, this should never actually happen
 		if (oldNode.nodeType !== newNode.nodeType) {
@@ -228,7 +253,6 @@ function replaceFor(oldDocWalker, newDocWalker, oldNode, newNode) {
 			// replace the item in the *new* list with the *old* DOM elements 
 			const oldOne = oldKeys[key];
 			const newOne = newKeys[key];
-			console.log("need to replace", key, oldOne, newOne);
 			const oldRange = new Range();
 			const newRange = new Range();
 			oldRange.setStartAfter(oldOne.open);
@@ -315,10 +339,15 @@ function diffElement(oldNode, newNode) {
 	const newEl = newNode;
 	if (oldEl.tagName !== newEl.tagName) {
 		oldEl.replaceWith(newEl);
+
 	}
 	else {
 		for(const attr of newEl.attributes) {
 			oldEl.setAttribute(attr.name, attr.value);
 		}
 	}
+}
+
+for(const island of document.querySelectorAll("leptos-island")) {
+	island.$$hydrated = true;
 }
