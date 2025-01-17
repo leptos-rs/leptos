@@ -4,10 +4,12 @@ on:
     branches:
       - main
       - leptos_0.6
+      - leptos_0.8
   pull_request:
     branches:
       - main
       - leptos_0.6
+      - leptos_0.8
 jobs:
   get-example-changed:
     uses: ./.github/workflows/get-example-changed.yml
