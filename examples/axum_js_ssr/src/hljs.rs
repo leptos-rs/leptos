@@ -13,13 +13,13 @@ mod csr {
     extern "C" {
         type HighlightOptions;
 
-        #[wasm_bindgen(catch, js_namespace = default, js_name = highlight)]
+        #[wasm_bindgen(catch, js_namespace = defaultMod, js_name = highlight)]
         fn highlight_lang(
             code: String,
             options: Object,
         ) -> Result<Object, JsValue>;
 
-        #[wasm_bindgen(js_namespace = default, js_name = highlightAll)]
+        #[wasm_bindgen(js_namespace = defaultMod, js_name = highlightAll)]
         pub fn highlight_all();
     }
 
