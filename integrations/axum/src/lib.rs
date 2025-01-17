@@ -368,8 +368,6 @@ async fn handle_server_fns_inner(
     additional_context: impl Fn() + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    use server_fn::middleware::Service;
-
     let method = req.method().clone();
     let path = req.uri().path().to_string();
     let (req, parts) = generate_request_and_parts(req);
