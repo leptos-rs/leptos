@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.8.1", optional = true }
 console_error_panic_hook = "0.1.7"
 console_log = "1.0"
 gloo-utils = "0.2.0"
@@ -20,18 +20,27 @@ leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_router = { path = "../../router" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
-tokio = { version = "1.39", features = [ "rt-multi-thread", "macros", "time" ], optional = true }
+tokio = { version = "1.39", features = [
+  "rt-multi-thread",
+  "macros",
+  "time",
+], optional = true }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 wasm-bindgen = "0.2.92"
-web-sys = { version = "0.3.69", features = [ "AddEventListenerOptions", "Document", "Element", "Event", "EventListener", "EventTarget", "Performance", "Window" ], optional = true }
+web-sys = { version = "0.3.69", features = [
+  "AddEventListenerOptions",
+  "Document",
+  "Element",
+  "Event",
+  "EventListener",
+  "EventTarget",
+  "Performance",
+  "Window",
+], optional = true }
 
 [features]
-hydrate = [
-  "leptos/hydrate",
-  "dep:js-sys",
-  "dep:web-sys",
-]
+hydrate = ["leptos/hydrate", "dep:js-sys", "dep:web-sys"]
 ssr = [
   "dep:axum",
   "dep:http-body-util",
