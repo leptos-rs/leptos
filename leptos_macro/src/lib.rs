@@ -1004,19 +1004,16 @@ pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
 }
 
-/// TODO docs for lazy macros.
+/// The `#[lazy]` macro marks an `async` function as a function that can be lazy-loaded from a
+/// separate (WebAssembly) binary.
+///
+/// The first time the function is called, calling the function will first load that other binary,
+/// then call the function. On subsequent call it will be called immediately, but still return 
+/// asynchronously to maintain the same API.
+///
+/// All parameters and output types should be concrete types, with no generics.
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     lazy::lazy_impl(args, s)
-}
-
-/// TODO docs for lazy macros.
-#[proc_macro_attribute]
-#[proc_macro_error]
-pub fn lazy_route(
-    args: proc_macro::TokenStream,
-    s: TokenStream,
-) -> TokenStream {
-    lazy::lazy_route_impl(args, s)
 }
