@@ -3278,6 +3278,7 @@ version = "0.7.4"
 dependencies = [
  "actix-web",
  "axum",
+ "base64",
  "bytes",
  "ciborium",
  "const_format",

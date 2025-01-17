@@ -1,8 +1,8 @@
 use super::{Encoding, FromReq, FromRes};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
     IntoReq, IntoRes,
 };
 use http::Method;
@@ -15,68 +15,68 @@ impl Encoding for SerdeLite {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<SerdeLite, Request, CustErr> for T
+impl<E, T, Request> IntoReq<SerdeLite, Request, E> for T
 where
-    Request: ClientReq<CustErr>,
+    Request: ClientReq<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
-        let data = serde_json::to_string(
-            &self
-                .serialize()
-                .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
-        )
-        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = serde_json::to_string(&self.serialize().map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post(path, accepts, SerdeLite::CONTENT_TYPE, data)
     }
 }
 
-impl<CustErr, T, Request> FromReq<SerdeLite, Request, CustErr> for T
+impl<E, T, Request> FromReq<SerdeLite, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: Deserialize,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
-        Self::deserialize(
-            &serde_json::from_str(&string_data)
-                .map_err(|e| ServerFnError::Args(e.to_string()))?,
-        )
-        .map_err(|e| ServerFnError::Args(e.to_string()))
+        Self::deserialize(&serde_json::from_str(&string_data).map_err(|e| {
+            ServerFnErrorErr::Args(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
-impl<CustErr, T, Response> IntoRes<SerdeLite, Response, CustErr> for T
+impl<E, T, Response> IntoRes<SerdeLite, Response, E> for T
 where
-    Response: Res<CustErr>,
+    Response: TryRes<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
-        let data = serde_json::to_string(
-            &self
-                .serialize()
-                .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
-        )
-        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    async fn into_res(self) -> Result<Response, E> {
+        let data = serde_json::to_string(&self.serialize().map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Response::try_from_string(SerdeLite::CONTENT_TYPE, data)
     }
 }
 
-impl<CustErr, T, Response> FromRes<SerdeLite, Response, CustErr> for T
+impl<E, T, Response> FromRes<SerdeLite, Response, E> for T
 where
-    Response: ClientRes<CustErr> + Send,
+    Response: ClientRes<E> + Send,
     T: Deserialize + Send,
+    E: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_string().await?;
-        Self::deserialize(
-            &serde_json::from_str(&data)
-                .map_err(|e| ServerFnError::Args(e.to_string()))?,
-        )
-        .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        Self::deserialize(&serde_json::from_str(&data).map_err(|e| {
+            ServerFnErrorErr::Args(e.to_string()).into_app_error()
+        })?)
+        .map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }
