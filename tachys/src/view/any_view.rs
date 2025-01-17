@@ -19,10 +19,25 @@ use std::{
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
+// Minimizes deep generics via a single dynamic dispatch
+trait DynValueAttr: DynValue {
+    fn apply_attr(self: Box<Self>, attr: AnyAttribute) -> AnyView;
+}
+
 trait DynValue: Send {
     fn dyn_add_any_attr(self: Box<Self>, attr: AnyAttribute) -> AnyView;
 
     fn dyn_any(self: Box<Self>) -> Box<dyn Any + Send>;
+}
+
+impl<T> DynValueAttr for T
+where
+    T: Send + RenderHtml + 'static,
+    T::State: 'static,
+{
+    fn apply_attr(self: Box<Self>, attr: AnyAttribute) -> AnyView {
+        self.add_any_attr(attr).into_any()
+    }
 }
 
 impl<T> DynValue for T
@@ -31,8 +46,9 @@ where
     T: RenderHtml + 'static,
     T::State: 'static,
 {
+    #[inline(never)]
     fn dyn_add_any_attr(self: Box<Self>, attr: AnyAttribute) -> AnyView {
-        self.add_any_attr(attr).into_any()
+        DynValueAttr::apply_attr(self, attr)
     }
 
     fn dyn_any(self: Box<Self>) -> Box<dyn Any + Send> {
@@ -348,9 +364,11 @@ impl Render for AnyView {
     }
 }
 
+// Pre-erases output to reduce compile-time explosions
 impl AddAnyAttr for AnyView {
-    type Output<SomeNewAttr: Attribute> = Self;
+    type Output<SomeNewAttr: Attribute> = AnyView;
 
+    #[inline(never)]
     fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
@@ -359,7 +377,8 @@ impl AddAnyAttr for AnyView {
         Self::Output<NewAttr>: RenderHtml,
     {
         let attr = attr.into_cloneable_owned();
-        self.value.dyn_add_any_attr(attr.into_any_attr())
+        let any_attr = attr.into_any_attr();
+        self.value.dyn_add_any_attr(any_attr)
     }
 }
 
