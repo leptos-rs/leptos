@@ -22,10 +22,17 @@ macro_rules! mathml_global {
 				At: NextTuple,
 				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
 			{
-				let HtmlElement { tag, children, attributes } = self;
+				let HtmlElement {
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
+                    defined_at,
+                    tag,
+                    children,
+                    attributes
+                } = self;
 				HtmlElement {
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
+                    defined_at,
 					tag,
-
 					children,
 					attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
 				}
@@ -46,10 +53,11 @@ macro_rules! mathml_elements {
 
                 {
                     HtmlElement {
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
+                        defined_at: std::panic::Location::caller(),
                         tag: [<$tag:camel>],
                         attributes: (),
                         children: (),
-
                     }
                 }
 
@@ -84,10 +92,17 @@ macro_rules! mathml_elements {
                             At: NextTuple,
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
-                            let HtmlElement { tag, children, attributes } = self;
-                            HtmlElement {
+                            let HtmlElement {
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                                defined_at,
                                 tag,
-
+                                children,
+                                attributes
+                            } = self;
+                            HtmlElement {
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                                defined_at,
+                                tag,
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
                             }

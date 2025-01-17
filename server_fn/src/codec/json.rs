@@ -118,7 +118,7 @@ impl<T, E> JsonStream<T, E> {
     pub fn new(
         value: impl Stream<Item = Result<T, E>> + Send + 'static,
     ) -> Self {
-        Self(Box::pin(value.map(|value| value.map(Into::into))))
+        Self(Box::pin(value.map(|value| value)))
     }
 }
 

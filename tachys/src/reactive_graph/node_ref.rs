@@ -1,12 +1,17 @@
 use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
+    effect::Effect,
     signal::{
         guards::{Derefable, ReadGuard},
         RwSignal,
     },
-    traits::{DefinedAt, ReadUntracked, Set, Track},
+    traits::{
+        DefinedAt, Get, Notify, ReadUntracked, Set, Track, UntrackableGuard,
+        Write,
+    },
 };
 use send_wrapper::SendWrapper;
+use std::{cell::Cell, ops::DerefMut};
 use wasm_bindgen::JsCast;
 
 /// A reactive reference to a DOM node that can be used with the `node_ref` attribute.
@@ -25,6 +30,25 @@ where
     #[track_caller]
     pub fn new() -> Self {
         Self(RwSignal::new(None))
+    }
+
+    /// Runs the provided closure when the `NodeRef` has been connected
+    /// with its element.
+    #[inline(always)]
+    pub fn on_load<F>(self, f: F)
+    where
+        E: 'static,
+        F: FnOnce(E::Output) + 'static,
+        E: ElementType,
+        E::Output: JsCast + Clone + 'static,
+    {
+        let f = Cell::new(Some(f));
+
+        Effect::new(move |_| {
+            if let Some(node_ref) = self.get() {
+                f.take().unwrap()(node_ref);
+            }
+        });
     }
 }
 
@@ -75,6 +99,34 @@ where
 {
     fn defined_at(&self) -> Option<&'static std::panic::Location<'static>> {
         self.0.defined_at()
+    }
+}
+
+impl<E> Notify for NodeRef<E>
+where
+    E: ElementType,
+    E::Output: JsCast + Clone + 'static,
+{
+    fn notify(&self) {
+        self.0.notify();
+    }
+}
+
+impl<E> Write for NodeRef<E>
+where
+    E: ElementType,
+    E::Output: JsCast + Clone + 'static,
+{
+    type Value = Option<SendWrapper<E::Output>>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.0.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.0.try_write_untracked()
     }
 }
 

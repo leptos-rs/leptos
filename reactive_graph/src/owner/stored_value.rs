@@ -4,7 +4,9 @@ use super::{
 };
 use crate::{
     signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},
-    traits::{DefinedAt, Dispose, IsDisposed, ReadValue, WriteValue},
+    traits::{
+        DefinedAt, Dispose, IntoInner, IsDisposed, ReadValue, WriteValue,
+    },
     unwrap_signal,
 };
 use std::{
@@ -22,7 +24,7 @@ use std::{
 /// updating it does not notify anything else.
 pub struct StoredValue<T, S = SyncStorage> {
     value: ArenaItem<ArcStoredValue<T>, S>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -62,11 +64,11 @@ impl<T, S> Hash for StoredValue<T, S> {
 
 impl<T, S> DefinedAt for StoredValue<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -83,7 +85,7 @@ where
     pub fn new_with_storage(value: T) -> Self {
         Self {
             value: ArenaItem::new_with_storage(ArcStoredValue::new(value)),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -162,6 +164,19 @@ impl<T, S> Dispose for StoredValue<T, S> {
     }
 }
 
+impl<T, S> IntoInner for StoredValue<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStoredValue<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.value.into_inner()?.into_inner()
+    }
+}
+
 impl<T> From<ArcStoredValue<T>> for StoredValue<T>
 where
     T: Send + Sync + 'static,
@@ -169,7 +184,7 @@ where
     #[track_caller]
     fn from(value: ArcStoredValue<T>) -> Self {
         StoredValue {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: ArenaItem::new(value),
         }

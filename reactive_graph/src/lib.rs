@@ -124,7 +124,7 @@ pub fn log_warning(text: Arguments) {
     }
 }
 
-/// Calls [`Executor::spawn`], but ensures that the task also runs in the current arena, if
+/// Calls [`Executor::spawn`](any_spawner::Executor), but ensures that the task also runs in the current arena, if
 /// multithreaded arena sandboxing is enabled.
 pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     #[cfg(feature = "sandboxed-arenas")]
@@ -133,8 +133,9 @@ pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     any_spawner::Executor::spawn(task);
 }
 
-/// Calls [`Executor::spawn_local`], but ensures that the task runs under the current reactive [`Owner`]
-/// and [`Observed`]. Does not cancel the task if the owner is cleaned up.
+/// Calls [`Executor::spawn_local`](any_spawner::Executor), but ensures that the task runs under the current reactive [`Owner`](crate::owner::Owner) and observer.
+///
+/// Does not cancel the task if the owner is cleaned up.
 pub fn spawn_local_scoped(task: impl Future<Output = ()> + 'static) {
     let task = ScopedFuture::new(task);
 
@@ -144,8 +145,9 @@ pub fn spawn_local_scoped(task: impl Future<Output = ()> + 'static) {
     any_spawner::Executor::spawn_local(task);
 }
 
-/// Calls [`Executor::spawn_local`], but ensures that the task runs under the current reactive [`Owner`]
-/// and [`Observed`]. Cancels the task if the owner is cleaned up.
+/// Calls [`Executor::spawn_local`](any_spawner::Executor), but ensures that the task runs under the current reactive [`Owner`](crate::owner::Owner) and observer.
+///
+/// Cancels the task if the owner is cleaned up.
 pub fn spawn_local_scoped_with_cancellation(
     task: impl Future<Output = ()> + 'static,
 ) {

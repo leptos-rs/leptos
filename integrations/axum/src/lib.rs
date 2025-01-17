@@ -16,7 +16,6 @@
 //! - `default`: supports running in a typical native Tokio/Axum environment
 //! - `wasm`: with `default-features = false`, supports running in a JS Fetch-based
 //!   environment
-//! - `islands`: activates Leptos [islands mode](https://leptos-rs.github.io/leptos/islands.html)
 //!
 //! ### Important Note
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
@@ -197,9 +196,9 @@ impl ExtendResponse for AxumResponse {
 /// 2. A server function that is called from WASM running in the client (e.g., a dispatched action
 ///    or a spawned `Future`).
 /// 3. A `<form>` submitted to the server function endpoint using default browser APIs (often due
-///    to using [`ActionForm`](leptos::form::ActionForm) without JS/WASM present.)
+///    to using [`ActionForm`] without JS/WASM present.)
 ///
-/// Using it with a non-blocking [`Resource`](leptos::server::Resource) will not work if you are using streaming rendering,
+/// Using it with a non-blocking [`Resource`] will not work if you are using streaming rendering,
 /// as the response's headers will already have been sent by the time the server function calls `redirect()`.
 ///
 /// ### Implementation
@@ -397,8 +396,8 @@ async fn handle_server_fns_inner(
                     // actually run the server fn
                     let mut res = AxumResponse(service.run(req).await);
 
-                    // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                    // Location set, then redirect to to Referer
+                    // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                    // Location set, then redirect to the Referer
                     if accepts_html {
                         if let Some(referrer) = referrer {
                             let has_location =
@@ -410,7 +409,7 @@ async fn handle_server_fns_inner(
                         }
                     }
 
-                    // apply status code and headers if used changed them
+                    // apply status code and headers if user changed them
                     res.extend_response(&res_options);
                     Ok(res.0)
                 })
@@ -439,12 +438,6 @@ pub type PinnedHtmlStream =
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_stream](leptos::ssr::render_to_stream), and
-/// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -483,8 +476,7 @@ pub type PinnedHtmlStream =
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -535,12 +527,6 @@ where
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_stream_in_order], and includes everything described in
-/// the documentation for that function.
-///
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use axum::{handler::Handler, Router};
@@ -578,8 +564,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -632,8 +617,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -764,8 +748,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -832,8 +815,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -950,13 +932,7 @@ fn provide_contexts(
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
-/// the documentation for that function.
+/// `async` resources have loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -996,8 +972,7 @@ fn provide_contexts(
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -1018,7 +993,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// `async` resources have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1051,8 +1026,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -1086,7 +1060,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// `async` resources have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1119,8 +1093,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -2018,12 +1991,12 @@ pub fn file_and_error_handler<S, IV>(
        + 'static
 where
     IV: IntoView + 'static,
-    S: Send + 'static,
+    S: Send + Sync + Clone + 'static,
     LeptosOptions: FromRef<S>,
 {
-    move |uri: Uri, State(options): State<S>, req: Request<Body>| {
+    move |uri: Uri, State(state): State<S>, req: Request<Body>| {
         Box::pin(async move {
-            let options = LeptosOptions::from_ref(&options);
+            let options = LeptosOptions::from_ref(&state);
             let res = get_static_file(uri, &options.site_root, req.headers());
             let res = res.await.unwrap();
 
@@ -2031,7 +2004,9 @@ where
                 res.into_response()
             } else {
                 let mut res = handle_response_inner(
-                    || {},
+                    move || {
+                        provide_context(state.clone());
+                    },
                     move || shell(options),
                     req,
                     |app, chunks| {

@@ -12,10 +12,10 @@ edition.workspace = true
 tachys = { workspace = true }
 reactive_graph = { workspace = true }
 or_poisoned = { workspace = true }
-js-sys = "0.3.72"
+js-sys = "0.3.74"
 send_wrapper = "0.6.0"
-tracing = { version = "0.1.40", optional = true }
-wasm-bindgen = "0.2.95"
+tracing = { version = "0.1.41", optional = true }
+wasm-bindgen = "0.2.97"
 serde_json = { version = "1.0", optional = true }
 serde = { version = "1.0", optional = true }
 
@@ -37,3 +37,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

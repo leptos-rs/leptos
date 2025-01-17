@@ -8,7 +8,7 @@ use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
+        DefinedAt, Dispose, IntoInner, IsDisposed, Notify, ReadUntracked,
         UntrackableGuard, Write,
     },
     unwrap_signal,
@@ -100,7 +100,7 @@ use std::{
 /// assert_eq!(double_count(), 2);
 /// ```
 pub struct RwSignal<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: ArenaItem<ArcRwSignal<T>, S>,
 }
@@ -139,7 +139,7 @@ where
     #[track_caller]
     pub fn new_with_storage(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcRwSignal::new(value)),
         }
@@ -172,7 +172,7 @@ where
     #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T, S> {
         ReadSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 self.inner
@@ -194,7 +194,7 @@ where
     #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T, S> {
         WriteSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(
                 self.inner
@@ -231,10 +231,10 @@ where
             (Some(read), Some(write)) => {
                 if Arc::ptr_eq(&read.inner, &write.inner) {
                     Some(Self {
-                        #[cfg(debug_assertions)]
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
                         defined_at: Location::caller(),
                         inner: ArenaItem::new_with_storage(ArcRwSignal {
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
                             defined_at: Location::caller(),
                             value: Arc::clone(&read.value),
                             inner: Arc::clone(&read.inner),
@@ -296,11 +296,11 @@ impl<T, S> Hash for RwSignal<T, S> {
 
 impl<T, S> DefinedAt for RwSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -310,6 +310,18 @@ impl<T, S> DefinedAt for RwSignal<T, S> {
 impl<T: 'static, S> IsDisposed for RwSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for RwSignal<T, S>
+where
+    S: Storage<ArcRwSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 
@@ -378,7 +390,7 @@ where
     #[track_caller]
     fn from(value: ArcRwSignal<T>) -> Self {
         RwSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -402,7 +414,7 @@ where
     #[track_caller]
     fn from_local(value: ArcRwSignal<T>) -> Self {
         RwSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }

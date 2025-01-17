@@ -100,7 +100,7 @@ pub struct Memo<T, S = SyncStorage>
 where
     S: Storage<T>,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: ArenaItem<ArcMemo<T, S>, S>,
 }
@@ -121,7 +121,7 @@ where
     #[track_caller]
     fn from(value: ArcMemo<T, SyncStorage>) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -135,7 +135,7 @@ where
     #[track_caller]
     fn from_local(value: ArcMemo<T, LocalStorage>) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -175,7 +175,7 @@ where
         T: PartialEq,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcMemo::new(fun)),
         }
@@ -197,7 +197,7 @@ where
         changed: fn(Option<&T>, Option<&T>) -> bool,
     ) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcMemo::new_with_compare(
                 fun, changed,
@@ -207,7 +207,7 @@ where
 
     /// Creates a new memo by passing a function that computes the value.
     ///
-    /// Unlike [`ArcMemo::new`](), this receives ownership of the previous value. As a result, it
+    /// Unlike [`Memo::new`](), this receives ownership of the previous value. As a result, it
     /// must return both the new value and a `bool` that is `true` if the value has changed.
     ///
     /// This is lazy: the function will not be called until the memo's value is read for the first
@@ -221,7 +221,7 @@ where
         fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
     ) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcMemo::new_owning(fun)),
         }
@@ -276,11 +276,11 @@ where
     S: Storage<T>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

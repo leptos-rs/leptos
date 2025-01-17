@@ -11,7 +11,7 @@ mod vertical;
 use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, collections::HashSet};
+use std::{borrow::Cow, collections::HashSet, sync::atomic::Ordering};
 pub use vertical::*;
 
 #[derive(Debug)]
@@ -90,6 +90,16 @@ where
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u16);
+
+impl RouteMatchId {
+    /// Creates a new match ID based on the current route ID used in nested route generation.
+    ///
+    /// In general, you do not need this; it should only be used for custom route matching behavior
+    /// in a library that creates its own route types.
+    pub fn new_from_route_id() -> RouteMatchId {
+        RouteMatchId(ROUTE_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 pub trait MatchInterface {
     type Child: MatchInterface + MatchParams + 'static;

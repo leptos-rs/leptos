@@ -1,4 +1,4 @@
-//! Macros for use with the [`leptos`] framework.
+//! Macros for use with the Leptos framework.
 
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
@@ -272,8 +272,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     view_macro_impl(tokens, false)
 }
 
-/// The `template` macro behaves like [`view`], except that it wraps the entire tree in a
-/// [`ViewTemplate`](leptos::prelude::ViewTemplate). This optimizes creation speed by rendering
+/// The `template` macro behaves like [`view`](view!), except that it wraps the entire tree in a
+/// [`ViewTemplate`](https://docs.rs/leptos/0.7.0-gamma3/leptos/prelude/struct.ViewTemplate.html). This optimizes creation speed by rendering
 /// most of the view into a `<template>` tag with HTML rendered at compile time, then hydrating it.
 /// In exchange, there is a small binary size overhead.
 #[proc_macro_error2::proc_macro_error]
@@ -366,7 +366,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     }
 }
 
-/// This behaves like the [`view`] macro, but loads the view from an external file instead of
+/// This behaves like the [`view`](view!) macro, but loads the view from an external file instead of
 /// parsing it inline.
 ///
 /// This is designed to allow editing views in a separate file, if this improves a user's workflow.
@@ -639,7 +639,7 @@ pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             abort!(
                 transparent,
                 "only `transparent` is supported";
-                help = "try `#[component(transparent)]` or `#[component]`"
+                help = "try `#[island(transparent)]` or `#[island]`"
             );
         }
 

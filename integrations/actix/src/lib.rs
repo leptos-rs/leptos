@@ -82,7 +82,7 @@ impl ResponseParts {
     }
 }
 
-/// A wrapper for an Actix [`HttpRequest`](actix_web::HttpRequest) that allows it to be used in an
+/// A wrapper for an Actix [`HttpRequest`] that allows it to be used in an
 /// `Send`/`Sync` setting like Leptos's Context API.
 #[derive(Debug, Clone)]
 pub struct Request(SendWrapper<HttpRequest>);
@@ -374,8 +374,8 @@ pub fn handle_server_fns_with_context(
                                     .take(),
                             );
 
-                            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                            // Location set, then redirect to to Referer
+                            // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                            // Location set, then redirect to the Referer
                             if accepts_html {
                                 if let Some(referrer) = referrer {
                                     let has_location =
@@ -389,7 +389,20 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
 
-                            // apply status code and headers if used changed them
+                            // the Location header may have been set to Referer, so any redirection by the
+                            // user must overwrite it
+                            {
+                                let mut res_options = res_options.0.write();
+                                let headers = res.0.headers_mut();
+
+                                for location in
+                                    res_options.headers.remove(header::LOCATION)
+                                {
+                                    headers.insert(header::LOCATION, location);
+                                }
+                            }
+
+                            // apply status code and headers if user changed them
                             res.extend_response(&res_options);
                             res.0
                         })
@@ -417,12 +430,6 @@ pub fn handle_server_fns_with_context(
 /// to route it using [leptos_router], serving an HTML stream of your application. The stream
 /// will include fallback content for any `<Suspense/>` nodes, and be immediately interactive,
 /// but requires some client-side JavaScript.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_stream](leptos::ssr::render_to_stream), and
-/// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -464,7 +471,6 @@ pub fn handle_server_fns_with_context(
 /// - [ResponseOptions]
 /// - [Request]
 /// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -483,13 +489,6 @@ where
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using
-/// [render_to_stream_in_order](leptos::ssr::render_to_stream_in_order),
-/// and includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -533,7 +532,6 @@ where
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
 /// - [Request]
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -550,13 +548,7 @@ where
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to the app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_string_async](leptos::ssr::render_to_string_async), and
-/// includes everything described in the documentation for that function.
+/// `async` resources have loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -689,7 +681,6 @@ where
 /// - [ResponseOptions]
 /// - [Request]
 /// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -712,7 +703,7 @@ where
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously serving the page once all `async`
-/// [Resource](leptos::Resource)s have loaded.
+/// resources have loaded.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
 /// It could be used to pass in Path Info, Connection Info, or anything your heart desires.

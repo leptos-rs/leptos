@@ -44,6 +44,67 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 ///   }
 /// }
 /// ```
+///
+/// For convenience, you can also choose to write template code directly in the `<For>`
+/// component, using the `let` syntax:
+///
+/// ```
+/// # use leptos::prelude::*;
+///
+/// # #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// # struct Counter {
+/// #   id: usize,
+/// #   count: RwSignal<i32>
+/// # }
+/// #
+/// # #[component]
+/// # fn Counters() -> impl IntoView {
+/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #
+///   view! {
+///     <div>
+///         <For
+///           each=move || counters.get()
+///           key=|counter| counter.id
+///           let(counter)
+///         >
+///             <button>"Value: " {move || counter.count.get()}</button>
+///         </For>
+///     </div>
+///   }
+/// # }
+/// ```
+///
+/// The `let` syntax also supports destructuring the pattern of your data.
+/// `let((one, two))` in the case of tuples, and `let(Struct { field_one, field_two })`
+/// in the case of structs.
+///
+/// ```
+/// # use leptos::prelude::*;
+///
+/// # #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// # struct Counter {
+/// #   id: usize,
+/// #   count: RwSignal<i32>
+/// # }
+/// #
+/// # #[component]
+/// # fn Counters() -> impl IntoView {
+/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #
+///   view! {
+///     <div>
+///         <For
+///           each=move || counters.get()
+///           key=|counter| counter.id
+///           let(Counter { id, count })
+///         >
+///             <button>"Value: " {move || count.get()}</button>
+///         </For>
+///     </div>
+///   }
+/// # }
+/// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn For<IF, I, T, EF, N, KF, K>(

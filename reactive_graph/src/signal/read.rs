@@ -6,7 +6,7 @@ use super::{
 use crate::{
     graph::SubscriberSet,
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
-    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
+    traits::{DefinedAt, Dispose, IntoInner, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -58,7 +58,7 @@ use std::{
 /// assert_eq!(count.read(), 0);
 /// ```
 pub struct ReadSignal<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: ArenaItem<ArcReadSignal<T>, S>,
 }
@@ -105,11 +105,11 @@ impl<T, S> Hash for ReadSignal<T, S> {
 
 impl<T, S> DefinedAt for ReadSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -119,6 +119,18 @@ impl<T, S> DefinedAt for ReadSignal<T, S> {
 impl<T, S> IsDisposed for ReadSignal<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> IntoInner for ReadSignal<T, S>
+where
+    S: Storage<ArcReadSignal<T>>,
+{
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        self.inner.into_inner()?.into_inner()
     }
 }
 
@@ -156,7 +168,7 @@ where
     #[track_caller]
     fn from(value: ArcReadSignal<T>) -> Self {
         ReadSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -170,7 +182,7 @@ where
     #[track_caller]
     fn from_local(value: ArcReadSignal<T>) -> Self {
         ReadSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }

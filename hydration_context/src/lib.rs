@@ -83,15 +83,14 @@ pub trait SharedContext: Debug {
 
     /// Reads the current value of some data from the shared context, if it has been
     /// sent from the server. This returns the serialized data as a `String` that should
-    /// be deserialized using [`Serializable::de`].
+    /// be deserialized.
     ///
     /// On the server and in client-side rendered implementations, this should
     /// always return [`None`].
     fn read_data(&self, id: &SerializedDataId) -> Option<String>;
 
     /// Returns a [`Future`] that resolves with a `String` that should
-    /// be deserialized using [`Serializable::de`] once the given piece of server
-    /// data has resolved.
+    /// be deserialized once the given piece of server data has resolved.
     ///
     /// On the server and in client-side rendered implementations, this should
     /// return a [`Future`] that is immediately ready with [`None`].
@@ -148,8 +147,8 @@ pub trait SharedContext: Debug {
 
     /// Adds a `Future` to the set of “blocking resources” that should prevent the server’s
     /// response stream from beginning until all are resolved. The `Future` returned by
-    /// [`blocking_resources`](Self::blocking_resources) will not resolve until every `Future`
-    /// added by this method has resolved.
+    /// blocking resources will not resolve until every `Future` added by this method
+    /// has resolved.
     ///
     /// In browser implementations, this should be a no-op.
     fn defer_stream(&self, wait_for: PinnedFuture<()>);

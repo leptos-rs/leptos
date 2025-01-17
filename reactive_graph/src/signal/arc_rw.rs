@@ -6,7 +6,7 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Notify},
-    traits::{DefinedAt, ReadUntracked, UntrackableGuard, Write},
+    traits::{DefinedAt, IntoInner, ReadUntracked, UntrackableGuard, Write},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -94,7 +94,7 @@ use std::{
 /// assert_eq!(double_count(), 2);
 /// ```
 pub struct ArcRwSignal<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
@@ -104,7 +104,7 @@ impl<T> Clone for ArcRwSignal<T> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -154,7 +154,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn new(value: T) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             inner: Arc::new(RwLock::new(SubscriberSet::new())),
@@ -165,7 +165,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn read_only(&self) -> ArcReadSignal<T> {
         ArcReadSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -176,7 +176,7 @@ impl<T> ArcRwSignal<T> {
     #[track_caller]
     pub fn write_only(&self) -> ArcWriteSignal<T> {
         ArcWriteSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -198,7 +198,7 @@ impl<T> ArcRwSignal<T> {
     ) -> Option<Self> {
         if Arc::ptr_eq(&read.inner, &write.inner) {
             Some(Self {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: Location::caller(),
                 value: read.value,
                 inner: read.inner,
@@ -212,11 +212,11 @@ impl<T> ArcRwSignal<T> {
 impl<T> DefinedAt for ArcRwSignal<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -227,6 +227,15 @@ impl<T> IsDisposed for ArcRwSignal<T> {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcRwSignal<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }
 

@@ -30,7 +30,7 @@ once_cell = "1.20"
 actix-web = { version = "4.9", optional = true }
 
 # axum
-axum = { version = "0.7.8", optional = true, default-features = false, features = [
+axum = { version = "0.7.9", optional = true, default-features = false, features = [
   "multipart",
 ] }
 tower = { version = "0.5.1", optional = true }
@@ -49,17 +49,17 @@ http = { version = "1.1" }
 ciborium = { version = "0.2.2", optional = true }
 postcard = { version = "1", features = ["alloc"], optional = true }
 hyper = { version = "1.5", optional = true }
-bytes = "1.8"
+bytes = "1.9"
 http-body-util = { version = "0.1.2", optional = true }
-rkyv = { version = "0.8.8", optional = true }
+rkyv = { version = "0.8.9", optional = true }
 rmp-serde = { version = "1.3.0", optional = true }
 base64 = { version = "0.22.1" }
 
 # client
 gloo-net = { version = "0.6.0", optional = true }
-js-sys = { version = "0.3.72", optional = true }
-wasm-bindgen = { version = "0.2.95", optional = true }
-wasm-bindgen-futures = { version = "0.4.45", optional = true }
+js-sys = { version = "0.3.74", optional = true }
+wasm-bindgen = { version = "0.2.97", optional = true }
+wasm-bindgen-futures = { version = "0.4.47", optional = true }
 wasm-streams = { version = "0.4.2", optional = true }
 web-sys = { version = "0.3.72", optional = true, features = [
   "console",
@@ -230,3 +230,6 @@ skip_feature_sets = [
     "rkyv",
   ],
 ]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

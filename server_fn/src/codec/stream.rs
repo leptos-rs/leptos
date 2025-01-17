@@ -166,7 +166,7 @@ impl<E> TextStream<E> {
     pub fn new(
         value: impl Stream<Item = Result<String, E>> + Send + 'static,
     ) -> Self {
-        Self(Box::pin(value.map(|value| value.map(Into::into))))
+        Self(Box::pin(value.map(|value| value)))
     }
 }
 

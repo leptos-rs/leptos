@@ -14,15 +14,16 @@ macro_rules! svg_elements {
                 /// An SVG element.
                 // `tag()` function
                 #[allow(non_snake_case)]
+                #[track_caller]
                 pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
-
                 {
                     HtmlElement {
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
+                        defined_at: std::panic::Location::caller(),
                         tag: [<$tag:camel>],
                         attributes: (),
                         children: (),
-
                     }
                 }
 
@@ -48,7 +49,7 @@ macro_rules! svg_elements {
                             <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output: Attribute,
                         {
                             let HtmlElement { tag, children, attributes,
-                                #[cfg(debug_assertions)]
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
                                 defined_at
                             } = self;
                             HtmlElement {
@@ -56,7 +57,7 @@ macro_rules! svg_elements {
 
                                 children,
                                 attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
-                                #[cfg(debug_assertions)]
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
                                 defined_at
                             }
                         }
@@ -153,9 +154,12 @@ svg_elements![
 
 /// An SVG element.
 #[allow(non_snake_case)]
+#[track_caller]
 pub fn r#use() -> HtmlElement<Use, (), ()>
 where {
     HtmlElement {
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        defined_at: std::panic::Location::caller(),
         tag: Use,
         attributes: (),
         children: (),

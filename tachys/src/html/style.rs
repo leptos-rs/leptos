@@ -128,7 +128,9 @@ where
 }
 
 /// Any type that can be added to the `style` attribute or set as a style in
-/// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
+/// the [`CssStyleDeclaration`](web_sys::CssStyleDeclaration).
+///
+/// This could be a plain string, or a property name-value pair.
 pub trait IntoStyle: Send {
     /// The type after all async data have resolved.
     type AsyncOutput: IntoStyle;

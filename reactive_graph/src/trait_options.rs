@@ -220,7 +220,7 @@ where
     }
 }
 
-/// Helper trait to implement flatten() on Option<&Option<T>>.
+/// Helper trait to implement flatten() on `Option<&Option<T>>`.
 pub trait FlattenOptionRefOption {
     /// The type of the value contained in the double option.
     type Value;

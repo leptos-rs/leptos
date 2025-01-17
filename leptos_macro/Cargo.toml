@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.0-rc1"
+version = "0.7.4"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -13,7 +13,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.10.2", features = ["syn-full"] }
+attribute-derive = { version = "0.10.3", features = ["syn-full"] }
 cfg-if = "1.0"
 html-escape = "0.2.13"
 itertools = "0.13.0"
@@ -27,7 +27,7 @@ leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
 uuid = { version = "1.11", features = ["v4"] }
-tracing = { version = "0.1.40", optional = true }
+tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
 log = "0.4.22"
@@ -45,6 +45,7 @@ ssr = ["server_fn_macro/ssr", "leptos/ssr"]
 nightly = ["server_fn_macro/nightly"]
 tracing = ["dep:tracing"]
 islands = []
+trace-components = []
 trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
@@ -83,4 +84,7 @@ skip_feature_sets = [
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(erase_components)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+	'cfg(leptos_debuginfo)',
+	'cfg(erase_components)',
+] }

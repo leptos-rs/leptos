@@ -13,7 +13,7 @@ use std::{
 
 mod tuples;
 
-static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
+pub(crate) static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, View> {

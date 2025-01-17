@@ -32,6 +32,86 @@ where
     }
 }
 
+pub trait EitherOr {
+    type Left;
+    type Right;
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B;
+}
+
+impl EitherOr for bool {
+    type Left = ();
+    type Right = ();
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        if self {
+            Either::Left(a(()))
+        } else {
+            Either::Right(b(()))
+        }
+    }
+}
+
+impl<T> EitherOr for Option<T> {
+    type Left = T;
+    type Right = ();
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        match self {
+            Some(t) => Either::Left(a(t)),
+            None => Either::Right(b(())),
+        }
+    }
+}
+
+impl<T, E> EitherOr for Result<T, E> {
+    type Left = T;
+    type Right = E;
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        match self {
+            Ok(t) => Either::Left(a(t)),
+            Err(err) => Either::Right(b(err)),
+        }
+    }
+}
+
+#[test]
+fn test_either_or() {
+    let right = false.either_or(|_| 'a', |_| 12);
+    assert!(matches!(right, Either::Right(12)));
+
+    let left = true.either_or(|_| 'a', |_| 12);
+    assert!(matches!(left, Either::Left('a')));
+
+    let left = Some(12).either_or(|a| a, |_| 'a');
+    assert!(matches!(left, Either::Left(12)));
+    let right = None.either_or(|a: i32| a, |_| 'a');
+    assert!(matches!(right, Either::Right('a')));
+
+    let result: Result<_, ()> = Ok(1.2f32);
+    let left = result.either_or(|a| a * 2f32, |b| b);
+    assert!(matches!(left, Either::Left(2.4f32)));
+
+    let result: Result<i32, _> = Err("12");
+    let right = result.either_or(|a| a, |b| b.chars().next());
+    assert!(matches!(right, Either::Right(Some('1'))));
+}
+
 pin_project! {
     #[project = EitherFutureProj]
     pub enum EitherFuture<A, B> {
@@ -134,7 +214,7 @@ tuples!(EitherOf14 + EitherOf14Future + EitherOf14FutureProj => A, B, C, D, E, F
 tuples!(EitherOf15 + EitherOf15Future + EitherOf15FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuples!(EitherOf16 + EitherOf16Future + EitherOf16FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
-/// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf6`])
+/// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf8`])
 /// composed of the values returned by the match arms.
 ///
 /// The pattern syntax is exactly the same as found in a match arm.
@@ -197,6 +277,29 @@ macro_rules! either {
             $e_pattern => $crate::EitherOf6::E($e_expression),
             $f_pattern => $crate::EitherOf6::F($f_expression),
         }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf7::A($a_expression),
+            $b_pattern => $crate::EitherOf7::B($b_expression),
+            $c_pattern => $crate::EitherOf7::C($c_expression),
+            $d_pattern => $crate::EitherOf7::D($d_expression),
+            $e_pattern => $crate::EitherOf7::E($e_expression),
+            $f_pattern => $crate::EitherOf7::F($f_expression),
+            $g_pattern => $crate::EitherOf7::G($g_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf8::A($a_expression),
+            $b_pattern => $crate::EitherOf8::B($b_expression),
+            $c_pattern => $crate::EitherOf8::C($c_expression),
+            $d_pattern => $crate::EitherOf8::D($d_expression),
+            $e_pattern => $crate::EitherOf8::E($e_expression),
+            $f_pattern => $crate::EitherOf8::F($f_expression),
+            $g_pattern => $crate::EitherOf8::G($g_expression),
+            $h_pattern => $crate::EitherOf8::H($h_expression),
+        }
     }; // if you need more eithers feel free to open a PR ;-)
 }
 
@@ -231,6 +334,25 @@ fn either_macro() {
         14 => ' ',
         15 => 0.0f32,
         16 => 24u8,
+        _ => 12,
+    );
+    let _: EitherOf7<&str, f64, char, f32, u8, i8, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        14 => ' ',
+        15 => 0.0f32,
+        16 => 24u8,
+        17 => 2i8,
+        _ => 12,
+    );
+    let _: EitherOf8<&str, f64, char, f32, u8, i8, u32, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        14 => ' ',
+        15 => 0.0f32,
+        16 => 24u8,
+        17 => 2i8,
+        18 => 42u32,
         _ => 12,
     );
 }

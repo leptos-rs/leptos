@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    traits::{DefinedAt, IsDisposed, ReadUntracked},
+    traits::{DefinedAt, IntoInner, IsDisposed, ReadUntracked},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -54,7 +54,7 @@ use std::{
 /// assert_eq!(count.read(), 0);
 /// ```
 pub struct ArcReadSignal<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
@@ -64,7 +64,7 @@ impl<T> Clone for ArcReadSignal<T> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -85,7 +85,7 @@ impl<T: Default> Default for ArcReadSignal<T> {
     #[track_caller]
     fn default() -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(T::default())),
             inner: Arc::new(RwLock::new(SubscriberSet::new())),
@@ -110,11 +110,11 @@ impl<T> Hash for ArcReadSignal<T> {
 impl<T> DefinedAt for ArcReadSignal<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -125,6 +125,15 @@ impl<T> IsDisposed for ArcReadSignal<T> {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcReadSignal<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }
 
