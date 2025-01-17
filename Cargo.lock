@@ -1993,10 +1993,12 @@ dependencies = [
 name = "leptos_router_macro"
 version = "0.7.4"
 dependencies = [
+ "leptos_macro",
  "leptos_router",
  "proc-macro-error2",
  "proc-macro2",
  "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
