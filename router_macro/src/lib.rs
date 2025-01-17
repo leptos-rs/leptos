@@ -1,16 +1,21 @@
 //! A macro to make path definitions easier with [`leptos_router`].
+//!
+//! [`leptos_router`]: https://docs.rs/leptos_router/latest/leptos_router/components/fn.Route.html
 
 #![deny(missing_docs)]
 
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
-use proc_macro_error2::abort;
+use proc_macro_error2::{abort, proc_macro_error};
 use quote::{quote, ToTokens};
+use syn::{
+    spanned::Spanned, Block, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
+};
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
 const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 
-/// Constructs a path for use in a [`leptos_router::Route`] definition.
+/// Constructs a path for use in a [`Route`] definition.
 ///
 /// Note that this is an optional convenience. Manually defining route segments
 /// is equivalent.
@@ -33,6 +38,7 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 ///
 /// assert_eq!(path, output);
 /// ```
+/// [`Route`]: https://docs.rs/leptos_router/latest/leptos_router/components/fn.Route.html
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn path(tokens: TokenStream) -> TokenStream {
@@ -186,4 +192,80 @@ impl ToTokens for Segments {
             segments => tokens.extend(quote! { (#(#segments),*) }),
         }
     }
+}
+
+/// When added to an [`impl LazyRoute`] implementation block, this will automatically
+/// add a [`lazy`] annotation to the `view` method, which will cause the code for the view
+/// to lazy-load concurrently with the `data` being loaded for the route.
+///
+/// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
+/// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/macro.lazy.html
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn lazy_route(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> TokenStream {
+    lazy_route_impl(args, s)
+}
+
+fn lazy_route_impl(
+    _args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> TokenStream {
+    let mut im = syn::parse::<ItemImpl>(s).unwrap_or_else(|e| {
+        abort!(e.span(), "`lazy_route` can only be used on an `impl` block")
+    });
+    if im.trait_.is_none() {
+        abort!(
+            im.span(),
+            "`lazy_route` can only be used on an `impl LazyRoute for ...` \
+             block"
+        )
+    }
+
+    let self_ty = im.self_ty.clone();
+    let ty_name_to_snake = match &*self_ty {
+        Type::Path(TypePath {
+            path: Path { segments, .. },
+            ..
+        }) => segments.last().unwrap().ident.to_string(),
+        _ => abort!(self_ty.span(), "only path types are supported"),
+    };
+    let lazy_view_ident = Ident::new(&ty_name_to_snake, im.self_ty.span());
+
+    let item = im.items.iter_mut().find_map(|item| match item {
+        ImplItem::Fn(inner) => {
+            if inner.sig.ident.to_string().as_str() == "view" {
+                Some(inner)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    });
+    match item {
+        None => abort!(im.span(), "must contain a fn called `view`"),
+        Some(fun) => {
+            let body = fun.block.clone();
+            let new_block = quote! {{
+                    #[cfg_attr(feature = "split", wasm_split::wasm_split(#lazy_view_ident))]
+                    async fn view(this: #self_ty) -> ::leptos::prelude::AnyView {
+                        #body
+                    }
+
+                    view(self).await
+            }};
+            let block =
+                syn::parse::<Block>(new_block.into()).unwrap_or_else(|e| {
+                    abort!(
+                        e.span(),
+                        "`lazy_route` can only be used on an `impl` block"
+                    )
+                });
+            fun.block = block;
+        }
+    }
+
+    quote! { #im }.into()
 }
