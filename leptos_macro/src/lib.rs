@@ -1008,7 +1008,7 @@ pub fn memo(input: TokenStream) -> TokenStream {
 /// separate (WebAssembly) binary.
 ///
 /// The first time the function is called, calling the function will first load that other binary,
-/// then call the function. On subsequent call it will be called immediately, but still return 
+/// then call the function. On subsequent call it will be called immediately, but still return
 /// asynchronously to maintain the same API.
 ///
 /// All parameters and output types should be concrete types, with no generics.
