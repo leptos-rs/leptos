@@ -2764,6 +2764,7 @@ dependencies = [
  "any_spawner",
  "guardian",
  "itertools",
+ "leptos",
  "or_poisoned",
  "paste",
  "reactive_graph",
