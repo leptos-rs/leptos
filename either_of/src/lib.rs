@@ -553,8 +553,8 @@ impl<A, B> EitherOr for Either<A, B> {
     #[inline]
     fn either_or<FA, A1, FB, B1>(self, a: FA, b: FB) -> Either<A1, B1>
     where
-        FA: FnOnce(Self::Left) -> A1,
-        FB: FnOnce(Self::Right) -> B1,
+        FA: FnOnce(<Self as EitherOr>::Left) -> A1,
+        FB: FnOnce(<Self as EitherOr>::Right) -> B1,
     {
         self.map(a, b)
     }
