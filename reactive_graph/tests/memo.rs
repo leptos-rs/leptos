@@ -447,7 +447,7 @@ fn unsync_derived_signal_and_memo() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn test_memo_multiple_read_guards() {
-    // Test for issue https://github.com/leptos-rs/leptos/issues/3158
+    // regression test for https://github.com/leptos-rs/leptos/issues/3158
     let owner = Owner::new();
     owner.set();
     use imports::*;
@@ -473,7 +473,7 @@ async fn test_memo_multiple_read_guards() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn test_memo_read_guard_held() {
-    // Test for issue https://github.com/leptos-rs/leptos/issues/3252
+    // regression test for https://github.com/leptos-rs/leptos/issues/3252
     let owner = Owner::new();
     owner.set();
     use imports::*;
@@ -493,7 +493,7 @@ async fn test_memo_read_guard_held() {
             );
 
             Effect::new(move |_| {
-                let direct_value = directly_derived.read(); // <!!!=== This seems to break it
+                let direct_value = directly_derived.read();
                 let indirect_value = indirect.get();
                 assert_eq!(direct_value, indirect_value);
             });

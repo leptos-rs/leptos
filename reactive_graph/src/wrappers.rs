@@ -1738,6 +1738,7 @@ pub mod read {
     pub enum SignalReadGuard<T: 'static, S: Storage<T>> {
         /// A read signal guard.
         Read(ReadGuard<T, Plain<T>>),
+        #[allow(clippy::type_complexity)]
         /// A memo guard.
         Memo(
             ReadGuard<T, Mapped<Plain<Option<<S as Storage<T>>::Wrapped>>, T>>,
