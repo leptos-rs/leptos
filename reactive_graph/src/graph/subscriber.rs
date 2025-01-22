@@ -135,6 +135,13 @@ pub fn untrack<T>(fun: impl FnOnce() -> T) -> T {
     fun()
 }
 
+#[doc(hidden)]
+#[track_caller]
+pub fn untrack_with_diagnostics<T>(fun: impl FnOnce() -> T) -> T {
+    let _prev = Observer::take();
+    fun()
+}
+
 /// Converts a [`Subscriber`] to a type-erased [`AnySubscriber`].
 pub trait ToAnySubscriber {
     /// Converts this type to its type-erased equivalent.

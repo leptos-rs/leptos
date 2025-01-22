@@ -32,6 +32,86 @@ where
     }
 }
 
+pub trait EitherOr {
+    type Left;
+    type Right;
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B;
+}
+
+impl EitherOr for bool {
+    type Left = ();
+    type Right = ();
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        if self {
+            Either::Left(a(()))
+        } else {
+            Either::Right(b(()))
+        }
+    }
+}
+
+impl<T> EitherOr for Option<T> {
+    type Left = T;
+    type Right = ();
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        match self {
+            Some(t) => Either::Left(a(t)),
+            None => Either::Right(b(())),
+        }
+    }
+}
+
+impl<T, E> EitherOr for Result<T, E> {
+    type Left = T;
+    type Right = E;
+
+    fn either_or<FA, A, FB, B>(self, a: FA, b: FB) -> Either<A, B>
+    where
+        FA: FnOnce(Self::Left) -> A,
+        FB: FnOnce(Self::Right) -> B,
+    {
+        match self {
+            Ok(t) => Either::Left(a(t)),
+            Err(err) => Either::Right(b(err)),
+        }
+    }
+}
+
+#[test]
+fn test_either_or() {
+    let right = false.either_or(|_| 'a', |_| 12);
+    assert!(matches!(right, Either::Right(12)));
+
+    let left = true.either_or(|_| 'a', |_| 12);
+    assert!(matches!(left, Either::Left('a')));
+
+    let left = Some(12).either_or(|a| a, |_| 'a');
+    assert!(matches!(left, Either::Left(12)));
+    let right = None.either_or(|a: i32| a, |_| 'a');
+    assert!(matches!(right, Either::Right('a')));
+
+    let result: Result<_, ()> = Ok(1.2f32);
+    let left = result.either_or(|a| a * 2f32, |b| b);
+    assert!(matches!(left, Either::Left(2.4f32)));
+
+    let result: Result<i32, _> = Err("12");
+    let right = result.either_or(|a| a, |b| b.chars().next());
+    assert!(matches!(right, Either::Right(Some('1'))));
+}
+
 pin_project! {
     #[project = EitherFutureProj]
     pub enum EitherFuture<A, B> {
