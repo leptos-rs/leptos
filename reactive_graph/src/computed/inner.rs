@@ -111,7 +111,7 @@ where
         if needs_update {
             let fun = self.fun.clone();
             let owner = self.owner.clone();
-            // No deadlock risk, because we only hold one lock at a time. We never hold both.
+            // No deadlock risk, because we only hold the value lock.
             let value = self.value.write().or_poisoned().take();
 
             let any_subscriber =
@@ -124,13 +124,15 @@ where
 
             // Two locks are aquired, so order matters.
             let mut reactivity_lock = self.reactivity.write().or_poisoned();
-            let mut value_lock = self.value.write().or_poisoned();
-            *value_lock = Some(S::wrap(new_value));
+            {
+                // Safety: Can block endlessly if the user is has a ReadGuard on the value
+                let mut value_lock = self.value.write().or_poisoned();
+                *value_lock = Some(S::wrap(new_value));
+            }
             reactivity_lock.state = ReactiveNodeState::Clean;
 
             if changed {
                 let subs = reactivity_lock.subscribers.clone();
-                drop(value_lock);
                 drop(reactivity_lock);
                 for sub in subs {
                     // don't trigger reruns of effects/memos
@@ -141,13 +143,12 @@ where
                     }
                 }
             } else {
-                drop(value_lock);
                 drop(reactivity_lock);
             }
 
             changed
         } else {
-            let mut lock = self.reactivity.try_write().unwrap(); // TODO: Make less agressive
+            let mut lock = self.reactivity.write().or_poisoned();
             lock.state = ReactiveNodeState::Clean;
             false
         }
@@ -159,7 +160,7 @@ where
     S: Storage<T>,
 {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
-        let mut lock = self.reactivity.try_write().unwrap(); // TODO: Make less agressive
+        let mut lock = self.reactivity.write().or_poisoned();
         lock.subscribers.subscribe(subscriber);
     }
 
