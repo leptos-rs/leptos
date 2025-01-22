@@ -581,11 +581,11 @@ fn test_either_or() {
     let right = result.either_or(|a| a, |b| b.chars().next());
     assert!(matches!(right, Either::Right(Some('1'))));
 
-    let either = Either::Left(12);
+    let either = Either::<i32, char>::Left(12);
     let left = either.either_or(|a| a, |b| b);
     assert!(matches!(left, Either::Left(12)));
 
-    let either = Either::Right('a');
+    let either = Either::<i32, char>::Right('a');
     let right = either.either_or(|a| a, |b| b);
     assert!(matches!(right, Either::Right('a')));
 }
