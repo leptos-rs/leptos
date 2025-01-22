@@ -301,7 +301,7 @@ impl ToTokens for Model {
         } else if cfg!(erase_components) {
             quote! {
                 ::leptos::prelude::IntoAny::into_any(
-                    ::leptos::prelude::untrack(
+                    ::leptos::reactive::graph::untrack_with_diagnostics(
                         move || {
                             #tracing_guard_expr
                             #tracing_props_expr
@@ -312,7 +312,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                ::leptos::prelude::untrack(
+                ::leptos::reactive::graph::untrack_with_diagnostics(
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
