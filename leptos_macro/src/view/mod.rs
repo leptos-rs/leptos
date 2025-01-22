@@ -1129,6 +1129,11 @@ pub(crate) fn attribute_absolute(
                     ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)
                 }
             }
+            else if name == "node_ref" {
+                quote! {
+                    ::leptos::tachys::html::node_ref::#key(#value)
+                }
+            }
             else {
                 quote! {
                     ::leptos::tachys::html::attribute::#key(#value)

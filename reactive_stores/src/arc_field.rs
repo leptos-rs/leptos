@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
-    StoreFieldTrigger, Subfield,
+    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield, Store,
+    StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::Storage,
@@ -173,6 +173,43 @@ where
 {
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        ArcField {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+        }
+    }
+}
+
+impl<Inner, T> From<DerefedField<Inner>> for ArcField<T>
+where
+    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner::Value: Deref<Target = T> + DerefMut,
+    T: Sized + 'static,
+{
+    #[track_caller]
+    fn from(value: DerefedField<Inner>) -> Self {
         ArcField {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),

@@ -131,6 +131,7 @@ use std::{
 };
 
 mod arc_field;
+mod deref;
 mod field;
 mod iter;
 mod keyed;
@@ -141,6 +142,7 @@ mod store_field;
 mod subfield;
 
 pub use arc_field::ArcField;
+pub use deref::*;
 pub use field::Field;
 pub use iter::*;
 pub use keyed::*;
@@ -883,6 +885,68 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn patching_only_notifies_changed_field_with_custom_patch() {
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodos {
+            #[patch(|this, new| *this = new)]
+            user: String,
+            todos: Vec<CustomTodo>,
+        }
+
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodo {
+            label: String,
+            completed: bool,
+        }
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(CustomTodos {
+            user: "Alice".into(),
+            todos: vec![],
+        });
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.user().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.patch(CustomTodos {
+            user: "Bob".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![CustomTodo {
+                label: "First CustomTodo".into(),
+                completed: false,
+            }],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[derive(Debug, Store)]
