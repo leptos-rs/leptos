@@ -479,11 +479,11 @@ impl<A, B> Either<A, B> {
     }
 }
 
-impl<A, B> From<Result<A, B>> for Either<B, A> {
+impl<A, B> From<Result<A, B>> for Either<A, B> {
     fn from(value: Result<A, B>) -> Self {
         match value {
-            Ok(right) => Either::Right(right),
-            Err(left) => Either::Left(left),
+            Ok(left) => Either::Left(left),
+            Err(right) => Either::Right(right),
         }
     }
 }
@@ -546,6 +546,20 @@ impl<T, E> EitherOr for Result<T, E> {
     }
 }
 
+impl<A, B> EitherOr for Either<A, B> {
+    type Left = A;
+    type Right = B;
+
+    #[inline]
+    fn either_or<FA, A1, FB, B1>(self, a: FA, b: FB) -> Either<A1, B1>
+    where
+        FA: FnOnce(Self::Left) -> A1,
+        FB: FnOnce(Self::Right) -> B1,
+    {
+        self.map(a, b)
+    }
+}
+
 #[test]
 fn test_either_or() {
     let right = false.either_or(|_| 'a', |_| 12);
@@ -566,6 +580,14 @@ fn test_either_or() {
     let result: Result<i32, _> = Err("12");
     let right = result.either_or(|a| a, |b| b.chars().next());
     assert!(matches!(right, Either::Right(Some('1'))));
+
+    let either = Either::Left(12);
+    let left = either.either_or(|a| a, |b| b);
+    assert!(matches!(left, Either::Left(12)));
+
+    let either = Either::Right('a');
+    let right = either.either_or(|a| a, |b| b);
+    assert!(matches!(right, Either::Right('a')));
 }
 
 tuples!(EitherOf3 + EitherOf3Future + EitherOf3FutureProj {
