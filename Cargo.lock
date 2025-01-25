@@ -887,7 +887,11 @@ checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
 name = "either_of"
+<<<<<<< HEAD
 version = "0.1.5"
+=======
+version = "0.1.4"
+>>>>>>> c64d2059 (feat (`either_of`): Extent API; Implement other iterator methods; Update deps (#3478))
 dependencies = [
  "paste",
  "pin-project-lite",
