@@ -1,5 +1,6 @@
 use oco_ref::Oco;
 use std::sync::Arc;
+use tachys::prelude::IntoAttributeValue;
 
 /// Describes a value that is either a static or a reactive string, i.e.,
 /// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
@@ -71,5 +72,13 @@ where
 impl Default for TextProp {
     fn default() -> Self {
         Self(Arc::new(|| Oco::Borrowed("")))
+    }
+}
+
+impl IntoAttributeValue for TextProp {
+    type Output = Oco<'static, str>;
+
+    fn into_attribute_value(self) -> Self::Output {
+        self.get()
     }
 }
