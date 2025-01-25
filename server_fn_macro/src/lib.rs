@@ -230,6 +230,7 @@ pub fn server_macro_impl(
         None => Some("PostUrl".to_string()),
         _ => None,
     };
+
     let input = input
         .map(|n| {
             if builtin_encoding {
@@ -604,20 +605,44 @@ pub fn server_macro_impl(
     } else {
         quote! { concat!("/", #fn_path) }
     };
+
+    let enable_server_fn_mod_path = option_env!("SERVER_FN_MOD_PATH").is_some();
+    let mod_path = if enable_server_fn_mod_path {
+        quote! {
+            #server_fn_path::const_format::concatcp!(
+                #server_fn_path::const_str::replace!(module_path!(), "::", "/"),
+                "/"
+            )
+        }
+    } else {
+        quote! { "" }
+    };
+
+    let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
+    let hash = if enable_hash {
+        quote! {
+            #server_fn_path::xxhash_rust::const_xxh64::xxh64(
+                concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                0
+            )
+        }
+    } else {
+        quote! { "" }
+    };
+
     let path = quote! {
         if #fn_path.is_empty() {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
                 "/",
+                #mod_path,
                 #fn_name_as_str,
-                #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
-                    0
-                )
+                #hash
             )
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
+                #mod_path,
                 #fn_path
             )
         }
