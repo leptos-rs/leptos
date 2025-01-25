@@ -619,7 +619,7 @@ pub fn server_macro_impl(
     };
 
     let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
-    let hash = if !enable_hash {
+    let hash = if enable_hash {
         quote! {
             #server_fn_path::xxhash_rust::const_xxh64::xxh64(
                 concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
