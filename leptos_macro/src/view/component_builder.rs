@@ -171,7 +171,7 @@ pub(crate) fn component_to_tokens(
 
     let spreads = (!(spreads.is_empty())).then(|| {
         quote! {
-            .add_any_attr((#(#spreads,)*))
+            .add_any_attr((#(#spreads,)*).into_attr())
         }
     });
 

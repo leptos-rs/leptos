@@ -1,5 +1,7 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+    },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
@@ -302,13 +304,13 @@ where
 
     E::EventType: From<crate::renderer::types::Event>,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
@@ -671,7 +673,12 @@ generate_event_types! {
 }
 
 // Export `web_sys` event types
-use super::{attribute::NextAttribute, element::HasElementType};
+use super::{
+    attribute::{
+        maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+    },
+    element::HasElementType,
+};
 #[doc(no_inline)]
 pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,

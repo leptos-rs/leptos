@@ -21,7 +21,7 @@ where
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Custom<E>(E);
 
-impl<E> ElementType for Custom<E>
+impl<E: 'static> ElementType for Custom<E>
 where
     E: AsRef<str> + Send,
 {
