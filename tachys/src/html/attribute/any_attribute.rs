@@ -9,6 +9,7 @@ use std::{future::Future, pin::Pin};
 
 trait DynAttr: DynClone + Any + Send + 'static {
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    #[cfg(feature = "ssr")]
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
@@ -22,6 +23,7 @@ where
         self
     }
 
+    #[cfg(feature = "ssr")]
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
@@ -366,11 +368,11 @@ impl Attribute for Vec<AnyAttribute> {
         #[cfg(feature = "hydrate")]
         if FROM_SERVER {
             self.into_iter()
-                .map(|mut attr| attr.hydrate::<true>(el))
+                .map(|attr| attr.hydrate::<true>(el))
                 .collect()
         } else {
             self.into_iter()
-                .map(|mut attr| attr.hydrate::<false>(el))
+                .map(|attr| attr.hydrate::<false>(el))
                 .collect()
         }
         #[cfg(not(feature = "hydrate"))]
