@@ -1,11 +1,10 @@
 use crate::{
     html::{
-        attribute::{Attr, Attribute, AttributeValue},
+        attribute::{Attr, Attribute, AttributeValue, NextAttribute},
         element::{ElementType, ElementWithChildren, HtmlElement},
     },
     view::Render,
 };
-use next_tuple::NextTuple;
 use std::fmt::Debug;
 
 macro_rules! mathml_global {
@@ -14,13 +13,13 @@ macro_rules! mathml_global {
             /// A MathML attribute.
 			pub fn $attr<V>(self, value: V) -> HtmlElement <
 				[<$tag:camel>],
-				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+				<At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
 				Ch
 			>
 			where
 				V: AttributeValue,
-				At: NextTuple,
-				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
+				At: NextAttribute,
+				<At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
 			{
 				let HtmlElement {
                     #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -34,7 +33,7 @@ macro_rules! mathml_global {
                     defined_at,
 					tag,
 					children,
-					attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+					attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
 				}
 			}
 		}
@@ -84,13 +83,13 @@ macro_rules! mathml_elements {
                         /// A MathML attribute.
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                             Ch
                         >
                         where
                             V: AttributeValue,
-                            At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
+                            At: NextAttribute,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
                             let HtmlElement {
                                 #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -104,7 +103,7 @@ macro_rules! mathml_elements {
                                 defined_at,
                                 tag,
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                             }
                         }
 					)*

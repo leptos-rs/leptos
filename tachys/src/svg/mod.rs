@@ -40,13 +40,13 @@ macro_rules! svg_elements {
 					$(
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output,
+                            <At as $crate::html::attribute::NextAttribute<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output,
                             Ch
                         >
                         where
                             V: AttributeValue,
-                            At: NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
-                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output: Attribute,
+                            At: $crate::html::attribute::NextAttribute<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            <At as $crate::html::attribute::NextAttribute<Attr<$crate::html::attribute::[<$attr:camel>], V>>>::Output: Attribute,
                         {
                             let HtmlElement { tag, children, attributes,
                                 #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -56,7 +56,7 @@ macro_rules! svg_elements {
                                 tag,
 
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                                 defined_at
                             }

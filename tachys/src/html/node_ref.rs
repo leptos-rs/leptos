@@ -1,14 +1,22 @@
 use super::{
-    attribute::{Attribute, NextAttribute},
+    attribute::{
+        maybe_next_attr_erasure_macros::next_attr_output_type,
+        panic_on_clone_attribute::PanicOnCloneAttr, Attribute, NextAttribute,
+    },
     element::ElementType,
 };
 use crate::{
-    html::element::HtmlElement, prelude::Render, view::add_attr::AddAnyAttr,
+    html::{
+        attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+        element::HtmlElement,
+    },
+    prelude::Render,
+    view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;
 
 /// Describes a container that can be used to hold a reference to an HTML element.
-pub trait NodeRefContainer<E>: Send + Clone
+pub trait NodeRefContainer<E>: Send + Clone + 'static
 where
     E: ElementType,
 {
@@ -57,8 +65,8 @@ where
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
     type State = crate::renderer::types::Element;
-    type Cloneable = ();
-    type CloneableOwned = ();
+    type Cloneable = PanicOnCloneAttr<Self>;
+    type CloneableOwned = PanicOnCloneAttr<Self>;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -92,11 +100,17 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        panic!("node_ref should not be spread across multiple elements.");
+        PanicOnCloneAttr::new(
+            self,
+            "node_ref should not be spread across multiple elements.",
+        )
     }
 
     fn into_cloneable_owned(self) -> Self::Cloneable {
-        panic!("node_ref should not be spread across multiple elements.");
+        PanicOnCloneAttr::new(
+            self,
+            "node_ref should not be spread across multiple elements.",
+        )
     }
 
     fn dry_resolve(&mut self) {}
@@ -113,13 +127,13 @@ where
 
     crate::renderer::types::Element: PartialEq,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 

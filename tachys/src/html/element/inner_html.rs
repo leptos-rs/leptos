@@ -1,6 +1,11 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
-    html::attribute::{Attribute, NextAttribute},
+    html::attribute::{
+        maybe_next_attr_erasure_macros::{
+            next_attr_combine, next_attr_output_type,
+        },
+        Attribute, NextAttribute,
+    },
     renderer::Rndr,
     view::add_attr::AddAnyAttr,
 };
@@ -106,13 +111,13 @@ impl<T> NextAttribute for InnerHtml<T>
 where
     T: InnerHtmlValue,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
