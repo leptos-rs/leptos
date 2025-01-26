@@ -1,5 +1,9 @@
-use super::attribute::{Attribute, NextAttribute};
+use super::attribute::{
+    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
+    NextAttribute,
+};
 use crate::{
+    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
     prelude::AddAnyAttr,
     view::{Position, ToTemplate},
 };
@@ -164,13 +168,13 @@ where
     P: Clone + 'static,
     T: 'static,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 

@@ -7,10 +7,15 @@ pub mod custom;
 /// Traits to define global attribute methods on all HTML elements.
 pub mod global;
 mod key;
+pub(crate) mod maybe_next_attr_erasure_macros;
+pub(crate) mod panic_on_clone_attribute;
 mod value;
 
 use crate::view::{Position, ToTemplate};
 pub use key::*;
+use maybe_next_attr_erasure_macros::{
+    next_attr_combine, next_attr_output_type,
+};
 use std::{fmt::Debug, future::Future};
 pub use value::*;
 
@@ -73,6 +78,25 @@ pub trait Attribute: NextAttribute + Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
+/// A type that can be converted into an attribute.
+///
+/// Used type-erasing attrs and tuples of attrs to [`Vec<AnyAttribute>`] as early as possible to prevent type explosion.
+pub trait IntoAttribute {
+    /// The type of the attribute.
+    type Output: Attribute;
+
+    /// Converts this into an attribute.
+    fn into_attr(self) -> Self::Output;
+}
+
+impl<T: Attribute> IntoAttribute for T {
+    type Output = T;
+
+    fn into_attr(self) -> Self::Output {
+        self
+    }
+}
+
 /// Adds another attribute to this one, returning a new attribute.
 ///
 /// This is typically achieved by creating or extending a tuple of attributes.
@@ -132,13 +156,27 @@ impl Attribute for () {
 }
 
 impl NextAttribute for () {
+    #[cfg(not(erase_components))]
     type Output<NewAttr: Attribute> = (NewAttr,);
+
+    #[cfg(erase_components)]
+    type Output<NewAttr: Attribute> =
+        Vec<crate::html::attribute::any_attribute::AnyAttribute>;
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (new_attr,)
+        #[cfg(not(erase_components))]
+        {
+            (new_attr,)
+        }
+        #[cfg(erase_components)]
+        {
+            use crate::html::attribute::any_attribute::IntoAnyAttribute;
+
+            vec![new_attr.into_any_attr()]
+        }
     }
 }
 
@@ -238,28 +276,28 @@ where
     K: AttributeKey,
     V: AttributeValue,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
 macro_rules! impl_attr_for_tuples {
-	($first:ident, $($ty:ident),* $(,)?) => {
-		impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
-		where
-			$first: Attribute,
-			$($ty: Attribute),*,
-
-		{
+    ($first:ident, $($ty:ident),* $(,)?) => {
+        #[cfg(not(erase_components))]
+        impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
+        where
+            $first: Attribute,
+            $($ty: Attribute),*,
+        {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
-			type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
-			type State = ($first::State, $($ty::State,)*);
+            type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
+            type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
             type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
 
@@ -269,39 +307,39 @@ macro_rules! impl_attr_for_tuples {
                 $first.html_len() $(+ $ty.html_len())*
             }
 
-			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
+            fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
                 #[allow(non_snake_case)]
-					let ($first, $($ty,)* ) = self;
-					$first.to_html(buf, class, style, inner_html);
-					$($ty.to_html(buf, class, style, inner_html));*
-			}
+                    let ($first, $($ty,)* ) = self;
+                    $first.to_html(buf, class, style, inner_html);
+                    $($ty.to_html(buf, class, style, inner_html));*
+            }
 
-			fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
+            fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
-					let ($first, $($ty,)* ) = self;
-					(
-						$first.hydrate::<FROM_SERVER>(el),
-						$($ty.hydrate::<FROM_SERVER>(el)),*
-					)
-			}
+                    let ($first, $($ty,)* ) = self;
+                    (
+                        $first.hydrate::<FROM_SERVER>(el),
+                        $($ty.hydrate::<FROM_SERVER>(el)),*
+                    )
+            }
 
             fn build(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
-					let ($first, $($ty,)*) = self;
+                    let ($first, $($ty,)*) = self;
                     (
                         $first.build(el),
                         $($ty.build(el)),*
                     )
-			}
+            }
 
-			fn rebuild(self, state: &mut Self::State) {
+            fn rebuild(self, state: &mut Self::State) {
                 paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].rebuild([<view_ $first:lower>]);
-					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
-				}
-			}
+                    let ([<$first:lower>], $([<$ty:lower>],)*) = self;
+                    let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
+                    [<$first:lower>].rebuild([<view_ $first:lower>]);
+                    $([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
+                }
+            }
 
             fn into_cloneable(self) -> Self::Cloneable {
                 #[allow(non_snake_case)]
@@ -338,10 +376,11 @@ macro_rules! impl_attr_for_tuples {
             }
         }
 
-		impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
-		where
-			$first: Attribute,
-			$($ty: Attribute),*,
+        #[cfg(not(erase_components))]
+        impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
+        where
+            $first: Attribute,
+            $($ty: Attribute),*,
 
         {
             type Output<NewAttr: Attribute> = ($first, $($ty,)* NewAttr);
@@ -354,22 +393,44 @@ macro_rules! impl_attr_for_tuples {
                 let ($first, $($ty,)*) = self;
                 ($first, $($ty,)* new_attr)
             }
-		}
-	};
+        }
+
+
+        #[cfg(erase_components)]
+        impl<$first, $($ty),*> IntoAttribute for ($first, $($ty,)*)
+        where
+            $first: IntoAttribute,
+            $($ty: IntoAttribute),*,
+            {
+            type Output = Vec<$crate::html::attribute::any_attribute::AnyAttribute>;
+
+            fn into_attr(self) -> Self::Output {
+                use crate::html::attribute::any_attribute::IntoAnyAttribute;
+
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                vec![
+                    $first.into_attr().into_any_attr(),
+                    $($ty.into_attr().into_any_attr(),)*
+                ]
+            }
+        }
+    };
 }
 
 macro_rules! impl_attr_for_tuples_truncate_additional {
-	($first:ident, $($ty:ident),* $(,)?) => {
-		impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
-		where
-			$first: Attribute,
-			$($ty: Attribute),*,
+    ($first:ident, $($ty:ident),* $(,)?) => {
+        #[cfg(not(erase_components))]
+        impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
+        where
+            $first: Attribute,
+            $($ty: Attribute),*,
 
-		{
+        {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
-			type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
-			type State = ($first::State, $($ty::State,)*);
+            type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
+            type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
             type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
 
@@ -379,21 +440,21 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 $first.html_len() $(+ $ty.html_len())*
             }
 
-			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
+            fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
                 $first.to_html(buf, class, style, inner_html);
                 $($ty.to_html(buf, class, style, inner_html));*
-			}
+            }
 
-			fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
+            fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
                 (
                     $first.hydrate::<FROM_SERVER>(el),
                     $($ty.hydrate::<FROM_SERVER>(el)),*
                 )
-			}
+            }
 
             fn build(self, el: &crate::renderer::types::Element) -> Self::State {
                 #[allow(non_snake_case)]
@@ -402,16 +463,16 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                     $first.build(el),
                     $($ty.build(el)),*
                 )
-			}
+            }
 
-			fn rebuild(self, state: &mut Self::State) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].rebuild([<view_ $first:lower>]);
-					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
-				}
-			}
+            fn rebuild(self, state: &mut Self::State) {
+                paste::paste! {
+                    let ([<$first:lower>], $([<$ty:lower>],)*) = self;
+                    let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
+                    [<$first:lower>].rebuild([<view_ $first:lower>]);
+                    $([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
+                }
+            }
 
             fn into_cloneable(self) -> Self::Cloneable {
                 #[allow(non_snake_case)]
@@ -448,10 +509,11 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
         }
 
-		impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
-		where
-			$first: Attribute,
-			$($ty: Attribute),*,
+        #[cfg(not(erase_components))]
+        impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
+        where
+            $first: Attribute,
+            $($ty: Attribute),*,
 
         {
             type Output<NewAttr: Attribute> = ($first, $($ty,)*);
@@ -463,10 +525,39 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 todo!("adding more than 26 attributes is not supported");
                 //($first, $($ty,)*)
             }
-		}
-	};
+        }
+
+        #[cfg(erase_components)]
+        impl<$first, $($ty),*> IntoAttribute for ($first, $($ty,)*)
+        where
+            $first: IntoAttribute,
+            $($ty: IntoAttribute),*,
+        {
+            type Output = $crate::html::attribute::any_attribute::AnyAttribute;
+
+            fn into_attr(self) -> Self::Output {
+                todo!("adding more than 26 attributes is not supported");
+                //crate::html::attribute::any_attribute::IntoAnyAttribute::into_any_attr(self)
+            }
+        }
+    };
 }
 
+#[cfg(erase_components)]
+impl<A> IntoAttribute for (A,)
+where
+    A: IntoAttribute,
+{
+    type Output = Vec<crate::html::attribute::any_attribute::AnyAttribute>;
+
+    fn into_attr(self) -> Self::Output {
+        use crate::html::attribute::any_attribute::IntoAnyAttribute;
+
+        vec![self.0.into_attr().into_any_attr()]
+    }
+}
+
+#[cfg(not(erase_components))]
 impl<A> Attribute for (A,)
 where
     A: Attribute,
@@ -524,17 +615,18 @@ where
     }
 }
 
+#[cfg(not(erase_components))]
 impl<A> NextAttribute for (A,)
 where
     A: Attribute,
 {
-    type Output<NewAttr: Attribute> = (A, NewAttr);
+    next_attr_output_type!(A, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self.0, new_attr)
+        next_attr_combine!(self.0, new_attr)
     }
 }
 
