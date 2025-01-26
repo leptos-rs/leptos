@@ -98,7 +98,7 @@
 //! # fn main() {
 //! # }
 //! ```
-//!
+//! 
 //! ### Additional field types
 //!
 //! Most of the time, your structs will have fields as in the example above: the struct is comprised
