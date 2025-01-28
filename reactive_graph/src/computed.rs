@@ -15,7 +15,6 @@ use crate::{
 };
 pub use arc_memo::*;
 pub use async_derived::*;
-pub(crate) use inner::MemoInner;
 pub use memo::*;
 pub use selector::*;
 
