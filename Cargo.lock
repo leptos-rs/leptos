@@ -1887,6 +1887,7 @@ dependencies = [
  "itertools",
  "leptos",
  "leptos_hot_reload",
+ "leptos_router",
  "log",
  "prettyplease",
  "proc-macro-error2",
