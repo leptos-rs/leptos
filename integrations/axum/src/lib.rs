@@ -1999,39 +1999,40 @@ where
 {
     move |uri: Uri, State(state): State<S>, req: Request<Body>| {
         Box::pin({
-        let additional_context = additional_context.clone();
-        async move {
-            let options = LeptosOptions::from_ref(&state);
-            let res = get_static_file(uri, &options.site_root, req.headers());
-            let res = res.await.unwrap();
+            let additional_context = additional_context.clone();
+            async move {
+                let options = LeptosOptions::from_ref(&state);
+                let res =
+                    get_static_file(uri, &options.site_root, req.headers());
+                let res = res.await.unwrap();
 
-            if res.status() == StatusCode::OK {
-                res.into_response()
-            } else {
-                let mut res = handle_response_inner(
-                    move || {
-                        additional_context();
-                        provide_context(state.clone());
-                    },
-                    move || shell(options),
-                    req,
-                    |app, chunks| {
-                        Box::pin(async move {
-                            let app = app
-                                .to_html_stream_in_order()
-                                .collect::<String>()
-                                .await;
-                            let chunks = chunks();
-                            Box::pin(once(async move { app }).chain(chunks))
-                                as PinnedStream<String>
-                        })
-                    },
-                )
-                .await;
-                *res.status_mut() = StatusCode::NOT_FOUND;
-                res
+                if res.status() == StatusCode::OK {
+                    res.into_response()
+                } else {
+                    let mut res = handle_response_inner(
+                        move || {
+                            additional_context();
+                            provide_context(state.clone());
+                        },
+                        move || shell(options),
+                        req,
+                        |app, chunks| {
+                            Box::pin(async move {
+                                let app = app
+                                    .to_html_stream_in_order()
+                                    .collect::<String>()
+                                    .await;
+                                let chunks = chunks();
+                                Box::pin(once(async move { app }).chain(chunks))
+                                    as PinnedStream<String>
+                            })
+                        },
+                    )
+                    .await;
+                    *res.status_mut() = StatusCode::NOT_FOUND;
+                    res
+                }
             }
-        }
         })
     }
 }
