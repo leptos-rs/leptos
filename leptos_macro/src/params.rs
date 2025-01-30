@@ -13,7 +13,13 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
             .named
             .iter()
             .map(|field| {
-				let field_name_string = &field.ident.as_ref().expect("expected named struct fields").to_string();
+				let field_name_string = &field
+                    .ident
+                    .as_ref()
+                    .expect("expected named struct fields")
+                    .to_string()
+                    .trim_start_matches("r#")
+                    .to_owned();
 				let ident = &field.ident;
 				let ty = &field.ty;
 				let span = field.span();
