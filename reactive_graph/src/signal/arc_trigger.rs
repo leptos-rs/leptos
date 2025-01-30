@@ -1,7 +1,7 @@
 use super::subscriber_traits::AsSubscriberSet;
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    traits::{DefinedAt, IsDisposed, Notify},
+    traits::{DefinedAt, IsDisposed, Notify, Track},
 };
 use std::{
     fmt::{Debug, Formatter, Result},
@@ -66,6 +66,22 @@ impl AsSubscriberSet for ArcTrigger {
     #[inline(always)]
     fn as_subscriber_set(&self) -> Option<Self::Output> {
         Some(Arc::clone(&self.inner))
+    }
+}
+
+impl Notify for Vec<ArcTrigger> {
+    fn notify(&self) {
+        for trigger in self {
+            trigger.notify();
+        }
+    }
+}
+
+impl Track for Vec<ArcTrigger> {
+    fn track(&self) {
+        for trigger in self {
+            trigger.track();
+        }
     }
 }
 

@@ -34,6 +34,16 @@ impl StorePath {
             *last = segment.into();
         }
     }
+
+    /// Returns `true` if the path contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Returns the number of elements in the path.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 /// One segment of a [`StorePath`].

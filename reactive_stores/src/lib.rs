@@ -757,6 +757,7 @@ mod tests {
     use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
+        owner::StoredValue,
         traits::{Read, ReadUntracked, Set, Update, Write},
     };
     use std::sync::{
@@ -1086,5 +1087,119 @@ mod tests {
     #[derive(Debug, Store)]
     pub struct StructWithOption {
         opt_field: Option<Todo>,
+    }
+
+    // regression test for https://github.com/leptos-rs/leptos/issues/3523
+    #[tokio::test]
+    async fn notifying_all_descendants() {
+        use reactive_graph::traits::*;
+        _ = any_spawner::Executor::init_tokio();
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Foo {
+            id: i32,
+            bar: Bar,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Bar {
+            bar_signature: i32,
+            baz: Baz,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Baz {
+            more_data: i32,
+            baw: Baw,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Baw {
+            more_data: i32,
+            end: i32,
+        }
+
+        let store = Store::new(Foo {
+            id: 42,
+            bar: Bar {
+                bar_signature: 69,
+                baz: Baz {
+                    more_data: 9999,
+                    baw: Baw {
+                        more_data: 22,
+                        end: 1112,
+                    },
+                },
+            },
+        });
+
+        let store_runs = StoredValue::new(0);
+        let id_runs = StoredValue::new(0);
+        let bar_runs = StoredValue::new(0);
+        let bar_signature_runs = StoredValue::new(0);
+        let bar_baz_runs = StoredValue::new(0);
+        let more_data_runs = StoredValue::new(0);
+        let baz_baw_end_runs = StoredValue::new(0);
+
+        Effect::new_sync(move |_| {
+            println!("foo: {:?}", store.get());
+            *store_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.id: {:?}", store.id().get());
+            *id_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.bar: {:?}", store.bar().get());
+            *bar_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.bar_signature: {:?}",
+                store.bar().bar_signature().get()
+            );
+            *bar_signature_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.bar.baz: {:?}", store.bar().baz().get());
+            *bar_baz_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.baz.more_data: {:?}",
+                store.bar().baz().more_data().get()
+            );
+            *more_data_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.baz.baw.end: {:?}",
+                store.bar().baz().baw().end().get()
+            );
+            *baz_baw_end_runs.write_value() += 1;
+        });
+
+        println!("[INITIAL EFFECT RUN]");
+        tick().await;
+        println!("\n\n[SETTING STORE]");
+        store.set(Default::default());
+        tick().await;
+        println!("\n\n[SETTING STORE.BAR.BAZ]");
+        store.bar().baz().set(Default::default());
+        tick().await;
+
+        assert_eq!(store_runs.get_value(), 3);
+        assert_eq!(id_runs.get_value(), 2);
+        assert_eq!(bar_runs.get_value(), 3);
+        assert_eq!(bar_signature_runs.get_value(), 2);
+        assert_eq!(bar_baz_runs.get_value(), 3);
+        assert_eq!(more_data_runs.get_value(), 3);
+        assert_eq!(baz_baw_end_runs.get_value(), 3);
     }
 }
