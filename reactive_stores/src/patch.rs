@@ -114,7 +114,10 @@ patch_primitives! {
     NonZeroUsize
 }
 
-impl<T> PatchField for Option<T> where T: PatchField {
+impl<T> PatchField for Option<T>
+where
+    T: PatchField,
+{
     fn patch_field(
         &mut self,
         new: Self,
@@ -123,7 +126,7 @@ impl<T> PatchField for Option<T> where T: PatchField {
     ) {
         match (self, new) {
             (None, None) => {}
-            (old  @ Some(_), None) => {
+            (old @ Some(_), None) => {
                 old.take();
                 notify(path);
             }
