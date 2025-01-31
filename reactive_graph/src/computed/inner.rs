@@ -15,10 +15,15 @@ pub struct MemoInner<T, S>
 where
     S: Storage<T>,
 {
-    pub(crate) value: Option<S::Wrapped>,
+    /// Must always be aquired *after* the reactivity lock
+    pub(crate) value: Arc<RwLock<Option<S::Wrapped>>>,
     #[allow(clippy::type_complexity)]
     pub(crate) fun: Arc<dyn Fn(Option<T>) -> (T, bool) + Send + Sync>,
     pub(crate) owner: Owner,
+    pub(crate) reactivity: RwLock<MemoInnerReactivity>,
+}
+
+pub(crate) struct MemoInnerReactivity {
     pub(crate) state: ReactiveNodeState,
     pub(crate) sources: SourceSet,
     pub(crate) subscribers: SubscriberSet,
@@ -44,40 +49,44 @@ where
         any_subscriber: AnySubscriber,
     ) -> Self {
         Self {
-            value: None,
+            value: Arc::new(RwLock::new(None)),
             fun,
             owner: Owner::new(),
-            state: ReactiveNodeState::Dirty,
-            sources: Default::default(),
-            subscribers: SubscriberSet::new(),
-            any_subscriber,
+            reactivity: RwLock::new(MemoInnerReactivity {
+                state: ReactiveNodeState::Dirty,
+                sources: Default::default(),
+                subscribers: SubscriberSet::new(),
+                any_subscriber,
+            }),
         }
     }
 }
 
-impl<T: 'static, S> ReactiveNode for RwLock<MemoInner<T, S>>
+impl<T: 'static, S> ReactiveNode for MemoInner<T, S>
 where
     S: Storage<T>,
 {
     fn mark_dirty(&self) {
-        self.write().or_poisoned().state = ReactiveNodeState::Dirty;
+        self.reactivity.write().or_poisoned().state = ReactiveNodeState::Dirty;
         self.mark_subscribers_check();
     }
 
     fn mark_check(&self) {
         {
-            let mut lock = self.write().or_poisoned();
+            let mut lock = self.reactivity.write().or_poisoned();
             if lock.state != ReactiveNodeState::Dirty {
                 lock.state = ReactiveNodeState::Check;
             }
         }
-        for sub in (&self.read().or_poisoned().subscribers).into_iter() {
+        for sub in
+            (&self.reactivity.read().or_poisoned().subscribers).into_iter()
+        {
             sub.mark_check();
         }
     }
 
     fn mark_subscribers_check(&self) {
-        let lock = self.read().or_poisoned();
+        let lock = self.reactivity.read().or_poisoned();
         for sub in (&lock.subscribers).into_iter() {
             sub.mark_check();
         }
@@ -85,7 +94,7 @@ where
 
     fn update_if_necessary(&self) -> bool {
         let (state, sources) = {
-            let inner = self.read().or_poisoned();
+            let inner = self.reactivity.read().or_poisoned();
             (inner.state, inner.sources.clone())
         };
 
@@ -94,32 +103,37 @@ where
             ReactiveNodeState::Dirty => true,
             ReactiveNodeState::Check => (&sources).into_iter().any(|source| {
                 source.update_if_necessary()
-                    || self.read().or_poisoned().state
+                    || self.reactivity.read().or_poisoned().state
                         == ReactiveNodeState::Dirty
             }),
         };
 
         if needs_update {
-            let (fun, value, owner) = {
-                let mut lock = self.write().or_poisoned();
-                (lock.fun.clone(), lock.value.take(), lock.owner.clone())
-            };
+            let fun = self.fun.clone();
+            let owner = self.owner.clone();
+            // No deadlock risk, because we only hold the value lock.
+            let value = self.value.write().or_poisoned().take();
 
             let any_subscriber =
-                { self.read().or_poisoned().any_subscriber.clone() };
+                { self.reactivity.read().or_poisoned().any_subscriber.clone() };
             any_subscriber.clear_sources(&any_subscriber);
             let (new_value, changed) = owner.with_cleanup(|| {
                 any_subscriber
                     .with_observer(|| fun(value.map(StorageAccess::into_taken)))
             });
 
-            let mut lock = self.write().or_poisoned();
-            lock.value = Some(S::wrap(new_value));
-            lock.state = ReactiveNodeState::Clean;
+            // Two locks are aquired, so order matters.
+            let mut reactivity_lock = self.reactivity.write().or_poisoned();
+            {
+                // Safety: Can block endlessly if the user is has a ReadGuard on the value
+                let mut value_lock = self.value.write().or_poisoned();
+                *value_lock = Some(S::wrap(new_value));
+            }
+            reactivity_lock.state = ReactiveNodeState::Clean;
 
             if changed {
-                let subs = lock.subscribers.clone();
-                drop(lock);
+                let subs = reactivity_lock.subscribers.clone();
+                drop(reactivity_lock);
                 for sub in subs {
                     // don't trigger reruns of effects/memos
                     // basically: if one of the observers has triggered this memo to
@@ -128,49 +142,54 @@ where
                         sub.mark_dirty();
                     }
                 }
+            } else {
+                drop(reactivity_lock);
             }
 
             changed
         } else {
-            if let Ok(mut lock) = self.try_write() {
-                lock.state = ReactiveNodeState::Clean;
-            }
+            let mut lock = self.reactivity.write().or_poisoned();
+            lock.state = ReactiveNodeState::Clean;
             false
         }
     }
 }
 
-impl<T: 'static, S> Source for RwLock<MemoInner<T, S>>
+impl<T: 'static, S> Source for MemoInner<T, S>
 where
     S: Storage<T>,
 {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
-        if let Ok(mut lock) = self.try_write() {
-            lock.subscribers.subscribe(subscriber);
-        }
+        let mut lock = self.reactivity.write().or_poisoned();
+        lock.subscribers.subscribe(subscriber);
     }
 
     fn remove_subscriber(&self, subscriber: &AnySubscriber) {
-        self.write()
+        self.reactivity
+            .write()
             .or_poisoned()
             .subscribers
             .unsubscribe(subscriber);
     }
 
     fn clear_subscribers(&self) {
-        self.write().or_poisoned().subscribers.take();
+        self.reactivity.write().or_poisoned().subscribers.take();
     }
 }
 
-impl<T: 'static, S> Subscriber for RwLock<MemoInner<T, S>>
+impl<T: 'static, S> Subscriber for MemoInner<T, S>
 where
     S: Storage<T>,
 {
     fn add_source(&self, source: AnySource) {
-        self.write().or_poisoned().sources.insert(source);
+        self.reactivity.write().or_poisoned().sources.insert(source);
     }
 
     fn clear_sources(&self, subscriber: &AnySubscriber) {
-        self.write().or_poisoned().sources.clear_sources(subscriber);
+        self.reactivity
+            .write()
+            .or_poisoned()
+            .sources
+            .clear_sources(subscriber);
     }
 }

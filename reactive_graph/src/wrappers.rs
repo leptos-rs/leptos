@@ -3,7 +3,7 @@
 /// Types that abstract over signals with values that can be read.
 pub mod read {
     use crate::{
-        computed::{ArcMemo, Memo, MemoInner},
+        computed::{ArcMemo, Memo},
         graph::untrack,
         owner::{
             ArcStoredValue, ArenaItem, FromLocal, LocalStorage, Storage,
@@ -1735,14 +1735,32 @@ pub mod read {
     }
 
     /// The content of a [`Signal`] wrapper read guard, variable depending on the signal type.
-    #[derive(Debug)]
     pub enum SignalReadGuard<T: 'static, S: Storage<T>> {
         /// A read signal guard.
         Read(ReadGuard<T, Plain<T>>),
+        #[allow(clippy::type_complexity)]
         /// A memo guard.
-        Memo(ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>),
+        Memo(
+            ReadGuard<T, Mapped<Plain<Option<<S as Storage<T>>::Wrapped>>, T>>,
+        ),
         /// A fake guard for derived signals, the content had to actually be cloned, so it's not a guard but we pretend it is.
         Owned(T),
+    }
+
+    impl<T: 'static + std::fmt::Debug, S: Storage<T> + std::fmt::Debug>
+        std::fmt::Debug for SignalReadGuard<T, S>
+    where
+        <S as Storage<T>>::Wrapped: std::fmt::Debug,
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Read(arg0) => f.debug_tuple("Read").field(arg0).finish(),
+                Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
+                Self::Owned(arg0) => {
+                    f.debug_tuple("Owned").field(arg0).finish()
+                }
+            }
+        }
     }
 
     impl<T, S> Clone for SignalReadGuard<T, S>
@@ -1750,7 +1768,7 @@ pub mod read {
         S: Storage<T>,
         T: Clone,
         Plain<T>: Clone,
-        Mapped<Plain<MemoInner<T, S>>, T>: Clone,
+        Mapped<Plain<Option<<S as Storage<T>>::Wrapped>>, T>: Clone,
     {
         fn clone(&self) -> Self {
             match self {
