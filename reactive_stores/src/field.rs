@@ -82,6 +82,21 @@ where
     }
 }
 
+impl<T, S> From<ArcField<T>> for Field<T, S>
+where
+    T: 'static,
+    S: Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: ArcField<T>) -> Self {
+        Field {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
 impl<T, S> From<ArcStore<T>> for Field<T, S>
 where
     T: Send + Sync + 'static,
