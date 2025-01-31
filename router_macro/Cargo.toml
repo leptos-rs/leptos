@@ -1,6 +1,10 @@
 [package]
 name = "leptos_router_macro"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"

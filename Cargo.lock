@@ -333,6 +333,9 @@ checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 name = "async-trait"
 version = "0.1.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -344,8 +347,11 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 =======
 >>>>>>> 35e6f179 (chore: upgrade `axum` to `v0.8` (#3439))
+=======
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 name = "atomic-polyfill"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1730,7 +1736,11 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "leptos"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "any_spawner",
  "base64",
@@ -1781,7 +1791,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "actix-files",
  "actix-http",
@@ -1806,7 +1820,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "any_spawner",
  "axum",
@@ -1829,7 +1847,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "config",
  "regex",
@@ -1843,7 +1865,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "js-sys",
  "leptos",
@@ -1860,7 +1886,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_hot_reload"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "anyhow",
  "camino",
@@ -1876,7 +1906,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "futures",
  "hydration_context",
@@ -1889,7 +1923,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -1908,7 +1946,11 @@ dependencies = [
  "rstml",
  "serde",
  "server_fn",
+<<<<<<< HEAD
  "server_fn_macro 0.7.5",
+=======
+ "server_fn_macro 0.8.0-alpha",
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
  "syn 2.0.90",
  "tracing",
  "trybuild",
@@ -1918,7 +1960,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_meta"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "futures",
  "indexmap",
@@ -1933,7 +1979,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "any_spawner",
  "either_of",
@@ -1957,7 +2007,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_router_macro"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "leptos_macro",
  "leptos_router",
@@ -1969,7 +2023,11 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "any_spawner",
  "base64",
@@ -3167,7 +3225,11 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "actix-web",
  "axum",
@@ -3225,7 +3287,11 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
+<<<<<<< HEAD
 version = "0.7.5"
+=======
+version = "0.8.0-alpha"
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
 dependencies = [
  "const_format",
  "convert_case 0.6.0",
@@ -3237,9 +3303,15 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro_default"
+<<<<<<< HEAD
 version = "0.7.5"
 dependencies = [
  "server_fn_macro 0.7.5",
+=======
+version = "0.8.0-alpha"
+dependencies = [
+ "server_fn_macro 0.8.0-alpha",
+>>>>>>> 0073ae7d (chore: update version numbers preparing for 0.8.0-alpha)
  "syn 2.0.90",
 ]
 
