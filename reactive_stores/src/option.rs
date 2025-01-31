@@ -13,6 +13,9 @@ where
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
 
+    /// Transposes a subfield of an `Option` to an `Option` of a subfield.
+    fn transpose(self) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>>;
+
     /// Reactively maps over the field.
     ///
     /// This returns `None` if the subfield is currently `None`,
@@ -50,6 +53,14 @@ where
             |t| t.as_ref().unwrap(),
             |t| t.as_mut().unwrap(),
         )
+    }
+
+    fn transpose(self)->Option<Subfield<Self, Option<Self::Output>, Self::Output>>{
+        if self.read().is_some() {
+            Some(self.unwrap())
+        } else {
+            None
+        }
     }
 
     fn map<U>(
