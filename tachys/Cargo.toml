@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -204,4 +204,3 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
 ] }
-
