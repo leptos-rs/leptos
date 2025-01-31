@@ -92,7 +92,7 @@ where
         Field {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
-            inner: ArenaItem::new_with_storage(value.into()),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
