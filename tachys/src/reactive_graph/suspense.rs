@@ -27,7 +27,7 @@ use reactive_graph::{
 use std::{
     cell::RefCell,
     fmt::Debug,
-    future::Future,
+    future::{Future, IntoFuture},
     mem,
     pin::Pin,
     rc::Rc,
@@ -115,11 +115,15 @@ impl ToAnySubscriber for SuspendSubscriber {
 
 impl<T> Suspend<T> {
     /// Creates a new suspended view.
-    pub fn new(fut: impl Future<Output = T> + Send + 'static) -> Self {
+    pub fn new<Fut>(fut: Fut) -> Self
+    where
+        Fut: IntoFuture<Output = T>,
+        Fut::IntoFuture: Send + 'static,
+    {
         let subscriber = SuspendSubscriber::new();
         let any_subscriber = subscriber.to_any_subscriber();
-        let inner =
-            any_subscriber.with_observer(|| Box::pin(ScopedFuture::new(fut)));
+        let inner = any_subscriber
+            .with_observer(|| Box::pin(ScopedFuture::new(fut.into_future())));
         Self { subscriber, inner }
     }
 }
