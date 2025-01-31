@@ -2,6 +2,10 @@ use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use std::fmt::Debug;
 
 impl PossibleRouteMatch for () {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         Some(PartialPathMatch::new(path, vec![], ""))
     }
@@ -54,6 +58,10 @@ impl AsPath for &'static str {
 pub struct StaticSegment<T: AsPath>(pub T);
 
 impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();

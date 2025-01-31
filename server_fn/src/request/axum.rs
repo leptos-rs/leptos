@@ -1,4 +1,7 @@
-use crate::{error::ServerFnError, request::Req};
+use crate::{
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+    request::Req,
+};
 use axum::body::{Body, Bytes};
 use futures::{Stream, StreamExt};
 use http::{
@@ -8,9 +11,9 @@ use http::{
 use http_body_util::BodyExt;
 use std::borrow::Cow;
 
-impl<CustErr> Req<CustErr> for Request<Body>
+impl<E> Req<E> for Request<Body>
 where
-    CustErr: 'static,
+    E: FromServerFnError,
 {
     fn as_query(&self) -> Option<&str> {
         self.uri().query()
@@ -34,29 +37,29 @@ where
             .map(|h| String::from_utf8_lossy(h.as_bytes()))
     }
 
-    async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
+    async fn try_into_bytes(self) -> Result<Bytes, E> {
         let (_parts, body) = self.into_parts();
 
-        body.collect()
-            .await
-            .map(|c| c.to_bytes())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 
-    async fn try_into_string(self) -> Result<String, ServerFnError<CustErr>> {
+    async fn try_into_string(self) -> Result<String, E> {
         let bytes = self.try_into_bytes().await?;
-        String::from_utf8(bytes.to_vec())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        String::from_utf8(bytes.to_vec()).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
-        ServerFnError<CustErr>,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
         Ok(self.into_body().into_data_stream().map(|chunk| {
-            chunk.map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            chunk.map_err(|e| {
+                ServerFnErrorErr::Deserialization(e.to_string())
+                    .into_app_error()
+            })
         }))
     }
 }

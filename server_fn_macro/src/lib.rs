@@ -230,6 +230,7 @@ pub fn server_macro_impl(
         None => Some("PostUrl".to_string()),
         _ => None,
     };
+
     let input = input
         .map(|n| {
             if builtin_encoding {
@@ -382,13 +383,8 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::inventory::submit! {{
                 use #server_fn_path::{ServerFn, codec::Encoding};
-                #server_fn_path::ServerFnTraitObj::new(
-                    #wrapped_struct_name_turbofish::PATH,
-                    <#wrapped_struct_name as ServerFn>::InputEncoding::METHOD,
-                    |req| {
-                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
-                    },
-                    #wrapped_struct_name_turbofish::middlewares
+                #server_fn_path::ServerFnTraitObj::new::<#wrapped_struct_name>(
+                    |req| Box::pin(#wrapped_struct_name_turbofish::run_on_server(req)),
                 )
             }}
         }
@@ -609,20 +605,44 @@ pub fn server_macro_impl(
     } else {
         quote! { concat!("/", #fn_path) }
     };
+
+    let enable_server_fn_mod_path = option_env!("SERVER_FN_MOD_PATH").is_some();
+    let mod_path = if enable_server_fn_mod_path {
+        quote! {
+            #server_fn_path::const_format::concatcp!(
+                #server_fn_path::const_str::replace!(module_path!(), "::", "/"),
+                "/"
+            )
+        }
+    } else {
+        quote! { "" }
+    };
+
+    let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
+    let hash = if enable_hash {
+        quote! {
+            #server_fn_path::xxhash_rust::const_xxh64::xxh64(
+                concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                0
+            )
+        }
+    } else {
+        quote! { "" }
+    };
+
     let path = quote! {
         if #fn_path.is_empty() {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
                 "/",
+                #mod_path,
                 #fn_name_as_str,
-                #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
-                    0
-                )
+                #hash
             )
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
+                #mod_path,
                 #fn_path
             )
         }
@@ -730,12 +750,12 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, \
-         ServerFnError<E>>",
+        "server functions should return Result<T, E> where E: \
+         FromServerFnError",
     ))
 }
 
-fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
+fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
             if let PathArguments::AngleBracketed(args) =
@@ -746,25 +766,8 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
                     return Ok(None);
                 }
                 // Result<T, _>
-                else if let GenericArgument::Type(Type::Path(pat)) =
-                    &args.args[1]
-                {
-                    if let Some(segment) = pat.path.segments.last() {
-                        if segment.ident == "ServerFnError" {
-                            let args = &segment.arguments;
-                            match args {
-                                // Result<T, ServerFnError>
-                                PathArguments::None => return Ok(None),
-                                // Result<T, ServerFnError<E>>
-                                PathArguments::AngleBracketed(args) => {
-                                    if args.args.len() == 1 {
-                                        return Ok(Some(&args.args[0]));
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
+                else if let GenericArgument::Type(ty) = &args.args[1] {
+                    return Ok(Some(ty));
                 }
             }
         }
@@ -772,8 +775,8 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, \
-         ServerFnError<E>>",
+        "server functions should return Result<T, E> where E: \
+         FromServerFnError",
     ))
 }
 

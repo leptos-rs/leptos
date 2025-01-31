@@ -1,4 +1,4 @@
-use crate::todo::*;
+#[cfg(feature = "ssr")]
 use axum::{
     body::Body,
     extract::Path,
@@ -8,10 +8,9 @@ use axum::{
     Router,
 };
 use leptos::prelude::*;
-use leptos_axum::{generate_route_list, LeptosRoutes};
 use todo_app_sqlite_axum::*;
-
 //Define a handler to test extractor with state
+#[cfg(feature = "ssr")]
 async fn custom_handler(
     Path(id): Path<String>,
     req: Request<Body>,
@@ -20,14 +19,16 @@ async fn custom_handler(
         move || {
             provide_context(id.clone());
         },
-        TodoApp,
+        todo::TodoApp,
     );
     handler(req).await.into_response()
 }
 
+#[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use crate::todo::ssr::db;
+    use crate::todo::{ssr::db, *};
+    use leptos_axum::{generate_route_list, LeptosRoutes};
 
     simple_logger::init_with_level(log::Level::Error)
         .expect("couldn't initialize logging");
@@ -45,7 +46,7 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/special/:id", get(custom_handler))
+        .route("/special/{id}", get(custom_handler))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
@@ -60,4 +61,13 @@ async fn main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+#[cfg(not(feature = "ssr"))]
+pub fn main() {
+    use leptos::mount::mount_to_body;
+
+    _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
+    mount_to_body(todo::TodoApp);
 }
