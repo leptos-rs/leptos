@@ -14,7 +14,9 @@ where
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
 
     /// Transposes a subfield of an `Option` to an `Option` of a subfield.
-    fn transpose(self) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>>;
+    fn transpose(
+        self,
+    ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>>;
 
     /// Reactively maps over the field.
     ///
@@ -55,7 +57,9 @@ where
         )
     }
 
-    fn transpose(self)->Option<Subfield<Self, Option<Self::Output>, Self::Output>>{
+    fn transpose(
+        self,
+    ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
         if self.read().is_some() {
             Some(self.unwrap())
         } else {
