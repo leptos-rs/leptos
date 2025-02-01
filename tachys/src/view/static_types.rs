@@ -3,7 +3,12 @@ use super::{
     RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
+    html::attribute::{
+        maybe_next_attr_erasure_macros::{
+            next_attr_combine, next_attr_output_type,
+        },
+        Attribute, AttributeKey, AttributeValue, NextAttribute,
+    },
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };
@@ -111,13 +116,13 @@ impl<K, const V: &'static str> NextAttribute for StaticAttr<K, V>
 where
     K: AttributeKey,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (StaticAttr::<K, V> { ty: PhantomData }, new_attr)
+        next_attr_combine!(StaticAttr::<K, V> { ty: PhantomData }, new_attr)
     }
 }
 
