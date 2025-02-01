@@ -114,6 +114,35 @@ patch_primitives! {
     NonZeroUsize
 }
 
+impl<T> PatchField for Option<T>
+where
+    T: PatchField,
+{
+    fn patch_field(
+        &mut self,
+        new: Self,
+        path: &StorePath,
+        notify: &mut dyn FnMut(&StorePath),
+    ) {
+        match (self, new) {
+            (None, None) => {}
+            (old @ Some(_), None) => {
+                old.take();
+                notify(path);
+            }
+            (old @ None, new @ Some(_)) => {
+                *old = new;
+                notify(path);
+            }
+            (Some(old), Some(new)) => {
+                let mut new_path = path.to_owned();
+                new_path.push(0);
+                old.patch_field(new, &new_path, notify);
+            }
+        }
+    }
+}
+
 impl<T> PatchField for Vec<T>
 where
     T: PatchField,
