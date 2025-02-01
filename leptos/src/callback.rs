@@ -311,6 +311,7 @@ mod tests {
         assert_eq!(callback.try_run((0,)), Some((0,)));
         callback.dispose();
         assert_eq!(callback.try_run((0,)), None);
+    }
 
     #[test]
     fn callback_matches_same() {
