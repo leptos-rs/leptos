@@ -688,7 +688,7 @@ fn component_macro(
                 }
             }
             Err(e) => {
-                proc_macro_error2::abort!(e);
+                proc_macro_error2::abort!(e.span(), e);
             }
         }
     }.into()
