@@ -50,6 +50,10 @@ pub fn HydrationScripts(
     /// Should be `true` to hydrate in `islands` mode.
     #[prop(optional)]
     islands: bool,
+    /// Should be `true` to add the “islands router,” which enables limited client-side routing
+    /// when running in islands mode.
+    #[prop(optional)]
+    islands_router: bool,
     /// A base url, not including a trailing slash
     #[prop(optional, into)]
     root: Option<String>,
@@ -98,6 +102,10 @@ pub fn HydrationScripts(
         include_str!("./hydration_script.js")
     };
 
+    let islands_router = islands_router
+        .then_some(include_str!("./islands_routing.js"))
+        .unwrap_or_default();
+
     let root = root.unwrap_or_default();
     view! {
         <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
@@ -109,7 +117,7 @@ pub fn HydrationScripts(
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
+            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
         </script>
     }
 }

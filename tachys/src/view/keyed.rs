@@ -1,6 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
     html::attribute::Attribute,
@@ -66,7 +66,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> Render for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T>,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + ToString + 'static,
     KF: Fn(&T) -> K,
     V: Render,
     VF: Fn(usize, T) -> (VFS, V),
@@ -132,7 +132,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + ToString + 'static,
     KF: Fn(&T) -> K + Send,
     V: RenderHtml,
     V: 'static,
@@ -185,7 +185,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + ToString + 'static,
     KF: Fn(&T) -> K + Send,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -219,10 +219,22 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
+        if mark_branches {
+            buf.open_branch("for");
+        }
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
+            if mark_branches {
+                buf.open_branch("item");
+            }
             item.to_html_with_buf(buf, position, escape, mark_branches);
+            if mark_branches {
+                buf.close_branch("item");
+            }
             *position = Position::NextChild;
+        }
+        if mark_branches {
+            buf.close_branch("for");
         }
         buf.push_str("<!>");
     }
@@ -234,15 +246,32 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
+        if mark_branches {
+            buf.open_branch("for");
+        }
         for (index, item) in self.items.into_iter().enumerate() {
+            let branch_name = mark_branches.then(|| {
+                let key = (self.key_fn)(&item);
+                let key = key.to_string();
+                format!("item-{key}")
+            });
             let (_, item) = (self.view_fn)(index, item);
+            if mark_branches {
+                buf.open_branch(branch_name.as_ref().unwrap());
+            }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
                 escape,
                 mark_branches,
             );
+            if mark_branches {
+                buf.close_branch(branch_name.as_ref().unwrap());
+            }
             *position = Position::NextChild;
+        }
+        if mark_branches {
+            buf.close_branch("for");
         }
         buf.push_sync("<!>");
     }

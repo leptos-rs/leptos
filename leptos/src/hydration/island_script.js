@@ -52,6 +52,8 @@
 					mod.hydrate();
 					hydrateIslands(document.body, mod);
 				});
+
+				window.__hydrateIsland = (el, id) => hydrateIsland(el, id, mod);
 			})
 	});
 })

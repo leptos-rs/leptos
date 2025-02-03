@@ -121,7 +121,7 @@ where
     EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + Send + Clone + 'static,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + ToString + 'static,
     T: Send + 'static,
 {
     // this takes the owner of the For itself
@@ -195,7 +195,7 @@ where
     EF: Fn(ReadSignal<usize>, T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + Send + Clone + 'static,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + ToString + 'static,
     T: Send + 'static,
 {
     // this takes the owner of the For itself

@@ -43,7 +43,8 @@ pub trait Render: Sized {
     fn rebuild(self, state: &mut Self::State);
 }
 
-pub(crate) trait MarkBranch {
+#[doc(hidden)]
+pub trait MarkBranch {
     fn open_branch(&mut self, branch_id: &str);
 
     fn close_branch(&mut self, branch_id: &str);

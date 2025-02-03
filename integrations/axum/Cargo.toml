@@ -36,7 +36,7 @@ tokio = { version = "1.41", features = ["net", "rt-multi-thread"] }
 [features]
 wasm = []
 default = ["tokio/fs", "tokio/sync", "tower-http/fs", "tower/util"]
-dont-use-islands-router = []
+islands-router = []
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]

@@ -1,4 +1,5 @@
 use crate::{
+    flat_router::MatchedRoute,
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::RouteDefs,
@@ -628,21 +629,28 @@ where
                 async move {
                     provide_context(params_including_parents);
                     provide_context(url);
-                    provide_context(matched);
+                    provide_context(matched.clone());
                     view.preload().await;
                     *view_fn.lock().or_poisoned() = Box::new(move || {
                         let view = view.clone();
-                        owner.with(|| {
-                            Suspend::new(Box::pin(async move {
-                                let view = SendWrapper::new(ScopedFuture::new(
-                                    view.choose(),
-                                ));
-                                let view = view.await;
-                                OwnedView::new(view).into_any()
-                            })
-                                as Pin<
-                                    Box<dyn Future<Output = AnyView> + Send>,
-                                >)
+                        owner.with({
+                            let matched = matched.clone();
+                            move || {
+                                Suspend::new(Box::pin(async move {
+                                    let view = SendWrapper::new(
+                                        ScopedFuture::new(view.choose()),
+                                    );
+                                    let view = view.await;
+                                    let view =
+                                        MatchedRoute(matched.0.get(), view);
+                                    OwnedView::new(view).into_any()
+                                })
+                                    as Pin<
+                                        Box<
+                                            dyn Future<Output = AnyView> + Send,
+                                        >,
+                                    >)
+                            }
                         })
                     });
                     trigger

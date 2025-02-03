@@ -61,6 +61,14 @@ pub struct AnyView {
         fn(Box<dyn Any>, &Cursor, &PositionState) -> AnyViewState,
 }
 
+impl Debug for AnyView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyView")
+            .field("type_id", &self.type_id)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Retained view state for [`AnyView`].
 pub struct AnyViewState {
     type_id: TypeId,
@@ -219,15 +227,24 @@ where
                      position: &mut Position,
                      escape: bool,
                      mark_branches: bool| {
+                        let type_id = mark_branches
+                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .unwrap_or_default();
                         let value = value
                             .downcast::<T>()
                             .expect("AnyView::to_html could not be downcast");
+                        if mark_branches {
+                            buf.open_branch(&type_id);
+                        }
                         value.to_html_async_with_buf::<true>(
                             buf,
                             position,
                             escape,
                             mark_branches,
                         );
+                        if mark_branches {
+                            buf.close_branch(&type_id);
+                        }
                     };
                 let build = |value: Box<dyn Any>| {
                     let value = value
@@ -238,7 +255,6 @@ where
                     AnyViewState {
                         type_id: TypeId::of::<T>(),
                         state,
-
                         mount: mount_any::<T>,
                         unmount: unmount_any::<T>,
                         insert_before_this: insert_before_this::<T>,

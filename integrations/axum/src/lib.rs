@@ -771,7 +771,7 @@ where
     _ = replace_blocks; // TODO
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = if cfg!(feature = "dont-use-islands-router") {
+            let app = if cfg!(feature = "islands-router") {
                 app.to_html_stream_out_of_order_branching()
             } else {
                 app.to_html_stream_out_of_order()
@@ -835,7 +835,7 @@ where
     IV: IntoView + 'static,
 {
     handle_response(additional_context, app_fn, |app, chunks| {
-        let app = if cfg!(feature = "dont-use-islands-router") {
+        let app = if cfg!(feature = "islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
             app.to_html_stream_in_order()
@@ -1051,7 +1051,7 @@ where
 {
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = if cfg!(feature = "dont-use-islands-router") {
+            let app = if cfg!(feature = "islands-router") {
                 app.to_html_stream_in_order_branching()
             } else {
                 app.to_html_stream_in_order()
@@ -1127,7 +1127,7 @@ where
     IV: IntoView + 'static,
 {
     Box::pin(async move {
-        let app = if cfg!(feature = "dont-use-islands-router") {
+        let app = if cfg!(feature = "islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
             app.to_html_stream_in_order()
