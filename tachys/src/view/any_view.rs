@@ -357,11 +357,16 @@ where
     }
 }
 
-/// TODO
+/// Ignore, this is a hack for pre use<..> syntax.
+/// https://github.com/rust-lang/rfcs/blob/master/text/3498-lifetime-capture-rules-2024.md#the-captures-trick
+pub trait __Captures<T: ?Sized> {}
+impl<T: ?Sized, U: ?Sized> __Captures<T> for U {}
+
+/// A mutable view into the extra attributes stored in an [`AnyView`].
 #[derive(Default)]
 pub struct ExtraAttrsMut<'a>(Option<Vec<&'a mut Vec<AnyAttribute>>>);
 impl<'a> ExtraAttrsMut<'a> {
-    /// TODO
+    /// Create a new mutable view from owned attributes.
     pub fn from_owned(extra_attrs: &'a mut Option<Vec<AnyAttribute>>) -> Self {
         match extra_attrs {
             Some(extra_attrs) => {
@@ -375,8 +380,7 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
-    /// TODO
-    pub fn add_layer<'b>(
+    fn add_layer<'b>(
         mut self,
         extra_attrs: &'b mut Vec<AnyAttribute>,
     ) -> ExtraAttrsMut<'b>
@@ -397,7 +401,7 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
-    /// TODO
+    /// Check if there are any extra attributes.
     pub fn is_some(&self) -> bool {
         match &self.0 {
             Some(extra) => extra.is_empty(),
@@ -405,7 +409,8 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
-    /// TODO
+    /// "clone" the mutable view, to allow reuse in e.g. a for loop.
+    /// The same as .as_deref_mut() on Option<&mut T>.
     pub fn as_deref_mut(&mut self) -> ExtraAttrsMut<'_> {
         ExtraAttrsMut(
             self.0
@@ -414,10 +419,10 @@ impl<'a> ExtraAttrsMut<'a> {
         )
     }
 
-    /// TODO
+    /// Iterate over the extra attributes.
     pub fn iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut AnyAttribute> + use<'_, 'a> {
+    ) -> impl Iterator<Item = &mut AnyAttribute> + __Captures<&'a ()> + '_ {
         match &mut self.0 {
             Some(inner) => itertools::Either::Left(
                 inner.iter_mut().flat_map(|v| v.iter_mut()),
@@ -426,13 +431,16 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
-    /// TODO
+    /// Call [`RenderHtml::resolve`] on any extra attributes in parallel.
     pub async fn resolve(self) {
-        if let Some(extra_attrs) = self.0 {
-            for extra_attrs in extra_attrs {
-                *extra_attrs =
-                    Attribute::resolve(std::mem::take(extra_attrs)).await;
-            }
+        if let Some(extra_attr_groups) = self.0 {
+            futures::future::join_all(extra_attr_groups.into_iter().map(
+                |extra_attrs| async move {
+                    *extra_attrs =
+                        Attribute::resolve(std::mem::take(extra_attrs)).await;
+                },
+            ))
+            .await;
         }
     }
 }

@@ -354,7 +354,7 @@ impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -427,11 +427,11 @@ impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
-    type Owned = FlatRoutesView<Loc, Defs, Box<dyn FnOnce() -> Fal + Send>>;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = <Either<Fal, AnyView> as RenderHtml>::MIN_LENGTH;
 
@@ -635,15 +635,6 @@ where
     }
 
     fn into_owned(self) -> Self::Owned {
-        let fallback = (self.fallback)();
-        FlatRoutesView {
-            current_url: self.current_url,
-            location: self.location,
-            routes: self.routes,
-            fallback: Box::new(move || fallback),
-            outer_owner: self.outer_owner,
-            set_is_routing: self.set_is_routing,
-            transition: self.transition,
-        }
+        self
     }
 }

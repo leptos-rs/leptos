@@ -281,7 +281,7 @@ where
         } else {
             2 // < ... >
         + E::TAG.len()
-        + self.attributes.html_len() 
+        + self.attributes.html_len()
         + extra_attrs.map(|attrs| {
             attrs.into_iter().map(Attribute::html_len).sum::<usize>()
         }).unwrap_or(0)

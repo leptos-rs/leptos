@@ -235,8 +235,8 @@ where
 impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send + 'static, // TODO once the type erased AnyMatchNestedRoutes is merged with this branch, switch to that (adding 'static was a breaking change)
-    FalFn: FnOnce() -> Fal + Send,
+    Defs: MatchNestedRoutes + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -256,12 +256,12 @@ where
 impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send + 'static, // TODO once the type erased AnyMatchNestedRoutes is merged with this branch, switch to that (adding 'static was a breaking change)
-    FalFn: FnOnce() -> Fal + Send,
+    Defs: MatchNestedRoutes + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
-    type Owned = NestedRoutesView<Loc, Defs, Box<dyn FnOnce() -> Fal + Send>>;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0; // TODO
 
@@ -479,17 +479,7 @@ where
     }
 
     fn into_owned(self) -> Self::Owned {
-        let fal = (self.fallback)();
-        NestedRoutesView {
-            location: self.location,
-            routes: self.routes,
-            outer_owner: self.outer_owner,
-            current_url: self.current_url,
-            base: self.base,
-            fallback: Box::new(move || fal),
-            set_is_routing: self.set_is_routing,
-            transition: self.transition,
-        }
+        self
     }
 }
 

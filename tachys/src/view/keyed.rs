@@ -138,14 +138,14 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
-    T: Send + 'static,
+    T: 'static,
 {
     type Output<SomeNewAttr: Attribute> = Keyed<
         T,
@@ -191,16 +191,16 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
-    T: Send + 'static,
+    T: 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
-    type Owned = Keyed<T, Vec<T>, K, KF, VF, VFS, V>;
+    type Owned = Keyed<T, I, K, KF, VF, VFS, V>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -315,16 +315,7 @@ where
     }
 
     fn into_owned(self) -> Self::Owned {
-        let Keyed {
-            items,
-            key_fn,
-            view_fn,
-        } = self;
-        Keyed {
-            items: items.into_iter().collect::<Vec<_>>(),
-            key_fn,
-            view_fn,
-        }
+        self
     }
 }
 
