@@ -1,9 +1,10 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    add_attr::AddAnyAttr, any_view::ExtraAttrsMut,
+    batch_resolve_items_with_extra_attrs, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
@@ -75,7 +76,7 @@ where
     type State = KeyedState<K, VFS, V>;
     // TODO fallible state and try_build()/try_rebuild() here
 
-    fn build(self) -> Self::State {
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let items = self.items.into_iter();
         let (capacity, _) = items.size_hint();
         let mut hashed_items =
@@ -84,7 +85,8 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            rendered_items.push(Some((set_index, view.build())));
+            rendered_items
+                .push(Some((set_index, view.build(extra_attrs.clone()))));
         }
         KeyedState {
             parent: None,
@@ -94,7 +96,11 @@ where
         }
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
         let KeyedState {
             parent,
             marker,
@@ -123,6 +129,7 @@ where
             rendered_items,
             &self.view_fn,
             items,
+            extra_attrs,
         );
 
         *hashed_items = new_hashed_items;
@@ -133,12 +140,12 @@ impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
-    T: 'static,
+    T: Send + 'static,
 {
     type Output<SomeNewAttr: Attribute> = Keyed<
         T,
@@ -186,27 +193,36 @@ impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
-    T: 'static,
+    T: Send + 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
+    type Owned = Keyed<T, Vec<T>, K, KF, VF, VFS, V>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
         // TODO...
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
-        futures::future::join_all(self.items.into_iter().enumerate().map(
-            |(index, item)| {
-                let (_, view) = (self.view_fn)(index, item);
-                view.resolve()
-            },
-        ))
+    async fn resolve(
+        self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
+        batch_resolve_items_with_extra_attrs(
+            self.items
+                .into_iter()
+                .enumerate()
+                .map(|(index, item)| {
+                    let (_, view) = (self.view_fn)(index, item);
+                    view
+                })
+                .collect::<Vec<_>>(),
+            extra_attrs,
+        )
         .await
         .into_iter()
         .collect::<Vec<_>>()
@@ -218,10 +234,17 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            item.to_html_with_buf(buf, position, escape, mark_branches);
+            item.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
             *position = Position::NextChild;
         }
         buf.push_str("<!>");
@@ -233,6 +256,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
@@ -241,6 +265,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
             *position = Position::NextChild;
         }
@@ -251,6 +276,7 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         // get parent and position
         let current = cursor.current();
@@ -272,7 +298,11 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            let item = view.hydrate::<FROM_SERVER>(cursor, position);
+            let item = view.hydrate::<FROM_SERVER>(
+                cursor,
+                position,
+                extra_attrs.clone(),
+            );
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
@@ -281,6 +311,19 @@ where
             marker,
             hashed_items,
             rendered_items,
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        let Keyed {
+            items,
+            key_fn,
+            view_fn,
+        } = self;
+        Keyed {
+            items: items.into_iter().collect::<Vec<_>>(),
+            key_fn,
+            view_fn,
         }
     }
 }
@@ -510,6 +553,7 @@ fn apply_diff<T, VFS, V>(
     children: &mut Vec<Option<(VFS, V::State)>>,
     view_fn: impl Fn(usize, T) -> (VFS, V),
     mut items: Vec<Option<T>>,
+    extra_attrs: Option<Vec<AnyAttribute>>,
 ) where
     VFS: Fn(usize),
     V: Render,
@@ -583,7 +627,7 @@ fn apply_diff<T, VFS, V>(
     for DiffOpAdd { at, mode } in add_cmds {
         let item = items[at].take().unwrap();
         let (set_index, item) = view_fn(at, item);
-        let mut item = item.build();
+        let mut item = item.build(extra_attrs.clone());
 
         match mode {
             DiffOpAddMode::Normal => {

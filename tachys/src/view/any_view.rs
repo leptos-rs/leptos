@@ -1,3 +1,5 @@
+#![allow(unused_mut)]
+#![allow(clippy::type_complexity)]
 #[cfg(feature = "ssr")]
 use super::MarkBranch;
 use super::{
@@ -5,7 +7,12 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{
+        any_attribute::{AnyAttribute, IntoAnyAttribute},
+        Attribute,
+    },
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -27,38 +34,60 @@ use std::{future::Future, pin::Pin};
 pub struct AnyView {
     type_id: TypeId,
     value: Box<dyn Any + Send>,
-    build: fn(Box<dyn Any>) -> AnyViewState,
-    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
-    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-    #[cfg(erase_components)]
-    add_any_attr: fn(
-        Box<dyn Any>,
-        crate::html::attribute::any_attribute::AnyAttribute,
-    ) -> AnyView,
+    extra_attrs: Vec<AnyAttribute>,
+    build: fn(Box<dyn Any>, Option<Vec<AnyAttribute>>) -> AnyViewState,
+    rebuild: fn(Box<dyn Any>, &mut AnyViewState, Option<Vec<AnyAttribute>>),
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
     // eliminate that code.
     #[cfg(feature = "ssr")]
-    html_len: usize,
+    html_len: fn(&Box<dyn Any + Send>, Option<Vec<&AnyAttribute>>) -> usize,
     #[cfg(feature = "ssr")]
-    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool, bool),
+    to_html: fn(
+        Box<dyn Any>,
+        &mut String,
+        &mut Position,
+        bool,
+        bool,
+        Option<Vec<AnyAttribute>>,
+    ),
     #[cfg(feature = "ssr")]
-    to_html_async:
-        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
+    to_html_async: fn(
+        Box<dyn Any>,
+        &mut StreamBuilder,
+        &mut Position,
+        bool,
+        bool,
+        Option<Vec<AnyAttribute>>,
+    ),
     #[cfg(feature = "ssr")]
-    to_html_async_ooo:
-        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
+    to_html_async_ooo: fn(
+        Box<dyn Any>,
+        &mut StreamBuilder,
+        &mut Position,
+        bool,
+        bool,
+        Option<Vec<AnyAttribute>>,
+    ),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
+    resolve: for<'a> fn(
+        Box<dyn Any>,
+        ExtraAttrsMut<'a>,
+    )
+        -> Pin<Box<dyn Future<Output = AnyView> + Send + 'a>>,
     #[cfg(feature = "ssr")]
-    dry_resolve: fn(&mut Box<dyn Any + Send>),
+    dry_resolve: fn(&mut Box<dyn Any + Send>, ExtraAttrsMut<'_>),
     #[cfg(feature = "hydrate")]
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
-    hydrate_from_server:
-        fn(Box<dyn Any>, &Cursor, &PositionState) -> AnyViewState,
+    hydrate_from_server: fn(
+        Box<dyn Any>,
+        &Cursor,
+        &PositionState,
+        Option<Vec<AnyAttribute>>,
+    ) -> AnyViewState,
 }
 
 /// Retained view state for [`AnyView`].
@@ -128,50 +157,64 @@ where
     state.insert_before_this(child)
 }
 
+#[cfg(feature = "ssr")]
+fn resolve<'a, T>(
+    value: Box<dyn Any>,
+    extra_attrs: ExtraAttrsMut<'a>,
+) -> Pin<Box<dyn Future<Output = AnyView> + Send + 'a>>
+where
+    T: RenderHtml + 'static,
+{
+    let value = value
+        .downcast::<T>()
+        .expect("AnyView::resolve could not be downcast");
+    Box::pin(async move { value.resolve(extra_attrs).await.into_any() })
+}
+
 impl<T> IntoAny for T
 where
-    T: Send,
-    T: RenderHtml + 'static,
-    T::State: 'static,
+    T: RenderHtml,
+    T::Owned: Send,
 {
     fn into_any(self) -> AnyView {
-        #[cfg(feature = "ssr")]
-        let html_len = self.html_len();
-
-        let value = Box::new(self) as Box<dyn Any + Send>;
+        let value = Box::new(self.into_owned()) as Box<dyn Any + Send>;
 
         match value.downcast::<AnyView>() {
             // if it's already an AnyView, we don't need to double-wrap it
             Ok(any_view) => *any_view,
             Err(value) => {
                 #[cfg(feature = "ssr")]
-                let dry_resolve = |value: &mut Box<dyn Any + Send>| {
-                    let value = value
-                        .downcast_mut::<T>()
-                        .expect("AnyView::resolve could not be downcast");
-                    value.dry_resolve();
-                };
+                let html_len =
+                    |value: &Box<dyn Any + Send>, extra_attrs: Option<Vec<&AnyAttribute>>| {
+                        let value = value
+                            .downcast_ref::<T::Owned>()
+                            .expect("AnyView::html_len could not be downcast");
+                        value.html_len(extra_attrs)
+                    };
 
                 #[cfg(feature = "ssr")]
-                let resolve = |value: Box<dyn Any>| {
-                    let value = value
-                        .downcast::<T>()
-                        .expect("AnyView::resolve could not be downcast");
-                    Box::pin(async move { value.resolve().await.into_any() })
-                        as Pin<Box<dyn Future<Output = AnyView> + Send>>
-                };
+                let dry_resolve =
+                    |value: &mut Box<dyn Any + Send>,
+                     extra_attrs: ExtraAttrsMut<'_>| {
+                        let value = value
+                            .downcast_mut::<T::Owned>()
+                            .expect("AnyView::resolve could not be downcast");
+                        value.dry_resolve(extra_attrs);
+                    };
+
                 #[cfg(feature = "ssr")]
                 let to_html =
                     |value: Box<dyn Any>,
                      buf: &mut String,
                      position: &mut Position,
                      escape: bool,
-                     mark_branches: bool| {
+                     mark_branches: bool,
+                     extra_attrs: Option<Vec<AnyAttribute>>| {
                         let type_id = mark_branches
-                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .then(|| format!("{:?}", TypeId::of::<T::Owned>()))
                             .unwrap_or_default();
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
@@ -181,6 +224,7 @@ where
                             position,
                             escape,
                             mark_branches,
+                            extra_attrs,
                         );
                         if mark_branches {
                             buf.close_branch(&type_id);
@@ -192,12 +236,13 @@ where
                      buf: &mut StreamBuilder,
                      position: &mut Position,
                      escape: bool,
-                     mark_branches: bool| {
+                     mark_branches: bool,
+                     extra_attrs: Option<Vec<AnyAttribute>>| {
                         let type_id = mark_branches
-                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .then(|| format!("{:?}", TypeId::of::<T::Owned>()))
                             .unwrap_or_default();
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
@@ -207,107 +252,97 @@ where
                             position,
                             escape,
                             mark_branches,
+                            extra_attrs,
                         );
                         if mark_branches {
                             buf.close_branch(&type_id);
                         }
                     };
                 #[cfg(feature = "ssr")]
-                let to_html_async_ooo =
-                    |value: Box<dyn Any>,
-                     buf: &mut StreamBuilder,
-                     position: &mut Position,
-                     escape: bool,
-                     mark_branches: bool| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView::to_html could not be downcast");
-                        value.to_html_async_with_buf::<true>(
-                            buf,
-                            position,
-                            escape,
-                            mark_branches,
-                        );
-                    };
-                let build = |value: Box<dyn Any>| {
+                let to_html_async_ooo = |value: Box<dyn Any>,
+                                         buf: &mut StreamBuilder,
+                                         position: &mut Position,
+                                         escape: bool,
+                                         mark_branches: bool,
+                                         extra_attrs: Option<
+                    Vec<AnyAttribute>,
+                >| {
                     let value = value
-                        .downcast::<T>()
+                        .downcast::<T::Owned>()
+                        .expect("AnyView::to_html could not be downcast");
+                    value.to_html_async_with_buf::<true>(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    );
+                };
+                let build = |value: Box<dyn Any>, extra_attrs: Option<Vec<AnyAttribute>>| {
+                    let value = value
+                        .downcast::<T::Owned>()
                         .expect("AnyView::build couldn't downcast");
-                    let state = Box::new(value.build());
+                    let state = Box::new(value.build(extra_attrs));
 
                     AnyViewState {
-                        type_id: TypeId::of::<T>(),
+                        type_id: TypeId::of::<T::Owned>(),
                         state,
 
-                        mount: mount_any::<T>,
-                        unmount: unmount_any::<T>,
-                        insert_before_this: insert_before_this::<T>,
+                        mount: mount_any::<T::Owned>,
+                        unmount: unmount_any::<T::Owned>,
+                        insert_before_this: insert_before_this::<T::Owned>,
                     }
                 };
                 #[cfg(feature = "hydrate")]
-                let hydrate_from_server =
-                    |value: Box<dyn Any>,
-                     cursor: &Cursor,
-                     position: &PositionState| {
-                        let value = value.downcast::<T>().expect(
-                            "AnyView::hydrate_from_server couldn't downcast",
-                        );
-                        let state =
-                            Box::new(value.hydrate::<true>(cursor, position));
+                let hydrate_from_server = |value: Box<dyn Any>,
+                                           cursor: &Cursor,
+                                           position: &PositionState,
+                                           extra_attrs: Option<
+                    Vec<AnyAttribute>,
+                >| {
+                    let value = value.downcast::<T::Owned>().expect(
+                        "AnyView::hydrate_from_server couldn't downcast",
+                    );
+                    let state = Box::new(value.hydrate::<true>(
+                        cursor,
+                        position,
+                        extra_attrs,
+                    ));
 
-                        AnyViewState {
-                            type_id: TypeId::of::<T>(),
-                            state,
+                    AnyViewState {
+                        type_id: TypeId::of::<T::Owned>(),
+                        state,
 
-                            mount: mount_any::<T>,
-                            unmount: unmount_any::<T>,
-                            insert_before_this: insert_before_this::<T>,
-                        }
-                    };
-
-                let rebuild =
-                    |new_type_id: TypeId,
-                     value: Box<dyn Any>,
-                     state: &mut AnyViewState| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView::rebuild couldn't downcast value");
-                        if new_type_id == state.type_id {
-                            let state = state.state.downcast_mut().expect(
-                                "AnyView::rebuild couldn't downcast state",
-                            );
-                            value.rebuild(state);
-                        } else {
-                            let mut new = value.into_any().build();
-                            state.insert_before_this(&mut new);
-                            state.unmount();
-                            *state = new;
-                        }
-                    };
-
-                // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-                #[cfg(erase_components)]
-                let add_any_attr = |value: Box<dyn Any>, attr: crate::html::attribute::any_attribute::AnyAttribute| {
-                    let value = value
-                        .downcast::<T>()
-                        .expect("AnyView::add_any_attr could not be downcast");
-                    value.add_any_attr(attr).into_any()
+                        mount: mount_any::<T::Owned>,
+                        unmount: unmount_any::<T::Owned>,
+                        insert_before_this: insert_before_this::<T::Owned>,
+                    }
                 };
 
+                let rebuild =
+                    |value: Box<dyn Any>,
+                     state: &mut AnyViewState, extra_attrs: Option<Vec<AnyAttribute>>| {
+                        let value = value
+                            .downcast::<T::Owned>()
+                            .expect("AnyView::rebuild couldn't downcast value");
+                        let state = state.state.downcast_mut().expect(
+                            "AnyView::rebuild couldn't downcast state",
+                        );
+                        value.rebuild(state, extra_attrs);
+                    };
+
                 AnyView {
-                    type_id: TypeId::of::<T>(),
+                    type_id: TypeId::of::<T::Owned>(),
                     value,
+                    extra_attrs: vec![],
                     build,
                     rebuild,
-                    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-                    #[cfg(erase_components)]
-                    add_any_attr,
-                    #[cfg(feature = "ssr")]
-                    resolve,
-                    #[cfg(feature = "ssr")]
-                    dry_resolve,
                     #[cfg(feature = "ssr")]
                     html_len,
+                    #[cfg(feature = "ssr")]
+                    resolve: resolve::<T::Owned>,
+                    #[cfg(feature = "ssr")]
+                    dry_resolve,
                     #[cfg(feature = "ssr")]
                     to_html,
                     #[cfg(feature = "ssr")]
@@ -322,15 +357,135 @@ where
     }
 }
 
+/// TODO
+#[derive(Default)]
+pub struct ExtraAttrsMut<'a>(Option<Vec<&'a mut Vec<AnyAttribute>>>);
+impl<'a> ExtraAttrsMut<'a> {
+    /// TODO
+    pub fn from_owned(extra_attrs: &'a mut Option<Vec<AnyAttribute>>) -> Self {
+        match extra_attrs {
+            Some(extra_attrs) => {
+                if extra_attrs.is_empty() {
+                    Self(None)
+                } else {
+                    Self(Some(vec![extra_attrs]))
+                }
+            }
+            None => Self(None),
+        }
+    }
+
+    /// TODO
+    pub fn add_layer<'b>(
+        mut self,
+        extra_attrs: &'b mut Vec<AnyAttribute>,
+    ) -> ExtraAttrsMut<'b>
+    where
+        'a: 'b,
+    {
+        match (self.0, extra_attrs.is_empty()) {
+            (Some(mut extra), false) => {
+                extra.push(extra_attrs);
+                ExtraAttrsMut(Some(extra))
+            }
+            (Some(mut extra), true) => {
+                self.0 = Some(extra);
+                self
+            }
+            (None, false) => ExtraAttrsMut(Some(vec![extra_attrs])),
+            (None, true) => ExtraAttrsMut(None),
+        }
+    }
+
+    /// TODO
+    pub fn is_some(&self) -> bool {
+        match &self.0 {
+            Some(extra) => extra.is_empty(),
+            None => true,
+        }
+    }
+
+    /// TODO
+    pub fn as_deref_mut(&mut self) -> ExtraAttrsMut<'_> {
+        ExtraAttrsMut(
+            self.0
+                .as_mut()
+                .map(|inner| inner.iter_mut().map(|v| &mut **v).collect()),
+        )
+    }
+
+    /// TODO
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut AnyAttribute> + use<'_, 'a> {
+        match &mut self.0 {
+            Some(inner) => itertools::Either::Left(
+                inner.iter_mut().flat_map(|v| v.iter_mut()),
+            ),
+            None => itertools::Either::Right(std::iter::empty()),
+        }
+    }
+
+    /// TODO
+    pub async fn resolve(self) {
+        if let Some(extra_attrs) = self.0 {
+            for extra_attrs in extra_attrs {
+                *extra_attrs =
+                    Attribute::resolve(std::mem::take(extra_attrs)).await;
+            }
+        }
+    }
+}
+
+fn combine_owned_extra_attrs(
+    parent_extra_attrs: Option<Vec<AnyAttribute>>,
+    extra_attrs: Vec<AnyAttribute>,
+) -> Option<Vec<AnyAttribute>> {
+    let extra_attrs = if let Some(mut parent_extra_attrs) = parent_extra_attrs {
+        for attr in extra_attrs {
+            parent_extra_attrs.push(attr);
+        }
+        parent_extra_attrs
+    } else {
+        extra_attrs
+    };
+    if extra_attrs.is_empty() {
+        None
+    } else {
+        Some(extra_attrs)
+    }
+}
+
 impl Render for AnyView {
     type State = AnyViewState;
 
-    fn build(self) -> Self::State {
-        (self.build)(self.value)
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+        (self.build)(
+            self.value,
+            combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+        )
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        (self.rebuild)(self.type_id, self.value, state)
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+        if self.type_id == state.type_id {
+            (self.rebuild)(
+                self.value,
+                state,
+                combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+            )
+        } else {
+            let mut new = (self.build)(
+                self.value,
+                combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+            );
+            state.insert_before_this(&mut new);
+            state.unmount();
+            *state = new;
+        }
     }
 }
 
@@ -339,52 +494,60 @@ impl AddAnyAttr for AnyView {
 
     #[allow(unused_variables)]
     fn add_any_attr<NewAttr: Attribute>(
-        self,
+        mut self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-        #[cfg(erase_components)]
-        {
-            use crate::html::attribute::any_attribute::IntoAnyAttribute;
-
-            let attr = attr.into_cloneable_owned();
-            (self.add_any_attr)(self.value, attr.into_any_attr())
-        }
-        #[cfg(not(erase_components))]
-        {
-            self
-        }
+        self.extra_attrs
+            .push(attr.into_cloneable_owned().into_any_attr());
+        self
     }
 }
 
 impl RenderHtml for AnyView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
         #[cfg(feature = "ssr")]
         {
-            (self.dry_resolve)(&mut self.value)
+            (self.dry_resolve)(
+                &mut self.value,
+                extra_attrs.add_layer(&mut self.extra_attrs),
+            );
         }
         #[cfg(not(feature = "ssr"))]
-        panic!(
-            "You are rendering AnyView to HTML without the `ssr` feature \
-             enabled."
-        );
+        {
+            _ = extra_attrs;
+            panic!(
+                "You are rendering AnyView to HTML without the `ssr` feature \
+                 enabled."
+            );
+        }
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(
+        mut self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
         #[cfg(feature = "ssr")]
         {
-            (self.resolve)(self.value).await
+            (self.resolve)(
+                self.value,
+                extra_attrs.add_layer(&mut self.extra_attrs),
+            )
+            .await
         }
         #[cfg(not(feature = "ssr"))]
-        panic!(
-            "You are rendering AnyView to HTML without the `ssr` feature \
-             enabled."
-        );
+        {
+            _ = extra_attrs;
+            panic!(
+                "You are rendering AnyView to HTML without the `ssr` feature \
+                 enabled."
+            );
+        }
     }
 
     const MIN_LENGTH: usize = 0;
@@ -395,15 +558,26 @@ impl RenderHtml for AnyView {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         #[cfg(feature = "ssr")]
-        (self.to_html)(self.value, buf, position, escape, mark_branches);
+        {
+            (self.to_html)(
+                self.value,
+                buf,
+                position,
+                escape,
+                mark_branches,
+                combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+            );
+        }
         #[cfg(not(feature = "ssr"))]
         {
             _ = mark_branches;
             _ = buf;
             _ = position;
             _ = escape;
+            _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
@@ -417,26 +591,31 @@ impl RenderHtml for AnyView {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
         #[cfg(feature = "ssr")]
-        if OUT_OF_ORDER {
-            (self.to_html_async_ooo)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-            );
-        } else {
-            (self.to_html_async)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-            );
+        {
+            if OUT_OF_ORDER {
+                (self.to_html_async_ooo)(
+                    self.value,
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+                );
+            } else {
+                (self.to_html_async)(
+                    self.value,
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+                );
+            }
         }
         #[cfg(not(feature = "ssr"))]
         {
@@ -444,6 +623,7 @@ impl RenderHtml for AnyView {
             _ = position;
             _ = escape;
             _ = mark_branches;
+            _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
@@ -455,20 +635,29 @@ impl RenderHtml for AnyView {
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
-        if FROM_SERVER {
-            (self.hydrate_from_server)(self.value, cursor, position)
-        } else {
-            panic!(
-                "hydrating AnyView from inside a ViewTemplate is not \
-                 supported."
-            );
+        {
+            if FROM_SERVER {
+                (self.hydrate_from_server)(
+                    self.value,
+                    cursor,
+                    position,
+                    combine_owned_extra_attrs(extra_attrs, self.extra_attrs),
+                )
+            } else {
+                panic!(
+                    "hydrating AnyView from inside a ViewTemplate is not \
+                     supported."
+                );
+            }
         }
         #[cfg(not(feature = "hydrate"))]
         {
             _ = cursor;
             _ = position;
+            _ = extra_attrs;
             panic!(
                 "You are trying to hydrate AnyView without the `hydrate` \
                  feature enabled."
@@ -476,15 +665,33 @@ impl RenderHtml for AnyView {
         }
     }
 
-    fn html_len(&self) -> usize {
+    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
         #[cfg(feature = "ssr")]
         {
-            self.html_len
+            (self.html_len)(
+                &self.value,
+                match (extra_attrs, self.extra_attrs.is_empty()) {
+                    (Some(mut extra_attrs), false) => {
+                        for attr in &self.extra_attrs {
+                            extra_attrs.push(attr);
+                        }
+                        Some(extra_attrs)
+                    }
+                    (Some(extra_attrs), true) => Some(extra_attrs),
+                    (None, false) => Some(self.extra_attrs.iter().collect()),
+                    (None, true) => None,
+                },
+            )
         }
         #[cfg(not(feature = "ssr"))]
         {
+            _ = extra_attrs;
             0
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
