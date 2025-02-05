@@ -639,7 +639,7 @@ mod tests {
     fn mock_dom_creates_element() {
         let el: HtmlElement<Main, _, _, MockDom> =
             main().child(p().id("test").lang("en").child("Hello, world!"));
-        let el = el.build();
+        let el = el.build(None);
         assert_eq!(
             el.el.to_debug_html(),
             "<main><p id=\"test\" lang=\"en\">Hello, world!</p></main>"
@@ -653,7 +653,7 @@ mod tests {
             em().child("beautiful"),
             " world!",
         )));
-        let el = el.build();
+        let el = el.build(None);
         assert_eq!(
             el.el.to_debug_html(),
             "<main><p>Hello, <em>beautiful</em> world!</p></main>"

@@ -985,7 +985,7 @@ mod tests {
         let count = RwSignal::new(0);
         let app: HtmlElement<_, _, _, MockDom> =
             button((), move || count.get().to_string());
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(el.el.to_debug_html(), "<button>0</button>");
         rt.dispose();
     }
@@ -996,7 +996,7 @@ mod tests {
         let count = RwSignal::new(0);
         let app: HtmlElement<_, _, _, MockDom> =
             button((), move || count.get().to_string());
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(el.el.to_debug_html(), "<button>0</button>");
         count.set(1);
         assert_eq!(el.el.to_debug_html(), "<button>1</button>");
@@ -1014,7 +1014,7 @@ mod tests {
                 ("Hello, my ", move || count.get().to_string(), " friends."),
             ),
         );
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(
             el.el.to_debug_html(),
             "<main><button>Hello, my 0 friends.</button></main>"

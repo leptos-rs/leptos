@@ -729,7 +729,7 @@ mod tests {
     #[test]
     fn keyed_creates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let el_state = el.build();
+        let el_state = el.build(None);
         assert_eq!(
             el_state.el.to_debug_html(),
             "<ul><li>1</li><li>2</li><li>3</li></ul>"
@@ -739,7 +739,7 @@ mod tests {
     #[test]
     fn adding_items_updates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed(1..=5, |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -751,7 +751,7 @@ mod tests {
     #[test]
     fn removing_items_updates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed(1..=2, |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -763,7 +763,7 @@ mod tests {
     #[test]
     fn swapping_items_updates_list() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed([1, 4, 3, 2, 5], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn swapping_and_removing_orders_correctly() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed([1, 4, 3, 5], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -787,7 +787,7 @@ mod tests {
     #[test]
     fn arbitrarily_hard_adjustment() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed([2, 4, 3], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -799,7 +799,7 @@ mod tests {
     #[test]
     fn a_series_of_moves() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed([2, 4, 3], |k| *k, item));
         el.rebuild(&mut el_state);
         let el = ul((), keyed([1, 7, 5, 11, 13, 17], |k| *k, item));
@@ -819,7 +819,7 @@ mod tests {
     #[test]
     fn clearing_works() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build();
+        let mut el_state = el.build(None);
         let el = ul((), keyed([], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(el_state.el.to_debug_html(), "<ul></ul>");
