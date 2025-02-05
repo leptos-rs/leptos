@@ -6,7 +6,8 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, IntoRender, Mountable, Position, PositionState, Render, RenderHtml, ToTemplate
+        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, IntoRender, Mountable,
+        Position, PositionState, Render, RenderHtml, ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -344,7 +345,8 @@ where
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, extra_attrs, &mut buf);
+        let inner_html =
+            attributes_to_html(self.attributes, extra_attrs, &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -403,20 +405,15 @@ where
             });
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
-        let extra_attrs = extra_attrs.map(|attrs| {
-            Attribute::hydrate::<FROM_SERVER>(attrs, &el)
-        });
+        let extra_attrs = extra_attrs
+            .map(|attrs| Attribute::hydrate::<FROM_SERVER>(attrs, &el));
 
         // hydrate children
         let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);
-            Some(self.children.hydrate::<FROM_SERVER>(
-                cursor,
-                position,
-                None,
-            ))
+            Some(self.children.hydrate::<FROM_SERVER>(cursor, position, None))
         };
 
         // go to next sibling
@@ -449,9 +446,9 @@ where
 
 /// Renders an [`Attribute`] (which can be one or more HTML attributes) into an HTML buffer.
 pub fn attributes_to_html<At>(
-    attr: At, 
+    attr: At,
     extra_attrs: Option<Vec<AnyAttribute>>,
-    buf: &mut String
+    buf: &mut String,
 ) -> String
 where
     At: Attribute,
