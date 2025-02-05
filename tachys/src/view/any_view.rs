@@ -380,6 +380,7 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
+    #[cfg(feature = "ssr")]
     fn add_layer<'b>(
         mut self,
         extra_attrs: &'b mut Vec<AnyAttribute>,
