@@ -147,13 +147,9 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn latest_keys(&self) -> Vec<K> {
-        self.reader().map(|r|
-            r.deref()
-            .into_iter()
-            .map(|n| (self.key_fn)(n))
-            .collect()
-        ).unwrap_or(Vec::new())
-        
+        self.reader()
+            .map(|r| r.deref().into_iter().map(|n| (self.key_fn)(n)).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -655,14 +651,15 @@ where
         self.track_field();
 
         // get the current length of the field by accessing slice
-        let reader = self
-            .reader();
-        
-        let keys = reader.map(|r|
-            r
-            .into_iter()
-            .map(|item| (self.key_fn)(item))
-            .collect::<VecDeque<_>>()).unwrap_or(VecDeque::new());
+        let reader = self.reader();
+
+        let keys = reader
+            .map(|r| {
+                r.into_iter()
+                    .map(|item| (self.key_fn)(item))
+                    .collect::<VecDeque<_>>()
+            })
+            .unwrap_or_default();
 
         // return the iterator
         StoreFieldKeyedIter { inner: self, keys }
