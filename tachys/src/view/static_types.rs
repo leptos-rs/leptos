@@ -1,9 +1,15 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml, ToTemplate,
+    add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
+    PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
+    html::attribute::{
+        any_attribute::AnyAttribute,
+        maybe_next_attr_erasure_macros::{
+            next_attr_combine, next_attr_output_type,
+        },
+        Attribute, AttributeKey, AttributeValue, NextAttribute,
+    },
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };
@@ -145,27 +151,36 @@ where
 {
     type State = Option<crate::renderer::types::Text>;
 
-    fn build(self) -> Self::State {
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         // a view state has to be returned so it can be mounted
         Some(Rndr::create_text_node(V))
     }
 
     // This type is specified as static, so no rebuilding is done.
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(
+        self,
+        _state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+    }
 }
 
 impl<const V: &'static str> RenderHtml for Static<V> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = V.len();
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
 
     // this won't actually compile because if a weird interaction because the const &'static str and
     // the RPITIT, so we just refine it to a concrete future type; this will never change in any
     // case
     #[allow(refining_impl_trait)]
-    fn resolve(self) -> std::future::Ready<Self> {
+    fn resolve(
+        self,
+        _extra_attrs: ExtraAttrsMut<'_>,
+    ) -> std::future::Ready<Self> {
         std::future::ready(self)
     }
 
@@ -175,6 +190,7 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -195,6 +211,7 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         self,
         cursor: &Cursor,
         position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         if position.get() == Position::FirstChild {
             cursor.child();
@@ -216,6 +233,10 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         position.set(Position::NextChildAfterText);
 
         Some(node)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

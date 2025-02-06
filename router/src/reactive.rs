@@ -89,7 +89,7 @@ where
     type State =
         ReactiveRouterInnerState<Rndr, Loc, Defs, FallbackFn, Fallback>;
 
-    fn build(self) -> Self::State {
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let (prev_id, inner) = self.inner.fallback_or_view();
         let owner = self.owner.with(Owner::new);
         ReactiveRouterInnerState {
@@ -100,7 +100,11 @@ where
         }
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
         let (new_id, view) = self.inner.fallback_or_view();
         if new_id != state.prev_id {
             state.owner = self.owner.with(Owner::new)
@@ -130,6 +134,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -156,6 +161,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -169,6 +175,7 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let (prev_id, inner) = self.inner.fallback_or_view();
         let owner = self.owner.with(Owner::new);
@@ -280,7 +287,7 @@ where
 {
     type State = ReactiveRouteState<View::State>;
 
-    fn build(self) -> Self::State {
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let MatchedRoute {
             search_params,
             params,
@@ -291,14 +298,19 @@ where
             params: ArcRwSignal::new(params),
             matched: ArcRwSignal::new(matched),
         };
-        let view_state = untrack(|| (self.view_fn)(&matched).build());
+        let view_state =
+            untrack(|| (self.view_fn)(&matched).build(extra_attrs.clone()));
         ReactiveRouteState {
             matched,
             view_state,
         }
     }
 
-    fn rebuild(mut self, state: &mut Self::State) {
+    fn rebuild(
+        mut self,
+        state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
         let ReactiveRouteState { matched, .. } = state;
         matched
             .search_params
@@ -324,6 +336,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         let MatchedRoute {
             search_params,
@@ -336,7 +349,12 @@ where
             matched: ArcRwSignal::new(matched),
         };
         untrack(|| {
-            (self.view_fn)(&matched).to_html_with_buf(buf, position, escape)
+            (self.view_fn)(&matched).to_html_with_buf(
+                buf,
+                position,
+                escape,
+                extra_attrs.clone(),
+            )
         });
     }
 
@@ -346,6 +364,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -360,8 +379,12 @@ where
             matched: ArcRwSignal::new(matched),
         };
         untrack(|| {
-            (self.view_fn)(&matched)
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
+            (self.view_fn)(&matched).to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                extra_attrs.clone(),
+            )
         });
     }
 
@@ -369,6 +392,7 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let MatchedRoute {
             search_params,
@@ -381,7 +405,11 @@ where
             matched: ArcRwSignal::new(matched),
         };
         let view_state = untrack(|| {
-            (self.view_fn)(&matched).hydrate::<FROM_SERVER>(cursor, position)
+            (self.view_fn)(&matched).hydrate::<FROM_SERVER>(
+                cursor,
+                position,
+                extra_attrs.clone(),
+            )
         });
         ReactiveRouteState {
             matched,

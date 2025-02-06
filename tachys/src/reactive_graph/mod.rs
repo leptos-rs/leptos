@@ -1,11 +1,11 @@
 use crate::{
-    html::attribute::{Attribute, AttributeValue},
+    html::attribute::{any_attribute::AnyAttribute, Attribute, AttributeValue},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
+        PositionState, Render, RenderHtml, ToTemplate,
     },
 };
 use reactive_graph::effect::RenderEffect;
@@ -57,7 +57,7 @@ where
     type State = RenderEffectState<V::State>;
 
     #[track_caller]
-    fn build(mut self) -> Self::State {
+    fn build(mut self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let hook = throw_error::get_error_hook();
         RenderEffect::new(move |prev| {
             let _guard = hook
@@ -65,18 +65,22 @@ where
                 .map(|h| throw_error::set_error_hook(Arc::clone(h)));
             let value = self.invoke();
             if let Some(mut state) = prev {
-                value.rebuild(&mut state);
+                value.rebuild(&mut state, extra_attrs.clone());
                 state
             } else {
-                value.build()
+                value.build(extra_attrs.clone())
             }
         })
         .into()
     }
 
     #[track_caller]
-    fn rebuild(self, state: &mut Self::State) {
-        let new = self.build();
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+        let new = self.build(extra_attrs);
         let mut old = std::mem::replace(state, new);
         old.insert_before_this(state);
         old.unmount();
@@ -128,18 +132,22 @@ where
     V::State: 'static,
 {
     type AsyncOutput = V::AsyncOutput;
+    type Owned = F;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self) {
-        self.invoke().dry_resolve();
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+        self.invoke().dry_resolve(extra_attrs);
     }
 
-    async fn resolve(mut self) -> Self::AsyncOutput {
-        self.invoke().resolve().await
+    async fn resolve(
+        mut self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
+        self.invoke().resolve(extra_attrs).await
     }
 
-    fn html_len(&self) -> usize {
+    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
         V::MIN_LENGTH
     }
 
@@ -149,9 +157,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         let value = self.invoke();
-        value.to_html_with_buf(buf, position, escape, mark_branches)
+        value.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -160,6 +175,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -169,6 +185,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -176,6 +193,7 @@ where
         mut self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let cursor = cursor.clone();
         let position = position.clone();
@@ -186,13 +204,21 @@ where
                 .map(|h| throw_error::set_error_hook(Arc::clone(h)));
             let value = self.invoke();
             if let Some(mut state) = prev {
-                value.rebuild(&mut state);
+                value.rebuild(&mut state, extra_attrs.clone());
                 state
             } else {
-                value.hydrate::<FROM_SERVER>(&cursor, &position)
+                value.hydrate::<FROM_SERVER>(
+                    &cursor,
+                    &position,
+                    extra_attrs.clone(),
+                )
             }
         })
         .into()
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -507,12 +533,14 @@ where
 mod stable {
     use super::RenderEffectState;
     use crate::{
-        html::attribute::{Attribute, AttributeValue},
+        html::attribute::{
+            any_attribute::AnyAttribute, Attribute, AttributeValue,
+        },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
+            PositionState, Render, RenderHtml,
         },
     };
     #[allow(deprecated)]
@@ -537,13 +565,20 @@ mod stable {
                 type State = RenderEffectState<V::State>;
 
                 #[track_caller]
-                fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                fn build(
+                    self,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
+                ) -> Self::State {
+                    (move || self.get()).build(extra_attrs)
                 }
 
                 #[track_caller]
-                fn rebuild(self, state: &mut Self::State) {
-                    let new = self.build();
+                fn rebuild(
+                    self,
+                    state: &mut Self::State,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
+                ) {
+                    let new = self.build(extra_attrs);
                     let mut old = std::mem::replace(state, new);
                     old.insert_before_this(state);
                     old.unmount();
@@ -576,20 +611,27 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&mut self) {
+                fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
                     if $dry_resolve {
                         _ = self.get();
                     }
                 }
 
-                async fn resolve(self) -> Self::AsyncOutput {
+                async fn resolve(
+                    self,
+                    _extra_attrs: ExtraAttrsMut<'_>,
+                ) -> Self::AsyncOutput {
                     self
                 }
 
-                fn html_len(&self) -> usize {
+                fn html_len(
+                    &self,
+                    _extra_attrs: Option<Vec<&AnyAttribute>>,
+                ) -> usize {
                     V::MIN_LENGTH
                 }
 
@@ -599,9 +641,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -610,6 +659,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) where
                     Self: Sized,
                 {
@@ -619,6 +669,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 
@@ -626,9 +677,17 @@ mod stable {
                     self,
                     cursor: &Cursor,
                     position: &PositionState,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    (move || self.get()).hydrate::<FROM_SERVER>(
+                        cursor,
+                        position,
+                        extra_attrs,
+                    )
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 
@@ -705,13 +764,20 @@ mod stable {
                 type State = RenderEffectState<V::State>;
 
                 #[track_caller]
-                fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                fn build(
+                    self,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
+                ) -> Self::State {
+                    (move || self.get()).build(extra_attrs)
                 }
 
                 #[track_caller]
-                fn rebuild(self, state: &mut Self::State) {
-                    let new = self.build();
+                fn rebuild(
+                    self,
+                    state: &mut Self::State,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
+                ) {
+                    let new = self.build(extra_attrs);
                     let mut old = std::mem::replace(state, new);
                     old.insert_before_this(state);
                     old.unmount();
@@ -750,20 +816,27 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&mut self) {
+                fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
                     if $dry_resolve {
                         _ = self.get();
                     }
                 }
 
-                async fn resolve(self) -> Self::AsyncOutput {
+                async fn resolve(
+                    self,
+                    _extra_attrs: ExtraAttrsMut<'_>,
+                ) -> Self::AsyncOutput {
                     self
                 }
 
-                fn html_len(&self) -> usize {
+                fn html_len(
+                    &self,
+                    _extra_attrs: Option<Vec<&AnyAttribute>>,
+                ) -> usize {
                     V::MIN_LENGTH
                 }
 
@@ -773,9 +846,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -784,6 +864,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) where
                     Self: Sized,
                 {
@@ -793,6 +874,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 
@@ -800,9 +882,17 @@ mod stable {
                     self,
                     cursor: &Cursor,
                     position: &PositionState,
+                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    (move || self.get()).hydrate::<FROM_SERVER>(
+                        cursor,
+                        position,
+                        extra_attrs,
+                    )
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 
@@ -895,7 +985,7 @@ mod tests {
         let count = RwSignal::new(0);
         let app: HtmlElement<_, _, _, MockDom> =
             button((), move || count.get().to_string());
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(el.el.to_debug_html(), "<button>0</button>");
         rt.dispose();
     }
@@ -906,7 +996,7 @@ mod tests {
         let count = RwSignal::new(0);
         let app: HtmlElement<_, _, _, MockDom> =
             button((), move || count.get().to_string());
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(el.el.to_debug_html(), "<button>0</button>");
         count.set(1);
         assert_eq!(el.el.to_debug_html(), "<button>1</button>");
@@ -924,7 +1014,7 @@ mod tests {
                 ("Hello, my ", move || count.get().to_string(), " friends."),
             ),
         );
-        let el = app.build();
+        let el = app.build(None);
         assert_eq!(
             el.el.to_debug_html(),
             "<main><button>Hello, my 0 friends.</button></main>"

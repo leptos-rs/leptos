@@ -1,8 +1,12 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml, ToTemplate,
+    add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
+    PositionState, Render, RenderHtml, ToTemplate,
 };
-use crate::{html::attribute::Attribute, hydration::Cursor, renderer::Rndr};
+use crate::{
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    hydration::Cursor,
+    renderer::Rndr,
+};
 
 /// A view wrapper that uses a `<template>` node to optimize DOM node creation.
 ///
@@ -36,15 +40,22 @@ where
 
     // TODO try_build/try_rebuild()
 
-    fn build(self) -> Self::State {
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let tpl = Self::to_template();
         let contents = Rndr::clone_template(&tpl);
-        self.view
-            .hydrate::<false>(&Cursor::new(contents), &Default::default())
+        self.view.hydrate::<false>(
+            &Cursor::new(contents),
+            &Default::default(),
+            extra_attrs,
+        )
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        self.view.rebuild(state)
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+        self.view.rebuild(state, extra_attrs)
     }
 }
 
@@ -72,6 +83,7 @@ where
     V::State: Mountable,
 {
     type AsyncOutput = V::AsyncOutput;
+    type Owned = V::Owned;
 
     const MIN_LENGTH: usize = V::MIN_LENGTH;
 
@@ -81,25 +93,40 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches)
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        self.view.hydrate::<FROM_SERVER>(cursor, position)
+        self.view
+            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
     }
 
-    fn dry_resolve(&mut self) {
-        self.view.dry_resolve();
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+        self.view.dry_resolve(extra_attrs);
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
-        self.view.resolve().await
+    async fn resolve(
+        self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
+        self.view.resolve(extra_attrs).await
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.view.into_owned()
     }
 }
 
