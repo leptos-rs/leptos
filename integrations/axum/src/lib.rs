@@ -1694,12 +1694,15 @@ impl AxumPath for Vec<PathSegment> {
             match segment {
                 PathSegment::Static(s) => path.push_str(s),
                 PathSegment::Param(s) => {
-                    path.push(':');
+                    path.push('{');
                     path.push_str(s);
+                    path.push('}');
                 }
                 PathSegment::Splat(s) => {
+                    path.push('{');
                     path.push('*');
                     path.push_str(s);
+                    path.push('}');
                 }
                 PathSegment::Unit => {}
                 PathSegment::OptionalParam(_) => {
