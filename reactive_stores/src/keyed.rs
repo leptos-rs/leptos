@@ -147,12 +147,13 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn latest_keys(&self) -> Vec<K> {
-        self.reader()
-            .expect("trying to update keys")
-            .deref()
+        self.reader().map(|r|
+            r.deref()
             .into_iter()
             .map(|n| (self.key_fn)(n))
             .collect()
+        ).unwrap_or(Vec::new())
+        
     }
 }
 
@@ -655,12 +656,13 @@ where
 
         // get the current length of the field by accessing slice
         let reader = self
-            .reader()
-            .expect("creating iterator from unavailable store field");
-        let keys = reader
+            .reader();
+        
+        let keys = reader.map(|r|
+            r
             .into_iter()
             .map(|item| (self.key_fn)(item))
-            .collect::<VecDeque<_>>();
+            .collect::<VecDeque<_>>()).unwrap_or(VecDeque::new());
 
         // return the iterator
         StoreFieldKeyedIter { inner: self, keys }
