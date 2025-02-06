@@ -884,7 +884,7 @@ checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
 name = "either_of"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "paste",
  "pin-project-lite",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -2686,7 +2686,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.1.3"
+version = "0.1.5"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -2703,7 +2703,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.1.0"
+version = "0.1.5"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro-error2",
@@ -3426,7 +3426,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "any_spawner",
  "async-trait",
