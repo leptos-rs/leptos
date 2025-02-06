@@ -44,7 +44,7 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
-    attr::NextAttribute,
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component,
     logging::debug_warn,
     oco::Oco,
@@ -57,8 +57,8 @@ use leptos::{
         },
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
+            PositionState, Render, RenderHtml,
         },
     },
     IntoView,
@@ -334,6 +334,7 @@ where
             &mut Position::NextChild,
             false,
             false,
+            None,
         );
         _ = cx.elements.send(buf); // fails only if the receiver is already dropped
     } else {
@@ -390,13 +391,17 @@ where
 {
     type State = RegisteredMetaTagState<E, At, Ch>;
 
-    fn build(self) -> Self::State {
-        let state = self.el.unwrap().build();
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+        let state = self.el.unwrap().build(extra_attrs);
         RegisteredMetaTagState { state }
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        self.el.unwrap().rebuild(&mut state.state);
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+        self.el.unwrap().rebuild(&mut state.state, extra_attrs);
     }
 }
 
@@ -429,14 +434,18 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = Self;
+    type Owned = RegisteredMetaTag<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self) {
-        self.el.dry_resolve()
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+        self.el.dry_resolve(extra_attrs)
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(
+        self,
+        _extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
         self // TODO?
     }
 
@@ -446,6 +455,7 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -455,6 +465,7 @@ where
         self,
         _cursor: &Cursor,
         _position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let cursor = use_context::<MetaContext>()
             .expect(
@@ -465,8 +476,15 @@ where
         let state = self.el.unwrap().hydrate::<FROM_SERVER>(
             &cursor,
             &PositionState::new(Position::NextChild),
+            extra_attrs,
         );
         RegisteredMetaTagState { state }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        RegisteredMetaTag {
+            el: self.el.map(|inner| inner.into_owned()),
+        }
     }
 }
 
@@ -520,9 +538,14 @@ struct MetaTagsView;
 impl Render for MetaTagsView {
     type State = ();
 
-    fn build(self) -> Self::State {}
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {}
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(
+        self,
+        _state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+    }
 }
 
 impl AddAnyAttr for MetaTagsView {
@@ -541,12 +564,16 @@ impl AddAnyAttr for MetaTagsView {
 
 impl RenderHtml for MetaTagsView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(
+        self,
+        _extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
         self
     }
 
@@ -556,6 +583,7 @@ impl RenderHtml for MetaTagsView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         buf.push_str("<!--HEAD-->");
     }
@@ -564,7 +592,12 @@ impl RenderHtml for MetaTagsView {
         self,
         _cursor: &Cursor,
         _position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

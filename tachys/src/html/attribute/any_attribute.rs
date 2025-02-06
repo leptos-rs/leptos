@@ -1,3 +1,4 @@
+#![allow(unused_mut)]
 use super::{Attribute, NextAttribute};
 use dyn_clone::DynClone;
 use std::{
@@ -35,6 +36,10 @@ pub struct AnyAttribute {
     type_id: TypeId,
     html_len: usize,
     value: Box<dyn DynAttr>,
+
+    /// Temporary attribute set during the resolving cycle, to resolve only once.
+    pub(crate) resolved: bool,
+
     #[cfg(feature = "ssr")]
     to_html: fn(
         Box<dyn DynAttr>,
@@ -197,6 +202,7 @@ where
             type_id: TypeId::of::<T::CloneableOwned>(),
             html_len: value.html_len(),
             value,
+            resolved: false,
             #[cfg(feature = "ssr")]
             to_html,
             build,
@@ -303,10 +309,13 @@ impl Attribute for AnyAttribute {
         );
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(mut self) -> Self::AsyncOutput {
         #[cfg(feature = "ssr")]
         {
-            (self.resolve)(self.value).await
+            let res = (self.resolve)(self.value).await;
+            // Used by batch_resolve_items_with_extra_attrs() for optimisations.
+            self.resolved = true;
+            res
         }
         #[cfg(not(feature = "ssr"))]
         panic!(

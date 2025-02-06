@@ -1,8 +1,9 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+    any_view::ExtraAttrsMut, Mountable, Position, PositionState, Render,
+    RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::Rndr,
     view::{add_attr::AddAnyAttr, StreamBuilder},
@@ -14,15 +15,21 @@ use const_str_slice_concat::{
 impl Render for () {
     type State = crate::renderer::types::Placeholder;
 
-    fn build(self) -> Self::State {
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         Rndr::create_placeholder()
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(
+        self,
+        _state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+    }
 }
 
 impl RenderHtml for () {
     type AsyncOutput = ();
+    type Owned = ();
 
     const MIN_LENGTH: usize = 3;
     const EXISTS: bool = false;
@@ -33,6 +40,7 @@ impl RenderHtml for () {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         if escape {
             buf.push_str("<!>");
@@ -44,13 +52,20 @@ impl RenderHtml for () {
         self,
         cursor: &Cursor,
         position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         cursor.next_placeholder(position)
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {}
+    async fn resolve(
+        self,
+        _extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
+    }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+
+    fn into_owned(self) -> Self::Owned {}
 }
 
 impl AddAnyAttr for () {
@@ -98,12 +113,16 @@ impl ToTemplate for () {
 impl<A: Render> Render for (A,) {
     type State = A::State;
 
-    fn build(self) -> Self::State {
-        self.0.build()
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+        self.0.build(extra_attrs)
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        self.0.rebuild(state)
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+        self.0.rebuild(state, extra_attrs)
     }
 }
 
@@ -112,11 +131,12 @@ where
     A: RenderHtml,
 {
     type AsyncOutput = (A::AsyncOutput,);
+    type Owned = (A::Owned,);
 
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
-    fn html_len(&self) -> usize {
-        self.0.html_len()
+    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+        self.0.html_len(extra_attrs)
     }
 
     fn to_html_with_buf(
@@ -125,9 +145,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
-        self.0
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.0.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -136,6 +162,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -144,6 +171,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -151,16 +179,24 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        self.0.hydrate::<FROM_SERVER>(cursor, position)
+        self.0.hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
-        (self.0.resolve().await,)
+    async fn resolve(
+        self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
+        (self.0.resolve(extra_attrs).await,)
     }
 
-    fn dry_resolve(&mut self) {
-        self.0.dry_resolve();
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+        self.0.dry_resolve(extra_attrs);
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        (self.0.into_owned(),)
     }
 }
 
@@ -208,21 +244,21 @@ macro_rules! impl_view_for_tuples {
 			type State = ($first::State, $($ty::State,)*);
 
 
-			fn build(self) -> Self::State {
+			fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
-                    $first.build(),
-                    $($ty.build()),*
+                    $first.build(extra_attrs.clone()),
+                    $($ty.build(extra_attrs.clone())),*
                 )
 			}
 
-			fn rebuild(self, state: &mut Self::State) {
+			fn rebuild(self, state: &mut Self::State, extra_attrs: Option<Vec<AnyAttribute>>) {
 				paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
 					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].rebuild([<view_ $first:lower>]);
-					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
+					[<$first:lower>].rebuild([<view_ $first:lower>], extra_attrs.clone());
+					$([<$ty:lower>].rebuild([<view_ $ty:lower>], extra_attrs.clone()));*
 				}
 			}
 		}
@@ -234,57 +270,75 @@ macro_rules! impl_view_for_tuples {
 
 		{
             type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
+            type Owned = ($first::Owned, $($ty::Owned,)*);
 
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
             #[inline(always)]
-            fn html_len(&self) -> usize {
+            fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
                 #[allow(non_snake_case)]
 			    let ($first, $($ty,)* ) = self;
-                $($ty.html_len() +)* $first.html_len()
+                $($ty.html_len(extra_attrs.clone()) +)* $first.html_len(extra_attrs.clone())
             }
 
-			fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
+			fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool, extra_attrs: Option<Vec<AnyAttribute>>) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_with_buf(buf, position, escape, mark_branches);
-                $($ty.to_html_with_buf(buf, position, escape, mark_branches));*
+                $first.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone());
+                $($ty.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone()));*
 			}
 
 			fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
 				self,
-				buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
+				buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool, extra_attrs: Option<Vec<AnyAttribute>>) where
 				Self: Sized,
 			{
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
-                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches));*
+                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone());
+                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone()));*
 			}
 
-			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor, position: &PositionState) -> Self::State {
+			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor, position: &PositionState, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
                 #[allow(non_snake_case)]
 					let ($first, $($ty,)* ) = self;
 					(
-						$first.hydrate::<FROM_SERVER>(cursor, position),
-						$($ty.hydrate::<FROM_SERVER>(cursor, position)),*
+						$first.hydrate::<FROM_SERVER>(cursor, position, extra_attrs.clone()),
+						$($ty.hydrate::<FROM_SERVER>(cursor, position, extra_attrs.clone())),*
 					)
 			}
 
-            async fn resolve(self) -> Self::AsyncOutput {
+            async fn resolve(self, mut extra_attrs: ExtraAttrsMut<'_>) -> Self::AsyncOutput {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
-                futures::join!(
-                    $first.resolve(),
-                    $($ty.resolve()),*
-                )
+                if extra_attrs.is_some() {
+                    // TODO: any good way to make this only partially sequantial like with batch_resolve_items_with_extra_attrs_tuples_inner()?
+                    (
+                        $first.resolve(extra_attrs.as_deref_mut()).await,
+                        $($ty.resolve(extra_attrs.as_deref_mut()).await),*
+                    )
+                } else {
+                    futures::join!(
+                        $first.resolve(ExtraAttrsMut::default()),
+                        $($ty.resolve(ExtraAttrsMut::default())),*
+                    )
+                }
             }
 
-            fn dry_resolve(&mut self) {
+            fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
-                $first.dry_resolve();
-                $($ty.dry_resolve());*
+                $first.dry_resolve(extra_attrs.as_deref_mut());
+                $($ty.dry_resolve(extra_attrs.as_deref_mut()));*
+            }
+
+            fn into_owned(self) -> Self::Owned {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_owned(),
+                    $($ty.into_owned()),*
+                )
             }
 		}
 

@@ -7,8 +7,11 @@ use crate::{
         dom::{Element, Node},
         CastFrom, Rndr,
     },
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{
+        any_view::ExtraAttrsMut, Position, PositionState, Render, RenderHtml,
+    },
 };
+use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
 
 /// Types for HTML attributes.
@@ -43,21 +46,30 @@ pub fn doctype(value: &'static str) -> Doctype {
 impl Render for Doctype {
     type State = ();
 
-    fn build(self) -> Self::State {}
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {}
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(
+        self,
+        _state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
+    }
 }
 
 no_attrs!(Doctype);
 
 impl RenderHtml for Doctype {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(
+        self,
+        _extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
         self
     }
 
@@ -67,6 +79,7 @@ impl RenderHtml for Doctype {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         buf.push_str("<!DOCTYPE ");
         buf.push_str(self.value);
@@ -77,7 +90,12 @@ impl RenderHtml for Doctype {
         self,
         _cursor: &Cursor,
         _position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -113,12 +131,16 @@ impl Mountable for InertElementState {
 impl Render for InertElement {
     type State = InertElementState;
 
-    fn build(self) -> Self::State {
+    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let el = Rndr::create_element_from_html(&self.html);
         InertElementState(self.html, el)
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
         let InertElementState(prev, el) = state;
         if &self.html != prev {
             let mut new_el = Rndr::create_element_from_html(&self.html);
@@ -149,16 +171,17 @@ impl AddAnyAttr for InertElement {
 
 impl RenderHtml for InertElement {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn html_len(&self) -> usize {
+    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
         self.html.len()
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
 
-    async fn resolve(self) -> Self {
+    async fn resolve(self, _extra_attrs: ExtraAttrsMut<'_>) -> Self {
         self
     }
 
@@ -168,6 +191,7 @@ impl RenderHtml for InertElement {
         position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         buf.push_str(&self.html);
         *position = Position::NextChild;
@@ -177,6 +201,7 @@ impl RenderHtml for InertElement {
         self,
         cursor: &Cursor,
         position: &PositionState,
+        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let curr_position = position.get();
         if curr_position == Position::FirstChild {
@@ -188,5 +213,9 @@ impl RenderHtml for InertElement {
             .unwrap();
         position.set(Position::NextChild);
         InertElementState(self.html, el)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

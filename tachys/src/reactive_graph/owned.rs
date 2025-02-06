@@ -1,9 +1,12 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     prelude::Mountable,
     ssr::StreamBuilder,
-    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
+    view::{
+        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Position, PositionState,
+        Render, RenderHtml,
+    },
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
 
@@ -53,14 +56,18 @@ where
 {
     type State = OwnedViewState<T::State>;
 
-    fn build(self) -> Self::State {
-        let state = self.owner.with(|| self.view.build());
+    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+        let state = self.owner.with(|| self.view.build(extra_attrs));
         OwnedViewState::new(state, self.owner)
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(
+        self,
+        state: &mut Self::State,
+        extra_attrs: Option<Vec<AnyAttribute>>,
+    ) {
         let OwnedView { owner, view, .. } = self;
-        owner.with(|| view.rebuild(&mut state.state));
+        owner.with(|| view.rebuild(&mut state.state, extra_attrs));
         state.owner = owner;
     }
 }
@@ -92,6 +99,7 @@ where
 {
     // TODO
     type AsyncOutput = OwnedView<T::AsyncOutput>;
+    type Owned = OwnedView<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -101,10 +109,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         self.owner.with(|| {
-            self.view
-                .to_html_with_buf(buf, position, escape, mark_branches)
+            self.view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            )
         });
     }
 
@@ -114,6 +128,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -123,6 +138,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             )
         });
 
@@ -137,23 +153,39 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
+        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        let state = self
-            .owner
-            .with(|| self.view.hydrate::<FROM_SERVER>(cursor, position));
+        let state = self.owner.with(|| {
+            self.view
+                .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
+        });
         OwnedViewState::new(state, self.owner)
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(
+        self,
+        extra_attrs: ExtraAttrsMut<'_>,
+    ) -> Self::AsyncOutput {
         let OwnedView { owner, view } = self;
         let view = owner
-            .with(|| ScopedFuture::new(async move { view.resolve().await }))
+            .with(|| {
+                ScopedFuture::new(
+                    async move { view.resolve(extra_attrs).await },
+                )
+            })
             .await;
         OwnedView { owner, view }
     }
 
-    fn dry_resolve(&mut self) {
-        self.owner.with(|| self.view.dry_resolve());
+    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+        self.owner.with(|| self.view.dry_resolve(extra_attrs));
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        OwnedView {
+            owner: self.owner,
+            view: self.view.into_owned(),
+        }
     }
 }
 

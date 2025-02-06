@@ -352,7 +352,7 @@ where
         })
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(self, state: &mut Self::State, _extra_attrs: Option<Vec<AnyAttribute>>) {
         let (names, mut f) = self;
         let prev_value = state.take_value();
 
@@ -433,7 +433,7 @@ where
         <String as IntoClass>::build(self.deref().to_owned(), el)
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(self, state: &mut Self::State, _extra_attrs: Option<Vec<AnyAttribute>>) {
         <String as IntoClass>::rebuild(self.deref().to_owned(), state)
     }
 
@@ -447,7 +447,7 @@ where
 
     fn dry_resolve(&mut self) {}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::AsyncOutput {
         self
     }
 }
@@ -489,7 +489,7 @@ where
         )
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(self, state: &mut Self::State, _extra_attrs: Option<Vec<AnyAttribute>>) {
         <(&'static str, bool) as IntoClass>::rebuild(
             (self.0, *self.1.deref()),
             state,
@@ -506,7 +506,7 @@ where
 
     fn dry_resolve(&mut self) {}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::AsyncOutput {
         self
     }
 }
@@ -901,7 +901,7 @@ where
         state
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(self, state: &mut Self::State, _extra_attrs: Option<Vec<AnyAttribute>>) {
         reactive_graph::spawn_local_scoped({
             let state = Rc::clone(state);
             async move {
@@ -925,7 +925,7 @@ where
 
     fn dry_resolve(&mut self) {}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::AsyncOutput {
         self.inner.await
     }
 }
