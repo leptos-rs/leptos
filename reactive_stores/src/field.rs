@@ -44,14 +44,14 @@ where
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
             .try_get_value()
             .map(|inner| inner.path().into_iter().collect::<Vec<_>>())
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn reader(&self) -> Option<Self::Reader> {
