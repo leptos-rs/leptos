@@ -10,7 +10,6 @@ use reactive_graph::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Write,
     },
-    unwrap_signal,
 };
 use std::{
     fmt::Debug,

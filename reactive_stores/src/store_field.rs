@@ -9,8 +9,7 @@ use reactive_graph::{
         guards::{Plain, UntrackedWriteGuard, WriteGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, Track, UntrackableGuard},
-    unwrap_signal,
+    traits::{Track, UntrackableGuard},
 };
 use std::{iter, ops::Deref, sync::Arc};
 
@@ -104,7 +103,8 @@ where
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
-            .map(|n| n.get_trigger(path)).unwrap_or_default()
+            .map(|n| n.get_trigger(path))
+            .unwrap_or_default()
     }
 
     #[track_caller]
