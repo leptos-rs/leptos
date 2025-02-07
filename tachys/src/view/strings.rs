@@ -1,9 +1,7 @@
 use super::{
-    any_view::ExtraAttrsMut, Mountable, Position, PositionState, Render,
-    RenderHtml, ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
     no_attrs,
     renderer::{CastFrom, Rndr},
@@ -24,16 +22,12 @@ pub struct StrState<'a> {
 impl<'a> Render for &'a str {
     type State = StrState<'a>;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(self);
         StrState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let StrState { node, str } = state;
         if &self != str {
             Rndr::set_text(node, self);
@@ -44,20 +38,16 @@ impl<'a> Render for &'a str {
 
 impl RenderHtml for &str {
     type AsyncOutput = Self;
-    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         self.len()
     }
 
@@ -67,7 +57,6 @@ impl RenderHtml for &str {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -88,7 +77,6 @@ impl RenderHtml for &str {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         if position.get() == Position::FirstChild {
             cursor.child();
@@ -113,10 +101,6 @@ impl RenderHtml for &str {
         position.set(Position::NextChildAfterText);
 
         StrState { node, str: self }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self.to_string()
     }
 }
 
@@ -165,16 +149,12 @@ pub struct StringState {
 impl Render for String {
     type State = StringState;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(&self);
         StringState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let StringState { node, str } = state;
         if &self != str {
             Rndr::set_text(node, &self);
@@ -186,18 +166,14 @@ impl Render for String {
 impl RenderHtml for String {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
-    type Owned = Self;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         self.len()
     }
 
@@ -207,7 +183,6 @@ impl RenderHtml for String {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             self.as_str(),
@@ -215,7 +190,6 @@ impl RenderHtml for String {
             position,
             escape,
             mark_branches,
-            extra_attrs,
         )
     }
 
@@ -223,16 +197,10 @@ impl RenderHtml for String {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let StrState { node, .. } =
-            self.as_str()
-                .hydrate::<FROM_SERVER>(cursor, position, extra_attrs);
+            self.as_str().hydrate::<FROM_SERVER>(cursor, position);
         StringState { node, str: self }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 
@@ -279,16 +247,12 @@ pub struct RcStrState {
 impl Render for Rc<str> {
     type State = RcStrState;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(&self);
         RcStrState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let RcStrState { node, str } = state;
         if !Rc::ptr_eq(&self, str) {
             Rndr::set_text(node, &self);
@@ -308,11 +272,11 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    async fn resolve(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
     self
     }
 
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         self.len()
     }
 
@@ -324,7 +288,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let this: &str = self.as_ref();
         let StrState { node, .. } =
@@ -376,16 +339,12 @@ pub struct ArcStrState {
 impl Render for Arc<str> {
     type State = ArcStrState;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(&self);
         ArcStrState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let ArcStrState { node, str } = state;
         if !Arc::ptr_eq(&self, str) {
             Rndr::set_text(node, &self);
@@ -396,20 +355,16 @@ impl Render for Arc<str> {
 
 impl RenderHtml for Arc<str> {
     type AsyncOutput = Self;
-    type Owned = Arc<str>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         self.len()
     }
 
@@ -419,7 +374,6 @@ impl RenderHtml for Arc<str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -427,7 +381,6 @@ impl RenderHtml for Arc<str> {
             position,
             escape,
             mark_branches,
-            extra_attrs,
         )
     }
 
@@ -435,16 +388,11 @@ impl RenderHtml for Arc<str> {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let this: &str = self.as_ref();
         let StrState { node, .. } =
-            this.hydrate::<FROM_SERVER>(cursor, position, extra_attrs);
+            this.hydrate::<FROM_SERVER>(cursor, position);
         ArcStrState { node, str: self }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 
@@ -491,16 +439,12 @@ pub struct CowStrState<'a> {
 impl<'a> Render for Cow<'a, str> {
     type State = CowStrState<'a>;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(&self);
         CowStrState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let CowStrState { node, str } = state;
         if self != *str {
             Rndr::set_text(node, &self);
@@ -511,20 +455,16 @@ impl<'a> Render for Cow<'a, str> {
 
 impl RenderHtml for Cow<'_, str> {
     type AsyncOutput = Self;
-    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         self.len()
     }
 
@@ -534,7 +474,6 @@ impl RenderHtml for Cow<'_, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -542,7 +481,6 @@ impl RenderHtml for Cow<'_, str> {
             position,
             escape,
             mark_branches,
-            extra_attrs,
         )
     }
 
@@ -550,16 +488,11 @@ impl RenderHtml for Cow<'_, str> {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let this: &str = self.as_ref();
         let StrState { node, .. } =
-            this.hydrate::<FROM_SERVER>(cursor, position, extra_attrs);
+            this.hydrate::<FROM_SERVER>(cursor, position);
         CowStrState { node, str: self }
-    }
-
-    fn into_owned(self) -> <Self as RenderHtml>::Owned {
-        self.into_owned()
     }
 }
 

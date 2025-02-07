@@ -1,6 +1,6 @@
 use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
-    attr::{any_attribute::AnyAttribute, Attribute},
+    attr::Attribute,
     component,
     oco::Oco,
     reactive::{
@@ -11,8 +11,8 @@ use leptos::{
         dom::document,
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
-            PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
         },
     },
     text_prop::TextProp,
@@ -189,7 +189,7 @@ struct TitleViewState {
 impl Render for TitleView {
     type State = TitleViewState;
 
-    fn build(mut self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(mut self) -> Self::State {
         let el = self.el();
         let meta = self.meta;
         if let Some(formatter) = self.formatter.take() {
@@ -213,12 +213,8 @@ impl Render for TitleView {
         TitleViewState { effect }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        *state = self.build(extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        *state = self.build();
     }
 }
 
@@ -238,16 +234,12 @@ impl AddAnyAttr for TitleView {
 
 impl RenderHtml for TitleView {
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -257,7 +249,6 @@ impl RenderHtml for TitleView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -267,7 +258,6 @@ impl RenderHtml for TitleView {
         mut self,
         _cursor: &Cursor,
         _position: &PositionState,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let el = self.el();
         let meta = self.meta;
@@ -291,10 +281,6 @@ impl RenderHtml for TitleView {
             }
         });
         TitleViewState { effect }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 

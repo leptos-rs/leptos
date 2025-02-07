@@ -24,7 +24,7 @@ use web_sys::Element;
 /// let view = element.on(ev::click, move |_| /* ... */);
 ///
 /// // `element` now contains the actual element
-/// let element = element.build(None);
+/// let element = element.build();
 /// let remove = element.on(ev::blur, move |_| /* ... */);
 /// ```
 pub trait ElementExt {

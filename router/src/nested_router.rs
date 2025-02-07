@@ -10,7 +10,7 @@ use crate::{
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::{channel::oneshot, future::join_all, FutureExt};
-use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
+use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -36,7 +36,7 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::{AnyView, ExtraAttrsMut, IntoAny},
+        any_view::{AnyView, IntoAny},
         either::EitherOf3State,
         Mountable, Position, PositionState, Render, RenderHtml,
     },
@@ -76,7 +76,7 @@ where
     // TODO support fallback while loading
     type State = NestedRouteViewState<Fal>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let NestedRoutesView {
             routes,
             outer_owner,
@@ -95,7 +95,7 @@ where
         let new_match = routes.match_route(url.path());
 
         // start with an empty view because we'll be loading routes async
-        let view = EitherOf3::A(()).build(extra_attrs.clone());
+        let view = EitherOf3::A(()).build();
         let view = Rc::new(RefCell::new(view));
         let matched_view = match new_match {
             None => EitherOf3::B(fallback()),
@@ -120,7 +120,7 @@ where
                 for trigger in triggers {
                     trigger.notify();
                 }
-                matched_view.rebuild(&mut *view.borrow_mut(), extra_attrs);
+                matched_view.rebuild(&mut *view.borrow_mut());
             })
         });
 
@@ -132,11 +132,7 @@ where
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let url_snapshot = self.current_url.get_untracked();
 
         // if the path is the same, we do not need to re-route
@@ -158,7 +154,7 @@ where
         match new_match {
             None => {
                 EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
-                    .rebuild(&mut state.view.borrow_mut(), extra_attrs);
+                    .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
                 if let Some(loc) = self.location {
                     loc.ready_to_complete();
@@ -217,10 +213,7 @@ where
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
                     self.outer_owner.with(|| {
                         EitherOf3::<(), Fal, AnyView>::C(Outlet().into_any())
-                            .rebuild(
-                                &mut *state.view.borrow_mut(),
-                                extra_attrs,
-                            );
+                            .rebuild(&mut *state.view.borrow_mut());
                     })
                 }
             }
@@ -235,8 +228,8 @@ where
 impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send + 'static,
+    Defs: MatchNestedRoutes + Send,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -256,21 +249,17 @@ where
 impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send + 'static,
+    Defs: MatchNestedRoutes + Send,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = 0; // TODO
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -280,7 +269,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -360,13 +348,7 @@ where
                     outer_owner.with(|| Either::Right(Outlet().into_any()))
                 }
             };
-            view.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
+            view.to_html_with_buf(buf, position, escape, mark_branches);
         }
     }
 
@@ -376,7 +358,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -419,7 +400,6 @@ where
             position,
             escape,
             mark_branches,
-            extra_attrs,
         );
     }
 
@@ -427,7 +407,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let NestedRoutesView {
             routes,
@@ -467,7 +446,7 @@ where
                     outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
                 }
             }
-            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs),
+            .hydrate::<FROM_SERVER>(cursor, position),
         ));
 
         NestedRouteViewState {
@@ -476,10 +455,6 @@ where
             outlets,
             view,
         }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 

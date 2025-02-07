@@ -1,11 +1,9 @@
 use super::{
-    add_attr::AddAnyAttr, any_view::ExtraAttrsMut, MarkBranch, Mountable,
-    Position, PositionState, Render, RenderHtml,
+    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
-    hydration::Cursor,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;
@@ -17,33 +15,29 @@ where
 {
     type State = Either<A::State, B::State>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         match self {
-            Either::Left(left) => Either::Left(left.build(extra_attrs)),
-            Either::Right(right) => Either::Right(right.build(extra_attrs)),
+            Either::Left(left) => Either::Left(left.build()),
+            Either::Right(right) => Either::Right(right.build()),
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         match (self, &mut *state) {
             (Either::Left(new), Either::Left(old)) => {
-                new.rebuild(old, extra_attrs);
+                new.rebuild(old);
             }
             (Either::Right(new), Either::Right(old)) => {
-                new.rebuild(old, extra_attrs);
+                new.rebuild(old);
             }
             (Either::Right(new), Either::Left(old)) => {
-                let mut new_state = new.build(extra_attrs);
+                let mut new_state = new.build();
                 old.insert_before_this(&mut new_state);
                 old.unmount();
                 *state = Either::Right(new_state);
             }
             (Either::Left(new), Either::Right(old)) => {
-                let mut new_state = new.build(extra_attrs);
+                let mut new_state = new.build();
                 old.insert_before_this(&mut new_state);
                 old.unmount();
                 *state = Either::Left(new_state);
@@ -126,34 +120,28 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
-    type Owned = Either<A::Owned, B::Owned>;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         match self {
-            Either::Left(left) => left.dry_resolve(extra_attrs),
-            Either::Right(right) => right.dry_resolve(extra_attrs),
+            Either::Left(left) => left.dry_resolve(),
+            Either::Right(right) => right.dry_resolve(),
         }
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
-            Either::Left(left) => Either::Left(left.resolve(extra_attrs).await),
-            Either::Right(right) => {
-                Either::Right(right.resolve(extra_attrs).await)
-            }
+            Either::Left(left) => Either::Left(left.resolve().await),
+            Either::Right(right) => Either::Right(right.resolve().await),
         }
     }
 
     const MIN_LENGTH: usize = max_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
 
     #[inline(always)]
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         match self {
-            Either::Left(i) => i.html_len(extra_attrs),
-            Either::Right(i) => i.html_len(extra_attrs),
+            Either::Left(i) => i.html_len(),
+            Either::Right(i) => i.html_len(),
         }
     }
 
@@ -163,20 +151,13 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         match self {
             Either::Left(left) => {
                 if mark_branches {
                     buf.open_branch("0");
                 }
-                left.to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                left.to_html_with_buf(buf, position, escape, mark_branches);
                 if mark_branches {
                     buf.close_branch("0");
                 }
@@ -185,13 +166,7 @@ where
                 if mark_branches {
                     buf.open_branch("1");
                 }
-                right.to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                right.to_html_with_buf(buf, position, escape, mark_branches);
                 if mark_branches {
                     buf.close_branch("1");
                 }
@@ -205,7 +180,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -219,7 +193,6 @@ where
                     position,
                     escape,
                     mark_branches,
-                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("0");
@@ -234,7 +207,6 @@ where
                     position,
                     escape,
                     mark_branches,
-                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("1");
@@ -247,24 +219,14 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         match self {
-            Either::Left(left) => Either::Left(left.hydrate::<FROM_SERVER>(
-                cursor,
-                position,
-                extra_attrs,
-            )),
-            Either::Right(right) => Either::Right(
-                right.hydrate::<FROM_SERVER>(cursor, position, extra_attrs),
-            ),
-        }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        match self {
-            Either::Left(left) => Either::Left(left.into_owned()),
-            Either::Right(right) => Either::Right(right.into_owned()),
+            Either::Left(left) => {
+                Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
+            }
+            Either::Right(right) => {
+                Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
+            }
         }
     }
 }
@@ -293,29 +255,25 @@ where
 {
     type State = EitherKeepAliveState<A::State, B::State>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let showing_b = self.show_b;
-        let a = self.a.map(|val| Render::build(val, extra_attrs.clone()));
-        let b = self.b.map(|val| Render::build(val, extra_attrs));
+        let a = self.a.map(Render::build);
+        let b = self.b.map(Render::build);
         EitherKeepAliveState { a, b, showing_b }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         // set or update A -- `None` just means "no change"
         match (self.a, &mut state.a) {
-            (Some(new), Some(old)) => new.rebuild(old, extra_attrs.clone()),
-            (Some(new), None) => state.a = Some(new.build(extra_attrs.clone())),
+            (Some(new), Some(old)) => new.rebuild(old),
+            (Some(new), None) => state.a = Some(new.build()),
             _ => {}
         }
 
         // set or update B
         match (self.b, &mut state.b) {
-            (Some(new), Some(old)) => new.rebuild(old, extra_attrs),
-            (Some(new), None) => state.b = Some(new.build(extra_attrs)),
+            (Some(new), Some(old)) => new.rebuild(old),
+            (Some(new), None) => state.b = Some(new.build()),
             _ => {}
         }
 
@@ -375,58 +333,35 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = EitherKeepAlive<A::AsyncOutput, B::AsyncOutput>;
-    type Owned = EitherKeepAlive<A::Owned, B::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         if let Some(inner) = &mut self.a {
-            inner.dry_resolve(extra_attrs.as_deref_mut());
+            inner.dry_resolve();
         }
         if let Some(inner) = &mut self.b {
-            inner.dry_resolve(extra_attrs);
+            inner.dry_resolve();
         }
     }
 
-    async fn resolve(
-        self,
-        mut extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         let EitherKeepAlive { a, b, show_b } = self;
-
-        // Has to be sequential if extra attrs are present:
-        let (a, b) = if extra_attrs.is_some() {
-            let a = match a {
-                Some(a) => Some(a.resolve(extra_attrs.as_deref_mut()).await),
-                None => None,
-            };
-            let b = match b {
-                Some(b) => Some(b.resolve(extra_attrs.as_deref_mut()).await),
-                None => None,
-            };
-            (a, b)
-        } else {
-            join(
-                async move {
-                    match a {
-                        Some(a) => {
-                            Some(a.resolve(ExtraAttrsMut::default()).await)
-                        }
-                        None => None,
-                    }
-                },
-                async move {
-                    match b {
-                        Some(b) => {
-                            Some(b.resolve(ExtraAttrsMut::default()).await)
-                        }
-                        None => None,
-                    }
-                },
-            )
-            .await
-        };
-
+        let (a, b) = join(
+            async move {
+                match a {
+                    Some(a) => Some(a.resolve().await),
+                    None => None,
+                }
+            },
+            async move {
+                match b {
+                    Some(b) => Some(b.resolve().await),
+                    None => None,
+                }
+            },
+        )
+        .await;
         EitherKeepAlive { a, b, show_b }
     }
 
@@ -436,28 +371,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         if self.show_b {
             self.b
                 .expect("rendering B to HTML without filling it")
-                .to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                .to_html_with_buf(buf, position, escape, mark_branches);
         } else {
             self.a
                 .expect("rendering A to HTML without filling it")
-                .to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                .to_html_with_buf(buf, position, escape, mark_branches);
         }
     }
 
@@ -467,7 +389,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -479,7 +400,6 @@ where
                     position,
                     escape,
                     mark_branches,
-                    extra_attrs,
                 );
         } else {
             self.a
@@ -489,7 +409,6 @@ where
                     position,
                     escape,
                     mark_branches,
-                    extra_attrs,
                 );
         }
     }
@@ -498,33 +417,24 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let showing_b = self.show_b;
         let a = self.a.map(|a| {
             if showing_b {
-                a.build(extra_attrs.clone())
+                a.build()
             } else {
-                a.hydrate::<FROM_SERVER>(cursor, position, extra_attrs.clone())
+                a.hydrate::<FROM_SERVER>(cursor, position)
             }
         });
         let b = self.b.map(|b| {
             if showing_b {
-                b.hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
+                b.hydrate::<FROM_SERVER>(cursor, position)
             } else {
-                b.build(extra_attrs)
+                b.build()
             }
         });
 
         EitherKeepAliveState { showing_b, a, b }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        EitherKeepAlive {
-            a: self.a.map(|a| a.into_owned()),
-            b: self.b.map(|b| b.into_owned()),
-            show_b: self.show_b,
-        }
     }
 }
 
@@ -625,20 +535,20 @@ macro_rules! tuples {
                 type State = [<EitherOf $num State>]<$($ty,)*>;
 
 
-                fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+                fn build(self) -> Self::State {
                     let state = match self {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.build(extra_attrs)),)*
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.build()),)*
                     };
                     Self::State { state }
                 }
 
-                fn rebuild(self, state: &mut Self::State, extra_attrs: Option<Vec<AnyAttribute>>) {
+                fn rebuild(self, state: &mut Self::State) {
                     let new_state = match (self, &mut state.state) {
                         // rebuild same state and return early
-                        $(([<EitherOf $num>]::$ty(new), [<EitherOf $num>]::$ty(old)) => { return new.rebuild(old, extra_attrs); },)*
+                        $(([<EitherOf $num>]::$ty(new), [<EitherOf $num>]::$ty(old)) => { return new.rebuild(old); },)*
                         // or mount new state
                         $(([<EitherOf $num>]::$ty(new), _) => {
-                            let mut new = new.build(extra_attrs);
+                            let mut new = new.build();
                             state.insert_before_this(&mut new);
                             [<EitherOf $num>]::$ty(new)
                         },)*
@@ -682,39 +592,38 @@ macro_rules! tuples {
 
             {
                 type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
-                type Owned = [<EitherOf $num>]<$($ty::Owned,)*>;
 
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
 
 
-                fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+                fn dry_resolve(&mut self) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            this.dry_resolve(extra_attrs);
+                            this.dry_resolve();
                         })*
                     }
                 }
 
-                async fn resolve(self, extra_attrs: ExtraAttrsMut<'_>) -> Self::AsyncOutput {
+                async fn resolve(self) -> Self::AsyncOutput {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.resolve(extra_attrs).await),)*
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.resolve().await),)*
                     }
                 }
 
                 #[inline(always)]
-                fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+                fn html_len(&self) -> usize {
                     match self {
-                        $([<EitherOf $num>]::$ty(i) => i.html_len(extra_attrs),)*
+                        $([<EitherOf $num>]::$ty(i) => i.html_len(),)*
                     }
                 }
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool, extra_attrs: Option<Vec<AnyAttribute>>) {
+                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
+                            this.to_html_with_buf(buf, position, escape, mark_branches);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }
@@ -724,7 +633,7 @@ macro_rules! tuples {
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
-                    buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool, extra_attrs: Option<Vec<AnyAttribute>>) where
+                    buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
                     Self: Sized,
                 {
                     match self {
@@ -732,7 +641,7 @@ macro_rules! tuples {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
+                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }
@@ -744,23 +653,14 @@ macro_rules! tuples {
                     self,
                     cursor: &Cursor,
                     position: &PositionState,
-                    extra_attrs: Option<Vec<AnyAttribute>>,
                 ) -> Self::State {
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position, extra_attrs))
+                            [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
 
                     Self::State { state }
-                }
-
-                fn into_owned(self) -> Self::Owned {
-                    match self {
-                        $([<EitherOf $num>]::$ty(this) => {
-                            [<EitherOf $num>]::$ty(this.into_owned())
-                        })*
-                    }
                 }
             }
         }

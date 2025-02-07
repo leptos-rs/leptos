@@ -11,13 +11,13 @@ use reactive_graph::{
 use rustc_hash::FxHashMap;
 use std::{fmt::Debug, sync::Arc};
 use tachys::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::OwnedView,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
-        PositionState, Render, RenderHtml,
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml,
     },
 };
 use throw_error::{Error, ErrorHook, ErrorId};
@@ -173,10 +173,10 @@ where
 {
     type State = RenderEffect<ErrorBoundaryViewState<Chil::State, Fal::State>>;
 
-    fn build(mut self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(mut self) -> Self::State {
         let hook = Arc::clone(&self.hook);
         let _hook = throw_error::set_error_hook(Arc::clone(&hook));
-        let mut children = Some(self.children.build(extra_attrs.clone()));
+        let mut children = Some(self.children.build());
         RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
@@ -193,8 +193,7 @@ where
                         // yes errors, and was showing children
                         (false, None) => {
                             state.fallback = Some(
-                                (self.fallback)(self.errors.clone())
-                                    .build(extra_attrs.clone()),
+                                (self.fallback)(self.errors.clone()).build(),
                             );
                             state
                                 .children
@@ -208,10 +207,8 @@ where
                     }
                     state
                 } else {
-                    let fallback = (!self.errors_empty.get()).then(|| {
-                        (self.fallback)(self.errors.clone())
-                            .build(extra_attrs.clone())
-                    });
+                    let fallback = (!self.errors_empty.get())
+                        .then(|| (self.fallback)(self.errors.clone()).build());
                     ErrorBoundaryViewState {
                         children: children.take().unwrap(),
                         fallback,
@@ -221,12 +218,8 @@ where
         )
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        let new = self.build(extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
         let mut old = std::mem::replace(state, new);
         old.insert_before_this(state);
         old.unmount();
@@ -275,18 +268,14 @@ where
     Fal: RenderHtml + Send + 'static,
 {
     type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, FalFn>;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.children.dry_resolve(extra_attrs);
+    fn dry_resolve(&mut self) {
+        self.children.dry_resolve();
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         let ErrorBoundaryView {
             hook,
             boundary_id,
@@ -300,7 +289,7 @@ where
             hook,
             boundary_id,
             errors_empty,
-            children: children.resolve(extra_attrs).await,
+            children: children.resolve().await,
             fallback,
             errors,
         }
@@ -312,7 +301,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let _hook = throw_error::set_error_hook(self.hook);
@@ -323,7 +311,6 @@ where
             &mut new_pos,
             escape,
             mark_branches,
-            extra_attrs.clone(),
         );
 
         // any thrown errors would've been caught here
@@ -336,7 +323,6 @@ where
                 position,
                 escape,
                 mark_branches,
-                extra_attrs,
             );
         }
     }
@@ -347,7 +333,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -360,7 +345,6 @@ where
             &mut new_pos,
             escape,
             mark_branches,
-            extra_attrs.clone(),
         );
 
         // any thrown errors would've been caught here
@@ -374,7 +358,6 @@ where
                 position,
                 escape,
                 mark_branches,
-                extra_attrs,
             );
             buf.push_sync(&fallback);
         }
@@ -384,7 +367,6 @@ where
         mut self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let mut children = Some(self.children);
         let hook = Arc::clone(&self.hook);
@@ -406,8 +388,7 @@ where
                         // yes errors, and was showing children
                         (false, None) => {
                             state.fallback = Some(
-                                (self.fallback)(self.errors.clone())
-                                    .build(extra_attrs.clone()),
+                                (self.fallback)(self.errors.clone()).build(),
                             );
                             state
                                 .children
@@ -424,23 +405,15 @@ where
                     let children = children.take().unwrap();
                     let (children, fallback) = if self.errors_empty.get() {
                         (
-                            children.hydrate::<FROM_SERVER>(
-                                &cursor,
-                                &position,
-                                extra_attrs.clone(),
-                            ),
+                            children.hydrate::<FROM_SERVER>(&cursor, &position),
                             None,
                         )
                     } else {
                         (
-                            children.build(extra_attrs.clone()),
+                            children.build(),
                             Some(
                                 (self.fallback)(self.errors.clone())
-                                    .hydrate::<FROM_SERVER>(
-                                        &cursor,
-                                        &position,
-                                        extra_attrs.clone(),
-                                    ),
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
                             ),
                         )
                     };
@@ -449,10 +422,6 @@ where
                 }
             },
         )
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 

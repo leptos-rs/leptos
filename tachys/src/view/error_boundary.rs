@@ -1,9 +1,6 @@
-use super::{
-    add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Position, PositionState,
-    RenderHtml,
-};
+use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::Attribute,
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{iterators::OptionState, Mountable, Render},
@@ -19,23 +16,19 @@ where
 {
     type State = ResultState<T>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let hook = throw_error::get_error_hook();
         let (state, error) = match self {
-            Ok(view) => (Either::Left(view.build(extra_attrs)), None),
+            Ok(view) => (Either::Left(view.build()), None),
             Err(e) => (
-                Either::Right(Render::build((), None)),
+                Either::Right(Render::build(())),
                 Some(throw_error::throw(e.into())),
             ),
         };
         ResultState { state, error, hook }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let _guard = state.hook.clone().map(throw_error::set_error_hook);
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
@@ -44,11 +37,11 @@ where
             }
             // both Ok: need to rebuild child
             (Either::Left(old), Ok(new)) => {
-                T::rebuild(new, old, extra_attrs);
+                T::rebuild(new, old);
             }
             // Ok => Err: unmount, replace with marker, and throw
             (Either::Left(old), Err(err)) => {
-                let mut new_state = Render::build((), None);
+                let mut new_state = Render::build(());
                 old.insert_before_this(&mut new_state);
                 old.unmount();
                 state.state = Either::Right(new_state);
@@ -59,7 +52,7 @@ where
                 if let Some(err) = state.error.take() {
                     throw_error::clear(&err);
                 }
-                let mut new_state = new.build(extra_attrs);
+                let mut new_state = new.build();
                 old.insert_before_this(&mut new_state);
                 old.unmount();
                 state.state = Either::Left(new_state);
@@ -139,29 +132,25 @@ where
     E: Into<AnyError> + Send + 'static,
 {
     type AsyncOutput = Result<T::AsyncOutput, E>;
-    type Owned = Result<T::Owned, E>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         if let Ok(inner) = self.as_mut() {
-            inner.dry_resolve(extra_attrs)
+            inner.dry_resolve()
         }
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
-            Ok(view) => Ok(view.resolve(extra_attrs).await),
+            Ok(view) => Ok(view.resolve().await),
             Err(e) => Err(e),
         }
     }
 
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         match self {
-            Ok(i) => i.html_len(extra_attrs) + 3,
+            Ok(i) => i.html_len() + 3,
             Err(_) => 0,
         }
     }
@@ -172,16 +161,11 @@ where
         position: &mut super::Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         match self {
-            Ok(inner) => inner.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            ),
+            Ok(inner) => {
+                inner.to_html_with_buf(buf, position, escape, mark_branches)
+            }
             Err(e) => {
                 buf.push_str("<!>");
                 throw_error::throw(e);
@@ -195,7 +179,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -205,7 +188,6 @@ where
                 position,
                 escape,
                 mark_branches,
-                extra_attrs,
             ),
             Err(e) => {
                 buf.push_sync("<!>");
@@ -218,35 +200,19 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let hook = throw_error::get_error_hook();
         let (state, error) = match self {
             Ok(view) => (
-                Either::Left(view.hydrate::<FROM_SERVER>(
-                    cursor,
-                    position,
-                    extra_attrs,
-                )),
+                Either::Left(view.hydrate::<FROM_SERVER>(cursor, position)),
                 None,
             ),
             Err(e) => {
-                let state = RenderHtml::hydrate::<FROM_SERVER>(
-                    (),
-                    cursor,
-                    position,
-                    extra_attrs,
-                );
+                let state =
+                    RenderHtml::hydrate::<FROM_SERVER>((), cursor, position);
                 (Either::Right(state), Some(throw_error::throw(e.into())))
             }
         };
         ResultState { state, error, hook }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        match self {
-            Ok(view) => Ok(view.into_owned()),
-            Err(e) => Err(e),
-        }
     }
 }

@@ -6,14 +6,14 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, IntoRender, Mountable,
-        Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, IntoRender, Mountable, Position, PositionState,
+        Render, RenderHtml, ToTemplate,
     },
 };
 use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
-use futures::future::join3;
+use futures::future::join;
 use next_tuple::NextTuple;
 use std::ops::Deref;
 
@@ -21,10 +21,7 @@ mod custom;
 mod element_ext;
 mod elements;
 mod inner_html;
-use super::attribute::{
-    any_attribute::{AnyAttribute, AnyAttributeState},
-    escape_attr, NextAttribute,
-};
+use super::attribute::{escape_attr, NextAttribute};
 pub use custom::*;
 pub use element_ext::*;
 pub use elements::*;
@@ -186,42 +183,31 @@ where
 {
     type State = ElementState<At::State, Ch::State>;
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let ElementState {
             attrs, children, ..
         } = state;
         self.attributes.rebuild(attrs);
-        if let (Some(extra_attrs), Some(extra_attr_states)) =
-            (extra_attrs, &mut state.extra_attrs)
-        {
-            extra_attrs.rebuild(extra_attr_states);
-        }
         if let Some(children) = children {
-            self.children.rebuild(children, None);
+            self.children.rebuild(children);
         }
     }
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
         let attrs = self.attributes.build(&el);
-        let extra_attrs = extra_attrs.map(|attrs| attrs.build(&el));
         let children = if E::SELF_CLOSING {
             None
         } else {
-            let mut children = self.children.build(None);
+            let mut children = self.children.build();
             children.mount(&el, None);
             Some(children)
         };
         ElementState {
             el,
-            children,
             attrs,
-            extra_attrs,
+            children,
         }
     }
 }
@@ -233,7 +219,6 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput>;
-    type Owned = HtmlElement<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -248,22 +233,14 @@ where
         + E::TAG.len()
     };
 
-    fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         self.attributes.dry_resolve();
-        extra_attrs.iter_mut().for_each(Attribute::dry_resolve);
-        self.children.dry_resolve(ExtraAttrsMut::default());
+        self.children.dry_resolve();
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        let (attributes, _, children) = join3(
-            self.attributes.resolve(),
-            ExtraAttrsMut::resolve(extra_attrs),
-            self.children.resolve(ExtraAttrsMut::default()),
-        )
-        .await;
+    async fn resolve(self) -> Self::AsyncOutput {
+        let (attributes, children) =
+            join(self.attributes.resolve(), self.children.resolve()).await;
         HtmlElement {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
@@ -273,7 +250,7 @@ where
         }
     }
 
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         if E::SELF_CLOSING {
             3 // < ... />
         + E::TAG.len()
@@ -282,10 +259,7 @@ where
             2 // < ... >
         + E::TAG.len()
         + self.attributes.html_len()
-        + extra_attrs.map(|attrs| {
-            attrs.into_iter().map(Attribute::html_len).sum::<usize>()
-        }).unwrap_or(0)
-        + self.children.html_len(None)
+        + self.children.html_len()
         + 3 // </ ... >
         + E::TAG.len()
         }
@@ -297,13 +271,12 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         // opening tag
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, extra_attrs, buf);
+        let inner_html = attributes_to_html(self.attributes, buf);
 
         buf.push('>');
 
@@ -318,7 +291,6 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
-                    None,
                 );
             }
 
@@ -336,7 +308,6 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -345,8 +316,7 @@ where
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html =
-            attributes_to_html(self.attributes, extra_attrs, &mut buf);
+        let inner_html = attributes_to_html(self.attributes, &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -362,7 +332,6 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
-                    None,
                 );
             }
 
@@ -380,7 +349,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
@@ -405,15 +373,13 @@ where
             });
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
-        let extra_attrs = extra_attrs
-            .map(|attrs| Attribute::hydrate::<FROM_SERVER>(attrs, &el));
 
         // hydrate children
         let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);
-            Some(self.children.hydrate::<FROM_SERVER>(cursor, position, None))
+            Some(self.children.hydrate::<FROM_SERVER>(cursor, position))
         };
 
         // go to next sibling
@@ -427,29 +393,14 @@ where
 
         ElementState {
             el,
-            children,
             attrs,
-            extra_attrs,
-        }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        HtmlElement {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: self.defined_at,
-            tag: self.tag,
-            attributes: self.attributes.into_cloneable_owned(),
-            children: self.children.into_owned(),
+            children,
         }
     }
 }
 
 /// Renders an [`Attribute`] (which can be one or more HTML attributes) into an HTML buffer.
-pub fn attributes_to_html<At>(
-    attr: At,
-    extra_attrs: Option<Vec<AnyAttribute>>,
-    buf: &mut String,
-) -> String
+pub fn attributes_to_html<At>(attr: At, buf: &mut String) -> String
 where
     At: Attribute,
 {
@@ -468,11 +419,6 @@ where
 
     // inject regular attributes, and fill class and style
     attr.to_html(buf, &mut class, &mut style, &mut inner_html);
-    if let Some(extra_attrs) = extra_attrs {
-        for attr in extra_attrs {
-            attr.to_html(buf, &mut class, &mut style, &mut inner_html);
-        }
-    }
 
     if !class.is_empty() {
         buf.push(' ');
@@ -493,10 +439,8 @@ where
 /// The retained view state for an HTML element.
 pub struct ElementState<At, Ch> {
     pub(crate) el: crate::renderer::types::Element,
+    pub(crate) attrs: At,
     pub(crate) children: Option<Ch>,
-
-    attrs: At,
-    extra_attrs: Option<Vec<AnyAttributeState>>,
 }
 
 impl<At, Ch> Deref for ElementState<At, Ch> {
@@ -639,7 +583,7 @@ mod tests {
     fn mock_dom_creates_element() {
         let el: HtmlElement<Main, _, _, MockDom> =
             main().child(p().id("test").lang("en").child("Hello, world!"));
-        let el = el.build(None);
+        let el = el.build();
         assert_eq!(
             el.el.to_debug_html(),
             "<main><p id=\"test\" lang=\"en\">Hello, world!</p></main>"
@@ -653,7 +597,7 @@ mod tests {
             em().child("beautiful"),
             " world!",
         )));
-        let el = el.build(None);
+        let el = el.build();
         assert_eq!(
             el.el.to_debug_html(),
             "<main><p>Hello, <em>beautiful</em> world!</p></main>"
