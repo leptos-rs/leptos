@@ -3172,6 +3172,7 @@ dependencies = [
  "js-sys",
  "multer",
  "once_cell",
+ "paste",
  "pin-project-lite",
  "postcard",
  "reqwest",
