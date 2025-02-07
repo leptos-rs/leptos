@@ -480,8 +480,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(WriteGuard::new(
             trigger.children,
