@@ -154,7 +154,12 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
                                         Some(value) => {
                                             matches!(&value.value, KVAttributeValue::Expr(expr) if {
                                                 if let Expr::Lit(lit) = expr {
-                                                    matches!(&lit.lit, Lit::Str(_))
+                                                    let key = attr.key.to_string();
+                                                    if key.starts_with("style:") || key.starts_with("prop:") || key.starts_with("on:") || key.starts_with("use:") || key.starts_with("bind") {
+                                                        false
+                                                    } else {
+                                                        matches!(&lit.lit, Lit::Str(_))
+                                                    }
                                                 } else {
                                                     false
                                                 }
