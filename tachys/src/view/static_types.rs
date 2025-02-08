@@ -3,10 +3,7 @@ use super::{
     RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::{
-        Attribute, AttributeKey, AttributeValue,
-        NextAttribute,
-    },
+    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };
