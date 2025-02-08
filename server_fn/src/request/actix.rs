@@ -92,7 +92,11 @@ where
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
         let payload = self.0.take().1;
         let stream = payload.map(|res| {
-            res.map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            res.map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
+            })
         });
         Ok(SendWrapper::new(stream))
     }
