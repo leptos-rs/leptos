@@ -3,7 +3,6 @@ use crate::attr::{
     Attribute, NextAttribute,
 };
 use leptos::prelude::*;
-use tachys::view::any_view::ExtraAttrsMut;
 
 /// Function stored to build/rebuild the wrapped children when attributes are added.
 type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
@@ -44,7 +43,7 @@ pub fn AttributeInterceptor<Chil, T>(
 ) -> impl IntoView
 where
     Chil: Fn(AnyAttribute) -> T + Send + Sync + 'static,
-    T: IntoView + 'static,
+    T: IntoView,
 {
     AttributeInterceptorInner::new(children)
 }
@@ -78,20 +77,16 @@ impl<T: IntoView> AttributeInterceptorInner<T, ()> {
 impl<T: IntoView, A: Attribute> Render for AttributeInterceptorInner<T, A> {
     type State = <T as Render>::State;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
-        self.children.build(extra_attrs)
+    fn build(self) -> Self::State {
+        self.children.build()
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        self.children.rebuild(state, extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        self.children.rebuild(state);
     }
 }
 
-impl<T: IntoView + 'static, A> AddAnyAttr for AttributeInterceptorInner<T, A>
+impl<T: IntoView, A> AddAnyAttr for AttributeInterceptorInner<T, A>
 where
     A: Attribute,
 {
@@ -119,23 +114,19 @@ where
     }
 }
 
-impl<T: IntoView + 'static, A: Attribute> RenderHtml
-    for AttributeInterceptorInner<T, A>
-{
+impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
     type AsyncOutput = T::AsyncOutput;
-    type Owned = AttributeInterceptorInner<T, A::CloneableOwned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.children.dry_resolve(extra_attrs)
+    fn dry_resolve(&mut self) {
+        self.children.dry_resolve()
     }
 
     fn resolve(
         self,
-        extra_attrs: ExtraAttrsMut<'_>,
     ) -> impl std::future::Future<Output = Self::AsyncOutput> + Send {
-        self.children.resolve(extra_attrs)
+        self.children.resolve()
     }
 
     fn to_html_with_buf(
@@ -144,32 +135,16 @@ impl<T: IntoView + 'static, A: Attribute> RenderHtml
         position: &mut leptos::tachys::view::Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
-        self.children.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        )
+        self.children
+            .to_html_with_buf(buf, position, escape, mark_branches)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
         cursor: &leptos::tachys::hydration::Cursor,
         position: &leptos::tachys::view::PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        self.children
-            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        AttributeInterceptorInner {
-            children_builder: self.children_builder,
-            children: self.children,
-            attributes: self.attributes.into_cloneable_owned(),
-        }
+        self.children.hydrate::<FROM_SERVER>(cursor, position)
     }
 }

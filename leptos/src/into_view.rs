@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 use tachys::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::Attribute,
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Position, PositionState,
-        Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+        ToTemplate,
     },
 };
 
@@ -76,34 +76,26 @@ where
 impl<T: Render> Render for View<T> {
     type State = T::State;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
-        self.inner.build(extra_attrs)
+    fn build(self) -> Self::State {
+        self.inner.build()
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        self.inner.rebuild(state, extra_attrs)
+    fn rebuild(self, state: &mut Self::State) {
+        self.inner.rebuild(state)
     }
 }
 
 impl<T: RenderHtml> RenderHtml for View<T> {
     type AsyncOutput = T::AsyncOutput;
-    type Owned = View<T::Owned>;
 
     const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        self.inner.resolve(extra_attrs).await
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.inner.resolve().await
     }
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.inner.dry_resolve(extra_attrs);
+    fn dry_resolve(&mut self) {
+        self.inner.dry_resolve();
     }
 
     fn to_html_with_buf(
@@ -112,7 +104,6 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         #[cfg(debug_assertions)]
         let vm = self.view_marker.to_owned();
@@ -121,13 +112,8 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
 
-        self.inner.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.inner
+            .to_html_with_buf(buf, position, escape, mark_branches);
 
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
@@ -141,7 +127,6 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -157,7 +142,6 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             position,
             escape,
             mark_branches,
-            extra_attrs,
         );
 
         #[cfg(debug_assertions)]
@@ -170,18 +154,8 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        self.inner
-            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        View {
-            inner: self.inner.into_owned(),
-            #[cfg(debug_assertions)]
-            view_marker: self.view_marker,
-        }
+        self.inner.hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 

@@ -79,13 +79,12 @@ mod view_implementations {
     use reactive_graph::traits::Read;
     use std::future::Future;
     use tachys::{
-        html::attribute::{any_attribute::AnyAttribute, Attribute},
+        html::attribute::Attribute,
         hydration::Cursor,
         reactive_graph::{RenderEffectState, Suspend, SuspendState},
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Position,
-            PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
         },
     };
 
@@ -96,17 +95,12 @@ mod view_implementations {
     {
         type State = RenderEffectState<SuspendState<T>>;
 
-        fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
-            (move || Suspend::new(async move { self.await })).build(extra_attrs)
+        fn build(self) -> Self::State {
+            (move || Suspend::new(async move { self.await })).build()
         }
 
-        fn rebuild(
-            self,
-            state: &mut Self::State,
-            extra_attrs: Option<Vec<AnyAttribute>>,
-        ) {
-            (move || Suspend::new(async move { self.await }))
-                .rebuild(state, extra_attrs)
+        fn rebuild(self, state: &mut Self::State) {
+            (move || Suspend::new(async move { self.await })).rebuild(state)
         }
     }
 
@@ -141,20 +135,15 @@ mod view_implementations {
         Ser: Send + 'static,
     {
         type AsyncOutput = Option<T>;
-        type Owned = Self;
 
         const MIN_LENGTH: usize = 0;
 
-        fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
+        fn dry_resolve(&mut self) {
             self.read();
         }
 
-        fn resolve(
-            self,
-            extra_attrs: ExtraAttrsMut<'_>,
-        ) -> impl Future<Output = Self::AsyncOutput> + Send {
-            (move || Suspend::new(async move { self.await }))
-                .resolve(extra_attrs)
+        fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send {
+            (move || Suspend::new(async move { self.await })).resolve()
         }
 
         fn to_html_with_buf(
@@ -163,14 +152,12 @@ mod view_implementations {
             position: &mut Position,
             escape: bool,
             mark_branches: bool,
-            extra_attrs: Option<Vec<AnyAttribute>>,
         ) {
             (move || Suspend::new(async move { self.await })).to_html_with_buf(
                 buf,
                 position,
                 escape,
                 mark_branches,
-                extra_attrs,
             );
         }
 
@@ -180,7 +167,6 @@ mod view_implementations {
             position: &mut Position,
             escape: bool,
             mark_branches: bool,
-            extra_attrs: Option<Vec<AnyAttribute>>,
         ) where
             Self: Sized,
         {
@@ -190,7 +176,6 @@ mod view_implementations {
                     position,
                     escape,
                     mark_branches,
-                    extra_attrs,
                 );
         }
 
@@ -198,14 +183,9 @@ mod view_implementations {
             self,
             cursor: &Cursor,
             position: &PositionState,
-            extra_attrs: Option<Vec<AnyAttribute>>,
         ) -> Self::State {
             (move || Suspend::new(async move { self.await }))
-                .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-        }
-
-        fn into_owned(self) -> Self::Owned {
-            self
+                .hydrate::<FROM_SERVER>(cursor, position)
         }
     }
 }

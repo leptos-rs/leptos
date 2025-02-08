@@ -1,11 +1,9 @@
-use super::attribute::{any_attribute::AnyAttribute, Attribute};
+use super::attribute::Attribute;
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
     ssr::StreamBuilder,
-    view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Position, PositionState,
-    },
+    view::{add_attr::AddAnyAttr, Position, PositionState},
 };
 
 /// An island of interactivity in an otherwise-inert HTML document.
@@ -61,16 +59,12 @@ where
 {
     type State = View::State;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
-        self.view.build(extra_attrs)
+    fn build(self) -> Self::State {
+        self.view.build()
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        self.view.rebuild(state, extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        self.view.rebuild(state);
     }
 }
 
@@ -106,7 +100,6 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = Island<View::AsyncOutput>;
-    type Owned = Island<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -114,14 +107,11 @@ where
         + "data-component".len()
         + View::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.view.dry_resolve(extra_attrs)
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         let Island {
             component,
             props_json,
@@ -130,7 +120,7 @@ where
         Island {
             component,
             props_json,
-            view: view.resolve(extra_attrs).await,
+            view: view.resolve().await,
         }
     }
 
@@ -140,16 +130,10 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         Self::open_tag(self.component, &self.props_json, buf);
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, escape, mark_branches);
         Self::close_tag(buf);
     }
 
@@ -159,7 +143,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -174,7 +157,6 @@ where
             position,
             escape,
             mark_branches,
-            extra_attrs,
         );
 
         // and insert the closing tag synchronously
@@ -187,7 +169,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         if position.get() == Position::FirstChild {
             cursor.child();
@@ -196,16 +177,7 @@ where
         }
         position.set(Position::FirstChild);
 
-        self.view
-            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        Island {
-            component: self.component,
-            props_json: self.props_json,
-            view: self.view.into_owned(),
-        }
+        self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
@@ -255,14 +227,9 @@ where
 {
     type State = ();
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {}
+    fn build(self) -> Self::State {}
 
-    fn rebuild(
-        self,
-        _state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-    }
+    fn rebuild(self, _state: &mut Self::State) {}
 }
 
 impl<View> AddAnyAttr for IslandChildren<View>
@@ -292,24 +259,20 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = IslandChildren<View::AsyncOutput>;
-    type Owned = IslandChildren<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
         + "</>".len()
         + View::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.view.dry_resolve(extra_attrs)
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         let IslandChildren { view, on_hydrate } = self;
         IslandChildren {
-            view: view.resolve(extra_attrs).await,
+            view: view.resolve().await,
             on_hydrate,
         }
     }
@@ -320,16 +283,10 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         Self::open_tag(buf);
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, escape, mark_branches);
         Self::close_tag(buf);
     }
 
@@ -339,7 +296,6 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) where
         Self: Sized,
     {
@@ -354,7 +310,6 @@ where
             position,
             escape,
             mark_branches,
-            extra_attrs,
         );
 
         // and insert the closing tag synchronously
@@ -367,7 +322,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         // island children aren't hydrated
         // we update the walk to pass over them
@@ -400,13 +354,6 @@ where
                 &wasm_bindgen::JsValue::from_str("$$on_hydrate"),
                 &cb.into_js_value(),
             );
-        }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        IslandChildren {
-            view: self.view.into_owned(),
-            on_hydrate: self.on_hydrate,
         }
     }
 }
