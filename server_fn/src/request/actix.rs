@@ -1,7 +1,6 @@
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
-    ServerFnError,
 };
 use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
