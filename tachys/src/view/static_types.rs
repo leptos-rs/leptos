@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     html::attribute::{
-        any_attribute::AnyAttribute, Attribute, AttributeKey, AttributeValue,
+        Attribute, AttributeKey, AttributeValue,
         NextAttribute,
     },
     hydration::Cursor,
