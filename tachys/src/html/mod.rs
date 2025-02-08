@@ -108,6 +108,10 @@ impl Mountable for InertElementState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.1.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.1.clone()]
+    }
 }
 
 impl Render for InertElement {

@@ -68,6 +68,10 @@ impl Mountable for FlatRoutesViewState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<tachys::renderer::types::Element> {
+        self.view.elements()
+    }
 }
 
 impl<Loc, Defs, FalFn, Fal> Render for FlatRoutesView<Loc, Defs, FalFn>

@@ -79,6 +79,10 @@ impl Mountable for () {
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 impl ToTemplate for () {
@@ -340,6 +344,14 @@ macro_rules! impl_view_for_tuples {
                 $first.insert_before_this(child)
                 $(|| $ty.insert_before_this(child))*
 			}
+
+            fn elements(&self) -> Vec<crate::renderer::types::Element> {
+                #[allow(non_snake_case)] // better macro performance
+                let ($first, $($ty,)*) = self;
+                $first.elements().into_iter()
+                $(.chain($ty.elements()))*
+                    .collect()
+            }
 		}
 
         impl<$first, $($ty,)*> AddAnyAttr for ($first, $($ty,)*)

@@ -475,6 +475,10 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         }
         false
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.el.clone()]
+    }
 }
 
 impl<E, At, Ch> ToTemplate for HtmlElement<E, At, Ch>

@@ -138,6 +138,10 @@ impl Mountable for StrState<'_> {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `String`.
@@ -236,6 +240,10 @@ impl Mountable for StringState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `Rc<str>`.
@@ -327,6 +335,10 @@ impl Mountable for RcStrState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -428,6 +440,10 @@ impl Mountable for ArcStrState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `Cow<'_, str>`.
@@ -527,5 +543,9 @@ impl Mountable for CowStrState<'_> {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }

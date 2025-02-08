@@ -305,17 +305,8 @@ pub trait Mountable {
         }
     }
 
-    /// TODO
-    fn add_attribute(
-        &self,
-        cb: Box<
-            dyn FnMut(
-                &crate::renderer::types::Element,
-            ) -> Vec<AnyAttributeState>,
-        >,
-    ) -> Vec<AnyAttributeState> {
-        todo!()
-    }
+    /// wip
+    fn elements(&self) -> Vec<crate::renderer::types::Element>;
 }
 
 /// Indicates where a node should be mounted to its parent.
@@ -351,6 +342,12 @@ where
             .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<T> Mountable for Rc<RefCell<T>>
@@ -371,6 +368,10 @@ where
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.borrow().insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.borrow().elements()
     }
 }
 

@@ -227,6 +227,13 @@ where
             self.marker.insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
 }
 
 impl<T> AddAnyAttr for Vec<T>
@@ -391,6 +398,13 @@ where
         } else {
             false
         }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
     }
 }
 impl<T, const N: usize> AddAnyAttr for [T; N]

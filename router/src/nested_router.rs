@@ -872,6 +872,10 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<tachys::renderer::types::Element> {
+        self.view.elements()
+    }
 }
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where

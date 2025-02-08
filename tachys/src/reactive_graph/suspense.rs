@@ -161,6 +161,10 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.inner.borrow_mut().insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.inner.borrow().elements()
+    }
 }
 
 impl<T> Render for Suspend<T>

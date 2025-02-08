@@ -40,6 +40,10 @@ macro_rules! render_primitive {
 					) -> bool {
                         self.0.insert_before_this(child)
 					}
+
+					fn elements(&self) -> Vec<crate::renderer::types::Element> {
+						vec![]
+					}
 			}
 
 			impl Render for $child_type {

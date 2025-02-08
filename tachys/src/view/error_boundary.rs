@@ -104,6 +104,10 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.state.elements()
+    }
 }
 
 impl<T, E> AddAnyAttr for Result<T, E>

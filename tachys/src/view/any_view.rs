@@ -97,6 +97,7 @@ pub struct AnyViewState {
         marker: Option<&crate::renderer::types::Node>,
     ),
     insert_before_this: fn(&dyn Any, child: &mut dyn Mountable) -> bool,
+    elements: fn(&dyn Any) -> Vec<crate::renderer::types::Element>,
 }
 
 impl Debug for AnyViewState {
@@ -122,35 +123,46 @@ fn mount_any<T>(
     parent: &crate::renderer::types::Element,
     marker: Option<&crate::renderer::types::Node>,
 ) where
-    T: Send + Render + AddAnyAttr + 'static,
+    T: Send + Render,
     T::State: 'static,
 {
     let state = state
-        .downcast_mut::<<<T as AddAnyAttr>::Output<Vec<AnyAttribute>> as Render>::State>()
+        .downcast_mut::<T::State>()
         .expect("AnyViewState::as_mountable couldn't downcast state");
     state.mount(parent, marker)
 }
 
 fn unmount_any<T>(state: &mut dyn Any)
 where
-    T: Send + Render + AddAnyAttr + 'static,
+    T: Send + Render,
     T::State: 'static,
 {
     let state = state
-        .downcast_mut::<<<T as AddAnyAttr>::Output<Vec<AnyAttribute>> as Render>::State>()
+        .downcast_mut::<T::State>()
         .expect("AnyViewState::unmount couldn't downcast state");
     state.unmount();
 }
 
 fn insert_before_this<T>(state: &dyn Any, child: &mut dyn Mountable) -> bool
 where
-    T: Send + Render + AddAnyAttr + 'static,
+    T: Send + Render,
     T::State: 'static,
 {
     let state = state
-        .downcast_ref::<<<T as AddAnyAttr>::Output<Vec<AnyAttribute>> as Render>::State>()
+        .downcast_ref::<T::State>()
         .expect("AnyViewState::insert_before_this couldn't downcast state");
     state.insert_before_this(child)
+}
+
+fn elements<T>(state: &dyn Any) -> Vec<crate::renderer::types::Element>
+where
+    T: Send + Render,
+    T::State: 'static,
+{
+    let state = state
+        .downcast_ref::<T::State>()
+        .expect("AnyViewState::insert_before_this couldn't downcast state");
+    state.elements()
 }
 
 impl<T> IntoAny for T
@@ -271,21 +283,13 @@ where
                             .downcast::<T>()
                             .expect("AnyView could not be downcast");
                         let state = Box::new(value.build());
-                        let any_attrs =
-                            state.add_attribute(Box::new(move |el| {
-                                extra_attrs
-                                    .clone()
-                                    .into_iter()
-                                    .map(|attr| attr.build(el))
-                                    .collect()
-                            }));
-
                         AnyViewState {
                             type_id: TypeId::of::<T>(),
                             state,
                             mount: mount_any::<T>,
                             unmount: unmount_any::<T>,
                             insert_before_this: insert_before_this::<T>,
+                            elements: elements::<T>,
                         }
                     };
                 #[cfg(feature = "hydrate")]
@@ -303,10 +307,10 @@ where
                         AnyViewState {
                             type_id: TypeId::of::<T>(),
                             state,
-
                             mount: mount_any::<T>,
                             unmount: unmount_any::<T>,
                             insert_before_this: insert_before_this::<T>,
+                            elements: elements::<T>,
                         }
                     };
 
@@ -545,6 +549,10 @@ impl Mountable for AnyViewState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         (self.insert_before_this)(&*self.state, child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        (self.elements)(&*self.state)
     }
 }
 /*

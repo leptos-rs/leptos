@@ -160,4 +160,11 @@ where
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        vec![document()
+            .body()
+            .expect("there to be a <body> element")
+            .into()]
+    }
 }

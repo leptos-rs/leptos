@@ -3,14 +3,10 @@ use super::{
     RenderHtml, ToTemplate,
 };
 use crate::{
-<<<<<<< HEAD
     html::attribute::{
         any_attribute::AnyAttribute, Attribute, AttributeKey, AttributeValue,
         NextAttribute,
     },
-=======
-    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
->>>>>>> parent of 8f74a6d8a (AddAnyAttr static (#3553))
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };

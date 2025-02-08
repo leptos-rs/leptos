@@ -322,6 +322,14 @@ where
             })
             .unwrap_or_else(|| self.marker.insert_before_this(child))
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.rendered_items
+            .iter()
+            .flatten()
+            .flat_map(|item| item.1.elements())
+            .collect()
+    }
 }
 
 trait VecExt<T> {

@@ -299,4 +299,8 @@ impl Mountable for TitleViewState {
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        vec![]
+    }
 }

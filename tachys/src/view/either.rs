@@ -75,6 +75,13 @@ where
             Either::Right(right) => right.insert_before_this(child),
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        match &self {
+            Either::Left(left) => left.elements(),
+            Either::Right(right) => right.elements(),
+        }
+    }
 }
 
 impl<A, B> AddAnyAttr for Either<A, B>
@@ -482,6 +489,20 @@ where
                 .insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        if self.showing_b {
+            self.b
+                .as_ref()
+                .map(|inner| inner.elements())
+                .unwrap_or_default()
+        } else {
+            self.a
+                .as_ref()
+                .map(|inner| inner.elements())
+                .unwrap_or_default()
+        }
+    }
 }
 
 macro_rules! tuples {
@@ -523,6 +544,12 @@ macro_rules! tuples {
                 ) -> bool {
                     match &self.state {
                         $([<EitherOf $num>]::$ty(this) =>this.insert_before_this(child),)*
+                    }
+                }
+
+                fn elements(&self) -> Vec<crate::renderer::types::Element> {
+                    match &self.state {
+                        $([<EitherOf $num>]::$ty(this) => this.elements(),)*
                     }
                 }
             }

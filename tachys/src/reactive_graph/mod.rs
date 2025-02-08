@@ -119,6 +119,13 @@ where
             false
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.0
+            .as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<F, V> RenderHtml for F
@@ -238,6 +245,11 @@ where
         self.with_value_mut(|value| value.insert_before_this(child))
             .unwrap_or(false)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.with_value_mut(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<M, E> Mountable for Result<M, E>
@@ -266,6 +278,12 @@ where
         } else {
             false
         }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
     }
 }
 

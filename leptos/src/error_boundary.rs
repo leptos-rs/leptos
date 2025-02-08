@@ -163,6 +163,14 @@ where
             self.children.insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<tachys::renderer::types::Element> {
+        if let Some(fallback) = &self.fallback {
+            fallback.elements()
+        } else {
+            self.children.elements()
+        }
+    }
 }
 
 impl<Chil, FalFn, Fal> Render for ErrorBoundaryView<Chil, FalFn>
