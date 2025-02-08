@@ -82,28 +82,32 @@ where
         mut fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
         initial_value: Option<T>,
     ) -> Self {
-        let (observer, mut rx) = channel();
+        // monomorphisation optimisation:
+        fn prep() -> (Owner, Arc<RwLock<EffectInner>>, crate::channel::Receiver)
+        {
+            let (observer, rx) = channel();
+            let owner = Owner::new();
+            let inner = Arc::new(RwLock::new(EffectInner {
+                dirty: false,
+                observer,
+                sources: SourceSet::new(),
+            }));
+            (owner, inner, rx)
+        }
+
+        let (owner, inner, mut rx) = prep();
+
         let value = Arc::new(RwLock::new(None::<T>));
-        let owner = Owner::new();
-        let inner = Arc::new(RwLock::new(EffectInner {
-            dirty: false,
-            observer,
-            sources: SourceSet::new(),
-        }));
 
-        let initial_value = cfg!(feature = "effects").then(|| {
-            owner.with(|| {
-                inner
-                    .to_any_subscriber()
-                    .with_observer(|| fun(initial_value))
-            })
-        });
-        *value.write().or_poisoned() = initial_value;
+        #[cfg(feature = "effects")]
+        {
+            let subscriber = inner.to_any_subscriber();
+            *value.write().or_poisoned() = Some(
+                owner.with(|| subscriber.with_observer(|| fun(initial_value))),
+            );
 
-        if cfg!(feature = "effects") {
             Executor::spawn_local({
                 let value = Arc::clone(&value);
-                let subscriber = inner.to_any_subscriber();
 
                 async move {
                     while rx.next().await.is_some() {

@@ -203,21 +203,17 @@ where
 
     fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
-
-        let attrs = self.attributes.build(&el);
-        let extra_attrs = extra_attrs.build(&el);
-        let children = if E::SELF_CLOSING {
-            None
-        } else {
-            let mut children = self.children.build(None);
-            children.mount(&el, None);
-            Some(children)
-        };
         ElementState {
+            attrs: self.attributes.build(&el),
+            extra_attrs: extra_attrs.build(&el),
+            children: if E::SELF_CLOSING {
+                None
+            } else {
+                let mut children = self.children.build(None);
+                children.mount(&el, None);
+                Some(children)
+            },
             el,
-            children,
-            attrs,
-            extra_attrs,
         }
     }
 }
@@ -382,6 +378,7 @@ where
             panic!("Custom elements are not supported in ViewTemplate.");
         }
 
+        // monomorphisation optimisation:
         fn inner_1(
             cursor: &Cursor,
             position: &PositionState,
@@ -425,6 +422,7 @@ where
             Some(self.children.hydrate::<FROM_SERVER>(cursor, position, None))
         };
 
+        // monomorphisation optimisation:
         fn inner_2(
             cursor: &Cursor,
             position: &PositionState,

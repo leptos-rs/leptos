@@ -195,13 +195,32 @@ where
         position: &PositionState,
         extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        let cursor = cursor.clone();
-        let position = position.clone();
-        let hook = throw_error::get_error_hook();
+        /// monomorphisation optimisation:
+        fn prep(
+            cursor: &Cursor,
+            position: &PositionState,
+        ) -> (
+            Cursor,
+            PositionState,
+            Option<Arc<dyn throw_error::ErrorHook>>,
+        ) {
+            let cursor = cursor.clone();
+            let position = position.clone();
+            let hook = throw_error::get_error_hook();
+            (cursor, position, hook)
+        }
+        let (cursor, position, hook) = prep(cursor, position);
+
         RenderEffect::new(move |prev| {
-            let _guard = hook
-                .as_ref()
-                .map(|h| throw_error::set_error_hook(Arc::clone(h)));
+            /// monomorphisation optimisation:
+            fn get_guard(
+                hook: &Option<Arc<dyn throw_error::ErrorHook>>,
+            ) -> Option<throw_error::ResetErrorHookOnDrop> {
+                hook.as_ref()
+                    .map(|h| throw_error::set_error_hook(Arc::clone(h)))
+            }
+            let _guard = get_guard(&hook);
+
             let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state, extra_attrs.clone());
