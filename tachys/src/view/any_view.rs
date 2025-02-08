@@ -250,10 +250,10 @@ where
                     AnyViewState {
                         type_id: TypeId::of::<T>(),
                         state,
-
                         mount: mount_any::<T>,
                         unmount: unmount_any::<T>,
                         insert_before_this: insert_before_this::<T>,
+                        elements: elements::<T>,
                     }
                 };
                 #[cfg(feature = "hydrate")]
