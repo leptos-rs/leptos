@@ -420,15 +420,14 @@ impl<'a> ExtraAttrsMut<'a> {
         )
     }
 
-    /// Iterate over the extra attributes.
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut AnyAttribute> + __Captures<&'a ()> + '_ {
-        match &mut self.0 {
-            Some(inner) => itertools::Either::Left(
-                inner.iter_mut().flat_map(|v| v.iter_mut()),
-            ),
-            None => itertools::Either::Right(std::iter::empty()),
+    /// Call [`RenderHtml::dry_resolve`] on any extra attributes.
+    pub fn dry_resolve(&mut self) {
+        if let Some(extra_attr_groups) = &mut self.0 {
+            for extra_attrs in extra_attr_groups.iter_mut() {
+                for attr in extra_attrs.iter_mut() {
+                    attr.dry_resolve();
+                }
+            }
         }
     }
 
@@ -442,6 +441,28 @@ impl<'a> ExtraAttrsMut<'a> {
                 },
             ))
             .await;
+        }
+    }
+
+    /// Check if all attributes are marked as resolved:
+    pub fn all_resolved(&mut self) -> bool {
+        self.iter_mut().all(|attr| attr.resolved)
+    }
+
+    /// Reset the resolved status of all attributes.
+    pub fn reset_resolved(&mut self) {
+        self.iter_mut().for_each(|attr| attr.resolved = false)
+    }
+
+    /// Iterate over the extra attributes.
+    fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut AnyAttribute> + __Captures<&'a ()> + '_ {
+        match &mut self.0 {
+            Some(inner) => itertools::Either::Left(
+                inner.iter_mut().flat_map(|v| v.iter_mut()),
+            ),
+            None => itertools::Either::Right(std::iter::empty()),
         }
     }
 }

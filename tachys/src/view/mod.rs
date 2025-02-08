@@ -333,15 +333,12 @@ pub(crate) async fn batch_resolve_items_with_extra_attrs<T: RenderHtml>(
     let mut preresolved = vec![];
     if extra_attrs.is_some() {
         // Reset resolved state to fresh if dirty:
-        extra_attrs
-            .as_deref_mut()
-            .iter_mut()
-            .for_each(|attr| attr.resolved = false);
+        extra_attrs.reset_resolved();
         for item in item_iter.by_ref() {
             preresolved.push(item.resolve(extra_attrs.as_deref_mut()).await);
             // Once all resolved, can switch to parallel and not pass in extra_attrs anymore,
             // once they've already all resolved:
-            if extra_attrs.iter_mut().all(|attr| attr.resolved) {
+            if extra_attrs.all_resolved() {
                 break;
             }
         }
