@@ -5,7 +5,12 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{
+        any_attribute::{AnyAttribute, AnyAttributeState, IntoAnyAttribute},
+        Attribute,
+    },
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -29,12 +34,6 @@ pub struct AnyView {
     value: Box<dyn Any + Send>,
     build: fn(Box<dyn Any>) -> AnyViewState,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
-    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-    #[cfg(erase_components)]
-    add_any_attr: fn(
-        Box<dyn Any>,
-        crate::html::attribute::any_attribute::AnyAttribute,
-    ) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -347,7 +346,7 @@ impl Render for AnyView {
 }
 
 impl AddAnyAttr for AnyView {
-    type Output<SomeNewAttr: Attribute> = Self;
+    type Output<SomeNewAttr: Attribute> = AnyViewWithAttrs;
 
     #[allow(unused_variables)]
     fn add_any_attr<NewAttr: Attribute>(
@@ -357,17 +356,9 @@ impl AddAnyAttr for AnyView {
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-        #[cfg(erase_components)]
-        {
-            use crate::html::attribute::any_attribute::IntoAnyAttribute;
-
-            let attr = attr.into_cloneable_owned();
-            (self.add_any_attr)(self.value, attr.into_any_attr())
-        }
-        #[cfg(not(erase_components))]
-        {
-            self
+        AnyViewWithAttrs {
+            view: self,
+            attrs: vec![attr.into_cloneable_owned().into_any_attr()],
         }
     }
 }
@@ -521,6 +512,123 @@ impl Mountable for AnyViewState {
         (self.elements)(&*self.state)
     }
 }
+
+/// wip
+pub struct AnyViewWithAttrs {
+    view: AnyView,
+    attrs: Vec<AnyAttribute>,
+}
+
+impl Render for AnyViewWithAttrs {
+    type State = AnyViewWithAttrsState;
+
+    fn build(self) -> Self::State {
+        let view = self.view.build();
+        let elements = view.elements();
+        let mut attrs = Vec::with_capacity(elements.len() * self.attrs.len());
+        for attr in self.attrs {
+            for el in &elements {
+                attrs.push(attr.clone().build(el))
+            }
+        }
+        AnyViewWithAttrsState { view, attrs }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        todo!()
+    }
+}
+
+impl RenderHtml for AnyViewWithAttrs {
+    type AsyncOutput = Self;
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        todo!()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        todo!()
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        todo!()
+    }
+
+    fn html_len(&self) -> usize {
+        todo!()
+    }
+}
+
+impl AddAnyAttr for AnyViewWithAttrs {
+    type Output<SomeNewAttr: Attribute> = AnyViewWithAttrs;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        mut self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        self.attrs.push(attr.into_cloneable_owned().into_any_attr());
+        self
+    }
+}
+
+/// wip
+pub struct AnyViewWithAttrsState {
+    view: AnyViewState,
+    attrs: Vec<AnyAttributeState>,
+}
+
+impl Mountable for AnyViewWithAttrsState {
+    fn unmount(&mut self) {
+        self.view.unmount();
+    }
+
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
+        self.view.mount(parent, marker)
+    }
+
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+        self.view.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.view.elements()
+    }
+}
+
 /*
 #[cfg(test)]
 mod tests {
