@@ -87,15 +87,15 @@ impl Parse for SubfieldMode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mode: Ident = input.parse()?;
         if mode == "key" {
-            let _col: Token!(:) = input.parse()?;
+            let _col: Token![:] = input.parse()?;
             let ty: Type = input.parse()?;
-            let _eq: Token!(=) = input.parse()?;
-            let ident: ExprClosure = input.parse()?;
-            Ok(SubfieldMode::Keyed(ident, ty))
+            let _eq: Token![=] = input.parse()?;
+            let closure: ExprClosure = input.parse()?;
+            Ok(SubfieldMode::Keyed(closure, ty))
         } else if mode == "skip" {
             Ok(SubfieldMode::Skip)
         } else {
-            Err(input.error("expected `key = <ident>: <Type>`"))
+            Err(input.error("expected `key: <Type> = <closure>`"))
         }
     }
 }
