@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 #[cfg(feature = "ssr")]
 use super::MarkBranch;
 use super::{
@@ -7,9 +5,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
-    hydration::Cursor,
-    ssr::StreamBuilder,
+    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
 };
 use std::{
     any::{Any, TypeId},
@@ -31,9 +27,14 @@ use std::{future::Future, pin::Pin};
 pub struct AnyView {
     type_id: TypeId,
     value: Box<dyn Any + Send>,
-    extra_attrs: Vec<AnyAttribute>,
-    build: fn(Box<dyn Any>, Vec<AnyAttribute>) -> AnyViewState,
-    rebuild: fn(TypeId, Box<dyn Any>, Vec<AnyAttribute>, &mut AnyViewState),
+    build: fn(Box<dyn Any>) -> AnyViewState,
+    rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState),
+    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
+    #[cfg(erase_components)]
+    add_any_attr: fn(
+        Box<dyn Any>,
+        crate::html::attribute::any_attribute::AnyAttribute,
+    ) -> AnyView,
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
     // With this type-erased wrapper, however, the compiler is not *always* able to correctly
@@ -41,49 +42,23 @@ pub struct AnyView {
     #[cfg(feature = "ssr")]
     html_len: usize,
     #[cfg(feature = "ssr")]
-    to_html: fn(
-        Box<dyn Any>,
-        Vec<AnyAttribute>,
-        &mut String,
-        &mut Position,
-        bool,
-        bool,
-    ),
+    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
-    to_html_async: fn(
-        Box<dyn Any>,
-        Vec<AnyAttribute>,
-        &mut StreamBuilder,
-        &mut Position,
-        bool,
-        bool,
-    ),
+    to_html_async:
+        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
-    to_html_async_ooo: fn(
-        Box<dyn Any>,
-        Vec<AnyAttribute>,
-        &mut StreamBuilder,
-        &mut Position,
-        bool,
-        bool,
-    ),
+    to_html_async_ooo:
+        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve: fn(
-        Box<dyn Any>,
-        Vec<AnyAttribute>,
-    ) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
+    resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
     #[cfg(feature = "ssr")]
-    dry_resolve: fn(&mut Box<dyn Any + Send>, &mut Vec<AnyAttribute>),
+    dry_resolve: fn(&mut Box<dyn Any + Send>),
     #[cfg(feature = "hydrate")]
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
-    hydrate_from_server: fn(
-        Box<dyn Any>,
-        Vec<AnyAttribute>,
-        &Cursor,
-        &PositionState,
-    ) -> AnyViewState,
+    hydrate_from_server:
+        fn(Box<dyn Any>, &Cursor, &PositionState) -> AnyViewState,
 }
 
 /// Retained view state for [`AnyView`].
@@ -123,7 +98,7 @@ fn mount_any<T>(
     parent: &crate::renderer::types::Element,
     marker: Option<&crate::renderer::types::Node>,
 ) where
-    T: Send + Render,
+    T: Render,
     T::State: 'static,
 {
     let state = state
@@ -134,7 +109,7 @@ fn mount_any<T>(
 
 fn unmount_any<T>(state: &mut dyn Any)
 where
-    T: Send + Render,
+    T: Render,
     T::State: 'static,
 {
     let state = state
@@ -145,7 +120,7 @@ where
 
 fn insert_before_this<T>(state: &dyn Any, child: &mut dyn Mountable) -> bool
 where
-    T: Send + Render,
+    T: Render,
     T::State: 'static,
 {
     let state = state
@@ -156,7 +131,7 @@ where
 
 fn elements<T>(state: &dyn Any) -> Vec<crate::renderer::types::Element>
 where
-    T: Send + Render,
+    T: Render,
     T::State: 'static,
 {
     let state = state
@@ -182,33 +157,24 @@ where
             Ok(any_view) => *any_view,
             Err(value) => {
                 #[cfg(feature = "ssr")]
-                let dry_resolve =
-                    |value: &mut Box<dyn Any + Send>,
-                     extra_attrs: &mut Vec<AnyAttribute>| {
-                        let value = value
-                            .downcast_mut::<T>()
-                            .expect("AnyView::resolve could not be downcast");
-                        value.dry_resolve();
-                        for attr in extra_attrs {
-                            attr.dry_resolve();
-                        }
-                    };
+                let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+                    let value = value
+                        .downcast_mut::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    value.dry_resolve();
+                };
 
                 #[cfg(feature = "ssr")]
-                let resolve =
-                    |value: Box<dyn Any>, extra_attrs: Vec<AnyAttribute>| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView could not be downcast");
-                        Box::pin(
-                            async move { value.resolve().await.into_any() },
-                        )
-                            as Pin<Box<dyn Future<Output = AnyView> + Send>>
-                    };
+                let resolve = |value: Box<dyn Any>| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::resolve could not be downcast");
+                    Box::pin(async move { value.resolve().await.into_any() })
+                        as Pin<Box<dyn Future<Output = AnyView> + Send>>
+                };
                 #[cfg(feature = "ssr")]
                 let to_html =
                     |value: Box<dyn Any>,
-                     extra_attrs: Vec<AnyAttribute>,
                      buf: &mut String,
                      position: &mut Position,
                      escape: bool,
@@ -218,7 +184,7 @@ where
                             .unwrap_or_default();
                         let value = value
                             .downcast::<T>()
-                            .expect("AnyView could not be downcast");
+                            .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
                         }
@@ -235,7 +201,6 @@ where
                 #[cfg(feature = "ssr")]
                 let to_html_async =
                     |value: Box<dyn Any>,
-                     extra_attrs: Vec<AnyAttribute>,
                      buf: &mut StreamBuilder,
                      position: &mut Position,
                      escape: bool,
@@ -245,7 +210,7 @@ where
                             .unwrap_or_default();
                         let value = value
                             .downcast::<T>()
-                            .expect("AnyView could not be downcast");
+                            .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
                         }
@@ -262,14 +227,13 @@ where
                 #[cfg(feature = "ssr")]
                 let to_html_async_ooo =
                     |value: Box<dyn Any>,
-                     extra_attrs: Vec<AnyAttribute>,
                      buf: &mut StreamBuilder,
                      position: &mut Position,
                      escape: bool,
                      mark_branches: bool| {
                         let value = value
                             .downcast::<T>()
-                            .expect("AnyView could not be downcast");
+                            .expect("AnyView::to_html could not be downcast");
                         value.to_html_async_with_buf::<true>(
                             buf,
                             position,
@@ -277,30 +241,29 @@ where
                             mark_branches,
                         );
                     };
-                let build =
-                    |value: Box<dyn Any>, extra_attrs: Vec<AnyAttribute>| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView could not be downcast");
-                        let state = Box::new(value.build());
-                        AnyViewState {
-                            type_id: TypeId::of::<T>(),
-                            state,
-                            mount: mount_any::<T>,
-                            unmount: unmount_any::<T>,
-                            insert_before_this: insert_before_this::<T>,
-                            elements: elements::<T>,
-                        }
-                    };
+                let build = |value: Box<dyn Any>| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::build couldn't downcast");
+                    let state = Box::new(value.build());
+
+                    AnyViewState {
+                        type_id: TypeId::of::<T>(),
+                        state,
+
+                        mount: mount_any::<T>,
+                        unmount: unmount_any::<T>,
+                        insert_before_this: insert_before_this::<T>,
+                    }
+                };
                 #[cfg(feature = "hydrate")]
                 let hydrate_from_server =
                     |value: Box<dyn Any>,
-                     extra_attrs: Vec<AnyAttribute>,
                      cursor: &Cursor,
                      position: &PositionState| {
-                        let value = value
-                            .downcast::<T>()
-                            .expect("AnyView could not be downcast");
+                        let value = value.downcast::<T>().expect(
+                            "AnyView::hydrate_from_server couldn't downcast",
+                        );
                         let state =
                             Box::new(value.hydrate::<true>(cursor, position));
 
@@ -317,11 +280,10 @@ where
                 let rebuild =
                     |new_type_id: TypeId,
                      value: Box<dyn Any>,
-                     extra_attrs: Vec<AnyAttribute>,
                      state: &mut AnyViewState| {
                         let value = value
                             .downcast::<T>()
-                            .expect("AnyView could not be downcast");
+                            .expect("AnyView::rebuild couldn't downcast value");
                         if new_type_id == state.type_id {
                             let state = state.state.downcast_mut().expect(
                                 "AnyView::rebuild couldn't downcast state",
@@ -335,12 +297,23 @@ where
                         }
                     };
 
+                // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
+                #[cfg(erase_components)]
+                let add_any_attr = |value: Box<dyn Any>, attr: crate::html::attribute::any_attribute::AnyAttribute| {
+                    let value = value
+                        .downcast::<T>()
+                        .expect("AnyView::add_any_attr could not be downcast");
+                    value.add_any_attr(attr).into_any()
+                };
+
                 AnyView {
                     type_id: TypeId::of::<T>(),
                     value,
                     build,
                     rebuild,
-                    extra_attrs: Vec::new(),
+                    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
+                    #[cfg(erase_components)]
+                    add_any_attr,
                     #[cfg(feature = "ssr")]
                     resolve,
                     #[cfg(feature = "ssr")]
@@ -365,11 +338,11 @@ impl Render for AnyView {
     type State = AnyViewState;
 
     fn build(self) -> Self::State {
-        (self.build)(self.value, self.extra_attrs)
+        (self.build)(self.value)
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        (self.rebuild)(self.type_id, self.value, self.extra_attrs, state)
+        (self.rebuild)(self.type_id, self.value, state)
     }
 }
 
@@ -378,17 +351,24 @@ impl AddAnyAttr for AnyView {
 
     #[allow(unused_variables)]
     fn add_any_attr<NewAttr: Attribute>(
-        mut self,
+        self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        use crate::html::attribute::any_attribute::IntoAnyAttribute;
+        // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
+        #[cfg(erase_components)]
+        {
+            use crate::html::attribute::any_attribute::IntoAnyAttribute;
 
-        let attr = attr.into_cloneable_owned();
-        self.extra_attrs.push(attr.into_any_attr());
-        self
+            let attr = attr.into_cloneable_owned();
+            (self.add_any_attr)(self.value, attr.into_any_attr())
+        }
+        #[cfg(not(erase_components))]
+        {
+            self
+        }
     }
 }
 
@@ -398,7 +378,7 @@ impl RenderHtml for AnyView {
     fn dry_resolve(&mut self) {
         #[cfg(feature = "ssr")]
         {
-            (self.dry_resolve)(&mut self.value, &mut self.extra_attrs)
+            (self.dry_resolve)(&mut self.value)
         }
         #[cfg(not(feature = "ssr"))]
         panic!(
@@ -410,7 +390,7 @@ impl RenderHtml for AnyView {
     async fn resolve(self) -> Self::AsyncOutput {
         #[cfg(feature = "ssr")]
         {
-            (self.resolve)(self.value, self.extra_attrs).await
+            (self.resolve)(self.value).await
         }
         #[cfg(not(feature = "ssr"))]
         panic!(
@@ -429,14 +409,7 @@ impl RenderHtml for AnyView {
         mark_branches: bool,
     ) {
         #[cfg(feature = "ssr")]
-        (self.to_html)(
-            self.value,
-            self.extra_attrs,
-            buf,
-            position,
-            escape,
-            mark_branches,
-        );
+        (self.to_html)(self.value, buf, position, escape, mark_branches);
         #[cfg(not(feature = "ssr"))]
         {
             _ = mark_branches;
@@ -463,7 +436,6 @@ impl RenderHtml for AnyView {
         if OUT_OF_ORDER {
             (self.to_html_async_ooo)(
                 self.value,
-                self.extra_attrs,
                 buf,
                 position,
                 escape,
@@ -472,7 +444,6 @@ impl RenderHtml for AnyView {
         } else {
             (self.to_html_async)(
                 self.value,
-                self.extra_attrs,
                 buf,
                 position,
                 escape,
@@ -499,12 +470,7 @@ impl RenderHtml for AnyView {
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
         if FROM_SERVER {
-            (self.hydrate_from_server)(
-                self.value,
-                self.extra_attrs,
-                cursor,
-                position,
-            )
+            (self.hydrate_from_server)(self.value, cursor, position)
         } else {
             panic!(
                 "hydrating AnyView from inside a ViewTemplate is not \
