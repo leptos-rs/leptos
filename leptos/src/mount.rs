@@ -44,28 +44,35 @@ where
     use hydration_context::HydrateSharedContext;
     use std::sync::Arc;
 
-    // use wasm-bindgen-futures to drive the reactive system
-    // we ignore the return value because an Err here just means the wasm-bindgen executor is
-    // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    /// Separate static from generic:
+    fn inner_1() -> Owner {
+        // use wasm-bindgen-futures to drive the reactive system
+        // we ignore the return value because an Err here just means the wasm-bindgen executor is
+        // already initialized, which is not an issue
+        _ = Executor::init_wasm_bindgen();
 
-    #[cfg(debug_assertions)]
-    {
-        if !cfg!(feature = "hydrate") && FIRST_CALL.get() {
-            logging::warn!(
-                "It seems like you're trying to use Leptos in hydration mode, \
-                 but the `hydrate` feature is not enabled on the `leptos` \
-                 crate. Add `features = [\"hydrate\"]` to your Cargo.toml for \
-                 the crate to work properly.\n\nNote that hydration and \
-                 client-side rendering now use separate functions from \
-                 leptos::mount: you are calling a hydration function."
-            );
+        #[cfg(debug_assertions)]
+        {
+            if !cfg!(feature = "hydrate") && FIRST_CALL.get() {
+                logging::warn!(
+                    "It seems like you're trying to use Leptos in hydration \
+                     mode, but the `hydrate` feature is not enabled on the \
+                     `leptos` crate. Add `features = [\"hydrate\"]` to your \
+                     Cargo.toml for the crate to work properly.\n\nNote that \
+                     hydration and client-side rendering now use separate \
+                     functions from leptos::mount: you are calling a \
+                     hydration function."
+                );
+            }
+            FIRST_CALL.set(false);
         }
-        FIRST_CALL.set(false);
+
+        // create a new reactive owner and use it as the root node to run the app
+        Owner::new_root(Some(Arc::new(HydrateSharedContext::new())))
     }
 
-    // create a new reactive owner and use it as the root node to run the app
-    let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
+    let owner = inner_1();
+
     let mountable = owner.with(move || {
         let view = f().into_view();
         view.hydrate::<true>(
@@ -75,9 +82,14 @@ where
         )
     });
 
-    if let Some(sc) = Owner::current_shared_context() {
-        sc.hydration_complete();
+    /// Separate static from generic:
+    fn inner_2() {
+        if let Some(sc) = Owner::current_shared_context() {
+            sc.hydration_complete();
+        }
     }
+
+    inner_2();
 
     // returns a handle that owns the owner
     // when this is dropped, it will clean up the reactive system and unmount the view

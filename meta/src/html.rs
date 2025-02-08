@@ -72,14 +72,9 @@ where
             .document_element()
             .expect("there to be a <html> element");
 
-        let attributes = self.attributes.build(&el);
-        let extra_attrs = extra_attrs.map(|attrs| {
-            attrs.into_iter().map(|attr| attr.build(&el)).collect()
-        });
-
         HtmlViewState {
-            attributes,
-            extra_attrs,
+            attributes: self.attributes.build(&el),
+            extra_attrs: extra_attrs.build(&el),
         }
     }
 
@@ -89,11 +84,7 @@ where
         extra_attrs: Option<Vec<AnyAttribute>>,
     ) {
         self.attributes.rebuild(&mut state.attributes);
-        if let (Some(extra_attrs), Some(extra_attr_states)) =
-            (extra_attrs, &mut state.extra_attrs)
-        {
-            extra_attrs.rebuild(extra_attr_states);
-        }
+        extra_attrs.rebuild(&mut state.extra_attrs);
     }
 }
 
@@ -128,7 +119,7 @@ where
 
     fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
         self.attributes.dry_resolve();
-        extra_attrs.iter_mut().for_each(Attribute::dry_resolve);
+        extra_attrs.dry_resolve();
     }
 
     async fn resolve(
@@ -173,17 +164,9 @@ where
             .document_element()
             .expect("there to be a <html> element");
 
-        let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
-        let extra_attrs = extra_attrs.map(|attrs| {
-            attrs
-                .into_iter()
-                .map(|attr| attr.hydrate::<FROM_SERVER>(&el))
-                .collect()
-        });
-
         HtmlViewState {
-            attributes,
-            extra_attrs,
+            attributes: self.attributes.hydrate::<FROM_SERVER>(&el),
+            extra_attrs: extra_attrs.hydrate::<FROM_SERVER>(&el),
         }
     }
 

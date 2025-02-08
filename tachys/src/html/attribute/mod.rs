@@ -111,6 +111,113 @@ pub trait NextAttribute {
     ) -> Self::Output<NewAttr>;
 }
 
+impl<T: Attribute> Attribute for Option<T> {
+    const MIN_LENGTH: usize = 0;
+
+    type AsyncOutput = Option<T::AsyncOutput>;
+    type State = Option<T::State>;
+    type Cloneable = Option<T::Cloneable>;
+    type CloneableOwned = Option<T::CloneableOwned>;
+
+    fn html_len(&self) -> usize {
+        if let Some(attr) = self {
+            attr.html_len()
+        } else {
+            0
+        }
+    }
+
+    fn to_html(
+        self,
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+    ) {
+        if let Some(attr) = self {
+            attr.to_html(buf, class, style, inner_html);
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        self.map(|attr| attr.hydrate::<FROM_SERVER>(el))
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        if let Some(attr) = self {
+            Some(attr.build(el))
+        } else {
+            None
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if let Some(attr) = self {
+            if let Some(state) = state {
+                attr.rebuild(state);
+            }
+        }
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        if let Some(attr) = self {
+            Some(attr.into_cloneable())
+        } else {
+            None
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        if let Some(attr) = self {
+            Some(attr.into_cloneable_owned())
+        } else {
+            None
+        }
+    }
+
+    fn dry_resolve(&mut self) {
+        if let Some(attr) = self {
+            attr.dry_resolve();
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        if let Some(attr) = self {
+            Some(attr.resolve().await)
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: Attribute> NextAttribute for Option<T> {
+    #[cfg(not(erase_components))]
+    type Output<NewAttr: Attribute> = (Option<T>, NewAttr);
+
+    #[cfg(erase_components)]
+    type Output<NewAttr: Attribute> =
+        Vec<crate::html::attribute::any_attribute::AnyAttribute>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        #[cfg(not(erase_components))]
+        {
+            (self, new_attr)
+        }
+        #[cfg(erase_components)]
+        {
+            use crate::html::attribute::any_attribute::IntoAnyAttribute;
+
+            vec![new_attr.into_any_attr()]
+        }
+    }
+}
+
 impl Attribute for () {
     const MIN_LENGTH: usize = 0;
 

@@ -432,6 +432,17 @@ impl<'a> ExtraAttrsMut<'a> {
         }
     }
 
+    /// Call [`RenderHtml::dry_resolve`] on any extra attributes.
+    pub fn dry_resolve(&mut self) {
+        if let Some(extra_attr_groups) = &mut self.0 {
+            for extra_attrs in extra_attr_groups {
+                for attr in extra_attrs.iter_mut() {
+                    Attribute::dry_resolve(attr);
+                }
+            }
+        }
+    }
+
     /// Call [`RenderHtml::resolve`] on any extra attributes in parallel.
     pub async fn resolve(self) {
         if let Some(extra_attr_groups) = self.0 {

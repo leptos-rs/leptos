@@ -325,6 +325,13 @@ impl Attribute for AnyAttribute {
     }
 }
 
+/// Helper to summate html len over extra attrs, separated from generic code.
+pub fn extra_attrs_html_len(extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    extra_attrs
+        .map(|attrs| attrs.into_iter().map(Attribute::html_len).sum::<usize>())
+        .unwrap_or(0)
+}
+
 impl NextAttribute for Vec<AnyAttribute> {
     type Output<NewAttr: Attribute> = Self;
 

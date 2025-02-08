@@ -22,7 +22,7 @@ mod element_ext;
 mod elements;
 mod inner_html;
 use super::attribute::{
-    any_attribute::{AnyAttribute, AnyAttributeState},
+    any_attribute::{extra_attrs_html_len, AnyAttribute, AnyAttributeState},
     escape_attr, NextAttribute,
 };
 pub use custom::*;
@@ -195,11 +195,7 @@ where
             attrs, children, ..
         } = state;
         self.attributes.rebuild(attrs);
-        if let (Some(extra_attrs), Some(extra_attr_states)) =
-            (extra_attrs, &mut state.extra_attrs)
-        {
-            extra_attrs.rebuild(extra_attr_states);
-        }
+        extra_attrs.rebuild(&mut state.extra_attrs);
         if let Some(children) = children {
             self.children.rebuild(children, None);
         }
@@ -209,7 +205,7 @@ where
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
         let attrs = self.attributes.build(&el);
-        let extra_attrs = extra_attrs.map(|attrs| attrs.build(&el));
+        let extra_attrs = extra_attrs.build(&el);
         let children = if E::SELF_CLOSING {
             None
         } else {
@@ -250,7 +246,7 @@ where
 
     fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
         self.attributes.dry_resolve();
-        extra_attrs.iter_mut().for_each(Attribute::dry_resolve);
+        extra_attrs.dry_resolve();
         self.children.dry_resolve(ExtraAttrsMut::default());
     }
 
@@ -282,9 +278,7 @@ where
             2 // < ... >
         + E::TAG.len()
         + self.attributes.html_len()
-        + extra_attrs.map(|attrs| {
-            attrs.into_iter().map(Attribute::html_len).sum::<usize>()
-        }).unwrap_or(0)
+        + extra_attrs_html_len(extra_attrs)
         + self.children.html_len(None)
         + 3 // </ ... >
         + E::TAG.len()
@@ -382,31 +376,46 @@ where
         position: &PositionState,
         extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        #[cfg(any(debug_assertions, leptos_debuginfo))]
-        {
-            set_currently_hydrating(Some(self.defined_at));
-        }
-
         // non-Static custom elements need special support in templates
         // because they haven't been inserted type-wise
         if E::TAG.is_empty() && !FROM_SERVER {
             panic!("Custom elements are not supported in ViewTemplate.");
         }
 
-        let curr_position = position.get();
-        if curr_position == Position::FirstChild {
-            cursor.child();
-        } else if curr_position != Position::Current {
-            cursor.sibling();
+        fn inner_1(
+            cursor: &Cursor,
+            position: &PositionState,
+            tag_name: &str,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: &'static std::panic::Location<'static>,
+        ) -> crate::renderer::types::Element {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            {
+                set_currently_hydrating(Some(defined_at));
+            }
+
+            let curr_position = position.get();
+            if curr_position == Position::FirstChild {
+                cursor.child();
+            } else if curr_position != Position::Current {
+                cursor.sibling();
+            }
+            crate::renderer::types::Element::cast_from(cursor.current())
+                .unwrap_or_else(|| {
+                    failed_to_cast_element(tag_name, cursor.current())
+                })
         }
-        let el = crate::renderer::types::Element::cast_from(cursor.current())
-            .unwrap_or_else(|| {
-                failed_to_cast_element(E::TAG, cursor.current())
-            });
+
+        let el = inner_1(
+            cursor,
+            position,
+            E::TAG,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            self.defined_at,
+        );
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
-        let extra_attrs = extra_attrs
-            .map(|attrs| Attribute::hydrate::<FROM_SERVER>(attrs, &el));
+        let extra_attrs = Attribute::hydrate::<FROM_SERVER>(extra_attrs, &el);
 
         // hydrate children
         let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
@@ -416,14 +425,22 @@ where
             Some(self.children.hydrate::<FROM_SERVER>(cursor, position, None))
         };
 
-        // go to next sibling
-        cursor.set(
-            <crate::renderer::types::Element as AsRef<
-                crate::renderer::types::Node,
-            >>::as_ref(&el)
-            .clone(),
-        );
-        position.set(Position::NextChild);
+        fn inner_2(
+            cursor: &Cursor,
+            position: &PositionState,
+            el: &crate::renderer::types::Element,
+        ) {
+            // go to next sibling
+            cursor.set(
+                <crate::renderer::types::Element as AsRef<
+                    crate::renderer::types::Node,
+                >>::as_ref(&el)
+                .clone(),
+            );
+            position.set(Position::NextChild);
+        }
+
+        inner_2(cursor, position, &el);
 
         ElementState {
             el,
@@ -468,11 +485,7 @@ where
 
     // inject regular attributes, and fill class and style
     attr.to_html(buf, &mut class, &mut style, &mut inner_html);
-    if let Some(extra_attrs) = extra_attrs {
-        for attr in extra_attrs {
-            attr.to_html(buf, &mut class, &mut style, &mut inner_html);
-        }
-    }
+    extra_attrs.to_html(buf, &mut class, &mut style, &mut inner_html);
 
     if !class.is_empty() {
         buf.push(' ');
