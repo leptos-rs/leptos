@@ -1,5 +1,8 @@
 use self::add_attr::AddAnyAttr;
-use crate::{hydration::Cursor, ssr::StreamBuilder};
+use crate::{
+    html::attribute::any_attribute::AnyAttributeState, hydration::Cursor,
+    ssr::StreamBuilder,
+};
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
@@ -300,6 +303,18 @@ pub trait Mountable {
         if !self.insert_before_this(child) {
             child.mount(parent, marker);
         }
+    }
+
+    /// TODO
+    fn add_attribute(
+        &self,
+        cb: Box<
+            dyn FnMut(
+                &crate::renderer::types::Element,
+            ) -> Vec<AnyAttributeState>,
+        >,
+    ) -> Vec<AnyAttributeState> {
+        todo!()
     }
 }
 

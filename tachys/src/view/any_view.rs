@@ -153,21 +153,6 @@ where
     state.insert_before_this(child)
 }
 
-fn with_attrs<T>(
-    value: Box<dyn Any>,
-    extra_attrs: Vec<AnyAttribute>,
-) -> <T as AddAnyAttr>::Output<Vec<AnyAttribute>>
-where
-    T: Send,
-    T: RenderHtml + 'static,
-    T::State: 'static,
-{
-    let value = value
-        .downcast::<T>()
-        .expect("AnyView could not be downcast");
-    value.add_any_attr(extra_attrs)
-}
-
 impl<T> IntoAny for T
 where
     T: Send,
@@ -200,7 +185,9 @@ where
                 #[cfg(feature = "ssr")]
                 let resolve =
                     |value: Box<dyn Any>, extra_attrs: Vec<AnyAttribute>| {
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         Box::pin(
                             async move { value.resolve().await.into_any() },
                         )
@@ -217,7 +204,9 @@ where
                         let type_id = mark_branches
                             .then(|| format!("{:?}", TypeId::of::<T>()))
                             .unwrap_or_default();
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
                         }
@@ -242,7 +231,9 @@ where
                         let type_id = mark_branches
                             .then(|| format!("{:?}", TypeId::of::<T>()))
                             .unwrap_or_default();
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
                         }
@@ -264,7 +255,9 @@ where
                      position: &mut Position,
                      escape: bool,
                      mark_branches: bool| {
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         value.to_html_async_with_buf::<true>(
                             buf,
                             position,
@@ -274,13 +267,22 @@ where
                     };
                 let build =
                     |value: Box<dyn Any>, extra_attrs: Vec<AnyAttribute>| {
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         let state = Box::new(value.build());
+                        let any_attrs =
+                            state.add_attribute(Box::new(move |el| {
+                                extra_attrs
+                                    .clone()
+                                    .into_iter()
+                                    .map(|attr| attr.build(el))
+                                    .collect()
+                            }));
 
                         AnyViewState {
                             type_id: TypeId::of::<T>(),
                             state,
-
                             mount: mount_any::<T>,
                             unmount: unmount_any::<T>,
                             insert_before_this: insert_before_this::<T>,
@@ -292,7 +294,9 @@ where
                      extra_attrs: Vec<AnyAttribute>,
                      cursor: &Cursor,
                      position: &PositionState| {
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         let state =
                             Box::new(value.hydrate::<true>(cursor, position));
 
@@ -311,7 +315,9 @@ where
                      value: Box<dyn Any>,
                      extra_attrs: Vec<AnyAttribute>,
                      state: &mut AnyViewState| {
-                        let value = with_attrs::<T>(value, extra_attrs);
+                        let value = value
+                            .downcast::<T>()
+                            .expect("AnyView could not be downcast");
                         if new_type_id == state.type_id {
                             let state = state.state.downcast_mut().expect(
                                 "AnyView::rebuild couldn't downcast state",
