@@ -147,11 +147,7 @@ impl<T: Attribute> Attribute for Option<T> {
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        if let Some(attr) = self {
-            Some(attr.build(el))
-        } else {
-            None
-        }
+        self.map(|attr| attr.build(el))
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -163,19 +159,11 @@ impl<T: Attribute> Attribute for Option<T> {
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        if let Some(attr) = self {
-            Some(attr.into_cloneable())
-        } else {
-            None
-        }
+        self.map(|attr| attr.into_cloneable())
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        if let Some(attr) = self {
-            Some(attr.into_cloneable_owned())
-        } else {
-            None
-        }
+        self.map(|attr| attr.into_cloneable_owned())
     }
 
     fn dry_resolve(&mut self) {

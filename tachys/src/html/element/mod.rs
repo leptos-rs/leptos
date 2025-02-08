@@ -434,7 +434,7 @@ where
             cursor.set(
                 <crate::renderer::types::Element as AsRef<
                     crate::renderer::types::Node,
-                >>::as_ref(&el)
+                >>::as_ref(el)
                 .clone(),
             );
             position.set(Position::NextChild);
