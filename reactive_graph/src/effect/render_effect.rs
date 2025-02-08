@@ -7,7 +7,6 @@ use crate::{
     },
     owner::Owner,
 };
-use any_spawner::Executor;
 use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{
@@ -79,7 +78,7 @@ where
     }
 
     fn new_with_value_erased(
-        mut fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
+        fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
         initial_value: Option<T>,
     ) -> Self {
         // monomorphisation optimisation:
@@ -95,7 +94,7 @@ where
             (owner, inner, rx)
         }
 
-        let (owner, inner, mut rx) = prep();
+        let (owner, inner, rx) = prep();
 
         let value = Arc::new(RwLock::new(None::<T>));
 
