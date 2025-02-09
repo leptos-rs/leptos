@@ -506,10 +506,10 @@ where
 #[cfg(not(feature = "nightly"))]
 mod stable {
     use super::RenderEffectState;
-    use crate::renderer::Rndr;
     use crate::{
         html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
+        renderer::Rndr,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,

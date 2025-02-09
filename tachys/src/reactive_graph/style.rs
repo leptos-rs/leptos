@@ -254,9 +254,10 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::reactive_graph::style::RenderEffectWithCssStyleName;
-    use crate::renderer::types::CssStyleDeclaration;
-    use crate::renderer::Rndr;
+    use crate::{
+        reactive_graph::style::RenderEffectWithCssStyleName,
+        renderer::{types::CssStyleDeclaration, Rndr},
+    };
 
     macro_rules! style_signal {
         ($sig:ident) => {
