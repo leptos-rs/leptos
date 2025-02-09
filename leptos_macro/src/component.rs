@@ -570,7 +570,7 @@ impl ToTokens for Model {
             #tracing_instrument_attr
             #vis fn #name #impl_generics (
                 #props_arg
-            ) #ret #(+ #lifetimes)*
+            ) #ret
             #where_clause
             {
                 #body
