@@ -109,7 +109,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -118,7 +118,7 @@ mod stable {
                 }
 
                 fn to_html(self, buf: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(buf);
                 }
 
@@ -128,18 +128,73 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).build(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -171,7 +226,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -180,7 +235,7 @@ mod stable {
                 }
 
                 fn to_html(self, buf: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(buf);
                 }
 
@@ -190,18 +245,73 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).build(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
