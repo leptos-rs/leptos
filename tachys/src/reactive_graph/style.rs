@@ -462,8 +462,10 @@ mod stable {
                                     prev = value;
                                     (style, Some(prev))
                                 }
-                                (Some((style, _)), None) => (style.clone(), None),
-                                _ => unreachable!(),
+                                (Some((style, Some(prev))), None) => (style, Some(prev)),
+                                (Some((style, None)), Some(_)) => (style, None),
+                                (Some((style, None)), None) => (style, None),
+                                (None, _) => unreachable!(),
                             }
                         },
                         state.effect.take_value(),
@@ -495,7 +497,8 @@ mod stable {
                                     prev = Cow::Borrowed("");
                                     (style, Some(prev))
                                 }
-                                _ => unreachable!(),
+                                Some((style, None)) => (style, None),
+                                None => unreachable!(),
                             },
                             state.effect.take_value(),
                         ),
@@ -719,8 +722,10 @@ mod stable {
                                     prev = value;
                                     (style, Some(prev))
                                 }
-                                (Some((style, _)), None) => (style.clone(), None),
-                                _ => unreachable!(),
+                                (Some((style, Some(prev))), None) => (style, Some(prev)),
+                                (Some((style, None)), Some(_)) => (style, None),
+                                (Some((style, None)), None) => (style, None),
+                                (None, _) => unreachable!(),
                             }
                         },
                         state.effect.take_value(),
@@ -752,7 +757,8 @@ mod stable {
                                     prev = Cow::Borrowed("");
                                     (style, Some(prev))
                                 }
-                                _ => unreachable!(),
+                                Some((style, None)) => (style, None),
+                                None => unreachable!(),
                             },
                             state.effect.take_value(),
                         ),
