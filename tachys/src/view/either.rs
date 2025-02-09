@@ -170,10 +170,10 @@ where
 {
     const MIN_LENGTH: usize = max_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
 
-    type AsyncOutput = (Either<A::AsyncOutput, B::AsyncOutput>,);
+    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
     type State = Either<A::State, B::State>;
-    type Cloneable = (Either<A::Cloneable, B::Cloneable>,);
-    type CloneableOwned = (Either<A::CloneableOwned, B::CloneableOwned>,);
+    type Cloneable = Either<A::Cloneable, B::Cloneable>;
+    type CloneableOwned = Either<A::CloneableOwned, B::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         match self {
@@ -232,17 +232,17 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        (match self {
+        match self {
             Either::Left(left) => Either::Left(left.into_cloneable()),
             Either::Right(right) => Either::Right(right.into_cloneable()),
-        },)
+        }
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        (match self {
+        match self {
             Either::Left(left) => Either::Left(left.into_cloneable_owned()),
             Either::Right(right) => Either::Right(right.into_cloneable_owned()),
-        },)
+        }
     }
 
     fn dry_resolve(&mut self) {
@@ -253,10 +253,10 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        (match self {
+        match self {
             Either::Left(left) => Either::Left(left.resolve().await),
             Either::Right(right) => Either::Right(right.resolve().await),
-        },)
+        }
     }
 }
 
