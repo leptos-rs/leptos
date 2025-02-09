@@ -3,6 +3,7 @@ use crate::hydration::set_currently_hydrating;
 use crate::{
     html::attribute::Attribute,
     hydration::{failed_to_cast_element, Cursor},
+    prelude::IntoAttribute,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
@@ -410,8 +411,10 @@ where
 /// Renders an [`Attribute`] (which can be one or more HTML attributes) into an HTML buffer.
 pub fn attributes_to_html<At>(attr: At, buf: &mut String) -> String
 where
-    At: Attribute,
+    At: IntoAttribute,
 {
+    let attr = attr.into_attr();
+
     // `class` and `style` are created first, and pushed later
     // this is because they can be filled by a mixture of values that include
     // either the whole value (`class="..."` or `style="..."`) and individual

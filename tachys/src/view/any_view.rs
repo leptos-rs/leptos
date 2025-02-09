@@ -322,23 +322,11 @@ where
                         }
                     };
 
-                // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-                #[cfg(erase_components)]
-                let add_any_attr = |value: Box<dyn Any>, attr: crate::html::attribute::any_attribute::AnyAttribute| {
-                    let value = value
-                        .downcast::<T>()
-                        .expect("AnyView::add_any_attr could not be downcast");
-                    value.add_any_attr(attr).into_any()
-                };
-
                 AnyView {
                     type_id: TypeId::of::<T>(),
                     value,
                     build,
                     rebuild,
-                    // Without erasure, tuples of attrs created by default cause too much type explosion to enable.
-                    #[cfg(erase_components)]
-                    add_any_attr,
                     #[cfg(feature = "ssr")]
                     resolve,
                     #[cfg(feature = "ssr")]
