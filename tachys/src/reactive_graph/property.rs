@@ -178,8 +178,8 @@ mod stable {
                                 (Some(Some(state)), None) => Some(state),
                                 (Some(None), Some(_)) => None,
                                 (Some(None), None) => None,
-                                (None, Some(_)) => None,
-                                (None, None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
                             }
                         },
                         prev_value,
@@ -284,8 +284,8 @@ mod stable {
                                 (Some(Some(state)), None) => Some(state),
                                 (Some(None), Some(_)) => None,
                                 (Some(None), None) => None,
-                                (None, Some(_)) => None,
-                                (None, None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
                             }
                         },
                         prev_value,
