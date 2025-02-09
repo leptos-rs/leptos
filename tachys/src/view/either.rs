@@ -116,6 +116,7 @@ const fn max_usize(vals: &[usize]) -> usize {
     max
 }
 
+#[cfg(not(erase_components))]
 impl<A, B> NextAttribute for Either<A, B>
 where
     B: NextAttribute,
@@ -134,6 +135,31 @@ where
             Either::Left(left) => Either::Left(left.add_any_attr(new_attr)),
             Either::Right(right) => Either::Right(right.add_any_attr(new_attr)),
         }
+    }
+}
+
+#[cfg(erase_components)]
+use crate::html::attribute::any_attribute::{AnyAttribute, IntoAnyAttribute};
+
+#[cfg(erase_components)]
+impl<A, B> NextAttribute for Either<A, B>
+where
+    B: IntoAnyAttribute,
+    A: IntoAnyAttribute,
+{
+    type Output<NewAttr: Attribute> = Vec<AnyAttribute>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        vec![
+            match self {
+                Either::Left(left) => left.into_any_attr(),
+                Either::Right(right) => right.into_any_attr(),
+            },
+            new_attr.into_any_attr(),
+        ]
     }
 }
 
