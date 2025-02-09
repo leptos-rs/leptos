@@ -9,6 +9,7 @@ use crate::{
     },
     view::{Position, PositionState, Render, RenderHtml},
 };
+use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
 
 /// Types for HTML attributes.
@@ -67,6 +68,7 @@ impl RenderHtml for Doctype {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!DOCTYPE ");
         buf.push_str(self.value);
@@ -172,6 +174,7 @@ impl RenderHtml for InertElement {
         position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str(&self.html);
         *position = Position::NextChild;

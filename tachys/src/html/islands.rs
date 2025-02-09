@@ -1,4 +1,4 @@
-use super::attribute::Attribute;
+use super::attribute::{any_attribute::AnyAttribute, Attribute};
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
@@ -130,10 +130,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         Self::open_tag(self.component, &self.props_json, buf);
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         Self::close_tag(buf);
     }
 
@@ -143,6 +149,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -157,6 +164,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         // and insert the closing tag synchronously
@@ -283,10 +291,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         Self::open_tag(buf);
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         Self::close_tag(buf);
     }
 
@@ -296,6 +310,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -310,6 +325,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         // and insert the closing tag synchronously

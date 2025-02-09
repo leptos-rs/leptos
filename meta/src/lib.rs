@@ -44,7 +44,7 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
-    attr::NextAttribute,
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component,
     logging::debug_warn,
     oco::Oco,
@@ -334,6 +334,7 @@ where
             &mut Position::NextChild,
             false,
             false,
+            vec![],
         );
         _ = cx.elements.send(buf); // fails only if the receiver is already dropped
     } else {
@@ -446,6 +447,7 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -560,6 +562,7 @@ impl RenderHtml for MetaTagsView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!--HEAD-->");
     }

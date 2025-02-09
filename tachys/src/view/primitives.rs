@@ -1,5 +1,6 @@
 use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
+    html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
     no_attrs,
     renderer::{CastFrom, Rndr},
@@ -78,7 +79,7 @@ macro_rules! render_primitive {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
 					// add a comment node to separate from previous sibling, if any
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")

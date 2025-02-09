@@ -1,5 +1,8 @@
 use self::add_attr::AddAnyAttr;
-use crate::{hydration::Cursor, ssr::StreamBuilder};
+use crate::{
+    html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
+    ssr::StreamBuilder,
+};
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
@@ -125,7 +128,13 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, false);
+        self.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            false,
+            vec![],
+        );
         buf
     }
 
@@ -137,7 +146,13 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, true);
+        self.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            true,
+            vec![],
+        );
         buf
     }
 
@@ -152,6 +167,7 @@ where
             &mut Position::FirstChild,
             true,
             false,
+            vec![],
         );
         builder.finish()
     }
@@ -169,6 +185,7 @@ where
             &mut Position::FirstChild,
             true,
             true,
+            vec![],
         );
         builder.finish()
     }
@@ -187,6 +204,7 @@ where
             &mut Position::FirstChild,
             true,
             false,
+            vec![],
         );
         builder.finish()
     }
@@ -206,6 +224,7 @@ where
             &mut Position::FirstChild,
             true,
             true,
+            vec![],
         );
         builder.finish()
     }
@@ -217,6 +236,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     );
 
     /// Renders a view into a buffer of (synchronous or asynchronous) HTML chunks.
@@ -226,11 +246,18 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.with_buf(|buf| {
-            self.to_html_with_buf(buf, position, escape, mark_branches)
+            self.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            )
         });
     }
 

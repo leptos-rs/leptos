@@ -1,6 +1,6 @@
 use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
-    attr::Attribute,
+    attr::{any_attribute::AnyAttribute, Attribute},
     component,
     oco::Oco,
     reactive::{
@@ -249,6 +249,7 @@ impl RenderHtml for TitleView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server

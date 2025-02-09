@@ -1,5 +1,9 @@
 use crate::{
-    html::{attribute::AttributeValue, class::IntoClass, style::IntoStyle},
+    html::{
+        attribute::{any_attribute::AnyAttribute, AttributeValue},
+        class::IntoClass,
+        style::IntoStyle,
+    },
     hydration::Cursor,
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
@@ -50,6 +54,7 @@ impl RenderHtml for Oco<'static, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -57,6 +62,7 @@ impl RenderHtml for Oco<'static, str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 

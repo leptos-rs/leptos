@@ -3,7 +3,9 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, renderer::Rndr,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    hydration::Cursor,
+    renderer::Rndr,
     ssr::StreamBuilder,
 };
 use either_of::Either;
@@ -87,12 +89,19 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .to_html_with_buf(buf, position, escape, mark_branches)
+        .to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -101,6 +110,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -113,6 +123,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -288,13 +299,27 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_with_buf(buf, position, escape, mark_branches);
+            first.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
         }
         for child in children {
-            child.to_html_with_buf(buf, position, escape, mark_branches);
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                // each child will have the extra attributes applied
+                extra_attrs.clone(),
+            );
         }
         buf.push_str("<!>");
     }
@@ -305,6 +330,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -315,6 +341,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
         for child in children {
@@ -323,6 +350,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
         buf.push_sync("<!>");
@@ -459,9 +487,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for child in self.into_iter() {
-            child.to_html_with_buf(buf, position, escape, mark_branches);
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
         }
     }
 
@@ -471,6 +506,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -480,6 +516,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     prelude::Mountable,
     ssr::StreamBuilder,
@@ -101,10 +101,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         self.owner.with(|| {
-            self.view
-                .to_html_with_buf(buf, position, escape, mark_branches)
+            self.view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            )
         });
     }
 
@@ -114,6 +120,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -123,6 +130,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             )
         });
 

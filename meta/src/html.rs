@@ -1,6 +1,6 @@
 use crate::ServerMetaContext;
 use leptos::{
-    attr::NextAttribute,
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component, html,
     reactive::owner::use_context,
     tachys::{
@@ -122,10 +122,14 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();
-            _ = html::attributes_to_html(self.attributes, &mut buf);
+            _ = html::attributes_to_html(
+                (self.attributes, extra_attrs),
+                &mut buf,
+            );
             if !buf.is_empty() {
                 _ = meta.html.send(buf);
             }

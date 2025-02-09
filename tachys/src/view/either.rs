@@ -3,7 +3,9 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;
@@ -158,13 +160,20 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Either::Left(left) => {
                 if mark_branches {
                     buf.open_branch("0");
                 }
-                left.to_html_with_buf(buf, position, escape, mark_branches);
+                left.to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
                 if mark_branches {
                     buf.close_branch("0");
                 }
@@ -173,7 +182,13 @@ where
                 if mark_branches {
                     buf.open_branch("1");
                 }
-                right.to_html_with_buf(buf, position, escape, mark_branches);
+                right.to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
                 if mark_branches {
                     buf.close_branch("1");
                 }
@@ -187,6 +202,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -200,6 +216,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("0");
@@ -214,6 +231,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("1");
@@ -378,15 +396,28 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if self.show_b {
             self.b
                 .expect("rendering B to HTML without filling it")
-                .to_html_with_buf(buf, position, escape, mark_branches);
+                .to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
         } else {
             self.a
                 .expect("rendering A to HTML without filling it")
-                .to_html_with_buf(buf, position, escape, mark_branches);
+                .to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
         }
     }
 
@@ -396,6 +427,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -407,6 +439,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
         } else {
             self.a
@@ -416,6 +449,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
         }
     }
@@ -644,13 +678,20 @@ macro_rules! tuples {
                     }
                 }
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
+                fn to_html_with_buf(
+                    self,
+                    buf: &mut String,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>
+                ) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_with_buf(buf, position, escape, mark_branches);
+                            this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }
@@ -660,7 +701,12 @@ macro_rules! tuples {
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
-                    buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
+                    buf: &mut StreamBuilder,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>
+                ) where
                     Self: Sized,
                 {
                     match self {
@@ -668,7 +714,7 @@ macro_rules! tuples {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
+                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }

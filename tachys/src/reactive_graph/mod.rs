@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::{Attribute, AttributeValue},
+    html::attribute::{any_attribute::AnyAttribute, Attribute, AttributeValue},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
@@ -156,9 +156,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         let value = self.invoke();
-        value.to_html_with_buf(buf, position, escape, mark_branches)
+        value.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -167,6 +174,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -176,6 +184,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -525,7 +534,9 @@ where
 mod stable {
     use super::RenderEffectState;
     use crate::{
-        html::attribute::{Attribute, AttributeValue},
+        html::attribute::{
+            any_attribute::AnyAttribute, Attribute, AttributeValue,
+        },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
@@ -617,9 +628,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -628,6 +646,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) where
                     Self: Sized,
                 {
@@ -637,6 +656,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 
@@ -791,9 +811,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -802,6 +829,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) where
                     Self: Sized,
                 {
@@ -811,6 +839,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 

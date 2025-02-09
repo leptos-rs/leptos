@@ -10,7 +10,7 @@ use crate::{
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::{channel::oneshot, future::join_all, FutureExt};
-use leptos::{component, oco::Oco};
+use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -269,6 +269,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -348,7 +349,13 @@ where
                     outer_owner.with(|| Either::Right(Outlet().into_any()))
                 }
             };
-            view.to_html_with_buf(buf, position, escape, mark_branches);
+            view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            );
         }
     }
 
@@ -358,6 +365,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -400,6 +408,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 

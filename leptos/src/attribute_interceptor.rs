@@ -135,9 +135,15 @@ impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
         position: &mut leptos::tachys::view::Position,
         escape: bool,
         mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.children
-            .to_html_with_buf(buf, position, escape, mark_branches)
+        self.children.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            vec![],
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

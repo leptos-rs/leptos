@@ -10,6 +10,7 @@ use crate::{
 use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
+use leptos::attr::any_attribute::AnyAttribute;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, Owner},
@@ -439,6 +440,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -485,7 +487,13 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let view = self.choose_ssr();
-            view.to_html_with_buf(buf, position, escape, mark_branches);
+            view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            );
         }
     }
 
@@ -495,6 +503,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -504,6 +513,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 

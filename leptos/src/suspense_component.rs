@@ -19,7 +19,7 @@ use slotmap::{DefaultKey, SlotMap};
 use std::sync::Arc;
 use tachys::{
     either::Either,
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
@@ -262,9 +262,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.fallback
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.fallback.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -273,6 +279,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -369,6 +376,7 @@ where
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
             }
             Some(None) => {
@@ -378,6 +386,7 @@ where
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
             }
             None => {
@@ -391,12 +400,14 @@ where
                         self.fallback,
                         &mut fallback_position,
                         mark_branches,
+                        extra_attrs.clone(),
                     );
                     buf.push_async_out_of_order_with_nonce(
                         fut,
                         position,
                         mark_branches,
                         nonce_or_not(),
+                        extra_attrs,
                     );
                 } else {
                     buf.push_async({
@@ -412,6 +423,7 @@ where
                                 &mut position,
                                 escape,
                                 mark_branches,
+                                extra_attrs,
                             );
                             builder.finish().take_chunks()
                         }
@@ -528,8 +540,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        (self.0)().to_html_with_buf(buf, position, escape, mark_branches);
+        (self.0)().to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -538,6 +557,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -546,6 +566,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 

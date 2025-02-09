@@ -11,7 +11,7 @@ use reactive_graph::{
 use rustc_hash::FxHashMap;
 use std::{fmt::Debug, sync::Arc};
 use tachys::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     reactive_graph::OwnedView,
     ssr::StreamBuilder,
@@ -309,6 +309,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let _hook = throw_error::set_error_hook(self.hook);
@@ -319,6 +320,7 @@ where
             &mut new_pos,
             escape,
             mark_branches,
+            extra_attrs.clone(),
         );
 
         // any thrown errors would've been caught here
@@ -331,6 +333,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             );
         }
     }
@@ -341,6 +344,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -353,6 +357,7 @@ where
             &mut new_pos,
             escape,
             mark_branches,
+            extra_attrs.clone(),
         );
 
         // any thrown errors would've been caught here
@@ -366,6 +371,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             );
             buf.push_sync(&fallback);
         }

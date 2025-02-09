@@ -2,7 +2,11 @@ use super::{
     add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
     RenderHtml, ToTemplate,
 };
-use crate::{html::attribute::Attribute, hydration::Cursor, renderer::Rndr};
+use crate::{
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    hydration::Cursor,
+    renderer::Rndr,
+};
 
 /// A view wrapper that uses a `<template>` node to optimize DOM node creation.
 ///
@@ -81,9 +85,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches)
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

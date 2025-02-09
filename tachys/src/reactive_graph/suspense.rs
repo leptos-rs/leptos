@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
@@ -297,12 +297,19 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // TODO wrap this with a Suspense as needed
         // currently this is just used for Routes, which creates a Suspend but never actually needs
         // it (because we don't lazy-load routes on the server)
         if let Some(inner) = self.inner.now_or_never() {
-            inner.to_html_with_buf(buf, position, escape, mark_branches);
+            inner.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            );
         }
     }
 
@@ -312,6 +319,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -322,6 +330,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             ),
             None => {
                 if use_context::<SuspenseContext>().is_none() {
@@ -346,6 +355,7 @@ where
                             (),
                             &mut fallback_position,
                             mark_branches,
+                            extra_attrs.clone(),
                         );
 
                         // TODO in 0.8: this should include a nonce
@@ -357,6 +367,7 @@ where
                             fut,
                             position,
                             mark_branches,
+                            extra_attrs,
                         );
                     } else {
                         buf.push_async({
@@ -369,6 +380,7 @@ where
                                     &mut position,
                                     escape,
                                     mark_branches,
+                                    extra_attrs,
                                 );
                                 builder.finish().take_chunks()
                             }

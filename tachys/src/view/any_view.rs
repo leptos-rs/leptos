@@ -12,6 +12,7 @@ use crate::{
     hydration::Cursor,
     ssr::StreamBuilder,
 };
+use futures::future::{join, join_all};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -41,13 +42,32 @@ pub struct AnyView {
     #[cfg(feature = "ssr")]
     html_len: usize,
     #[cfg(feature = "ssr")]
-    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool, bool),
+    to_html: fn(
+        Box<dyn Any>,
+        &mut String,
+        &mut Position,
+        bool,
+        bool,
+        Vec<AnyAttribute>,
+    ),
     #[cfg(feature = "ssr")]
-    to_html_async:
-        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
+    to_html_async: fn(
+        Box<dyn Any>,
+        &mut StreamBuilder,
+        &mut Position,
+        bool,
+        bool,
+        Vec<AnyAttribute>,
+    ),
     #[cfg(feature = "ssr")]
-    to_html_async_ooo:
-        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
+    to_html_async_ooo: fn(
+        Box<dyn Any>,
+        &mut StreamBuilder,
+        &mut Position,
+        bool,
+        bool,
+        Vec<AnyAttribute>,
+    ),
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
     resolve: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
@@ -177,7 +197,8 @@ where
                      buf: &mut String,
                      position: &mut Position,
                      escape: bool,
-                     mark_branches: bool| {
+                     mark_branches: bool,
+                     extra_attrs: Vec<AnyAttribute>| {
                         let type_id = mark_branches
                             .then(|| format!("{:?}", TypeId::of::<T>()))
                             .unwrap_or_default();
@@ -192,6 +213,7 @@ where
                             position,
                             escape,
                             mark_branches,
+                            extra_attrs,
                         );
                         if mark_branches {
                             buf.close_branch(&type_id);
@@ -203,7 +225,8 @@ where
                      buf: &mut StreamBuilder,
                      position: &mut Position,
                      escape: bool,
-                     mark_branches: bool| {
+                     mark_branches: bool,
+                     extra_attrs: Vec<AnyAttribute>| {
                         let type_id = mark_branches
                             .then(|| format!("{:?}", TypeId::of::<T>()))
                             .unwrap_or_default();
@@ -218,6 +241,7 @@ where
                             position,
                             escape,
                             mark_branches,
+                            extra_attrs,
                         );
                         if mark_branches {
                             buf.close_branch(&type_id);
@@ -229,7 +253,8 @@ where
                      buf: &mut StreamBuilder,
                      position: &mut Position,
                      escape: bool,
-                     mark_branches: bool| {
+                     mark_branches: bool,
+                     extra_attrs: Vec<AnyAttribute>| {
                         let value = value
                             .downcast::<T>()
                             .expect("AnyView::to_html could not be downcast");
@@ -238,6 +263,7 @@ where
                             position,
                             escape,
                             mark_branches,
+                            extra_attrs,
                         );
                     };
                 let build = |value: Box<dyn Any>| {
@@ -398,15 +424,24 @@ impl RenderHtml for AnyView {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(feature = "ssr")]
-        (self.to_html)(self.value, buf, position, escape, mark_branches);
+        (self.to_html)(
+            self.value,
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         #[cfg(not(feature = "ssr"))]
         {
             _ = mark_branches;
             _ = buf;
             _ = position;
             _ = escape;
+            _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
@@ -420,6 +455,7 @@ impl RenderHtml for AnyView {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -431,6 +467,7 @@ impl RenderHtml for AnyView {
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             );
         } else {
             (self.to_html_async)(
@@ -439,6 +476,7 @@ impl RenderHtml for AnyView {
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             );
         }
         #[cfg(not(feature = "ssr"))]
@@ -447,6 +485,7 @@ impl RenderHtml for AnyView {
             _ = position;
             _ = escape;
             _ = mark_branches;
+            _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
@@ -535,7 +574,8 @@ impl Render for AnyViewWithAttrs {
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
+        self.view.rebuild(&mut state.view);
+        self.attrs.rebuild(&mut state.attrs);
     }
 }
 
@@ -544,11 +584,18 @@ impl RenderHtml for AnyViewWithAttrs {
     const MIN_LENGTH: usize = 0;
 
     fn dry_resolve(&mut self) {
-        todo!()
+        self.view.dry_resolve();
+        for attr in &mut self.attrs {
+            attr.dry_resolve();
+        }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+        let resolve_view = self.view.resolve();
+        let resolve_attrs =
+            join_all(self.attrs.into_iter().map(|attr| attr.resolve()));
+        let (view, attrs) = join(resolve_view, resolve_attrs).await;
+        Self { view, attrs }
     }
 
     fn to_html_with_buf(
@@ -557,8 +604,18 @@ impl RenderHtml for AnyViewWithAttrs {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        mut extra_attrs: Vec<AnyAttribute>,
     ) {
-        todo!()
+        // `extra_attrs` will be empty here in most cases, but it will have
+        // attributes in it already if this is, itself, receiving additional attrs
+        extra_attrs.extend(self.attrs);
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -567,10 +624,18 @@ impl RenderHtml for AnyViewWithAttrs {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        mut extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
-        todo!()
+        extra_attrs.extend(self.attrs);
+        self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -578,11 +643,20 @@ impl RenderHtml for AnyViewWithAttrs {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        todo!()
+        let view = self.view.hydrate::<FROM_SERVER>(cursor, position);
+        let elements = view.elements();
+        let mut attrs = Vec::with_capacity(elements.len() * self.attrs.len());
+        for attr in self.attrs {
+            for el in &elements {
+                attrs.push(attr.clone().hydrate::<FROM_SERVER>(el));
+            }
+        }
+        AnyViewWithAttrsState { view, attrs }
     }
 
     fn html_len(&self) -> usize {
-        todo!()
+        self.view.html_len()
+            + self.attrs.iter().map(|attr| attr.html_len()).sum::<usize>()
     }
 }
 

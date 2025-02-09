@@ -3,7 +3,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
@@ -218,10 +218,17 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            item.to_html_with_buf(buf, position, escape, mark_branches);
+            item.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
             *position = Position::NextChild;
         }
         buf.push_str("<!>");
@@ -233,6 +240,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
@@ -241,6 +249,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
             *position = Position::NextChild;
         }

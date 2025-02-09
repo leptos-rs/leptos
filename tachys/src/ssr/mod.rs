@@ -1,4 +1,7 @@
-use crate::view::{Position, RenderHtml};
+use crate::{
+    html::attribute::any_attribute::AnyAttribute,
+    view::{Position, RenderHtml},
+};
 use futures::Stream;
 use std::{
     collections::VecDeque,
@@ -103,6 +106,7 @@ impl StreamBuilder {
         fallback: View,
         position: &mut Position,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -112,6 +116,7 @@ impl StreamBuilder {
             position,
             true,
             mark_branches,
+            extra_attrs,
         );
         self.write_chunk_marker(false);
         *position = Position::NextChild;
@@ -160,6 +165,7 @@ impl StreamBuilder {
         view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -168,6 +174,7 @@ impl StreamBuilder {
             position,
             mark_branches,
             None,
+            extra_attrs,
         );
     }
 
@@ -178,6 +185,7 @@ impl StreamBuilder {
         position: &mut Position,
         mark_branches: bool,
         nonce: Option<Arc<str>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -207,6 +215,7 @@ impl StreamBuilder {
                         &mut position,
                         true,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
                 let chunks = subbuilder.finish().take_chunks();

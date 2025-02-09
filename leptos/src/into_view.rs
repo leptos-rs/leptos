@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use tachys::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
@@ -104,6 +104,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(debug_assertions)]
         let vm = self.view_marker.to_owned();
@@ -112,8 +113,13 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
 
-        self.inner
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.inner.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
 
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
@@ -127,6 +133,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -142,6 +149,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         #[cfg(debug_assertions)]

@@ -2,6 +2,7 @@ use super::{
     Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
+    html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
     no_attrs,
     renderer::{CastFrom, Rndr},
@@ -57,6 +58,7 @@ impl RenderHtml for &str {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -187,6 +189,7 @@ impl RenderHtml for String {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             self.as_str(),
@@ -194,6 +197,7 @@ impl RenderHtml for String {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -386,6 +390,7 @@ impl RenderHtml for Arc<str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -393,6 +398,7 @@ impl RenderHtml for Arc<str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -490,6 +496,7 @@ impl RenderHtml for Cow<'_, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -497,6 +504,7 @@ impl RenderHtml for Cow<'_, str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 

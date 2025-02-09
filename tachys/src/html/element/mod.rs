@@ -21,7 +21,9 @@ mod custom;
 mod element_ext;
 mod elements;
 mod inner_html;
-use super::attribute::{escape_attr, NextAttribute};
+use super::attribute::{
+    any_attribute::AnyAttribute, escape_attr, NextAttribute,
+};
 pub use custom::*;
 pub use element_ext::*;
 pub use elements::*;
@@ -271,12 +273,14 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
+        extra_attributes: Vec<AnyAttribute>,
     ) {
         // opening tag
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, buf);
+        let inner_html =
+            attributes_to_html((self.attributes, extra_attributes), buf);
 
         buf.push('>');
 
@@ -291,6 +295,7 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
+                    vec![],
                 );
             }
 
@@ -308,6 +313,7 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
+        extra_attributes: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -316,7 +322,8 @@ where
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, &mut buf);
+        let inner_html =
+            attributes_to_html((self.attributes, extra_attributes), &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -332,6 +339,7 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
+                    vec![],
                 );
             }
 
