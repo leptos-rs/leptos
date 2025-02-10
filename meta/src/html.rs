@@ -103,6 +103,7 @@ where
     At: Attribute,
 {
     type AsyncOutput = HtmlView<At::AsyncOutput>;
+    type Owned = HtmlView<At::CloneableOwned>;
 
     const MIN_LENGTH: usize = At::MIN_LENGTH;
 
@@ -148,6 +149,12 @@ where
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         HtmlViewState { attributes }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        HtmlView {
+            attributes: self.attributes.into_cloneable_owned(),
+        }
     }
 }
 

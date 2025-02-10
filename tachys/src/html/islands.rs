@@ -100,6 +100,7 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = Island<View::AsyncOutput>;
+    type Owned = Island<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -187,6 +188,14 @@ where
 
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
+
+    fn into_owned(self) -> Self::Owned {
+        Island {
+            component: self.component,
+            props_json: self.props_json,
+            view: self.view.into_owned(),
+        }
+    }
 }
 
 /// The children that will be projected into an [`Island`].
@@ -267,6 +276,7 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = IslandChildren<View::AsyncOutput>;
+    type Owned = IslandChildren<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
@@ -370,6 +380,13 @@ where
                 &wasm_bindgen::JsValue::from_str("$$on_hydrate"),
                 &cb.into_js_value(),
             );
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        IslandChildren {
+            view: self.view.into_owned(),
+            on_hydrate: self.on_hydrate,
         }
     }
 }

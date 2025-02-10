@@ -53,6 +53,7 @@ no_attrs!(Doctype);
 
 impl RenderHtml for Doctype {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 
@@ -80,6 +81,10 @@ impl RenderHtml for Doctype {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -155,6 +160,7 @@ impl AddAnyAttr for InertElement {
 
 impl RenderHtml for InertElement {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -195,5 +201,9 @@ impl RenderHtml for InertElement {
             .unwrap();
         position.set(Position::NextChild);
         InertElementState(self.html, el)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

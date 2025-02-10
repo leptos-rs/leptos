@@ -76,6 +76,7 @@ where
     V::State: Mountable,
 {
     type AsyncOutput = V::AsyncOutput;
+    type Owned = V::Owned;
 
     const MIN_LENGTH: usize = V::MIN_LENGTH;
 
@@ -110,6 +111,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.view.resolve().await
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.view.into_owned()
     }
 }
 

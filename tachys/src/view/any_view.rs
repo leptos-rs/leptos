@@ -162,14 +162,14 @@ where
 impl<T> IntoAny for T
 where
     T: Send,
-    T: RenderHtml + 'static,
+    T: RenderHtml,
     T::State: 'static,
 {
     fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]
         let html_len = self.html_len();
 
-        let value = Box::new(self) as Box<dyn Any + Send>;
+        let value = Box::new(self.into_owned()) as Box<dyn Any + Send>;
 
         match value.downcast::<AnyView>() {
             // if it's already an AnyView, we don't need to double-wrap it
@@ -178,7 +178,7 @@ where
                 #[cfg(feature = "ssr")]
                 let dry_resolve = |value: &mut Box<dyn Any + Send>| {
                     let value = value
-                        .downcast_mut::<T>()
+                        .downcast_mut::<T::Owned>()
                         .expect("AnyView::resolve could not be downcast");
                     value.dry_resolve();
                 };
@@ -186,7 +186,7 @@ where
                 #[cfg(feature = "ssr")]
                 let resolve = |value: Box<dyn Any>| {
                     let value = value
-                        .downcast::<T>()
+                        .downcast::<T::Owned>()
                         .expect("AnyView::resolve could not be downcast");
                     Box::pin(async move { value.resolve().await.into_any() })
                         as Pin<Box<dyn Future<Output = AnyView> + Send>>
@@ -200,10 +200,10 @@ where
                      mark_branches: bool,
                      extra_attrs: Vec<AnyAttribute>| {
                         let type_id = mark_branches
-                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .then(|| format!("{:?}", TypeId::of::<T::Owned>()))
                             .unwrap_or_default();
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
@@ -228,10 +228,10 @@ where
                      mark_branches: bool,
                      extra_attrs: Vec<AnyAttribute>| {
                         let type_id = mark_branches
-                            .then(|| format!("{:?}", TypeId::of::<T>()))
+                            .then(|| format!("{:?}", TypeId::of::<T::Owned>()))
                             .unwrap_or_default();
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::to_html could not be downcast");
                         if mark_branches {
                             buf.open_branch(&type_id);
@@ -256,7 +256,7 @@ where
                      mark_branches: bool,
                      extra_attrs: Vec<AnyAttribute>| {
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::to_html could not be downcast");
                         value.to_html_async_with_buf::<true>(
                             buf,
@@ -268,17 +268,17 @@ where
                     };
                 let build = |value: Box<dyn Any>| {
                     let value = value
-                        .downcast::<T>()
+                        .downcast::<T::Owned>()
                         .expect("AnyView::build couldn't downcast");
                     let state = Box::new(value.build());
 
                     AnyViewState {
-                        type_id: TypeId::of::<T>(),
+                        type_id: TypeId::of::<T::Owned>(),
                         state,
-                        mount: mount_any::<T>,
-                        unmount: unmount_any::<T>,
-                        insert_before_this: insert_before_this::<T>,
-                        elements: elements::<T>,
+                        mount: mount_any::<T::Owned>,
+                        unmount: unmount_any::<T::Owned>,
+                        insert_before_this: insert_before_this::<T::Owned>,
+                        elements: elements::<T::Owned>,
                     }
                 };
                 #[cfg(feature = "hydrate")]
@@ -286,19 +286,19 @@ where
                     |value: Box<dyn Any>,
                      cursor: &Cursor,
                      position: &PositionState| {
-                        let value = value.downcast::<T>().expect(
+                        let value = value.downcast::<T::Owned>().expect(
                             "AnyView::hydrate_from_server couldn't downcast",
                         );
                         let state =
                             Box::new(value.hydrate::<true>(cursor, position));
 
                         AnyViewState {
-                            type_id: TypeId::of::<T>(),
+                            type_id: TypeId::of::<T::Owned>(),
                             state,
-                            mount: mount_any::<T>,
-                            unmount: unmount_any::<T>,
-                            insert_before_this: insert_before_this::<T>,
-                            elements: elements::<T>,
+                            mount: mount_any::<T::Owned>,
+                            unmount: unmount_any::<T::Owned>,
+                            insert_before_this: insert_before_this::<T::Owned>,
+                            elements: elements::<T::Owned>,
                         }
                     };
 
@@ -307,7 +307,7 @@ where
                      value: Box<dyn Any>,
                      state: &mut AnyViewState| {
                         let value = value
-                            .downcast::<T>()
+                            .downcast::<T::Owned>()
                             .expect("AnyView::rebuild couldn't downcast value");
                         if new_type_id == state.type_id {
                             let state = state.state.downcast_mut().expect(
@@ -323,7 +323,7 @@ where
                     };
 
                 AnyView {
-                    type_id: TypeId::of::<T>(),
+                    type_id: TypeId::of::<T::Owned>(),
                     value,
                     build,
                     rebuild,
@@ -379,6 +379,7 @@ impl AddAnyAttr for AnyView {
 
 impl RenderHtml for AnyView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     fn dry_resolve(&mut self) {
         #[cfg(feature = "ssr")]
@@ -516,6 +517,10 @@ impl RenderHtml for AnyView {
             0
         }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self
+    }
 }
 
 impl Mountable for AnyViewState {
@@ -569,6 +574,7 @@ impl Render for AnyViewWithAttrs {
 
 impl RenderHtml for AnyViewWithAttrs {
     type AsyncOutput = Self;
+    type Owned = Self;
     const MIN_LENGTH: usize = 0;
 
     fn dry_resolve(&mut self) {
@@ -645,6 +651,10 @@ impl RenderHtml for AnyViewWithAttrs {
     fn html_len(&self) -> usize {
         self.view.html_len()
             + self.attrs.iter().map(|attr| attr.html_len()).sum::<usize>()
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

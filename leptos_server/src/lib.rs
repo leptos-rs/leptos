@@ -135,6 +135,7 @@ mod view_implementations {
         Ser: Send + 'static,
     {
         type AsyncOutput = Option<T>;
+        type Owned = Self;
 
         const MIN_LENGTH: usize = 0;
 
@@ -190,6 +191,10 @@ mod view_implementations {
         ) -> Self::State {
             (move || Suspend::new(async move { self.await }))
                 .hydrate::<FROM_SERVER>(cursor, position)
+        }
+
+        fn into_owned(self) -> Self::Owned {
+            self
         }
     }
 }

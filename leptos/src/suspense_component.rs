@@ -247,6 +247,7 @@ where
     // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
     // itself
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
@@ -473,6 +474,10 @@ where
             }
         })
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self
+    }
 }
 
 /// A wrapper that prevents [`Suspense`] from waiting for any resource reads that happen inside
@@ -525,6 +530,7 @@ where
     T: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -576,5 +582,9 @@ where
         position: &PositionState,
     ) -> Self::State {
         (self.0)().hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

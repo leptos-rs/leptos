@@ -39,6 +39,7 @@ impl<'a> Render for &'a str {
 
 impl RenderHtml for &str {
     type AsyncOutput = Self;
+    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
@@ -103,6 +104,10 @@ impl RenderHtml for &str {
         position.set(Position::NextChildAfterText);
 
         StrState { node, str: self }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.to_string()
     }
 }
 
@@ -172,6 +177,7 @@ impl Render for String {
 impl RenderHtml for String {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
+    type Owned = Self;
 
     fn dry_resolve(&mut self) {}
 
@@ -209,6 +215,10 @@ impl RenderHtml for String {
         let StrState { node, .. } =
             self.as_str().hydrate::<FROM_SERVER>(cursor, position);
         StringState { node, str: self }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -371,6 +381,7 @@ impl Render for Arc<str> {
 
 impl RenderHtml for Arc<str> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -411,6 +422,10 @@ impl RenderHtml for Arc<str> {
         let StrState { node, .. } =
             this.hydrate::<FROM_SERVER>(cursor, position);
         ArcStrState { node, str: self }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -477,6 +492,7 @@ impl<'a> Render for Cow<'a, str> {
 
 impl RenderHtml for Cow<'_, str> {
     type AsyncOutput = Self;
+    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
@@ -517,6 +533,10 @@ impl RenderHtml for Cow<'_, str> {
         let StrState { node, .. } =
             this.hydrate::<FROM_SERVER>(cursor, position);
         CowStrState { node, str: self }
+    }
+
+    fn into_owned(self) -> <Self as RenderHtml>::Owned {
+        self.into_owned()
     }
 }
 

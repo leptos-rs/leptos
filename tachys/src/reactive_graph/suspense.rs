@@ -288,6 +288,7 @@ where
     T: RenderHtml + Sized + 'static,
 {
     type AsyncOutput = Option<T>;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -471,5 +472,9 @@ where
             self.inner = Box::pin(async move { inner })
                 as Pin<Box<dyn Future<Output = T> + Send>>;
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

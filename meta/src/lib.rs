@@ -430,6 +430,7 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = Self;
+    type Owned = RegisteredMetaTag<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -469,6 +470,12 @@ where
             &PositionState::new(Position::NextChild),
         );
         RegisteredMetaTagState { state }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        RegisteredMetaTag {
+            el: self.el.map(|inner| inner.into_owned()),
+        }
     }
 }
 
@@ -547,6 +554,7 @@ impl AddAnyAttr for MetaTagsView {
 
 impl RenderHtml for MetaTagsView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -572,6 +580,10 @@ impl RenderHtml for MetaTagsView {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

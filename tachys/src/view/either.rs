@@ -129,6 +129,7 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
+    type Owned = Either<A::Owned, B::Owned>;
 
     fn dry_resolve(&mut self) {
         match self {
@@ -254,6 +255,13 @@ where
             }
         }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        match self {
+            Either::Left(left) => Either::Left(left.into_owned()),
+            Either::Right(right) => Either::Right(right.into_owned()),
+        }
+    }
 }
 
 /// Stores each value in the view state, overwriting it only if `Some(_)` is provided.
@@ -358,6 +366,7 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = EitherKeepAlive<A::AsyncOutput, B::AsyncOutput>;
+    type Owned = EitherKeepAlive<A::Owned, B::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -476,6 +485,14 @@ where
         });
 
         EitherKeepAliveState { showing_b, a, b }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        EitherKeepAlive {
+            a: self.a.map(|a| a.into_owned()),
+            b: self.b.map(|b| b.into_owned()),
+            show_b: self.show_b,
+        }
     }
 }
 
@@ -653,6 +670,7 @@ macro_rules! tuples {
 
             {
                 type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
+                type Owned = [<EitherOf $num>]<$($ty::Owned,)*>;
 
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
 
@@ -734,6 +752,14 @@ macro_rules! tuples {
                     };
 
                     Self::State { state }
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => {
+                            [<EitherOf $num>]::$ty(this.into_owned())
+                        })*
+                    }
                 }
             }
         }

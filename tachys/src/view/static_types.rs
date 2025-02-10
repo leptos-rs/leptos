@@ -159,6 +159,7 @@ where
 
 impl<const V: &'static str> RenderHtml for Static<V> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = V.len();
 
@@ -220,6 +221,10 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         position.set(Position::NextChildAfterText);
 
         Some(node)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

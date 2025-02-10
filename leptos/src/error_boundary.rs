@@ -276,6 +276,7 @@ where
     Fal: RenderHtml + Send + 'static,
 {
     type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, FalFn>;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
@@ -436,6 +437,10 @@ where
                 }
             },
         )
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

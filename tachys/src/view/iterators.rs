@@ -60,6 +60,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Option<T::AsyncOutput>;
+    type Owned = Option<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -138,6 +139,10 @@ where
             None => Either::Right(()),
         }
         .hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.map(RenderHtml::into_owned)
     }
 }
 
@@ -273,6 +278,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Vec<T::AsyncOutput>;
+    type Owned = Vec<T::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -370,6 +376,12 @@ where
 
         VecState { states, marker }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self.into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+    }
 }
 
 impl<T, const N: usize> Render for [T; N]
@@ -459,6 +471,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = [T::AsyncOutput; N];
+    type Owned = [T::Owned; N];
 
     const MIN_LENGTH: usize = 0;
 
@@ -529,5 +542,13 @@ where
         let states =
             self.map(|child| child.hydrate::<FROM_SERVER>(cursor, position));
         ArrayState { states }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap_or_else(|_| unreachable!())
     }
 }

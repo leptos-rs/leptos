@@ -99,6 +99,9 @@ where
     /// The type of the view after waiting for all asynchronous data to load.
     type AsyncOutput: RenderHtml;
 
+    /// An equivalent value that is `'static`.
+    type Owned: RenderHtml + 'static;
+
     /// The minimum length of HTML created when this view is rendered.
     const MIN_LENGTH: usize;
 
@@ -298,6 +301,9 @@ where
         let position = PositionState::new(position);
         self.hydrate::<FROM_SERVER>(&cursor, &position)
     }
+
+    /// Convert into the equivalent value that is `'static`.
+    fn into_owned(self) -> Self::Owned;
 }
 
 /// Allows a type to be mounted to the DOM.

@@ -131,9 +131,9 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -184,15 +184,16 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
     T: 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -291,6 +292,10 @@ where
             hashed_items,
             rendered_items,
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
