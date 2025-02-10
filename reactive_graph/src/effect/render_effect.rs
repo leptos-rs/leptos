@@ -100,7 +100,7 @@ where
                 owner.with(|| subscriber.with_observer(|| fun(initial_value))),
             );
 
-            Executor::spawn_local({
+            any_spawner::Executor::spawn_local({
                 let value = Arc::clone(&value);
 
                 async move {
