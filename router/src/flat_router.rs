@@ -26,7 +26,7 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::{AnyView, AnyViewState, ExtraAttrsMut, IntoAny},
+        any_view::{AnyView, AnyViewState, IntoAny},
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
@@ -69,6 +69,10 @@ impl Mountable for FlatRoutesViewState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<tachys::renderer::types::Element> {
+        self.view.elements()
+    }
 }
 
 impl<Loc, Defs, FalFn, Fal> Render for FlatRoutesView<Loc, Defs, FalFn>
@@ -80,7 +84,7 @@ where
 {
     type State = Rc<RefCell<FlatRoutesViewState>>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let FlatRoutesView {
             current_url,
             routes,
@@ -118,7 +122,7 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback().into_any().build(extra_attrs),
+                view: fallback().into_any().build(),
                 id,
                 owner,
                 params,
@@ -151,7 +155,7 @@ where
 
                 match view.as_mut().now_or_never() {
                     Some(view) => Rc::new(RefCell::new(FlatRoutesViewState {
-                        view: view.into_any().build(extra_attrs),
+                        view: view.into_any().build(),
                         id,
                         owner,
                         params,
@@ -162,7 +166,7 @@ where
                     None => {
                         let state =
                             Rc::new(RefCell::new(FlatRoutesViewState {
-                                view: ().into_any().build(extra_attrs.clone()),
+                                view: ().into_any().build(),
                                 id,
                                 owner,
                                 params,
@@ -175,10 +179,8 @@ where
                             let state = Rc::clone(&state);
                             async move {
                                 let view = view.await;
-                                view.into_any().rebuild(
-                                    &mut state.borrow_mut().view,
-                                    extra_attrs,
-                                );
+                                view.into_any()
+                                    .rebuild(&mut state.borrow_mut().view);
                             }
                         });
 
@@ -189,11 +191,7 @@ where
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let FlatRoutesView {
             current_url,
             location,
@@ -271,9 +269,7 @@ where
                     provide_context(url);
                     provide_context(params_memo);
                     provide_context(Matched(ArcMemo::from(new_matched)));
-                    fallback()
-                        .into_any()
-                        .rebuild(&mut state.borrow_mut().view, extra_attrs)
+                    fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
                 if let Some(location) = location {
                     location.ready_to_complete();
@@ -323,10 +319,8 @@ where
                                 == spawned_path
                             {
                                 let rebuild = move || {
-                                    view.into_any().rebuild(
-                                        &mut state.borrow_mut().view,
-                                        extra_attrs,
-                                    );
+                                    view.into_any()
+                                        .rebuild(&mut state.borrow_mut().view);
                                 };
                                 if transition {
                                     start_view_transition(0, is_back, rebuild);
@@ -354,7 +348,7 @@ impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -427,20 +421,16 @@ impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = <Either<Fal, AnyView> as RenderHtml>::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -450,7 +440,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -513,7 +503,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -531,7 +521,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         // this can be mostly the same as the build() implementation, but with hydrate()
         //
@@ -576,11 +565,9 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback().into_any().hydrate::<FROM_SERVER>(
-                    cursor,
-                    position,
-                    extra_attrs,
-                ),
+                view: fallback()
+                    .into_any()
+                    .hydrate::<FROM_SERVER>(cursor, position),
                 id,
                 owner,
                 params,
@@ -613,11 +600,9 @@ where
 
                 match view.as_mut().now_or_never() {
                     Some(view) => Rc::new(RefCell::new(FlatRoutesViewState {
-                        view: view.into_any().hydrate::<FROM_SERVER>(
-                            cursor,
-                            position,
-                            extra_attrs,
-                        ),
+                        view: view
+                            .into_any()
+                            .hydrate::<FROM_SERVER>(cursor, position),
                         id,
                         owner,
                         params,
@@ -632,9 +617,5 @@ where
                 }
             }
         }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }

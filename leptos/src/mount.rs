@@ -71,7 +71,6 @@ where
         view.hydrate::<true>(
             &Cursor::new(parent.unchecked_into()),
             &PositionState::default(),
-            None,
         )
     });
 
@@ -125,7 +124,7 @@ where
     let owner = Owner::new();
     let mountable = owner.with(move || {
         let view = f().into_view();
-        let mut mountable = view.build(None);
+        let mut mountable = view.build();
         mountable.mount(&parent, None);
         mountable
     });
@@ -153,7 +152,7 @@ where
     let owner = Owner::new();
     let mountable = owner.with(move || {
         let view = f();
-        let mut mountable = view.build(None);
+        let mut mountable = view.build();
         mountable.mount(parent, None);
         mountable
     });

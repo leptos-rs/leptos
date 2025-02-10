@@ -8,10 +8,7 @@ use crate::{
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
     renderer::Rndr,
-    view::{
-        any_view::ExtraAttrsMut, strings::StrState, Position, PositionState,
-        ToTemplate,
-    },
+    view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
 
@@ -24,16 +21,12 @@ pub struct OcoStrState {
 impl Render for Oco<'static, str> {
     type State = OcoStrState;
 
-    fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let node = Rndr::create_text_node(&self);
         OcoStrState { node, str: self }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        _extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let OcoStrState { node, str } = state;
         if &self != str {
             Rndr::set_text(node, &self);
@@ -46,16 +39,12 @@ no_attrs!(Oco<'static, str>);
 
 impl RenderHtml for Oco<'static, str> {
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -65,7 +54,7 @@ impl RenderHtml for Oco<'static, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -81,20 +70,12 @@ impl RenderHtml for Oco<'static, str> {
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let this: &str = self.as_ref();
         let StrState { node, .. } = <&str as RenderHtml>::hydrate::<FROM_SERVER>(
-            this,
-            cursor,
-            position,
-            extra_attrs,
+            this, cursor, position,
         );
         OcoStrState { node, str: self }
-    }
-
-    fn into_owned(self) -> <Self as RenderHtml>::Owned {
-        self
     }
 }
 
@@ -129,6 +110,10 @@ impl Mountable for OcoStrState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 

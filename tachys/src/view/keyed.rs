@@ -1,7 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, any_view::ExtraAttrsMut,
-    batch_resolve_items_with_extra_attrs, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
 };
 use crate::{
     html::attribute::{any_attribute::AnyAttribute, Attribute},
@@ -76,7 +75,7 @@ where
     type State = KeyedState<K, VFS, V>;
     // TODO fallible state and try_build()/try_rebuild() here
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let items = self.items.into_iter();
         let (capacity, _) = items.size_hint();
         let mut hashed_items =
@@ -85,8 +84,7 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            rendered_items
-                .push(Some((set_index, view.build(extra_attrs.clone()))));
+            rendered_items.push(Some((set_index, view.build())));
         }
         KeyedState {
             parent: None,
@@ -96,11 +94,7 @@ where
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let KeyedState {
             parent,
             marker,
@@ -129,7 +123,6 @@ where
             rendered_items,
             &self.view_fn,
             items,
-            extra_attrs,
         );
 
         *hashed_items = new_hashed_items;
@@ -138,9 +131,9 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send + 'static,
+    I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send + 'static,
+    KF: Fn(&T) -> K + Send,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -191,38 +184,29 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send + 'static,
+    I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send + 'static,
+    KF: Fn(&T) -> K + Send,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
     T: 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
-    type Owned = Keyed<T, I, K, KF, VF, VFS, V>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         // TODO...
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        batch_resolve_items_with_extra_attrs(
-            self.items
-                .into_iter()
-                .enumerate()
-                .map(|(index, item)| {
-                    let (_, view) = (self.view_fn)(index, item);
-                    view
-                })
-                .collect::<Vec<_>>(),
-            extra_attrs,
-        )
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.items.into_iter().enumerate().map(
+            |(index, item)| {
+                let (_, view) = (self.view_fn)(index, item);
+                view.resolve()
+            },
+        ))
         .await
         .into_iter()
         .collect::<Vec<_>>()
@@ -234,7 +218,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
@@ -256,7 +240,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
@@ -276,7 +260,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         // get parent and position
         let current = cursor.current();
@@ -298,11 +281,7 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            let item = view.hydrate::<FROM_SERVER>(
-                cursor,
-                position,
-                extra_attrs.clone(),
-            );
+            let item = view.hydrate::<FROM_SERVER>(cursor, position);
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
@@ -312,10 +291,6 @@ where
             hashed_items,
             rendered_items,
         }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 
@@ -355,6 +330,14 @@ where
                 }
             })
             .unwrap_or_else(|| self.marker.insert_before_this(child))
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.rendered_items
+            .iter()
+            .flatten()
+            .flat_map(|item| item.1.elements())
+            .collect()
     }
 }
 
@@ -544,7 +527,6 @@ fn apply_diff<T, VFS, V>(
     children: &mut Vec<Option<(VFS, V::State)>>,
     view_fn: impl Fn(usize, T) -> (VFS, V),
     mut items: Vec<Option<T>>,
-    extra_attrs: Option<Vec<AnyAttribute>>,
 ) where
     VFS: Fn(usize),
     V: Render,
@@ -618,7 +600,7 @@ fn apply_diff<T, VFS, V>(
     for DiffOpAdd { at, mode } in add_cmds {
         let item = items[at].take().unwrap();
         let (set_index, item) = view_fn(at, item);
-        let mut item = item.build(extra_attrs.clone());
+        let mut item = item.build();
 
         match mode {
             DiffOpAddMode::Normal => {
@@ -729,7 +711,7 @@ mod tests {
     #[test]
     fn keyed_creates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let el_state = el.build(None);
+        let el_state = el.build();
         assert_eq!(
             el_state.el.to_debug_html(),
             "<ul><li>1</li><li>2</li><li>3</li></ul>"
@@ -739,7 +721,7 @@ mod tests {
     #[test]
     fn adding_items_updates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed(1..=5, |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -751,7 +733,7 @@ mod tests {
     #[test]
     fn removing_items_updates_list() {
         let el = ul((), keyed(1..=3, |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed(1..=2, |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -763,7 +745,7 @@ mod tests {
     #[test]
     fn swapping_items_updates_list() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed([1, 4, 3, 2, 5], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -775,7 +757,7 @@ mod tests {
     #[test]
     fn swapping_and_removing_orders_correctly() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed([1, 4, 3, 5], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -787,7 +769,7 @@ mod tests {
     #[test]
     fn arbitrarily_hard_adjustment() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed([2, 4, 3], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(
@@ -799,7 +781,7 @@ mod tests {
     #[test]
     fn a_series_of_moves() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed([2, 4, 3], |k| *k, item));
         el.rebuild(&mut el_state);
         let el = ul((), keyed([1, 7, 5, 11, 13, 17], |k| *k, item));
@@ -819,7 +801,7 @@ mod tests {
     #[test]
     fn clearing_works() {
         let el = ul((), keyed([1, 2, 3, 4, 5], |k| *k, item));
-        let mut el_state = el.build(None);
+        let mut el_state = el.build();
         let el = ul((), keyed([], |k| *k, item));
         el.rebuild(&mut el_state);
         assert_eq!(el_state.el.to_debug_html(), "<ul></ul>");

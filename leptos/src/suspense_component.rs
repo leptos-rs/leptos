@@ -25,7 +25,6 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::ExtraAttrsMut,
         either::{EitherKeepAlive, EitherKeepAliveState},
         Mountable, Position, PositionState, Render, RenderHtml,
     },
@@ -163,7 +162,7 @@ where
         OwnedViewState<EitherKeepAliveState<Chil::State, Fal::State>>,
     >;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let mut children = Some(self.children);
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
@@ -188,20 +187,16 @@ where
             );
 
             if let Some(mut state) = prev {
-                this.rebuild(&mut state, extra_attrs.clone());
+                this.rebuild(&mut state);
                 state
             } else {
-                this.build(extra_attrs.clone())
+                this.build()
             }
         })
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        let new = self.build(extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
         let mut old = std::mem::replace(state, new);
         old.insert_before_this(state);
         old.unmount();
@@ -252,16 +247,12 @@ where
     // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
     // itself
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -271,7 +262,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         self.fallback.to_html_with_buf(
             buf,
@@ -288,7 +279,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        mut extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -313,8 +304,7 @@ where
         provide_context(LocalResourceNotifier::from(local_tx));
 
         // walk over the tree of children once to make sure that all resource loads are registered
-        self.children
-            .dry_resolve(ExtraAttrsMut::from_owned(&mut extra_attrs));
+        self.children.dry_resolve();
 
         // check the set of tasks to see if it is empty, now or later
         let eff = reactive_graph::effect::Effect::new_isomorphic({
@@ -330,8 +320,7 @@ where
             }
         });
 
-        let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new({
-            let mut extra_attrs = extra_attrs.clone();
+        let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
             async move {
                 // race the local resource notifier against the set of tasks
                 //
@@ -358,7 +347,7 @@ where
                         // but in situations like a <For each=|| some_resource.snapshot()/> we actually
                         // want to be able to 1) synchronously read a resource's value, but still 2) wait
                         // for it to load before we render everything
-                        let mut children = Box::pin(self.children.resolve(ExtraAttrsMut::from_owned(&mut extra_attrs)).fuse());
+                        let mut children = Box::pin(self.children.resolve().fuse());
 
                         // we continue racing the children against the "do we have any local
                         // resources?" Future
@@ -377,8 +366,8 @@ where
                         }
                     }
                 }
-            }
-        })));
+            },
+        )));
         match fut.as_mut().now_or_never() {
             Some(Some(resolved)) => {
                 Either::<Fal, _>::Right(resolved)
@@ -449,7 +438,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let cursor = cursor.to_owned();
         let position = position.to_owned();
@@ -478,20 +466,12 @@ where
             );
 
             if let Some(mut state) = prev {
-                this.rebuild(&mut state, extra_attrs.clone());
+                this.rebuild(&mut state);
                 state
             } else {
-                this.hydrate::<FROM_SERVER>(
-                    &cursor,
-                    &position,
-                    extra_attrs.clone(),
-                )
+                this.hydrate::<FROM_SERVER>(&cursor, &position)
             }
         })
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }
 
@@ -512,16 +492,12 @@ where
 {
     type State = T::State;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
-        (self.0)().build(extra_attrs)
+    fn build(self) -> Self::State {
+        (self.0)().build()
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        (self.0)().rebuild(state, extra_attrs);
+    fn rebuild(self, state: &mut Self::State) {
+        (self.0)().rebuild(state);
     }
 }
 
@@ -549,16 +525,12 @@ where
     T: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+    fn dry_resolve(&mut self) {}
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 
@@ -568,7 +540,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         (self.0)().to_html_with_buf(
             buf,
@@ -585,7 +557,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -602,12 +574,7 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        (self.0)().hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
+        (self.0)().hydrate::<FROM_SERVER>(cursor, position)
     }
 }

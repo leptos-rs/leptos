@@ -1,9 +1,6 @@
 use crate::ServerMetaContext;
 use leptos::{
-    attr::{
-        any_attribute::{AnyAttribute, AnyAttributeState},
-        NextAttribute,
-    },
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component, html,
     reactive::owner::use_context,
     tachys::{
@@ -11,8 +8,8 @@ use leptos::{
         html::attribute::Attribute,
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
-            PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
         },
     },
     IntoView,
@@ -61,7 +58,6 @@ where
     At: Attribute,
 {
     attributes: At::State,
-    extra_attrs: Option<Vec<AnyAttributeState>>,
 }
 
 impl<At> Render for BodyView<At>
@@ -70,27 +66,15 @@ where
 {
     type State = BodyViewState<At>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
         let attributes = self.attributes.build(&el);
-        let extra_attrs = extra_attrs.map(|attrs| attrs.build(&el));
-        BodyViewState {
-            attributes,
-            extra_attrs,
-        }
+
+        BodyViewState { attributes }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         self.attributes.rebuild(&mut state.attributes);
-        if let (Some(extra_attrs), Some(extra_attr_states)) =
-            (extra_attrs, &mut state.extra_attrs)
-        {
-            extra_attrs.rebuild(extra_attr_states);
-        }
     }
 }
 
@@ -119,24 +103,17 @@ where
     At: Attribute,
 {
     type AsyncOutput = BodyView<At::AsyncOutput>;
-    type Owned = BodyView<At::CloneableOwned>;
 
     const MIN_LENGTH: usize = At::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         self.attributes.dry_resolve();
-        extra_attrs.iter_mut().for_each(Attribute::dry_resolve);
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        let (attributes, _) = futures::join!(
-            self.attributes.resolve(),
-            ExtraAttrsMut::resolve(extra_attrs)
-        );
-        BodyView { attributes }
+    async fn resolve(self) -> Self::AsyncOutput {
+        BodyView {
+            attributes: self.attributes.resolve().await,
+        }
     }
 
     fn to_html_with_buf(
@@ -145,13 +122,12 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();
             _ = html::attributes_to_html(
-                self.attributes,
-                extra_attrs,
+                (self.attributes, extra_attrs),
                 &mut buf,
             );
             if !buf.is_empty() {
@@ -164,23 +140,11 @@ where
         self,
         _cursor: &Cursor,
         _position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
-        let extra_attrs =
-            extra_attrs.map(|attrs| attrs.hydrate::<FROM_SERVER>(&el));
 
-        BodyViewState {
-            attributes,
-            extra_attrs,
-        }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        BodyView {
-            attributes: self.attributes.into_cloneable_owned(),
-        }
+        BodyViewState { attributes }
     }
 }
 
@@ -199,5 +163,12 @@ where
 
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
+    }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        vec![document()
+            .body()
+            .expect("there to be a <body> element")
+            .into()]
     }
 }

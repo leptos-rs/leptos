@@ -1,7 +1,4 @@
-use super::{
-    any_view::ExtraAttrsMut, Mountable, Position, PositionState, Render,
-    RenderHtml,
-};
+use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
@@ -44,18 +41,22 @@ macro_rules! render_primitive {
 					) -> bool {
                         self.0.insert_before_this(child)
 					}
+
+					fn elements(&self) -> Vec<crate::renderer::types::Element> {
+						vec![]
+					}
 			}
 
 			impl Render for $child_type {
 				type State = [<$child_type:camel State>];
 
 
-				fn build(self, _extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+				fn build(self) -> Self::State {
 					let node = Rndr::create_text_node(&self.to_string());
 					[<$child_type:camel State>](node, self)
 				}
 
-				fn rebuild(self, state: &mut Self::State, _extra_attrs: Option<Vec<AnyAttribute>>) {
+				fn rebuild(self, state: &mut Self::State) {
 					let [<$child_type:camel State>](node, this) = state;
 					if &self != this {
 						Rndr::set_text(node, &self.to_string());
@@ -69,17 +70,16 @@ macro_rules! render_primitive {
 			impl RenderHtml for $child_type
 			{
 				type AsyncOutput = Self;
-				type Owned = Self;
 
 				const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {}
+                fn dry_resolve(&mut self) {}
 
-                async fn resolve(self, _extra_attrs: ExtraAttrsMut<'_>) -> Self::AsyncOutput {
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool, _extra_attrs: Option<Vec<AnyAttribute>>) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
 					// add a comment node to separate from previous sibling, if any
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
@@ -92,7 +92,6 @@ macro_rules! render_primitive {
 					self,
 					cursor: &Cursor,
 					position: &PositionState,
-					_extra_attrs: Option<Vec<AnyAttribute>>,
 				) -> Self::State {
 					if position.get() == Position::FirstChild {
 						cursor.child();
@@ -115,10 +114,6 @@ macro_rules! render_primitive {
 					position.set(Position::NextChildAfterText);
 
 					[<$child_type:camel State>](node, self)
-				}
-
-				fn into_owned(self) -> Self::Owned {
-					self
 				}
 			}
 

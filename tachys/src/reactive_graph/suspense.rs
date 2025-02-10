@@ -3,8 +3,8 @@ use crate::{
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::ExtraAttrsMut, iterators::OptionState,
-        Mountable, Position, PositionState, Render, RenderHtml,
+        add_attr::AddAnyAttr, iterators::OptionState, Mountable, Position,
+        PositionState, Render, RenderHtml,
     },
 };
 use any_spawner::Executor;
@@ -161,6 +161,10 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.inner.borrow_mut().insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.inner.borrow().elements()
+    }
 }
 
 impl<T> Render for Suspend<T>
@@ -169,7 +173,7 @@ where
 {
     type State = SuspendState<T>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let Self { subscriber, inner } = self;
 
         // create a Future that will be aborted on on_cleanup
@@ -184,7 +188,7 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
-        let inner = Rc::new(RefCell::new(initial.build(extra_attrs.clone())));
+        let inner = Rc::new(RefCell::new(initial.build()));
 
         // get a unique ID if there's a SuspenseContext
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
@@ -205,8 +209,7 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value)
-                            .rebuild(&mut *state.borrow_mut(), extra_attrs);
+                        Some(value).rebuild(&mut *state.borrow_mut());
                     }
 
                     subscriber.forward();
@@ -219,11 +222,7 @@ where
         SuspendState { inner }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let Self { subscriber, inner } = self;
 
         // create a Future that will be aborted on on_cleanup
@@ -253,7 +252,7 @@ where
                 // has no parent
                 Executor::tick().await;
                 if let Ok(value) = value {
-                    Some(value).rebuild(&mut *state.borrow_mut(), extra_attrs);
+                    Some(value).rebuild(&mut *state.borrow_mut());
                 }
 
                 subscriber.forward();
@@ -289,7 +288,6 @@ where
     T: RenderHtml + Sized + 'static,
 {
     type AsyncOutput = Option<T>;
-    type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -299,7 +297,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // TODO wrap this with a Suspense as needed
         // currently this is just used for Routes, which creates a Suspend but never actually needs
@@ -321,7 +319,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -399,7 +397,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let Self { subscriber, inner } = self;
 
@@ -415,11 +412,9 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
-        let inner = Rc::new(RefCell::new(initial.hydrate::<FROM_SERVER>(
-            cursor,
-            position,
-            extra_attrs.clone(),
-        )));
+        let inner = Rc::new(RefCell::new(
+            initial.hydrate::<FROM_SERVER>(cursor, position),
+        ));
 
         // get a unique ID if there's a SuspenseContext
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
@@ -440,8 +435,7 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value)
-                            .rebuild(&mut *state.borrow_mut(), extra_attrs);
+                        Some(value).rebuild(&mut *state.borrow_mut());
                     }
 
                     subscriber.forward();
@@ -454,14 +448,11 @@ where
         SuspendState { inner }
     }
 
-    async fn resolve(
-        self,
-        _extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         Some(self.inner.await)
     }
 
-    fn dry_resolve(&mut self, _extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         // this is a little crazy, but if a Suspend is immediately available, we end up
         // with a situation where polling it multiple times (here in dry_resolve and then in
         // resolve) causes a runtime panic
@@ -480,9 +471,5 @@ where
             self.inner = Box::pin(async move { inner })
                 as Pin<Box<dyn Future<Output = T> + Send>>;
         }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self
     }
 }

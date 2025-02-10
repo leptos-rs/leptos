@@ -106,7 +106,7 @@ impl StreamBuilder {
         fallback: View,
         position: &mut Position,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -165,7 +165,7 @@ impl StreamBuilder {
         view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -185,7 +185,7 @@ impl StreamBuilder {
         position: &mut Position,
         mark_branches: bool,
         nonce: Option<Arc<str>>,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {

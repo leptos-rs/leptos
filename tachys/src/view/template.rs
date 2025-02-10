@@ -1,6 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, any_view::ExtraAttrsMut, Mountable, Position,
-    PositionState, Render, RenderHtml, ToTemplate,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml, ToTemplate,
 };
 use crate::{
     html::attribute::{any_attribute::AnyAttribute, Attribute},
@@ -40,22 +40,15 @@ where
 
     // TODO try_build/try_rebuild()
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let tpl = Self::to_template();
         let contents = Rndr::clone_template(&tpl);
-        self.view.hydrate::<false>(
-            &Cursor::new(contents),
-            &Default::default(),
-            extra_attrs,
-        )
+        self.view
+            .hydrate::<false>(&Cursor::new(contents), &Default::default())
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
-        self.view.rebuild(state, extra_attrs)
+    fn rebuild(self, state: &mut Self::State) {
+        self.view.rebuild(state)
     }
 }
 
@@ -83,7 +76,6 @@ where
     V::State: Mountable,
 {
     type AsyncOutput = V::AsyncOutput;
-    type Owned = V::Owned;
 
     const MIN_LENGTH: usize = V::MIN_LENGTH;
 
@@ -93,7 +85,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         self.view.to_html_with_buf(
             buf,
@@ -108,25 +100,16 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        self.view
-            .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
+        self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
-        self.view.dry_resolve(extra_attrs);
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve();
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        self.view.resolve(extra_attrs).await
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self.view.into_owned()
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.view.resolve().await
     }
 }
 

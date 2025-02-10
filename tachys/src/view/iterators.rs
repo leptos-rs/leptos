@@ -1,7 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, any_view::ExtraAttrsMut,
-    batch_resolve_items_with_extra_attrs, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
 };
 use crate::{
     html::attribute::{any_attribute::AnyAttribute, Attribute},
@@ -21,24 +20,20 @@ where
 {
     type State = OptionState<T>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .build(extra_attrs)
+        .build()
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .rebuild(state, extra_attrs)
+        .rebuild(state)
     }
 }
 
@@ -65,29 +60,25 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Option<T::AsyncOutput>;
-    type Owned = Option<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         if let Some(inner) = self.as_mut() {
-            inner.dry_resolve(extra_attrs);
+            inner.dry_resolve();
         }
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
             None => None,
-            Some(value) => Some(value.resolve(extra_attrs).await),
+            Some(value) => Some(value.resolve().await),
         }
     }
 
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         match self {
-            Some(i) => i.html_len(extra_attrs) + 3,
+            Some(i) => i.html_len() + 3,
             None => 3,
         }
     }
@@ -98,7 +89,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Some(value) => Either::Left(value),
@@ -119,7 +110,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -141,17 +132,12 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .hydrate::<FROM_SERVER>(cursor, position, extra_attrs)
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self.map(RenderHtml::into_owned)
+        .hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
@@ -161,27 +147,20 @@ where
 {
     type State = VecState<T::State>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
         VecState {
-            states: self
-                .into_iter()
-                .map(|val| T::build(val, extra_attrs.clone()))
-                .collect(),
+            states: self.into_iter().map(T::build).collect(),
             marker,
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let VecState { states, marker } = state;
         let old = states;
         // this is an unkeyed diff
         if old.is_empty() {
-            let mut new = self.build(extra_attrs).states;
+            let mut new = self.build().states;
             for item in new.iter_mut() {
                 Rndr::mount_before(item, marker.as_ref());
             }
@@ -198,10 +177,10 @@ where
             for item in self.into_iter().zip_longest(old.iter_mut()) {
                 match item {
                     itertools::EitherOrBoth::Both(new, old) => {
-                        T::rebuild(new, old, extra_attrs.clone())
+                        T::rebuild(new, old)
                     }
                     itertools::EitherOrBoth::Left(new) => {
-                        let mut new_state = new.build(extra_attrs.clone());
+                        let mut new_state = new.build();
                         Rndr::mount_before(&mut new_state, marker.as_ref());
                         adds.push(new_state);
                     }
@@ -259,6 +238,13 @@ where
             self.marker.insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
 }
 
 impl<T> AddAnyAttr for Vec<T>
@@ -287,31 +273,24 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Vec<T::AsyncOutput>;
-    type Owned = Vec<T::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         for inner in self.iter_mut() {
-            inner.dry_resolve(extra_attrs.as_deref_mut());
+            inner.dry_resolve();
         }
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        batch_resolve_items_with_extra_attrs(self, extra_attrs)
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.into_iter().map(T::resolve))
             .await
             .into_iter()
             .collect()
     }
 
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
-        self.iter()
-            .map(|n| n.html_len(extra_attrs.clone()))
-            .sum::<usize>()
-            + 3
+    fn html_len(&self) -> usize {
+        self.iter().map(|n| n.html_len()).sum::<usize>() + 3
     }
 
     fn to_html_with_buf(
@@ -320,7 +299,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
@@ -338,6 +317,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                // each child will have the extra attributes applied
                 extra_attrs.clone(),
             );
         }
@@ -350,7 +330,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -380,26 +360,15 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
         let states = self
             .into_iter()
-            .map(|child| {
-                child.hydrate::<FROM_SERVER>(
-                    cursor,
-                    position,
-                    extra_attrs.clone(),
-                )
-            })
+            .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
 
         let marker = cursor.next_placeholder(position);
 
         VecState { states, marker }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self.into_iter().map(RenderHtml::into_owned).collect()
     }
 }
 
@@ -409,23 +378,19 @@ where
 {
     type State = ArrayState<T::State, N>;
 
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State {
+    fn build(self) -> Self::State {
         Self::State {
-            states: self.map(|val| T::build(val, extra_attrs.clone())),
+            states: self.map(T::build),
         }
     }
 
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    ) {
+    fn rebuild(self, state: &mut Self::State) {
         let Self::State { states } = state;
         let old = states;
         // this is an unkeyed diff
         self.into_iter()
             .zip(old.iter_mut())
-            .for_each(|(new, old)| T::rebuild(new, old, extra_attrs.clone()));
+            .for_each(|(new, old)| T::rebuild(new, old));
     }
 }
 
@@ -462,6 +427,13 @@ where
             false
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
 }
 impl<T, const N: usize> AddAnyAttr for [T; N]
 where
@@ -487,21 +459,17 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = [T::AsyncOutput; N];
-    type Owned = Vec<T::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self, mut extra_attrs: ExtraAttrsMut<'_>) {
+    fn dry_resolve(&mut self) {
         for inner in self.iter_mut() {
-            inner.dry_resolve(extra_attrs.as_deref_mut());
+            inner.dry_resolve();
         }
     }
 
-    async fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> Self::AsyncOutput {
-        batch_resolve_items_with_extra_attrs(self, extra_attrs)
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.into_iter().map(T::resolve))
             .await
             .into_iter()
             .collect::<Vec<_>>()
@@ -509,10 +477,8 @@ where
             .unwrap_or_else(|_| unreachable!())
     }
 
-    fn html_len(&self, extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
-        self.iter()
-            .map(|val| RenderHtml::html_len(val, extra_attrs.clone()))
-            .sum::<usize>()
+    fn html_len(&self) -> usize {
+        self.iter().map(RenderHtml::html_len).sum::<usize>()
     }
 
     fn to_html_with_buf(
@@ -521,7 +487,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for child in self.into_iter() {
             child.to_html_with_buf(
@@ -540,7 +506,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -559,17 +525,9 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State {
-        let states = self.map(|child| {
-            child.hydrate::<FROM_SERVER>(cursor, position, extra_attrs.clone())
-        });
+        let states =
+            self.map(|child| child.hydrate::<FROM_SERVER>(cursor, position));
         ArrayState { states }
-    }
-
-    fn into_owned(self) -> Self::Owned {
-        self.into_iter()
-            .map(RenderHtml::into_owned)
-            .collect::<Vec<_>>()
     }
 }

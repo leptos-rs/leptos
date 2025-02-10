@@ -3,7 +3,6 @@ use crate::{
     html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
     ssr::StreamBuilder,
 };
-use any_view::ExtraAttrsMut;
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
@@ -41,14 +40,10 @@ pub trait Render: Sized {
     type State: Mountable;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
-    fn build(self, extra_attrs: Option<Vec<AnyAttribute>>) -> Self::State;
+    fn build(self) -> Self::State;
 
     /// Updates the view with new data.
-    fn rebuild(
-        self,
-        state: &mut Self::State,
-        extra_attrs: Option<Vec<AnyAttribute>>,
-    );
+    fn rebuild(self, state: &mut Self::State);
 }
 
 pub(crate) trait MarkBranch {
@@ -104,9 +99,6 @@ where
     /// The type of the view after waiting for all asynchronous data to load.
     type AsyncOutput: RenderHtml;
 
-    /// A static version of this type.
-    type Owned: RenderHtml + 'static;
-
     /// The minimum length of HTML created when this view is rendered.
     const MIN_LENGTH: usize;
 
@@ -116,20 +108,17 @@ where
     /// “Runs” the view without other side effects. For primitive types, this is a no-op. For
     /// reactive types, this can be used to gather data about reactivity or about asynchronous data
     /// that needs to be loaded.
-    fn dry_resolve(&mut self, extra_attrs: ExtraAttrsMut<'_>);
+    fn dry_resolve(&mut self);
 
     /// Waits for any asynchronous sections of the view to load and returns the output.
-    fn resolve(
-        self,
-        extra_attrs: ExtraAttrsMut<'_>,
-    ) -> impl Future<Output = Self::AsyncOutput> + Send;
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 
     /// An estimated length for this view, when rendered to HTML.
     ///
     /// This is used for calculating the string buffer size when rendering HTML. It does not need
     /// to be precise, but should be an appropriate estimate. The more accurate, the fewer
     /// reallocations will be required and the faster server-side rendering will be.
-    fn html_len(&self, _extra_attrs: Option<Vec<&AnyAttribute>>) -> usize {
+    fn html_len(&self) -> usize {
         Self::MIN_LENGTH
     }
 
@@ -138,13 +127,13 @@ where
     where
         Self: Sized,
     {
-        let mut buf = String::with_capacity(self.html_len(None));
+        let mut buf = String::with_capacity(self.html_len());
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
             true,
             false,
-            None,
+            vec![],
         );
         buf
     }
@@ -156,13 +145,13 @@ where
     where
         Self: Sized,
     {
-        let mut buf = String::with_capacity(self.html_len(None));
+        let mut buf = String::with_capacity(self.html_len());
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
             true,
             true,
-            None,
+            vec![],
         );
         buf
     }
@@ -172,14 +161,13 @@ where
     where
         Self: Sized,
     {
-        let mut builder =
-            StreamBuilder::with_capacity(self.html_len(None), None);
+        let mut builder = StreamBuilder::with_capacity(self.html_len(), None);
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
             true,
             false,
-            None,
+            vec![],
         );
         builder.finish()
     }
@@ -191,14 +179,13 @@ where
     where
         Self: Sized,
     {
-        let mut builder =
-            StreamBuilder::with_capacity(self.html_len(None), None);
+        let mut builder = StreamBuilder::with_capacity(self.html_len(), None);
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
             true,
             true,
-            None,
+            vec![],
         );
         builder.finish()
     }
@@ -210,14 +197,14 @@ where
     {
         //let capacity = self.html_len();
         let mut builder =
-            StreamBuilder::with_capacity(self.html_len(None), Some(vec![0]));
+            StreamBuilder::with_capacity(self.html_len(), Some(vec![0]));
 
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
             true,
             false,
-            None,
+            vec![],
         );
         builder.finish()
     }
@@ -230,14 +217,14 @@ where
         Self: Sized,
     {
         let mut builder =
-            StreamBuilder::with_capacity(self.html_len(None), Some(vec![0]));
+            StreamBuilder::with_capacity(self.html_len(), Some(vec![0]));
 
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
             true,
             true,
-            None,
+            vec![],
         );
         builder.finish()
     }
@@ -249,7 +236,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     );
 
     /// Renders a view into a buffer of (synchronous or asynchronous) HTML chunks.
@@ -259,7 +246,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
-        extra_attrs: Option<Vec<AnyAttribute>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -285,7 +272,6 @@ where
         self,
         cursor: &Cursor,
         position: &PositionState,
-        extra_attrs: Option<Vec<AnyAttribute>>,
     ) -> Self::State;
 
     /// Hydrates using [`RenderHtml::hydrate`], beginning at the given element.
@@ -310,49 +296,8 @@ where
     {
         let cursor = Cursor::new(el.clone());
         let position = PositionState::new(position);
-        self.hydrate::<FROM_SERVER>(&cursor, &position, None)
+        self.hydrate::<FROM_SERVER>(&cursor, &position)
     }
-
-    /// Converts this view into a owned/static type.
-    fn into_owned(self) -> Self::Owned;
-}
-
-/// Resolving multiple children when extra_attrs exist is tricky, because the extra_attrs are potentially shared.
-///
-/// The current assumption is:
-/// - resolve() should not be run on an AnyAttribute more than once,
-/// - any of the children could resolve() the extra_attr_states
-///
-/// Therefore, if any extra_attrs exist, resolving must happen sequentially, until any of the children resolves the extra_attrs.
-/// After that, the remaining can be done in parallel, like they will be if no extra_attrs exist.
-pub(crate) async fn batch_resolve_items_with_extra_attrs<T: RenderHtml>(
-    items: impl IntoIterator<Item = T>,
-    mut extra_attrs: ExtraAttrsMut<'_>,
-) -> impl IntoIterator<Item = T::AsyncOutput> {
-    let mut item_iter = items.into_iter();
-    let mut preresolved = vec![];
-    if extra_attrs.is_some() {
-        // Reset resolved state to fresh if dirty:
-        extra_attrs
-            .as_deref_mut()
-            .iter_mut()
-            .for_each(|attr| attr.resolved = false);
-        for item in item_iter.by_ref() {
-            preresolved.push(item.resolve(extra_attrs.as_deref_mut()).await);
-            // Once all resolved, can switch to parallel and not pass in extra_attrs anymore,
-            // once they've already all resolved:
-            if extra_attrs.iter_mut().all(|attr| attr.resolved) {
-                break;
-            }
-        }
-    }
-    preresolved.into_iter().chain(
-        futures::future::join_all(
-            item_iter.map(|val| T::resolve(val, ExtraAttrsMut::default())),
-        )
-        .await
-        .into_iter(),
-    )
 }
 
 /// Allows a type to be mounted to the DOM.
@@ -383,6 +328,9 @@ pub trait Mountable {
             child.mount(parent, marker);
         }
     }
+
+    /// wip
+    fn elements(&self) -> Vec<crate::renderer::types::Element>;
 }
 
 /// Indicates where a node should be mounted to its parent.
@@ -418,6 +366,12 @@ where
             .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<T> Mountable for Rc<RefCell<T>>
@@ -438,6 +392,10 @@ where
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.borrow().insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.borrow().elements()
     }
 }
 
