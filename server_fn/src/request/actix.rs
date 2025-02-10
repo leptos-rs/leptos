@@ -1,7 +1,6 @@
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
-    ServerFnError,
 };
 use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
@@ -92,7 +91,10 @@ where
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
         let payload = self.0.take().1;
         let stream = payload.map(|res| {
-            res.map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            res.map_err(|e| {
+                ServerFnErrorErr::Deserialization(e.to_string())
+                    .into_app_error()
+            })
         });
         Ok(SendWrapper::new(stream))
     }
