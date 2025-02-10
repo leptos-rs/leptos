@@ -228,8 +228,8 @@ where
 impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send,
-    FalFn: FnOnce() -> Fal + Send,
+    Defs: MatchNestedRoutes + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -249,11 +249,12 @@ where
 impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
-    Defs: MatchNestedRoutes + Send,
-    FalFn: FnOnce() -> Fal + Send,
+    Defs: MatchNestedRoutes + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0; // TODO
 
@@ -464,6 +465,10 @@ where
             outlets,
             view,
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

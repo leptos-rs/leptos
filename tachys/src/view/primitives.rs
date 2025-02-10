@@ -70,6 +70,7 @@ macro_rules! render_primitive {
 			impl RenderHtml for $child_type
 			{
 				type AsyncOutput = Self;
+				type Owned = Self;
 
 				const MIN_LENGTH: usize = 0;
 
@@ -114,6 +115,10 @@ macro_rules! render_primitive {
 					position.set(Position::NextChildAfterText);
 
 					[<$child_type:camel State>](node, self)
+				}
+
+				fn into_owned(self) -> Self::Owned {
+					self
 				}
 			}
 

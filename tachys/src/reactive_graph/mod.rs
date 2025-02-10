@@ -135,6 +135,7 @@ where
     V::State: 'static,
 {
     type AsyncOutput = V::AsyncOutput;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -209,6 +210,10 @@ where
             }
         })
         .into()
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -605,6 +610,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
@@ -667,6 +673,10 @@ mod stable {
                 ) -> Self::State {
                     (move || self.get())
                         .hydrate::<FROM_SERVER>(cursor, position)
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 
@@ -788,6 +798,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
@@ -850,6 +861,10 @@ mod stable {
                 ) -> Self::State {
                     (move || self.get())
                         .hydrate::<FROM_SERVER>(cursor, position)
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 

@@ -23,6 +23,7 @@ impl Render for () {
 
 impl RenderHtml for () {
     type AsyncOutput = ();
+    type Owned = ();
 
     const MIN_LENGTH: usize = 3;
     const EXISTS: bool = false;
@@ -52,6 +53,8 @@ impl RenderHtml for () {
     async fn resolve(self) -> Self::AsyncOutput {}
 
     fn dry_resolve(&mut self) {}
+
+    fn into_owned(self) -> Self::Owned {}
 }
 
 impl AddAnyAttr for () {
@@ -117,6 +120,7 @@ where
     A: RenderHtml,
 {
     type AsyncOutput = (A::AsyncOutput,);
+    type Owned = (A::Owned,);
 
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
@@ -174,6 +178,10 @@ where
 
     fn dry_resolve(&mut self) {
         self.0.dry_resolve();
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        (self.0.into_owned(),)
     }
 }
 
@@ -247,6 +255,7 @@ macro_rules! impl_view_for_tuples {
 
 		{
             type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
+            type Owned = ($first::Owned, $($ty::Owned,)*);
 
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
@@ -310,6 +319,15 @@ macro_rules! impl_view_for_tuples {
                 let ($first, $($ty,)*) = self;
                 $first.dry_resolve();
                 $($ty.dry_resolve());*
+            }
+
+            fn into_owned(self) -> Self::Owned {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_owned(),
+                    $($ty.into_owned()),*
+                )
             }
 		}
 

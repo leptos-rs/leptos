@@ -136,6 +136,7 @@ where
     E: Into<AnyError> + Send + 'static,
 {
     type AsyncOutput = Result<T::AsyncOutput, E>;
+    type Owned = Result<T::Owned, E>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -227,5 +228,12 @@ where
             }
         };
         ResultState { state, error, hook }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        match self {
+            Ok(view) => Ok(view.into_owned()),
+            Err(e) => Err(e),
+        }
     }
 }

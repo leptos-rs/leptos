@@ -234,6 +234,7 @@ impl AddAnyAttr for TitleView {
 
 impl RenderHtml for TitleView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -282,6 +283,10 @@ impl RenderHtml for TitleView {
             }
         });
         TitleViewState { effect }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

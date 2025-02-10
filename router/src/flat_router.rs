@@ -348,7 +348,7 @@ impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -421,10 +421,11 @@ impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = <Either<Fal, AnyView> as RenderHtml>::MIN_LENGTH;
 
@@ -617,5 +618,9 @@ where
                 }
             }
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

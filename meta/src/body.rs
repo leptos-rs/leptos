@@ -103,6 +103,7 @@ where
     At: Attribute,
 {
     type AsyncOutput = BodyView<At::AsyncOutput>;
+    type Owned = BodyView<At::CloneableOwned>;
 
     const MIN_LENGTH: usize = At::MIN_LENGTH;
 
@@ -145,6 +146,12 @@ where
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         BodyViewState { attributes }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        BodyView {
+            attributes: self.attributes.into_cloneable_owned(),
+        }
     }
 }
 

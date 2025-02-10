@@ -92,6 +92,7 @@ where
 {
     // TODO
     type AsyncOutput = OwnedView<T::AsyncOutput>;
+    type Owned = OwnedView<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -162,6 +163,13 @@ where
 
     fn dry_resolve(&mut self) {
         self.owner.with(|| self.view.dry_resolve());
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        OwnedView {
+            owner: self.owner,
+            view: self.view.into_owned(),
+        }
     }
 }
 

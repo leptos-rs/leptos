@@ -87,6 +87,7 @@ impl<T: Render> Render for View<T> {
 
 impl<T: RenderHtml> RenderHtml for View<T> {
     type AsyncOutput = T::AsyncOutput;
+    type Owned = View<T::Owned>;
 
     const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
 
@@ -164,6 +165,14 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &PositionState,
     ) -> Self::State {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        View {
+            inner: self.inner.into_owned(),
+            #[cfg(debug_assertions)]
+            view_marker: self.view_marker,
+        }
     }
 }
 

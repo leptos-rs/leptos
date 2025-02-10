@@ -222,6 +222,7 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput>;
+    type Owned = HtmlElement<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -404,6 +405,16 @@ where
             el,
             attrs,
             children,
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        HtmlElement {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes.into_cloneable_owned(),
+            children: self.children.into_owned(),
         }
     }
 }
