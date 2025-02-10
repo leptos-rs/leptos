@@ -144,8 +144,6 @@ impl ToTokens for Model {
         let (impl_generics, generics, where_clause) =
             body.sig.generics.split_for_impl();
 
-        let lifetimes = body.sig.generics.lifetimes();
-
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
