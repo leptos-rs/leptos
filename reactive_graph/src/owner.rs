@@ -206,17 +206,29 @@ impl Owner {
 
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
-        let prev = {
-            OWNER.with(|o| {
-                mem::replace(&mut *o.borrow_mut(), Some(self.clone()))
-            })
-        };
-        #[cfg(feature = "sandboxed-arenas")]
-        Arena::set(&self.inner.read().or_poisoned().arena);
+        // codegen optimisation:
+        fn inner_1(self_: &Owner) -> Option<Owner> {
+            let prev = {
+                OWNER.with(|o| {
+                    mem::replace(&mut *o.borrow_mut(), Some(self_.clone()))
+                })
+            };
+            #[cfg(feature = "sandboxed-arenas")]
+            Arena::set(&self_.inner.read().or_poisoned().arena);
+            prev
+        }
+        let prev = inner_1(self);
+
         let val = fun();
-        OWNER.with(|o| {
-            *o.borrow_mut() = prev;
-        });
+
+        // monomorphisation optimisation:
+        fn inner_2(prev: Option<Owner>) {
+            OWNER.with(|o| {
+                *o.borrow_mut() = prev;
+            });
+        }
+        inner_2(prev);
+
         val
     }
 
