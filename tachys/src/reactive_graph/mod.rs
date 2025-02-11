@@ -526,13 +526,14 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use std::sync::Arc;
-
     use reactive_stores::{
         ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
         KeyedSubfield, Store, StoreField, Subfield,
     };
-    use std::ops::{Deref, DerefMut, Index, IndexMut};
+    use std::{
+        ops::{Deref, DerefMut, Index, IndexMut},
+        sync::Arc,
+    };
 
     macro_rules! signal_impl {
         ($sig:ident $dry_resolve:literal) => {

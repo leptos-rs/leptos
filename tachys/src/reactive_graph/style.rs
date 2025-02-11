@@ -1042,8 +1042,10 @@ mod stable {
         ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
         KeyedSubfield, Store, StoreField, Subfield,
     };
-    use std::borrow::Cow;
-    use std::ops::{Deref, DerefMut, Index, IndexMut};
+    use std::{
+        borrow::Cow,
+        ops::{Deref, DerefMut, Index, IndexMut},
+    };
 
     style_store_field!(
         Subfield,
