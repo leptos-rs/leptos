@@ -79,7 +79,7 @@ where
     Key: AttributeKey,
     Sig: IntoSplitSignal<Value = T>,
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty,
+    Signal<Option<BoolOrT<T>>>: IntoProperty,
     <Sig as IntoSplitSignal>::Read:
         Get<Value = T> + Send + Sync + Clone + 'static,
     <Sig as IntoSplitSignal>::Write: Send + Clone + 'static,
@@ -167,17 +167,19 @@ where
 
     /// Creates the signal to update the value of the attribute. This signal is different
     /// when using a `"group"` attribute
-    pub fn read_signal(&self, el: &Element) -> Signal<BoolOrT<T>> {
+    pub fn read_signal(&self, el: &Element) -> Signal<Option<BoolOrT<T>>> {
         let read_signal = self.read_signal.clone();
 
         if Key::KEY == "group" {
             let el = SendWrapper::new(el.clone());
 
             Signal::derive(move || {
-                BoolOrT::Bool(el.get_value() == read_signal.get())
+                read_signal
+                    .try_get()
+                    .map(|r| BoolOrT::Bool(el.get_value() == r))
             })
         } else {
-            Signal::derive(move || BoolOrT::T(read_signal.get()))
+            Signal::derive(move || read_signal.try_get().map(BoolOrT::T))
         }
     }
 
@@ -197,14 +199,14 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty,
+    Signal<Option<BoolOrT<T>>>: IntoProperty,
     W: Update<Value = T> + Clone + Send + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
     const MIN_LENGTH: usize = 0;
 
     type State = (
-        <Signal<BoolOrT<T>> as IntoProperty>::State,
+        <Signal<Option<BoolOrT<T>>> as IntoProperty>::State,
         (Element, Option<RemoveEventHandler<Element>>),
     );
     type AsyncOutput = Self;
@@ -277,7 +279,7 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
-    Signal<BoolOrT<T>>: IntoProperty,
+    Signal<Option<BoolOrT<T>>>: IntoProperty,
     W: Update<Value = T> + Clone + Send + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
@@ -491,15 +493,14 @@ pub enum BoolOrT<T> {
     /// Standard case with some type `T`
     T(T),
 }
-
-impl<T> IntoProperty for BoolOrT<T>
+impl<T> IntoProperty for Option<BoolOrT<T>>
 where
-    T: IntoProperty<State = (Element, JsValue)>
+    T: IntoProperty<State = Option<(Element, JsValue)>>
         + Into<JsValue>
         + Clone
         + 'static,
 {
-    type State = (Element, JsValue);
+    type State = Option<(Element, JsValue)>;
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -508,41 +509,48 @@ where
         el: &Element,
         key: &str,
     ) -> Self::State {
-        match self.clone() {
-            Self::T(s) => {
-                s.hydrate::<FROM_SERVER>(el, key);
-            }
-            Self::Bool(b) => {
-                <bool as IntoProperty>::hydrate::<FROM_SERVER>(b, el, key);
-            }
-        };
+        self.clone().map(|f| {
+            match f.clone() {
+                BoolOrT::T(s) => {
+                    s.hydrate::<FROM_SERVER>(el, key);
+                }
+                BoolOrT::Bool(b) => {
+                    <bool as IntoProperty>::hydrate::<FROM_SERVER>(b, el, key);
+                }
+            };
 
-        (el.clone(), self.into())
+            (el.clone(), self.into())
+        })
     }
 
     fn build(self, el: &Element, key: &str) -> Self::State {
-        match self.clone() {
-            Self::T(s) => {
-                s.build(el, key);
+        self.clone().map(|f| {
+            match f.clone() {
+                BoolOrT::T(s) => {
+                    s.build(el, key);
+                }
+                BoolOrT::Bool(b) => {
+                    <bool as IntoProperty>::build(b, el, key);
+                }
             }
-            Self::Bool(b) => {
-                <bool as IntoProperty>::build(b, el, key);
-            }
-        }
 
-        (el.clone(), self.into())
+            (el.clone(), self.into())
+        })
     }
 
     fn rebuild(self, state: &mut Self::State, key: &str) {
-        let (el, prev) = state;
-
-        match self {
-            Self::T(s) => s.rebuild(&mut (el.clone(), prev.clone()), key),
-            Self::Bool(b) => <bool as IntoProperty>::rebuild(
-                b,
-                &mut (el.clone(), prev.clone()),
-                key,
-            ),
+        if let (Some(state), Some(f)) = (state, self) {
+            let (el, prev) = state;
+            match f {
+                BoolOrT::T(s) => {
+                    s.rebuild(&mut Some((el.clone(), prev.clone())), key)
+                }
+                BoolOrT::Bool(b) => <bool as IntoProperty>::rebuild(
+                    b,
+                    &mut (el.clone(), prev.clone()),
+                    key,
+                ),
+            }
         }
     }
 
