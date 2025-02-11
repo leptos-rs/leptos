@@ -1095,6 +1095,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     macro_rules! class_store_field {
         ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
         {
@@ -1220,6 +1221,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     macro_rules! tuple_class_store_field {
         ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $v:ty, $( $where_clause:tt )*) => {
             impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
@@ -1397,12 +1399,16 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use reactive_stores::{
-        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-        KeyedSubfield, Store, StoreField, Subfield,
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
     };
-    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
+    #[cfg(feature = "reactive_stores")]
     class_store_field!(
         Subfield,
         <Inner, Prev, V>,
@@ -1411,6 +1417,8 @@ mod stable {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
+
+    #[cfg(feature = "reactive_stores")]
     class_store_field!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -1421,6 +1429,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     class_store_field!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -1431,6 +1441,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     class_store_field!(
         DerefedField,
         <S>,
@@ -1439,6 +1451,7 @@ mod stable {
         <S as StoreField>::Value: Deref + DerefMut
     );
 
+    #[cfg(feature = "reactive_stores")]
     class_store_field!(
         AtIndex,
         <Inner, Prev>,
@@ -1448,6 +1461,7 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
+    #[cfg(feature = "reactive_stores")]
     tuple_class_store_field!(
         Subfield,
         <Inner, Prev>,
@@ -1457,6 +1471,8 @@ mod stable {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
+
+    #[cfg(feature = "reactive_stores")]
     tuple_class_store_field!(
         AtKeyed,
         <Inner, Prev, K>,
@@ -1468,6 +1484,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a bool: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     tuple_class_store_field!(
         KeyedSubfield,
         <Inner, Prev, K>,
@@ -1479,6 +1497,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a bool: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     tuple_class_store_field!(
         DerefedField,
         <S>,
@@ -1488,6 +1508,7 @@ mod stable {
         <S as StoreField>::Value: Deref<Target = bool> + DerefMut
     );
 
+    #[cfg(feature = "reactive_stores")]
     tuple_class_store_field!(
         AtIndex,
         <Inner, Prev>,
@@ -1498,14 +1519,18 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
+    #[cfg(feature = "reactive_stores")]
     class_signal_arena!(Store);
+    #[cfg(feature = "reactive_stores")]
     class_signal_arena!(Field);
     class_signal_arena!(RwSignal);
     class_signal_arena!(ReadSignal);
     class_signal_arena!(Memo);
     class_signal_arena!(Signal);
     class_signal_arena!(MaybeSignal);
+    #[cfg(feature = "reactive_stores")]
     class_signal!(ArcStore);
+    #[cfg(feature = "reactive_stores")]
     class_signal!(ArcField);
     class_signal!(ArcRwSignal);
     class_signal!(ArcReadSignal);

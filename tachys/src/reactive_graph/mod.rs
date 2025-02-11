@@ -526,13 +526,14 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use reactive_stores::{
-        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-        KeyedSubfield, Store, StoreField, Subfield,
-    };
-    use std::{
-        ops::{Deref, DerefMut, Index, IndexMut},
-        sync::Arc,
+    use std::sync::Arc;
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
     };
 
     macro_rules! signal_impl {
@@ -1113,6 +1114,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     macro_rules! store_field_impl {
         ($name:ident, <$($gen:ident),*>, $v:ty, $dry_resolve:literal, $( $where_clause:tt )*) =>
         {
@@ -1399,6 +1401,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     store_field_impl!(
         Subfield,
         <Inner, Prev, V>,
@@ -1408,6 +1411,8 @@ mod stable {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
+
+    #[cfg(feature = "reactive_stores")]
     store_field_impl!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -1419,6 +1424,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     store_field_impl!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -1430,6 +1437,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     store_field_impl!(
         DerefedField,
         <S>,
@@ -1438,6 +1447,8 @@ mod stable {
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
+
+    #[cfg(feature = "reactive_stores")]
     store_field_impl!(
         AtIndex,
         <Inner, Prev>,
@@ -1448,14 +1459,18 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
+    #[cfg(feature = "reactive_stores")]
     signal_impl_arena!(Store false);
+    #[cfg(feature = "reactive_stores")]
     signal_impl_arena!(Field false);
     signal_impl_arena!(RwSignal false);
     signal_impl_arena!(ReadSignal false);
     signal_impl_arena!(Memo true);
     signal_impl_arena!(Signal true);
     signal_impl_arena!(MaybeSignal true);
+    #[cfg(feature = "reactive_stores")]
     signal_impl!(ArcStore false);
+    #[cfg(feature = "reactive_stores")]
     signal_impl!(ArcField false);
     signal_impl!(ArcRwSignal false);
     signal_impl!(ArcReadSignal false);

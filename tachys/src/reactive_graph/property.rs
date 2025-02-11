@@ -92,11 +92,14 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use reactive_stores::{
-        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-        KeyedSubfield, Store, StoreField, Subfield,
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
     };
-    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     macro_rules! property_signal {
         ($sig:ident) => {
@@ -308,6 +311,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     macro_rules! property_store_field {
         ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
         {
@@ -411,6 +415,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     property_store_field!(
         Subfield,
         <Inner, Prev, V>,
@@ -419,6 +424,8 @@ mod stable {
         Prev: 'static,
         Inner: Clone + 'static,
     );
+
+    #[cfg(feature = "reactive_stores")]
     property_store_field!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -429,6 +436,8 @@ mod stable {
         K: std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     property_store_field!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -439,6 +448,8 @@ mod stable {
         K: std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     property_store_field!(
         DerefedField,
         <S>,
@@ -446,6 +457,8 @@ mod stable {
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
+    
+    #[cfg(feature = "reactive_stores")]
     property_store_field!(
         AtIndex,
         <Inner, Prev>,
@@ -456,14 +469,18 @@ mod stable {
         Inner: Clone + 'static,
     );
 
+    #[cfg(feature = "reactive_stores")]
     property_signal_arena!(Store);
+    #[cfg(feature = "reactive_stores")]
     property_signal_arena!(Field);
     property_signal_arena!(RwSignal);
     property_signal_arena!(ReadSignal);
     property_signal_arena!(Memo);
     property_signal_arena!(Signal);
     property_signal_arena!(MaybeSignal);
+    #[cfg(feature = "reactive_stores")]
     property_signal!(ArcStore);
+    #[cfg(feature = "reactive_stores")]
     property_signal!(ArcField);
     property_signal!(ArcRwSignal);
     property_signal!(ArcReadSignal);

@@ -99,11 +99,14 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use reactive_stores::{
-        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-        KeyedSubfield, Store, StoreField, Subfield,
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
     };
-    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     macro_rules! inner_html_signal {
         ($sig:ident) => {
@@ -336,6 +339,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     macro_rules! inner_html_store_field {
         ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
         {
@@ -451,6 +455,7 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         Subfield,
         <Inner, Prev, V>,
@@ -459,6 +464,8 @@ mod stable {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
+
+    #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -469,6 +476,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+    
+    #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -479,6 +488,8 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
+
+    #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         DerefedField,
         <S>,
@@ -486,6 +497,8 @@ mod stable {
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
+    
+    #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         AtIndex,
         <Inner, Prev>,
@@ -495,14 +508,18 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
+    #[cfg(feature = "reactive_stores")]
     inner_html_signal_arena!(Store);
+    #[cfg(feature = "reactive_stores")]
     inner_html_signal_arena!(Field);
     inner_html_signal_arena!(RwSignal);
     inner_html_signal_arena!(ReadSignal);
     inner_html_signal_arena!(Memo);
     inner_html_signal_arena!(Signal);
     inner_html_signal_arena!(MaybeSignal);
+    #[cfg(feature = "reactive_stores")]
     inner_html_signal!(ArcStore);
+    #[cfg(feature = "reactive_stores")]
     inner_html_signal!(ArcField);
     inner_html_signal!(ArcRwSignal);
     inner_html_signal!(ArcReadSignal);
