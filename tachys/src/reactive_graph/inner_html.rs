@@ -99,6 +99,11 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
+    };
+    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     macro_rules! inner_html_signal {
         ($sig:ident) => {
@@ -331,11 +336,174 @@ mod stable {
         };
     }
 
+    macro_rules! inner_html_store_field {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> InnerHtmlValue for $name<$($gen),*>
+            where
+                $v: InnerHtmlValue + Clone + Send + Sync + 'static,
+                <$v as InnerHtmlValue>::State: 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = RenderEffect<Option<<$v as InnerHtmlValue>::State>>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, buf: &mut String) {
+                    let value = self.try_get();
+                    value.to_html(buf);
+                }
+
+                fn to_template(_buf: &mut String) {}
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn rebuild(self, state: &mut Self::State) {
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+            }
+        };
+    }
+
+    inner_html_store_field!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    inner_html_store_field!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+    inner_html_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+    inner_html_store_field!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+    inner_html_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    inner_html_signal_arena!(Store);
+    inner_html_signal_arena!(Field);
     inner_html_signal_arena!(RwSignal);
     inner_html_signal_arena!(ReadSignal);
     inner_html_signal_arena!(Memo);
     inner_html_signal_arena!(Signal);
     inner_html_signal_arena!(MaybeSignal);
+    inner_html_signal!(ArcStore);
+    inner_html_signal!(ArcField);
     inner_html_signal!(ArcRwSignal);
     inner_html_signal!(ArcReadSignal);
     inner_html_signal!(ArcMemo);

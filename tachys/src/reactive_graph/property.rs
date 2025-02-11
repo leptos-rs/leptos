@@ -92,6 +92,11 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
+    };
+    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     macro_rules! property_signal {
         ($sig:ident) => {
@@ -303,11 +308,163 @@ mod stable {
         };
     }
 
+    macro_rules! property_store_field {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> IntoProperty for $name<$($gen),*>
+            where
+                $v: IntoProperty + Send + Sync + Clone + 'static,
+                <$v as IntoProperty>::State: 'static,
+                $($where_clause)*
+            {
+                type State = RenderEffect<Option<<$v as IntoProperty>::State>>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &crate::renderer::types::Element,
+                    key: &str,
+                ) -> Self::State {
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el, &key))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el, &key))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                    key: &str,
+                ) -> Self::State {
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el, &key)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn rebuild(self, state: &mut Self::State, key: &str) {
+                    let prev_value = state.take_value();
+                    let key = key.to_owned();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state, &key);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+            }
+        };
+    }
+
+    property_store_field!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: 'static,
+        Inner: Clone + 'static,
+    );
+    property_store_field!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: 'static,
+        Inner: Clone + 'static,
+        K: std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+    property_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: 'static,
+        Inner: Clone + 'static,
+        K: std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+    property_store_field!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+    property_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        Prev: IndexMut<usize> + 'static,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: 'static,
+        Inner: Clone + 'static,
+    );
+
+    property_signal_arena!(Store);
+    property_signal_arena!(Field);
     property_signal_arena!(RwSignal);
     property_signal_arena!(ReadSignal);
     property_signal_arena!(Memo);
     property_signal_arena!(Signal);
     property_signal_arena!(MaybeSignal);
+    property_signal!(ArcStore);
+    property_signal!(ArcField);
     property_signal!(ArcRwSignal);
     property_signal!(ArcReadSignal);
     property_signal!(ArcMemo);
