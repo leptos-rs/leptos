@@ -494,72 +494,9 @@ pub enum BoolOrT<T> {
     T(T),
 }
 
-impl<T> IntoProperty for BoolOrT<T>
-where
-    T: IntoProperty<State = (Element, JsValue)>
-        + Into<JsValue>
-        + Clone
-        + 'static,
-{
-    type State = (Element, JsValue);
-    type Cloneable = Self;
-    type CloneableOwned = Self;
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        el: &Element,
-        key: &str,
-    ) -> Self::State {
-        match self.clone() {
-            Self::T(s) => {
-                s.hydrate::<FROM_SERVER>(el, key);
-            }
-            Self::Bool(b) => {
-                <bool as IntoProperty>::hydrate::<FROM_SERVER>(b, el, key);
-            }
-        };
-
-        (el.clone(), self.into())
-    }
-
-    fn build(self, el: &Element, key: &str) -> Self::State {
-        match self.clone() {
-            Self::T(s) => {
-                s.build(el, key);
-            }
-            Self::Bool(b) => {
-                <bool as IntoProperty>::build(b, el, key);
-            }
-        }
-
-        (el.clone(), self.into())
-    }
-
-    fn rebuild(self, state: &mut Self::State, key: &str) {
-        let (el, prev) = state;
-
-        match self {
-            Self::T(s) => s.rebuild(&mut (el.clone(), prev.clone()), key),
-            Self::Bool(b) => <bool as IntoProperty>::rebuild(
-                b,
-                &mut (el.clone(), prev.clone()),
-                key,
-            ),
-        }
-    }
-
-    fn into_cloneable(self) -> Self::Cloneable {
-        self
-    }
-
-    fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        self
-    }
-}
-
 impl<T> IntoProperty for Option<BoolOrT<T>>
 where
-    T: IntoProperty<State = Option<(Element, JsValue)>>
+    T: IntoProperty<State = (Element, JsValue)>
         + Into<JsValue>
         + Clone
         + 'static,
@@ -607,7 +544,7 @@ where
             let (el, prev) = state;
             match f {
                 BoolOrT::T(s) => {
-                    s.rebuild(&mut Some((el.clone(), prev.clone())), key)
+                    s.rebuild(&mut (el.clone(), prev.clone()), key)
                 }
                 BoolOrT::Bool(b) => <bool as IntoProperty>::rebuild(
                     b,
