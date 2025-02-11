@@ -476,7 +476,7 @@ mod stable {
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
         for<'a> &'a V: IntoIterator,
     );
-    
+
     #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         KeyedSubfield,
@@ -497,7 +497,7 @@ mod stable {
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
-    
+
     #[cfg(feature = "reactive_stores")]
     inner_html_store_field!(
         AtIndex,

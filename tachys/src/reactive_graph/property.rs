@@ -457,7 +457,7 @@ mod stable {
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
-    
+
     #[cfg(feature = "reactive_stores")]
     property_store_field!(
         AtIndex,
