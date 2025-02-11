@@ -11,7 +11,10 @@ edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
-any_spawner = { workspace = true, features = ["wasm-bindgen", "futures-executor"] }
+any_spawner = { workspace = true, features = [
+  "wasm-bindgen",
+  "futures-executor",
+] }
 base64 = { version = "0.22.1", optional = true }
 cfg-if = "1.0"
 hydration_context = { workspace = true }
@@ -50,6 +53,7 @@ serde_qs = "0.13.0"
 slotmap = "1.0"
 futures = "0.3.31"
 send_wrapper = "0.6.0"
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [features]
 hydration = [
@@ -87,6 +91,10 @@ tracing = [
 nonce = ["base64", "rand"]
 spin = ["leptos-spin-macro"]
 islands = ["leptos_macro/islands", "dep:serde_json"]
+bitcode = [
+  "server_fn/bitcode",
+  "leptos_server/bitcode",
+]
 trace-component-props = [
   "leptos_macro/trace-component-props",
   "leptos_dom/trace-component-props"
@@ -101,7 +109,8 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
-  "rkyv", # was causing clippy issues on nightly
+  "bitcode",
+  "rkyv",                  # was causing clippy issues on nightly
   "trace-component-props",
   "spin",
   "islands",

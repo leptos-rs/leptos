@@ -5,6 +5,8 @@ use codee::binary::RkyvCodec;
 use codee::string::JsonSerdeWasmCodec;
 #[cfg(feature = "miniserde")]
 use codee::string::MiniserdeCodec;
+#[cfg(feature = "bitcode")]
+use codee::binary::BitcodeCodec;
 #[cfg(feature = "serde-lite")]
 use codee::SerdeLite;
 use codee::{
@@ -163,6 +165,30 @@ where
     ///
     /// This uses the [`RkyvCodec`] encoding.
     pub fn new_rkyv(initial: impl FnOnce() -> T) -> Self {
+        SharedValue::new_with_encoding(initial)
+    }
+}
+
+
+
+#[cfg(feature = "bitcode")]
+impl<T> SharedValue<T, BitcodeCodec>
+where
+    BitcodeCodec: Encoder<T> + Decoder<T>,
+    <BitcodeCodec as Encoder<T>>::Error: Debug,
+    <BitcodeCodec as Decoder<T>>::Error: Debug,
+    <BitcodeCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <BitcodeCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<BitcodeCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+    Debug,
+{
+    /// Wraps the initial value.
+    ///
+    /// If this is on the server, the function will be invoked and the value serialized. When it runs
+    /// on the client, it will be deserialized without running the function again.
+    ///
+    /// This uses the [`BitcodeCodec`] encoding.
+    pub fn new_bitcode(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }

@@ -14,7 +14,7 @@ any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
 futures = "0.3.31"
 hydration_context = { workspace = true, optional = true }
-pin-project-lite = "0.2.15"
+pin-project-lite = "0.2"
 rustc-hash = "2.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 slotmap = "1.0"

@@ -143,6 +143,8 @@ use request::Req;
 use response::{ClientRes, Res};
 #[cfg(feature = "rkyv")]
 pub use rkyv;
+#[cfg(feature = "bitcode")]
+pub use bitcode;
 #[doc(hidden)]
 pub use serde;
 #[doc(hidden)]

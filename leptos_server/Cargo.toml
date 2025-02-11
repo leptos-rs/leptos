@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 base64 = "0.22.1"
-codee = { version = "0.2.0", features = ["json_serde"] }
+codee = { git = "https://github.com/gqsnt/codee_rkyv_8", rev="7ad6ce92507d72ba9afc667c7054ae83c26c87d8", features = ["json_serde"] }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
 server_fn = { workspace = true }
@@ -38,6 +38,7 @@ serde-wasm-bindgen = ["codee/json_serde_wasm"]
 serde-lite = ["codee/serde_lite"]
 tachys = ["dep:tachys"]
 tracing = ["dep:tracing"]
+bitcode = ["codee/bitcode"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]

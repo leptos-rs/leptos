@@ -35,6 +35,10 @@ impl From<ServerFnError> for Error {
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
+#[cfg_attr(
+    feature = "bitcode",
+    derive(bitcode::Encode, bitcode::Decode)
+)]
 pub struct NoCustomError;
 
 // Implement `Display` for `NoCustomError`
@@ -140,6 +144,10 @@ impl<E> ViaError<E> for WrapError<E> {
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(
+    feature = "bitcode",
+    derive(bitcode::Encode, bitcode::Decode)
 )]
 pub enum ServerFnError<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
