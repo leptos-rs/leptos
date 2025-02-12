@@ -14,7 +14,7 @@ leptos_router = { version = "0.6.13", features = ["csr"] }
 console_log = "1.0"
 log = "0.4.22"
 console_error_panic_hook = "0.1.7"
-bevy = "0.14.1"
+bevy = "0.15.2"
 crossbeam-channel = "0.5.13"
 
 [dev-dependencies]
