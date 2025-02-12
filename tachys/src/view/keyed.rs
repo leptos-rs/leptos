@@ -276,6 +276,7 @@ where
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
         KeyedState {
             parent: Some(parent),
             marker,
