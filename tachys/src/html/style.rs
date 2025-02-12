@@ -9,7 +9,7 @@ use crate::{
     renderer::Rndr,
     view::{Position, ToTemplate},
 };
-use std::{future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that will add to an element's CSS styles.
 #[inline(always)]
@@ -256,6 +256,171 @@ impl<T: IntoStyle> IntoStyle for Option<T> {
         if let Some(prev_t_state) = &mut state.1 {
             T::reset(prev_t_state);
         }
+    }
+}
+
+impl IntoStyle for (Arc<str>, Option<Arc<str>>) {
+    type AsyncOutput = Self;
+    type State = (
+        crate::renderer::types::CssStyleDeclaration,
+        Arc<str>,
+        Option<Arc<str>>,
+    );
+    type Cloneable = Self;
+    type CloneableOwned = (Arc<str>, Option<Arc<str>>);
+
+    fn to_html(self, style: &mut String) {
+        if let Some(t) = self.1 {
+            style.push_str(&self.0);
+            style.push(':');
+            style.push_str(&t);
+            style.push(';');
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let style = Rndr::style(el);
+        if let Some(t) = self.1 {
+            (style, self.0, Some(t))
+        } else {
+            (style, self.0, None)
+        }
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        let (name, value) = self;
+        let style = Rndr::style(el);
+
+        if let Some(t) = value {
+            Rndr::set_css_property(&style, &name, &t.clone());
+            (style, name, Some(t))
+        } else {
+            (style, name, None)
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (name, value) = self;
+        // state.1 was the previous name, theoretically the css name could be changed:
+        if name != state.1 {
+            <(Arc<str>, Option<Arc<str>>) as IntoStyle>::reset(state);
+        }
+        let (style, prev_name, prev_value) = state;
+        if value != *prev_value {
+            if let Some(value) = value.clone() {
+                Rndr::set_css_property(style, &name, &value);
+            } else {
+                Rndr::remove_css_property(style, &name);
+            }
+        }
+        *prev_name = name;
+        *prev_value = value;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (style, name, _value) = state;
+        Rndr::remove_css_property(style, name);
+    }
+}
+
+impl<'a, T> IntoStyle for (&'a str, Option<T>)
+where
+    T: Into<Cow<'a, str>> + 'static + Clone + Send + PartialEq,
+{
+    type AsyncOutput = Self;
+    type State = (
+        crate::renderer::types::CssStyleDeclaration,
+        &'a str,
+        Option<T>,
+    );
+    type Cloneable = Self;
+    type CloneableOwned = (Arc<str>, Option<Arc<str>>);
+
+    fn to_html(self, style: &mut String) {
+        if let Some(t) = self.1 {
+            style.push_str(self.0);
+            style.push(':');
+            style.push_str(&t.into());
+            style.push(';');
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let style = Rndr::style(el);
+        if let Some(t) = self.1 {
+            (style, self.0, Some(t))
+        } else {
+            (style, self.0, None)
+        }
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        let (name, value) = self;
+        let style = Rndr::style(el);
+
+        if let Some(t) = value {
+            Rndr::set_css_property(&style, name, &t.clone().into());
+            (style, name, Some(t))
+        } else {
+            (style, name, None)
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (name, value) = self;
+        // state.1 was the previous name, theoretically the css name could be changed:
+        if name != state.1 {
+            <(&'a str, Option<T>) as IntoStyle>::reset(state);
+        }
+        let (style, prev_name, prev_value) = state;
+        if value != *prev_value {
+            if let Some(value) = value.clone() {
+                Rndr::set_css_property(style, name, &value.into());
+            } else {
+                Rndr::remove_css_property(style, name);
+            }
+        }
+        *prev_name = name;
+        *prev_value = value;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.into(), self.1.map(|v| Arc::from(v.into())))
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (style, name, _value) = state;
+        Rndr::remove_css_property(style, name);
     }
 }
 
@@ -704,7 +869,7 @@ impl<const V: &'static str> IntoStyle for (Arc<str>, Static<V>) {
 }
 
 #[cfg(feature = "nightly")]
-impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
+impl<const V: &'static str> IntoStyle for Static<V> {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
