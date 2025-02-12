@@ -10,7 +10,7 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-config = { version = "0.14.1", default-features = false, features = [
+config = { version = "0.15.8", default-features = false, features = [
   "toml",
   "convert-case",
 ] }
