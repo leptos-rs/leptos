@@ -1,6 +1,6 @@
 mod demos;
 mod routes;
-use leptos::*;
+use leptos::prelude::*;
 use routes::RootPage;
 
 pub fn main() {
