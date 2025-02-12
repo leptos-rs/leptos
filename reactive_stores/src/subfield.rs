@@ -9,9 +9,10 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Write,
+        DefinedAt, Get as _, IsDisposed, Notify, ReadUntracked, Track,
+        UntrackableGuard, Write,
     },
+    wrappers::read::Signal,
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
@@ -221,5 +222,16 @@ where
             writer.untrack();
             writer
         })
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for Signal<T>
+where
+    Inner: StoreField<Value = Prev> + Track + Send + Sync + 'static,
+    Prev: 'static,
+    T: Send + Sync + Clone + 'static,
+{
+    fn from(subfield: Subfield<Inner, Prev, T>) -> Self {
+        Signal::derive(move || subfield.get())
     }
 }
