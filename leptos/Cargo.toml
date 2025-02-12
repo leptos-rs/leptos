@@ -57,7 +57,7 @@ serde_qs = "0.13.0"
 slotmap = "1.0"
 futures = "0.3.31"
 send_wrapper = "0.6.0"
-getrandom = { version = "0.2", features = ["js"], optional = true }
+getrandom = { version = "0.3.1", features = ["wasm_js"], optional = true }
 
 [features]
 hydration = [
