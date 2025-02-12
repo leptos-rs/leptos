@@ -45,6 +45,7 @@ impl RenderHtml for () {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        position.set(Position::NextChild);
         cursor.next_placeholder(position)
     }
 

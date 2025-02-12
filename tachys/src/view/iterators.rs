@@ -290,6 +290,7 @@ where
             child.to_html_with_buf(buf, position, escape, mark_branches);
         }
         buf.push_str("<!>");
+        *position = Position::NextChild;
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -319,6 +320,7 @@ where
             );
         }
         buf.push_sync("<!>");
+        *position = Position::NextChild;
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -332,6 +334,7 @@ where
             .collect();
 
         let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
 
         VecState { states, marker }
     }
