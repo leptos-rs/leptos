@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 guardian = "1.2"
-itertools = "0.13.0"
+itertools = { workspace = true }
 or_poisoned = { workspace = true }
 paste = "1.0"
 reactive_graph = { workspace = true }
