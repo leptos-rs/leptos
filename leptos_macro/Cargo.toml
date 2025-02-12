@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.5"
+version = { workspace = true }
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -34,7 +34,7 @@ log = "0.4.22"
 typed-builder = "0.20.0"
 trybuild = "1.0"
 leptos = { path = "../leptos" }
-leptos_router = { path = "../router", features= ["ssr"] }
+leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = "1.41"
 serde = "1.0"
