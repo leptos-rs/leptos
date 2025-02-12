@@ -1,2 +1,0 @@
-[build]
-rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
