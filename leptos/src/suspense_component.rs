@@ -303,11 +303,13 @@ where
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             move |_| {
                 tasks.track();
-                if tasks.read().is_empty() {
-                    if let Some(tx) = tasks_tx.take() {
-                        // If the receiver has dropped, it means the ScopedFuture has already
-                        // dropped, so it doesn't matter if we manage to send this.
-                        _ = tx.send(());
+                if let Some(tasks) = tasks.try_read() {
+                    if tasks.is_empty() {
+                        if let Some(tx) = tasks_tx.take() {
+                            // If the receiver has dropped, it means the ScopedFuture has already
+                            // dropped, so it doesn't matter if we manage to send this.
+                            _ = tx.send(());
+                        }
                     }
                 }
             }
