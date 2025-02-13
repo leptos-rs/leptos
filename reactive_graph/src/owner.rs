@@ -179,7 +179,7 @@ impl Owner {
         let mut inner = self.inner.write().or_poisoned();
         #[cfg(feature = "sandboxed-arenas")]
         let arena = inner.arena.clone();
-        let paused = inner.paused.clone();
+        let paused = inner.paused;
         let child = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
