@@ -93,7 +93,8 @@ where
                         while rx.next().await.is_some() {
                             if subscriber.with_observer(|| {
                                 subscriber.update_if_necessary()
-                            }) {
+                            }) && !owner.paused()
+                            {
                                 subscriber.clear_sources(&subscriber);
 
                                 let old_value = mem::take(
@@ -161,6 +162,7 @@ where
                     while rx.next().await.is_some() {
                         if subscriber
                             .with_observer(|| subscriber.update_if_necessary())
+                            && !owner.paused()
                         {
                             subscriber.clear_sources(&subscriber);
 
