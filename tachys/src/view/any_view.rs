@@ -163,7 +163,6 @@ impl<T> IntoAny for T
 where
     T: Send,
     T: RenderHtml,
-    T::State: 'static,
 {
     fn into_any(self) -> AnyView {
         #[cfg(feature = "ssr")]

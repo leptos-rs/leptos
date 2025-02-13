@@ -327,7 +327,10 @@ where
                 extra_attrs.clone(),
             );
         }
-        buf.push_str("<!>");
+        if escape {
+            buf.push_str("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -359,7 +362,10 @@ where
                 extra_attrs.clone(),
             );
         }
-        buf.push_sync("<!>");
+        if escape {
+            buf.push_sync("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -373,6 +379,7 @@ where
             .collect();
 
         let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
 
         VecState { states, marker }
     }
