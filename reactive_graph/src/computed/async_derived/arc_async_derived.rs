@@ -324,7 +324,7 @@ macro_rules! spawn_derived {
                     }
 
                     while rx.next().await.is_some() {
-                        let update_if_necessary = if $should_track {
+                        let update_if_necessary = !owner.paused() && if $should_track {
                             any_subscriber
                                 .with_observer(|| any_subscriber.update_if_necessary())
                         } else {

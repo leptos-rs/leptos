@@ -55,7 +55,7 @@ impl<T: AsSubscriberSet + DefinedAt> ReactiveNode for T {
 
     fn mark_subscribers_check(&self) {
         if let Some(inner) = self.as_subscriber_set() {
-            let subs = inner.borrow().write().unwrap().take();
+            let subs = inner.borrow().read().unwrap().clone();
             for sub in subs {
                 sub.mark_dirty();
             }
