@@ -165,7 +165,7 @@ tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4.4"
-tokio = { version = "1.41", features = ["rt", "macros"] }
+tokio = { version = "1.43", features = ["rt", "macros"] }
 
 [features]
 default = ["testing"]
