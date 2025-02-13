@@ -23,14 +23,13 @@ impl Scene {
     /// Create a new instance
     pub fn new(canvas_id: String) -> Scene {
         let plugin = DuplexEventsPlugin::new();
-        let instance = Scene {
+        Scene {
             is_setup: false,
-            canvas_id: canvas_id,
+            canvas_id,
             evt_plugin: plugin.clone(),
             shared_state: SharedState::new(),
             processor: plugin.get_processor(),
-        };
-        instance
+        }
     }
 
     /// Get the shared state
@@ -47,7 +46,7 @@ impl Scene {
 
     /// Setup and attach the bevy instance to the html canvas element
     pub fn setup(&mut self) {
-        if self.is_setup == true {
+        if self.is_setup {
             return;
         };
         App::new()

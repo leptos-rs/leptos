@@ -17,7 +17,7 @@ impl DuplexEventsPlugin {
         let (bevy_sender, client_receiver) = crossbeam_channel::bounded(50);
         // For sending message from the client to bevy
         let (client_sender, bevy_receiver) = crossbeam_channel::bounded(50);
-        let instance = DuplexEventsPlugin {
+        DuplexEventsPlugin {
             client_processor: EventProcessor {
                 sender: client_sender,
                 receiver: client_receiver,
@@ -26,8 +26,7 @@ impl DuplexEventsPlugin {
                 sender: bevy_sender,
                 receiver: bevy_receiver,
             },
-        };
-        instance
+        }
     }
 
     /// Get the client event processor
