@@ -91,9 +91,10 @@ where
 
                     async move {
                         while rx.next().await.is_some() {
-                            if subscriber.with_observer(|| {
-                                subscriber.update_if_necessary()
-                            }) && !owner.paused()
+                            if !owner.paused()
+                                && subscriber.with_observer(|| {
+                                    subscriber.update_if_necessary()
+                                })
                             {
                                 subscriber.clear_sources(&subscriber);
 
@@ -160,9 +161,10 @@ where
 
                 async move {
                     while rx.next().await.is_some() {
-                        if subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
-                            && !owner.paused()
+                        if !owner.paused()
+                            && subscriber.with_observer(|| {
+                                subscriber.update_if_necessary()
+                            })
                         {
                             subscriber.clear_sources(&subscriber);
 
