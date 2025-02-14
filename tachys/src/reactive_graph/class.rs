@@ -529,7 +529,7 @@ mod stable {
                 C::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<Option<C::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -538,7 +538,7 @@ mod stable {
                 }
 
                 fn to_html(self, class: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(class);
                 }
 
@@ -546,18 +546,71 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).build(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -576,13 +629,13 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
                                 C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
+                                Some(state)
                             }
+                            Some(None) => None,
+                            None => None, // unreachable!()
                         },
                         state.take_value(),
                     );
@@ -610,7 +663,7 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let (name, f) = self;
-                    let include = f.get();
+                    let include = f.try_get().unwrap_or(false);
                     if include {
                         <&str as IntoClass>::to_html(name, class);
                     }
@@ -620,9 +673,31 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
+                    // TODO FROM_SERVER vs template
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                if let Some((class_list, prev)) = prev {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
                     )
                 }
 
@@ -630,11 +705,71 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::build((self.0, move || self.1.get()), el)
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                match prev {
+                                    Some((class_list, prev)) => {
+                                        if include {
+                                            if !prev {
+                                                Rndr::add_class(
+                                                    &class_list,
+                                                    name,
+                                                );
+                                            }
+                                        } else if prev {
+                                            Rndr::remove_class(
+                                                &class_list,
+                                                name,
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        if include {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
+                    )
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::rebuild((self.0, move || self.1.get()), state)
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let include = f.try_get().unwrap_or(false);
+                            match prev {
+                                Some((class_list, prev)) => {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                    (class_list.clone(), include)
+                                }
+                                None => {
+                                    unreachable!()
+                                }
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -683,7 +818,7 @@ mod stable {
                 C::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<Option<C::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -692,7 +827,7 @@ mod stable {
                 }
 
                 fn to_html(self, class: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(class);
                 }
 
@@ -700,18 +835,71 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).build(el)
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -730,13 +918,13 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
                                 C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
+                                Some(state)
                             }
+                            Some(None) => None,
+                            None => None, // unreachable!()
                         },
                         state.take_value(),
                     );
@@ -761,7 +949,7 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let (name, f) = self;
-                    let include = f.get();
+                    let include = f.try_get().unwrap_or(false);
                     if include {
                         <&str as IntoClass>::to_html(name, class);
                     }
@@ -771,9 +959,31 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
+                    // TODO FROM_SERVER vs template
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                if let Some((class_list, prev)) = prev {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
                     )
                 }
 
@@ -781,11 +991,364 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoClass::build((self.0, move || self.1.get()), el)
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                match prev {
+                                    Some((class_list, prev)) => {
+                                        if include {
+                                            if !prev {
+                                                Rndr::add_class(
+                                                    &class_list,
+                                                    name,
+                                                );
+                                            }
+                                        } else if prev {
+                                            Rndr::remove_class(
+                                                &class_list,
+                                                name,
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        if include {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
+                    )
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::rebuild((self.0, move || self.1.get()), state)
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let include = f.try_get().unwrap_or(false);
+                            match prev {
+                                Some((class_list, prev)) => {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                    (class_list.clone(), include)
+                                }
+                                None => {
+                                    unreachable!()
+                                }
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = RenderEffectWithClassName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| {
+                                if let Some(mut state) = prev {
+                                    let (class_list, prev) = &mut state;
+                                    Rndr::remove_class(class_list, name);
+                                    *prev = false;
+                                    state
+                                } else {
+                                    unreachable!()
+                                }
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "reactive_stores")]
+    macro_rules! class_store_field {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> IntoClass for $name<$($gen),*>
+            where
+                $v: IntoClass + Clone + Send + Sync + 'static,
+                <$v as IntoClass>::State: 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = RenderEffect<Option<<$v as IntoClass>::State>>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let value = self.try_get();
+                    value.to_html(class);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn rebuild(self, state: &mut Self::State) {
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
+                                <$v>::reset(&mut state);
+                                Some(state)
+                            }
+                            Some(None) => None,
+                            None => None, // unreachable!()
+                        },
+                        state.take_value(),
+                    );
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "reactive_stores")]
+    macro_rules! tuple_class_store_field {
+        ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $v:ty, $( $where_clause:tt )*) => {
+            impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
+            where
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = RenderEffectWithClassName<(
+                    crate::renderer::types::ClassList,
+                    bool,
+                )>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn html_len(&self) -> usize {
+                    self.0.len()
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let (name, f) = self;
+                    let include = f.try_get().unwrap_or(false);
+                    if include {
+                        <&str as IntoClass>::to_html(name, class);
+                    }
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    // TODO FROM_SERVER vs template
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                if let Some((class_list, prev)) = prev {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
+                    )
+                }
+
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    let (name, f) = self;
+                    let class_list = Rndr::class_list(el);
+                    let name = Rndr::intern(name);
+
+                    RenderEffectWithClassName::new(
+                        name,
+                        RenderEffect::new(
+                            move |prev: Option<(
+                                crate::renderer::types::ClassList,
+                                bool,
+                            )>| {
+                                let include = f.try_get().unwrap_or(false);
+                                match prev {
+                                    Some((class_list, prev)) => {
+                                        if include {
+                                            if !prev {
+                                                Rndr::add_class(
+                                                    &class_list,
+                                                    name,
+                                                );
+                                            }
+                                        } else if prev {
+                                            Rndr::remove_class(
+                                                &class_list,
+                                                name,
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        if include {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    }
+                                }
+                                (class_list.clone(), include)
+                            },
+                        ),
+                    )
+                }
+
+                fn rebuild(self, state: &mut Self::State) {
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let include = f.try_get().unwrap_or(false);
+                            match prev {
+                                Some((class_list, prev)) => {
+                                    if include {
+                                        if !prev {
+                                            Rndr::add_class(&class_list, name);
+                                        }
+                                    } else if prev {
+                                        Rndr::remove_class(&class_list, name);
+                                    }
+                                    (class_list.clone(), include)
+                                }
+                                None => {
+                                    unreachable!()
+                                }
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -836,12 +1399,139 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
 
+    #[cfg(feature = "reactive_stores")]
+    class_store_field!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_store_field!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_store_field!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_store_field!(
+        Subfield,
+        <Inner, Prev>,
+        <Inner, Prev, bool>,
+        bool,
+        Subfield<Inner, Prev, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_store_field!(
+        AtKeyed,
+        <Inner, Prev, K>,
+        <Inner, Prev, K, bool>,
+        bool,
+        AtKeyed<Inner, Prev, K, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a bool: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K>,
+        <Inner, Prev, K, bool>,
+        bool,
+        KeyedSubfield<Inner, Prev, K, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a bool: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_store_field!(
+        DerefedField,
+        <S>,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref<Target = bool> + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize,Output = bool> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_signal_arena!(Store);
+    #[cfg(feature = "reactive_stores")]
+    class_signal_arena!(Field);
     class_signal_arena!(RwSignal);
     class_signal_arena!(ReadSignal);
     class_signal_arena!(Memo);
     class_signal_arena!(Signal);
     class_signal_arena!(MaybeSignal);
+    #[cfg(feature = "reactive_stores")]
+    class_signal!(ArcStore);
+    #[cfg(feature = "reactive_stores")]
+    class_signal!(ArcField);
     class_signal!(ArcRwSignal);
     class_signal!(ArcReadSignal);
     class_signal!(ArcMemo);
