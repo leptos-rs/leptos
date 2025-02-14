@@ -1,5 +1,5 @@
 use crate::{StoreField, Subfield};
-use reactive_graph::traits::{Read, ReadUntracked};
+use reactive_graph::traits::{FlattenOptionRefOption, Read, ReadUntracked};
 use std::ops::Deref;
 
 /// Extends optional store fields, with the ability to unwrap or map over them.
@@ -12,6 +12,13 @@ where
 
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
+
+    /// Inverts a subfield of an `Option` to an `Option` of a subfield.
+    fn invert(
+        self,
+    ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
+        self.map(|f| f)
+    }
 
     /// Reactively maps over the field.
     ///
@@ -56,7 +63,7 @@ where
         self,
         map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
     ) -> Option<U> {
-        if self.read().is_some() {
+        if self.try_read().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
         } else {
             None
@@ -67,7 +74,7 @@ where
         self,
         map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
     ) -> Option<U> {
-        if self.read_untracked().is_some() {
+        if self.try_read_untracked().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
         } else {
             None
