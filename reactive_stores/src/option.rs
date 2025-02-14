@@ -13,8 +13,8 @@ where
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
 
-    /// Transposes a subfield of an `Option` to an `Option` of a subfield.
-    fn transpose(
+    /// Inverts a subfield of an `Option` to an `Option` of a subfield.
+    fn invert(
         self,
     ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
         self.map(|f| f)
