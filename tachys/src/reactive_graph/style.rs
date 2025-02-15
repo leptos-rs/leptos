@@ -1,161 +1,115 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
-use crate::{html::style::IntoStyle, renderer::Rndr};
+use crate::{
+    html::style::{IntoStyle, IntoStyleValue},
+    renderer::Rndr,
+};
 use reactive_graph::effect::RenderEffect;
-use std::borrow::Cow;
+use std::sync::Arc;
 
-pub struct RenderEffectWithCssStyleName<T>
-where
-    T: 'static,
-{
-    name: &'static str,
-    effect: RenderEffect<T>,
-}
-
-impl<T> RenderEffectWithCssStyleName<T>
-where
-    T: 'static,
-{
-    fn new(name: &'static str, effect: RenderEffect<T>) -> Self {
-        Self { effect, name }
-    }
-}
-
-impl<F, S> IntoStyle for (&'static str, F)
+impl<F, S> IntoStyleValue for F
 where
     F: ReactiveFunction<Output = S>,
-    S: Into<Cow<'static, str>> + 'static,
+    S: IntoStyleValue + 'static,
 {
     type AsyncOutput = Self;
-    type State = RenderEffectWithCssStyleName<(
-        crate::renderer::types::CssStyleDeclaration,
-        Cow<'static, str>,
-    )>;
-    type Cloneable = (&'static str, SharedReactiveFunction<S>);
-    type CloneableOwned = (&'static str, SharedReactiveFunction<S>);
+    type State = (Arc<str>, RenderEffect<S::State>);
+    type Cloneable = SharedReactiveFunction<S>;
+    type CloneableOwned = SharedReactiveFunction<S>;
 
-    fn to_html(self, style: &mut String) {
-        let (name, mut f) = self;
+    fn to_html(self, name: &str, style: &mut String) {
+        let mut f = self;
         let value = f.invoke();
-        style.push_str(name);
-        style.push(':');
-        style.push_str(&value.into());
-        style.push(';');
+        value.to_html(name, style);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        el: &crate::renderer::types::Element,
+    fn build(
+        mut self,
+        style: &crate::renderer::dom::CssStyleDeclaration,
+        name: &str,
     ) -> Self::State {
-        let (name, mut f) = self;
-        let name = Rndr::intern(name);
-        // TODO FROM_SERVER vs template
-        let style = Rndr::style(el);
-        RenderEffectWithCssStyleName::new(
-            name,
+        let name: Arc<str> = Rndr::intern(name).into();
+        let style = style.to_owned();
+        (
+            Arc::clone(&name),
             RenderEffect::new(move |prev| {
-                let value = f.invoke().into();
+                let value = self.invoke();
                 if let Some(mut state) = prev {
-                    let (style, prev): &mut (
-                        crate::renderer::types::CssStyleDeclaration,
-                        Cow<'static, str>,
-                    ) = &mut state;
-                    if &value != prev {
-                        Rndr::set_css_property(style, name, &value);
-                    }
-                    *prev = value;
+                    value.rebuild(&style, &name, &mut state);
                     state
                 } else {
-                    // only set the style in template mode
-                    // in server mode, it's already been set
-                    if !FROM_SERVER {
-                        Rndr::set_css_property(&style, name, &value);
-                    }
-                    (style.clone(), value)
+                    value.build(&style, &name)
                 }
             }),
         )
     }
 
-    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let (name, mut f) = self;
-        let name = Rndr::intern(name);
-        let style = Rndr::style(el);
-        RenderEffectWithCssStyleName::new(
-            name,
-            RenderEffect::new(move |prev| {
-                let value = f.invoke().into();
-                if let Some(mut state) = prev {
-                    let (style, prev): &mut (
-                        crate::renderer::types::CssStyleDeclaration,
-                        Cow<'static, str>,
-                    ) = &mut state;
-                    if &value != prev {
-                        Rndr::set_css_property(style, name, &value);
-                    }
-                    *prev = value;
-                    state
-                } else {
-                    // always set the style initially without checking
-                    Rndr::set_css_property(&style, name, &value);
-                    (style.clone(), value)
-                }
-            }),
-        )
-    }
+    fn rebuild(
+        mut self,
+        style: &crate::renderer::dom::CssStyleDeclaration,
+        name: &str,
+        state: &mut Self::State,
+    ) {
+        let (prev_name, prev_effect) = state;
+        let mut prev_value = prev_effect.take_value();
+        if name != prev_name.as_ref() {
+            Rndr::remove_css_property(style, prev_name.as_ref());
+            prev_value = None;
+        }
+        let name: Arc<str> = name.into();
+        let style = style.to_owned();
 
-    fn rebuild(self, state: &mut Self::State) {
-        let (name, mut f) = self;
-        // Name might've updated:
-        state.name = name;
-        state.effect = RenderEffect::new_with_value(
-            move |prev| {
-                let value = f.invoke().into();
-                if let Some(mut state) = prev {
-                    let (style, prev) = &mut state;
-                    if &value != prev {
-                        Rndr::set_css_property(style, name, &value);
+        *state = (
+            Arc::clone(&name),
+            RenderEffect::new_with_value(
+                move |prev| {
+                    let value = self.invoke();
+                    if let Some(mut state) = prev {
+                        value.rebuild(&style, &name, &mut state);
+                        state
+                    } else {
+                        value.build(&style, &name)
                     }
-                    *prev = value;
-                    state
-                } else {
-                    unreachable!()
-                }
-            },
-            state.effect.take_value(),
+                },
+                prev_value,
+            ),
         );
     }
 
+    fn hydrate(
+        mut self,
+        style: &crate::renderer::dom::CssStyleDeclaration,
+        name: &str,
+    ) -> Self::State {
+        let name: Arc<str> = Rndr::intern(name).into();
+        let style = style.to_owned();
+        (
+            Arc::clone(&name),
+            RenderEffect::new(move |prev| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&style, &name, &mut state);
+                    state
+                } else {
+                    value.hydrate(&style, &name)
+                }
+            }),
+        )
+    }
+
     fn into_cloneable(self) -> Self::Cloneable {
-        (self.0, self.1.into_shared())
+        self.into_shared()
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        (self.0, self.1.into_shared())
+        self.into_shared()
     }
 
     fn dry_resolve(&mut self) {
-        self.1.invoke();
+        self.invoke();
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
-    }
-
-    fn reset(state: &mut Self::State) {
-        let name = state.name;
-        state.effect = RenderEffect::new_with_value(
-            move |prev| {
-                if let Some(mut state) = prev {
-                    let (style, prev) = &mut state;
-                    Rndr::remove_css_property(style, name);
-                    *prev = Cow::Borrowed("");
-                    state
-                } else {
-                    unreachable!()
-                }
-            },
-            state.effect.take_value(),
-        );
     }
 }
 
@@ -319,42 +273,48 @@ mod stable {
                 }
             }
 
-            impl<S> IntoStyle for (&'static str, $sig<S>)
+            impl<S> IntoStyleValue for $sig<S>
             where
                 $sig<S>: Get<Value = S>,
-                S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
+                S: IntoStyleValue + Send + Sync + Clone + 'static,
             {
                 type AsyncOutput = Self;
-                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
-                )>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
+                type State = (Arc<str>, RenderEffect<S::State>);
+                type Cloneable = $sig<S>;
+                type CloneableOwned = $sig<S>;
 
-                fn to_html(self, style: &mut String) {
-                    IntoStyle::to_html((self.0, move || self.1.get()), style)
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
-                    )
+                fn to_html(self, name: &str, style: &mut String) {
+                    IntoStyleValue::to_html(move || self.get(), name, style)
                 }
 
                 fn build(
                     self,
-                    el: &crate::renderer::types::Element,
+                    style: &crate::renderer::dom::CssStyleDeclaration,
+                    name: &str,
                 ) -> Self::State {
-                    IntoStyle::build((self.0, move || self.1.get()), el)
+                    IntoStyleValue::build(move || self.get(), style, name)
                 }
 
-                fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
+                fn rebuild(
+                    self,
+                    style: &crate::renderer::dom::CssStyleDeclaration,
+                    name: &str,
+                    state: &mut Self::State,
+                ) {
+                    IntoStyleValue::rebuild(
+                        move || self.get(),
+                        style,
+                        name,
+                        state,
+                    )
+                }
+
+                fn hydrate(
+                    self,
+                    style: &crate::renderer::dom::CssStyleDeclaration,
+                    name: &str,
+                ) -> Self::State {
+                    IntoStyleValue::hydrate(move || self.get(), style, name)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -369,23 +329,6 @@ mod stable {
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    let name = state.name;
-                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                let (style, prev) = &mut state;
-                                crate::reactive_graph::Rndr::remove_css_property(style, name);
-                                *prev = Cow::Borrowed("");
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.effect.take_value(),
-                    ));
                 }
             }
         };
@@ -458,84 +401,11 @@ mod stable {
                     );
                 }
             }
-
-            #[allow(deprecated)]
-            impl<S, St> IntoStyle for (&'static str, $sig<S, St>)
-            where
-                $sig<S, St>: Get<Value = S>,
-                St: Send + Sync + 'static,
-                St: Storage<S> + Storage<Option<S>>,
-                S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
-            {
-                type AsyncOutput = Self;
-                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
-                )>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn to_html(self, style: &mut String) {
-                    IntoStyle::to_html((self.0, move || self.1.get()), style)
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
-                    )
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::build((self.0, move || self.1.get()), el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    let name = state.name;
-                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                let (style, prev) = &mut state;
-                                crate::reactive_graph::Rndr::remove_css_property(style, name);
-                                *prev = Cow::Borrowed("");
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.effect.take_value(),
-                    ));
-                }
-            }
         };
     }
 
     use super::RenderEffect;
-    use crate::html::style::IntoStyle;
+    use crate::html::style::{IntoStyle, IntoStyleValue};
     #[allow(deprecated)]
     use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
@@ -545,7 +415,7 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use std::borrow::Cow;
+    use std::sync::Arc;
 
     style_signal_arena!(RwSignal);
     style_signal_arena!(ReadSignal);
