@@ -29,6 +29,18 @@ mod suspense;
 pub use owned::*;
 pub use suspense::*;
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! dispose_warn {
+    () => {
+        // panic!();
+        let called_at = std::panic::Location::caller();
+        reactive_graph::log_warning(format_args!(
+            "At {called_at}, you access a signal which is already disposed"
+        ));
+    };
+}
+
 impl<F, V> ToTemplate for F
 where
     F: ReactiveFunction<Output = V>,
@@ -552,10 +564,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build()),
-                            (Some(None), Some(value)) => Some(value.build()),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                     .into()
@@ -601,7 +613,10 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.try_get();
+                        let value = self.try_get();
+                        if value.is_none() {
+                            crate::dispose_warn!();
+                        }
                     }
                 }
 
@@ -628,6 +643,8 @@ mod stable {
                             escape,
                             mark_branches,
                         )
+                    } else {
+                        crate::dispose_warn!();
                     }
                 }
 
@@ -648,6 +665,8 @@ mod stable {
                             escape,
                             mark_branches,
                         );
+                    } else {
+                        crate::dispose_warn!();
                     }
                 }
 
@@ -669,17 +688,14 @@ mod stable {
                                 value.rebuild(&mut state);
                                 Some(state)
                             }
-                            (Some(None), Some(value)) => Some(
-                                value
-                                    .hydrate::<FROM_SERVER>(&cursor, &position),
-                            ),
-                            (Some(Some(state)), None) => Some(state),
                             (None, Some(value)) => Some(
                                 value
                                     .hydrate::<FROM_SERVER>(&cursor, &position),
                             ),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                     .into()
@@ -703,7 +719,11 @@ mod stable {
 
                 fn to_html(self, key: &str, buf: &mut String) {
                     let value = self.try_get();
-                    value.to_html(key, buf);
+                    if let Some(value) = value {
+                        value.to_html(key, buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_key: &str, _buf: &mut String) {}
@@ -730,12 +750,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&key, &el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -760,12 +778,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el, &key)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.build(&el, &key))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -783,11 +799,11 @@ mod stable {
                                     value.rebuild(&key, &mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,
@@ -837,11 +853,11 @@ mod stable {
                                 value.rebuild(&mut state);
                                 Some(state)
                             }
-                            (Some(None), Some(value)) => Some(value.build()),
-                            (Some(Some(state)), None) => Some(state),
                             (None, Some(value)) => Some(value.build()),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                     .into()
@@ -893,7 +909,10 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.try_get();
+                        let value = self.try_get();
+                        if value.is_none() {
+                            crate::dispose_warn!();
+                        }
                     }
                 }
 
@@ -920,6 +939,8 @@ mod stable {
                             escape,
                             mark_branches,
                         )
+                    } else {
+                        crate::dispose_warn!();
                     }
                 }
 
@@ -940,6 +961,8 @@ mod stable {
                             escape,
                             mark_branches,
                         );
+                    } else {
+                        crate::dispose_warn!();
                     }
                 }
 
@@ -961,17 +984,14 @@ mod stable {
                                 value.rebuild(&mut state);
                                 Some(state)
                             }
-                            (Some(None), Some(value)) => Some(
-                                value
-                                    .hydrate::<FROM_SERVER>(&cursor, &position),
-                            ),
-                            (Some(Some(state)), None) => Some(state),
                             (None, Some(value)) => Some(
                                 value
                                     .hydrate::<FROM_SERVER>(&cursor, &position),
                             ),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                     .into()
@@ -998,7 +1018,11 @@ mod stable {
 
                 fn to_html(self, key: &str, buf: &mut String) {
                     let value = self.try_get();
-                    value.to_html(key, buf);
+                    if let Some(value) = value {
+                        value.to_html(key, buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_key: &str, _buf: &mut String) {}
@@ -1025,12 +1049,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&key, &el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -1055,12 +1077,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el, &key)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.build(&el, &key))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -1078,11 +1098,11 @@ mod stable {
                                     value.rebuild(&key, &mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,

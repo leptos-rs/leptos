@@ -177,9 +177,18 @@ where
                 read_signal
                     .try_get()
                     .map(|r| BoolOrT::Bool(el.get_value() == r))
+                    .or_else(|| {
+                        crate::dispose_warn!();
+                        None
+                    })
             })
         } else {
-            Signal::derive(move || read_signal.try_get().map(BoolOrT::T))
+            Signal::derive(move || {
+                read_signal.try_get().map(BoolOrT::T).or_else(|| {
+                    crate::dispose_warn!();
+                    None
+                })
+            })
         }
     }
 

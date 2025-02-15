@@ -539,7 +539,11 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let value = self.try_get();
-                    value.to_html(class);
+                    if let Some(value) = value {
+                        value.to_html(class);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -561,12 +565,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -584,10 +586,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => Some(value.build(&el)),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                 }
@@ -602,11 +604,11 @@ mod stable {
                                     value.rebuild(&mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,
@@ -663,7 +665,10 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let (name, f) = self;
-                    let include = f.try_get().unwrap_or(false);
+                    let include = f.try_get().unwrap_or_else(|| {
+                        crate::dispose_warn!();
+                        false
+                    });
                     if include {
                         <&str as IntoClass>::to_html(name, class);
                     }
@@ -685,7 +690,11 @@ mod stable {
                                 crate::renderer::types::ClassList,
                                 bool,
                             )>| {
-                                let include = f.try_get().unwrap_or(false);
+                                let include =
+                                    f.try_get().unwrap_or_else(|| {
+                                        crate::dispose_warn!();
+                                        false
+                                    });
                                 if let Some((class_list, prev)) = prev {
                                     if include {
                                         if !prev {
@@ -716,7 +725,11 @@ mod stable {
                                 crate::renderer::types::ClassList,
                                 bool,
                             )>| {
-                                let include = f.try_get().unwrap_or(false);
+                                let include =
+                                    f.try_get().unwrap_or_else(|| {
+                                        crate::dispose_warn!();
+                                        false
+                                    });
                                 match prev {
                                     Some((class_list, prev)) => {
                                         if include {
@@ -751,7 +764,10 @@ mod stable {
                     state.name = name;
                     state.effect = RenderEffect::new_with_value(
                         move |prev| {
-                            let include = f.try_get().unwrap_or(false);
+                            let include = f.try_get().unwrap_or_else(|| {
+                                crate::dispose_warn!();
+                                false
+                            });
                             match prev {
                                 Some((class_list, prev)) => {
                                     if include {
@@ -828,7 +844,11 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let value = self.try_get();
-                    value.to_html(class);
+                    if let Some(value) = value {
+                        value.to_html(class);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -850,12 +870,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -873,10 +891,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => Some(value.build(&el)),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                 }
@@ -891,11 +909,11 @@ mod stable {
                                     value.rebuild(&mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,
@@ -949,7 +967,10 @@ mod stable {
 
                 fn to_html(self, class: &mut String) {
                     let (name, f) = self;
-                    let include = f.try_get().unwrap_or(false);
+                    let include = f.try_get().unwrap_or_else(|| {
+                        crate::dispose_warn!();
+                        false
+                    });
                     if include {
                         <&str as IntoClass>::to_html(name, class);
                     }
@@ -971,7 +992,11 @@ mod stable {
                                 crate::renderer::types::ClassList,
                                 bool,
                             )>| {
-                                let include = f.try_get().unwrap_or(false);
+                                let include =
+                                    f.try_get().unwrap_or_else(|| {
+                                        crate::dispose_warn!();
+                                        false
+                                    });
                                 if let Some((class_list, prev)) = prev {
                                     if include {
                                         if !prev {
@@ -1002,7 +1027,11 @@ mod stable {
                                 crate::renderer::types::ClassList,
                                 bool,
                             )>| {
-                                let include = f.try_get().unwrap_or(false);
+                                let include =
+                                    f.try_get().unwrap_or_else(|| {
+                                        crate::dispose_warn!();
+                                        false
+                                    });
                                 match prev {
                                     Some((class_list, prev)) => {
                                         if include {
@@ -1037,7 +1066,10 @@ mod stable {
                     state.name = name;
                     state.effect = RenderEffect::new_with_value(
                         move |prev| {
-                            let include = f.try_get().unwrap_or(false);
+                            let include = f.try_get().unwrap_or_else(|| {
+                                crate::dispose_warn!();
+                                false
+                            });
                             match prev {
                                 Some((class_list, prev)) => {
                                     if include {

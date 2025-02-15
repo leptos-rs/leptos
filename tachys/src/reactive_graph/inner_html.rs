@@ -119,7 +119,11 @@ mod stable {
 
                 fn to_html(self, buf: &mut String) {
                     let value = self.try_get();
-                    value.to_html(buf);
+                    if let Some(value) = value {
+                        value.to_html(buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_buf: &mut String) {}
@@ -142,12 +146,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -168,10 +170,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => Some(value.build(&el)),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                 }
@@ -186,11 +188,11 @@ mod stable {
                                     value.rebuild(&mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,
@@ -236,7 +238,11 @@ mod stable {
 
                 fn to_html(self, buf: &mut String) {
                     let value = self.try_get();
-                    value.to_html(buf);
+                    if let Some(value) = value {
+                        value.to_html(buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_buf: &mut String) {}
@@ -259,12 +265,10 @@ mod stable {
                             (None, Some(value)) => {
                                 Some(value.hydrate::<FROM_SERVER>(&el))
                             }
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => {
-                                Some(value.hydrate::<FROM_SERVER>(&el))
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
                             }
-                            (Some(None), None) => None,
-                            (None, None) => None,
                         }
                     })
                 }
@@ -285,10 +289,10 @@ mod stable {
                                 Some(state)
                             }
                             (None, Some(value)) => Some(value.build(&el)),
-                            (Some(Some(state)), None) => Some(state),
-                            (Some(None), Some(value)) => Some(value.build(&el)),
-                            (Some(None), None) => None,
-                            (None, None) => None,
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
                         }
                     })
                 }
@@ -303,11 +307,11 @@ mod stable {
                                     value.rebuild(&mut state);
                                     Some(state)
                                 }
-                                (Some(Some(state)), None) => Some(state),
-                                (Some(None), Some(_)) => None,
-                                (Some(None), None) => None,
-                                (None, Some(_)) => None, // unreachable!()
-                                (None, None) => None,    // unreachable!()
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
                             }
                         },
                         prev_value,
