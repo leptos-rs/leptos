@@ -3,7 +3,7 @@ use crate::hydration::set_currently_hydrating;
 use crate::{
     html::attribute::Attribute,
     hydration::{failed_to_cast_element, Cursor},
-    prelude::IntoAttribute,
+    prelude::*,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
@@ -15,7 +15,6 @@ use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
 use futures::future::join;
-use next_tuple::NextTuple;
 use std::ops::Deref;
 
 mod custom;
@@ -71,33 +70,98 @@ where
     }
 }*/
 
+#[cfg(not(erase_components))]
 impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
 where
     E: ElementWithChildren,
-    Ch: Render + NextTuple,
-    <Ch as NextTuple>::Output<NewChild::Output>: Render,
+    Ch: RenderHtml + next_tuple::NextTuple,
+    <Ch as next_tuple::NextTuple>::Output<NewChild::Output>: Render,
 
     NewChild: IntoRender,
-    NewChild::Output: Render,
+    NewChild::Output: RenderHtml,
 {
-    type Output =
-        HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild::Output>>;
+    type Output = HtmlElement<
+        E,
+        At,
+        <Ch as next_tuple::NextTuple>::Output<NewChild::Output>,
+    >;
 
     fn child(self, child: NewChild) -> Self::Output {
-        let HtmlElement {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at,
-            tag,
-            attributes,
-            children,
-        } = self;
         HtmlElement {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at,
-            tag,
-            attributes,
-            children: children.next_tuple(child.into_render()),
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes,
+            children: self.children.next_tuple(child.into_render()),
         }
+    }
+}
+
+#[cfg(erase_components)]
+impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
+where
+    E: ElementWithChildren,
+    Ch: RenderHtml + NextChildren,
+
+    NewChild: IntoRender,
+    NewChild::Output: RenderHtml,
+{
+    type Output =
+        HtmlElement<E, At, crate::view::iterators::StaticVec<AnyView>>;
+
+    fn child(self, child: NewChild) -> Self::Output {
+        use crate::view::any_view::IntoAny;
+
+        HtmlElement {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes,
+            children: self
+                .children
+                .next_children(child.into_render().into_any()),
+        }
+    }
+}
+
+#[cfg(erase_components)]
+trait NextChildren {
+    fn next_children(
+        self,
+        child: AnyView,
+    ) -> crate::view::iterators::StaticVec<AnyView>;
+}
+
+#[cfg(erase_components)]
+impl NextChildren for () {
+    fn next_children(
+        self,
+        child: AnyView,
+    ) -> crate::view::iterators::StaticVec<AnyView> {
+        vec![child].into()
+    }
+}
+
+#[cfg(erase_components)]
+impl<T: RenderHtml> NextChildren for (T,) {
+    fn next_children(
+        self,
+        child: AnyView,
+    ) -> crate::view::iterators::StaticVec<AnyView> {
+        use crate::view::any_view::IntoAny;
+
+        vec![self.0.into_owned().into_any(), child].into()
+    }
+}
+
+#[cfg(erase_components)]
+impl NextChildren for crate::view::iterators::StaticVec<AnyView> {
+    fn next_children(
+        mut self,
+        child: AnyView,
+    ) -> crate::view::iterators::StaticVec<AnyView> {
+        self.0.push(child);
+        self
     }
 }
 
