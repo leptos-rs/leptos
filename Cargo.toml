@@ -67,6 +67,7 @@ or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.1.7" }
 reactive_stores = { path = "./reactive_stores", version = "0.1.7" }
 reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.1.7" }
+serde_json = "1.0.0"
 server_fn = { path = "./server_fn", version = "0.7.7" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.7.7" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.7" }
