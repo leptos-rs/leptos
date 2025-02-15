@@ -7,8 +7,9 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, any_view::AnyView, IntoRender, Mountable,
-        Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, any_view::AnyView, iterators::StaticVec,
+        IntoRender, Mountable, Position, PositionState, Render, RenderHtml,
+        ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -106,7 +107,7 @@ where
     NewChild: IntoRender,
     NewChild::Output: RenderHtml,
 {
-    type Output = HtmlElement<E, At, Vec<AnyView>>;
+    type Output = HtmlElement<E, At, StaticVec<AnyView>>;
 
     fn child(self, child: NewChild) -> Self::Output {
         use crate::view::any_view::IntoAny;
@@ -125,29 +126,29 @@ where
 
 // #[cfg(erase_components)]
 trait NextChildren {
-    fn next_children(self, child: AnyView) -> Vec<AnyView>;
+    fn next_children(self, child: AnyView) -> StaticVec<AnyView>;
 }
 
 // #[cfg(erase_components)]
 impl NextChildren for () {
-    fn next_children(self, child: AnyView) -> Vec<AnyView> {
-        vec![child]
+    fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
+        vec![child].into()
     }
 }
 
 // #[cfg(erase_components)]
 impl<T: RenderHtml> NextChildren for (T,) {
-    fn next_children(self, child: AnyView) -> Vec<AnyView> {
+    fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
         use crate::view::any_view::IntoAny;
 
-        vec![self.0.into_owned().into_any(), child]
+        vec![self.0.into_owned().into_any(), child].into()
     }
 }
 
 // #[cfg(erase_components)]
-impl NextChildren for Vec<AnyView> {
-    fn next_children(mut self, child: AnyView) -> Vec<AnyView> {
-        self.push(child);
+impl NextChildren for StaticVec<AnyView> {
+    fn next_children(mut self, child: AnyView) -> StaticVec<AnyView> {
+        self.0.push(child);
         self
     }
 }
