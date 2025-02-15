@@ -327,7 +327,9 @@ where
                 extra_attrs.clone(),
             );
         }
-        buf.push_str("<!>");
+        if escape {
+            buf.push_str("<!>");
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -359,7 +361,9 @@ where
                 extra_attrs.clone(),
             );
         }
-        buf.push_sync("<!>");
+        if escape {
+            buf.push_sync("<!>");
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -381,6 +385,198 @@ where
         self.into_iter()
             .map(RenderHtml::into_owned)
             .collect::<Vec<_>>()
+    }
+}
+
+/// A container used for ErasedMode. It's slightly better than a raw Vec<> because the rendering traits don't have to worry about the length of the Vec changing, therefore no marker traits etc.
+pub struct StaticVec<T>(pub(crate) Vec<T>);
+
+impl<T> From<Vec<T>> for StaticVec<T> {
+    fn from(vec: Vec<T>) -> Self {
+        Self(vec)
+    }
+}
+
+impl<T> From<StaticVec<T>> for Vec<T> {
+    fn from(static_vec: StaticVec<T>) -> Self {
+        static_vec.0
+    }
+}
+
+/// Retained view state for a `StaticVec<Vec<_>>`.
+pub struct StaticVecState<T>
+where
+    T: Mountable,
+{
+    states: Vec<T>,
+}
+
+impl<T> Mountable for StaticVecState<T>
+where
+    T: Mountable,
+{
+    fn unmount(&mut self) {
+        self.states.iter_mut().for_each(Mountable::unmount);
+    }
+
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
+        for state in self.states.iter_mut() {
+            state.mount(parent, marker);
+        }
+    }
+
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+        if let Some(first) = self.states.first() {
+            first.insert_before_this(child)
+        } else {
+            false
+        }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
+}
+
+impl<T> Render for StaticVec<T>
+where
+    T: Render,
+{
+    type State = StaticVecState<T::State>;
+
+    fn build(self) -> Self::State {
+        Self::State {
+            states: self.0.into_iter().map(T::build).collect(),
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let Self::State { states } = state;
+        let old = states;
+        // this is an unkeyed diff
+        self.0
+            .into_iter()
+            .zip(old.iter_mut())
+            .for_each(|(new, old)| T::rebuild(new, old));
+    }
+}
+
+impl<T> AddAnyAttr for StaticVec<T>
+where
+    T: AddAnyAttr,
+{
+    type Output<SomeNewAttr: Attribute> =
+        StaticVec<<T as AddAnyAttr>::Output<SomeNewAttr::Cloneable>>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        let attr = attr.into_cloneable();
+        self.0
+            .into_iter()
+            .map(|n| n.add_any_attr(attr.clone()))
+            .collect::<Vec<_>>()
+            .into()
+    }
+}
+
+impl<T> RenderHtml for StaticVec<T>
+where
+    T: RenderHtml,
+{
+    type AsyncOutput = StaticVec<T::AsyncOutput>;
+    type Owned = StaticVec<T::Owned>;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        for inner in self.0.iter_mut() {
+            inner.dry_resolve();
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.0.into_iter().map(T::resolve))
+            .await
+            .into_iter()
+            .collect::<Vec<_>>()
+            .into()
+    }
+
+    fn html_len(&self) -> usize {
+        self.0.iter().map(RenderHtml::html_len).sum::<usize>()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
+    ) {
+        for child in self.0.into_iter() {
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
+    ) where
+        Self: Sized,
+    {
+        for child in self.0.into_iter() {
+            child.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let states = self
+            .0
+            .into_iter()
+            .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
+            .collect();
+        Self::State { states }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.0
+            .into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+            .into()
     }
 }
 
