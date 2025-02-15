@@ -509,6 +509,7 @@ mod stable {
     use crate::{
         html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
+        renderer::Rndr,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -525,6 +526,15 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    use std::sync::Arc;
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
 
     macro_rules! signal_impl {
         ($sig:ident $dry_resolve:literal) => {
@@ -534,11 +544,29 @@ mod stable {
                 V: Render + Clone + Send + Sync + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffectState<Option<V::State>>;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build()),
+                            (Some(None), Some(value)) => Some(value.build()),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
                 }
 
                 #[track_caller]
@@ -581,7 +609,7 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.get();
+                        _ = self.try_get();
                     }
                 }
 
@@ -600,8 +628,15 @@ mod stable {
                     escape: bool,
                     mark_branches: bool,
                 ) {
-                    let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        )
+                    }
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -613,13 +648,15 @@ mod stable {
                 ) where
                     Self: Sized,
                 {
-                    let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                    );
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -627,8 +664,33 @@ mod stable {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    let cursor = cursor.clone();
+                    let position = position.clone();
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (Some(None), Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(Some(state)), None) => Some(state),
+                            (None, Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
                 }
             }
 
@@ -639,7 +701,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -648,7 +710,7 @@ mod stable {
                 }
 
                 fn to_html(self, key: &str, buf: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(key, buf);
                 }
 
@@ -659,7 +721,31 @@ mod stable {
                     key: &str,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
@@ -667,11 +753,53 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.build(&el, &key))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, key: &str, state: &mut Self::State) {
-                    (move || self.get()).rebuild(key, state)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let prev_value = state.take_value();
+
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&key, &mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -702,11 +830,29 @@ mod stable {
                 V: Render + Send + Sync + Clone + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffectState<Option<V::State>>;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (Some(None), Some(value)) => Some(value.build()),
+                            (Some(Some(state)), None) => Some(state),
+                            (None, Some(value)) => Some(value.build()),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
                 }
 
                 #[track_caller]
@@ -755,7 +901,7 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.get();
+                        _ = self.try_get();
                     }
                 }
 
@@ -774,8 +920,15 @@ mod stable {
                     escape: bool,
                     mark_branches: bool,
                 ) {
-                    let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        )
+                    }
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -787,13 +940,15 @@ mod stable {
                 ) where
                     Self: Sized,
                 {
-                    let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                    );
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -801,8 +956,33 @@ mod stable {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    let cursor = cursor.clone();
+                    let position = position.clone();
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (Some(None), Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(Some(state)), None) => Some(state),
+                            (None, Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
                 }
             }
 
@@ -816,7 +996,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -825,7 +1005,7 @@ mod stable {
                 }
 
                 fn to_html(self, key: &str, buf: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(key, buf);
                 }
 
@@ -836,7 +1016,31 @@ mod stable {
                     key: &str,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn build(
@@ -844,11 +1048,53 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.build(&el, &key))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, key: &str, state: &mut Self::State) {
-                    (move || self.get()).rebuild(key, state)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let prev_value = state.take_value();
+
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&key, &mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -868,11 +1114,364 @@ mod stable {
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
+    macro_rules! store_field_impl {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $dry_resolve:literal, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> Render for $name<$($gen),*>
+            where
+                $v: Render + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
+            {
+                type State = RenderEffectState<Option<<$v as Render>::State>>;
+
+                #[track_caller]
+                fn build(self) -> Self::State {
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build()),
+                            (Some(None), Some(value)) => Some(value.build()),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
+                }
+
+                #[track_caller]
+                fn rebuild(self, state: &mut Self::State) {
+                    let new = self.build();
+                    let mut old = std::mem::replace(state, new);
+                    old.insert_before_this(state);
+                    old.unmount();
+                }
+            }
+
+            impl<$($gen),*> AddAnyAttr for $name<$($gen),*>
+            where
+                $v: RenderHtml + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
+            {
+                type Output<SomeNewAttr: Attribute> = Self;
+
+                fn add_any_attr<NewAttr: Attribute>(
+                    self,
+                    _attr: NewAttr,
+                ) -> Self::Output<NewAttr>
+                where
+                    Self::Output<NewAttr>: RenderHtml,
+                {
+                    todo!()
+                }
+            }
+
+            impl<$($gen),*> RenderHtml for $name<$($gen),*>
+            where
+                $v: RenderHtml + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+
+                const MIN_LENGTH: usize = 0;
+
+                fn dry_resolve(&mut self) {
+                    if $dry_resolve {
+                        _ = self.try_get();
+                    }
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+
+                fn html_len(&self) -> usize {
+                    <$v>::MIN_LENGTH
+                }
+
+                fn to_html_with_buf(
+                    self,
+                    buf: &mut String,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                ) {
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        )
+                    }
+                }
+
+                fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+                    self,
+                    buf: &mut StreamBuilder,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                ) where
+                    Self: Sized,
+                {
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    }
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    cursor: &Cursor,
+                    position: &PositionState,
+                ) -> Self::State {
+                    let cursor = cursor.clone();
+                    let position = position.clone();
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (Some(None), Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(Some(state)), None) => Some(state),
+                            (None, Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                    .into()
+                }
+            }
+
+
+
+            impl<$($gen),*> AttributeValue for $name<$($gen),*>
+            where
+                $v: AttributeValue + Send + Sync + Clone + 'static,
+                <$v as AttributeValue>::State: 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = RenderEffect<Option<<$v as AttributeValue>::State>>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, key: &str, buf: &mut String) {
+                    let value = self.try_get();
+                    value.to_html(key, buf);
+                }
+
+                fn to_template(_key: &str, _buf: &mut String) {}
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    key: &str,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn build(
+                    self,
+                    el: &crate::renderer::types::Element,
+                    key: &str,
+                ) -> Self::State {
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => {
+                                Some(value.build(&el, &key))
+                            }
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn rebuild(self, key: &str, state: &mut Self::State) {
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let prev_value = state.take_value();
+
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&key, &mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "reactive_stores")]
+    store_field_impl!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        false,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    store_field_impl!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        false,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    store_field_impl!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        false,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    store_field_impl!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        false,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    store_field_impl!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        false,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    signal_impl_arena!(Store false);
+    #[cfg(feature = "reactive_stores")]
+    signal_impl_arena!(Field false);
     signal_impl_arena!(RwSignal false);
     signal_impl_arena!(ReadSignal false);
     signal_impl_arena!(Memo true);
     signal_impl_arena!(Signal true);
     signal_impl_arena!(MaybeSignal true);
+    #[cfg(feature = "reactive_stores")]
+    signal_impl!(ArcStore false);
+    #[cfg(feature = "reactive_stores")]
+    signal_impl!(ArcField false);
     signal_impl!(ArcRwSignal false);
     signal_impl!(ArcReadSignal false);
     signal_impl!(ArcMemo false);
