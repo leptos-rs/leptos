@@ -45,8 +45,9 @@ impl RenderHtml for () {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
-        cursor.next_placeholder(position)
+        marker
     }
 
     async fn resolve(self) -> Self::AsyncOutput {}
