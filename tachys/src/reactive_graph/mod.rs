@@ -33,11 +33,24 @@ pub use suspense::*;
 #[macro_export]
 macro_rules! dispose_warn {
     () => {
-        // panic!();
         let called_at = std::panic::Location::caller();
         reactive_graph::log_warning(format_args!(
             "At {called_at}, you access a signal which is already disposed"
         ));
+    };
+    ($signal:ident,$($context:tt)*) => {
+        if let Some(defined_at) = $signal.defined_at() {
+            let called_at = std::panic::Location::caller();
+            reactive_graph::log_warning(format_args!(
+                "At {called_at}, you tried to access a reactive value which was \
+                defined at {defined_at}, but it has already been disposed.\n{}",$($context)*
+            ));
+        } else {
+            let called_at = std::panic::Location::caller();
+            reactive_graph::log_warning(format_args!(
+                "At {called_at}, you access a signal which is already disposed.\n{}", $($context)*
+            ));
+        }
     };
 }
 
