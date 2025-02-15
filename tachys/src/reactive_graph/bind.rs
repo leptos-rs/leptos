@@ -180,7 +180,8 @@ where
                         crate::dispose_warn!(
                             read_signal,
                             format!(
-                                "Reactive value passed to: bind:{}\nElement: {}",
+                                "Reactive value passed to: bind:{}\nElement: \
+                                 {}",
                                 Key::KEY,
                                 el.node_name().to_lowercase(),
                             )
