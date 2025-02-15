@@ -170,22 +170,35 @@ where
     pub fn read_signal(&self, el: &Element) -> Signal<Option<BoolOrT<T>>> {
         let read_signal = self.read_signal.clone();
 
+        let el = SendWrapper::new(el.clone());
         if Key::KEY == "group" {
-            let el = SendWrapper::new(el.clone());
-
             Signal::derive(move || {
                 read_signal
                     .try_get()
                     .map(|r| BoolOrT::Bool(el.get_value() == r))
                     .or_else(|| {
-                        crate::dispose_warn!();
+                        crate::dispose_warn!(
+                            read_signal,
+                            format!(
+                                "Reactive value passed to: bind:{}\nElement: {}",
+                                Key::KEY,
+                                el.node_name().to_lowercase(),
+                            )
+                        );
                         None
                     })
             })
         } else {
             Signal::derive(move || {
                 read_signal.try_get().map(BoolOrT::T).or_else(|| {
-                    crate::dispose_warn!();
+                    crate::dispose_warn!(
+                        read_signal,
+                        format!(
+                            "Reactive value passed to: bind:{}\nElement: {}",
+                            Key::KEY,
+                            el.node_name().to_lowercase(),
+                        ),
+                    );
                     None
                 })
             })
