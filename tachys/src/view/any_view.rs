@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #[cfg(feature = "ssr")]
 use super::MarkBranch;
 use super::{
@@ -13,10 +14,7 @@ use crate::{
     hydration::Cursor,
     ssr::StreamBuilder,
 };
-use futures::{
-    future::{join, join_all},
-    FutureExt,
-};
+use futures::future::{join, join_all};
 use std::{any::TypeId, fmt::Debug};
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
@@ -177,6 +175,8 @@ where
         fn resolve<T: RenderHtml + 'static>(
             value: Erased,
         ) -> Pin<Box<dyn Future<Output = AnyView> + Send>> {
+            use futures::FutureExt;
+
             async move { value.into_inner::<T>().resolve().await.into_any() }
                 .boxed()
         }
