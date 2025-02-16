@@ -106,15 +106,15 @@ pub trait IntoAny {
 
 /// A more general version of [`IntoAny`] that allows into [`AnyView`],
 /// but also erasing other types that don't implement [`RenderHtml`] like routing.
-pub trait IntoErased {
+pub trait IntoMaybeErased {
     /// The type of the output.
-    type Output: IntoErased;
+    type Output: IntoMaybeErased;
 
-    /// Converts the view into a type-erased view.
-    fn into_erased(self) -> Self::Output;
+    /// Converts the view into a type-erased view if in erased mode.
+    fn into_maybe_erased(self) -> Self::Output;
 }
 
-impl<T> IntoErased for T
+impl<T> IntoMaybeErased for T
 where
     T: RenderHtml,
 {
@@ -124,7 +124,7 @@ where
     #[cfg(erase_components)]
     type Output = AnyView;
 
-    fn into_erased(self) -> Self::Output {
+    fn into_maybe_erased(self) -> Self::Output {
         #[cfg(not(erase_components))]
         {
             self

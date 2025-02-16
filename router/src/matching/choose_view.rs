@@ -131,16 +131,16 @@ tuples!(EitherOf14 => A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 tuples!(EitherOf15 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuples!(EitherOf16 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
-/// A version of [`IntoErased`] for the [`ChooseView`] trait.
-pub trait IntoChooseViewErased {
+/// A version of [`IntoMaybeErased`] for the [`ChooseView`] trait.
+pub trait IntoChooseViewMaybeErased {
     /// The type of the erased view.
-    type Output: IntoChooseViewErased;
+    type Output: IntoChooseViewMaybeErased;
 
     /// Erase the type of the view.
-    fn into_erased(self) -> Self::Output;
+    fn into_maybe_erased(self) -> Self::Output;
 }
 
-impl<T> IntoChooseViewErased for T
+impl<T> IntoChooseViewMaybeErased for T
 where
     T: ChooseView + Send + Clone + 'static,
 {
@@ -150,7 +150,7 @@ where
     #[cfg(not(erase_components))]
     type Output = Self;
 
-    fn into_erased(self) -> Self::Output {
+    fn into_maybe_erased(self) -> Self::Output {
         #[cfg(erase_components)]
         {
             crate::matching::any_choose_view::AnyChooseView::new(self)

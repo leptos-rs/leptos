@@ -344,12 +344,14 @@ pub fn Route<Segments, View>(
     /// Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-) -> <NestedRoute<Segments, (), (), View> as IntoErased>::Output
+) -> <NestedRoute<Segments, (), (), View> as IntoMaybeErased>::Output
 where
     View: ChooseView + Clone + 'static,
     Segments: PossibleRouteMatch + Debug + Clone + Send + 'static,
 {
-    NestedRoute::new(path, view).ssr_mode(ssr).into_erased()
+    NestedRoute::new(path, view)
+        .ssr_mode(ssr)
+        .into_maybe_erased()
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match
@@ -369,7 +371,7 @@ pub fn ParentRoute<Segments, View, Children>(
     /// Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-) -> <NestedRoute<Segments, Children, (), View> as IntoErased>::Output
+) -> <NestedRoute<Segments, Children, (), View> as IntoMaybeErased>::Output
 where
     View: ChooseView + Clone + 'static,
     Children: MatchNestedRoutes + Send + Clone + 'static,
@@ -379,10 +381,10 @@ where
     NestedRoute::new(path, view)
         .ssr_mode(ssr)
         .child(children)
-        .into_erased()
+        .into_maybe_erased()
 }
 
-/// With the `impl Fn` in the return signature, IntoErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
+/// With the `impl Fn` in the return signature, IntoMaybeErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
 macro_rules! define_protected_route {
     ($ret:ty) => {
         /// Describes a route that is guarded by a certain condition. This works the same way as
@@ -446,7 +448,7 @@ macro_rules! define_protected_route {
                 })
                 .into_any()
             };
-            NestedRoute::new(path, view).ssr_mode(ssr).into_erased()
+            NestedRoute::new(path, view).ssr_mode(ssr).into_maybe_erased()
         }
     };
 }
@@ -456,7 +458,7 @@ define_protected_route!(crate::any_nested_route::AnyNestedRoute);
 #[cfg(not(erase_components))]
 define_protected_route!(NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>);
 
-/// With the `impl Fn` in the return signature, IntoErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
+/// With the `impl Fn` in the return signature, IntoMaybeErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
 macro_rules! define_protected_parent_route {
     ($ret:ty) => {
         #[component(transparent)]
@@ -539,7 +541,7 @@ macro_rules! define_protected_parent_route {
             NestedRoute::new(path, view)
                 .ssr_mode(ssr)
                 .child(children)
-                .into_erased()
+                .into_maybe_erased()
         }
     };
 }

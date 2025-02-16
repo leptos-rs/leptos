@@ -31,7 +31,7 @@ pub mod prelude {
         renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr,
-            any_view::{AnyView, IntoAny, IntoErased},
+            any_view::{AnyView, IntoAny, IntoMaybeErased},
             IntoRender, Mountable, Render, RenderHtml,
         },
     };

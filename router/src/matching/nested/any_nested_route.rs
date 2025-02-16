@@ -4,7 +4,7 @@ use crate::{
     GeneratedRouteData, MatchNestedRoutes, RouteMatchId,
 };
 use std::fmt::Debug;
-use tachys::{erased::Erased, prelude::IntoErased};
+use tachys::{erased::Erased, prelude::IntoMaybeErased};
 
 /// A type-erased container for any [`MatchNestedRoutes`].
 pub struct AnyNestedRoute {
@@ -31,10 +31,10 @@ impl Debug for AnyNestedRoute {
     }
 }
 
-impl IntoErased for AnyNestedRoute {
+impl IntoMaybeErased for AnyNestedRoute {
     type Output = Self;
 
-    fn into_erased(self) -> Self::Output {
+    fn into_maybe_erased(self) -> Self::Output {
         self
     }
 }

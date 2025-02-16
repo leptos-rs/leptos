@@ -1,6 +1,6 @@
 use super::{
-    IntoChooseViewErased, MatchInterface, MatchNestedRoutes, PartialPathMatch,
-    PathSegment, PossibleRouteMatch, RouteMatchId,
+    IntoChooseViewMaybeErased, MatchInterface, MatchNestedRoutes,
+    PartialPathMatch, PathSegment, PossibleRouteMatch, RouteMatchId,
 };
 use crate::{ChooseView, GeneratedRouteData, MatchParams, Method, SsrMode};
 use core::{fmt, iter};
@@ -10,7 +10,7 @@ use std::{
     collections::HashSet,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::prelude::IntoErased;
+use tachys::prelude::IntoMaybeErased;
 
 pub mod any_nested_match;
 pub mod any_nested_route;
@@ -29,7 +29,7 @@ pub struct NestedRoute<Segments, Children, Data, View> {
     ssr_mode: SsrMode,
 }
 
-impl<Segments, Children, Data, View> IntoErased
+impl<Segments, Children, Data, View> IntoMaybeErased
     for NestedRoute<Segments, Children, Data, View>
 where
     Self: MatchNestedRoutes + Send + Clone + 'static,
@@ -40,7 +40,7 @@ where
     #[cfg(not(erase_components))]
     type Output = Self;
 
-    fn into_erased(self) -> Self::Output {
+    fn into_maybe_erased(self) -> Self::Output {
         #[cfg(erase_components)]
         {
             use any_nested_route::IntoAnyNestedRoute;
@@ -79,7 +79,12 @@ impl<Segments, View> NestedRoute<Segments, (), (), View> {
     pub fn new(
         path: Segments,
         view: View,
-    ) -> NestedRoute<Segments, (), (), <View as IntoChooseViewErased>::Output>
+    ) -> NestedRoute<
+        Segments,
+        (),
+        (),
+        <View as IntoChooseViewMaybeErased>::Output,
+    >
     where
         View: ChooseView,
     {
@@ -88,7 +93,7 @@ impl<Segments, View> NestedRoute<Segments, (), (), View> {
             segments: path,
             children: None,
             data: (),
-            view: view.into_erased(),
+            view: view.into_maybe_erased(),
             methods: [Method::Get].into(),
             ssr_mode: Default::default(),
         }
