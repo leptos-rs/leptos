@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::{
     matching::nested::any_nested_match::{AnyNestedMatch, IntoAnyNestedMatch},
     GeneratedRouteData, MatchNestedRoutes, RouteMatchId,

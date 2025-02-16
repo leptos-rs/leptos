@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::{
     matching::any_choose_view::AnyChooseView, ChooseView, MatchInterface,
     MatchParams, RouteMatchId,
