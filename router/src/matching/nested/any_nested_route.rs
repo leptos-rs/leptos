@@ -2,7 +2,7 @@ use crate::{
     matching::nested::any_nested_match::{AnyNestedMatch, IntoAnyNestedMatch},
     GeneratedRouteData, MatchNestedRoutes, RouteMatchId,
 };
-use std::{any::Any, fmt::Debug};
+use std::fmt::Debug;
 use tachys::{erased::Erased, prelude::IntoErased};
 
 /// A type-erased container for any [`MatchNestedRoutes`].

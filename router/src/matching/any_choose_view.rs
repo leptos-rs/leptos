@@ -1,6 +1,6 @@
 use super::ChooseView;
 use futures::FutureExt;
-use std::{any::Any, future::Future, pin::Pin};
+use std::{future::Future, pin::Pin};
 use tachys::{erased::Erased, view::any_view::AnyView};
 
 /// A type-erased [`ChooseView`].

@@ -52,9 +52,7 @@ where
             value.as_id()
         };
 
-        fn as_matched<T: MatchInterface + 'static>(
-            value: &dyn Any,
-        ) -> &str {
+        fn as_matched<T: MatchInterface + 'static>(value: &dyn Any) -> &str {
             let value = value
                 .downcast_ref::<T>()
                 .expect("AnyNestedMatch::as_matched couldn't downcast");
