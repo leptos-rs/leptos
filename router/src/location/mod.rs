@@ -123,14 +123,20 @@ impl Url {
 
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri_component(s).unwrap().into()
+            match js_sys::decode_uri_component(s) {
+                Ok(v) => v.into(),
+                Err(e) => s.into(),
+            }
         }
     }
 
     pub fn unescape_minimal(s: &str) -> String {
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri(s).unwrap().into()
+            match js_sys::decode_uri(s) {
+                Ok(v) => v.into(),
+                Err(e) => s.into(),
+            }
         }
 
         #[cfg(feature = "ssr")]
