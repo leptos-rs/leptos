@@ -112,6 +112,27 @@ pub trait IntoAny {
     fn into_any(self) -> AnyView;
 }
 
+/// A more general version of [`IntoAny`] that allows into [`AnyView`],
+/// but also erasing other types that don't implement [`RenderHtml`] like routing.
+pub trait IntoErased {
+    /// The type of the output.
+    type Output;
+
+    /// Converts the view into a type-erased view.
+    fn into_erased(self) -> Self::Output;
+}
+
+impl<T> IntoErased for T
+where
+    T: RenderHtml,
+{
+    type Output = AnyView;
+
+    fn into_erased(self) -> Self::Output {
+        self.into_owned().into_any()
+    }
+}
+
 fn mount_any<T>(
     state: &mut dyn Any,
     parent: &crate::renderer::types::Element,
