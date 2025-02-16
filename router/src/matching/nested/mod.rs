@@ -1,6 +1,6 @@
 use super::{
-    MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
-    PossibleRouteMatch, RouteMatchId,
+    IntoChooseViewErased, MatchInterface, MatchNestedRoutes, PartialPathMatch,
+    PathSegment, PossibleRouteMatch, RouteMatchId,
 };
 use crate::{ChooseView, GeneratedRouteData, MatchParams, Method, SsrMode};
 use core::{fmt, iter};
@@ -10,7 +10,10 @@ use std::{
     collections::HashSet,
     sync::atomic::{AtomicU16, Ordering},
 };
+use tachys::prelude::IntoErased;
 
+pub mod any_nested_match;
+pub mod any_nested_route;
 mod tuples;
 
 pub(crate) static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
@@ -24,6 +27,31 @@ pub struct NestedRoute<Segments, Children, Data, View> {
     view: View,
     methods: HashSet<Method>,
     ssr_mode: SsrMode,
+}
+
+impl<Segments, Children, Data, View> IntoErased
+    for NestedRoute<Segments, Children, Data, View>
+where
+    Self: MatchNestedRoutes + Send + Clone + 'static,
+{
+    #[cfg(erase_components)]
+    type Output = any_nested_route::AnyNestedRoute;
+
+    #[cfg(not(erase_components))]
+    type Output = Self;
+
+    fn into_erased(self) -> Self::Output {
+        #[cfg(erase_components)]
+        {
+            use any_nested_route::IntoAnyNestedRoute;
+
+            self.into_any_nested_route()
+        }
+        #[cfg(not(erase_components))]
+        {
+            self
+        }
+    }
 }
 
 impl<Segments, Children, Data, View> Clone
@@ -48,16 +76,19 @@ where
 }
 
 impl<Segments, View> NestedRoute<Segments, (), (), View> {
-    pub fn new(path: Segments, view: View) -> Self
+    pub fn new(
+        path: Segments,
+        view: View,
+    ) -> NestedRoute<Segments, (), (), <View as IntoChooseViewErased>::Output>
     where
         View: ChooseView,
     {
-        Self {
+        NestedRoute {
             id: ROUTE_ID.fetch_add(1, Ordering::Relaxed),
             segments: path,
             children: None,
             data: (),
-            view,
+            view: view.into_erased(),
             methods: [Method::Get].into(),
             ssr_mode: Default::default(),
         }

@@ -14,6 +14,7 @@ pub mod prelude {
     pub use crate::{
         html::{
             attribute::{
+                any_attribute::IntoAnyAttribute,
                 aria::AriaAttributes,
                 custom::CustomAttribute,
                 global::{
@@ -30,7 +31,7 @@ pub mod prelude {
         renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr,
-            any_view::{AnyView, IntoAny},
+            any_view::{AnyView, IntoAny, IntoErased},
             IntoRender, Mountable, Render, RenderHtml,
         },
     };
