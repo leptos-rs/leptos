@@ -3,20 +3,19 @@ pub use super::{form::*, link::*};
 use crate::location::RequestUrl;
 pub use crate::nested_router::Outlet;
 use crate::{
-    any_nested_route::AnyNestedRoute,
     flat_router::FlatRoutesView,
     hooks::use_navigate,
     location::{
         BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
     },
     navigate::NavigateOptions,
-    nested_router::{NestedRoutesView, OutletProps},
+    nested_router::NestedRoutesView,
     resolve_path::resolve_path,
     ChooseView, MatchNestedRoutes, NestedRoute, PossibleRouteMatch, RouteDefs,
     SsrMode,
 };
 use either_of::EitherOf3;
-use leptos::{children, html::Output, prelude::*};
+use leptos::{children, prelude::*};
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
@@ -26,7 +25,6 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
-    marker::PhantomData,
     mem,
     sync::Arc,
     time::Duration,

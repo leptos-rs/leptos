@@ -193,7 +193,7 @@ where
         &'a self,
         path: &'a str,
     ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
-        for (_i, item) in self.iter().enumerate() {
+        for item in self.iter() {
             if let (Some((id, matched)), remaining) = item.match_nested(path) {
                 return (Some((id, matched)), remaining);
             }
