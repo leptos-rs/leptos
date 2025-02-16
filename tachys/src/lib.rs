@@ -72,6 +72,9 @@ pub mod oco;
 #[cfg(feature = "reactive_graph")]
 pub mod reactive_graph;
 
+/// A type-erased container.
+pub mod erased;
+
 pub(crate) trait UnwrapOrDebug {
     type Output;
 

@@ -3,19 +3,19 @@ use crate::{
     GeneratedRouteData, MatchNestedRoutes, RouteMatchId,
 };
 use std::{any::Any, fmt::Debug};
-use tachys::prelude::IntoErased;
+use tachys::{erased::Erased, prelude::IntoErased};
 
 /// A type-erased container for any [`MatchNestedRoutes`].
 pub struct AnyNestedRoute {
-    value: Box<dyn Any + Send>,
-    clone: fn(&Box<dyn Any + Send>) -> AnyNestedRoute,
+    value: Erased,
+    clone: fn(&Erased) -> AnyNestedRoute,
     match_nested:
         for<'a> fn(
-            &'a Box<dyn Any + Send>,
+            &'a Erased,
             &'a str,
         )
             -> (Option<(RouteMatchId, AnyNestedMatch)>, &'a str),
-    generate_routes: fn(&Box<dyn Any + Send>) -> Vec<GeneratedRouteData>,
+    generate_routes: fn(&Erased) -> Vec<GeneratedRouteData>,
 }
 
 impl Clone for AnyNestedRoute {
@@ -50,17 +50,11 @@ where
 {
     fn into_any_nested_route(self) -> AnyNestedRoute {
         AnyNestedRoute {
-            value: Box::new(self),
-            clone: |value| {
-                value
-                    .downcast_ref::<T>()
-                    .unwrap()
-                    .clone()
-                    .into_any_nested_route()
-            },
+            value: Erased::new(self),
+            clone: |value| value.get_ref::<T>().clone().into_any_nested_route(),
             match_nested: |value, path| {
                 let (maybe_match, path) =
-                    value.downcast_ref::<T>().unwrap().match_nested(path);
+                    value.get_ref::<T>().match_nested(path);
                 (
                     maybe_match.map(|(id, matched)| {
                         (id, matched.into_any_nested_match())
@@ -69,12 +63,7 @@ where
                 )
             },
             generate_routes: |value| {
-                value
-                    .downcast_ref::<T>()
-                    .unwrap()
-                    .generate_routes()
-                    .into_iter()
-                    .collect()
+                value.get_ref::<T>().generate_routes().into_iter().collect()
             },
         }
     }

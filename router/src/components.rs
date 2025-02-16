@@ -453,7 +453,7 @@ macro_rules! define_protected_route {
 }
 
 #[cfg(erase_components)]
-define_protected_route!(AnyNestedRoute);
+define_protected_route!(crate::any_nested_route::AnyNestedRoute);
 #[cfg(not(erase_components))]
 define_protected_route!(NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>);
 
@@ -546,7 +546,7 @@ macro_rules! define_protected_parent_route {
 }
 
 #[cfg(erase_components)]
-define_protected_parent_route!(AnyNestedRoute);
+define_protected_parent_route!(crate::any_nested_route::AnyNestedRoute);
 #[cfg(not(erase_components))]
 define_protected_parent_route!(NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>);
 

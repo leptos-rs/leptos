@@ -1,16 +1,14 @@
 use super::ChooseView;
 use futures::FutureExt;
 use std::{any::Any, future::Future, pin::Pin};
-use tachys::view::any_view::AnyView;
+use tachys::{erased::Erased, view::any_view::AnyView};
 
 /// A type-erased [`ChooseView`].
 pub struct AnyChooseView {
-    value: Box<dyn Any + Send>,
-    clone: fn(&Box<dyn Any + Send>) -> AnyChooseView,
-    choose: fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView>>>,
-    preload: for<'a> fn(
-        &'a Box<dyn Any + Send>,
-    ) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
+    value: Erased,
+    clone: fn(&Erased) -> AnyChooseView,
+    choose: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView>>>,
+    preload: for<'a> fn(&'a Erased) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
 }
 
 impl Clone for AnyChooseView {
@@ -22,16 +20,10 @@ impl Clone for AnyChooseView {
 impl AnyChooseView {
     pub(crate) fn new<T: ChooseView>(value: T) -> Self {
         Self {
-            value: Box::new(value),
-            clone: |value| {
-                AnyChooseView::new(value.downcast_ref::<T>().unwrap().clone())
-            },
-            choose: |value| {
-                value.downcast::<T>().unwrap().choose().boxed_local()
-            },
-            preload: |value| {
-                value.downcast_ref::<T>().unwrap().preload().boxed_local()
-            },
+            value: Erased::new(value),
+            clone: |value| AnyChooseView::new(value.get_ref::<T>().clone()),
+            choose: |value| value.into_inner::<T>().choose().boxed_local(),
+            preload: |value| value.get_ref::<T>().preload().boxed_local(),
         }
     }
 }

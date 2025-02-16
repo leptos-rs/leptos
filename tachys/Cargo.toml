@@ -162,6 +162,7 @@ sledgehammer_bindgen = { version = "0.6.0", features = [
 ], optional = true }
 sledgehammer_utils = { version = "0.3.1", optional = true }
 tracing = { version = "0.1.41", optional = true }
+erased = "0.1.2"
 
 [dev-dependencies]
 tokio-test = "0.4.4"
