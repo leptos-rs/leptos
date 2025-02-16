@@ -118,10 +118,21 @@ impl<T> IntoErased for T
 where
     T: RenderHtml,
 {
+    #[cfg(not(erase_components))]
+    type Output = Self;
+
+    #[cfg(erase_components)]
     type Output = AnyView;
 
     fn into_erased(self) -> Self::Output {
-        self.into_owned().into_any()
+        #[cfg(not(erase_components))]
+        {
+            self
+        }
+        #[cfg(erase_components)]
+        {
+            self.into_owned().into_any()
+        }
     }
 }
 
