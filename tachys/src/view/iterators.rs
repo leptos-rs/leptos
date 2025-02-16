@@ -391,6 +391,28 @@ where
 /// A container used for ErasedMode. It's slightly better than a raw Vec<> because the rendering traits don't have to worry about the length of the Vec changing, therefore no marker traits etc.
 pub struct StaticVec<T>(pub(crate) Vec<T>);
 
+impl<T: Clone> Clone for StaticVec<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> IntoIterator for StaticVec<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T> StaticVec<T> {
+    /// Iterates over the items.
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
+    }
+}
+
 impl<T> From<Vec<T>> for StaticVec<T> {
     fn from(vec: Vec<T>) -> Self {
         Self(vec)

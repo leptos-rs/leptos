@@ -14,6 +14,7 @@ pub mod prelude {
     pub use crate::{
         html::{
             attribute::{
+                any_attribute::IntoAnyAttribute,
                 aria::AriaAttributes,
                 custom::CustomAttribute,
                 global::{
@@ -30,7 +31,7 @@ pub mod prelude {
         renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr,
-            any_view::{AnyView, IntoAny},
+            any_view::{AnyView, IntoAny, IntoMaybeErased},
             IntoRender, Mountable, Render, RenderHtml,
         },
     };
@@ -70,6 +71,9 @@ pub mod oco;
 /// View implementations for the `reactive_graph` crate.
 #[cfg(feature = "reactive_graph")]
 pub mod reactive_graph;
+
+/// A type-erased container.
+pub mod erased;
 
 pub(crate) trait UnwrapOrDebug {
     type Output;

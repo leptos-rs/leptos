@@ -423,6 +423,12 @@ fn element_children_to_tokens(
                 { #child }
             )
         })
+    } else if cfg!(erase_components) {
+        Some(quote! {
+            .child(
+                leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+            )
+        })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
         // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
@@ -468,6 +474,10 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
+    } else if cfg!(erase_components) {
+        Some(quote! {
+            leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+        })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
         // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
@@ -752,10 +762,18 @@ pub(crate) fn element_to_tokens(
                 }
             }
         }
-        Some(quote! {
-            (#(#attributes,)*)
-            #(.add_any_attr(#additions))*
-        })
+
+        if cfg!(erase_components) {
+            Some(quote! {
+                vec![#(#attributes.into_attr().into_any_attr(),)*]
+                #(.add_any_attr(#additions))*
+            })
+        } else {
+            Some(quote! {
+                (#(#attributes,)*)
+                #(.add_any_attr(#additions))*
+            })
+        }
     } else {
         let tag = name.to_string();
         // collect close_tag name to emit semantic information for IDE.
