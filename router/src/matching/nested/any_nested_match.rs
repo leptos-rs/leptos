@@ -2,16 +2,17 @@ use crate::{
     matching::any_choose_view::AnyChooseView, ChooseView, MatchInterface,
     MatchParams, RouteMatchId,
 };
-use std::{any::Any, borrow::Cow, fmt::Debug};
+use std::{borrow::Cow, fmt::Debug};
+use tachys::erased::ErasedLocal;
 
 /// A type-erased container for any [`MatchParams'] + [`MatchInterface`].
 pub struct AnyNestedMatch {
-    value: Box<dyn Any>,
-    to_params: fn(&dyn Any) -> Vec<(Cow<'static, str>, String)>,
-    as_id: fn(&dyn Any) -> RouteMatchId,
-    as_matched: for<'a> fn(&'a dyn Any) -> &'a str,
+    value: ErasedLocal,
+    to_params: fn(&ErasedLocal) -> Vec<(Cow<'static, str>, String)>,
+    as_id: fn(&ErasedLocal) -> RouteMatchId,
+    as_matched: for<'a> fn(&'a ErasedLocal) -> &'a str,
     into_view_and_child:
-        fn(Box<dyn Any>) -> (AnyChooseView, Option<AnyNestedMatch>),
+        fn(ErasedLocal) -> (AnyChooseView, Option<AnyNestedMatch>),
 }
 
 impl Debug for AnyNestedMatch {
@@ -31,58 +32,53 @@ where
     T: MatchParams + MatchInterface + 'static,
 {
     fn into_any_nested_match(self) -> AnyNestedMatch {
-        let value = Box::new(self) as Box<dyn Any>;
-        let value = match (value as Box<dyn Any>).downcast::<AnyNestedMatch>() {
-            // if it's already an AnyNestedMatch, we don't need to double-wrap it
-            Ok(any_nested_route) => return *any_nested_route,
-            Err(value) => value.downcast::<T>().unwrap(),
-        };
+        let value = ErasedLocal::new(self);
 
-        let to_params = |value: &dyn Any| {
-            let value = value
-                .downcast_ref::<T>()
-                .expect("AnyNestedMatch::to_params couldn't downcast");
+        fn to_params<T: MatchParams + 'static>(
+            value: &ErasedLocal,
+        ) -> Vec<(Cow<'static, str>, String)> {
+            let value = value.get_ref::<T>();
             value.to_params()
-        };
+        }
 
-        let as_id = |value: &dyn Any| {
-            let value = value
-                .downcast_ref::<T>()
-                .expect("AnyNestedMatch::as_id couldn't downcast");
+        fn as_id<T: MatchInterface + 'static>(
+            value: &ErasedLocal,
+        ) -> RouteMatchId {
+            let value = value.get_ref::<T>();
             value.as_id()
-        };
+        }
 
-        fn as_matched<T: MatchInterface + 'static>(value: &dyn Any) -> &str {
-            let value = value
-                .downcast_ref::<T>()
-                .expect("AnyNestedMatch::as_matched couldn't downcast");
+        fn as_matched<T: MatchInterface + 'static>(
+            value: &ErasedLocal,
+        ) -> &str {
+            let value = value.get_ref::<T>();
             value.as_matched()
         }
 
-        let into_view_and_child = |value: Box<dyn Any>| {
-            let value = value.downcast::<T>().expect(
-                "AnyNestedMatch::into_view_and_child couldn't downcast",
-            );
+        fn into_view_and_child<T: MatchInterface + 'static>(
+            value: ErasedLocal,
+        ) -> (AnyChooseView, Option<AnyNestedMatch>) {
+            let value = value.into_inner::<T>();
             let (view, child) = value.into_view_and_child();
             (
                 AnyChooseView::new(view),
                 child.map(|child| child.into_any_nested_match()),
             )
-        };
+        }
 
         AnyNestedMatch {
             value,
-            to_params,
-            as_id,
+            to_params: to_params::<T>,
+            as_id: as_id::<T>,
             as_matched: as_matched::<T>,
-            into_view_and_child,
+            into_view_and_child: into_view_and_child::<T>,
         }
     }
 }
 
 impl MatchParams for AnyNestedMatch {
     fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
-        (self.to_params)(&*self.value)
+        (self.to_params)(&self.value)
     }
 }
 
@@ -90,11 +86,11 @@ impl MatchInterface for AnyNestedMatch {
     type Child = AnyNestedMatch;
 
     fn as_id(&self) -> RouteMatchId {
-        (self.as_id)(&*self.value)
+        (self.as_id)(&self.value)
     }
 
     fn as_matched(&self) -> &str {
-        (self.as_matched)(&*self.value)
+        (self.as_matched)(&self.value)
     }
 
     fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>) {

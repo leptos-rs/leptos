@@ -29,7 +29,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tachys::view::any_view::AnyView;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].

@@ -19,11 +19,27 @@ impl Clone for AnyChooseView {
 
 impl AnyChooseView {
     pub(crate) fn new<T: ChooseView>(value: T) -> Self {
+        fn clone<T: ChooseView>(value: &Erased) -> AnyChooseView {
+            AnyChooseView::new(value.get_ref::<T>().clone())
+        }
+
+        fn choose<T: ChooseView>(
+            value: Erased,
+        ) -> Pin<Box<dyn Future<Output = AnyView>>> {
+            value.into_inner::<T>().choose().boxed_local()
+        }
+
+        fn preload<'a, T: ChooseView>(
+            value: &'a Erased,
+        ) -> Pin<Box<dyn Future<Output = ()> + 'a>> {
+            value.get_ref::<T>().preload().boxed_local()
+        }
+
         Self {
             value: Erased::new(value),
-            clone: |value| AnyChooseView::new(value.get_ref::<T>().clone()),
-            choose: |value| value.into_inner::<T>().choose().boxed_local(),
-            preload: |value| value.get_ref::<T>().preload().boxed_local(),
+            clone: clone::<T>,
+            choose: choose::<T>,
+            preload: preload::<T>,
         }
     }
 }

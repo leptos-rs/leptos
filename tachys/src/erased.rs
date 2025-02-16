@@ -16,7 +16,8 @@ macro_rules! erased {
         pub struct $name {
             #[cfg(not(erase_components))]
             type_id: std::any::TypeId,
-            value: ErasedBox,
+            value: Option<ErasedBox>,
+            drop: fn(ErasedBox),
         }
 
 
@@ -26,7 +27,10 @@ macro_rules! erased {
                 Self {
                     #[cfg(not(erase_components))]
                     type_id: std::any::TypeId::of::<T>(),
-                    value: ErasedBox::new(Box::new(item)),
+                    value: Some(ErasedBox::new(Box::new(item))),
+                    drop: |value| {
+                        let _ = unsafe { value.into_inner::<T>() };
+                    },
                 }
             }
 
@@ -34,24 +38,34 @@ macro_rules! erased {
             pub fn get_ref<T: 'static>(&self) -> &T {
                 #[cfg(not(erase_components))]
                 check(&self.type_id, &std::any::TypeId::of::<T>());
-                unsafe { self.value.get_ref::<T>() }
+                unsafe { self.value.as_ref().unwrap().get_ref::<T>() }
             }
 
             /// Get a mutable reference to the inner value.
             pub fn get_mut<T: 'static>(&mut self) -> &mut T {
                 #[cfg(not(erase_components))]
                 check(&self.type_id, &std::any::TypeId::of::<T>());
-                unsafe { self.value.get_mut::<T>() }
+                unsafe { self.value.as_mut().unwrap().get_mut::<T>() }
             }
 
             /// Consume the item and return the inner value.
-            pub fn into_inner<T: 'static>(self) -> Box<T> {
+            pub fn into_inner<T: 'static>(mut self) -> T {
                 #[cfg(not(erase_components))]
                 check(&self.type_id, &std::any::TypeId::of::<T>());
-                unsafe { self.value.into_inner::<T>() }
+                *unsafe { self.value.take().unwrap().into_inner::<T>() }
+            }
+        }
+
+        /// If into_inner() wasn't called, the value would leak and destructors wouldn't run, this prevents that from happening.
+        impl Drop for $name {
+            fn drop(&mut self) {
+                if let Some(value) = self.value.take() {
+                    (self.drop)(value);
+                }
             }
         }
     };
+
 }
 
 erased!([Send + 'static], Erased);

@@ -49,22 +49,35 @@ where
     T: MatchNestedRoutes + Send + Clone + 'static,
 {
     fn into_any_nested_route(self) -> AnyNestedRoute {
+        fn clone<T: MatchNestedRoutes + Send + Clone + 'static>(
+            value: &Erased,
+        ) -> AnyNestedRoute {
+            value.get_ref::<T>().clone().into_any_nested_route()
+        }
+
+        fn match_nested<'a, T: MatchNestedRoutes + Send + Clone + 'static>(
+            value: &'a Erased,
+            path: &'a str,
+        ) -> (Option<(RouteMatchId, AnyNestedMatch)>, &'a str) {
+            let (maybe_match, path) = value.get_ref::<T>().match_nested(path);
+            (
+                maybe_match
+                    .map(|(id, matched)| (id, matched.into_any_nested_match())),
+                path,
+            )
+        }
+
+        fn generate_routes<T: MatchNestedRoutes + Send + Clone + 'static>(
+            value: &Erased,
+        ) -> Vec<GeneratedRouteData> {
+            value.get_ref::<T>().generate_routes().into_iter().collect()
+        }
+
         AnyNestedRoute {
             value: Erased::new(self),
-            clone: |value| value.get_ref::<T>().clone().into_any_nested_route(),
-            match_nested: |value, path| {
-                let (maybe_match, path) =
-                    value.get_ref::<T>().match_nested(path);
-                (
-                    maybe_match.map(|(id, matched)| {
-                        (id, matched.into_any_nested_match())
-                    }),
-                    path,
-                )
-            },
-            generate_routes: |value| {
-                value.get_ref::<T>().generate_routes().into_iter().collect()
-            },
+            clone: clone::<T>,
+            match_nested: match_nested::<T>,
+            generate_routes: generate_routes::<T>,
         }
     }
 }
