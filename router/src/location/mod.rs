@@ -125,7 +125,7 @@ impl Url {
         {
             match js_sys::decode_uri_component(s) {
                 Ok(v) => v.into(),
-                Err(e) => s.into(),
+                Err(_) => s.into(),
             }
         }
     }
@@ -135,7 +135,7 @@ impl Url {
         {
             match js_sys::decode_uri(s) {
                 Ok(v) => v.into(),
-                Err(e) => s.into(),
+                Err(_) => s.into(),
             }
         }
 
