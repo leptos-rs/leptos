@@ -4,6 +4,7 @@ use thiserror::Error;
 
 type ParamsMapInner = Vec<(Cow<'static, str>, Vec<String>)>;
 
+/// A key-value map of the current named route params and their values.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ParamsMap(ParamsMapInner);
 
@@ -23,7 +24,7 @@ impl ParamsMap {
     /// Inserts a value into the map.
     ///
     /// If a value with that key already exists, the new value will be added to it.
-    /// To replace the value instead, see [`replace`].
+    /// To replace the value instead, see [`replace`](Self::replace).
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = Url::unescape(&value);
 
@@ -169,10 +170,12 @@ impl Params for () {
     }
 }
 
+/// Converts some parameter value from the URL into a typed parameter with the given name.
 pub trait IntoParam
 where
     Self: Sized,
 {
+    /// Converts the param.
     fn into_param(value: Option<&str>, name: &str)
         -> Result<Self, ParamsError>;
 }

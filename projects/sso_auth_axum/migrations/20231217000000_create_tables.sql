@@ -21,6 +21,6 @@ CREATE TABLE IF NOT EXISTS google_tokens (
   access_secret TEXT NOT NULL,
   refresh_secret TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) CONFLICT REPLACE
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

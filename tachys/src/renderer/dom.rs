@@ -1,3 +1,7 @@
+#![allow(missing_docs)]
+
+//! See [`Renderer`](crate::renderer::Renderer) and [`Rndr`](crate::renderer::Rndr) for additional information.
+
 use super::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},
@@ -9,9 +13,9 @@ use once_cell::unsync::Lazy;
 use rustc_hash::FxHashSet;
 use std::{any::TypeId, borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
-use web_sys::{Comment, HtmlTemplateElement};
+use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
-/// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
+/// A [`Renderer`](crate::renderer::Renderer) that uses `web-sys` to manipulate DOM elements in the browser.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Dom;
 
@@ -241,6 +245,44 @@ impl Dom {
         })
     }
 
+    pub fn add_event_listener_use_capture(
+        el: &Element,
+        name: &str,
+        cb: Box<dyn FnMut(Event)>,
+    ) -> RemoveEventHandler<Element> {
+        let cb = wasm_bindgen::closure::Closure::wrap(cb);
+        let name = intern(name);
+        let options = AddEventListenerOptions::new();
+        options.set_capture(true);
+        or_debug!(
+            el.add_event_listener_with_callback_and_add_event_listener_options(
+                name,
+                cb.as_ref().unchecked_ref(),
+                &options
+            ),
+            el,
+            "addEventListenerUseCapture"
+        );
+
+        // return the remover
+        RemoveEventHandler::new({
+            let name = name.to_owned();
+            // safe to construct this here, because it will only run in the browser
+            // so it will always be accessed or dropped from the main thread
+            let cb = send_wrapper::SendWrapper::new(cb);
+            move |el: &Element| {
+                or_debug!(
+                    el.remove_event_listener_with_callback(
+                        intern(&name),
+                        cb.as_ref().unchecked_ref()
+                    ),
+                    el,
+                    "removeEventListener"
+                )
+            }
+        })
+    }
+
     pub fn event_target<T>(ev: &Event) -> T
     where
         T: CastFrom<Element>,
@@ -440,7 +482,8 @@ impl Dom {
         // TODO can be optimized to cache HTML strings or cache <template>?
         let tpl = document().create_element("template").unwrap();
         tpl.set_inner_html(html);
-        Self::clone_template(tpl.unchecked_ref())
+        let tpl = Self::clone_template(tpl.unchecked_ref());
+        tpl.first_element_child().unwrap_or(tpl)
     }
 }
 

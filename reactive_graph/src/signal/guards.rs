@@ -104,7 +104,7 @@ impl<T: 'static> Debug for Plain<T> {
 impl<T: 'static> Plain<T> {
     /// Takes a reference-counted read guard on the given lock.
     pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
-        ArcRwLockReadGuardian::take(inner)
+        ArcRwLockReadGuardian::try_take(inner)?
             .ok()
             .map(|guard| Plain { guard })
     }
@@ -331,7 +331,7 @@ pub struct UntrackedWriteGuard<T: 'static>(ArcRwLockWriteGuardian<T>);
 impl<T: 'static> UntrackedWriteGuard<T> {
     /// Creates a write guard from the given lock.
     pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
-        ArcRwLockWriteGuardian::take(inner)
+        ArcRwLockWriteGuardian::try_take(inner)?
             .ok()
             .map(UntrackedWriteGuard)
     }

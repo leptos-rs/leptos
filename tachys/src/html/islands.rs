@@ -176,6 +176,7 @@ where
             cursor.sibling();
         }
         position.set(Position::FirstChild);
+
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 }
@@ -183,12 +184,28 @@ where
 /// The children that will be projected into an [`Island`].
 pub struct IslandChildren<View> {
     view: View,
+    on_hydrate: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
 impl<View> IslandChildren<View> {
     /// Creates a new representation of the children.
     pub fn new(view: View) -> Self {
-        IslandChildren { view }
+        IslandChildren {
+            view,
+            on_hydrate: None,
+        }
+    }
+
+    /// Creates a new representation of the children, with a function to be called whenever
+    /// a child island hydrates.
+    pub fn new_with_on_hydrate(
+        view: View,
+        on_hydrate: impl Fn() + Send + Sync + 'static,
+    ) -> Self {
+        IslandChildren {
+            view,
+            on_hydrate: Some(Box::new(on_hydrate)),
+        }
     }
 
     fn open_tag(buf: &mut String) {
@@ -229,9 +246,10 @@ where
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        let IslandChildren { view } = self;
+        let IslandChildren { view, on_hydrate } = self;
         IslandChildren {
             view: view.add_any_attr(attr),
+            on_hydrate,
         }
     }
 }
@@ -252,9 +270,10 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        let IslandChildren { view } = self;
+        let IslandChildren { view, on_hydrate } = self;
         IslandChildren {
             view: view.resolve().await,
+            on_hydrate,
         }
     }
 
@@ -312,6 +331,29 @@ where
             cursor.child();
         } else if curr_position != Position::Current {
             cursor.sibling();
+        }
+
+        if let Some(on_hydrate) = self.on_hydrate {
+            use crate::{
+                hydration::failed_to_cast_element, renderer::CastFrom,
+            };
+
+            let el =
+                crate::renderer::types::Element::cast_from(cursor.current())
+                    .unwrap_or_else(|| {
+                        failed_to_cast_element(
+                            "leptos-children",
+                            cursor.current(),
+                        )
+                    });
+            let cb = wasm_bindgen::closure::Closure::wrap(
+                on_hydrate as Box<dyn Fn()>,
+            );
+            _ = js_sys::Reflect::set(
+                &el,
+                &wasm_bindgen::JsValue::from_str("$$on_hydrate"),
+                &cb.into_js_value(),
+            );
         }
     }
 }

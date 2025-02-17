@@ -1,7 +1,7 @@
 use super::subscriber_traits::AsSubscriberSet;
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    traits::{DefinedAt, IsDisposed, Notify},
+    traits::{DefinedAt, IsDisposed, Notify, Track},
 };
 use std::{
     fmt::{Debug, Formatter, Result},
@@ -13,7 +13,7 @@ use std::{
 ///
 /// This can be useful for when using external data not stored in signals, for example.
 pub struct ArcTrigger {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
 }
@@ -23,7 +23,7 @@ impl ArcTrigger {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: Default::default(),
         }
@@ -40,7 +40,7 @@ impl Clone for ArcTrigger {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: Arc::clone(&self.inner),
         }
@@ -69,14 +69,30 @@ impl AsSubscriberSet for ArcTrigger {
     }
 }
 
+impl Notify for Vec<ArcTrigger> {
+    fn notify(&self) {
+        for trigger in self {
+            trigger.notify();
+        }
+    }
+}
+
+impl Track for Vec<ArcTrigger> {
+    fn track(&self) {
+        for trigger in self {
+            trigger.track();
+        }
+    }
+}
+
 impl DefinedAt for ArcTrigger {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

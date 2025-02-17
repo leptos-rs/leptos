@@ -1,11 +1,10 @@
 use crate::{
     html::{
-        attribute::{Attr, Attribute, AttributeValue},
+        attribute::{Attr, Attribute, AttributeValue, NextAttribute},
         element::{ElementType, ElementWithChildren, HtmlElement},
     },
     view::Render,
 };
-use next_tuple::NextTuple;
 use std::fmt::Debug;
 
 macro_rules! html_element_inner {
@@ -25,10 +24,11 @@ macro_rules! html_element_inner {
 
             {
                 HtmlElement {
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
+                    defined_at: std::panic::Location::caller(),
                     tag: $struct_name,
                     attributes: (),
                     children: (),
-
                 }
             }
 
@@ -47,20 +47,27 @@ macro_rules! html_element_inner {
                     #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                     pub fn $attr<V>(self, value: V) -> HtmlElement <
                         $struct_name,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                        <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                         Ch
                     >
                     where
                         V: AttributeValue,
-                        At: NextTuple,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
+                        At: NextAttribute,
+                        <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
-                        let HtmlElement { tag, children, attributes } = self;
-                        HtmlElement {
+                        let HtmlElement {
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
+                            defined_at,
                             tag,
-
                             children,
-                            attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                            attributes
+                        } = self;
+                        HtmlElement {
+                            #[cfg(any(debug_assertions, leptos_debuginfo))]
+                            defined_at,
+                            tag,
+                            children,
+                            attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                         }
                     }
                 )*
@@ -118,14 +125,16 @@ macro_rules! html_self_closing_elements {
         paste::paste! {
             $(
                 #[$meta]
+                #[track_caller]
                 pub fn $tag() -> HtmlElement<[<$tag:camel>], (), ()>
                 where
 
                 {
                     HtmlElement {
+                        #[cfg(any(debug_assertions, leptos_debuginfo))]
+                        defined_at: std::panic::Location::caller(),
                         attributes: (),
                         children: (),
-
                         tag: [<$tag:camel>],
                     }
                 }
@@ -138,28 +147,32 @@ macro_rules! html_self_closing_elements {
                 impl<At> HtmlElement<[<$tag:camel>], At, ()>
                 where
                     At: Attribute,
-
                 {
                     $(
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                         pub fn $attr<V>(self, value: V) -> HtmlElement<
                             [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                             (),
                         >
                         where
                             V: AttributeValue,
-                            At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
-
+                            At: NextAttribute,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
-                            let HtmlElement { tag, children, attributes,
+                            let HtmlElement {
+                                 #[cfg(any(debug_assertions, leptos_debuginfo))]
+                                 defined_at,
+                                tag,
+                                children,
+                                attributes,
                             } = self;
                             HtmlElement {
+                                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                                defined_at,
                                 tag,
-
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                             }
                         }
                     )*
@@ -236,7 +249,7 @@ html_elements! {
     /// The `<body>` HTML element represents the content of an HTML document. There can be only one `<body>` element in a document.
     body HtmlBodyElement [] true,
     /// The `<button>` HTML element represents a clickable button, used to submit forms or anywhere in a document for accessible, standard button functionality.
-    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value] true,
+    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value, popovertarget, popovertargetaction] true,
     /// Use the HTML `<canvas>` element with either the canvas scripting API or the WebGL API to draw graphics and animations.
     canvas HtmlCanvasElement [height, width] true,
     /// The `<caption>` HTML element specifies the caption (or title) of a table.
@@ -270,7 +283,7 @@ html_elements! {
     /// The `<em>` HTML element marks text that has stress emphasis. The `<em>` element can be nested, with each level of nesting indicating a greater degree of emphasis.
     em HtmlElement [] true,
     /// The `<fieldset>` HTML element is used to group several controls as well as labels (label) within a web form.
-    fieldset HtmlFieldSetElement [] true,
+    fieldset HtmlFieldSetElement [disabled, form, name] true,
     /// The `<figcaption>` HTML element represents a caption or legend describing the rest of the contents of its parent figure element.
     figcaption HtmlElement [] true,
     /// The `<figure>` HTML element represents self-contained content, potentially with an optional caption, which is specified using the figcaption element. The figure, its caption, and its contents are referenced as a single unit.
@@ -326,7 +339,7 @@ html_elements! {
     /// The `<nav>` HTML element represents a section of a page whose purpose is to provide navigation links, either within the current document or to other documents. Common examples of navigation sections are menus, tables of contents, and indexes.
     nav HtmlElement [] true,
     /// The `<noscript>` HTML element defines a section of HTML to be inserted if a script type on the page is unsupported or if scripting is currently turned off in the browser.
-    noscript HtmlElement [] true,
+    noscript HtmlElement [] false,
     /// The `<object>` HTML element represents an external resource, which can be treated as an image, a nested browsing context, or a resource to be handled by a plugin.
     object HtmlObjectElement [data, form, height, name, r#type, usemap, width] true,
     /// The `<ol>` HTML element represents an ordered list of items — typically rendered as a numbered list.

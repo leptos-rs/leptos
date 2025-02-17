@@ -1,4 +1,6 @@
 ((root, pkg_path, output_name, wasm_output_name) => {
+	let MOST_RECENT_CHILDREN_CB;
+
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
 			window.requestIdleCallback(c);
@@ -6,47 +8,41 @@
 			c();
 		}
 	}
-	function islandTree(rootNode) {
-		const tree = [];
-
-		function traverse(node, parent) {
+	function hydrateIslands(rootNode, mod) {
+		function traverse(node) {
 			if (node.nodeType === Node.ELEMENT_NODE) {
-				if(node.tagName.toLowerCase() === 'leptos-island') {
+				const tag = node.tagName.toLowerCase();
+				if(tag === 'leptos-island') {
 					const children = [];
 					const id = node.dataset.component || null;
-					const data = { id, node, children };
+
+					hydrateIsland(node, id, mod);
 					
 					for(const child of node.children) {
 						traverse(child, children);
 					}
-
-					(parent || tree).push(data);
 				} else {
+					if(tag === 'leptos-children') {
+						MOST_RECENT_CHILDREN_CB = node.$$on_hydrate;
+					}
 					for(const child of node.children) {
-						traverse(child, parent);
+						traverse(child);
 					};
 				}
 			}
 		}
 
-		traverse(rootNode, null);
-
-		return { el: null, id: null, children: tree };
+		traverse(rootNode);
 	}
 	function hydrateIsland(el, id, mod) {
 		const islandFn = mod[id];
 		if (islandFn) {
+			if (MOST_RECENT_CHILDREN_CB) {
+				MOST_RECENT_CHILDREN_CB();
+			}
 			islandFn(el);
 		} else {
 			console.warn(`Could not find WASM function for the island ${id}.`);
-		}
-	}
-	function hydrateIslands(entry, mod) {
-		if(entry.node) {
-			hydrateIsland(entry.node, entry.id, mod);
-		}
-		for (const island of entry.children) {
-			hydrateIslands(island, mod);
 		}
 	}
 	idle(() => {
@@ -54,7 +50,7 @@
 			.then(mod => {
 				mod.default(`${root}/${pkg_path}/${wasm_output_name}.wasm`).then(() => {
 					mod.hydrate();
-					hydrateIslands(islandTree(document.body, null), mod);
+					hydrateIslands(document.body, mod);
 				});
 			})
 	});

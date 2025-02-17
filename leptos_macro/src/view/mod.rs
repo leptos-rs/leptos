@@ -23,8 +23,11 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
-    spanned::Spanned, Expr, Expr::Tuple, ExprArray, ExprLit, ExprRange, Lit,
-    LitStr, RangeLimits, Stmt,
+    punctuated::Pair::{End, Punctuated},
+    spanned::Spanned,
+    Expr,
+    Expr::Tuple,
+    ExprArray, ExprLit, ExprRange, Lit, LitStr, RangeLimits, Stmt,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -151,7 +154,12 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
                                         Some(value) => {
                                             matches!(&value.value, KVAttributeValue::Expr(expr) if {
                                                 if let Expr::Lit(lit) = expr {
-                                                    matches!(&lit.lit, Lit::Str(_))
+                                                    let key = attr.key.to_string();
+                                                    if key.starts_with("style:") || key.starts_with("prop:") || key.starts_with("on:") || key.starts_with("use:") || key.starts_with("bind") {
+                                                        false
+                                                    } else {
+                                                        matches!(&lit.lit, Lit::Str(_))
+                                                    }
                                                 } else {
                                                     false
                                                 }
@@ -194,7 +202,7 @@ enum InertElementBuilder<'a> {
     },
 }
 
-impl<'a> ToTokens for InertElementBuilder<'a> {
+impl ToTokens for InertElementBuilder<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             InertElementBuilder::GlobalClass { strs, .. } => {
@@ -216,7 +224,7 @@ enum GlobalClassItem<'a> {
     String(String),
 }
 
-impl<'a> ToTokens for GlobalClassItem<'a> {
+impl ToTokens for GlobalClassItem<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let addl_tokens = match self {
             GlobalClassItem::Global(v) => v.to_token_stream(),
@@ -649,6 +657,18 @@ pub(crate) fn element_to_tokens(
             },
             _ => None,
         };
+
+        if let NodeAttribute::Attribute(a) = a {
+            if let Some(Tuple(_)) = a.value() {
+                return Ordering::Greater;
+            }
+        }
+        if let NodeAttribute::Attribute(b) = b {
+            if let Some(Tuple(_)) = b.value() {
+                return Ordering::Less;
+            }
+        }
+
         match (key_a.as_deref(), key_b.as_deref()) {
             (Some("class"), Some("class")) | (Some("style"), Some("style")) => {
                 Ordering::Equal
@@ -752,7 +772,7 @@ pub(crate) fn element_to_tokens(
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
-            quote! { ::leptos::tachys::html::element::#custom(#name) }
+            quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#custom(#name) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
             let name = if tag == "use" || tag == "use_" {
@@ -760,33 +780,33 @@ pub(crate) fn element_to_tokens(
             } else {
                 name.to_token_stream()
             };
-            quote! { ::leptos::tachys::svg::#name() }
+            quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
-            quote! { ::leptos::tachys::mathml::#name() }
+            quote_spanned! { node.name().span() => ::leptos::tachys::mathml::#name() }
         } else if is_ambiguous_element(&tag) {
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
                     /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
-                    quote! {
+                    quote_spanned! { node.name().span() =>
                         ::leptos::tachys::html::element::#name()
                     }
                 }
                 TagType::Html => {
-                    quote! { ::leptos::tachys::html::element::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#name() }
                 }
                 TagType::Svg => {
-                    quote! { ::leptos::tachys::svg::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
                 }
                 TagType::Math => {
-                    quote! { ::leptos::tachys::math::#name() }
+                    quote_spanned! { node.name().span() => ::leptos::tachys::math::#name() }
                 }
             }
         } else {
             parent_type = TagType::Html;
-            quote! { ::leptos::tachys::html::element::#name() }
+            quote_spanned! { name.span() => ::leptos::tachys::html::element::#name() }
         };
 
         /* TODO restore this
@@ -998,10 +1018,14 @@ pub(crate) fn attribute_absolute(
 ) -> Option<TokenStream> {
     let key = node.key.to_string();
     let contains_dash = key.contains('-');
-    let attr_aira = key.starts_with("attr:aria-");
+    let attr_colon = key.starts_with("attr:")
+        || key.starts_with("style:")
+        || key.starts_with("class:")
+        || key.starts_with("prop:")
+        || key.starts_with("use:");
     // anything that follows the x:y pattern
     match &node.key {
-        NodeName::Punctuated(parts) if !contains_dash || attr_aira => {
+        NodeName::Punctuated(parts) if !contains_dash || attr_colon => {
             if parts.len() >= 2 {
                 let id = &parts[0];
                 match id {
@@ -1010,7 +1034,8 @@ pub(crate) fn attribute_absolute(
                         if id == "let" || id == "clone" {
                             None
                         } else if id == "attr" {
-                        let value = attribute_value(node, true);
+                            let value = attribute_value(node, true);
+                            let multipart = parts.len() > 2;
                             let key = &parts[1];
                             let key_name = key.to_string();
                             if key_name == "class" || key_name == "style" {
@@ -1025,6 +1050,15 @@ pub(crate) fn attribute_absolute(
                                 let key = Ident::new(&fn_name, key.span());
                                 Some(
                                     quote! { ::leptos::tachys::html::attribute::#key(#value) },
+                                )
+                            } else if multipart {
+                                // e.g., attr:data-foo="bar"
+                                let key_name = parts.pairs().skip(1).map(|p| match p {
+                                    Punctuated(n, p) => format!("{n}{p}"),
+                                    End(n) => n.to_string(),
+                                }).collect::<String>();
+                                Some(
+                                    quote! { ::leptos::tachys::html::attribute::custom::custom_attribute(#key_name, #value) },
                                 )
                             } else {
                                 Some(
@@ -1100,6 +1134,11 @@ pub(crate) fn attribute_absolute(
                     ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)
                 }
             }
+            else if name == "node_ref" {
+                quote! {
+                    ::leptos::tachys::html::node_ref::#key(#value)
+                }
+            }
             else {
                 quote! {
                     ::leptos::tachys::html::attribute::#key(#value)
@@ -1140,8 +1179,7 @@ pub(crate) fn event_type_and_handler(
 ) -> (TokenStream, TokenStream, TokenStream) {
     let handler = attribute_value(node, false);
 
-    let (event_type, is_custom, is_force_undelegated, is_targeted) =
-        parse_event_name(name);
+    let (event_type, is_custom, options) = parse_event_name(name);
 
     let event_name_ident = match &node.key {
         NodeName::Punctuated(parts) => {
@@ -1159,11 +1197,17 @@ pub(crate) fn event_type_and_handler(
         }
         _ => unreachable!(),
     };
+    let capture_ident = match &node.key {
+        NodeName::Punctuated(parts) => {
+            parts.iter().find(|part| part.to_string() == "capture")
+        }
+        _ => unreachable!(),
+    };
     let on = match &node.key {
         NodeName::Punctuated(parts) => &parts[0],
         _ => unreachable!(),
     };
-    let on = if is_targeted {
+    let on = if options.targeted {
         Ident::new("on_target", on.span()).to_token_stream()
     } else {
         on.to_token_stream()
@@ -1176,15 +1220,29 @@ pub(crate) fn event_type_and_handler(
         event_type
     };
 
-    let event_type = if is_force_undelegated {
+    let event_type = quote! {
+        ::leptos::tachys::html::event::#event_type
+    };
+    let event_type = if options.captured {
+        let capture = if let Some(capture) = capture_ident {
+            quote! { #capture }
+        } else {
+            quote! { capture }
+        };
+        quote! { ::leptos::tachys::html::event::#capture(#event_type) }
+    } else {
+        event_type
+    };
+
+    let event_type = if options.undelegated {
         let undelegated = if let Some(undelegated) = undelegated_ident {
             quote! { #undelegated }
         } else {
             quote! { undelegated }
         };
-        quote! { ::leptos::tachys::html::event::#undelegated(::leptos::tachys::html::event::#event_type) }
+        quote! { ::leptos::tachys::html::event::#undelegated(#event_type) }
     } else {
-        quote! { ::leptos::tachys::html::event::#event_type }
+        event_type
     };
 
     (on, event_type, handler)
@@ -1390,13 +1448,22 @@ fn is_ambiguous_element(tag: &str) -> bool {
     tag == "a" || tag == "script" || tag == "title"
 }
 
-fn parse_event(event_name: &str) -> (String, bool, bool) {
-    let is_undelegated = event_name.contains(":undelegated");
-    let is_targeted = event_name.contains(":target");
+fn parse_event(event_name: &str) -> (String, EventNameOptions) {
+    let undelegated = event_name.contains(":undelegated");
+    let targeted = event_name.contains(":target");
+    let captured = event_name.contains(":capture");
     let event_name = event_name
         .replace(":undelegated", "")
-        .replace(":target", "");
-    (event_name, is_undelegated, is_targeted)
+        .replace(":target", "")
+        .replace(":capture", "");
+    (
+        event_name,
+        EventNameOptions {
+            undelegated,
+            targeted,
+            captured,
+        },
+    )
 }
 
 /// Escapes Rust keywords that are also HTML attribute names
@@ -1588,8 +1655,17 @@ const TYPED_EVENTS: [&str; 126] = [
 
 const CUSTOM_EVENT: &str = "Custom";
 
-pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
-    let (name, is_force_undelegated, is_targeted) = parse_event(name);
+#[derive(Debug)]
+pub(crate) struct EventNameOptions {
+    undelegated: bool,
+    targeted: bool,
+    captured: bool,
+}
+
+pub(crate) fn parse_event_name(
+    name: &str,
+) -> (TokenStream, bool, EventNameOptions) {
+    let (name, options) = parse_event(name);
 
     let (event_type, is_custom) = TYPED_EVENTS
         .binary_search(&name.as_str())
@@ -1605,7 +1681,7 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
     } else {
         event_type
     };
-    (event_type, is_custom, is_force_undelegated, is_targeted)
+    (event_type, is_custom, options)
 }
 
 fn convert_to_snake_case(name: String) -> String {
@@ -1622,7 +1698,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .path
             .segments
             .iter()
-            .last()
+            .next_back()
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
@@ -1693,7 +1769,7 @@ fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
     TupleName::None
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum TupleName {
     None,
     Str(String),

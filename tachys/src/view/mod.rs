@@ -29,9 +29,6 @@ pub mod template;
 pub mod tuples;
 
 /// The `Render` trait allows rendering something as part of the user interface.
-///
-/// It is generic over the renderer itself, as long as that implements the [`Renderer`]
-/// trait.
 pub trait Render: Sized {
     /// The “view state” for this type, which can be retained between updates.
     ///
@@ -197,7 +194,6 @@ where
     /// Renders a view to an out-of-order stream of HTML with branch markers. This can be used to support libraries that diff
     /// HTML pages against one another, by marking sections of the view that branch to different
     /// types with marker comments.
-
     fn to_html_stream_out_of_order_branching(self) -> StreamBuilder
     where
         Self: Sized,
@@ -372,7 +368,7 @@ pub trait ToTemplate {
     /// The `style` attribute content known at compile time.
     const STYLE: &'static str = "";
     /// The length of the template.
-    const LEN: usize = Self::TEMPLATE.as_bytes().len();
+    const LEN: usize = Self::TEMPLATE.len();
 
     /// Renders a view type to a template. This does not take actual view data,
     /// but can be used for constructing part of an HTML `<template>` that corresponds

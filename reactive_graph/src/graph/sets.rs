@@ -59,7 +59,7 @@ impl<'a> IntoIterator for &'a SourceSet {
         self.0.iter()
     }
 }
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SubscriberSet(Vec<AnySubscriber>);
 
 impl SubscriberSet {

@@ -72,9 +72,7 @@ use web_sys::{
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn ActionForm<ServFn>(
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [`create_server_action`](leptos_server::create_server_action) or added
-    /// manually using [`using_server_fn`](leptos_server::Action::using_server_fn).
+    /// The action from which to build the form.
     action: ServerAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
@@ -149,9 +147,7 @@ where
 /// progressively enhanced to use client-side routing.
 #[component]
 pub fn MultiActionForm<ServFn>(
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
+    /// The action from which to build the form.
     action: ServerMultiAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
@@ -251,12 +247,16 @@ where
     ) -> Result<Self, serde_qs::Error>;
 }
 
+/// Errors that can arise when coverting from an HTML event or form into a Rust data type.
 #[derive(Error, Debug)]
 pub enum FromFormDataError {
+    /// Could not find a `<form>` connected to the event.
     #[error("Could not find <form> connected to event.")]
     MissingForm(Event),
+    /// Could not create `FormData` from the form.
     #[error("Could not create FormData from <form>: {0:?}")]
     FormData(JsValue),
+    /// Failed to deserialize this Rust type from the form data.
     #[error("Deserialization error: {0:?}")]
     Deserialization(serde_qs::Error),
 }

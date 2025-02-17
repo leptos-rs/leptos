@@ -23,14 +23,13 @@ impl Scene {
     /// Create a new instance
     pub fn new(canvas_id: String) -> Scene {
         let plugin = DuplexEventsPlugin::new();
-        let instance = Scene {
+        Scene {
             is_setup: false,
-            canvas_id: canvas_id,
+            canvas_id,
             evt_plugin: plugin.clone(),
             shared_state: SharedState::new(),
             processor: plugin.get_processor(),
-        };
-        instance
+        }
     }
 
     /// Get the shared state
@@ -47,7 +46,7 @@ impl Scene {
 
     /// Setup and attach the bevy instance to the html canvas element
     pub fn setup(&mut self) {
-        if self.is_setup == true {
+        if self.is_setup {
             return;
         };
         App::new()
@@ -76,40 +75,37 @@ fn setup_scene(
 ) {
     let name = resource.0.lock().unwrap().name.clone();
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_rotation(Quat::from_rotation_x(
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(
             -std::f32::consts::FRAC_PI_2,
         )),
-        ..default()
-    });
+    ));
+
     // cube
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::rgb_u8(124, 144, 255)),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
         Cube,
     ));
+
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
+
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
-    commands.spawn(TextBundle::from_section(name, TextStyle::default()));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+    commands.spawn((Text::new(name), TextFont::default()));
 }
 
 /// Move the Cube on event

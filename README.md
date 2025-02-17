@@ -5,14 +5,13 @@
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
 [![docs.rs](https://docs.rs/leptos/badge.svg)](https://docs.rs/leptos)
+![Crates.io MSRV](https://img.shields.io/crates/msrv/leptos)
 [![Discord](https://img.shields.io/discord/1031524867910148188?color=%237289DA&label=discord)](https://discord.gg/YdRAhS7eQB)
 [![Matrix](https://img.shields.io/badge/Matrix-leptos-grey?logo=matrix&labelColor=white&logoColor=black)](https://matrix.to/#/#leptos:matrix.org)
 
 [Website](https://leptos.dev) | [Book](https://leptos-rs.github.io/leptos/) | [Docs.rs](https://docs.rs/leptos/latest/leptos/) | [Playground](https://codesandbox.io/p/sandbox/leptos-rtfggt?file=%2Fsrc%2Fmain.rs%3A1%2C1) | [Discord](https://discord.gg/YdRAhS7eQB)
 
 You can find a list of useful libraries and example projects at [`awesome-leptos`](https://github.com/leptos-rs/awesome-leptos).
-
-# The `main` branch is currently undergoing major changes in preparation for the [0.7](https://github.com/leptos-rs/leptos/milestone/4) release. For a stable version, please use the [v0.6.13 tag](https://github.com/leptos-rs/leptos/tree/v0.6.13)
 
 # Leptos
 
@@ -22,7 +21,7 @@ use leptos::*;
 #[component]
 pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
     // create a reactive signal with the initial value
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
 
     // create event handlers for our buttons
     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -47,7 +46,7 @@ pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
 pub fn SimpleCounterWithBuilder(initial_value: i32) -> impl IntoView {
     use leptos::html::*;
 
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
     let clear = move |_| set_value(0);
     let decrement = move |_| set_value.update(|value| *value -= 1);
     let increment = move |_| set_value.update(|value| *value += 1);
@@ -159,9 +158,7 @@ Sure! Obviously the `view` macro is for generating DOM nodes but you can use the
 - Use event listeners to update signals
 - Create effects to update the UI
 
-I've put together a [very simple GTK example](https://github.com/leptos-rs/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
-
-The new rendering approach being developed for 0.7 supports “universal rendering,” i.e., it can use any rendering library that supports a small set of 6-8 functions. (This is intended as a layer over typical retained-mode, OOP-style GUI toolkits like the DOM, GTK, etc.) That future rendering work will allow creating native UI in a way that is much more similar to the declarative approach used by the web framework.
+The 0.7 update originally set out to create a "generic rendering" approach that would allow us to reuse most of the same view logic to do all of the above. Unfortunately, this has had to be shelved for now due to difficulties encountered by the Rust compiler when building larger-scale applications with the number of generics spread throughout the codebase that this required. It's an approach I'm looking forward to exploring again in the future; feel free to reach out if you're interested in this kind of work.
 
 ### How is this different from Yew?
 
@@ -171,14 +168,14 @@ Yew is the most-used library for Rust web UI development, but there are several 
 - **Performance:** This has huge performance implications: Leptos is simply much faster at both creating and updating the UI than Yew is.
 - **Server integration:** Yew was created in an era in which browser-rendered single-page apps (SPAs) were the dominant paradigm. While Leptos supports client-side rendering, it also focuses on integrating with the server side of your application via server functions and multiple modes of serving HTML, including out-of-order streaming.
 
-- ### How is this different from Dioxus?
+### How is this different from Dioxus?
 
 Like Leptos, Dioxus is a framework for building UIs using web technologies. However, there are significant differences in approach and features.
 
 - **VDOM vs. fine-grained:** While Dioxus has a performant virtual DOM (VDOM), it still uses coarse-grained/component-scoped reactivity: changing a stateful value reruns the component function and diffs the old UI against the new one. Leptos components use a different mental model, creating (and returning) actual DOM nodes and setting up a reactive system to update those DOM nodes.
 - **Web vs. desktop priorities:** Dioxus uses Leptos server functions in its fullstack mode, but does not have the same `<Suspense>`-based support for things like streaming HTML rendering, or share the same focus on holistic web performance. Leptos tends to prioritize holistic web performance (streaming HTML rendering, smaller WASM binary sizes, etc.), whereas Dioxus has an unparalleled experience when building desktop apps, because your application logic runs as a native Rust binary.
 
-- ### How is this different from Sycamore?
+### How is this different from Sycamore?
 
 Sycamore and Leptos are both heavily influenced by SolidJS. At this point, Leptos has a larger community and ecosystem and is more actively developed. Other differences:
 

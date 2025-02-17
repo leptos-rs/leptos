@@ -1,7 +1,7 @@
 use crate::{
     hooks::Matched,
     location::{LocationProvider, Url},
-    matching::{MatchParams, Routes},
+    matching::{MatchParams, RouteDefs},
     params::ParamsMap,
     view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
@@ -33,14 +33,15 @@ use tachys::{
 pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
     pub current_url: ArcRwSignal<Url>,
     pub location: Option<Loc>,
-    pub routes: Routes<Defs>,
+    pub routes: RouteDefs<Defs>,
     pub fallback: FalFn,
     pub outer_owner: Owner,
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub transition: bool,
 }
 
-pub struct FlatRoutesViewState {
+/// Retained view state for the flat router.
+pub(crate) struct FlatRoutesViewState {
     #[allow(clippy::type_complexity)]
     view: AnyViewState,
     id: Option<RouteMatchId>,
@@ -265,6 +266,9 @@ where
                     provide_context(Matched(ArcMemo::from(new_matched)));
                     fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
+                if let Some(location) = location {
+                    location.ready_to_complete();
+                }
             }
             Some(new_match) => {
                 let (view, child) = new_match.into_view_and_child();

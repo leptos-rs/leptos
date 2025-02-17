@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
 //! Provides functions to easily integrate Leptos with Axum.
 //!
 //! ## JS Fetch Integration
@@ -14,7 +16,6 @@
 //! - `default`: supports running in a typical native Tokio/Axum environment
 //! - `wasm`: with `default-features = false`, supports running in a JS Fetch-based
 //!   environment
-//! - `experimental-islands`: activates Leptos [islands mode](https://leptos-rs.github.io/leptos/islands.html)
 //!
 //! ### Important Note
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
@@ -63,10 +64,9 @@ use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
-    components::provide_server_redirect,
-    location::RequestUrl,
-    static_routes::{RegenerationFn, StaticParamsMap},
-    ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
+    components::provide_server_redirect, location::RequestUrl,
+    static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
+    RouteListing, SsrMode,
 };
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
@@ -85,7 +85,9 @@ use tower_http::services::ServeDir;
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
+    /// If provided, this will overwrite any other status code for this response.
     pub status: Option<StatusCode>,
+    /// The map of headers that should be added to the response.
     pub headers: HeaderMap,
 }
 
@@ -194,9 +196,9 @@ impl ExtendResponse for AxumResponse {
 /// 2. A server function that is called from WASM running in the client (e.g., a dispatched action
 ///    or a spawned `Future`).
 /// 3. A `<form>` submitted to the server function endpoint using default browser APIs (often due
-///    to using [`ActionForm`](leptos::form::ActionForm) without JS/WASM present.)
+///    to using [`ActionForm`] without JS/WASM present.)
 ///
-/// Using it with a non-blocking [`Resource`](leptos::server::Resource) will not work if you are using streaming rendering,
+/// Using it with a non-blocking [`Resource`] will not work if you are using streaming rendering,
 /// as the response's headers will already have been sent by the time the server function calls `redirect()`.
 ///
 /// ### Implementation
@@ -396,8 +398,8 @@ async fn handle_server_fns_inner(
                     // actually run the server fn
                     let mut res = AxumResponse(service.run(req).await);
 
-                    // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                    // Location set, then redirect to to Referer
+                    // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                    // Location set, then redirect to the Referer
                     if accepts_html {
                         if let Some(referrer) = referrer {
                             let has_location =
@@ -409,7 +411,7 @@ async fn handle_server_fns_inner(
                         }
                     }
 
-                    // apply status code and headers if used changed them
+                    // apply status code and headers if user changed them
                     res.extend_response(&res_options);
                     Ok(res.0)
                 })
@@ -432,17 +434,12 @@ async fn handle_server_fns_inner(
     .expect("could not build Response")
 }
 
+/// A stream of bytes of HTML.
 pub type PinnedHtmlStream =
     Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_stream](leptos::ssr::render_to_stream), and
-/// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -481,8 +478,7 @@ pub type PinnedHtmlStream =
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -533,12 +529,6 @@ where
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_stream_in_order], and includes everything described in
-/// the documentation for that function.
-///
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use axum::{handler::Handler, Router};
@@ -576,8 +566,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -630,8 +619,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -762,8 +750,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -830,8 +817,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -948,13 +934,7 @@ fn provide_contexts(
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
-///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
-///
-/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
-/// the documentation for that function.
+/// `async` resources have loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -994,8 +974,7 @@ fn provide_contexts(
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -1016,7 +995,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// `async` resources have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1049,8 +1028,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -1084,7 +1062,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// `async` resources have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1117,8 +1095,7 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`ServerMetaContext`]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
@@ -1205,32 +1182,6 @@ where
     IV: IntoView + 'static,
 {
     generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
-}
-
-/// Builds all routes that have been defined using [`StaticRoute`].
-#[allow(unused)]
-pub async fn build_static_routes<IV>(
-    options: &LeptosOptions,
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
-    routes: &[RouteListing],
-    static_data_map: StaticParamsMap,
-) where
-    IV: IntoView + 'static,
-{
-    todo!()
-    /*
-    let options = options.clone();
-    let routes = routes.to_owned();
-    spawn_task!(async move {
-        leptos_router::build_static_routes(
-            &options,
-            app_fn,
-            &routes,
-            &static_data_map,
-        )
-        .await
-        .expect("could not build static routes")
-    });*/
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1683,6 +1634,9 @@ where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
 {
+    /// Adds routes to the Axum router that have either
+    /// 1) been generated by `leptos_router`, or
+    /// 2) handle a server function.
     fn leptos_routes<IV>(
         self,
         options: &S,
@@ -1692,6 +1646,12 @@ where
     where
         IV: IntoView + 'static;
 
+    /// Adds routes to the Axum router that have either
+    /// 1) been generated by `leptos_router`, or
+    /// 2) handle a server function.
+    ///
+    /// Runs `additional_context` to provide additional data to the reactive system via context,
+    /// when handling a route.
     fn leptos_routes_with_context<IV>(
         self,
         options: &S,
@@ -1702,6 +1662,8 @@ where
     where
         IV: IntoView + 'static;
 
+    /// Extends the Axum router with the given paths, and handles the requests with the given
+    /// handler.
     fn leptos_routes_with_handler<H, T>(
         self,
         paths: Vec<AxumRouteListing>,
@@ -2014,6 +1976,71 @@ where
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
 
+/// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
+///
+/// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
+/// simply reuse the source code of this function in your own application.
+#[cfg(feature = "default")]
+pub fn file_and_error_handler_with_context<S, IV>(
+    additional_context: impl Fn() + 'static + Clone + Send,
+    shell: fn(LeptosOptions) -> IV,
+) -> impl Fn(
+    Uri,
+    State<S>,
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView + 'static,
+    S: Send + Sync + Clone + 'static,
+    LeptosOptions: FromRef<S>,
+{
+    move |uri: Uri, State(state): State<S>, req: Request<Body>| {
+        Box::pin({
+            let additional_context = additional_context.clone();
+            async move {
+                let options = LeptosOptions::from_ref(&state);
+                let res =
+                    get_static_file(uri, &options.site_root, req.headers());
+                let res = res.await.unwrap();
+
+                if res.status() == StatusCode::OK {
+                    res.into_response()
+                } else {
+                    let mut res = handle_response_inner(
+                        move || {
+                            additional_context();
+                            provide_context(state.clone());
+                        },
+                        move || shell(options),
+                        req,
+                        |app, chunks| {
+                            Box::pin(async move {
+                                let app = app
+                                    .to_html_stream_in_order()
+                                    .collect::<String>()
+                                    .await;
+                                let chunks = chunks();
+                                Box::pin(once(async move { app }).chain(chunks))
+                                    as PinnedStream<String>
+                            })
+                        },
+                    )
+                    .await;
+                    *res.status_mut() = StatusCode::NOT_FOUND;
+                    res
+                }
+            }
+        })
+    }
+}
+
+/// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
+///
+/// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
+/// simply reuse the source code of this function in your own application.
 #[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
     shell: fn(LeptosOptions) -> IV,
@@ -2027,40 +2054,10 @@ pub fn file_and_error_handler<S, IV>(
        + 'static
 where
     IV: IntoView + 'static,
-    S: Send + 'static,
+    S: Send + Sync + Clone + 'static,
     LeptosOptions: FromRef<S>,
 {
-    move |uri: Uri, State(options): State<S>, req: Request<Body>| {
-        Box::pin(async move {
-            let options = LeptosOptions::from_ref(&options);
-            let res = get_static_file(uri, &options.site_root, req.headers());
-            let res = res.await.unwrap();
-
-            if res.status() == StatusCode::OK {
-                res.into_response()
-            } else {
-                let mut res = handle_response_inner(
-                    || {},
-                    move || shell(options),
-                    req,
-                    |app, chunks| {
-                        Box::pin(async move {
-                            let app = app
-                                .to_html_stream_in_order()
-                                .collect::<String>()
-                                .await;
-                            let chunks = chunks();
-                            Box::pin(once(async move { app }).chain(chunks))
-                                as PinnedStream<String>
-                        })
-                    },
-                )
-                .await;
-                *res.status_mut() = StatusCode::NOT_FOUND;
-                res
-            }
-        })
-    }
+    file_and_error_handler_with_context(move || (), shell)
 }
 
 #[cfg(feature = "default")]

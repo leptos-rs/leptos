@@ -12,11 +12,10 @@ use crate::{
     traits::{DefinedAt, Get, IsDisposed, ReadUntracked},
 };
 use core::fmt::Debug;
-use or_poisoned::OrPoisoned;
 use std::{
     hash::Hash,
     panic::Location,
-    sync::{Arc, RwLock, Weak},
+    sync::{Arc, Weak},
 };
 
 /// An efficient derived reactive value based on other reactive values.
@@ -93,9 +92,9 @@ pub struct ArcMemo<T, S = SyncStorage>
 where
     S: Storage<T>,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
-    inner: Arc<RwLock<MemoInner<T, S>>>,
+    inner: Arc<MemoInner<T, S>>,
 }
 
 impl<T: 'static> ArcMemo<T, SyncStorage>
@@ -161,10 +160,10 @@ where
                 Weak::clone(weak) as Weak<dyn Subscriber + Send + Sync>,
             );
 
-            RwLock::new(MemoInner::new(Arc::new(fun), subscriber))
+            MemoInner::new(Arc::new(fun), subscriber)
         });
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
         }
@@ -177,7 +176,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: Arc::clone(&self.inner),
         }
@@ -190,11 +189,11 @@ where
 {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -272,7 +271,7 @@ where
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
             Arc::downgrade(&self.inner) as Weak<dyn Source + Send + Sync>,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             self.defined_at,
         )
     }
@@ -312,15 +311,11 @@ where
     S: Storage<T>,
 {
     fn add_source(&self, source: AnySource) {
-        self.inner.write().or_poisoned().sources.insert(source);
+        self.inner.add_source(source);
     }
 
     fn clear_sources(&self, subscriber: &AnySubscriber) {
-        self.inner
-            .write()
-            .or_poisoned()
-            .sources
-            .clear_sources(subscriber);
+        self.inner.clear_sources(subscriber);
     }
 }
 
@@ -328,15 +323,15 @@ impl<T: 'static, S> ReadUntracked for ArcMemo<T, S>
 where
     S: Storage<T>,
 {
-    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>;
+    type Value = ReadGuard<T, Mapped<Plain<Option<S::Wrapped>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.update_if_necessary();
 
-        Mapped::try_new(Arc::clone(&self.inner), |t| {
+        Mapped::try_new(Arc::clone(&self.inner.value), |t| {
             // safe to unwrap here because update_if_necessary
             // guarantees the value is Some
-            t.value.as_ref().unwrap().as_borrowed()
+            t.as_ref().unwrap().as_borrowed()
         })
         .map(ReadGuard::new)
     }

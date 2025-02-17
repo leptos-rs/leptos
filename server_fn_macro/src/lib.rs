@@ -188,6 +188,20 @@ pub fn server_macro_impl(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    // we need to apply the same sort of Actix SendWrapper workaround here
+    // that we do for the body of the function provided in the trait (see below)
+    if cfg!(feature = "actix") {
+        let block = body.block.to_token_stream();
+        body.block = quote! {
+            {
+                #server_fn_path::actix::SendWrapper::new(async move {
+                    #block
+                })
+                .await
+            }
+        };
+    }
+
     let dummy = body.to_dummy_output();
     let dummy_name = body.to_dummy_ident();
     let args = syn::parse::<ServerFnArgs>(args.into())?;

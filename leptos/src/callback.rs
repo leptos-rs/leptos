@@ -31,13 +31,13 @@
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.run(input)`.
+//! - All callbacks implement the [`Callable`](leptos::callback::Callable) trait, and can be invoked with `my_callback.run(input)`.
 //! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
-//! - [`Callback`]
-//! - [`UnsyncCallback`]
+//! - [`Callback`](leptos::callback::Callback)
+//! - [`UnsyncCallback`](leptos::callback::UnsyncCallback)
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
@@ -79,6 +79,16 @@ impl<In, Out> UnsyncCallback<In, Out> {
         F: Fn(In) -> Out + 'static,
     {
         Self(StoredValue::new_local(Rc::new(f)))
+    }
+
+    /// Returns `true` if both callbacks wrap the same underlying function pointer.
+    #[inline]
+    pub fn matches(&self, other: &Self) -> bool {
+        self.0.with_value(|self_value| {
+            other
+                .0
+                .with_value(|other_value| Rc::ptr_eq(self_value, other_value))
+        })
     }
 }
 
@@ -212,6 +222,19 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
     {
         Self(StoredValue::new(Arc::new(fun)))
     }
+
+    /// Returns `true` if both callbacks wrap the same underlying function pointer.
+    #[inline]
+    pub fn matches(&self, other: &Self) -> bool {
+        self.0
+            .try_with_value(|self_value| {
+                other.0.try_with_value(|other_value| {
+                    Arc::ptr_eq(self_value, other_value)
+                })
+            })
+            .flatten()
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -223,14 +246,14 @@ mod tests {
     #[test]
     fn clone_callback() {
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
-        let _cloned = callback.clone();
+        let _cloned = callback;
     }
 
     #[test]
     fn clone_unsync_callback() {
         let callback =
             UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
-        let _cloned = callback.clone();
+        let _cloned = callback;
     }
 
     #[test]
@@ -245,5 +268,33 @@ mod tests {
         let _callback: UnsyncCallback<(), String> = (|| "test").into();
         let _callback: UnsyncCallback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
+    }
+
+    #[test]
+    fn callback_matches_same() {
+        let callback1 = Callback::new(|x: i32| x * 2);
+        let callback2 = callback1.clone();
+        assert!(callback1.matches(&callback2));
+    }
+
+    #[test]
+    fn callback_matches_different() {
+        let callback1 = Callback::new(|x: i32| x * 2);
+        let callback2 = Callback::new(|x: i32| x + 1);
+        assert!(!callback1.matches(&callback2));
+    }
+
+    #[test]
+    fn unsync_callback_matches_same() {
+        let callback1 = UnsyncCallback::new(|x: i32| x * 2);
+        let callback2 = callback1.clone();
+        assert!(callback1.matches(&callback2));
+    }
+
+    #[test]
+    fn unsync_callback_matches_different() {
+        let callback1 = UnsyncCallback::new(|x: i32| x * 2);
+        let callback2 = UnsyncCallback::new(|x: i32| x + 1);
+        assert!(!callback1.matches(&callback2));
     }
 }

@@ -43,6 +43,15 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+/// A reference-counted resource that only loads once.
+///
+/// Resources allow asynchronously loading data and serializing it from the server to the client,
+/// so that it loads on the server, and is then deserialized on the client. This improves
+/// performance by beginning data loading on the server when the request is made, rather than
+/// beginning it on the client after WASM has been loaded.
+///
+/// You can access the value of the resource either synchronously using `.get()` or asynchronously
+/// using `.await`.
 #[derive(Debug)]
 pub struct ArcOnceResource<T, Ser = JsonSerdeCodec> {
     trigger: ArcTrigger,
@@ -51,7 +60,7 @@ pub struct ArcOnceResource<T, Ser = JsonSerdeCodec> {
     suspenses: Arc<RwLock<Vec<SuspenseContext>>>,
     loading: Arc<AtomicBool>,
     ser: PhantomData<fn() -> Ser>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -64,7 +73,7 @@ impl<T, Ser> Clone for ArcOnceResource<T, Ser> {
             suspenses: self.suspenses.clone(),
             loading: self.loading.clone(),
             ser: self.ser,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -80,6 +89,12 @@ where
     <Ser as Encoder<T>>::Encoded: IntoEncodedString,
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding `Ser`. If `blocking` is `true`, this is a blocking
+    /// resource.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options(
         fut: impl Future<Output = T> + Send + 'static,
@@ -125,7 +140,7 @@ where
             wakers,
             suspenses,
             ser: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         };
 
@@ -168,11 +183,11 @@ impl<T, Ser> ArcOnceResource<T, Ser> {
 
 impl<T, Ser> DefinedAt for ArcOnceResource<T, Ser> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
@@ -238,7 +253,8 @@ where
     }
 }
 
-/// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
+/// A [`Future`] that is ready when an
+/// [`ArcAsyncDerived`](reactive_graph::computed::ArcAsyncDerived) is finished loading or reloading,
 /// and contains its value. `.await`ing this clones the value `T`.
 pub struct OnceResourceFuture<T> {
     source: AnySource,
@@ -256,7 +272,7 @@ where
 
     #[track_caller]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
@@ -287,11 +303,17 @@ where
     <JsonSerdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`JsonSerdeCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new(fut: impl Future<Output = T> + Send + 'static) -> Self {
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`JsonSerdeCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking(fut: impl Future<Output = T> + Send + 'static) -> Self {
         ArcOnceResource::new_with_options(fut, true)
@@ -307,6 +329,7 @@ T: Send + Sync + 'static,
     <FromToStringCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <FromToStringCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`FromToStringCodec`] for encoding/decoding the value.
     pub fn new_str(
         fut: impl Future<Output = T> + Send + 'static
     ) -> Self
@@ -314,6 +337,11 @@ T: Send + Sync + 'static,
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`FromToStringCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_str_blocking(
         fut: impl Future<Output = T> + Send + 'static
     ) -> Self
@@ -332,6 +360,7 @@ T: Send + Sync + 'static,
     <JsonSerdeWasmCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`JsonSerdeWasmCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_serde_wb(
 fut: impl Future<Output = T> + Send + 'static
@@ -340,6 +369,11 @@ fut: impl Future<Output = T> + Send + 'static
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`JsonSerdeWasmCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_wb_blocking(
 fut: impl Future<Output = T> + Send + 'static
@@ -360,6 +394,7 @@ where
     <MiniserdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`MiniserdeCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_miniserde(
         fut: impl Future<Output = T> + Send + 'static,
@@ -367,6 +402,11 @@ where
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`MiniserdeCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_miniserde_blocking(
         fut: impl Future<Output = T> + Send + 'static,
@@ -385,6 +425,7 @@ T: Send + Sync + 'static,
     <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Encoded: IntoEncodedString,
     <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`SerdeLite`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_serde_lite(
 fut: impl Future<Output = T> + Send + 'static
@@ -393,6 +434,11 @@ fut: impl Future<Output = T> + Send + 'static
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`SerdeLite`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_lite_blocking(
 fut: impl Future<Output = T> + Send + 'static
@@ -414,11 +460,17 @@ where
     <RkyvCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`RkyvCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_rkyv(fut: impl Future<Output = T> + Send + 'static) -> Self {
         ArcOnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`RkyvCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_rkyv_blocking(
         fut: impl Future<Output = T> + Send + 'static,
@@ -427,10 +479,19 @@ where
     }
 }
 
+/// A resource that only loads once.
+///
+/// Resources allow asynchronously loading data and serializing it from the server to the client,
+/// so that it loads on the server, and is then deserialized on the client. This improves
+/// performance by beginning data loading on the server when the request is made, rather than
+/// beginning it on the client after WASM has been loaded.
+///
+/// You can access the value of the resource either synchronously using `.get()` or asynchronously
+/// using `.await`.
 #[derive(Debug)]
 pub struct OnceResource<T, Ser = JsonSerdeCodec> {
     inner: ArenaItem<ArcOnceResource<T, Ser>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -452,18 +513,24 @@ where
     <Ser as Encoder<T>>::Encoded: IntoEncodedString,
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a new resource with the encoding `Ser`. If `blocking` is `true`, this is a blocking
+    /// resource.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options(
         fut: impl Future<Output = T> + Send + 'static,
         blocking: bool,
     ) -> Self {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let defined_at = Location::caller();
         Self {
             inner: ArenaItem::new(ArcOnceResource::new_with_options(
                 fut, blocking,
             )),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
         }
     }
@@ -484,11 +551,11 @@ where
 
 impl<T, Ser> DefinedAt for OnceResource<T, Ser> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
@@ -567,11 +634,17 @@ where
     <JsonSerdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`JsonSerdeCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new(fut: impl Future<Output = T> + Send + 'static) -> Self {
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`JsonSerdeCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking(fut: impl Future<Output = T> + Send + 'static) -> Self {
         OnceResource::new_with_options(fut, true)
@@ -587,6 +660,7 @@ T: Send + Sync + 'static,
     <FromToStringCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <FromToStringCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`FromToStringCodec`] for encoding/decoding the value.
     pub fn new_str(
         fut: impl Future<Output = T> + Send + 'static
     ) -> Self
@@ -594,6 +668,11 @@ T: Send + Sync + 'static,
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`FromToStringCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     pub fn new_str_blocking(
         fut: impl Future<Output = T> + Send + 'static
     ) -> Self
@@ -612,6 +691,7 @@ T: Send + Sync + 'static,
     <JsonSerdeWasmCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`JsonSerdeWasmCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_serde_wb(
 fut: impl Future<Output = T> + Send + 'static
@@ -620,6 +700,11 @@ fut: impl Future<Output = T> + Send + 'static
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`JsonSerdeWasmCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_wb_blocking(
 fut: impl Future<Output = T> + Send + 'static
@@ -640,6 +725,7 @@ where
     <MiniserdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`MiniserdeCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_miniserde(
         fut: impl Future<Output = T> + Send + 'static,
@@ -647,6 +733,11 @@ where
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`MiniserdeCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_miniserde_blocking(
         fut: impl Future<Output = T> + Send + 'static,
@@ -665,6 +756,7 @@ T: Send + Sync + 'static,
     <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Encoded: IntoEncodedString,
     <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`SerdeLite`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_serde_lite(
 fut: impl Future<Output = T> + Send + 'static
@@ -673,6 +765,11 @@ fut: impl Future<Output = T> + Send + 'static
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`SerdeLite`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_lite_blocking(
 fut: impl Future<Output = T> + Send + 'static
@@ -694,11 +791,17 @@ where
     <RkyvCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    /// Creates a resource using [`RkyvCodec`] for encoding/decoding the value.
     #[track_caller]
     pub fn new_rkyv(fut: impl Future<Output = T> + Send + 'static) -> Self {
         OnceResource::new_with_options(fut, false)
     }
 
+    /// Creates a blocking resource using [`RkyvCodec`] for encoding/decoding the value.
+    ///
+    /// Blocking resources prevent any of the HTTP response from being sent until they have loaded.
+    /// This is useful if you need their data to set HTML document metadata or information that
+    /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_rkyv_blocking(
         fut: impl Future<Output = T> + Send + 'static,

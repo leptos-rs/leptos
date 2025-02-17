@@ -1,6 +1,6 @@
 use crate::location::State;
 
-/// Options that can be used to configure a navigation. Used with [use_navigate](crate::use_navigate).
+/// Options that can be used to configure a navigation. Used with [use_navigate](crate::hooks::use_navigate).
 #[derive(Clone, Debug)]
 pub struct NavigateOptions {
     /// Whether the URL being navigated to should be resolved relative to the current route.

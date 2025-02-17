@@ -107,7 +107,7 @@ use std::{
 /// - [`IntoFuture`](std::future::Future) allows you to create a [`Future`] that resolves
 ///   when this resource is done loading.
 pub struct ArcAsyncDerived<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
     pub(crate) value: Arc<AsyncRwLock<Option<T>>>,
@@ -117,6 +117,7 @@ pub struct ArcAsyncDerived<T> {
     pub(crate) loading: Arc<AtomicBool>,
 }
 
+#[allow(dead_code)]
 pub(crate) trait BlockingLock<T> {
     fn blocking_read_arc(self: &Arc<Self>)
         -> async_lock::RwLockReadGuardArc<T>;
@@ -183,7 +184,7 @@ impl<T> BlockingLock<T> for AsyncRwLock<T> {
 impl<T> Clone for ArcAsyncDerived<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             wakers: Arc::clone(&self.wakers),
@@ -196,7 +197,7 @@ impl<T> Clone for ArcAsyncDerived<T> {
 impl<T> Debug for ArcAsyncDerived<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("ArcAsyncDerived");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         f.field("defined_at", &self.defined_at);
         f.finish_non_exhaustive()
     }
@@ -205,11 +206,11 @@ impl<T> Debug for ArcAsyncDerived<T> {
 impl<T> DefinedAt for ArcAsyncDerived<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -240,7 +241,7 @@ macro_rules! spawn_derived {
         let wakers = Arc::new(RwLock::new(Vec::new()));
 
         let this = ArcAsyncDerived {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             value: Arc::clone(&value),
             wakers,
@@ -271,7 +272,10 @@ macro_rules! spawn_derived {
                 // so that the correct value is set synchronously
                 let initial = initial_fut.as_mut().now_or_never();
                 match initial {
-                    None => (false, Some(initial_fut)),
+                    None => {
+                        inner.write().or_poisoned().notifier.notify();
+                        (false, Some(initial_fut))
+                    }
                     Some(orig_value) => {
                         let mut guard = this.inner.write().or_poisoned();
 
@@ -286,16 +290,14 @@ macro_rules! spawn_derived {
 
         let mut first_run = {
             let (ready_tx, ready_rx) = oneshot::channel();
-            AsyncTransition::register(ready_rx);
+            if !was_ready {
+                AsyncTransition::register(ready_rx);
+            }
             Some(ready_tx)
         };
 
         if was_ready {
             first_run.take();
-        }
-        // begin loading eagerly but asynchronously, if not already loaded
-        if !was_ready {
-            any_subscriber.mark_dirty();
         }
 
         if let Some(source) = $source {
@@ -309,8 +311,20 @@ macro_rules! spawn_derived {
                 let wakers = Arc::downgrade(&this.wakers);
                 let loading = Arc::downgrade(&this.loading);
                 let fut = async move {
+                    // if the AsyncDerived has *already* been marked dirty (i.e., one of its
+                    // sources has changed after creation), we should throw out the Future
+                    // we already created, because its values might be stale
+                    let already_dirty = inner.upgrade()
+                        .as_ref()
+                        .and_then(|inner| inner.read().ok())
+                        .map(|inner| inner.state == AsyncDerivedState::Dirty)
+                        .unwrap_or(false);
+                    if already_dirty {
+                        initial_fut.take();
+                    }
+
                     while rx.next().await.is_some() {
-                        let update_if_necessary = if $should_track {
+                        let update_if_necessary = !owner.paused() && if $should_track {
                             any_subscriber
                                 .with_observer(|| any_subscriber.update_if_necessary())
                         } else {
@@ -342,7 +356,9 @@ macro_rules! spawn_derived {
                                     // register with global transition listener, if any
                                     let ready_tx = first_run.take().unwrap_or_else(|| {
                                         let (ready_tx, ready_rx) = oneshot::channel();
-                                        AsyncTransition::register(ready_rx);
+                                        if !was_ready {
+                                            AsyncTransition::register(ready_rx);
+                                        }
                                         ready_tx
                                     });
 
@@ -408,7 +424,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     ) {
         loading.store(false, Ordering::Relaxed);
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Notifying;
+        let prev_state = mem::replace(
+            &mut inner.write().or_poisoned().state,
+            AsyncDerivedState::Notifying,
+        );
 
         if let Some(ready_tx) = ready_tx {
             // if it's an Err, that just means the Receiver was dropped
@@ -428,7 +447,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
             waker.wake();
         }
 
-        inner.write().or_poisoned().state = AsyncDerivedState::Clean;
+        // if this was marked dirty before notifications began, this means it
+        // had been notified while loading; marking it clean will cause it not to
+        // run on the next tick of the async loop, so here it should be left dirty
+        inner.write().or_poisoned().state = prev_state;
     }
 }
 
@@ -579,19 +601,17 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.blocking_read().is_none() {
-                let handle = suspense_context.task_id();
-                let ready = SpecialNonReactiveFuture::new(self.ready());
-                crate::spawn(async move {
-                    ready.await;
-                    drop(handle);
-                });
-                self.inner
-                    .write()
-                    .or_poisoned()
-                    .suspenses
-                    .push(suspense_context);
-            }
+            let handle = suspense_context.task_id();
+            let ready = SpecialNonReactiveFuture::new(self.ready());
+            crate::spawn(async move {
+                ready.await;
+                drop(handle);
+            });
+            self.inner
+                .write()
+                .or_poisoned()
+                .suspenses
+                .push(suspense_context);
         }
         AsyncPlain::try_new(&self.value).map(ReadGuard::new)
     }
@@ -629,7 +649,7 @@ impl<T: 'static> ToAnySource for ArcAsyncDerived<T> {
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
             Arc::downgrade(&self.inner) as Weak<dyn Source + Send + Sync>,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             self.defined_at,
         )
     }

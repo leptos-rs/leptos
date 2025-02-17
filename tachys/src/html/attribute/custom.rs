@@ -1,6 +1,11 @@
-use super::NextAttribute;
+use super::{
+    maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+};
 use crate::{
-    html::attribute::{Attribute, AttributeValue},
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+        AttributeValue,
+    },
     view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
 use std::{borrow::Cow, sync::Arc};
@@ -114,13 +119,13 @@ where
     K: CustomAttributeKey,
     V: AttributeValue,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 

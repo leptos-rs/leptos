@@ -36,7 +36,7 @@ impl<'a> Render for &'a str {
     }
 }
 
-impl<'a> RenderHtml for &'a str {
+impl RenderHtml for &str {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -90,8 +90,10 @@ impl<'a> RenderHtml for &'a str {
         }
 
         let node = cursor.current();
-        let node = crate::renderer::types::Text::cast_from(node)
-            .expect("couldn't cast text node from node");
+        let node = crate::renderer::types::Text::cast_from(node.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_text_node(node)
+            });
 
         if !FROM_SERVER {
             Rndr::set_text(&node, self);
@@ -102,7 +104,7 @@ impl<'a> RenderHtml for &'a str {
     }
 }
 
-impl<'a> ToTemplate for &'a str {
+impl ToTemplate for &str {
     const TEMPLATE: &'static str = " <!>";
 
     fn to_template(
@@ -120,7 +122,7 @@ impl<'a> ToTemplate for &'a str {
     }
 }
 
-impl<'a> Mountable for StrState<'a> {
+impl Mountable for StrState<'_> {
     fn unmount(&mut self) {
         self.node.unmount()
     }
@@ -451,7 +453,7 @@ impl<'a> Render for Cow<'a, str> {
     }
 }
 
-impl<'a> RenderHtml for Cow<'a, str> {
+impl RenderHtml for Cow<'_, str> {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
@@ -494,7 +496,7 @@ impl<'a> RenderHtml for Cow<'a, str> {
     }
 }
 
-impl<'a> ToTemplate for Cow<'a, str> {
+impl ToTemplate for Cow<'_, str> {
     const TEMPLATE: &'static str = <&str as ToTemplate>::TEMPLATE;
 
     fn to_template(
@@ -510,7 +512,7 @@ impl<'a> ToTemplate for Cow<'a, str> {
     }
 }
 
-impl<'a> Mountable for CowStrState<'a> {
+impl Mountable for CowStrState<'_> {
     fn unmount(&mut self) {
         self.node.unmount()
     }

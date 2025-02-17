@@ -1,7 +1,12 @@
 use crate::{
     dom::{event_target_checked, event_target_value},
     html::{
-        attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
+        attribute::{
+            maybe_next_attr_erasure_macros::{
+                next_attr_combine, next_attr_output_type,
+            },
+            Attribute, AttributeKey, AttributeValue, NextAttribute,
+        },
         event::{change, input, on},
         property::{prop, IntoProperty},
     },
@@ -9,13 +14,15 @@ use crate::{
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+#[cfg(feature = "reactive_stores")]
+use reactive_graph::owner::Storage;
 use reactive_graph::{
     signal::{ReadSignal, RwSignal, WriteSignal},
     traits::{Get, Update},
     wrappers::read::Signal,
 };
 #[cfg(feature = "reactive_stores")]
-use reactive_stores::{KeyedSubfield, Subfield};
+use reactive_stores::{ArcField, Field, KeyedSubfield, Subfield};
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsValue;
 
@@ -274,13 +281,13 @@ where
     W: Update<Value = T> + Clone + Send + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
@@ -355,6 +362,21 @@ where
 
     fn into_split_signal(self) -> (Self::Read, Self::Write) {
         (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<T, S> IntoSplitSignal for Field<T, S>
+where
+    Self: Get<Value = T> + Update<Value = T> + Clone,
+    S: Storage<ArcField<T>>,
+{
+    type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self, self)
     }
 }
 

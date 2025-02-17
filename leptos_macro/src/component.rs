@@ -144,8 +144,6 @@ impl ToTokens for Model {
         let (impl_generics, generics, where_clause) =
             body.sig.generics.split_for_impl();
 
-        let lifetimes = body.sig.generics.lifetimes();
-
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
@@ -201,13 +199,35 @@ impl ToTokens for Model {
         ) = {
             #[cfg(feature = "tracing")]
             {
+                /* TODO for 0.8: fix this
+                 *
+                 * The problem is that cargo now warns about an expected "tracing" cfg if
+                 * you don't have a "tracing" feature in your actual crate
+                 *
+                 * However, until https://github.com/tokio-rs/tracing/pull/1819 is merged
+                 * (?), you can't provide an alternate path for `tracing` (for example,
+                 * ::leptos::tracing), which means that if you're going to use the macro
+                 * you *must* have `tracing` in your Cargo.toml.
+                 *
+                 * Including the feature-check here causes cargo warnings on
+                 * previously-working projects.
+                 *
+                 * Removing the feature-check here breaks any project that uses leptos with
+                 * the tracing feature turned on, but without a tracing dependency in its
+                 * Cargo.toml.
+                 * /
+                 */
+                let instrument = cfg!(feature = "trace-components").then(|| quote! {
+                    #[cfg_attr(
+                        feature = "tracing",
+                        ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
+                    )]
+                });
+
                 (
                     quote! {
                         #[allow(clippy::let_with_type_underscore)]
-                        #[cfg_attr(
-                            feature = "tracing",
-                            ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
-                        )]
+                        #instrument
                     },
                     quote! {
                         let __span = ::leptos::tracing::Span::current();
@@ -260,8 +280,12 @@ impl ToTokens for Model {
         let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if is_island {
             quote! {
-                ::leptos::reactive::owner::Owner::with_hydration(move || {
-                    #body_name(#prop_names)
+                ::leptos::reactive::owner::Owner::new().with(|| {
+                    ::leptos::reactive::owner::Owner::with_hydration(move || {
+                        ::leptos::tachys::reactive_graph::OwnedView::new({
+                            #body_name(#prop_names)
+                        })
+                    })
                 })
             }
         } else {
@@ -275,7 +299,7 @@ impl ToTokens for Model {
         } else if cfg!(erase_components) {
             quote! {
                 ::leptos::prelude::IntoAny::into_any(
-                    ::leptos::prelude::untrack(
+                    ::leptos::reactive::graph::untrack_with_diagnostics(
                         move || {
                             #tracing_guard_expr
                             #tracing_props_expr
@@ -286,7 +310,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                ::leptos::prelude::untrack(
+                ::leptos::reactive::graph::untrack_with_diagnostics(
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
@@ -301,8 +325,8 @@ impl ToTokens for Model {
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
                 {
-                    if ::leptos::reactive::owner::Owner::current_shared_context()
-                        .map(|sc| sc.get_is_hydrating())
+                    if ::leptos::context::use_context::<::leptos::reactive::owner::IsHydrating>()
+                        .map(|h| h.0)
                         .unwrap_or(false) {
                         ::leptos::either::Either::Left(
                             #component
@@ -339,9 +363,23 @@ impl ToTokens for Model {
                     let children = Box::new(|| {
                         let sc = ::leptos::reactive::owner::Owner::current_shared_context().unwrap();
                         let prev = sc.get_is_hydrating();
-                        let value = ::leptos::reactive::owner::Owner::with_no_hydration(||
-                            ::leptos::tachys::html::islands::IslandChildren::new(children()).into_any()
-                        );
+                        let owner = ::leptos::reactive::owner::Owner::new();
+                        let value = owner.clone().with(|| {
+                            ::leptos::reactive::owner::Owner::with_no_hydration(move || {
+                                ::leptos::tachys::reactive_graph::OwnedView::new({
+                                    ::leptos::tachys::html::islands::IslandChildren::new_with_on_hydrate(
+                                        children(),
+                                        {
+                                            let owner = owner.clone();
+                                            move || {
+                                                owner.set()
+                                            }
+                                        }
+
+                                    )
+                                }).into_any()
+                            })
+                        });
                         sc.set_is_hydrating(prev);
                         value
                     });
@@ -424,20 +462,21 @@ impl ToTokens for Model {
                     };
                 let children = if is_island_with_children {
                     quote! {
-                        .children({Box::new(|| {
+                        .children({
+                            let owner = leptos::reactive::owner::Owner::current();
+                            Box::new(move || {
                             use leptos::tachys::view::any_view::IntoAny;
-                            ::leptos::tachys::html::islands::IslandChildren::new(
-                                // TODO owner restoration for context
-                                ()
+                            ::leptos::tachys::html::islands::IslandChildren::new_with_on_hydrate(
+                                (),
+                                {
+                                    let owner = owner.clone();
+                                    move || {
+                                        if let Some(owner) = &owner {
+                                            owner.set()
+                                        }
+                                    }
+                                }
                             ).into_any()})})
-                        //.children(children)
-                        /*.children(Box::new(|| {
-                            use leptos::tachys::view::any_view::IntoAny;
-                            ::leptos::tachys::html::islands::IslandChildren::new(
-                                // TODO owner restoration for context
-                                ()
-                            ).into_any()
-                        }))*/
                     }
                 } else {
                     quote! {}
@@ -529,7 +568,7 @@ impl ToTokens for Model {
             #tracing_instrument_attr
             #vis fn #name #impl_generics (
                 #props_arg
-            ) #ret #(+ #lifetimes)*
+            ) #ret
             #where_clause
             {
                 #body
@@ -655,14 +694,44 @@ impl Prop {
                 abort!(e.span(), e.to_string());
             });
 
-        let name = if let Pat::Ident(i) = *typed.pat {
-            i
-        } else {
-            abort!(
-                typed.pat,
-                "only `prop: bool` style types are allowed within the \
-                 `#[component]` macro"
-            );
+        let name = match *typed.pat {
+            Pat::Ident(i) => {
+                if let Some(name) = &prop_opts.name {
+                    PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: Ident::new(name, i.span()),
+                        subpat: None,
+                    }
+                } else {
+                    i
+                }
+            }
+            Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_) => {
+                if let Some(name) = &prop_opts.name {
+                    PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: Ident::new(name, typed.pat.span()),
+                        subpat: None,
+                    }
+                } else {
+                    abort!(
+                        typed.pat,
+                        "destructured props must be given a name e.g. \
+                         #[prop(name = \"data\")]"
+                    );
+                }
+            }
+            _ => {
+                abort!(
+                    typed.pat,
+                    "only `prop: bool` style types are allowed within the \
+                     `#[component]` macro"
+                );
+            }
         };
 
         Self {
@@ -865,6 +934,7 @@ struct PropOpt {
     default: Option<syn::Expr>,
     into: bool,
     attrs: bool,
+    name: Option<String>,
 }
 
 struct TypedBuilderOpts {

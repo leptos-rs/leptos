@@ -2,7 +2,7 @@ use crate::demos::bevydemo1::eventqueue::events::{
     ClientInEvents, CounterEvtData,
 };
 use crate::demos::bevydemo1::scene::Scene;
-use leptos::*;
+use leptos::prelude::*;
 
 /// 3d view component
 #[component]
@@ -10,18 +10,18 @@ pub fn Demo1() -> impl IntoView {
     // Setup a Counter
     let initial_value: i32 = 0;
     let step: i32 = 1;
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
 
     // Setup a bevy 3d scene
     let scene = Scene::new("#bevy".to_string());
     let sender = scene.get_processor().sender;
-    let (sender_sig, _set_sender_sig) = create_signal(sender);
-    let (scene_sig, _set_scene_sig) = create_signal(scene);
+    let (sender_sig, _set_sender_sig) = signal(sender);
+    let (scene_sig, _set_scene_sig) = signal(scene);
 
     // We need to add the 3D view onto the canvas post render.
-    create_effect(move |_| {
+    Effect::new(move |_| {
         request_animation_frame(move || {
-            scene_sig.get().setup();
+            scene_sig.get_untracked().setup();
         });
     });
 

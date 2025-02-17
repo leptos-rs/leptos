@@ -44,8 +44,8 @@ window.addEventListener("click", async (ev) => {
 	// TODO parse from the request stream instead?
     const doc = parser.parseFromString(htmlString, 'text/html');
 
-	// The 'doc' variable now contains the parsed DOM 
-	const transition = document.startViewTransition(async () => {
+	// The 'doc' variable now contains the parsed DOM
+	const transition = async () => {
 		const oldDocWalker = document.createTreeWalker(document);
 		const newDocWalker = doc.createTreeWalker(doc);
 		let oldNode = oldDocWalker.currentNode;
@@ -128,8 +128,13 @@ window.addEventListener("click", async (ev) => {
 					}
 				} 			}
 		}
-	});
-	await transition;
+	};
+	// Not all browsers support startViewTransition; see https://caniuse.com/?search=startViewTransition
+	if (document.startViewTransition) {
+		await document.startViewTransition(transition);
+	} else {
+		await transition()
+	}
 	window.history.pushState(undefined, null, url);
 });
 

@@ -1,0 +1,54 @@
+name: autofix.ci
+on:
+  pull_request:
+  # Running this workflow on main branch pushes requires write permission to apply changes.
+  # Leave it alone for future uses.
+  # push:
+  #   branches: ["main"]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  DEBIAN_FRONTEND: noninteractive
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: {toolchain: nightly, components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
+      - name: Install Glib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev
+      - name: Install jq
+        run: sudo apt-get install jq
+      - run: |
+          echo "Formatting the workspace"
+          cargo fmt --all
+
+          echo "Running Clippy against each member's features (default features included)"
+          for member in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | .name'); do
+              echo "Working on member $member":
+              echo -e "\tdefault-features/no-features:"
+              # this will also run on members with no features or default features
+              cargo clippy --allow-dirty --fix --lib --package "$member"
+
+              features=$(cargo metadata --no-deps --format-version 1 | jq -r ".packages[] | select(.name == \"$member\") | .features | keys[]")
+              for feature in $features; do
+                  if [ "$feature" = "default" ]; then
+                    continue
+                  fi
+                  echo -e "\tfeature $feature"
+                  cargo clippy --allow-dirty --fix --lib --package "$member" --features "$feature"
+              done
+          done
+      - uses: autofix-ci/action@v1.3.1
+        if: ${{ always() }}
+        with:
+          fail-fast: false

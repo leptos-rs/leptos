@@ -92,6 +92,9 @@ pub fn A<H>(
     /// a trailing slash.
     #[prop(optional)]
     strict_trailing_slash: bool,
+    /// If `true`, the router will scroll to the top of the window at the end of navigation. Defaults to `true`.
+    #[prop(default = true)]
+    scroll: bool,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -104,12 +107,13 @@ where
         exact: bool,
         children: Children,
         strict_trailing_slash: bool,
+        scroll: bool,
     ) -> impl IntoView {
         let RouterContext { current_url, .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
-        let is_active = ArcMemo::new({
+        let is_active = {
             let href = href.clone();
-            move |_| {
+            move || {
                 href.read().as_deref().is_some_and(|to| {
                     let path = to.split(['?', '#']).next().unwrap_or_default();
                     current_url.with(|loc| {
@@ -122,16 +126,14 @@ where
                     })
                 })
             }
-        });
+        };
 
         view! {
             <a
                 href=move || href.get().unwrap_or_default()
                 target=target
-                aria-current={
-                    let is_active = is_active.clone();
-                    move || if is_active.get() { Some("page") } else { None }
-                }
+                aria-current=move || if is_active() { Some("page") } else { None }
+                data-noscroll=!scroll
             >
 
                 {children()}
@@ -140,7 +142,7 @@ where
     }
 
     let href = use_resolved_path(move || href.to_href()());
-    inner(href, target, exact, children, strict_trailing_slash)
+    inner(href, target, exact, children, strict_trailing_slash, scroll)
 }
 
 // Test if `href` is active for `location`.  Assumes _both_ `href` and `location` begin with a `'/'`.

@@ -1,7 +1,7 @@
 use crate::{
     hooks::Matched,
     location::{LocationProvider, Url},
-    matching::Routes,
+    matching::RouteDefs,
     params::ParamsMap,
     view_transition::start_view_transition,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
@@ -44,7 +44,7 @@ use tachys::{
 
 pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub location: Option<Loc>,
-    pub routes: Routes<Defs>,
+    pub routes: RouteDefs<Defs>,
     pub outer_owner: Owner,
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
@@ -53,7 +53,8 @@ pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub transition: bool,
 }
 
-pub struct NestedRouteViewState<Fal>
+/// Retained view state for the nested router.
+pub(crate) struct NestedRouteViewState<Fal>
 where
     Fal: Render,
 {
@@ -155,6 +156,9 @@ where
                 EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
+                if let Some(loc) = self.location {
+                    loc.ready_to_complete();
+                }
             }
             Some(route) => {
                 if let Some(set_is_routing) = self.set_is_routing {
@@ -870,6 +874,8 @@ where
     }
 }
 
+/// Displays the child route nested in a parent route, allowing you to control exactly where
+/// that child route is displayed. Renders nothing if there is no nested child.
 #[component]
 pub fn Outlet() -> impl RenderHtml
 where

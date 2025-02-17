@@ -81,3 +81,20 @@ pub async fn instrumented_counts(
 
     Ok(())
 }
+
+pub async fn link_text_is_aria_current(client: &Client, text: &str) -> Result<()> {
+    let link = find::link_with_text(client, text).await?;
+
+    link.attr("aria-current").await?
+        .expect(format!("aria-current missing for {text}").as_str());
+
+    Ok(())
+}
+
+pub async fn link_text_is_not_aria_current(client: &Client, text: &str) -> Result<()> {
+    let link = find::link_with_text(client, text).await?;
+
+    link.attr("aria-current").await?
+        .map(|_| anyhow::bail!("aria-current mistakenly set for {text}"))
+        .unwrap_or(Ok(()))
+}

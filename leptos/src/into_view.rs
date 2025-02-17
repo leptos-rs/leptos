@@ -9,6 +9,7 @@ use tachys::{
     },
 };
 
+/// A wrapper for any kind of view.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct View<T>
 where
@@ -20,6 +21,7 @@ where
 }
 
 impl<T> View<T> {
+    /// Wraps the view.
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -28,10 +30,12 @@ impl<T> View<T> {
         }
     }
 
+    /// Unwraps the view, returning the inner type.
     pub fn into_inner(self) -> T {
         self.inner
     }
 
+    /// Adds a view marker, which is used for hot-reloading and debug purposes.
     #[inline(always)]
     pub fn with_view_marker(
         #[allow(unused_mut)] // used in debug
@@ -47,10 +51,12 @@ impl<T> View<T> {
     }
 }
 
+/// A trait that is implemented for types that can be rendered.
 pub trait IntoView
 where
     Self: Sized + Render + RenderHtml + Send,
 {
+    /// Wraps the inner type.
     fn into_view(self) -> View<Self>;
 }
 
@@ -188,9 +194,15 @@ impl<T: AddAnyAttr> AddAnyAttr for View<T> {
     }
 }
 
+/// Collects some iterator of views into a list, so they can be rendered.
+///
+/// This is a shorthand for `.collect::<Vec<_>>()`, and allows any iterator of renderable
+/// items to be collected into a renderable collection.
 pub trait CollectView {
+    /// The inner view type.
     type View: IntoView;
 
+    /// Collects the iterator into a list of views.
     fn collect_view(self) -> Vec<Self::View>;
 }
 

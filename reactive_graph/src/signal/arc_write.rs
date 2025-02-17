@@ -2,7 +2,7 @@ use super::guards::{UntrackedWriteGuard, WriteGuard};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Notify},
-    traits::{DefinedAt, UntrackableGuard, Write},
+    traits::{DefinedAt, IntoInner, UntrackableGuard, Write},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -54,7 +54,7 @@ use std::{
 /// assert_eq!(count.get(), 3);
 /// ```
 pub struct ArcWriteSignal<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     pub(crate) inner: Arc<RwLock<SubscriberSet>>,
@@ -64,7 +64,7 @@ impl<T> Clone for ArcWriteSignal<T> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             inner: Arc::clone(&self.inner),
@@ -98,11 +98,11 @@ impl<T> Hash for ArcWriteSignal<T> {
 impl<T> DefinedAt for ArcWriteSignal<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -113,6 +113,15 @@ impl<T> IsDisposed for ArcWriteSignal<T> {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> IntoInner for ArcWriteSignal<T> {
+    type Value = T;
+
+    #[inline(always)]
+    fn into_inner(self) -> Option<Self::Value> {
+        Some(Arc::into_inner(self.value)?.into_inner().unwrap())
     }
 }
 

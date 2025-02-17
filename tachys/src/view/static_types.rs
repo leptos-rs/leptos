@@ -3,9 +3,14 @@ use super::{
     RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
+    html::attribute::{
+        maybe_next_attr_erasure_macros::{
+            next_attr_combine, next_attr_output_type,
+        },
+        Attribute, AttributeKey, AttributeValue, NextAttribute,
+    },
     hydration::Cursor,
-    renderer::Rndr,
+    renderer::{CastFrom, Rndr},
 };
 use std::marker::PhantomData;
 
@@ -111,13 +116,13 @@ impl<K, const V: &'static str> NextAttribute for StaticAttr<K, V>
 where
     K: AttributeKey,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (StaticAttr::<K, V> { ty: PhantomData }, new_attr)
+        next_attr_combine!(StaticAttr::<K, V> { ty: PhantomData }, new_attr)
     }
 }
 
@@ -180,8 +185,11 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        if escape {
-            buf.push_str(&html_escape::encode_text(V));
+        if V.is_empty() && escape {
+            buf.push(' ');
+        } else if escape {
+            let escaped = html_escape::encode_text(V);
+            buf.push_str(&escaped);
         } else {
             buf.push_str(V);
         }
@@ -198,18 +206,26 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         } else {
             cursor.sibling();
         }
+
+        // separating placeholder marker comes before text node
         if matches!(position.get(), Position::NextChildAfterText) {
             cursor.sibling();
         }
+
+        let node = cursor.current();
+        let node = crate::renderer::types::Text::cast_from(node.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_text_node(node)
+            });
+
         position.set(Position::NextChildAfterText);
 
-        // no view state is created when hydrating, because this is static
-        None
+        Some(node)
     }
 }
 
 impl<const V: &'static str> AddAnyAttr for Static<V> {
-    type Output<SomeNewAttr: Attribute> = Static<V>;
+    type Output<NewAttr: Attribute> = Static<V>;
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
@@ -218,7 +234,15 @@ impl<const V: &'static str> AddAnyAttr for Static<V> {
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        todo!()
+        // inline helper function to assist the compiler with type inference
+        #[inline(always)]
+        const fn create_static<const S: &'static str, A: Attribute>(
+        ) -> <Static<S> as AddAnyAttr>::Output<A> {
+            Static
+        }
+
+        // call the helper function with the current const value and new attribute type
+        create_static::<V, NewAttr>()
     }
 }
 

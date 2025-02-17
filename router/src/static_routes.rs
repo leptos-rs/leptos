@@ -13,10 +13,14 @@ use std::{
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 
+/// A reference-counted pointer to a function that can generate a set of params for static site
+/// generation.
 pub type StaticParams = Arc<StaticParamsFn>;
+/// A function that generates a set of params for generating a static route.
 pub type StaticParamsFn =
     dyn Fn() -> PinnedFuture<StaticParamsMap> + Send + Sync + 'static;
 
+/// A function that defines when a statically-generated page should be regenerated.
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
 pub struct RegenerationFn(
@@ -43,6 +47,7 @@ impl PartialEq for RegenerationFn {
     }
 }
 
+/// Defines how a static route should be generated.
 #[derive(Clone, Default)]
 pub struct StaticRoute {
     pub(crate) prerender_params: Option<StaticParams>,
@@ -50,10 +55,13 @@ pub struct StaticRoute {
 }
 
 impl StaticRoute {
+    /// Creates a new static route listing.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Defines a set of params that should be prerendered on server start-up, depending on some
+    /// asynchronous function that returns their values.
     pub fn prerender_params<Fut>(
         mut self,
         params: impl Fn() -> Fut + Send + Sync + 'static,
@@ -65,6 +73,7 @@ impl StaticRoute {
         self
     }
 
+    /// Defines when the route should be regenerated.
     pub fn regenerate<St>(
         mut self,
         invalidate: impl Fn(&ParamsMap) -> St + Send + Sync + 'static,
@@ -78,6 +87,7 @@ impl StaticRoute {
         self
     }
 
+    /// Returns a set of params that should be prerendered.
     pub async fn to_prerendered_params(&self) -> Option<StaticParamsMap> {
         match &self.prerender_params {
             None => None,
@@ -118,6 +128,7 @@ impl PartialEq for StaticRoute {
 
 impl Eq for StaticRoute {}
 
+/// A map of params for static routes.
 #[derive(Debug, Clone, Default)]
 pub struct StaticParamsMap(pub Vec<(String, Vec<String>)>);
 
@@ -159,6 +170,7 @@ impl IntoIterator for StaticParamsMap {
     }
 }
 
+/// An iterator over a set of (key, value) pairs for statically-routed params.
 #[derive(Debug)]
 pub struct StaticParamsIter(
     <Vec<(String, Vec<String>)> as IntoIterator>::IntoIter,
@@ -208,7 +220,7 @@ impl StaticPath {
                     paths = paths
                         .into_iter()
                         .map(|p| {
-                            if s.starts_with("/") {
+                            if s.starts_with("/") || s.is_empty() {
                                 ResolvedStaticPath {
                                     path: format!("{}{s}", p.path),
                                 }
@@ -254,12 +266,14 @@ impl StaticPath {
     }
 }
 
-#[derive(Debug, Clone)]
+/// A path to be used in static route generation.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedStaticPath {
     pub(crate) path: String,
 }
 
 impl ResolvedStaticPath {
+    /// Defines a path to be used for static route generation.
     pub fn new(path: impl Into<String>) -> Self {
         Self { path: path.into() }
     }
@@ -278,6 +292,7 @@ impl Display for ResolvedStaticPath {
 }
 
 impl ResolvedStaticPath {
+    /// Builds the page that corresponds to this path.
     pub async fn build<Fut, WriterFut>(
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
@@ -360,5 +375,69 @@ impl ResolvedStaticPath {
         });
 
         rx.await.unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn static_path_segments_into_path_ignore_empty_segments() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("".into()),
+            PathSegment::Static("post".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/post")]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_flatten_param() {
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["first".into(), "second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Param("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/post/first"),
+                ResolvedStaticPath::new("/post/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_no_double_slash() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Static("/leptos".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/post/leptos")]
+        );
+
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["/first".into(), "/second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/post".into()),
+            PathSegment::Param("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/post/first"),
+                ResolvedStaticPath::new("/post/second")
+            ]
+        );
     }
 }

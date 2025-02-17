@@ -13,9 +13,12 @@ use std::{
     sync::Arc,
 };
 
+/// Allows updating a store or field in place with a new value.
 pub trait Patch {
+    /// The type of the new value.
     type Value;
 
+    /// Patches a store or field with a new value, only notifying fields that have changed.
     fn patch(&self, new: Self::Value);
 }
 
@@ -42,6 +45,7 @@ where
 
 /// Allows patching a store field with some new value.
 pub trait PatchField {
+    /// Patches the field with some new value, only notifying if the value has changed.
     fn patch_field(
         &mut self,
         new: Self,
@@ -74,6 +78,7 @@ patch_primitives! {
     Arc<str>,
     Rc<str>,
     Cow<'_, str>,
+    usize,
     u8,
     u16,
     u32,
@@ -107,6 +112,35 @@ patch_primitives! {
     NonZeroU128,
     NonZeroIsize,
     NonZeroUsize
+}
+
+impl<T> PatchField for Option<T>
+where
+    T: PatchField,
+{
+    fn patch_field(
+        &mut self,
+        new: Self,
+        path: &StorePath,
+        notify: &mut dyn FnMut(&StorePath),
+    ) {
+        match (self, new) {
+            (None, None) => {}
+            (old @ Some(_), None) => {
+                old.take();
+                notify(path);
+            }
+            (old @ None, new @ Some(_)) => {
+                *old = new;
+                notify(path);
+            }
+            (Some(old), Some(new)) => {
+                let mut new_path = path.to_owned();
+                new_path.push(0);
+                old.patch_field(new, &new_path, notify);
+            }
+        }
+    }
 }
 
 impl<T> PatchField for Vec<T>

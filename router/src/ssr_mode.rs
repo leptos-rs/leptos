@@ -20,17 +20,34 @@ use crate::static_routes::StaticRoute;
 /// 5. **`Async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
 ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
 ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
-/// 6. **`Static`**:
+/// 6. **`Static`**: Renders the page when the server starts up, or incrementally, using the
+///    configuration provided by a [`StaticRoute`].
 ///
 /// The mode defaults to out-of-order streaming. For a path that includes multiple nested routes, the most
 /// restrictive mode will be used: i.e., if even a single nested route asks for `Async` rendering, the whole initial
 /// request will be rendered `Async`. (`Async` is the most restricted requirement, followed by `InOrder`, `PartiallyBlocked`, and `OutOfOrder`.)
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SsrMode {
+    /// **Out-of-order streaming** (`OutOfOrder`, the default): Serve an HTML shell that includes `fallback` for any `Suspense`. Load data on the **server**, streaming it down to the client as it resolves, and streaming down HTML for `Suspense` nodes.
+    ///     - *Pros*: Combines the best of **synchronous** and `Async`, with a very fast shell and resources that begin loading on the server.
+    ///     - *Cons*: Requires JS for suspended fragments to appear in correct order. Weaker meta tag support when it depends on data that's under suspense (has already streamed down `<head>`)
     #[default]
     OutOfOrder,
+    /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
+    ///     - *Pros*: Does not require JS for HTML to appear in correct order.
+    ///     - *Cons*: Loads the shell more slowly than out-of-order streaming or synchronous rendering because it needs to pause at every `Suspense`. Cannot begin hydration until the entire page has loaded, so earlier pieces
+    ///       of the page will not be interactive until the suspended chunks have loaded.
     PartiallyBlocked,
+    /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
+    ///     - *Pros*: Does not require JS for HTML to appear in correct order.
+    ///     - *Cons*: Loads the shell more slowly than out-of-order streaming or synchronous rendering because it needs to pause at every `Suspense`. Cannot begin hydration until the entire page has loaded, so earlier pieces
+    ///       of the page will not be interactive until the suspended chunks have loaded.
     InOrder,
+    /// **`Async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
+    ///    - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
+    ///    - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
     Async,
+    /// **`Static`**: Renders the page when the server starts up, or incrementally, using the
+    ///    configuration provided by a [`StaticRoute`].
     Static(StaticRoute),
 }

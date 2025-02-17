@@ -101,7 +101,7 @@ pub struct ArcAction<I, O> {
     action_fn: Arc<
         dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>> + Send + Sync,
     >,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -114,7 +114,7 @@ impl<I, O> Clone for ArcAction<I, O> {
             version: self.version.clone(),
             dispatched: self.dispatched.clone(),
             action_fn: self.action_fn.clone(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -198,7 +198,7 @@ where
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -370,7 +370,7 @@ where
             action_fn: Arc::new(move |input| {
                 Box::pin(SendWrapper::new(action_fn(input)))
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -502,11 +502,11 @@ where
     O: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -592,7 +592,7 @@ where
 /// ```
 pub struct Action<I, O, S = SyncStorage> {
     inner: ArenaItem<ArcAction<I, O>, S>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -656,7 +656,7 @@ where
     {
         Self {
             inner: ArenaItem::new(ArcAction::new(action_fn)),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -681,7 +681,7 @@ where
     {
         Self {
             inner: ArenaItem::new(ArcAction::new_with_value(value, action_fn)),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -715,11 +715,11 @@ where
     pub fn new_local<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         Self {
             inner: ArenaItem::new_local(ArcAction::new_unsync(action_fn)),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -737,7 +737,7 @@ where
             inner: ArenaItem::new_local(ArcAction::new_unsync_with_value(
                 value, action_fn,
             )),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -939,7 +939,8 @@ where
     #[track_caller]
     pub fn dispatch(&self, input: I) -> ActionAbortHandle {
         self.inner
-            .try_with_value(|inner| inner.dispatch(input))
+            .try_get_value()
+            .map(|inner| inner.dispatch(input))
             .unwrap_or_else(unwrap_signal!(self))
     }
 }
@@ -954,7 +955,8 @@ where
     #[track_caller]
     pub fn dispatch_local(&self, input: I) -> ActionAbortHandle {
         self.inner
-            .try_with_value(|inner| inner.dispatch_local(input))
+            .try_get_value()
+            .map(|inner| inner.dispatch_local(input))
             .unwrap_or_else(unwrap_signal!(self))
     }
 }
@@ -979,7 +981,7 @@ where
             inner: ArenaItem::new_with_storage(ArcAction::new_unsync(
                 action_fn,
             )),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -998,7 +1000,7 @@ where
             inner: ArenaItem::new_with_storage(
                 ArcAction::new_unsync_with_value(value, action_fn),
             ),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -1006,11 +1008,11 @@ where
 
 impl<I, O, S> DefinedAt for Action<I, O, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }

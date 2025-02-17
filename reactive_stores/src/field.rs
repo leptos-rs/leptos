@@ -1,21 +1,32 @@
 use crate::{
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store,
-    StoreField, StoreFieldTrigger, Subfield,
+    ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield,
+    Store, StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::{ArenaItem, Storage, SyncStorage},
-    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
-    unwrap_signal,
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Write,
+    },
 };
-use std::{fmt::Debug, hash::Hash, ops::IndexMut, panic::Location};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    ops::{Deref, DerefMut, IndexMut},
+    panic::Location,
+};
 
+/// Wraps access to a single field of type `T`.
+///
+/// This can be used to erase the chain of field-accessors, to make it easier to pass this into
+/// another component or function without needing to specify the full type signature.
 pub struct Field<T, S = SyncStorage>
 where
     T: 'static,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: ArenaItem<ArcField<T>, S>,
 }
@@ -32,14 +43,14 @@ where
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
             .try_get_value()
             .map(|inner| inner.path().into_iter().collect::<Vec<_>>())
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn reader(&self) -> Option<Self::Reader> {
@@ -63,9 +74,24 @@ where
     #[track_caller]
     fn from(value: Store<T, S>) -> Self {
         Field {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<T, S> From<ArcField<T>> for Field<T, S>
+where
+    T: 'static,
+    S: Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: ArcField<T>) -> Self {
+        Field {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
@@ -78,7 +104,7 @@ where
     #[track_caller]
     fn from(value: ArcStore<T>) -> Self {
         Field {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
         }
@@ -96,7 +122,23 @@ where
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
         Field {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<Inner, T> From<DerefedField<Inner>> for Field<T>
+where
+    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner::Value: Deref<Target = T> + DerefMut,
+    T: Sized + 'static,
+{
+    #[track_caller]
+    fn from(value: DerefedField<Inner>) -> Self {
+        Field {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
         }
@@ -114,7 +156,7 @@ where
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
         Field {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
         }
@@ -137,7 +179,7 @@ where
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
         Field {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
         }
@@ -154,11 +196,11 @@ impl<T, S> Copy for Field<T, S> {}
 
 impl<T, S> DefinedAt for Field<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -197,6 +239,24 @@ where
         self.inner
             .try_get_value()
             .and_then(|inner| inner.try_read_untracked())
+    }
+}
+
+impl<T> Write for Field<T> {
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.inner.try_get_value().and_then(|inner| (inner.write)())
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.inner.try_get_value().and_then(|inner| {
+            let mut guard = (inner.write)()?;
+            guard.untrack();
+            Some(guard)
+        })
     }
 }
 

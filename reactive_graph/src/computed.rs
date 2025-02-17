@@ -15,11 +15,10 @@ use crate::{
 };
 pub use arc_memo::*;
 pub use async_derived::*;
-pub(crate) use inner::MemoInner;
 pub use memo::*;
 pub use selector::*;
 
-/// Derives a reactive slice of an [`RwSignal`](crate::signal::RwSignal).
+/// Derives a reactive slice of an [`RwSignal`].
 ///
 /// Slices have the same guarantees as [`Memo`s](crate::computed::Memo):
 /// they only emit their value when it has actually been changed.

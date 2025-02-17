@@ -16,7 +16,7 @@
 //! | Trait             | Mode  | Description                                                                           |
 //! |-------------------|-------|---------------------------------------------------------------------------------------|
 //! | [`Track`]         | —     | Tracks changes to this value, adding it as a source of the current reactive observer. |
-//! | [`Trigger`]       | —     | Notifies subscribers that this value has changed.                                     |
+//! | [`Notify`]       | —      | Notifies subscribers that this value has changed.                                     |
 //! | [`ReadUntracked`] | Guard | Gives immutable access to the value of this signal.                                   |
 //! | [`Write`]     | Guard | Gives mutable access to the value of this signal.
 //!
@@ -34,7 +34,7 @@
 //! | Trait               | Mode          | Composition                       | Description
 //! |---------------------|---------------|-----------------------------------|------------
 //! | [`UpdateUntracked`] | `fn(&mut T)`  | [`Write`]                     | Applies closure to the current value to update it, but doesn't notify subscribers.
-//! | [`Update`]          | `fn(&mut T)`  | [`UpdateUntracked`] + [`Trigger`] | Applies closure to the current value to update it, and notifies subscribers.
+//! | [`Update`]          | `fn(&mut T)`  | [`UpdateUntracked`] + [`Notify`] | Applies closure to the current value to update it, and notifies subscribers.
 //! | [`Set`]             | `T`           | [`Update`]                        | Sets the value to a new value, and notifies subscribers.
 //!
 //! ## Using the Traits
@@ -67,10 +67,10 @@ use std::{
 #[macro_export]
 macro_rules! unwrap_signal {
     ($signal:ident) => {{
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         let location = std::panic::Location::caller();
         || {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             {
                 panic!(
                     "{}",
@@ -80,7 +80,7 @@ macro_rules! unwrap_signal {
                     )
                 );
             }
-            #[cfg(not(debug_assertions))]
+            #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
             {
                 panic!(
                     "Tried to access a reactive value that has already been \
@@ -103,6 +103,7 @@ pub trait Dispose {
 /// Allows tracking the value of some reactive data.
 pub trait Track {
     /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+    #[track_caller]
     fn track(&self);
 }
 
@@ -404,6 +405,7 @@ where
 /// Notifies subscribers of a change in this signal.
 pub trait Notify {
     /// Notifies subscribers of a change in this signal.
+    #[track_caller]
     fn notify(&self);
 }
 
@@ -628,6 +630,18 @@ where
 pub trait IsDisposed {
     /// If `true`, the signal cannot be accessed without a panic.
     fn is_disposed(&self) -> bool;
+}
+
+/// Turns a signal back into a raw value.
+pub trait IntoInner {
+    /// The type of the value contained in the signal.
+    type Value;
+
+    /// Returns the inner value if this is the only reference to to the signal.
+    /// Otherwise, returns `None` and drops this reference.
+    /// # Panics
+    /// Panics if the inner lock is poisoned.
+    fn into_inner(self) -> Option<Self::Value>;
 }
 
 /// Describes where the signal was defined. This is used for diagnostic warnings and is purely a

@@ -1,12 +1,13 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
-    StoreFieldTrigger, Subfield,
+    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield, Store,
+    StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::Storage,
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Write,
     },
 };
 use std::{
@@ -17,17 +18,22 @@ use std::{
     sync::Arc,
 };
 
+/// Reference-counted access to a single field of type `T`.
+///
+/// This can be used to erase the chain of field-accessors, to make it easier to pass this into
+/// another component or function without needing to specify the full type signature.
 pub struct ArcField<T>
 where
     T: 'static,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path: StorePath,
     trigger: StoreFieldTrigger,
     get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
-    write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
+    pub(crate) write:
+        Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
     track_field: Arc<dyn Fn() + Send + Sync>,
 }
@@ -110,7 +116,7 @@ where
     #[track_caller]
     fn from(value: Store<T, S>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -130,7 +136,7 @@ where
     #[track_caller]
     fn from(value: ArcStore<T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -168,7 +174,44 @@ where
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+        }
+    }
+}
+
+impl<Inner, T> From<DerefedField<Inner>> for ArcField<T>
+where
+    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner::Value: Deref<Target = T> + DerefMut,
+    T: Sized + 'static,
+{
+    #[track_caller]
+    fn from(value: DerefedField<Inner>) -> Self {
+        ArcField {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -206,7 +249,7 @@ where
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -248,7 +291,7 @@ where
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
         ArcField {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
@@ -279,7 +322,7 @@ where
 impl<T> Clone for ArcField<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path: self.path.clone(),
             trigger: self.trigger.clone(),
@@ -294,11 +337,11 @@ impl<T> Clone for ArcField<T> {
 
 impl<T> DefinedAt for ArcField<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -322,6 +365,22 @@ impl<T> ReadUntracked for ArcField<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         (self.read)()
+    }
+}
+
+impl<T> Write for ArcField<T> {
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        (self.write)()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut guard = (self.write)()?;
+        guard.untrack();
+        Some(guard)
     }
 }
 

@@ -11,10 +11,10 @@ use crate::{
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
     resolve_path::resolve_path,
-    ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
+    ChooseView, MatchNestedRoutes, NestedRoute, RouteDefs, SsrMode,
 };
-use either_of::Either;
-use leptos::prelude::*;
+use either_of::EitherOf3;
+use leptos::{children, prelude::*};
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
@@ -30,10 +30,13 @@ use std::{
 };
 use tachys::view::any_view::AnyView;
 
-#[derive(Debug)]
+/// A wrapper that allows passing route definitions as children to a component like [`Routes`],
+/// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
+#[derive(Clone, Debug)]
 pub struct RouteChildren<Children>(Children);
 
 impl<Children> RouteChildren<Children> {
+    /// Extracts the inner route definition.
     pub fn into_inner(self) -> Children {
         self.0
     }
@@ -61,8 +64,8 @@ pub fn Router<Chil>(
     //#[prop(optional)]
     //trailing_slash: TrailingSlash,
     /// The `<Router/>` should usually wrap your whole page. It can contain
-    /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
-    /// to define and display [`Route`](crate::Route)s.
+    /// any elements, and should include a [`Routes`] component somewhere
+    /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
@@ -79,13 +82,18 @@ where
 
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
+        let owner = Owner::current();
         let location =
             BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();
 
-        let redirect_hook = Box::new(|loc: &str| BrowserUrl::redirect(loc));
+        let redirect_hook = Box::new(move |loc: &str| {
+            if let Some(owner) = &owner {
+                owner.with(|| BrowserUrl::redirect(loc));
+            }
+        });
 
         (Some(location), current_url, redirect_hook)
     };
@@ -211,30 +219,15 @@ impl Debug for RouterContext {
     }
 }
 
-/*
-#[component]
-pub fn FlatRouter<Children, FallbackFn, Fallback>(
-    #[prop(optional, into)] base: Option<Cow<'static, str>>,
-    fallback: FallbackFn,
-    children: RouteChildren<Children>,
-) -> FlatRouter<Dom, BrowserUrl, Children, FallbackFn>
-where
-    FallbackFn: Fn() -> Fallback,
-{
-    let children = Routes::new(children.into_inner());
-    if let Some(base) = base {
-        FlatRouter::new_with_base(base, children, fallback)
-    } else {
-        FlatRouter::new(children, fallback)
-    }
-}*/
-
 #[component(transparent)]
 pub fn Routes<Defs, FallbackFn, Fallback>(
+    /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
     #[prop(optional)]
     transition: bool,
+    /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
+    /// components.
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -255,7 +248,7 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new_with_base(
+    let routes = RouteDefs::new_with_base(
         children.into_inner(),
         base.clone().unwrap_or_default(),
     );
@@ -281,10 +274,13 @@ where
 
 #[component(transparent)]
 pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
+    /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
     #[prop(optional)]
     transition: bool,
+    /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
+    /// components.
     children: RouteChildren<Defs>,
 ) -> impl IntoView
 where
@@ -308,7 +304,7 @@ where
         base.upgrade_inplace();
         base
     });
-    let routes = Routes::new_with_base(
+    let routes = RouteDefs::new_with_base(
         children.into_inner(),
         base.clone().unwrap_or_default(),
     );
@@ -333,11 +329,21 @@ where
     }
 }
 
+/// Describes a portion of the nested layout of the app, specifying the route it should match
+/// and the element it should display.
 #[component(transparent)]
 pub fn Route<Segments, View>(
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
+    /// The view for this route.
     view: View,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, (), (), View>
 where
     View: ChooseView,
@@ -345,12 +351,23 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
+/// Describes a portion of the nested layout of the app, specifying the route it should match
+/// and the element it should display.
 #[component(transparent)]
 pub fn ParentRoute<Segments, View, Children>(
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
+    /// The view for this route.
     view: View,
+    /// Nested child routes.
     children: RouteChildren<Children>,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, Children, (), View>
 where
     View: ChooseView,
@@ -359,13 +376,31 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
 
+/// Describes a route that is guarded by a certain condition. This works the same way as
+/// [`<Route/>`], except that if the `condition` function evaluates to `Some(false)`, it
+/// redirects to `redirect_path` instead of displaying its `view`.
 #[component(transparent)]
 pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
+    /// The view for this route.
     view: ViewFn,
+    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+    /// information is still loading.
     condition: C,
+    /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
-    #[prop(optional)] ssr: SsrMode,
+    /// Will be displayed while the condition is pending. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: children::ViewFn,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
@@ -374,23 +409,26 @@ where
     PathFn: Fn() -> P + Send + Clone + 'static,
     P: Display + 'static,
 {
+    let fallback = move || fallback.run();
     let view = move || {
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
         let view = view.clone();
+        let fallback = fallback.clone();
         (view! {
-            <Transition>
+            <Transition fallback=fallback.clone()>
                 {move || {
                     let condition = condition();
                     let view = view.clone();
                     let redirect_path = redirect_path.clone();
+                    let fallback = fallback.clone();
                     Unsuspend::new(move || match condition {
-                        Some(true) => Either::Left(view()),
+                        Some(true) => EitherOf3::A(view()),
                         #[allow(clippy::unit_arg)]
                         Some(false) => {
-                            Either::Right(view! { <Redirect path=redirect_path()/> }.into_inner())
+                            EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
                         }
-                        None => Either::Right(()),
+                        None => EitherOf3::C(fallback()),
                     })
                 }}
 
@@ -403,12 +441,28 @@ where
 
 #[component(transparent)]
 pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
+    /// The path fragment that this route should match. This can be created using the
+    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
     path: Segments,
+    /// The view for this route.
     view: ViewFn,
+    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+    /// information is still loading.
     condition: C,
+    /// Will be displayed while the condition is pending. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: children::ViewFn,
+    /// The path that will be redirected to if the condition is `Some(false)`.
     redirect_path: PathFn,
+    /// Nested child routes.
     children: RouteChildren<Children>,
-    #[prop(optional)] ssr: SsrMode,
+    /// The mode that this route prefers during server-side rendering.
+    /// Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
 ) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
@@ -417,17 +471,21 @@ where
     PathFn: Fn() -> P + Send + Clone + 'static,
     P: Display + 'static,
 {
+    let fallback = move || fallback.run();
     let children = children.into_inner();
     let view = move || {
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
+        let fallback = fallback.clone();
         let view = view.clone();
         let owner = Owner::current().unwrap();
         let view = {
+            let fallback = fallback.clone();
             move || {
                 let condition = condition();
                 let view = view.clone();
                 let redirect_path = redirect_path.clone();
+                let fallback = fallback.clone();
                 let owner = owner.clone();
                 Unsuspend::new(move || match condition {
                     // reset the owner so that things like providing context work
@@ -436,16 +494,16 @@ where
                     //
                     // clippy: not redundant, a FnOnce vs FnMut issue
                     #[allow(clippy::redundant_closure)]
-                    Some(true) => Either::Left(owner.with(|| view())),
+                    Some(true) => EitherOf3::A(owner.with(|| view())),
                     #[allow(clippy::unit_arg)]
-                    Some(false) => Either::Right(
+                    Some(false) => EitherOf3::B(
                         view! { <Redirect path=redirect_path()/> }.into_inner(),
                     ),
-                    None => Either::Right(()),
+                    None => EitherOf3::C(fallback()),
                 })
             }
         };
-        (view! { <Transition>{view}</Transition> }).into_any()
+        (view! { <Transition fallback>{view}</Transition> }).into_any()
     };
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }

@@ -1,3 +1,5 @@
+//! Macros for use with the Leptos framework.
+
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
@@ -5,6 +7,7 @@
 // FIXME? every use of quote! {} is warning here -- false positive?
 #![allow(unknown_lints)]
 #![allow(private_macro_use)]
+#![deny(missing_docs)]
 
 #[macro_use]
 extern crate proc_macro_error2;
@@ -20,6 +23,7 @@ mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod lazy;
 mod memo;
 mod slice;
 mod slot;
@@ -269,8 +273,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     view_macro_impl(tokens, false)
 }
 
-/// The `template` macro behaves like [`view`], except that it wraps the entire tree in a
-/// [`ViewTemplate`](leptos::prelude::ViewTemplate). This optimizes creation speed by rendering
+/// The `template` macro behaves like [`view`](view!), except that it wraps the entire tree in a
+/// [`ViewTemplate`](https://docs.rs/leptos/0.7.0-gamma3/leptos/prelude/struct.ViewTemplate.html). This optimizes creation speed by rendering
 /// most of the view into a `<template>` tag with HTML rendered at compile time, then hydrating it.
 /// In exchange, there is a small binary size overhead.
 #[proc_macro_error2::proc_macro_error]
@@ -363,7 +367,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     }
 }
 
-/// This behaves like the [`view`] macro, but loads the view from an external file instead of
+/// This behaves like the [`view`](view!) macro, but loads the view from an external file instead of
 /// parsing it inline.
 ///
 /// This is designed to allow editing views in a separate file, if this improves a user's workflow.
@@ -556,10 +560,10 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 }
 
 /// Defines a component as an interactive island when you are using the
-/// `experimental-islands` feature of Leptos. Apart from the macro name,
+/// `islands` feature of Leptos. Apart from the macro name,
 /// the API is the same as the [`component`](macro@component) macro.
 ///
-/// When you activate the `experimental-islands` feature, every `#[component]`
+/// When you activate the `islands` feature, every `#[component]`
 /// is server-only by default. This "default to server" behavior is important:
 /// you opt into shipping code to the client, rather than opting out. You can
 /// opt into client-side interactivity for any given component by changing from
@@ -636,7 +640,7 @@ pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             abort!(
                 transparent,
                 "only `transparent` is supported";
-                help = "try `#[component(transparent)]` or `#[component]`"
+                help = "try `#[island(transparent)]` or `#[island]`"
             );
         }
 
@@ -676,17 +680,21 @@ fn component_macro(
             #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
-    } else if let Ok(mut dummy) = dummy {
-        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
-        quote! {
-            #[doc(hidden)]
-            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
-            #dummy
-        }
     } else {
-        quote! {}
-    }
-    .into()
+        match dummy {
+            Ok(mut dummy) => {
+                dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+                quote! {
+                    #[doc(hidden)]
+                    #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
+                    #dummy
+                }
+            }
+            Err(e) => {
+                proc_macro_error2::abort!(e.span(), e);
+            }
+        }
+    }.into()
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.
@@ -1001,4 +1009,18 @@ pub fn slice(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
+}
+
+/// The `#[lazy]` macro marks an `async` function as a function that can be lazy-loaded from a
+/// separate (WebAssembly) binary.
+///
+/// The first time the function is called, calling the function will first load that other binary,
+/// then call the function. On subsequent call it will be called immediately, but still return
+/// asynchronously to maintain the same API.
+///
+/// All parameters and output types should be concrete types, with no generics.
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    lazy::lazy_impl(args, s)
 }

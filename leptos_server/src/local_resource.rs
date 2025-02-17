@@ -8,8 +8,11 @@ use reactive_graph::{
         ToAnySource, ToAnySubscriber,
     },
     owner::use_context,
-    signal::guards::{AsyncPlain, ReadGuard},
-    traits::{DefinedAt, IsDisposed, ReadUntracked},
+    signal::{
+        guards::{AsyncPlain, ReadGuard},
+        ArcRwSignal, RwSignal,
+    },
+    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Update, Write},
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -17,9 +20,11 @@ use std::{
     panic::Location,
 };
 
+/// A reference-counted resource that only loads its data locally on the client.
 pub struct ArcLocalResource<T> {
     data: ArcAsyncDerived<SendWrapper<T>>,
-    #[cfg(debug_assertions)]
+    refetch: ArcRwSignal<usize>,
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -27,13 +32,18 @@ impl<T> Clone for ArcLocalResource<T> {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
-            #[cfg(debug_assertions)]
+            refetch: self.refetch.clone(),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
 }
 
 impl<T> ArcLocalResource<T> {
+    /// Creates the resource.
+    ///
+    /// This will only begin loading data if you are on the client (i.e., if you do not have the
+    /// `ssr` feature activated).
     #[track_caller]
     pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
@@ -60,14 +70,26 @@ impl<T> ArcLocalResource<T> {
             }
         };
         let fetcher = SendWrapper::new(fetcher);
-        Self {
-            data: ArcAsyncDerived::new(move || {
+        let refetch = ArcRwSignal::new(0);
+        let data = {
+            let refetch = refetch.clone();
+            ArcAsyncDerived::new(move || {
+                refetch.track();
                 let fut = fetcher();
                 SendWrapper::new(async move { SendWrapper::new(fut.await) })
-            }),
-            #[cfg(debug_assertions)]
+            })
+        };
+        Self {
+            data,
+            refetch,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
+    }
+
+    /// Re-runs the async function.
+    pub fn refetch(&self) {
+        *self.refetch.write() += 1;
     }
 }
 
@@ -99,11 +121,11 @@ where
 
 impl<T> DefinedAt for ArcLocalResource<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -192,9 +214,11 @@ impl<T> Subscriber for ArcLocalResource<T> {
     }
 }
 
+/// A resource that only loads its data locally on the client.
 pub struct LocalResource<T> {
     data: AsyncDerived<SendWrapper<T>>,
-    #[cfg(debug_assertions)]
+    refetch: RwSignal<usize>,
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -207,6 +231,10 @@ impl<T> Clone for LocalResource<T> {
 impl<T> Copy for LocalResource<T> {}
 
 impl<T> LocalResource<T> {
+    /// Creates the resource.
+    ///
+    /// This will only begin loading data if you are on the client (i.e., if you do not have the
+    /// `ssr` feature activated).
     #[track_caller]
     pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
@@ -232,6 +260,7 @@ impl<T> LocalResource<T> {
                 }
             }
         };
+        let refetch = RwSignal::new(0);
 
         Self {
             data: if cfg!(feature = "ssr") {
@@ -239,13 +268,20 @@ impl<T> LocalResource<T> {
             } else {
                 let fetcher = SendWrapper::new(fetcher);
                 AsyncDerived::new(move || {
+                    refetch.track();
                     let fut = fetcher();
                     SendWrapper::new(async move { SendWrapper::new(fut.await) })
                 })
             },
-            #[cfg(debug_assertions)]
+            refetch,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
+    }
+
+    /// Re-runs the async function.
+    pub fn refetch(&self) {
+        self.refetch.try_update(|n| *n += 1);
     }
 }
 
@@ -277,11 +313,11 @@ where
 
 impl<T> DefinedAt for LocalResource<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -388,7 +424,8 @@ impl<T: 'static> From<ArcLocalResource<T>> for LocalResource<T> {
     fn from(arc: ArcLocalResource<T>) -> Self {
         Self {
             data: arc.data.into(),
-            #[cfg(debug_assertions)]
+            refetch: arc.refetch.into(),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: arc.defined_at,
         }
     }
@@ -398,7 +435,8 @@ impl<T: 'static> From<LocalResource<T>> for ArcLocalResource<T> {
     fn from(local: LocalResource<T>) -> Self {
         Self {
             data: local.data.into(),
-            #[cfg(debug_assertions)]
+            refetch: local.refetch.into(),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: local.defined_at,
         }
     }

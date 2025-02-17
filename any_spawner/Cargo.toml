@@ -1,6 +1,6 @@
 [package]
 name = "any_spawner"
-version = "0.1.1"
+version = "0.2.1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -11,13 +11,13 @@ edition.workspace = true
 [dependencies]
 async-executor = { version = "1.13.1", optional = true }
 futures = "0.3.31"
-glib = { version = "0.20.5", optional = true }
-thiserror = "1.0"
+glib = { version = "0.20.6", optional = true }
+thiserror = "2.0"
 tokio = { version = "1.41", optional = true, default-features = false, features = [
   "rt",
 ] }
-tracing = { version = "0.1.40", optional = true }
-wasm-bindgen-futures = { version = "0.4.45", optional = true }
+tracing = { version = "0.1.41", optional = true }
+wasm-bindgen-futures = { version = "0.4.50", optional = true }
 
 [features]
 async-executor = ["dep:async-executor"]

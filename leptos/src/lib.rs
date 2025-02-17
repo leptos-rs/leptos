@@ -1,5 +1,6 @@
-#!rdeny(missing_docs)]
+#![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -38,7 +39,7 @@
 //!   server actions, forms, and server-sent events (SSE).
 //! - **[`todomvc`]** shows the basics of building an isomorphic web app. Both the server and the client import the same app code.
 //!   The server renders the app directly to an HTML string, and the client hydrates that HTML to make it interactive.
-//!   You might also want to see how we use [`Effect::new`](leptos::prelude::Effect::new) to
+//!   You might also want to see how we use [`Effect::new`](leptos::prelude::Effect) to
 //!   [serialize JSON to `localStorage`](https://github.com/leptos-rs/leptos/blob/20af4928b2fffe017408d3f4e7330db22cf68277/examples/todomvc/src/lib.rs#L191-L209)
 //!   and [reactively call DOM methods](https://github.com/leptos-rs/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L292-L296)
 //!   on [references to elements](https://github.com/leptos-rs/leptos/blob/20af4928b2fffe017408d3f4e7330db22cf68277/examples/todomvc/src/lib.rs#L228).
@@ -77,7 +78,7 @@
 //!   + `async` interop: [`Resource`](leptos::prelude::Resource) for loading data using `async` functions
 //!     and [`Action`](leptos::prelude::Action) to mutate data or imperatively call `async` functions.
 //!   + reactions: [`Effect`](leptos::prelude::Effect) and [`RenderEffect`](leptos::prelude::RenderEffect).
-//! - **Templating/Views**: the [`view`] macro and [`IntoView`](leptos::IntoView) trait.
+//! - **Templating/Views**: the [`view`] macro and [`IntoView`] trait.
 //! - **Routing**: the [`leptos_router`](https://docs.rs/leptos_router/latest/leptos_router/) crate
 //! - **Server Functions**: the [`server`](macro@leptos::prelude::server) macro and [`ServerAction`](leptos::prelude::ServerAction).
 //!
@@ -191,6 +192,9 @@ pub mod callback;
 /// Types that can be passed as the `children` prop of a component.
 pub mod children;
 
+/// Wrapper for intercepting component attributes.
+pub mod attribute_interceptor;
+
 #[doc(hidden)]
 /// Traits used to implement component constructors.
 pub mod component;
@@ -287,8 +291,9 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
+/// Utilities for working with asynchronous tasks.
 pub mod task {
-    pub use any_spawner::Executor;
+    pub use any_spawner::{self, CustomExecutor, Executor};
     use std::future::Future;
 
     /// Spawns a thread-safe [`Future`].
@@ -316,10 +321,10 @@ pub mod task {
 }
 
 // these reexports are used in islands
-#[cfg(feature = "experimental-islands")]
+#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde;
-#[cfg(feature = "experimental-islands")]
+#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde_json;
 #[cfg(feature = "tracing")]

@@ -22,12 +22,13 @@ use std::{
     panic::Location,
 };
 
+/// Provides access to a subfield that contains some kind of keyed collection.
 #[derive(Debug)]
 pub struct KeyedSubfield<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     path_segment: StorePathSegment,
     inner: Inner,
@@ -43,7 +44,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             path_segment: self.path_segment,
             inner: self.inner.clone(),
@@ -65,6 +66,7 @@ impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
+    /// Creates a keyed subfield of the inner data type with the given key function.
     #[track_caller]
     pub fn new(
         inner: Inner,
@@ -74,7 +76,7 @@ where
         write: fn(&mut Prev) -> &mut T,
     ) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             path_segment,
@@ -146,14 +148,12 @@ where
 {
     fn latest_keys(&self) -> Vec<K> {
         self.reader()
-            .expect("trying to update keys")
-            .deref()
-            .into_iter()
-            .map(|n| (self.key_fn)(n))
-            .collect()
+            .map(|r| r.deref().into_iter().map(|n| (self.key_fn)(n)).collect())
+            .unwrap_or_default()
     }
 }
 
+/// Gives keyed write access to a value in some collection.
 pub struct KeyedSubfieldWriteGuard<Inner, Prev, K, T, Guard>
 where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
@@ -251,11 +251,11 @@ where
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -347,12 +347,13 @@ where
     }
 }
 
+/// Gives access to the value in a collection based on some key.
 #[derive(Debug)]
 pub struct AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: KeyedSubfield<Inner, Prev, K, T>,
     key: K,
@@ -366,7 +367,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             inner: self.inner.clone(),
             key: self.key.clone(),
@@ -386,10 +387,11 @@ impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
 {
+    /// Provides access to the item in the inner collection at this key.
     #[track_caller]
     pub fn new(inner: KeyedSubfield<Inner, Prev, K, T>, key: K) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner,
             key,
@@ -445,10 +447,7 @@ where
         let inner = self.inner.reader()?;
 
         let inner_path = self.inner.path().into_iter().collect();
-        let keys = self
-            .inner
-            .keys()
-            .expect("using keys on a store with no keys");
+        let keys = self.inner.keys()?;
         let index = keys
             .with_field_keys(
                 inner_path,
@@ -456,8 +455,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(MappedMutArc::new(
             inner,
@@ -482,8 +480,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(WriteGuard::new(
             trigger.children,
@@ -506,11 +503,11 @@ where
     for<'a> &'a T: IntoIterator,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -610,6 +607,7 @@ where
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
+    /// Generates a new set of keys and registers those keys with the parent store.
     pub fn update_keys(&self) {
         let inner_path = self.path().into_iter().collect();
         let keys = self
@@ -617,10 +615,15 @@ where
             .keys()
             .expect("updating keys on a store with no keys");
 
+        // generating the latest keys out here means that if we have
+        // nested keyed fields, the second field will not try to take a
+        // read-lock on the key map to get the field while the first field
+        // is still holding the write-lock in the closure below
+        let latest = self.latest_keys();
         keys.with_field_keys(
             inner_path,
             |keys| {
-                keys.update(self.latest_keys());
+                keys.update(latest);
             },
             || self.latest_keys(),
         );
@@ -643,23 +646,26 @@ where
     #[track_caller]
     fn into_iter(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
         // reactively track changes to this field
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
+        self.update_keys();
+        self.track_field();
 
         // get the current length of the field by accessing slice
-        let reader = self
-            .reader()
-            .expect("creating iterator from unavailable store field");
+        let reader = self.reader();
+
         let keys = reader
-            .into_iter()
-            .map(|item| (self.key_fn)(item))
-            .collect::<VecDeque<_>>();
+            .map(|r| {
+                r.into_iter()
+                    .map(|item| (self.key_fn)(item))
+                    .collect::<VecDeque<_>>()
+            })
+            .unwrap_or_default();
 
         // return the iterator
         StoreFieldKeyedIter { inner: self, keys }
     }
 }
 
+/// An iterator over a [`KeyedSubfield`].
 pub struct StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,

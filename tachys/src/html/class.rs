@@ -1,9 +1,13 @@
-use super::attribute::{Attribute, NextAttribute};
+use super::attribute::{
+    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
+    NextAttribute,
+};
 use crate::{
+    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
     renderer::Rndr,
     view::{Position, ToTemplate},
 };
-use std::{future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future, sync::Arc};
 
 /// Adds a CSS class.
 #[inline(always)]
@@ -99,13 +103,13 @@ impl<C> NextAttribute for Class<C>
 where
     C: IntoClass,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
@@ -267,7 +271,7 @@ impl<T: IntoClass> IntoClass for Option<T> {
     }
 }
 
-impl<'a> IntoClass for &'a str {
+impl IntoClass for &str {
     type AsyncOutput = Self;
     type State = (crate::renderer::types::Element, Self);
     type Cloneable = Self;
@@ -306,6 +310,63 @@ impl<'a> IntoClass for &'a str {
 
     fn into_cloneable(self) -> Self::Cloneable {
         self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn reset(state: &mut Self::State) {
+        let (el, _prev) = state;
+        Rndr::remove_attribute(el, "class");
+    }
+}
+
+impl IntoClass for Cow<'_, str> {
+    type AsyncOutput = Self;
+    type State = (crate::renderer::types::Element, Self);
+    type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
+    fn to_html(self, class: &mut String) {
+        IntoClass::to_html(&*self, class);
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            Rndr::set_attribute(el, "class", &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_attribute(el, "class", &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (el, prev) = state;
+        if self != *prev {
+            Rndr::set_attribute(el, "class", &self);
+        }
+        *prev = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {

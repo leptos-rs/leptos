@@ -55,7 +55,7 @@ impl<T: AsSubscriberSet + DefinedAt> ReactiveNode for T {
 
     fn mark_subscribers_check(&self) {
         if let Some(inner) = self.as_subscriber_set() {
-            let subs = inner.borrow().write().unwrap().take();
+            let subs = inner.borrow().read().unwrap().clone();
             for sub in subs {
                 sub.mark_dirty();
             }
@@ -105,7 +105,7 @@ where
                 AnySource(
                     Arc::as_ptr(subs) as usize,
                     Arc::downgrade(subs) as Weak<dyn Source + Send + Sync>,
-                    #[cfg(debug_assertions)]
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
                     self.defined_at().expect("no DefinedAt in debug mode"),
                 )
             })

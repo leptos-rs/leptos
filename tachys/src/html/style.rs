@@ -1,7 +1,11 @@
-use super::attribute::{Attribute, NextAttribute};
+use super::attribute::{
+    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
+    NextAttribute,
+};
 #[cfg(feature = "nightly")]
 use crate::view::static_types::Static;
 use crate::{
+    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
     renderer::Rndr,
     view::{Position, ToTemplate},
 };
@@ -102,13 +106,13 @@ impl<S> NextAttribute for Style<S>
 where
     S: IntoStyle,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
@@ -128,7 +132,9 @@ where
 }
 
 /// Any type that can be added to the `style` attribute or set as a style in
-/// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
+/// the [`CssStyleDeclaration`](web_sys::CssStyleDeclaration).
+///
+/// This could be a plain string, or a property name-value pair.
 pub trait IntoStyle: Send {
     /// The type after all async data have resolved.
     type AsyncOutput: IntoStyle;
@@ -606,7 +612,7 @@ impl<'a> IntoStyle for (&'a str, String) {
 }
 
 #[cfg(feature = "nightly")]
-impl<'a, const V: &'static str> IntoStyle for (&'a str, Static<V>) {
+impl<const V: &'static str> IntoStyle for (&str, Static<V>) {
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);

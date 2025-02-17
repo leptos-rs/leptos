@@ -3,7 +3,9 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, ssr::StreamBuilder,
+    html::attribute::{Attribute, NextAttribute},
+    hydration::Cursor,
+    ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;
@@ -112,6 +114,150 @@ const fn max_usize(vals: &[usize]) -> usize {
         i += 1;
     }
     max
+}
+
+#[cfg(not(erase_components))]
+impl<A, B> NextAttribute for Either<A, B>
+where
+    B: NextAttribute,
+    A: NextAttribute,
+{
+    type Output<NewAttr: Attribute> = Either<
+        <A as NextAttribute>::Output<NewAttr>,
+        <B as NextAttribute>::Output<NewAttr>,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        match self {
+            Either::Left(left) => Either::Left(left.add_any_attr(new_attr)),
+            Either::Right(right) => Either::Right(right.add_any_attr(new_attr)),
+        }
+    }
+}
+
+#[cfg(erase_components)]
+use crate::html::attribute::any_attribute::{AnyAttribute, IntoAnyAttribute};
+
+#[cfg(erase_components)]
+impl<A, B> NextAttribute for Either<A, B>
+where
+    B: IntoAnyAttribute,
+    A: IntoAnyAttribute,
+{
+    type Output<NewAttr: Attribute> = Vec<AnyAttribute>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        vec![
+            match self {
+                Either::Left(left) => left.into_any_attr(),
+                Either::Right(right) => right.into_any_attr(),
+            },
+            new_attr.into_any_attr(),
+        ]
+    }
+}
+
+impl<A, B> Attribute for Either<A, B>
+where
+    B: Attribute,
+    A: Attribute,
+{
+    const MIN_LENGTH: usize = max_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
+
+    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
+    type State = Either<A::State, B::State>;
+    type Cloneable = Either<A::Cloneable, B::Cloneable>;
+    type CloneableOwned = Either<A::CloneableOwned, B::CloneableOwned>;
+
+    fn html_len(&self) -> usize {
+        match self {
+            Either::Left(left) => left.html_len(),
+            Either::Right(right) => right.html_len(),
+        }
+    }
+
+    fn to_html(
+        self,
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+    ) {
+        match self {
+            Either::Left(left) => left.to_html(buf, class, style, inner_html),
+            Either::Right(right) => {
+                right.to_html(buf, class, style, inner_html)
+            }
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        match self {
+            Either::Left(left) => Either::Left(left.hydrate::<FROM_SERVER>(el)),
+            Either::Right(right) => {
+                Either::Right(right.hydrate::<FROM_SERVER>(el))
+            }
+        }
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        match self {
+            Either::Left(left) => Either::Left(left.build(el)),
+            Either::Right(right) => Either::Right(right.build(el)),
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        match self {
+            Either::Left(left) => {
+                if let Some(state) = state.as_left_mut() {
+                    left.rebuild(state)
+                }
+            }
+            Either::Right(right) => {
+                if let Some(state) = state.as_right_mut() {
+                    right.rebuild(state)
+                }
+            }
+        }
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        match self {
+            Either::Left(left) => Either::Left(left.into_cloneable()),
+            Either::Right(right) => Either::Right(right.into_cloneable()),
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        match self {
+            Either::Left(left) => Either::Left(left.into_cloneable_owned()),
+            Either::Right(right) => Either::Right(right.into_cloneable_owned()),
+        }
+    }
+
+    fn dry_resolve(&mut self) {
+        match self {
+            Either::Left(left) => left.dry_resolve(),
+            Either::Right(right) => right.dry_resolve(),
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            Either::Left(left) => Either::Left(left.resolve().await),
+            Either::Right(right) => Either::Right(right.resolve().await),
+        }
+    }
 }
 
 impl<A, B> RenderHtml for Either<A, B>

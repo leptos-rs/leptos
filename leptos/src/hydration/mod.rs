@@ -4,9 +4,15 @@ use crate::prelude::*;
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
 
+/// Inserts auto-reloading code used in `cargo-leptos`.
+///
+/// This should be included in the `<head>` of your application shell during development.
 #[component]
 pub fn AutoReload(
-    #[prop(optional)] disable_watch: bool,
+    /// Whether the file-watching feature should be disabled.
+    #[prop(optional)]
+    disable_watch: bool,
+    /// Configuration options for this project.
     options: LeptosOptions,
 ) -> impl IntoView {
     (!disable_watch && std::env::var("LEPTOS_WATCH").is_ok()).then(|| {
@@ -34,10 +40,16 @@ pub fn AutoReload(
     })
 }
 
+/// Inserts hydration scripts that add interactivity to your server-rendered HTML.
+///
+/// This should be included in the `<head>` of your application shell.
 #[component]
 pub fn HydrationScripts(
+    /// Configuration options for this project.
     options: LeptosOptions,
-    #[prop(optional)] islands: bool,
+    /// Should be `true` to hydrate in `islands` mode.
+    #[prop(optional)]
+    islands: bool,
     /// A base url, not including a trailing slash
     #[prop(optional, into)]
     root: Option<String>,

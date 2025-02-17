@@ -196,3 +196,62 @@ async fn recursive_effect_runs_recursively() {
         })
         .await;
 }
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn paused_effect_pauses() {
+    use imports::*;
+    use reactive_graph::owner::StoredValue;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let a = RwSignal::new(-1);
+
+            // simulate an arbitrary side effect
+            let runs = StoredValue::new(0);
+
+            let owner = StoredValue::new(None);
+
+            Effect::new({
+                move || {
+                    *owner.write_value() = Owner::current();
+
+                    let _ = a.get();
+                    *runs.write_value() += 1;
+                }
+            });
+
+            Executor::tick().await;
+            assert_eq!(runs.get_value(), 1);
+
+            println!("setting to 1");
+            a.set(1);
+
+            Executor::tick().await;
+            assert_eq!(runs.get_value(), 2);
+
+            println!("pausing");
+            owner.get_value().unwrap().pause();
+
+            println!("setting to 2");
+            a.set(2);
+
+            Executor::tick().await;
+            assert_eq!(runs.get_value(), 2);
+
+            println!("resuming");
+            owner.get_value().unwrap().resume();
+
+            println!("setting to 3");
+            a.set(3);
+
+            Executor::tick().await;
+            println!("checking value");
+            assert_eq!(runs.get_value(), 3);
+        })
+        .await
+}

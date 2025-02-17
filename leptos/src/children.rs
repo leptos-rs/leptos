@@ -85,7 +85,7 @@ type BoxedChildrenFn = Box<dyn Fn() -> AnyView + Send>;
 ///     )
 /// }
 pub trait ToChildren<F> {
-    /// Convert the provided type to (generally a closure) to Self (generally a "children" type,
+    /// Convert the provided type (generally a closure) to Self (generally a "children" type,
     /// e.g., [Children]). See the implementations to see exactly which input types are supported
     /// and which "children" type they are converted to.
     fn to_children(f: F) -> Self;
@@ -228,6 +228,7 @@ impl ViewFnOnce {
 pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T> + Send>);
 
 impl<T> TypedChildren<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> impl FnOnce() -> View<T> + Send {
         self.0
     }
@@ -245,7 +246,7 @@ where
     }
 }
 
-/// A typed equivalent to [`ChildrenMut`], which takes a generic but preserves type information to
+/// A typed equivalent to [`ChildrenFnMut`], which takes a generic but preserves type information to
 /// allow the compiler to optimize the view more effectively.
 pub struct TypedChildrenMut<T>(Box<dyn FnMut() -> View<T> + Send>);
 
@@ -256,6 +257,7 @@ impl<T> Debug for TypedChildrenMut<T> {
 }
 
 impl<T> TypedChildrenMut<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> impl FnMut() -> View<T> + Send {
         self.0
     }
@@ -283,7 +285,15 @@ impl<T> Debug for TypedChildrenFn<T> {
     }
 }
 
+impl<T> Clone for TypedChildrenFn<T> {
+    // Manual implementation to avoid the `T: Clone` bound.
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<T> TypedChildrenFn<T> {
+    /// Extracts the inner `children` function.
     pub fn into_inner(self) -> Arc<dyn Fn() -> View<T> + Send + Sync> {
         self.0
     }

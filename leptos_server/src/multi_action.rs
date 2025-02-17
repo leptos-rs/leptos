@@ -5,13 +5,14 @@ use reactive_graph::{
 use server_fn::{ServerFn, ServerFnError};
 use std::{ops::Deref, panic::Location};
 
+/// An [`ArcMultiAction`] that can be used to call a server function.
 pub struct ArcServerMultiAction<S>
 where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
     inner: ArcMultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -21,13 +22,14 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`ArcMultiAction`] which, when dispatched, will call the server function `S`.
     #[track_caller]
     pub fn new() -> Self {
         Self {
             inner: ArcMultiAction::new(|input: &S| {
                 S::run_on_client(input.clone())
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -53,7 +55,7 @@ where
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
     }
@@ -76,24 +78,25 @@ where
     S::Output: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
     }
 }
 
+/// A [`MultiAction`] that can be used to call a server function.
 pub struct ServerMultiAction<S>
 where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
     inner: MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
@@ -114,12 +117,13 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
+    /// Creates a new [`MultiAction`] which, when dispatched, will call the server function `S`.
     pub fn new() -> Self {
         Self {
             inner: MultiAction::new(|input: &S| {
                 S::run_on_client(input.clone())
             }),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
     }
@@ -172,11 +176,11 @@ where
     S::Output: 'static,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
