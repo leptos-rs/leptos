@@ -81,7 +81,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use crate::html::property::IntoProperty;
+    use crate::{html::property::IntoProperty, renderer::Rndr};
     #[allow(deprecated)]
     use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
@@ -101,7 +101,7 @@ mod stable {
                 V: IntoProperty + Send + Sync + Clone + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -110,7 +110,30 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el, &key))
+                            }
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn build(
@@ -118,11 +141,46 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State, key: &str) {
-                    (move || self.get()).rebuild(state, key)
+                    let prev_value = state.take_value();
+                    let key = key.to_owned();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state, &key);
+                                    Some(state)
+                                }
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -147,7 +205,7 @@ mod stable {
                 V: IntoProperty + Send + Sync + Clone + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -156,19 +214,76 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el, key)
-                }
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
 
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&el, &key))
+                            }
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
+                }
                 fn build(
                     self,
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state, &key);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State, key: &str) {
-                    (move || self.get()).rebuild(state, key)
+                    let prev_value = state.take_value();
+                    let key = key.to_owned();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state, &key);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
