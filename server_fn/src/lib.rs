@@ -126,6 +126,7 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
+use bytes::Bytes;
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
@@ -137,6 +138,7 @@ pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
 use error::{FromServerFnError, ServerFnErrorErr};
+use futures::{pin_mut, SinkExt, Stream, StreamExt, TryStreamExt};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use once_cell::sync::Lazy;
@@ -147,10 +149,11 @@ use response::{ClientRes, Res, TryRes};
 pub use rkyv;
 #[doc(hidden)]
 pub use serde;
+use serde::{de::DeserializeOwned, Serialize};
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{fmt::Display, future::Future, pin::Pin, process::Output, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -202,10 +205,18 @@ where
     type Client: Client<Self::Error>;
 
     /// The type of the HTTP request when received by the server function on the server side.
-    type ServerRequest: Req<Self::Error> + Send;
+    type ServerRequest: Req<Self::Error, WebsocketResponse = Self::ServerResponse> + Send;
 
     /// The type of the HTTP response returned by the server function on the server side.
     type ServerResponse: Res + TryRes<Self::Error> + Send;
+
+    type Protocol: Protocol<
+        Self,
+        Self::Output,
+        Self::InputEncoding,
+        Self::OutputEncoding,
+        Self::Error,
+    >;
 
     /// The return type of the server function.
     ///
@@ -349,12 +360,168 @@ where
         req: Self::ServerRequest,
     ) -> impl Future<Output = Result<Self::ServerResponse, Self::Error>> + Send
     {
-        async {
-            let this = Self::from_req(req).await?;
-            let output = this.run_body().await?;
-            let res = output.into_res().await?;
-            Ok(res)
-        }
+        async { Self::Protocol::run_server(req, Self::run_body).await }
+    }
+}
+
+trait Protocol<Input, Output, InputEncoding, OutputEncoding, E> {
+    fn run_server<F, Fut, Request, Response>(
+        request: Request,
+        server_fn: F,
+    ) -> impl Future<Output = Result<Response, E>> + Send
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<Output = Result<Output, E>> + Send,
+        Request: Req<E, WebsocketResponse = Response> + Send,
+        Response: TryRes<E> + Send;
+}
+
+struct Get;
+
+impl<Input, Output, InputEncoding, OutputEncoding, E>
+    Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Get
+where
+    InputEncoding: Encodes<Input> + Decodes<Input>,
+    OutputEncoding: Encodes<Output> + Decodes<Output>,
+    E: FromServerFnError,
+{
+    async fn run_server<F, Fut, Request, Response>(
+        request: Request,
+        server_fn: F,
+    ) -> Result<Response, E>
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<Output = Result<Output, E>> + Send,
+        Request: Req<E, WebsocketResponse = Response> + Send,
+        Response: TryRes<E> + Send,
+    {
+        let request_bytes = request.try_into_bytes().await?;
+        let input = InputEncoding::decode(request_bytes).map_err(|e| {
+            E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                e.to_string(),
+            ))
+        })?;
+
+        let output = server_fn(input).await?;
+
+        let response_bytes = OutputEncoding::encode(output).map_err(|e| {
+            E::from_server_fn_error(ServerFnErrorErr::Serialization(
+                e.to_string(),
+            ))
+        })?;
+
+        let response = Response::try_from_bytes(
+            OutputEncoding::CONTENT_TYPE,
+            response_bytes,
+        )?;
+
+        Ok(response)
+    }
+}
+
+struct Websocket;
+
+impl<
+        Input,
+        InputItem,
+        Output,
+        OutputItem,
+        InputEncoding,
+        OutputEncoding,
+        E,
+    > Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Websocket
+where
+    Input: From<Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>>
+        + Send
+        + 'static,
+    Output: Stream<Item = Result<OutputItem, E>> + Unpin + Send + 'static,
+    InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
+    OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
+    E: FromServerFnError,
+{
+    async fn run_server<F, Fut, Request, Response>(
+        request: Request,
+        server_fn: F,
+    ) -> Result<Response, E>
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<Output = Result<Output, E>> + Send,
+        Request: Req<E, WebsocketResponse = Response> + Send,
+        Response: TryRes<E> + Send,
+    {
+        let (request_bytes, mut response_stream, response) =
+            request.try_into_websocket()?;
+        let input = request_bytes.map(|request_bytes| match request_bytes {
+            Ok(request_bytes) => {
+                InputEncoding::decode(request_bytes).map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                        e.to_string(),
+                    ))
+                })
+            }
+            Err(err) => Err(err),
+        });
+        let boxed = Box::pin(input)
+            as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
+        let input = From::from(boxed);
+
+        let output = server_fn(input).await?;
+
+        let output = output.map(|output| match output {
+            Ok(output) => OutputEncoding::encode(output).map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Serialization(
+                    e.to_string(),
+                ))
+            }),
+            Err(err) => Err(err),
+        });
+
+        // tokio::spawn(async move {
+        //     pin_mut!(response_stream);
+        //     while let Some(output) = output.next().await {
+        //         response_stream.send(output);
+        //     }
+        // });
+
+        Ok(response)
+    }
+}
+
+trait Encodes<T> {
+    type Error: Display;
+    const CONTENT_TYPE: &'static str;
+
+    fn encode(output: T) -> Result<Bytes, Self::Error>;
+}
+
+trait Decodes<T> {
+    type Error: Display;
+
+    fn decode(bytes: Bytes) -> Result<T, Self::Error>;
+}
+
+struct SerdeJson;
+
+impl<T> Encodes<T> for SerdeJson
+where
+    T: Serialize,
+{
+    type Error = serde_json::Error;
+    const CONTENT_TYPE: &'static str = "application/json";
+
+    fn encode(output: T) -> Result<Bytes, Self::Error> {
+        serde_json::to_vec(&output).map(Bytes::from)
+    }
+}
+
+impl<T> Decodes<T> for SerdeJson
+where
+    T: DeserializeOwned,
+{
+    type Error = serde_json::Error;
+
+    fn decode(bytes: Bytes) -> Result<T, Self::Error> {
+        serde_json::from_slice(&bytes)
     }
 }
 

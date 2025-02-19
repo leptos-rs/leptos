@@ -1,6 +1,7 @@
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
+    response::actix::ActixResponse,
 };
 use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
@@ -38,8 +39,10 @@ impl From<(HttpRequest, Payload)> for ActixRequest {
 
 impl<E> Req<E> for ActixRequest
 where
-    E: FromServerFnError,
+    E: FromServerFnError+ Send,
 {
+    type WebsocketResponse = ActixResponse;
+
     fn as_query(&self) -> Option<&str> {
         self.0 .0.uri().query()
     }
@@ -97,5 +100,27 @@ where
             })
         });
         Ok(SendWrapper::new(stream))
+    }
+
+    fn try_into_websocket(
+        self,
+    ) -> Result<
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl futures::Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
+        Err::<
+            (
+                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                futures::sink::Drain<Result<Bytes, E>>,
+                Self::WebsocketResponse,
+            ),
+            _,
+        >(E::from_server_fn_error(crate::ServerFnErrorErr::Response(
+            "Websockets are not supported on this platform.".to_string(),
+        )))
     }
 }
