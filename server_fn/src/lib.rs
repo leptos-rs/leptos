@@ -399,53 +399,51 @@ where
         Ok(response)
     }
 
-    fn run_client<F, Fut, Client>(
+    async fn run_client<F, Fut, Client>(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<Output, E>> + Send
+    ) -> Result<Output, E>
     where
         Client: crate::Client<E>,
     {
-        async move {
-            // create and send request on client
-            let body = InputEncoding::encode(input).map_err(|e| {
-                E::from_server_fn_error(ServerFnErrorErr::Serialization(
+        // create and send request on client
+        let body = InputEncoding::encode(input).map_err(|e| {
+            E::from_server_fn_error(ServerFnErrorErr::Serialization(
+                e.to_string(),
+            ))
+        })?;
+        let req = Client::Request::try_new_post_bytes(
+            path,
+            InputEncoding::CONTENT_TYPE,
+            InputEncoding::CONTENT_TYPE,
+            body,
+        )?;
+        let res = Client::send(req).await?;
+
+        let status = res.status();
+        let location = res.location();
+        let has_redirect_header = res.has_redirect();
+
+        // if it returns an error status, deserialize the error using FromStr
+        let res = if (400..=599).contains(&status) {
+            let text = res.try_into_string().await?;
+            Err(E::de(&text))
+        } else {
+            // otherwise, deserialize the body as is
+            let body = res.try_into_bytes().await?;
+            let output = OutputEncoding::decode(body).map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
                     e.to_string(),
                 ))
             })?;
-            let req = Client::Request::try_new_post_bytes(
-                path,
-                InputEncoding::CONTENT_TYPE,
-                InputEncoding::CONTENT_TYPE,
-                body,
-            )?;
-            let res = Client::send(req).await?;
+            Ok(output)
+        }?;
 
-            let status = res.status();
-            let location = res.location();
-            let has_redirect_header = res.has_redirect();
-
-            // if it returns an error status, deserialize the error using FromStr
-            let res = if (400..=599).contains(&status) {
-                let text = res.try_into_string().await?;
-                Err(E::de(&text))
-            } else {
-                // otherwise, deserialize the body as is
-                let body = res.try_into_bytes().await?;
-                let output = OutputEncoding::decode(body).map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Deserialization(
-                        e.to_string(),
-                    ))
-                })?;
-                Ok(output)
-            }?;
-
-            // if redirected, call the redirect hook (if that's been set)
-            if (300..=399).contains(&status) || has_redirect_header {
-                call_redirect_hook(&location);
-            }
-            Ok(res)
+        // if redirected, call the redirect hook (if that's been set)
+        if (300..=399).contains(&status) || has_redirect_header {
+            call_redirect_hook(&location);
         }
+        Ok(res)
     }
 }
 
@@ -527,14 +525,13 @@ where
     }
 
     fn run_client<F, Fut, Client>(
-            path: &str,
-            input: Input,
-        ) -> impl Future<Output = Result<Output, E>> + Send
-        where
-            Client: crate::Client<E> {
-        async move {
-            todo!()
-        }
+        path: &str,
+        input: Input,
+    ) -> impl Future<Output = Result<Output, E>> + Send
+    where
+        Client: crate::Client<E>,
+    {
+        async move { todo!() }
     }
 }
 
