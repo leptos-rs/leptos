@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 //! # Server Functions
 //!
@@ -114,6 +114,7 @@ pub mod request;
 /// Types and traits for HTTP responses.
 pub mod response;
 
+use crate::request::ClientReq;
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
@@ -142,7 +143,7 @@ use futures::{pin_mut, SinkExt, Stream, StreamExt, TryStreamExt};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use once_cell::sync::Lazy;
-use redirect::RedirectHook;
+use redirect::{call_redirect_hook, RedirectHook};
 use request::Req;
 use response::{ClientRes, Res, TryRes};
 #[cfg(feature = "rkyv")]
@@ -205,7 +206,8 @@ where
     type Client: Client<Self::Error>;
 
     /// The type of the HTTP request when received by the server function on the server side.
-    type ServerRequest: Req<Self::Error, WebsocketResponse = Self::ServerResponse> + Send;
+    type ServerRequest: Req<Self::Error, WebsocketResponse = Self::ServerResponse>
+        + Send;
 
     /// The type of the HTTP response returned by the server function on the server side.
     type ServerResponse: Res + TryRes<Self::Error> + Send;
@@ -318,39 +320,9 @@ where
             // create and send request on client
             let req =
                 self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
-            Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
-                .await
-        }
-    }
-
-    #[doc(hidden)]
-    fn run_on_client_with_req(
-        req: <Self::Client as Client<Self::Error>>::Request,
-        redirect_hook: Option<&RedirectHook>,
-    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
-        async move {
-            let res = Self::Client::send(req).await?;
-
-            let status = res.status();
-            let location = res.location();
-            let has_redirect_header = res.has_redirect();
-
-            // if it returns an error status, deserialize the error using FromStr
-            let res = if (400..=599).contains(&status) {
-                let text = res.try_into_string().await?;
-                Err(Self::Error::de(&text))
-            } else {
-                // otherwise, deserialize the body as is
-                Ok(Self::Output::from_res(res).await)
-            }?;
-
-            // if redirected, call the redirect hook (if that's been set)
-            if let Some(redirect_hook) = redirect_hook {
-                if (300..=399).contains(&status) || has_redirect_header {
-                    redirect_hook(&location);
-                }
-            }
-            res
+            // Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
+            //     .await
+            todo!()
         }
     }
 
@@ -374,6 +346,13 @@ trait Protocol<Input, Output, InputEncoding, OutputEncoding, E> {
         Fut: Future<Output = Result<Output, E>> + Send,
         Request: Req<E, WebsocketResponse = Response> + Send,
         Response: TryRes<E> + Send;
+
+    fn run_client<F, Fut, Client>(
+        path: &str,
+        input: Input,
+    ) -> impl Future<Output = Result<Output, E>> + Send
+    where
+        Client: crate::Client<E>;
 }
 
 struct Get;
@@ -381,6 +360,8 @@ struct Get;
 impl<Input, Output, InputEncoding, OutputEncoding, E>
     Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Get
 where
+    Input: Send,
+    Output: Send,
     InputEncoding: Encodes<Input> + Decodes<Input>,
     OutputEncoding: Encodes<Output> + Decodes<Output>,
     E: FromServerFnError,
@@ -417,9 +398,68 @@ where
 
         Ok(response)
     }
+
+    fn run_client<F, Fut, Client>(
+        path: &str,
+        input: Input,
+    ) -> impl Future<Output = Result<Output, E>> + Send
+    where
+        Client: crate::Client<E>,
+    {
+        async move {
+            // create and send request on client
+            let body = InputEncoding::encode(input).map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Serialization(
+                    e.to_string(),
+                ))
+            })?;
+            let req = Client::Request::try_new_post_bytes(
+                path,
+                InputEncoding::CONTENT_TYPE,
+                InputEncoding::CONTENT_TYPE,
+                body,
+            )?;
+            let res = Client::send(req).await?;
+
+            let status = res.status();
+            let location = res.location();
+            let has_redirect_header = res.has_redirect();
+
+            // if it returns an error status, deserialize the error using FromStr
+            let res = if (400..=599).contains(&status) {
+                let text = res.try_into_string().await?;
+                Err(E::de(&text))
+            } else {
+                // otherwise, deserialize the body as is
+                let body = res.try_into_bytes().await?;
+                let output = OutputEncoding::decode(body).map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                        e.to_string(),
+                    ))
+                })?;
+                Ok(output)
+            }?;
+
+            // if redirected, call the redirect hook (if that's been set)
+            if (300..=399).contains(&status) || has_redirect_header {
+                call_redirect_hook(&location);
+            }
+            Ok(res)
+        }
+    }
 }
 
 struct Websocket;
+
+trait FromBoxedStream {
+    type Output;
+    type Error;
+    fn from_boxed_stream(
+        stream: Pin<
+            Box<dyn Stream<Item = Result<Self::Output, Self::Error>> + Send>,
+        >,
+    ) -> Self;
+}
 
 impl<
         Input,
@@ -431,10 +471,8 @@ impl<
         E,
     > Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Websocket
 where
-    Input: From<Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>>
-        + Send
-        + 'static,
-    Output: Stream<Item = Result<OutputItem, E>> + Unpin + Send + 'static,
+    Input: FromBoxedStream<Output = InputItem, Error = E> + Send + 'static,
+    Output: Stream<Item = Result<OutputItem, E>> + Send + 'static,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
     E: FromServerFnError,
@@ -463,7 +501,7 @@ where
         });
         let boxed = Box::pin(input)
             as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
-        let input = From::from(boxed);
+        let input = FromBoxedStream::from_boxed_stream(boxed);
 
         let output = server_fn(input).await?;
 
@@ -476,14 +514,27 @@ where
             Err(err) => Err(err),
         });
 
-        // tokio::spawn(async move {
-        //     pin_mut!(response_stream);
-        //     while let Some(output) = output.next().await {
-        //         response_stream.send(output);
-        //     }
-        // });
+        #[cfg(feature = "axum")]
+        tokio::spawn(async move {
+            pin_mut!(response_stream);
+            pin_mut!(output);
+            while let Some(output) = output.next().await {
+                response_stream.send(output);
+            }
+        });
 
         Ok(response)
+    }
+
+    fn run_client<F, Fut, Client>(
+            path: &str,
+            input: Input,
+        ) -> impl Future<Output = Result<Output, E>> + Send
+        where
+            Client: crate::Client<E> {
+        async move {
+            todo!()
+        }
     }
 }
 

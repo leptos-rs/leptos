@@ -78,6 +78,7 @@ reqwest = { version = "0.12.9", default-features = false, optional = true, featu
 ] }
 url = "2"
 pin-project-lite = "0.2.15"
+tokio = { version = "1.43.0", features = ["rt"], optional = true }
 
 [features]
 default = ["json"]
@@ -92,7 +93,7 @@ axum-no-default = [
 ]
 form-redirects = []
 actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
-axum = ["axum/default", "axum-no-default"]
+axum = ["axum/default", "axum-no-default", "dep:tokio"]
 browser = [
   "dep:gloo-net",
   "dep:js-sys",
