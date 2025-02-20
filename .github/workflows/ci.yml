@@ -25,6 +25,6 @@ jobs:
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
-      dev_mode: ${{ matrix.dev_mode }}
+      erased_mode: ${{ matrix.erased_mode }}
       cargo_make_task: "ci"
       toolchain: nightly-2025-02-19
