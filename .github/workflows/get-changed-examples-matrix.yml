@@ -50,5 +50,5 @@ jobs:
             echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
           else
             # Create matrix with one item to prevent an empty vector error
-            echo "matrix={\"directory\":[\"NO_CHANGE\"]}" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"directory\":[\"NO_CHANGE\"], \"erased_mode\": [false, true]}" >> "$GITHUB_OUTPUT"
           fi
