@@ -655,12 +655,27 @@ where
     IV: IntoView + 'static,
 {
     _ = replace_blocks; // TODO
-    handle_response(method, additional_context, app_fn, |app, chunks| {
-        Box::pin(async move {
-            Box::pin(app.to_html_stream_out_of_order().chain(chunks()))
-                as PinnedStream<String>
-        })
-    })
+    handle_response(
+        method,
+        additional_context,
+        app_fn,
+        |app, chunks, supports_ooo| {
+            Box::pin(async move {
+                let app = if cfg!(feature = "islands-router") {
+                    if supports_ooo {
+                        app.to_html_stream_out_of_order_branching()
+                    } else {
+                        app.to_html_stream_in_order_branching()
+                    }
+                } else if supports_ooo {
+                    app.to_html_stream_out_of_order()
+                } else {
+                    app.to_html_stream_in_order()
+                };
+                Box::pin(app.chain(chunks())) as PinnedStream<String>
+            })
+        },
+    )
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -686,12 +701,21 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(method, additional_context, app_fn, |app, chunks| {
-        Box::pin(async move {
-            Box::pin(app.to_html_stream_in_order().chain(chunks()))
-                as PinnedStream<String>
-        })
-    })
+    handle_response(
+        method,
+        additional_context,
+        app_fn,
+        |app, chunks, _supports_ooo| {
+            Box::pin(async move {
+                let app = if cfg!(feature = "islands-router") {
+                    app.to_html_stream_in_order_branching()
+                } else {
+                    app.to_html_stream_in_order()
+                };
+                Box::pin(app.chain(chunks())) as PinnedStream<String>
+            })
+        },
+    )
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -723,6 +747,7 @@ where
 fn async_stream_builder<IV>(
     app: IV,
     chunks: BoxedFnOnce<PinnedStream<String>>,
+    _supports_ooo: bool,
 ) -> PinnedFuture<PinnedStream<String>>
 where
     IV: IntoView + 'static,
@@ -775,6 +800,7 @@ fn handle_response<IV>(
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
+        bool,
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> Route
 where
@@ -811,6 +837,7 @@ where
                 additional_context,
                 res_options,
                 stream_builder,
+                !is_island_router_navigation,
             )
             .await;
 
@@ -1101,6 +1128,7 @@ impl StaticRouteGenerator {
             app_fn.clone(),
             additional_context,
             async_stream_builder,
+            false,
         );
 
         let sc = owner.shared_context().unwrap();

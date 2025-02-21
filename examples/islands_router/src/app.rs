@@ -5,7 +5,7 @@ use leptos::{
 use leptos_router::{
     components::{Route, Router, Routes},
     hooks::{use_params_map, use_query_map},
-    path, SsrMode,
+    path,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,9 +41,9 @@ pub fn App() -> impl IntoView {
             </nav>
             <main>
                 <Routes fallback=|| "Not found.">
-                    <Route path=path!("") view=Home ssr=SsrMode::Async/>
-                    <Route path=path!("user/:id") view=Details ssr=SsrMode::Async/>
-                    <Route path=path!("about") view=About ssr=SsrMode::Async/>
+                    <Route path=path!("") view=Home/>
+                    <Route path=path!("user/:id") view=Details/>
+                    <Route path=path!("about") view=About/>
                 </Routes>
             </main>
         </Router>
@@ -142,7 +142,7 @@ pub fn Home() -> impl IntoView {
                 <input type="search" name="q" value=q autofocus oninput="this.form.requestSubmit()"/>
                 <input type="submit"/>
             </form>
-            <Suspense>{view}</Suspense>
+            <Suspense fallback=|| view! { <p>"Loading..."</p> }>{view}</Suspense>
         </section>
     }
 }

@@ -773,12 +773,18 @@ where
     IV: IntoView + 'static,
 {
     _ = replace_blocks; // TODO
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks, supports_ooo| {
         Box::pin(async move {
             let app = if cfg!(feature = "islands-router") {
-                app.to_html_stream_out_of_order_branching()
-            } else {
+                if supports_ooo {
+                    app.to_html_stream_out_of_order_branching()
+                } else {
+                    app.to_html_stream_in_order_branching()
+                }
+            } else if supports_ooo {
                 app.to_html_stream_out_of_order()
+            } else {
+                app.to_html_stream_in_order()
             };
             Box::pin(app.chain(chunks())) as PinnedStream<String>
         })
@@ -838,7 +844,7 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
         let app = if cfg!(feature = "islands-router") {
             app.to_html_stream_in_order_branching()
         } else {
@@ -856,6 +862,7 @@ fn handle_response<IV>(
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
+        bool,
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>>
        + Clone
@@ -879,6 +886,7 @@ fn handle_response_inner<IV>(
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
+        bool,
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> PinnedFuture<Response<Body>>
 where
@@ -922,6 +930,7 @@ where
             additional_context,
             res_options,
             stream_builder,
+            !is_island_router_navigation,
         )
         .await;
 
@@ -1061,7 +1070,7 @@ pub fn render_app_async_stream_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
         Box::pin(async move {
             let app = if cfg!(feature = "islands-router") {
                 app.to_html_stream_in_order_branching()
@@ -1134,6 +1143,7 @@ where
 fn async_stream_builder<IV>(
     app: IV,
     chunks: BoxedFnOnce<PinnedStream<String>>,
+    _supports_ooo: bool,
 ) -> PinnedFuture<PinnedStream<String>>
 where
     IV: IntoView + 'static,
@@ -1412,6 +1422,7 @@ impl StaticRouteGenerator {
             app_fn.clone(),
             additional_context,
             async_stream_builder,
+            false,
         );
 
         let sc = owner.shared_context().unwrap();
@@ -1844,64 +1855,64 @@ where
                     }
                 } else {
                     router.route(
-                    path,
-                    match listing.mode() {
-                        SsrMode::OutOfOrder => {
-                            let s = render_app_to_stream_with_context(
-                                cx_with_state_and_method.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
+                        path,
+                        match listing.mode() {
+                            SsrMode::OutOfOrder => {
+                                let s = render_app_to_stream_with_context(
+                                    cx_with_state_and_method.clone(),
+                                    app_fn.clone(),
+                                );
+                                match method {
+                                    leptos_router::Method::Get => get(s),
+                                    leptos_router::Method::Post => post(s),
+                                    leptos_router::Method::Put => put(s),
+                                    leptos_router::Method::Delete => delete(s),
+                                    leptos_router::Method::Patch => patch(s),
+                                }
                             }
-                        }
-                        SsrMode::PartiallyBlocked => {
-                            let s = render_app_to_stream_with_context_and_replace_blocks(
-                                cx_with_state_and_method.clone(),
-                                app_fn.clone(),
-                                true
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
+                            SsrMode::PartiallyBlocked => {
+                                let s = render_app_to_stream_with_context_and_replace_blocks(
+                                    cx_with_state_and_method.clone(),
+                                    app_fn.clone(),
+                                    true
+                                );
+                                match method {
+                                    leptos_router::Method::Get => get(s),
+                                    leptos_router::Method::Post => post(s),
+                                    leptos_router::Method::Put => put(s),
+                                    leptos_router::Method::Delete => delete(s),
+                                    leptos_router::Method::Patch => patch(s),
+                                }
                             }
-                        }
-                        SsrMode::InOrder => {
-                            let s = render_app_to_stream_in_order_with_context(
-                                cx_with_state_and_method.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
+                            SsrMode::InOrder => {
+                                let s = render_app_to_stream_in_order_with_context(
+                                    cx_with_state_and_method.clone(),
+                                    app_fn.clone(),
+                                );
+                                match method {
+                                    leptos_router::Method::Get => get(s),
+                                    leptos_router::Method::Post => post(s),
+                                    leptos_router::Method::Put => put(s),
+                                    leptos_router::Method::Delete => delete(s),
+                                    leptos_router::Method::Patch => patch(s),
+                                }
                             }
-                        }
-                        SsrMode::Async => {
-                            let s = render_app_async_with_context(
-                                cx_with_state_and_method.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
+                            SsrMode::Async => {
+                                let s = render_app_async_with_context(
+                                    cx_with_state_and_method.clone(),
+                                    app_fn.clone(),
+                                );
+                                match method {
+                                    leptos_router::Method::Get => get(s),
+                                    leptos_router::Method::Post => post(s),
+                                    leptos_router::Method::Put => put(s),
+                                    leptos_router::Method::Delete => delete(s),
+                                    leptos_router::Method::Patch => patch(s),
+                                }
                             }
-                        }
-                        _ => unreachable!()
-                    },
-                )
+                            _ => unreachable!()
+                        },
+                    )
                 };
             }
         }
@@ -2035,7 +2046,7 @@ where
                         },
                         move || shell(options),
                         req,
-                        |app, chunks| {
+                        |app, chunks, _supports_ooo| {
                             Box::pin(async move {
                                 let app = app
                                     .to_html_stream_in_order()
