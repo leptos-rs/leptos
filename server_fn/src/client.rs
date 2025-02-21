@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use futures::{Sink, Stream};
+
 use crate::{request::ClientReq, response::ClientRes};
 use std::{future::Future, sync::OnceLock};
 
@@ -31,6 +34,19 @@ pub trait Client<E> {
     fn send(
         req: Self::Request,
     ) -> impl Future<Output = Result<Self::Response, E>> + Send;
+
+    /// Opens a websocket connection to the server.
+    fn open_websocket(
+        path: &str,
+    ) -> impl Future<
+        Output = Result<
+            (
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
+            ),
+            E,
+        >,
+    > + Send;
 }
 
 #[cfg(feature = "browser")]
@@ -42,8 +58,11 @@ pub mod browser {
         request::browser::{BrowserRequest, RequestInner},
         response::browser::BrowserResponse,
     };
+    use bytes::Bytes;
+    use futures::{Sink, SinkExt, StreamExt, TryStreamExt};
+    use gloo_net::websocket::{events::CloseEvent, Message, WebSocketError};
     use send_wrapper::SendWrapper;
-    use std::future::Future;
+    use std::{future::Future, pin::Pin};
 
     /// Implements [`Client`] for a `fetch` request in the browser.
     pub struct BrowserClient;
@@ -76,6 +95,119 @@ pub mod browser {
                     ctrl.prevent_cancellation();
                 }
                 res
+            })
+        }
+
+        fn open_websocket(
+            url: &str,
+        ) -> impl Future<
+            Output = Result<
+                (
+                    impl futures::Stream<Item = Result<Bytes, E>> + Send + 'static,
+                    impl futures::Sink<Result<Bytes, E>> + Send + 'static,
+                ),
+                E,
+            >,
+        > + Send {
+            SendWrapper::new(async move {
+                let websocket =
+                    gloo_net::websocket::futures::WebSocket::open(url)
+                        .map_err(|err| {
+                            E::from_server_fn_error(ServerFnErrorErr::Request(
+                                err.to_string(),
+                            ))
+                        })?;
+                let (sink, stream) = websocket.split();
+
+                let stream = stream
+                .map_err(|err| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        err.to_string(),
+                    ))
+                })
+                .map_ok(move |msg| match msg {
+                    Message::Text(text) => Bytes::from(text),
+                    Message::Bytes(bytes) => Bytes::from(bytes),
+                });
+                let stream = SendWrapper::new(stream);
+
+                struct SendWrapperSink<S> {
+                    // NOTE: We can't use pin project here because the `SendWrapper` doesn't export
+                    // that invariant. It could change in a minor version.
+                    sink: Pin<Box<SendWrapper<Pin<Box<S>>>>>,
+                }
+
+                impl<S> SendWrapperSink<S> {
+                    fn new(sink: S) -> Self {
+                        Self {
+                            sink: Box::pin(SendWrapper::new(Box::pin(sink)))
+                        }
+                    }
+                }
+
+                impl<S, Item> Sink<Item> for SendWrapperSink<S>
+                where
+                    S: Sink<Item>,
+                {
+                    type Error = S::Error;
+
+                    fn poll_ready(
+                        self: std::pin::Pin<&mut Self>,
+                        cx: &mut std::task::Context<'_>,
+                    ) -> std::task::Poll<Result<(), Self::Error>>
+                    {
+                        self.get_mut().sink.poll_ready_unpin(cx)
+                    }
+
+                    fn start_send(
+                        self: std::pin::Pin<&mut Self>,
+                        item: Item,
+                    ) -> Result<(), Self::Error> {
+                        self.get_mut().sink.start_send_unpin(item)
+                    }
+
+                    fn poll_flush(
+                        self: std::pin::Pin<&mut Self>,
+                        cx: &mut std::task::Context<'_>,
+                    ) -> std::task::Poll<Result<(), Self::Error>>
+                    {
+                        self.get_mut().sink.poll_flush_unpin(cx)
+                    }
+
+                    fn poll_close(
+                        self: std::pin::Pin<&mut Self>,
+                        cx: &mut std::task::Context<'_>,
+                    ) -> std::task::Poll<Result<(), Self::Error>>
+                    {
+                        self.get_mut().sink.poll_close_unpin(cx)
+                    }
+                }
+
+                let sink = sink.with(
+                    |message: Result<Bytes, E>| async move {
+                        match message {
+                            Ok(message) => {
+                                Ok(Message::Bytes(message.into()))
+                            }
+                            Err(err) => {
+                                const CLOSE_CODE_ERROR: u16 = 1011;
+                                Err(WebSocketError::ConnectionClose(
+                                    CloseEvent {
+                                        code: CLOSE_CODE_ERROR,
+                                        reason: err.ser(),
+                                        was_clean: true,
+                                    },
+                                ))
+                            }
+                        }
+                    },
+                );
+                let sink = SendWrapperSink::new(sink);
+
+                Ok((
+                    stream,
+                    sink,
+                ))
             })
         }
     }

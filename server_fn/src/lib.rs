@@ -139,11 +139,11 @@ pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
 use error::{FromServerFnError, ServerFnErrorErr};
-use futures::{pin_mut, SinkExt, Stream, StreamExt, TryStreamExt};
+use futures::{pin_mut, SinkExt, Stream, StreamExt};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use once_cell::sync::Lazy;
-use redirect::{call_redirect_hook, RedirectHook};
+use redirect::call_redirect_hook;
 use request::Req;
 use response::{ClientRes, Res, TryRes};
 #[cfg(feature = "rkyv")]
@@ -154,7 +154,7 @@ use serde::{de::DeserializeOwned, Serialize};
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
-use std::{fmt::Display, future::Future, pin::Pin, process::Output, sync::Arc};
+use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -469,8 +469,14 @@ impl<
         E,
     > Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Websocket
 where
-    Input: FromBoxedStream<Output = InputItem, Error = E> + Send + 'static,
-    Output: Stream<Item = Result<OutputItem, E>> + Send + 'static,
+    Input: Stream<Item = Result<InputItem, E>>
+        + FromBoxedStream<Output = InputItem, Error = E>
+        + Send
+        + 'static,
+    Output: Stream<Item = Result<OutputItem, E>>
+        + FromBoxedStream<Output = InputItem, Error = E>
+        + Send
+        + 'static,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
     E: FromServerFnError,
@@ -517,7 +523,9 @@ where
             pin_mut!(response_stream);
             pin_mut!(output);
             while let Some(output) = output.next().await {
-                response_stream.send(output);
+                if response_stream.send(output).await.is_err() {
+                    break;
+                }
             }
         });
 
@@ -531,7 +539,48 @@ where
     where
         Client: crate::Client<E>,
     {
-        async move { todo!() }
+        async move {
+            let (stream, sink) = Client::open_websocket(path).await?;
+
+            // Forward the input stream to the websocket
+            #[cfg(feature = "browser")]
+            wasm_bindgen_futures::spawn_local(async move {
+                pin_mut!(input);
+                pin_mut!(sink);
+                while let Some(input) = input.next().await {
+                    if sink
+                        .send(input.and_then(|input| {
+                            InputEncoding::encode(input).map_err(|e| {
+                                E::from_server_fn_error(
+                                    ServerFnErrorErr::Serialization(
+                                        e.to_string(),
+                                    ),
+                                )
+                            })
+                        }))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
+
+            // Return the output stream
+            let stream = stream.map(|request_bytes| match request_bytes {
+                Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                    .map_err(|e| {
+                        E::from_server_fn_error(
+                            ServerFnErrorErr::Deserialization(e.to_string()),
+                        )
+                    }),
+                Err(err) => Err(err),
+            });
+            let boxed = Box::pin(stream)
+                as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
+            let output = FromBoxedStream::from_boxed_stream(boxed);
+            Ok(output)
+        }
     }
 }
 
