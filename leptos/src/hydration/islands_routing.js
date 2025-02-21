@@ -156,7 +156,6 @@ function submitToReq(ev) {
 		requestInit.body = params; 
 	}
 
-
 	return new Request(
 		path,
 		requestInit
@@ -167,7 +166,6 @@ function submitToReq(ev) {
 function diffPages(htmlString) {
 	// Use DOMParser to parse the HTML string
 	const parser = new DOMParser();
-	// TODO parse from the request stream instead?
 	const doc = parser.parseFromString(htmlString, 'text/html');
 
 	const oldDocWalker = document.createTreeWalker(document);
