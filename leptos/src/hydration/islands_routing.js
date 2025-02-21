@@ -26,9 +26,19 @@ window.addEventListener("submit", async (ev) => {
 	await navigateToPage(req, true);
 });
 
-async function navigateToPage(req, useViewTransition, replace) {
+async function navigateToPage(
+	/** @type Request */
+	req, 
+	/** @type bool */
+	useViewTransition, 
+	/** @type bool */
+	replace
+) {
 	NAVIGATION += 1;
 	const currentNav = NAVIGATION;
+
+	// add a custom header to indicate that we're on a subsequent navigation 
+	req.headers.append("Islands-Router", "true");
 
 	// fetch the new page
 	const resp = await fetch(req);

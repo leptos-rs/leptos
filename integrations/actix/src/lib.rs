@@ -23,6 +23,7 @@ use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
+    hydration::IslandsRouterNavigation,
     prelude::expect_context,
     reactive::{computed::ScopedFuture, owner::Owner},
     IntoView,
@@ -784,6 +785,9 @@ where
         let add_context = additional_context.clone();
 
         async move {
+            let is_island_router_navigation = cfg!(feature = "islands-router")
+                && req.headers().get("Islands-Router").is_some();
+
             let res_options = ResponseOptions::default();
             let (meta_context, meta_output) = ServerMetaContext::new();
 
@@ -794,6 +798,10 @@ where
                 move || {
                     provide_contexts(req, &meta_context, &res_options);
                     add_context();
+
+                    if is_island_router_navigation {
+                        provide_context(IslandsRouterNavigation);
+                    }
                 }
             };
 

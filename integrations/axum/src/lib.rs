@@ -885,6 +885,9 @@ where
     IV: IntoView + 'static,
 {
     Box::pin(async move {
+        let is_island_router_navigation = cfg!(feature = "islands-router")
+            && req.headers().get("Islands-Router").is_some();
+
         let add_context = additional_context.clone();
         let res_options = ResponseOptions::default();
         let (meta_context, meta_output) = ServerMetaContext::new();
@@ -906,6 +909,10 @@ where
                     res_options.clone(),
                 );
                 add_context();
+
+                if is_island_router_navigation {
+                    provide_context(IslandsRouterNavigation);
+                }
             }
         };
 

@@ -107,17 +107,31 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
-    view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
-        <link
-            rel="preload"
-            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
-            r#as="fetch"
-            r#type="application/wasm"
-            crossorigin=nonce.clone().unwrap_or_default()
-        />
-        <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
-        </script>
-    }
+    use_context::<IslandsRouterNavigation>().is_none().then(|| {
+        view! {
+            <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
+            <link
+                rel="preload"
+                href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
+                r#as="fetch"
+                r#type="application/wasm"
+                crossorigin=nonce.clone().unwrap_or_default()
+            />
+            <script type="module" nonce=nonce>
+                {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
+            </script>
+        }
+    })
 }
+
+/// If this is provided via context, it means that you are using the islands router and
+/// this is a subsequent navigation, made from the client.
+///
+/// This should be provided automatically by a server integration if it detects that the
+/// header `Islands-Router` is present in the request.
+///
+/// This is used to determine how much of the hydration script to include in the page.
+/// If it is present, then the contents of the `<HydrationScripts>` component will not be
+/// included, as they only need to be sent to the client once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IslandsRouterNavigation;
