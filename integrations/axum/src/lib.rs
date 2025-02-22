@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 //! Provides functions to easily integrate Leptos with Axum.
 //!
