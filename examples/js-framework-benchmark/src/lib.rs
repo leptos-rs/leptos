@@ -149,12 +149,12 @@ pub fn App() -> impl IntoView {
                     </div>
                     <div class="col-md-6">
                         <div class="row">
-                            <Button id="run" text="Create 1,000 rows" on:click=run/>
-                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots/>
-                            <Button id="add" text="Append 1,000 rows" on:click=add/>
-                            <Button id="update" text="Update every 10th row" on:click=update/>
-                            <Button id="clear" text="Clear" on:click=clear/>
-                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows/>
+                            <Button id="run" text="Create 1,000 rows" on:click=run />
+                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots />
+                            <Button id="add" text="Append 1,000 rows" on:click=add />
+                            <Button id="update" text="Update every 10th row" on:click=update />
+                            <Button id="clear" text="Clear" on:click=clear />
+                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows />
                         </div>
                     </div>
                 </div>

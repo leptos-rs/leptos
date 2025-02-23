@@ -170,13 +170,13 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let spreads = (!(spreads.is_empty())).then(|| {
-        if cfg!(erase_components) {
+        if cfg!(feature = "__internal_erase_components") {
             quote! {
-                .add_any_attr(vec![#(#spreads.into_attr().into_any_attr(),)*])
+                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
             }
         } else {
             quote! {
-                .add_any_attr((#(#spreads,)*).into_attr())
+                .add_any_attr((#(#spreads,)*))
             }
         }
     });
