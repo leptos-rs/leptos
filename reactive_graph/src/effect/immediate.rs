@@ -79,35 +79,15 @@ impl<S> Dispose for ImmediateEffect<S> {
 
 impl ImmediateEffect<LocalStorage> {
     /// Creates a new effect, which runs immediately, then again as soon as any tracked signal changes.
-    pub fn new<T, M>(mut fun: impl EffectFunction<T, M> + 'static) -> Self
+    pub fn new<T, M>(
+        fun: impl EffectFunction<T, M> + Send + Sync + 'static,
+    ) -> Self
     where
         T: Send + Sync + 'static,
     {
         if !cfg!(feature = "effects") {
             return Self { inner: None };
         }
-
-        let fun = {
-            let thread_id = std::thread::current().id();
-
-            /// A wrapper type that is always `Send` and `Sync`.
-            struct UnsafeSendSync<T>(T);
-            unsafe impl<T> Send for UnsafeSendSync<T> {}
-            unsafe impl<T> Sync for UnsafeSendSync<T> {}
-            impl<F, T, M> EffectFunction<T, M> for UnsafeSendSync<F>
-            where
-                F: EffectFunction<T, M> + 'static,
-            {
-                fn run(&mut self, p: Option<T>) -> T {
-                    self.0.run(p)
-                }
-            }
-
-            UnsafeSendSync(move |v| {
-                assert_eq!(thread_id, std::thread::current().id());
-                fun.run(v)
-            })
-        };
 
         let inner = inner::EffectInner::new(fun);
 
