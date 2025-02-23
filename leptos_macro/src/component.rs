@@ -81,7 +81,7 @@ impl Parse for Model {
 /// Exists to fix nested routes defined in a separate component in erased mode,
 /// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
 fn maybe_modify_return_type(ret: &mut ReturnType) {
-    #[cfg(erase_components)]
+    #[cfg(feature = "__internal_erase_components")]
     {
         if let ReturnType::Type(_, ty) = ret {
             if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
@@ -105,7 +105,7 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
             }
         }
     }
-    #[cfg(not(erase_components))]
+    #[cfg(not(feature = "__internal_erase_components"))]
     {
         let _ = ret;
     }
@@ -331,7 +331,7 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             body_expr
-        } else if cfg!(erase_components) {
+        } else if cfg!(feature = "__internal_erase_components") {
             quote! {
                 ::leptos::prelude::IntoMaybeErased::into_maybe_erased(
                     ::leptos::reactive::graph::untrack_with_diagnostics(

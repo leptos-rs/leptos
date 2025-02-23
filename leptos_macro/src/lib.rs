@@ -281,7 +281,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
-    if cfg!(erase_components) {
+    if cfg!(feature = "__internal_erase_components") {
         view(tokens)
     } else {
         view_macro_impl(tokens, true)
