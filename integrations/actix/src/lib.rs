@@ -274,14 +274,13 @@ pub fn redirect(path: &str) {
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
-/// ```
+/// ```no_run
 /// use actix_web::*;
 ///
 /// fn register_server_functions() {
 ///   // call ServerFn::register() for each of the server functions you've defined
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     // make sure you actually register your server functions
@@ -297,7 +296,6 @@ pub fn redirect(path: &str) {
 ///     .run()
 ///     .await
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
@@ -432,7 +430,7 @@ pub fn handle_server_fns_with_context(
 /// but requires some client-side JavaScript.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use actix_web::{App, HttpServer};
 /// use leptos::prelude::*;
 /// use leptos_router::Method;
@@ -443,7 +441,6 @@ pub fn handle_server_fns_with_context(
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -463,7 +460,6 @@ pub fn handle_server_fns_with_context(
 ///     .run()
 ///     .await
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
@@ -491,7 +487,7 @@ where
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use actix_web::{App, HttpServer};
 /// use leptos::prelude::*;
 /// use leptos_router::Method;
@@ -502,7 +498,6 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -525,7 +520,6 @@ where
 ///     .run()
 ///     .await
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
@@ -551,7 +545,7 @@ where
 /// `async` resources have loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use actix_web::{App, HttpServer};
 /// use leptos::prelude::*;
 /// use leptos_router::Method;
@@ -562,7 +556,6 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -582,7 +575,6 @@ where
 ///     .run()
 ///     .await
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types

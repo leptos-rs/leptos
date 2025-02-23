@@ -48,10 +48,10 @@
 //!
 //! ## Design Principles and Assumptions
 //! - **Effects are expensive.** The library is built on the assumption that the side effects
-//!    (making a network request, rendering something to the DOM, writing to disk) are orders of
-//!    magnitude more expensive than propagating signal updates. As a result, the algorithm is
-//!    designed to avoid re-running side effects unnecessarily, and is willing to sacrifice a small
-//!    amount of raw update speed to that goal.
+//!   (making a network request, rendering something to the DOM, writing to disk) are orders of
+//!   magnitude more expensive than propagating signal updates. As a result, the algorithm is
+//!   designed to avoid re-running side effects unnecessarily, and is willing to sacrifice a small
+//!   amount of raw update speed to that goal.
 //! - **Automatic dependency tracking.** Dependencies are not specified as a compile-time list, but
 //!   tracked at runtime. This in turn enables **dynamic dependency tracking**: subscribers
 //!   unsubscribe from their sources between runs, which means that a subscriber that contains a

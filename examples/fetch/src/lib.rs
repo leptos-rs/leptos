@@ -16,7 +16,7 @@ pub enum CatError {
 
 type CatCount = usize;
 
-async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>, CatError> {
     if count > 0 {
         gloo_timers::future::TimeoutFuture::new(1000).await;
         // make the request
@@ -92,7 +92,7 @@ pub fn fetch_example() -> impl IntoView {
                                         .map(|s| {
                                             view! {
                                                 <li>
-                                                    <img src=s.clone()/>
+                                                    <img src=s.clone() />
                                                 </li>
                                             }
                                         })

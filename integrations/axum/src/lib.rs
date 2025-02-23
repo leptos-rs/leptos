@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 //! Provides functions to easily integrate Leptos with Axum.
 //!
@@ -278,12 +279,11 @@ pub fn generate_request_and_parts(
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
-/// ```
+/// ```no_run
 /// use axum::{handler::Handler, routing::post, Router};
 /// use leptos::prelude::*;
 /// use std::net::SocketAddr;
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
@@ -299,7 +299,6 @@ pub fn generate_request_and_parts(
 ///         .await
 ///         .unwrap();
 /// }
-/// # }
 /// ```
 /// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
 /// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
@@ -440,7 +439,7 @@ pub type PinnedHtmlStream =
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use axum::{handler::Handler, Router};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
@@ -450,7 +449,6 @@ pub type PinnedHtmlStream =
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
@@ -469,7 +467,6 @@ pub type PinnedHtmlStream =
 ///         .await
 ///         .unwrap();
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
@@ -528,7 +525,7 @@ where
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use axum::{handler::Handler, Router};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
@@ -538,7 +535,6 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
@@ -557,7 +553,6 @@ where
 ///         .await
 ///         .unwrap();
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
@@ -941,7 +936,7 @@ fn provide_contexts(
 /// `async` resources have loaded.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```
+/// ```no_run
 /// use axum::{handler::Handler, Router};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
@@ -951,7 +946,6 @@ fn provide_contexts(
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// # if false { // don't actually try to run a server in a doctest...
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
@@ -971,7 +965,6 @@ fn provide_contexts(
 ///         .await
 ///         .unwrap();
 /// }
-/// # }
 /// ```
 ///
 /// ## Provided Context Types
