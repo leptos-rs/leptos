@@ -770,7 +770,7 @@ pub(crate) fn element_to_tokens(
 
         if cfg!(feature = "__internal_erase_components") {
             Some(quote! {
-                vec![#(#attributes.into_attr().into_any_attr(),)*]
+                vec![#(#attributes.into_any_attr(),)*]
                 #(.add_any_attr(#additions))*
             })
         } else {

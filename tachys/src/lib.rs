@@ -22,7 +22,7 @@ pub mod prelude {
                     OnAttribute, OnTargetAttribute, PropAttribute,
                     StyleAttribute,
                 },
-                IntoAttribute, IntoAttributeValue,
+                IntoAttributeValue,
             },
             directive::DirectiveAttribute,
             element::{ElementChild, ElementExt, InnerHtmlAttribute},
