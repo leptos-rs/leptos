@@ -9,7 +9,6 @@ use leptos_router::{
     },
     hooks::{use_navigate, use_params, use_query_map},
     params::Params,
-    MatchNestedRoutes,
 };
 use leptos_router_macro::path;
 use std::time::Duration;
@@ -33,7 +32,7 @@ pub fn RouterExample() -> impl IntoView {
         <Router set_is_routing>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
-                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+                <RoutingProgress is_routing max_time=Duration::from_millis(250) />
             </div>
             <nav>
                 // ordinary <a> elements can be used for client-side navigation
@@ -53,15 +52,15 @@ pub fn RouterExample() -> impl IntoView {
                 <Routes transition=true fallback=|| "This page could not be found.">
                     // paths can be created using the path!() macro, or provided as types like
                     // StaticSegment("about")
-                    <Route path=path!("about") view=About/>
+                    <Route path=path!("about") view=About />
                     <ProtectedRoute
                         path=path!("settings")
                         condition=move || Some(logged_in.get())
                         redirect_path=|| "/"
                         view=Settings
                     />
-                    <Route path=path!("redirect-home") view=|| view! { <Redirect path="/"/> }/>
-                    <ContactRoutes/>
+                    <Route path=path!("redirect-home") view=|| view! { <Redirect path="/" /> } />
+                    <ContactRoutes />
                 </Routes>
             </main>
         </Router>
@@ -71,11 +70,11 @@ pub fn RouterExample() -> impl IntoView {
 // You can define other routes in their own component.
 // Routes implement the MatchNestedRoutes
 #[component(transparent)]
-pub fn ContactRoutes() -> impl MatchNestedRoutes + Clone {
+pub fn ContactRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
     view! {
         <ParentRoute path=path!("") view=ContactList>
-            <Route path=path!("/") view=|| "Select a contact."/>
-            <Route path=path!("/:id") view=Contact/>
+            <Route path=path!("/") view=|| "Select a contact." />
+            <Route path=path!("/:id") view=Contact />
         </ParentRoute>
     }
     .into_inner()
@@ -122,7 +121,7 @@ pub fn ContactList() -> impl IntoView {
             <Suspense fallback=move || view! { <p>"Loading contacts..."</p> }>
                 <ul>{contacts}</ul>
             </Suspense>
-            <Outlet/>
+            <Outlet />
         </div>
     }
 }
@@ -166,7 +165,7 @@ pub fn Contact() -> impl IntoView {
                 Some(contact) => Either::Right(view! {
                     <section class="card">
                         <h1>{contact.first_name} " " {contact.last_name}</h1>
-                        <p>{contact.address_1} <br/> {contact.address_2}</p>
+                        <p>{contact.address_1} <br /> {contact.address_2}</p>
                     </section>
                 }),
             }
@@ -224,10 +223,10 @@ pub fn Settings() -> impl IntoView {
         <Form action="">
             <fieldset>
                 <legend>"Name"</legend>
-                <input type="text" name="first_name" placeholder="First"/>
-                <input type="text" name="last_name" placeholder="Last"/>
+                <input type="text" name="first_name" placeholder="First" />
+                <input type="text" name="last_name" placeholder="Last" />
             </fieldset>
-            <input type="submit"/>
+            <input type="submit" />
             <p>
                 "This uses the " <code>"<Form/>"</code>
                 " component, which enhances forms by using client-side navigation for "

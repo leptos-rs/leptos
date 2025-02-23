@@ -133,36 +133,101 @@ trait NextChildren {
 }
 
 #[cfg(erase_components)]
-impl NextChildren for () {
-    fn next_children(
-        self,
-        child: AnyView,
-    ) -> crate::view::iterators::StaticVec<AnyView> {
-        vec![child].into()
-    }
-}
+mod erased_tuples {
+    use super::*;
+    use crate::view::{any_view::IntoAny, iterators::StaticVec};
 
-#[cfg(erase_components)]
-impl<T: RenderHtml> NextChildren for (T,) {
-    fn next_children(
-        self,
-        child: AnyView,
-    ) -> crate::view::iterators::StaticVec<AnyView> {
-        use crate::view::any_view::IntoAny;
-
-        vec![self.0.into_owned().into_any(), child].into()
+    impl NextChildren for StaticVec<AnyView> {
+        fn next_children(mut self, child: AnyView) -> StaticVec<AnyView> {
+            self.0.push(child);
+            self
+        }
     }
-}
 
-#[cfg(erase_components)]
-impl NextChildren for crate::view::iterators::StaticVec<AnyView> {
-    fn next_children(
-        mut self,
-        child: AnyView,
-    ) -> crate::view::iterators::StaticVec<AnyView> {
-        self.0.push(child);
-        self
+    impl NextChildren for () {
+        fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
+            vec![child].into()
+        }
     }
+
+    impl<T: RenderHtml> NextChildren for (T,) {
+        fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
+            vec![self.0.into_owned().into_any(), child].into()
+        }
+    }
+
+    macro_rules! impl_next_children_tuples {
+        ($($ty:ident),*) => {
+            impl<$($ty: RenderHtml),*> NextChildren for ($($ty,)*)
+             {
+                fn next_children(
+                    self, child: AnyView,
+                ) -> StaticVec<AnyView> {
+                    #[allow(non_snake_case)]
+                    let ($($ty,)*) = self;
+                    vec![$($ty.into_owned().into_any(),)* child].into()
+                }
+            }
+        };
+    }
+
+    impl_next_children_tuples!(AA, BB);
+    impl_next_children_tuples!(AA, BB, CC);
+    impl_next_children_tuples!(AA, BB, CC, DD);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL);
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW, XX
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW, XX, YY
+    );
 }
 
 impl<E, At, Ch> AddAnyAttr for HtmlElement<E, At, Ch>

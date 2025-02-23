@@ -85,7 +85,7 @@ pub fn fetch_example() -> impl IntoView {
                                         .map(|s| {
                                             view! {
                                                 <li>
-                                                    <img src=s.clone()/>
+                                                    <img src=s.clone() />
                                                 </li>
                                             }
                                         })
