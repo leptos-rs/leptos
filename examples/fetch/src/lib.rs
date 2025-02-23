@@ -16,7 +16,7 @@ pub enum CatError {
 
 type CatCount = usize;
 
-async fn fetch_cats(count: CatCount) -> Result<Vec<String>, CatError> {
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>, Error> {
     if count > 0 {
         gloo_timers::future::TimeoutFuture::new(1000).await;
         // make the request
