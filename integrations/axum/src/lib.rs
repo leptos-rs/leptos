@@ -284,7 +284,6 @@ pub fn generate_request_and_parts(
 /// use leptos::prelude::*;
 /// use std::net::SocketAddr;
 ///
-/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
@@ -449,7 +448,6 @@ pub type PinnedHtmlStream =
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -535,7 +533,6 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -946,7 +943,6 @@ fn provide_contexts(
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
-/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();

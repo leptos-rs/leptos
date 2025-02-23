@@ -78,25 +78,6 @@ pub trait Attribute: NextAttribute + Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
-/// A type that can be converted into an attribute.
-///
-/// Used type-erasing attrs and tuples of attrs to [`Vec<AnyAttribute>`] as early as possible to prevent type explosion.
-pub trait IntoAttribute {
-    /// The type of the attribute.
-    type Output: Attribute;
-
-    /// Converts this into an attribute.
-    fn into_attr(self) -> Self::Output;
-}
-
-impl<T: Attribute> IntoAttribute for T {
-    type Output = T;
-
-    fn into_attr(self) -> Self::Output {
-        self
-    }
-}
-
 /// Adds another attribute to this one, returning a new attribute.
 ///
 /// This is typically achieved by creating or extending a tuple of attributes.
