@@ -82,24 +82,32 @@ impl Parse for Model {
 /// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
 fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(erase_components)]
-    if let ReturnType::Type(_, ty) = ret {
-        if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
-            // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
-            if bounds.iter().any(|bound| {
-                if let syn::TypeParamBound::Trait(trait_bound) = bound {
-                    if trait_bound.path.segments.iter().any(|path_segment| {
-                        path_segment.ident == "MatchNestedRoutes"
-                    }) {
-                        return true;
+    {
+        if let ReturnType::Type(_, ty) = ret {
+            if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
+                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+                if bounds.iter().any(|bound| {
+                    if let syn::TypeParamBound::Trait(trait_bound) = bound {
+                        if trait_bound.path.segments.iter().any(
+                            |path_segment| {
+                                path_segment.ident == "MatchNestedRoutes"
+                            },
+                        ) {
+                            return true;
+                        }
                     }
+                    false
+                }) {
+                    *ty = parse_quote!(
+                        ::leptos_router::any_nested_route::AnyNestedRoute
+                    );
                 }
-                false
-            }) {
-                *ty = parse_quote!(
-                    ::leptos_router::any_nested_route::AnyNestedRoute
-                );
             }
         }
+    }
+    #[cfg(not(erase_components))]
+    {
+        let _ = ret;
     }
 }
 
