@@ -27,4 +27,4 @@ jobs:
       directory: ${{ matrix.directory }}
       erased_mode: ${{ matrix.erased_mode }}
       cargo_make_task: "ci"
-      toolchain: nightly-2024-08-01
+      toolchain: nightly-2025-02-19
