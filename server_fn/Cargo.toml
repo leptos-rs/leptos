@@ -81,7 +81,7 @@ pin-project-lite = "0.2.15"
 tokio = { version = "1.43.0", features = ["rt"], optional = true }
 
 [features]
-default = ["json"]
+default = ["json", "msgpack", "postcard", "rkyv", "cbor", "url", "multipart", "serde-lite"]
 axum-no-default = [
   "ssr",
   "generic",

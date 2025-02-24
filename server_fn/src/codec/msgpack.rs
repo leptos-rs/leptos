@@ -1,77 +1,28 @@
-use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
-use crate::{
-    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
-    request::{ClientReq, Req},
-    response::{ClientRes, TryRes},
-};
+use crate::{Decodes, Encodes};
 use bytes::Bytes;
-use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
-/// A codec for MessagePack.
-pub struct MsgPack;
+struct MsgPack;
 
-impl Encoding for MsgPack {
-    const CONTENT_TYPE: &'static str = "application/msgpack";
-    const METHOD: Method = Method::POST;
-}
-
-impl<T, Request, E> IntoReq<MsgPack, Request, E> for T
+impl<T> Encodes<T> for MsgPack
 where
-    Request: ClientReq<E>,
     T: Serialize,
-    E: FromServerFnError,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
-        let data = rmp_serde::to_vec(&self).map_err(|e| {
-            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
-        })?;
-        Request::try_new_post_bytes(
-            path,
-            MsgPack::CONTENT_TYPE,
-            accepts,
-            Bytes::from(data),
-        )
+    type Error = rmp_serde::encode::Error;
+    const CONTENT_TYPE: &'static str = "application/cbor";
+
+    fn encode(value: T) -> Result<Bytes, Self::Error> {
+        rmp_serde::to_vec(&value).map(|bytes| Bytes::from(bytes))
     }
 }
 
-impl<T, Request, E> FromReq<MsgPack, Request, E> for T
+impl<T> Decodes<T> for MsgPack
 where
-    Request: Req<E> + Send,
     T: DeserializeOwned,
-    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, E> {
-        let data = req.try_into_bytes().await?;
-        rmp_serde::from_slice::<T>(&data)
-            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
-    }
-}
+    type Error = rmp_serde::decode::Error;
 
-impl<T, Response, E> IntoRes<MsgPack, Response, E> for T
-where
-    Response: TryRes<E>,
-    T: Serialize + Send,
-    E: FromServerFnError,
-{
-    async fn into_res(self) -> Result<Response, E> {
-        let data = rmp_serde::to_vec(&self).map_err(|e| {
-            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
-        })?;
-        Response::try_from_bytes(MsgPack::CONTENT_TYPE, Bytes::from(data))
-    }
-}
-
-impl<T, Response, E> FromRes<MsgPack, Response, E> for T
-where
-    Response: ClientRes<E> + Send,
-    T: DeserializeOwned,
-    E: FromServerFnError,
-{
-    async fn from_res(res: Response) -> Result<Self, E> {
-        let data = res.try_into_bytes().await?;
-        rmp_serde::from_slice(&data).map_err(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
-        })
+    fn decode(bytes: Bytes) -> Result<T, Self::Error> {
+        rmp_serde::from_slice(&bytes)
     }
 }
