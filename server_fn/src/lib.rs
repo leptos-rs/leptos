@@ -187,16 +187,7 @@ pub use xxhash_rust;
 ///     // etc.
 /// }
 /// ```
-pub trait ServerFn
-where
-    Self: Send
-        + FromReq<Self::InputEncoding, Self::ServerRequest, Self::Error>
-        + IntoReq<
-            Self::InputEncoding,
-            <Self::Client as Client<Self::Error>>::Request,
-            Self::Error,
-        >,
-{
+pub trait ServerFn: Send + Sized {
     /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
     const PATH: &'static str;
 
@@ -224,12 +215,7 @@ where
     ///
     /// This needs to be converted into `ServerResponse` on the server side, and converted
     /// *from* `ClientResponse` when received by the client.
-    type Output: IntoRes<Self::OutputEncoding, Self::ServerResponse, Self::Error>
-        + FromRes<
-            Self::OutputEncoding,
-            <Self::Client as Client<Self::Error>>::Response,
-            Self::Error,
-        > + Send;
+    type Output: Send;
 
     /// The [`Encoding`] used in the request for arguments into the server function.
     type InputEncoding: Encoding;
@@ -317,12 +303,7 @@ where
         self,
     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
         async move {
-            // create and send request on client
-            let req =
-                self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
-            // Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
-            //     .await
-            todo!()
+            Self::Protocol::run_client::<Self::Client>(Self::PATH, self).await
         }
     }
 
@@ -347,7 +328,7 @@ trait Protocol<Input, Output, InputEncoding, OutputEncoding, E> {
         Request: Req<E, WebsocketResponse = Response> + Send,
         Response: TryRes<E> + Send;
 
-    fn run_client<F, Fut, Client>(
+    fn run_client<Client>(
         path: &str,
         input: Input,
     ) -> impl Future<Output = Result<Output, E>> + Send
@@ -399,10 +380,7 @@ where
         Ok(response)
     }
 
-    async fn run_client<F, Fut, Client>(
-        path: &str,
-        input: Input,
-    ) -> Result<Output, E>
+    async fn run_client<Client>(path: &str, input: Input) -> Result<Output, E>
     where
         Client: crate::Client<E>,
     {
@@ -532,7 +510,7 @@ where
         Ok(response)
     }
 
-    fn run_client<F, Fut, Client>(
+    fn run_client<Client>(
         path: &str,
         input: Input,
     ) -> impl Future<Output = Result<Output, E>> + Send
