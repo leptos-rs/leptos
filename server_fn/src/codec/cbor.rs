@@ -2,7 +2,7 @@ use crate::{Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
-struct Cbor;
+pub struct Cbor;
 
 impl<T> Encodes<T> for Cbor
 where

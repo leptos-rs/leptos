@@ -2,7 +2,7 @@ use crate::{Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
-struct MsgPack;
+pub struct MsgPack;
 
 impl<T> Encodes<T> for MsgPack
 where

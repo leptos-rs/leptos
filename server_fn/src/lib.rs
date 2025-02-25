@@ -260,18 +260,19 @@ pub trait ServerFn: Send + Sized {
         async move {
             #[allow(unused_variables, unused_mut)]
             // used in form redirects feature
-            let (mut res, err) = Self::execute_on_server(req)
-                .await
-                .map(|res| (res, None))
-                .unwrap_or_else(|e| {
-                    (
-                        Self::ServerResponse::error_response(
-                            Self::PATH,
-                            e.ser(),
-                        ),
-                        Some(e),
-                    )
-                });
+            let (mut res, err) =
+                Self::Protocol::run_server(req, Self::run_body)
+                    .await
+                    .map(|res| (res, None))
+                    .unwrap_or_else(|e| {
+                        (
+                            Self::ServerResponse::error_response(
+                                Self::PATH,
+                                e.ser(),
+                            ),
+                            Some(e),
+                        )
+                    });
 
             // if it accepts HTML, we'll redirect to the Referer
             #[cfg(feature = "form-redirects")]
@@ -305,15 +306,6 @@ pub trait ServerFn: Send + Sized {
         async move {
             Self::Protocol::run_client::<Self::Client>(Self::PATH, self).await
         }
-    }
-
-    /// Runs the server function (on the server), bubbling up an `Err(_)` after any stage.
-    #[doc(hidden)]
-    fn execute_on_server(
-        req: Self::ServerRequest,
-    ) -> impl Future<Output = Result<Self::ServerResponse, Self::Error>> + Send
-    {
-        async { Self::Protocol::run_server(req, Self::run_body).await }
     }
 }
 
