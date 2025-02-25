@@ -12,7 +12,9 @@ use reactive_graph::{
         guards::{AsyncPlain, ReadGuard},
         ArcRwSignal, RwSignal,
     },
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Update, Write},
+    traits::{
+        DefinedAt, IsDisposed, ReadUntracked, Track, Update, With, Write,
+    },
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -90,6 +92,34 @@ impl<T> ArcLocalResource<T> {
     /// Re-runs the async function.
     pub fn refetch(&self) {
         *self.refetch.write() += 1;
+    }
+
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
+    #[track_caller]
+    pub fn map<U>(&self, f: impl FnOnce(&SendWrapper<T>) -> U) -> Option<U>
+    where
+        T: 'static,
+    {
+        self.data.try_with(|n| n.as_ref().map(f))?
+    }
+}
+
+impl<T, E> ArcLocalResource<Result<T, E>>
+where
+    T: 'static,
+    E: Clone + 'static,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
     }
 }
 

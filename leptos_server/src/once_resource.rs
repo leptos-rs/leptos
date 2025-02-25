@@ -168,6 +168,41 @@ where
 
         data
     }
+
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
+    #[track_caller]
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.try_with(|n| n.as_ref().map(f))?
+    }
+}
+
+impl<T, E, Ser> ArcOnceResource<Result<T, E>, Ser>
+where
+    Ser: Encoder<Result<T, E>> + Decoder<Result<T, E>>,
+    <Ser as Encoder<Result<T, E>>>::Error: Debug,
+    <Ser as Decoder<Result<T, E>>>::Error: Debug,
+    <<Ser as Decoder<Result<T, E>>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
+    <Ser as Encoder<Result<T, E>>>::Encoded: IntoEncodedString,
+    <Ser as Decoder<Result<T, E>>>::Encoded: FromEncodedStr,
+    T: Send + Sync + 'static,
+    E: Send + Sync + Clone + 'static,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+    }
 }
 
 impl<T, Ser> ArcOnceResource<T, Ser> {
@@ -533,6 +568,37 @@ where
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at,
         }
+    }
+
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+        self.try_with(|n| n.as_ref().map(|n| Some(f(n))))?.flatten()
+    }
+}
+
+impl<T, E, Ser> OnceResource<Result<T, E>, Ser>
+where
+    Ser: Encoder<Result<T, E>> + Decoder<Result<T, E>>,
+    <Ser as Encoder<Result<T, E>>>::Error: Debug,
+    <Ser as Decoder<Result<T, E>>>::Error: Debug,
+    <<Ser as Decoder<Result<T, E>>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
+    <Ser as Encoder<Result<T, E>>>::Encoded: IntoEncodedString,
+    <Ser as Decoder<Result<T, E>>>::Encoded: FromEncodedStr,
+    T: Send + Sync + 'static,
+    E: Send + Sync + Clone + 'static,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
     }
 }
 
