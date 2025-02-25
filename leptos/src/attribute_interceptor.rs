@@ -43,7 +43,7 @@ pub fn AttributeInterceptor<Chil, T>(
 ) -> impl IntoView
 where
     Chil: Fn(AnyAttribute) -> T + Send + Sync + 'static,
-    T: IntoView,
+    T: IntoView + 'static,
 {
     AttributeInterceptorInner::new(children)
 }
@@ -86,7 +86,7 @@ impl<T: IntoView, A: Attribute> Render for AttributeInterceptorInner<T, A> {
     }
 }
 
-impl<T: IntoView, A> AddAnyAttr for AttributeInterceptorInner<T, A>
+impl<T: IntoView + 'static, A> AddAnyAttr for AttributeInterceptorInner<T, A>
 where
     A: Attribute,
 {
@@ -114,8 +114,11 @@ where
     }
 }
 
-impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
+impl<T: IntoView + 'static, A: Attribute> RenderHtml
+    for AttributeInterceptorInner<T, A>
+{
     type AsyncOutput = T::AsyncOutput;
+    type Owned = AttributeInterceptorInner<T, A::CloneableOwned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -135,9 +138,15 @@ impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
         position: &mut leptos::tachys::view::Position,
         escape: bool,
         mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.children
-            .to_html_with_buf(buf, position, escape, mark_branches)
+        self.children.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            vec![],
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -146,5 +155,13 @@ impl<T: IntoView, A: Attribute> RenderHtml for AttributeInterceptorInner<T, A> {
         position: &leptos::tachys::view::PositionState,
     ) -> Self::State {
         self.children.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        AttributeInterceptorInner {
+            children_builder: self.children_builder,
+            children: self.children,
+            attributes: self.attributes.into_cloneable_owned(),
+        }
     }
 }

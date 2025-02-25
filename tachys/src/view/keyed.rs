@@ -3,7 +3,7 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
@@ -131,9 +131,9 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -184,15 +184,16 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
     T: 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -218,10 +219,17 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            item.to_html_with_buf(buf, position, escape, mark_branches);
+            item.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
             *position = Position::NextChild;
         }
         buf.push_str("<!>");
@@ -233,6 +241,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
@@ -241,6 +250,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
             *position = Position::NextChild;
         }
@@ -284,6 +294,10 @@ where
             rendered_items,
         }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self
+    }
 }
 
 impl<K, VFS, V> Mountable for KeyedState<K, VFS, V>
@@ -322,6 +336,14 @@ where
                 }
             })
             .unwrap_or_else(|| self.marker.insert_before_this(child))
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.rendered_items
+            .iter()
+            .flatten()
+            .flat_map(|item| item.1.elements())
+            .collect()
     }
 }
 

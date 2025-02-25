@@ -10,6 +10,7 @@ use crate::{
 use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
+use leptos::attr::any_attribute::AnyAttribute;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, Owner},
@@ -67,6 +68,10 @@ impl Mountable for FlatRoutesViewState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.view.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<tachys::renderer::types::Element> {
+        self.view.elements()
     }
 }
 
@@ -343,7 +348,7 @@ impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute> =
@@ -416,10 +421,11 @@ impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes + Send + 'static,
-    FalFn: FnOnce() -> Fal + Send,
+    FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = <Either<Fal, AnyView> as RenderHtml>::MIN_LENGTH;
 
@@ -435,6 +441,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -481,7 +488,13 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let view = self.choose_ssr();
-            view.to_html_with_buf(buf, position, escape, mark_branches);
+            view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            );
         }
     }
 
@@ -491,6 +504,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -500,6 +514,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -603,5 +618,9 @@ where
                 }
             }
         }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

@@ -3,6 +3,7 @@ use crate::{ChooseView, GeneratedRouteData, MatchParams};
 use core::iter;
 use either_of::*;
 use std::borrow::Cow;
+use tachys::view::iterators::StaticVec;
 
 impl MatchParams for () {
     fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
@@ -178,6 +179,32 @@ where
         let B = B.generate_routes().into_iter();
 
         A.chain(B)
+    }
+}
+
+impl<T> MatchNestedRoutes for StaticVec<T>
+where
+    T: MatchNestedRoutes,
+{
+    type Data = Vec<T::Data>;
+    type Match = T::Match;
+
+    fn match_nested<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
+        for item in self.iter() {
+            if let (Some((id, matched)), remaining) = item.match_nested(path) {
+                return (Some((id, matched)), remaining);
+            }
+        }
+        (None, path)
+    }
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
+        self.iter().flat_map(T::generate_routes)
     }
 }
 

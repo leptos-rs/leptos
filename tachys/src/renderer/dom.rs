@@ -504,6 +504,10 @@ impl Mountable for Node {
         }
         false
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 impl Mountable for Text {
@@ -523,6 +527,10 @@ impl Mountable for Text {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -544,6 +552,10 @@ impl Mountable for Comment {
         }
         false
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 impl Mountable for Element {
@@ -563,6 +575,10 @@ impl Mountable for Element {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.clone()]
     }
 }
 
