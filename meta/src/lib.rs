@@ -435,6 +435,7 @@ where
                 &mut Position::NextChild,
                 false,
                 false,
+                vec![],
             );
             _ = cx.elements.send(buf); // fails only if the receiver is already dropped
         } else {
@@ -469,7 +470,7 @@ where
 
     fn into_owned(self) -> Self::Owned {
         RegisteredMetaTag {
-            el: self.el.map(|inner| inner.into_owned()),
+            el: self.el.into_owned(),
         }
     }
 }

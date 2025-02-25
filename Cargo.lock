@@ -880,12 +880,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "669a445ee724c5c69b1b06fe0b63e70a1c84bc9bb7d9696cd4f4e3ec45050408"
 
 [[package]]
-name = "dyn-clone"
-version = "1.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feeef44e73baff3a26d371801df019877a9866a8c493d315ab00177843314f35"
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1923,7 +1917,7 @@ dependencies = [
  "serde",
  "server_fn",
  "server_fn_macro 0.8.0-alpha",
- "syn 2.0.90",
+ "syn 2.0.98",
  "tracing",
  "trybuild",
  "typed-builder",
@@ -3239,7 +3233,7 @@ name = "server_fn_macro_default"
 version = "0.8.0-alpha"
 dependencies = [
  "server_fn_macro 0.8.0-alpha",
- "syn 2.0.90",
+ "syn 2.0.98",
 ]
 
 [[package]]

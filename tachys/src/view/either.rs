@@ -3,10 +3,8 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::Any{Attribute, Attribute},
-    NextAttribute},
+    html::attribute::{any_attribute::AnyAttribute, Attribute, NextAttribute},
     hydration::Cursor,
-   
     ssr::StreamBuilder,
 };
 use either_of::*;
