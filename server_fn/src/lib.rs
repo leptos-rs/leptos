@@ -150,11 +150,12 @@ use response::{ClientRes, Res, TryRes};
 pub use rkyv;
 #[doc(hidden)]
 pub use serde;
-use serde::{de::DeserializeOwned, Serialize};
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
-use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
+use std::{
+    fmt::Display, future::Future, marker::PhantomData, pin::Pin, sync::Arc,
+};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -198,16 +199,19 @@ pub trait ServerFn: Send + Sized {
 
     /// The type of the HTTP request when received by the server function on the server side.
     type ServerRequest: Req<Self::Error, WebsocketResponse = Self::ServerResponse>
-        + Send;
+        + Send
+        + 'static;
 
     /// The type of the HTTP response returned by the server function on the server side.
-    type ServerResponse: Res + TryRes<Self::Error> + Send;
+    type ServerResponse: Res + TryRes<Self::Error> + Send + 'static;
 
+    /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
         Self,
         Self::Output,
-        Self::InputEncoding,
-        Self::OutputEncoding,
+        Self::Client,
+        Self::ServerRequest,
+        Self::ServerResponse,
         Self::Error,
     >;
 
@@ -217,14 +221,8 @@ pub trait ServerFn: Send + Sized {
     /// *from* `ClientResponse` when received by the client.
     type Output: Send;
 
-    /// The [`Encoding`] used in the request for arguments into the server function.
-    type InputEncoding: Encoding;
-
-    /// The [`Encoding`] used in the response for the result of the server function.
-    type OutputEncoding: Encoding;
-
     /// The type of the error on the server function. Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
-    type Error: FromServerFnError;
+    type Error: FromServerFnError + Send + Sync;
 
     /// Returns [`Self::PATH`].
     fn url() -> &'static str {
@@ -303,91 +301,93 @@ pub trait ServerFn: Send + Sized {
     fn run_on_client(
         self,
     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
-        async move {
-            Self::Protocol::run_client::<Self::Client>(Self::PATH, self).await
-        }
+        async move { Self::Protocol::run_client(Self::PATH, self).await }
     }
 }
 
-trait Protocol<Input, Output, InputEncoding, OutputEncoding, E> {
-    fn run_server<F, Fut, Request, Response>(
+/// The protocol that a server function uses to communicate with the client. This trait handles
+/// the server and client side of running a server function.
+pub trait Protocol<Input, Output, Client, Request, Response, E>
+where
+    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
+    Response: TryRes<E> + Send + 'static,
+    Client: crate::Client<E>,
+{
+    /// The HTTP method used for requests.
+    const METHOD: Method;
+
+    /// Run the server function on the server. The implementation should handle deserializing the
+    /// input, running the server function, and serializing the output.
+    fn run_server<F, Fut>(
         request: Request,
         server_fn: F,
     ) -> impl Future<Output = Result<Response, E>> + Send
     where
         F: Fn(Input) -> Fut + Send,
-        Fut: Future<Output = Result<Output, E>> + Send,
-        Request: Req<E, WebsocketResponse = Response> + Send,
-        Response: TryRes<E> + Send;
+        Fut: Future<Output = Result<Output, E>> + Send;
 
-    fn run_client<Client>(
+    /// Run the server function on the client. The implementation should handle serializing the
+    /// input, sending the request, and deserializing the output.
+    fn run_client(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<Output, E>> + Send
-    where
-        Client: crate::Client<E>;
+    ) -> impl Future<Output = Result<Output, E>> + Send;
 }
 
-struct Get;
+struct Http<InputProtocol, OutputProtocol>(
+    PhantomData<(InputProtocol, OutputProtocol)>,
+);
 
-impl<Input, Output, InputEncoding, OutputEncoding, E>
-    Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Get
+impl<
+        InputProtocol,
+        OutputProtocol,
+        Input,
+        Output,
+        Client,
+        Request,
+        Response,
+        E,
+    > Protocol<Input, Output, Client, Request, Response, E>
+    for Http<InputProtocol, OutputProtocol>
 where
-    Input: Send,
-    Output: Send,
-    InputEncoding: Encodes<Input> + Decodes<Input>,
-    OutputEncoding: Encodes<Output> + Decodes<Output>,
+    Input: IntoReq<InputProtocol, Client::Request, E>
+        + FromReq<InputProtocol, Request, E>
+        + Send,
+    Output: IntoRes<OutputProtocol, Response, E>
+        + FromRes<OutputProtocol, Client::Response, E>
+        + Send,
     E: FromServerFnError,
+    InputProtocol: Encoding,
+    OutputProtocol: Encoding,
+    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
+    Response: TryRes<E> + Send + 'static,
+    Client: crate::Client<E>,
 {
-    async fn run_server<F, Fut, Request, Response>(
+    const METHOD: Method = InputProtocol::METHOD;
+
+    async fn run_server<F, Fut>(
         request: Request,
         server_fn: F,
     ) -> Result<Response, E>
     where
         F: Fn(Input) -> Fut + Send,
         Fut: Future<Output = Result<Output, E>> + Send,
-        Request: Req<E, WebsocketResponse = Response> + Send,
-        Response: TryRes<E> + Send,
     {
-        let request_bytes = request.try_into_bytes().await?;
-        let input = InputEncoding::decode(request_bytes).map_err(|e| {
-            E::from_server_fn_error(ServerFnErrorErr::Deserialization(
-                e.to_string(),
-            ))
-        })?;
+        let input = Input::from_req(request).await?;
 
         let output = server_fn(input).await?;
 
-        let response_bytes = OutputEncoding::encode(output).map_err(|e| {
-            E::from_server_fn_error(ServerFnErrorErr::Serialization(
-                e.to_string(),
-            ))
-        })?;
-
-        let response = Response::try_from_bytes(
-            OutputEncoding::CONTENT_TYPE,
-            response_bytes,
-        )?;
+        let response = Output::into_res(output).await?;
 
         Ok(response)
     }
 
-    async fn run_client<Client>(path: &str, input: Input) -> Result<Output, E>
+    async fn run_client(path: &str, input: Input) -> Result<Output, E>
     where
         Client: crate::Client<E>,
     {
         // create and send request on client
-        let body = InputEncoding::encode(input).map_err(|e| {
-            E::from_server_fn_error(ServerFnErrorErr::Serialization(
-                e.to_string(),
-            ))
-        })?;
-        let req = Client::Request::try_new_post_bytes(
-            path,
-            InputEncoding::CONTENT_TYPE,
-            InputEncoding::CONTENT_TYPE,
-            body,
-        )?;
+        let req = input.into_req(path, OutputProtocol::CONTENT_TYPE)?;
         let res = Client::send(req).await?;
 
         let status = res.status();
@@ -400,12 +400,7 @@ where
             Err(E::de(&text))
         } else {
             // otherwise, deserialize the body as is
-            let body = res.try_into_bytes().await?;
-            let output = OutputEncoding::decode(body).map_err(|e| {
-                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
-                    e.to_string(),
-                ))
-            })?;
+            let output = Output::from_res(res).await?;
             Ok(output)
         }?;
 
@@ -417,7 +412,9 @@ where
     }
 }
 
-struct Websocket;
+struct Websocket<InputEncoding, OutputEncoding>(
+    PhantomData<(InputEncoding, OutputEncoding)>,
+);
 
 trait FromBoxedStream {
     type Output;
@@ -436,8 +433,12 @@ impl<
         OutputItem,
         InputEncoding,
         OutputEncoding,
+        Client,
+        Request,
+        Response,
         E,
-    > Protocol<Input, Output, InputEncoding, OutputEncoding, E> for Websocket
+    > Protocol<Input, Output, Client, Request, Response, E>
+    for Websocket<InputEncoding, OutputEncoding>
 where
     Input: Stream<Item = Result<InputItem, E>>
         + FromBoxedStream<Output = InputItem, Error = E>
@@ -449,9 +450,14 @@ where
         + 'static,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
+    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
+    Response: TryRes<E> + Send + 'static,
     E: FromServerFnError,
+    Client: crate::Client<E>,
 {
-    async fn run_server<F, Fut, Request, Response>(
+    const METHOD: Method = Method::GET;
+
+    async fn run_server<F, Fut>(
         request: Request,
         server_fn: F,
     ) -> Result<Response, E>
@@ -502,13 +508,10 @@ where
         Ok(response)
     }
 
-    fn run_client<Client>(
+    fn run_client(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<Output, E>> + Send
-    where
-        Client: crate::Client<E>,
-    {
+    ) -> impl Future<Output = Result<Output, E>> + Send {
         async move {
             let (stream, sink) = Client::open_websocket(path).await?;
 
@@ -554,16 +557,24 @@ where
     }
 }
 
+/// A trait for types that can be encoded into a bytes for a request body.
 pub trait Encodes<T> {
+    /// The error type that can be returned if the encoding fails.
     type Error: Display;
+
+    /// The content type of the encoding.
     const CONTENT_TYPE: &'static str;
 
+    /// Encodes the given value into a bytes.
     fn encode(output: T) -> Result<Bytes, Self::Error>;
 }
 
+/// A trait for types that can be decoded from a bytes for a response body.
 pub trait Decodes<T> {
+    /// The error type that can be returned if the decoding fails.
     type Error: Display;
 
+    /// Decodes the given bytes into a value.
     fn decode(bytes: Bytes) -> Result<T, Self::Error>;
 }
 
@@ -604,10 +615,14 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
     /// Converts the relevant parts of a server function into a trait object.
     pub const fn new<S: ServerFn<ServerRequest = Req, ServerResponse = Res>>(
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
-    ) -> Self {
+    ) -> Self
+    where
+        Req: crate::Req<S::Error, WebsocketResponse = Res> + Send + 'static,
+        Res: crate::TryRes<S::Error> + Send + 'static,
+    {
         Self {
             path: S::PATH,
-            method: S::InputEncoding::METHOD,
+            method: S::Protocol::METHOD,
             handler,
             middleware: S::middlewares,
             ser: |e| S::Error::from_server_fn_error(e).ser(),
@@ -691,8 +706,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        middleware::BoxedService, Encoding, LazyServerFnMap, ServerFn,
-        ServerFnTraitObj,
+        middleware::BoxedService, Encoding, LazyServerFnMap, Protocol,
+        ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -713,7 +728,7 @@ pub mod axum {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
+            (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }
@@ -772,8 +787,8 @@ pub mod axum {
 pub mod actix {
     use crate::{
         middleware::BoxedService, request::actix::ActixRequest,
-        response::actix::ActixResponse, Encoding, LazyServerFnMap, ServerFn,
-        ServerFnTraitObj,
+        response::actix::ActixResponse, Encoding, LazyServerFnMap, Protocol,
+        ServerFn, ServerFnTraitObj,
     };
     use actix_web::{web::Payload, HttpRequest, HttpResponse};
     use http::Method;
@@ -796,7 +811,7 @@ pub mod actix {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
+            (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }

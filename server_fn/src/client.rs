@@ -26,9 +26,9 @@ pub fn get_server_url() -> &'static str {
 /// yourself, unless you’re trying to use an alternative HTTP crate on the client side.
 pub trait Client<E> {
     /// The type of a request sent by this client.
-    type Request: ClientReq<E> + Send;
+    type Request: ClientReq<E> + Send + 'static;
     /// The type of a response received by this client.
-    type Response: ClientRes<E> + Send;
+    type Response: ClientRes<E> + Send + 'static;
 
     /// Sends the request and receives a response.
     fn send(
@@ -120,15 +120,15 @@ pub mod browser {
                 let (sink, stream) = websocket.split();
 
                 let stream = stream
-                .map_err(|err| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        err.to_string(),
-                    ))
-                })
-                .map_ok(move |msg| match msg {
-                    Message::Text(text) => Bytes::from(text),
-                    Message::Bytes(bytes) => Bytes::from(bytes),
-                });
+                    .map_err(|err| {
+                        E::from_server_fn_error(ServerFnErrorErr::Request(
+                            err.to_string(),
+                        ))
+                    })
+                    .map_ok(move |msg| match msg {
+                        Message::Text(text) => Bytes::from(text),
+                        Message::Bytes(bytes) => Bytes::from(bytes),
+                    });
                 let stream = SendWrapper::new(stream);
 
                 struct SendWrapperSink<S> {
@@ -140,7 +140,7 @@ pub mod browser {
                 impl<S> SendWrapperSink<S> {
                     fn new(sink: S) -> Self {
                         Self {
-                            sink: Box::pin(SendWrapper::new(Box::pin(sink)))
+                            sink: Box::pin(SendWrapper::new(Box::pin(sink))),
                         }
                     }
                 }
@@ -183,31 +183,22 @@ pub mod browser {
                     }
                 }
 
-                let sink = sink.with(
-                    |message: Result<Bytes, E>| async move {
-                        match message {
-                            Ok(message) => {
-                                Ok(Message::Bytes(message.into()))
-                            }
-                            Err(err) => {
-                                const CLOSE_CODE_ERROR: u16 = 1011;
-                                Err(WebSocketError::ConnectionClose(
-                                    CloseEvent {
-                                        code: CLOSE_CODE_ERROR,
-                                        reason: err.ser(),
-                                        was_clean: true,
-                                    },
-                                ))
-                            }
+                let sink = sink.with(|message: Result<Bytes, E>| async move {
+                    match message {
+                        Ok(message) => Ok(Message::Bytes(message.into())),
+                        Err(err) => {
+                            const CLOSE_CODE_ERROR: u16 = 1011;
+                            Err(WebSocketError::ConnectionClose(CloseEvent {
+                                code: CLOSE_CODE_ERROR,
+                                reason: err.ser(),
+                                was_clean: true,
+                            }))
                         }
-                    },
-                );
+                    }
+                });
                 let sink = SendWrapperSink::new(sink);
 
-                Ok((
-                    stream,
-                    sink,
-                ))
+                Ok((stream, sink))
             })
         }
     }

@@ -2,6 +2,7 @@ use crate::{Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Serializes and deserializes CBOR with [`ciborium`].
 pub struct Cbor;
 
 impl<T> Encodes<T> for Cbor

@@ -2,6 +2,7 @@ use crate::{Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Serializes and deserializes JSON with [`serde_json`].
 pub struct Json;
 
 impl<T> Encodes<T> for Json
