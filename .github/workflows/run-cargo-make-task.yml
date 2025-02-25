@@ -55,7 +55,7 @@ jobs:
       - name: Install wasm-bindgen
         run: cargo binstall wasm-bindgen-cli --no-confirm
       - name: Install cargo-leptos
-        run: cargo binstall cargo-leptos --no-confirm
+        run: cargo binstall cargo-leptos --locked --no-confirm
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:

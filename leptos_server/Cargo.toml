@@ -26,8 +26,8 @@ send_wrapper = "0.6"
 # serialization formats
 serde = { version = "1.0" }
 js-sys = { version = "0.3.74", optional = true }
-wasm-bindgen = { version = "0.2.97", optional = true }
-serde_json = { version = "1.0" }
+wasm-bindgen = { version = "0.2.100", optional = true }
+serde_json = { workspace = true }
 
 [features]
 ssr = []

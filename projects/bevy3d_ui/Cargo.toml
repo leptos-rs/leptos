@@ -8,19 +8,19 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { version = "0.6.13", features = ["csr"] }
-leptos_meta = { version = "0.6.13", features = ["csr"] }
-leptos_router = { version = "0.6.13", features = ["csr"] }
+leptos = { version = "0.7.7", features = ["csr"] }
+leptos_meta = { version = "0.7.7" }
+leptos_router = { version = "0.7.7" }
 console_log = "1.0"
 log = "0.4.22"
 console_error_panic_hook = "0.1.7"
-bevy = "0.14.1"
+bevy = "0.15.2"
 crossbeam-channel = "0.5.13"
 
 [dev-dependencies]
-wasm-bindgen = "0.2.92"
-wasm-bindgen-test = "0.3.42"
-web-sys = "0.3.69"
+wasm-bindgen = "0.2.100"
+wasm-bindgen-test = "0.3.50"
+web-sys = "0.3.77"
 
 [workspace]
 # The empty workspace here is to keep rust-analyzer satisfied

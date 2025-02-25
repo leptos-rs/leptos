@@ -329,6 +329,7 @@ where
         }
         if escape {
             buf.push_str("<!>");
+            *position = Position::NextChild;
         }
     }
 
@@ -363,6 +364,7 @@ where
         }
         if escape {
             buf.push_sync("<!>");
+            *position = Position::NextChild;
         }
     }
 
@@ -377,6 +379,7 @@ where
             .collect();
 
         let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
 
         VecState { states, marker }
     }
