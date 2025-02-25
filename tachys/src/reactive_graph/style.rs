@@ -254,6 +254,11 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
+    use crate::{
+        reactive_graph::style::RenderEffectWithCssStyleName,
+        renderer::{types::CssStyleDeclaration, Rndr},
+    };
+
     macro_rules! style_signal {
         ($sig:ident) => {
             impl<C> IntoStyle for $sig<C>
@@ -263,31 +268,74 @@ mod stable {
                 C::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<Option<C::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(style);
                 }
 
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -306,13 +354,13 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
                                 C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
+                                Some(state)
                             }
+                            Some(None) => None,
+                            None => None, // unreachable!()
                         },
                         state.take_value(),
                     );
@@ -326,35 +374,103 @@ mod stable {
             {
                 type AsyncOutput = Self;
                 type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
+                    CssStyleDeclaration,
+                    Option<Cow<'static, str>>,
                 )>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    IntoStyle::to_html((self.0, move || self.1.get()), style)
+                    let (name, f) = self;
+                    let value = f.try_get();
+                    if let Some(value) = value {
+                        style.push_str(name);
+                        style.push(':');
+                        style.push_str(&value.into());
+                        style.push(';');
+                    }
                 }
 
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
+                fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    if !FROM_SERVER {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
                     )
                 }
 
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::build((self.0, move || self.1.get()), el)
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    // always set the style initially without checking
+                                    Rndr::set_css_property(&style, name, &value);
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
+                    )
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (Some((style, Some(prev))), None) => (style, Some(prev)),
+                                (Some((style, None)), Some(_)) => (style, None),
+                                (Some((style, None)), None) => (style, None),
+                                (None, _) => unreachable!(),
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -373,19 +489,21 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     let name = state.name;
-                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                let (style, prev) = &mut state;
-                                crate::reactive_graph::Rndr::remove_css_property(style, name);
-                                *prev = Cow::Borrowed("");
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.effect.take_value(),
-                    ));
+                    *state = RenderEffectWithCssStyleName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| match (prev) {
+                                Some((style, Some(mut prev))) => {
+                                    crate::reactive_graph::Rndr::remove_css_property(&style, name);
+                                    prev = Cow::Borrowed("");
+                                    (style, Some(prev))
+                                }
+                                Some((style, None)) => (style, None),
+                                None => unreachable!(),
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
                 }
             }
         };
@@ -403,12 +521,12 @@ mod stable {
                 C::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<Option<C::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    let value = self.get();
+                    let value = self.try_get();
                     value.to_html(style);
                 }
 
@@ -416,18 +534,64 @@ mod stable {
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -446,13 +610,13 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
                                 C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
+                                Some(state)
                             }
+                            Some(None) => None,
+                            None => None, // unreachable!()
                         },
                         state.take_value(),
                     );
@@ -468,36 +632,105 @@ mod stable {
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
             {
                 type AsyncOutput = Self;
-                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
-                    crate::renderer::types::CssStyleDeclaration,
-                    Cow<'static, str>,
-                )>;
+                type State =
+                    RenderEffectWithCssStyleName<(CssStyleDeclaration, Option<Cow<'static, str>>)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
-                    IntoStyle::to_html((self.0, move || self.1.get()), style)
+                    let (name, f) = self;
+                    let value = f.try_get();
+                    if let Some(value) = value {
+                        style.push_str(name);
+                        style.push(':');
+                        style.push_str(&value.into());
+                        style.push(';');
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    IntoStyle::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    if !FROM_SERVER {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
                     )
                 }
 
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoStyle::build((self.0, move || self.1.get()), el)
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    // always set the style initially without checking
+                                    Rndr::set_css_property(&style, name, &value);
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
+                    )
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    IntoStyle::rebuild((self.0, move || self.1.get()), state)
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (Some((style, Some(prev))), None) => (style, Some(prev)),
+                                (Some((style, None)), Some(_)) => (style, None),
+                                (Some((style, None)), None) => (style, None),
+                                (None, _) => unreachable!(),
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -516,24 +749,286 @@ mod stable {
 
                 fn reset(state: &mut Self::State) {
                     let name = state.name;
-                    *state = crate::reactive_graph::style::RenderEffectWithCssStyleName::new(state.name, RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                let (style, prev) = &mut state;
-                                crate::reactive_graph::Rndr::remove_css_property(style, name);
-                                *prev = Cow::Borrowed("");
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.effect.take_value(),
-                    ));
+                    *state = RenderEffectWithCssStyleName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| match (prev) {
+                                Some((style, Some(mut prev))) => {
+                                    crate::reactive_graph::Rndr::remove_css_property(&style, name);
+                                    prev = Cow::Borrowed("");
+                                    (style, Some(prev))
+                                }
+                                Some((style, None)) => (style, None),
+                                None => unreachable!(),
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
                 }
             }
         };
     }
 
+    #[cfg(feature = "reactive_stores")]
+    macro_rules! style_store_field {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> IntoStyle for $name<$($gen),*>
+            where
+                $v: IntoStyle + Clone + Send + Sync + 'static,
+                <$v as IntoStyle>::State: 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = RenderEffect<Option<<$v as IntoStyle>::State>>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn to_html(self, style: &mut String) {
+                    let value = self.try_get();
+                    value.to_html(style);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &crate::renderer::types::Element,
+                ) -> Self::State {
+                    // TODO FROM_SERVER vs template
+                    let el = el.clone();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.hydrate::<FROM_SERVER>(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let el = el.to_owned();
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el)),
+                            (Some(Some(state)), None) => Some(state),
+                            (Some(None), Some(value)) => Some(value.build(&el)),
+                            (Some(None), None) => None,
+                            (None, None) => None,
+                        }
+                    })
+                }
+
+                fn rebuild(self, state: &mut Self::State) {
+                    let prev_value = state.take_value();
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&mut state);
+                                    Some(state)
+                                }
+                                (Some(Some(state)), None) => Some(state),
+                                (Some(None), Some(_)) => None,
+                                (Some(None), None) => None,
+                                (None, Some(_)) => None, // unreachable!()
+                                (None, None) => None,    // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    *state = RenderEffect::new_with_value(
+                        move |prev| match (prev) {
+                            Some(Some(mut state)) => {
+                                <$v>::reset(&mut state);
+                                Some(state)
+                            }
+                            Some(None) => None,
+                            None => None, // unreachable!()
+                        },
+                        state.take_value(),
+                    );
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "reactive_stores")]
+    macro_rules! tuple_style_store_field {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            impl<$($gen),*> IntoStyle for (&'static str, $name<$($gen),*>)
+            where
+                $v: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
+                $($where_clause)*
+            {
+                type AsyncOutput = Self;
+                type State = crate::reactive_graph::style::RenderEffectWithCssStyleName<(
+                    CssStyleDeclaration,
+                    Option<Cow<'static, str>>,
+                )>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn to_html(self, style: &mut String) {
+                    let (name, f) = self;
+                    let value = f.try_get();
+                    if let Some(value) = value {
+                        style.push_str(name);
+                        style.push(':');
+                        style.push_str(&value.into());
+                        style.push(';');
+                    }
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    if !FROM_SERVER {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
+                    )
+                }
+
+                fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+                    let (name, f) = self;
+                    let name = Rndr::intern(name);
+                    // TODO FROM_SERVER vs template
+                    let style = Rndr::style(el);
+                    RenderEffectWithCssStyleName::new(
+                        name,
+                        RenderEffect::new(move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (None, Some(value)) => {
+                                    // always set the style initially without checking
+                                    Rndr::set_css_property(&style, name, &value);
+                                    (style.clone(), Some(value))
+                                }
+                                _ => (style.clone(), None),
+                            }
+                        }),
+                    )
+                }
+
+                fn rebuild(self, state: &mut Self::State) {
+                    let (name, f) = self;
+                    // Name might've updated:
+                    state.name = name;
+                    state.effect = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = f.try_get().map(Into::into);
+                            match (prev, value) {
+                                (Some((style, Some(mut prev))), Some(value)) => {
+                                    if value != prev {
+                                        Rndr::set_css_property(&style, name, &value);
+                                    }
+                                    prev = value;
+                                    (style, Some(prev))
+                                }
+                                (Some((style, Some(prev))), None) => (style, Some(prev)),
+                                (Some((style, None)), Some(_)) => (style, None),
+                                (Some((style, None)), None) => (style, None),
+                                (None, _) => unreachable!(),
+                            }
+                        },
+                        state.effect.take_value(),
+                    );
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+
+                fn reset(state: &mut Self::State) {
+                    let name = state.name;
+                    *state = RenderEffectWithCssStyleName::new(
+                        state.name,
+                        RenderEffect::new_with_value(
+                            move |prev| match (prev) {
+                                Some((style, Some(mut prev))) => {
+                                    crate::reactive_graph::Rndr::remove_css_property(&style, name);
+                                    prev = Cow::Borrowed("");
+                                    (style, Some(prev))
+                                }
+                                Some((style, None)) => (style, None),
+                                None => unreachable!(),
+                            },
+                            state.effect.take_value(),
+                        ),
+                    );
+                }
+            }
+        };
+    }
     use super::RenderEffect;
     use crate::html::style::IntoStyle;
     #[allow(deprecated)]
@@ -546,12 +1041,134 @@ mod stable {
         wrappers::read::{ArcSignal, Signal},
     };
     use std::borrow::Cow;
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
 
+    #[cfg(feature = "reactive_stores")]
+    style_store_field!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_store_field!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_store_field!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_style_store_field!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_style_store_field!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_style_store_field!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_style_store_field!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_style_store_field!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_signal_arena!(Store);
+    #[cfg(feature = "reactive_stores")]
+    style_signal_arena!(Field);
     style_signal_arena!(RwSignal);
     style_signal_arena!(ReadSignal);
     style_signal_arena!(Memo);
     style_signal_arena!(Signal);
     style_signal_arena!(MaybeSignal);
+    #[cfg(feature = "reactive_stores")]
+    style_signal!(ArcStore);
+    #[cfg(feature = "reactive_stores")]
+    style_signal!(ArcField);
     style_signal!(ArcRwSignal);
     style_signal!(ArcReadSignal);
     style_signal!(ArcMemo);
