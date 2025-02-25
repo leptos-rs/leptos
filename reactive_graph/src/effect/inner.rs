@@ -30,21 +30,19 @@ impl ReactiveNode for RwLock<EffectInner> {
 
     fn update_if_necessary(&self) -> bool {
         let mut guard = self.write().or_poisoned();
-        let (is_dirty, sources) =
-            (guard.dirty, (!guard.dirty).then(|| guard.sources.clone()));
 
-        if is_dirty {
+        if guard.dirty {
             guard.dirty = false;
             return true;
         }
 
+        let sources = guard.sources.clone();
+
         drop(guard);
-        for source in sources.into_iter().flatten() {
-            if source.update_if_necessary() {
-                return true;
-            }
-        }
-        false
+
+        sources
+            .into_iter()
+            .any(|source| source.update_if_necessary())
     }
 
     fn mark_check(&self) {

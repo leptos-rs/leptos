@@ -3,11 +3,13 @@
 #[allow(clippy::module_inception)]
 mod effect;
 mod effect_function;
+mod immediate;
 mod inner;
 mod render_effect;
 
 pub use effect::*;
 pub use effect_function::*;
+pub use immediate::*;
 pub use render_effect::*;
 
 /// Creates a new render effect, which immediately runs `fun`.
