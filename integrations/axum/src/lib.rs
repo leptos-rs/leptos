@@ -299,6 +299,9 @@ pub fn generate_request_and_parts(
 ///         .await
 ///         .unwrap();
 /// }
+///
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() { }
 /// ```
 /// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
 /// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
@@ -469,6 +472,9 @@ pub type PinnedHtmlStream =
 ///         .await
 ///         .unwrap();
 /// }
+///
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() { }
 /// ```
 ///
 /// ## Provided Context Types
@@ -555,6 +561,9 @@ where
 ///         .await
 ///         .unwrap();
 /// }
+///
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() { }
 /// ```
 ///
 /// ## Provided Context Types
@@ -961,6 +970,9 @@ fn provide_contexts(
 ///         .await
 ///         .unwrap();
 /// }
+///
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() { }
 /// ```
 ///
 /// ## Provided Context Types
