@@ -434,6 +434,7 @@ where
     T: Mountable,
 {
     states: Vec<T>,
+    parent: Option<crate::renderer::types::Element>,
 }
 
 impl<T> Mountable for StaticVecState<T>
@@ -452,6 +453,7 @@ where
         for state in self.states.iter_mut() {
             state.mount(parent, marker);
         }
+        self.parent = Some(parent.clone());
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
@@ -479,17 +481,25 @@ where
     fn build(self) -> Self::State {
         Self::State {
             states: self.0.into_iter().map(T::build).collect(),
+            parent: None,
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let Self::State { states } = state;
-        let old = states;
-        // this is an unkeyed diff
-        self.0
-            .into_iter()
-            .zip(old.iter_mut())
-            .for_each(|(new, old)| T::rebuild(new, old));
+        let Self::State { states, .. } = state;
+
+        // StaticVec's in general shouldn't need to be reused, but rebuild() will still trigger e.g. if 2 routes have the same tree,
+        // this can cause problems if differing in lengths. Because we don't use marker nodes in StaticVec, we rebuild the entire vec remounting to the parent.
+
+        for state in states {
+            state.unmount();
+        }
+        let parent = state
+            .parent
+            .take()
+            .expect("parent should always be Some() on a StaticVec rebuild()");
+        *state = self.build();
+        state.mount(&parent, None);
     }
 }
 
@@ -588,12 +598,13 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        let parent = cursor.current().parent_element();
         let states = self
             .0
             .into_iter()
             .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
-        Self::State { states }
+        Self::State { states, parent }
     }
 
     fn into_owned(self) -> Self::Owned {
