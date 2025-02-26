@@ -39,7 +39,7 @@ impl From<(HttpRequest, Payload)> for ActixRequest {
 
 impl<E> Req<E> for ActixRequest
 where
-    E: FromServerFnError+ Send,
+    E: FromServerFnError + Send,
 {
     type WebsocketResponse = ActixResponse;
 

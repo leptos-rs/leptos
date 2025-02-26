@@ -1,13 +1,11 @@
-use std::marker::PhantomData;
-
+use super::{FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, TryRes},
     Decodes, Encodes,
 };
-
-use super::{FromReq, FromRes, IntoReq, IntoRes};
+use std::marker::PhantomData;
 
 /// A codec that encodes the data in the post body
 pub struct Post<Codec>(PhantomData<Codec>);

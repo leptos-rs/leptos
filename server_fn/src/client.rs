@@ -1,7 +1,6 @@
+use crate::{request::ClientReq, response::ClientRes};
 use bytes::Bytes;
 use futures::{Sink, Stream};
-
-use crate::{request::ClientReq, response::ClientRes};
 use std::{future::Future, sync::OnceLock};
 
 static ROOT_URL: OnceLock<&'static str> = OnceLock::new();

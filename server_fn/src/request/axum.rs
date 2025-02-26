@@ -1,9 +1,15 @@
-
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
 };
-use axum::{body::{Body, Bytes}, extract::{ws::{CloseFrame, Message, Utf8Bytes}, FromRequest}, response::Response};
+use axum::{
+    body::{Body, Bytes},
+    extract::{
+        ws::{CloseFrame, Message, Utf8Bytes},
+        FromRequest,
+    },
+    response::Response,
+};
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use http::{
     header::{ACCEPT, CONTENT_TYPE, REFERER},
@@ -83,9 +89,8 @@ where
                 .unwrap();
         let (mut outgoing_tx, outgoing_rx) =
             futures::channel::mpsc::channel(2048);
-        let (incoming_tx, mut incoming_rx) = futures::channel::mpsc::channel::<
-            Result<Bytes, E>,
-        >(2048);
+        let (incoming_tx, mut incoming_rx) =
+            futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
         let response = upgrade
             .on_failed_upgrade({
                 let mut outgoing_tx = outgoing_tx.clone();

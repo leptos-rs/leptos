@@ -88,4 +88,3 @@ impl<CustErr> ClientRes<CustErr> for Response {
         self.headers().get("Location").is_some()
     }
 }
-

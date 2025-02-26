@@ -26,9 +26,9 @@ use std::borrow::Cow;
 
 impl<E> Req<E> for Request<Bytes>
 where
-    E: FromServerFnError+ Send,
+    E: FromServerFnError + Send,
 {
-type WebsocketResponse = Response<Bytes>;
+    type WebsocketResponse = Response<Bytes>;
 
     async fn try_into_bytes(self) -> Result<Bytes, E> {
         Ok(self.into_body())
@@ -82,9 +82,7 @@ type WebsocketResponse = Response<Bytes>;
     > {
         Err::<
             (
-                futures::stream::Once<
-                    std::future::Ready<Result<Bytes, E>>,
-                >,
+                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
                 futures::sink::Drain<Result<Bytes, E>>,
                 Self::WebsocketResponse,
             ),

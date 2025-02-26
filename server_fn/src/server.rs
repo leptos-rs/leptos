@@ -1,9 +1,8 @@
-use std::future::Future;
-
 use crate::{
     request::Req,
     response::{Res, TryRes},
 };
+use std::future::Future;
 
 /// A server defines a pair of request/response types and the logic to spawn
 /// an async task.
