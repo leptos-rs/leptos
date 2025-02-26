@@ -35,8 +35,8 @@ pub fn server_macro_impl(
     body: TokenStream2,
     server_fn_path: Option<Path>,
     default_path: &str,
-    preset_req: Option<Type>,
-    preset_res: Option<Type>,
+    preset_server: Option<Type>,
+    default_protocol: Option<Type>,
 ) -> Result<TokenStream2> {
     let mut body = syn::parse::<ServerFnBody>(body.into())?;
 
@@ -59,15 +59,14 @@ pub fn server_macro_impl(
         .inputs
         .iter_mut()
         .map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => {
-                    return Err(syn::Error::new(
+            let typed_arg =
+                match f {
+                    FnArg::Receiver(_) => return Err(syn::Error::new(
                         f.span(),
                         "cannot use receiver types in server function macro",
-                    ))
-                }
-                FnArg::Typed(t) => t,
-            };
+                    )),
+                    FnArg::Typed(t) => t,
+                };
 
             // strip `mut`, which is allowed in fn args but not in struct fields
             if let Pat::Ident(ident) = &mut *typed_arg.pat {
@@ -215,8 +214,7 @@ pub fn server_macro_impl(
         output,
         fn_path,
         builtin_encoding,
-        req_ty,
-        res_ty,
+        server,
         client,
         custom_wrapper,
         impl_from,
@@ -257,6 +255,9 @@ pub fn server_macro_impl(
                 #server_fn_path::codec::Json
             }
         });
+    let protocol = quote! {
+        #server_fn_path::Http<#input, #output>
+    };
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -531,60 +532,32 @@ pub fn server_macro_impl(
         }
     };
 
-    let req = if !cfg!(feature = "ssr") {
+    let server = if !cfg!(feature = "ssr") {
         quote! {
-            #server_fn_path::request::BrowserMockReq
+            #server_fn_path::mock::BrowserMockServer
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::http_export::Request<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::axum::AxumServerFnBackend
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            #server_fn_path::request::actix::ActixRequest
+            #server_fn_path::actix::ActixServerFnBackend
         }
     } else if cfg!(feature = "generic") {
         quote! {
-            #server_fn_path::http_export::Request<#server_fn_path::bytes_export::Bytes>
+            #server_fn_path::axum::AxumServerFnBackend
         }
-    } else if let Some(req_ty) = req_ty {
-        req_ty.to_token_stream()
-    } else if let Some(req_ty) = preset_req {
-        req_ty.to_token_stream()
+    } else if let Some(server) = server {
+        server.to_token_stream()
+    } else if let Some(server) = preset_server {
+        server.to_token_stream()
     } else {
         // fall back to the browser version, to avoid erroring out
         // in things like doctests
         // in reality, one of the above needs to be set
         quote! {
-            #server_fn_path::request::BrowserMockReq
-        }
-    };
-    let res = if !cfg!(feature = "ssr") {
-        quote! {
-            #server_fn_path::response::BrowserMockRes
-        }
-    } else if cfg!(feature = "axum") {
-        quote! {
-            #server_fn_path::http_export::Response<#server_fn_path::axum_export::body::Body>
-        }
-    } else if cfg!(feature = "actix") {
-        quote! {
-            #server_fn_path::response::actix::ActixResponse
-        }
-    } else if cfg!(feature = "generic") {
-        quote! {
-            #server_fn_path::http_export::Response<#server_fn_path::response::generic::Body>
-        }
-    } else if let Some(res_ty) = res_ty {
-        res_ty.to_token_stream()
-    } else if let Some(res_ty) = preset_res {
-        res_ty.to_token_stream()
-    } else {
-        // fall back to the browser version, to avoid erroring out
-        // in things like doctests
-        // in reality, one of the above needs to be set
-        quote! {
-            #server_fn_path::response::BrowserMockRes
+            #server_fn_path::mock::BrowserMockServer
         }
     };
 
@@ -677,14 +650,12 @@ pub fn server_macro_impl(
             const PATH: &'static str = #path;
 
             type Client = #client;
-            type ServerRequest = #req;
-            type ServerResponse = #res;
+            type Server = #server;
+            type Protocol = #protocol;
             type Output = #output_ty;
-            type InputEncoding = #input;
-            type OutputEncoding = #output;
             type Error = #error_ty;
 
-            fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<#req, #res>>> {
+            fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<<Self::Server as #server_fn_path::server::Server<Self::Error>>::Request, <Self::Server as #server_fn_path::server::Server<Self::Error>>::Response>>> {
                 #middlewares
             }
 
@@ -788,8 +759,7 @@ struct ServerFnArgs {
     input_derive: Option<ExprTuple>,
     output: Option<Type>,
     fn_path: Option<Literal>,
-    req_ty: Option<Type>,
-    res_ty: Option<Type>,
+    server: Option<Type>,
     client: Option<Type>,
     custom_wrapper: Option<Path>,
     builtin_encoding: bool,
@@ -808,8 +778,7 @@ impl Parse for ServerFnArgs {
         let mut input: Option<Type> = None;
         let mut input_derive: Option<ExprTuple> = None;
         let mut output: Option<Type> = None;
-        let mut req_ty: Option<Type> = None;
-        let mut res_ty: Option<Type> = None;
+        let mut server: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
         let mut impl_from: Option<LitBool> = None;
@@ -896,22 +865,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         output = Some(stream.parse()?);
-                    } else if key == "req" {
-                        if req_ty.is_some() {
+                    } else if key == "server" {
+                        if server.is_some() {
                             return Err(syn::Error::new(
                                 key.span(),
-                                "keyword argument repeated: `req`",
+                                "keyword argument repeated: `server`",
                             ));
                         }
-                        req_ty = Some(stream.parse()?);
-                    } else if key == "res" {
-                        if res_ty.is_some() {
-                            return Err(syn::Error::new(
-                                key.span(),
-                                "keyword argument repeated: `res`",
-                            ));
-                        }
-                        res_ty = Some(stream.parse()?);
+                        server = Some(stream.parse()?);
                     } else if key == "client" {
                         if client.is_some() {
                             return Err(syn::Error::new(
@@ -1028,8 +989,7 @@ impl Parse for ServerFnArgs {
             output,
             fn_path,
             builtin_encoding,
-            req_ty,
-            res_ty,
+            server,
             client,
             custom_wrapper,
             impl_from,

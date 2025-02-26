@@ -122,7 +122,7 @@ where
 pub struct BrowserMockReq;
 
 impl<E: Send + 'static> Req<E> for BrowserMockReq {
-    type WebsocketResponse = ();
+    type WebsocketResponse = crate::response::BrowserMockRes;
 
     fn as_query(&self) -> Option<&str> {
         unreachable!()

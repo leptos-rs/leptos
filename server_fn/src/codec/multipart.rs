@@ -2,7 +2,7 @@ use super::{Encoding, FromReq};
 use crate::{
     error::FromServerFnError,
     request::{browser::BrowserFormData, ClientReq, Req},
-    IntoReq,
+    ContentType, IntoReq,
 };
 use futures::StreamExt;
 use http::Method;
@@ -14,8 +14,11 @@ use web_sys::FormData;
 /// You should primarily use this if you are trying to handle file uploads.
 pub struct MultipartFormData;
 
-impl Encoding for MultipartFormData {
+impl ContentType for MultipartFormData {
     const CONTENT_TYPE: &'static str = "multipart/form-data";
+}
+
+impl Encoding for MultipartFormData {
     const METHOD: Method = Method::POST;
 }
 

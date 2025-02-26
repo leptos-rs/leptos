@@ -1,16 +1,19 @@
-use crate::{Decodes, Encodes};
+use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Serializes and deserializes JSON with [`serde_json`].
 pub struct Json;
 
+impl ContentType for Json {
+    const CONTENT_TYPE: &'static str = "application/json";
+}
+
 impl<T> Encodes<T> for Json
 where
     T: Serialize,
 {
     type Error = serde_json::Error;
-    const CONTENT_TYPE: &'static str = "application/json";
 
     fn encode(output: T) -> Result<Bytes, Self::Error> {
         serde_json::to_vec(&output).map(Bytes::from)

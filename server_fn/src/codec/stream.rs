@@ -3,7 +3,7 @@ use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, TryRes},
-    IntoRes, ServerFnError,
+    ContentType, IntoRes, ServerFnError,
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
@@ -24,8 +24,11 @@ use std::{fmt::Debug, pin::Pin};
 /// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct Streaming;
 
-impl Encoding for Streaming {
+impl ContentType for Streaming {
     const CONTENT_TYPE: &'static str = "application/octet-stream";
+}
+
+impl Encoding for Streaming {
     const METHOD: Method = Method::POST;
 }
 
@@ -134,8 +137,11 @@ where
 /// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct StreamingText;
 
-impl Encoding for StreamingText {
+impl ContentType for StreamingText {
     const CONTENT_TYPE: &'static str = "text/plain";
+}
+
+impl Encoding for StreamingText {
     const METHOD: Method = Method::POST;
 }
 

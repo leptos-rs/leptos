@@ -1,16 +1,19 @@
-use crate::{error::ServerFnErrorErr, Decodes, Encodes};
+use crate::{error::ServerFnErrorErr, ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub struct SerdeLite;
 
+impl ContentType for SerdeLite {
+    const CONTENT_TYPE: &'static str = "application/json";
+}
+
 impl<T> Encodes<T> for SerdeLite
 where
     T: Serialize,
 {
     type Error = ServerFnErrorErr;
-    const CONTENT_TYPE: &'static str = "application/json";
 
     fn encode(value: T) -> Result<Bytes, Self::Error> {
         serde_json::to_vec(

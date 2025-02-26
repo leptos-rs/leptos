@@ -1,14 +1,22 @@
-use super::{FromReq, FromRes, IntoReq, IntoRes};
+use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, TryRes},
-    Decodes, Encodes,
+    ContentType, Decodes, Encodes,
 };
 use std::marker::PhantomData;
 
 /// A codec that encodes the data in the post body
 pub struct Post<Codec>(PhantomData<Codec>);
+
+impl<Codec: ContentType> ContentType for Post<Codec> {
+    const CONTENT_TYPE: &'static str = Codec::CONTENT_TYPE;
+}
+
+impl<Codec: ContentType> Encoding for Post<Codec> {
+    const METHOD: http::Method = http::Method::POST;
+}
 
 impl<E, T, Encoding, Request> IntoReq<Post<Encoding>, Request, E> for T
 where

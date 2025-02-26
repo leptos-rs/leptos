@@ -1,4 +1,4 @@
-use crate::{Decodes, Encodes};
+use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use rkyv::{
     api::high::{HighDeserializer, HighSerializer, HighValidator},
@@ -17,6 +17,10 @@ type RkyvValidator<'a> = HighValidator<'a, rancor::Error>;
 /// Pass arguments and receive responses using `rkyv` in a `POST` request.
 pub struct Rkyv;
 
+impl ContentType for Rkyv {
+    const CONTENT_TYPE: &'static str = "application/rkyv";
+}
+
 impl<T> Encodes<T> for Rkyv
 where
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
@@ -24,7 +28,6 @@ where
         + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
     type Error = rancor::Error;
-    const CONTENT_TYPE: &'static str = "application/rkyv";
 
     fn encode(value: T) -> Result<Bytes, Self::Error> {
         let encoded = rkyv::to_bytes::<rancor::Error>(&value)?;

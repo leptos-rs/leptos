@@ -2,6 +2,7 @@ use super::{Encoding, FromReq, IntoReq};
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
+    ContentType,
 };
 use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
@@ -12,8 +13,11 @@ pub struct GetUrl;
 /// Pass arguments as the URL-encoded body of a `POST` request.
 pub struct PostUrl;
 
-impl Encoding for GetUrl {
+impl ContentType for GetUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for GetUrl {
     const METHOD: Method = Method::GET;
 }
 
@@ -48,8 +52,11 @@ where
     }
 }
 
-impl Encoding for PostUrl {
+impl ContentType for PostUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for PostUrl {
     const METHOD: Method = Method::POST;
 }
 

@@ -566,13 +566,16 @@ where
     }
 }
 
+/// A trait for types with an associated content type.
+pub trait ContentType {
+    /// The MIME type of the data.
+    const CONTENT_TYPE: &'static str;
+}
+
 /// A trait for types that can be encoded into a bytes for a request body.
-pub trait Encodes<T> {
+pub trait Encodes<T>: ContentType {
     /// The error type that can be returned if the encoding fails.
     type Error: Display;
-
-    /// The content type of the encoding.
-    const CONTENT_TYPE: &'static str;
 
     /// Encodes the given value into a bytes.
     fn encode(output: T) -> Result<Bytes, Self::Error>;
@@ -718,9 +721,11 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 /// Axum integration.
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
+    use std::future::Future;
+
     use crate::{
-        middleware::BoxedService, LazyServerFnMap, Protocol, ServerFn,
-        ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService, LazyServerFnMap,
+        Protocol, Server, ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -729,6 +734,18 @@ pub mod axum {
         Request<Body>,
         Response<Body>,
     > = initialize_server_fn_map!(Request<Body>, Response<Body>);
+
+    /// The axum server function backend
+    pub struct AxumServerFnBackend;
+
+    impl<E: FromServerFnError + Send + Sync> Server<E> for AxumServerFnBackend {
+        type Request = Request<Body>;
+        type Response = Response<Body>;
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            tokio::spawn(future);
+        }
+    }
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
@@ -801,10 +818,12 @@ pub mod axum {
 /// Actix integration.
 #[cfg(feature = "actix")]
 pub mod actix {
+    use std::future::Future;
+
     use crate::{
-        middleware::BoxedService, request::actix::ActixRequest,
-        response::actix::ActixResponse, LazyServerFnMap, Protocol, ServerFn,
-        ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService,
+        request::actix::ActixRequest, response::actix::ActixResponse,
+        server::Server, LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
     };
     use actix_web::{web::Payload, HttpRequest, HttpResponse};
     use http::Method;
@@ -815,6 +834,18 @@ pub mod actix {
         ActixRequest,
         ActixResponse,
     > = initialize_server_fn_map!(ActixRequest, ActixResponse);
+
+    /// The actix server function backend
+    pub struct ActixServerFnBackend;
+
+    impl<E: FromServerFnError + Send + Sync> Server<E> for ActixServerFnBackend {
+        type Request = ActixRequest;
+        type Response = ActixResponse;
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            actix_web::rt::spawn(future);
+        }
+    }
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
@@ -898,5 +929,27 @@ pub mod actix {
                 service
             },
         )
+    }
+}
+
+/// Mocks for the server function backend types when compiling for the client.
+pub mod mock {
+    use std::future::Future;
+
+    /// A mocked server type that can be used in place of the actual server,
+    /// when compiling for the browser.
+    ///
+    /// ## Panics
+    /// This always panics if its methods are called. It is used solely to stub out the
+    /// server type when compiling for the client.
+    pub struct BrowserMockServer;
+
+    impl<E: Send + 'static> crate::server::Server<E> for BrowserMockServer {
+        type Request = crate::request::BrowserMockReq;
+        type Response = crate::response::BrowserMockRes;
+
+        fn spawn(_: impl Future<Output = ()> + Send + 'static) {
+            unreachable!()
+        }
     }
 }

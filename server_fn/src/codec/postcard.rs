@@ -1,16 +1,19 @@
-use crate::{Decodes, Encodes};
+use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// A codec for Postcard.
 pub struct Postcard;
 
+impl ContentType for Postcard {
+    const CONTENT_TYPE: &'static str = "application/x-postcard";
+}
+
 impl<T> Encodes<T> for Postcard
 where
     T: Serialize,
 {
     type Error = postcard::Error;
-    const CONTENT_TYPE: &'static str = "application/x-postcard";
 
     fn encode(value: T) -> Result<Bytes, Self::Error> {
         postcard::to_allocvec(&value).map(|bytes| Bytes::from(bytes))
