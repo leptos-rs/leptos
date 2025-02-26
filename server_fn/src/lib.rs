@@ -99,6 +99,9 @@
 /// Implementations of the client side of the server function call.
 pub mod client;
 
+/// Implementations of the server side of the server function call.
+pub mod server;
+
 /// Encodings for arguments and results.
 pub mod codec;
 
@@ -114,7 +117,6 @@ pub mod request;
 /// Types and traits for HTTP responses.
 pub mod response;
 
-use crate::request::ClientReq;
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
@@ -153,6 +155,7 @@ pub use serde;
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
+use server::Server;
 use std::{
     fmt::Display, future::Future, marker::PhantomData, pin::Pin, sync::Arc,
 };
@@ -197,21 +200,17 @@ pub trait ServerFn: Send + Sized {
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
     type Client: Client<Self::Error>;
 
-    /// The type of the HTTP request when received by the server function on the server side.
-    type ServerRequest: Req<Self::Error, WebsocketResponse = Self::ServerResponse>
-        + Send
-        + 'static;
-
-    /// The type of the HTTP response returned by the server function on the server side.
-    type ServerResponse: Res + TryRes<Self::Error> + Send + 'static;
+    /// The type of the HTTP server that will send the response from the server side.
+    ///
+    /// For example, this might be `axum` or `actix-web`.
+    type Server: Server<Self::Error>;
 
     /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
         Self,
         Self::Output,
         Self::Client,
-        Self::ServerRequest,
-        Self::ServerResponse,
+        Self::Server,
         Self::Error,
     >;
 
@@ -230,8 +229,14 @@ pub trait ServerFn: Send + Sized {
     }
 
     /// Middleware that should be applied to this server function.
-    fn middlewares(
-    ) -> Vec<Arc<dyn Layer<Self::ServerRequest, Self::ServerResponse>>> {
+    fn middlewares() -> Vec<
+        Arc<
+            dyn Layer<
+                <Self::Server as crate::Server<Self::Error>>::Request,
+                <Self::Server as crate::Server<Self::Error>>::Response,
+            >,
+        >,
+    > {
         Vec::new()
     }
 
@@ -242,8 +247,10 @@ pub trait ServerFn: Send + Sized {
 
     #[doc(hidden)]
     fn run_on_server(
-        req: Self::ServerRequest,
-    ) -> impl Future<Output = Self::ServerResponse> + Send {
+        req: <Self::Server as crate::Server<Self::Error>>::Request,
+    ) -> impl Future<
+        Output = <Self::Server as crate::Server<Self::Error>>::Response,
+    > + Send {
         // Server functions can either be called by a real Client,
         // or directly by an HTML <form>. If they're accessed by a <form>, default to
         // redirecting back to the Referer.
@@ -264,9 +271,10 @@ pub trait ServerFn: Send + Sized {
                     .map(|res| (res, None))
                     .unwrap_or_else(|e| {
                         (
-                            Self::ServerResponse::error_response(
-                                Self::PATH,
-                                e.ser(),
+                            <<Self as ServerFn>::Server as crate::Server<
+                                Self::Error,
+                            >>::Response::error_response(
+                                Self::PATH, e.ser()
                             ),
                             Some(e),
                         )
@@ -307,10 +315,9 @@ pub trait ServerFn: Send + Sized {
 
 /// The protocol that a server function uses to communicate with the client. This trait handles
 /// the server and client side of running a server function.
-pub trait Protocol<Input, Output, Client, Request, Response, E>
+pub trait Protocol<Input, Output, Client, Server, E>
 where
-    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
-    Response: TryRes<E> + Send + 'static,
+    Server: crate::Server<E>,
     Client: crate::Client<E>,
 {
     /// The HTTP method used for requests.
@@ -319,9 +326,9 @@ where
     /// Run the server function on the server. The implementation should handle deserializing the
     /// input, running the server function, and serializing the output.
     fn run_server<F, Fut>(
-        request: Request,
+        request: Server::Request,
         server_fn: F,
-    ) -> impl Future<Output = Result<Response, E>> + Send
+    ) -> impl Future<Output = Result<Server::Response, E>> + Send
     where
         F: Fn(Input) -> Fut + Send,
         Fut: Future<Output = Result<Output, E>> + Send;
@@ -334,41 +341,33 @@ where
     ) -> impl Future<Output = Result<Output, E>> + Send;
 }
 
-struct Http<InputProtocol, OutputProtocol>(
+/// The http protocol with specific input and output encodings for the request and response.
+pub struct Http<InputProtocol, OutputProtocol>(
     PhantomData<(InputProtocol, OutputProtocol)>,
 );
 
-impl<
-        InputProtocol,
-        OutputProtocol,
-        Input,
-        Output,
-        Client,
-        Request,
-        Response,
-        E,
-    > Protocol<Input, Output, Client, Request, Response, E>
+impl<InputProtocol, OutputProtocol, Input, Output, Client, Server, E>
+    Protocol<Input, Output, Client, Server, E>
     for Http<InputProtocol, OutputProtocol>
 where
     Input: IntoReq<InputProtocol, Client::Request, E>
-        + FromReq<InputProtocol, Request, E>
+        + FromReq<InputProtocol, Server::Request, E>
         + Send,
-    Output: IntoRes<OutputProtocol, Response, E>
+    Output: IntoRes<OutputProtocol, Server::Response, E>
         + FromRes<OutputProtocol, Client::Response, E>
         + Send,
     E: FromServerFnError,
     InputProtocol: Encoding,
     OutputProtocol: Encoding,
-    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
-    Response: TryRes<E> + Send + 'static,
     Client: crate::Client<E>,
+    Server: crate::Server<E>,
 {
     const METHOD: Method = InputProtocol::METHOD;
 
     async fn run_server<F, Fut>(
-        request: Request,
+        request: Server::Request,
         server_fn: F,
-    ) -> Result<Response, E>
+    ) -> Result<Server::Response, E>
     where
         F: Fn(Input) -> Fut + Send,
         Fut: Future<Output = Result<Output, E>> + Send,
@@ -412,10 +411,16 @@ where
     }
 }
 
-struct Websocket<InputEncoding, OutputEncoding>(
+/// The websocket protocol that encodes the input and output streams using a websocket connection.
+pub struct Websocket<InputEncoding, OutputEncoding>(
     PhantomData<(InputEncoding, OutputEncoding)>,
 );
 
+/// A type alias for a boxed result stream.
+pub type BoxedStream<T, Error> =
+    Pin<Box<dyn Stream<Item = Result<T, Error>> + Send>>;
+
+/// A trait for types that can be converted from a boxed stream.
 trait FromBoxedStream {
     type Output;
     type Error;
@@ -426,6 +431,15 @@ trait FromBoxedStream {
     ) -> Self;
 }
 
+impl<T, Error> FromBoxedStream for BoxedStream<T, Error> {
+    type Output = T;
+    type Error = Error;
+
+    fn from_boxed_stream(stream: BoxedStream<T, Error>) -> Self {
+        stream
+    }
+}
+
 impl<
         Input,
         InputItem,
@@ -434,10 +448,9 @@ impl<
         InputEncoding,
         OutputEncoding,
         Client,
-        Request,
-        Response,
+        Server,
         E,
-    > Protocol<Input, Output, Client, Request, Response, E>
+    > Protocol<Input, Output, Client, Server, E>
     for Websocket<InputEncoding, OutputEncoding>
 where
     Input: Stream<Item = Result<InputItem, E>>
@@ -450,24 +463,21 @@ where
         + 'static,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
-    Request: Req<E, WebsocketResponse = Response> + Send + 'static,
-    Response: TryRes<E> + Send + 'static,
-    E: FromServerFnError,
+    Server: crate::Server<E>,
+    E: FromServerFnError + Send,
     Client: crate::Client<E>,
 {
     const METHOD: Method = Method::GET;
 
     async fn run_server<F, Fut>(
-        request: Request,
+        request: Server::Request,
         server_fn: F,
-    ) -> Result<Response, E>
+    ) -> Result<Server::Response, E>
     where
         F: Fn(Input) -> Fut + Send,
         Fut: Future<Output = Result<Output, E>> + Send,
-        Request: Req<E, WebsocketResponse = Response> + Send,
-        Response: TryRes<E> + Send,
     {
-        let (request_bytes, mut response_stream, response) =
+        let (request_bytes, response_stream, response) =
             request.try_into_websocket()?;
         let input = request_bytes.map(|request_bytes| match request_bytes {
             Ok(request_bytes) => {
@@ -494,8 +504,7 @@ where
             Err(err) => Err(err),
         });
 
-        #[cfg(feature = "axum")]
-        tokio::spawn(async move {
+        Server::spawn(async move {
             pin_mut!(response_stream);
             pin_mut!(output);
             while let Some(output) = output.next().await {
@@ -613,7 +622,11 @@ pub struct ServerFnTraitObj<Req, Res> {
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
     /// Converts the relevant parts of a server function into a trait object.
-    pub const fn new<S: ServerFn<ServerRequest = Req, ServerResponse = Res>>(
+    pub const fn new<
+        S: ServerFn<
+            Server: crate::Server<S::Error, Request = Req, Response = Res>,
+        >,
+    >(
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     ) -> Self
     where
@@ -706,8 +719,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        middleware::BoxedService, Encoding, LazyServerFnMap, Protocol,
-        ServerFn, ServerFnTraitObj,
+        middleware::BoxedService, LazyServerFnMap, Protocol, ServerFn,
+        ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -723,8 +736,11 @@ pub mod axum {
     pub fn register_explicit<T>()
     where
         T: ServerFn<
-                ServerRequest = Request<Body>,
-                ServerResponse = Response<Body>,
+                Server: crate::Server<
+                    T::Error,
+                    Request = Request<Body>,
+                    Response = Response<Body>,
+                >,
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
@@ -787,8 +803,8 @@ pub mod axum {
 pub mod actix {
     use crate::{
         middleware::BoxedService, request::actix::ActixRequest,
-        response::actix::ActixResponse, Encoding, LazyServerFnMap, Protocol,
-        ServerFn, ServerFnTraitObj,
+        response::actix::ActixResponse, LazyServerFnMap, Protocol, ServerFn,
+        ServerFnTraitObj,
     };
     use actix_web::{web::Payload, HttpRequest, HttpResponse};
     use http::Method;
@@ -806,8 +822,11 @@ pub mod actix {
     pub fn register_explicit<T>()
     where
         T: ServerFn<
-                ServerRequest = ActixRequest,
-                ServerResponse = ActixResponse,
+                Server: crate::Server<
+                    T::Error,
+                    Request = ActixRequest,
+                    Response = ActixResponse,
+                >,
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(

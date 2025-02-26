@@ -54,6 +54,8 @@ mod postcard;
 #[cfg(feature = "postcard")]
 pub use postcard::*;
 
+
+mod get;
 mod stream;
 use futures::Future;
 use http::Method;
