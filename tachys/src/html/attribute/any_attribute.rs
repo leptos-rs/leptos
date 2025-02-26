@@ -1,70 +1,36 @@
 use super::{Attribute, NextAttribute};
-use dyn_clone::DynClone;
-use std::{
-    any::{Any, TypeId},
-    fmt::Debug,
-};
+use crate::erased::{Erased, ErasedLocal};
+use std::{any::TypeId, fmt::Debug};
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
-trait DynAttr: DynClone + Any + Send + 'static {
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-    #[cfg(feature = "ssr")]
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-dyn_clone::clone_trait_object!(DynAttr);
-
-impl<T: Clone> DynAttr for T
-where
-    T: Attribute + 'static,
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    #[cfg(feature = "ssr")]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 /// A type-erased container for any [`Attribute`].
-#[derive(Clone)]
 pub struct AnyAttribute {
     type_id: TypeId,
     html_len: usize,
-    value: Box<dyn DynAttr>,
+    value: Erased,
+    clone: fn(&Erased) -> AnyAttribute,
     #[cfg(feature = "ssr")]
-    to_html: fn(
-        Box<dyn DynAttr>,
-        &mut String,
-        &mut String,
-        &mut String,
-        &mut String,
-    ),
-    build: fn(
-        Box<dyn DynAttr>,
-        el: &crate::renderer::types::Element,
-    ) -> AnyAttributeState,
-    rebuild: fn(TypeId, Box<dyn DynAttr>, &mut AnyAttributeState),
+    to_html: fn(Erased, &mut String, &mut String, &mut String, &mut String),
+    build: fn(Erased, el: crate::renderer::types::Element) -> AnyAttributeState,
+    rebuild: fn(Erased, &mut AnyAttributeState),
     #[cfg(feature = "hydrate")]
-    hydrate_from_server: fn(
-        Box<dyn DynAttr>,
-        &crate::renderer::types::Element,
-    ) -> AnyAttributeState,
+    hydrate_from_server:
+        fn(Erased, crate::renderer::types::Element) -> AnyAttributeState,
     #[cfg(feature = "hydrate")]
-    hydrate_from_template: fn(
-        Box<dyn DynAttr>,
-        &crate::renderer::types::Element,
-    ) -> AnyAttributeState,
+    hydrate_from_template:
+        fn(Erased, crate::renderer::types::Element) -> AnyAttributeState,
     #[cfg(feature = "ssr")]
     #[allow(clippy::type_complexity)]
-    resolve: fn(
-        Box<dyn DynAttr>,
-    ) -> Pin<Box<dyn Future<Output = AnyAttribute> + Send>>,
+    resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyAttribute> + Send>>,
     #[cfg(feature = "ssr")]
-    dry_resolve: fn(&mut Box<dyn DynAttr>),
+    dry_resolve: fn(&mut Erased),
+}
+
+impl Clone for AnyAttribute {
+    fn clone(&self) -> Self {
+        (self.clone)(&self.value)
+    }
 }
 
 impl Debug for AnyAttribute {
@@ -76,7 +42,7 @@ impl Debug for AnyAttribute {
 /// View state for [`AnyAttribute`].
 pub struct AnyAttributeState {
     type_id: TypeId,
-    state: Box<dyn Any>,
+    state: ErasedLocal,
     el: crate::renderer::types::Element,
 }
 
@@ -93,122 +59,105 @@ where
     crate::renderer::types::Element: Clone,
 {
     fn into_any_attr(self) -> AnyAttribute {
-        let value =
-            Box::new(self.into_cloneable_owned()) as Box<dyn Any + Send>;
-        let value = match (value as Box<dyn Any>).downcast::<AnyAttribute>() {
-            // if it's already an AnyAttribute, we don't need to double-wrap it
-            Ok(any_attribute) => return *any_attribute,
-            Err(value) => value.downcast::<T::CloneableOwned>().unwrap(),
-        };
+        fn clone<T: Attribute + Clone + 'static>(
+            value: &Erased,
+        ) -> AnyAttribute {
+            value.get_ref::<T>().clone().into_any_attr()
+        }
 
         #[cfg(feature = "ssr")]
-        let to_html = |value: Box<dyn DynAttr>,
-                       buf: &mut String,
-                       class: &mut String,
-                       style: &mut String,
-                       inner_html: &mut String| {
-            let value = value
-                .into_any()
-                .downcast::<T::CloneableOwned>()
-                .expect("AnyAttribute::to_html could not be downcast");
-            value.to_html(buf, class, style, inner_html);
-        };
-        let build = |value: Box<dyn DynAttr>,
-                     el: &crate::renderer::types::Element| {
-            let value = value
-                .into_any()
-                .downcast::<T::CloneableOwned>()
-                .expect("AnyAttribute::build couldn't downcast");
-            let state = Box::new(value.build(el));
+        fn to_html<T: Attribute + 'static>(
+            value: Erased,
+            buf: &mut String,
+            class: &mut String,
+            style: &mut String,
+            inner_html: &mut String,
+        ) {
+            value
+                .into_inner::<T>()
+                .to_html(buf, class, style, inner_html);
+        }
 
+        fn build<T: Attribute + 'static>(
+            value: Erased,
+            el: crate::renderer::types::Element,
+        ) -> AnyAttributeState {
             AnyAttributeState {
-                type_id: TypeId::of::<T::CloneableOwned>(),
-                state,
-                el: el.clone(),
+                type_id: TypeId::of::<T>(),
+                state: ErasedLocal::new(value.into_inner::<T>().build(&el)),
+                el,
             }
-        };
-        #[cfg(feature = "hydrate")]
-        let hydrate_from_server =
-            |value: Box<dyn DynAttr>, el: &crate::renderer::types::Element| {
-                let value =
-                    value.into_any().downcast::<T::CloneableOwned>().expect(
-                        "AnyAttribute::hydrate_from_server couldn't downcast",
-                    );
-                let state = Box::new(value.hydrate::<true>(el));
+        }
 
-                AnyAttributeState {
-                    type_id: TypeId::of::<T::CloneableOwned>(),
-                    state,
-                    el: el.clone(),
-                }
-            };
         #[cfg(feature = "hydrate")]
-        let hydrate_from_template =
-            |value: Box<dyn DynAttr>, el: &crate::renderer::types::Element| {
-                let value =
-                    value.into_any().downcast::<T::CloneableOwned>().expect(
-                        "AnyAttribute::hydrate_from_server couldn't downcast",
-                    );
-                let state = Box::new(value.hydrate::<true>(el));
-
-                AnyAttributeState {
-                    type_id: TypeId::of::<T::CloneableOwned>(),
-                    state,
-                    el: el.clone(),
-                }
-            };
-        let rebuild = |new_type_id: TypeId,
-                       value: Box<dyn DynAttr>,
-                       state: &mut AnyAttributeState| {
-            let value = value
-                .into_any()
-                .downcast::<T::CloneableOwned>()
-                .expect("AnyAttribute::rebuild couldn't downcast value");
-            if new_type_id == state.type_id {
-                let state = state
-                    .state
-                    .downcast_mut()
-                    .expect("AnyAttribute::rebuild couldn't downcast state");
-                value.rebuild(state);
-            } else {
-                let new = value.into_any_attr().build(&state.el);
-                *state = new;
+        fn hydrate_from_server<T: Attribute + 'static>(
+            value: Erased,
+            el: crate::renderer::types::Element,
+        ) -> AnyAttributeState {
+            AnyAttributeState {
+                type_id: TypeId::of::<T>(),
+                state: ErasedLocal::new(
+                    value.into_inner::<T>().hydrate::<true>(&el),
+                ),
+                el,
             }
-        };
-        #[cfg(feature = "ssr")]
-        let dry_resolve = |value: &mut Box<dyn DynAttr>| {
-            let value = value
-                .as_any_mut()
-                .downcast_mut::<T::CloneableOwned>()
-                .expect("AnyView::resolve could not be downcast");
-            value.dry_resolve();
-        };
+        }
+
+        #[cfg(feature = "hydrate")]
+        fn hydrate_from_template<T: Attribute + 'static>(
+            value: Erased,
+            el: crate::renderer::types::Element,
+        ) -> AnyAttributeState {
+            AnyAttributeState {
+                type_id: TypeId::of::<T>(),
+                state: ErasedLocal::new(
+                    value.into_inner::<T>().hydrate::<true>(&el),
+                ),
+                el,
+            }
+        }
+
+        fn rebuild<T: Attribute + 'static>(
+            value: Erased,
+            state: &mut AnyAttributeState,
+        ) {
+            let value = value.into_inner::<T>();
+            let state = state.state.get_mut::<T::State>();
+            value.rebuild(state);
+        }
 
         #[cfg(feature = "ssr")]
-        let resolve = |value: Box<dyn DynAttr>| {
-            let value = value
-                .into_any()
-                .downcast::<T::CloneableOwned>()
-                .expect("AnyView::resolve could not be downcast");
-            Box::pin(async move { value.resolve().await.into_any_attr() })
-                as Pin<Box<dyn Future<Output = AnyAttribute> + Send>>
-        };
+        fn dry_resolve<T: Attribute + 'static>(value: &mut Erased) {
+            value.get_mut::<T>().dry_resolve();
+        }
+
+        #[cfg(feature = "ssr")]
+        fn resolve<T: Attribute + 'static>(
+            value: Erased,
+        ) -> Pin<Box<dyn Future<Output = AnyAttribute> + Send>> {
+            use futures::FutureExt;
+
+            async move {value.into_inner::<T>().resolve().await.into_any_attr()}.boxed()
+        }
+
+        let value = self.into_cloneable_owned();
         AnyAttribute {
             type_id: TypeId::of::<T::CloneableOwned>(),
             html_len: value.html_len(),
-            value,
+            value: Erased::new(value),
+            clone: clone::<T::CloneableOwned>,
             #[cfg(feature = "ssr")]
-            to_html,
-            build,
-            rebuild,
+            to_html: to_html::<T::CloneableOwned>,
+            build: build::<T::CloneableOwned>,
+            rebuild: rebuild::<T::CloneableOwned>,
             #[cfg(feature = "hydrate")]
-            hydrate_from_server,
+            hydrate_from_server: hydrate_from_server::<T::CloneableOwned>,
             #[cfg(feature = "hydrate")]
-            hydrate_from_template,
+            hydrate_from_template: hydrate_from_template::<T::CloneableOwned>,
             #[cfg(feature = "ssr")]
-            resolve,
+            resolve: resolve::<T::CloneableOwned>,
             #[cfg(feature = "ssr")]
-            dry_resolve,
+            dry_resolve: dry_resolve::<T::CloneableOwned>,
         }
     }
 }
@@ -261,9 +210,9 @@ impl Attribute for AnyAttribute {
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
         if FROM_SERVER {
-            (self.hydrate_from_server)(self.value, el)
+            (self.hydrate_from_server)(self.value, el.clone())
         } else {
-            (self.hydrate_from_template)(self.value, el)
+            (self.hydrate_from_template)(self.value, el.clone())
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -276,11 +225,16 @@ impl Attribute for AnyAttribute {
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        (self.build)(self.value, el)
+        (self.build)(self.value, el.clone())
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        (self.rebuild)(self.type_id, self.value, state)
+        if self.type_id == state.type_id {
+            (self.rebuild)(self.value, state)
+        } else {
+            let new = self.build(&state.el);
+            *state = new;
+        }
     }
 
     fn into_cloneable(self) -> Self::Cloneable {

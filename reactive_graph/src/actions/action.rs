@@ -939,7 +939,8 @@ where
     #[track_caller]
     pub fn dispatch(&self, input: I) -> ActionAbortHandle {
         self.inner
-            .try_with_value(|inner| inner.dispatch(input))
+            .try_get_value()
+            .map(|inner| inner.dispatch(input))
             .unwrap_or_else(unwrap_signal!(self))
     }
 }
@@ -954,7 +955,8 @@ where
     #[track_caller]
     pub fn dispatch_local(&self, input: I) -> ActionAbortHandle {
         self.inner
-            .try_with_value(|inner| inner.dispatch_local(input))
+            .try_get_value()
+            .map(|inner| inner.dispatch_local(input))
             .unwrap_or_else(unwrap_signal!(self))
     }
 }

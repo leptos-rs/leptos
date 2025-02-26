@@ -677,17 +677,21 @@ fn component_macro(
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
-    } else if let Ok(mut dummy) = dummy {
-        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
-        quote! {
-            #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
-            #dummy
-        }
     } else {
-        quote! {}
-    }
-    .into()
+        match dummy {
+            Ok(mut dummy) => {
+                dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+                quote! {
+                    #[doc(hidden)]
+                    #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+                    #dummy
+                }
+            }
+            Err(e) => {
+                proc_macro_error2::abort!(e.span(), e);
+            }
+        }
+    }.into()
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.

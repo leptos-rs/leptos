@@ -10,7 +10,6 @@ use reactive_graph::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Write,
     },
-    unwrap_signal,
 };
 use std::{
     fmt::Debug,
@@ -44,14 +43,14 @@ where
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
             .try_get_value()
             .map(|inner| inner.path().into_iter().collect::<Vec<_>>())
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     fn reader(&self) -> Option<Self::Reader> {
@@ -78,6 +77,21 @@ where
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<T, S> From<ArcField<T>> for Field<T, S>
+where
+    T: 'static,
+    S: Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: ArcField<T>) -> Self {
+        Field {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value),
         }
     }
 }
