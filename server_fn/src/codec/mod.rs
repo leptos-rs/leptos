@@ -57,11 +57,10 @@ pub use postcard::*;
 mod post;
 pub use post::*;
 mod stream;
+use crate::ContentType;
 use futures::Future;
 use http::Method;
 pub use stream::*;
-
-use crate::ContentType;
 
 /// Serializes a data type into an HTTP request, on the client.
 ///
@@ -205,8 +204,6 @@ where
 
 /// Defines a particular encoding format, which can be used for serializing or deserializing data.
 pub trait Encoding: ContentType {
-    
-
     /// The HTTP method used for requests.
     ///
     /// This should be `POST` in most cases.

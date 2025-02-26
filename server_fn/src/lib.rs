@@ -721,14 +721,13 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 /// Axum integration.
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
-    use std::future::Future;
-
     use crate::{
         error::FromServerFnError, middleware::BoxedService, LazyServerFnMap,
         Protocol, Server, ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
+    use std::future::Future;
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         Request<Body>,
@@ -818,8 +817,6 @@ pub mod axum {
 /// Actix integration.
 #[cfg(feature = "actix")]
 pub mod actix {
-    use std::future::Future;
-
     use crate::{
         error::FromServerFnError, middleware::BoxedService,
         request::actix::ActixRequest, response::actix::ActixResponse,
@@ -829,6 +826,7 @@ pub mod actix {
     use http::Method;
     #[doc(hidden)]
     pub use send_wrapper::SendWrapper;
+    use std::future::Future;
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         ActixRequest,
