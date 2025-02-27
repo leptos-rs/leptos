@@ -168,13 +168,22 @@ function diffPages(htmlString) {
 	const parser = new DOMParser();
 	const doc = parser.parseFromString(htmlString, 'text/html');
 
-	const oldDocWalker = document.createTreeWalker(document);
-	const newDocWalker = doc.createTreeWalker(doc);
+	diffRange(document, document, doc, doc);
+}
+
+function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
+	const oldDocWalker = oldDocument.createTreeWalker(oldRoot);
+	const newDocWalker = newDocument.createTreeWalker(newRoot);
 	let oldNode = oldDocWalker.currentNode;
 	let newNode = newDocWalker.currentNode;
-	while(oldDocWalker.nextNode() && newDocWalker.nextNode()) {
+
+	while (oldDocWalker.nextNode() && newDocWalker.nextNode()) {
 		oldNode = oldDocWalker.currentNode;
 		newNode = newDocWalker.currentNode;
+
+		if (oldNode == oldEnd || newNode == newEnd) {
+			break;
+		}
 
 		// if the nodes are different, we need to replace the old with the new
 		// because of the typed view tree, this should never actually happen
@@ -197,16 +206,19 @@ function diffPages(htmlString) {
 			const oldText = oldNode.textContent;
 			const newText = newNode.textContent;
 			if(oldText.startsWith("bo-for")) {
-				replaceFor(oldDocWalker, newDocWalker, oldNode, newNode);
+				replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNode, newNode);
 			}
-			if(oldText.startsWith("bo") && newText !== oldText) {
+			else if (oldText.startsWith("bo-item")) {
+				// skip, this means we're diffing a new item within a For
+			}
+			else if(oldText.startsWith("bo") && newText !== oldText) {
 				replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode);
 			}
 		}
 	}
 }
 
-function replaceFor(oldDocWalker, newDocWalker, oldNode, newNode) {
+function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNode, newNode) {
 	oldDocWalker.nextNode();
 	newDocWalker.nextNode();
 	const oldRange = new Range();
@@ -258,23 +270,28 @@ function replaceFor(oldDocWalker, newDocWalker, oldNode, newNode) {
 
 	for(const key in oldKeys) {
 		if(newKeys[key]) {
-			// replace the item in the *new* list with the *old* DOM elements 
 			const oldOne = oldKeys[key];
 			const newOne = newKeys[key];
 			const oldRange = new Range();
 			const newRange = new Range();
+
+			// then replace the item in the *new* list with the *old* DOM elements 
 			oldRange.setStartAfter(oldOne.open);
 			oldRange.setEndBefore(oldOne.close);
 			newRange.setStartAfter(newOne.open);
 			newRange.setEndBefore(newOne.close);
-			const newContents = oldRange.extractContents();
-			newRange.deleteContents();
-			newRange.insertNode(newContents);
+			const oldContents = oldRange.extractContents();
+			const newContents = newRange.extractContents();
+
+			// patch the *old* DOM elements with the new ones
+			diffRange(oldDocument, oldContents, newDocument, newContents, oldOne.close, newOne.close);
+
+			// then insert the old DOM elements into the new tree 
+			// this means you'll end up with any new attributes or content from the server, 
+			// but with any old DOM state (because they are the old elements)
+			newRange.insertNode(oldContents);
 			newOne.open.replaceWith(oldOne.open);
 			newOne.close.replaceWith(oldOne.close);
-
-			// then diff the *old* DOM elements with the new ones
-			// (TODO)
 		}
 	}
 
