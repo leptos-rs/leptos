@@ -14,17 +14,22 @@ use crate::{
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
-#[cfg(feature = "reactive_stores")]
-use reactive_graph::owner::Storage;
 use reactive_graph::{
     signal::{ReadSignal, RwSignal, WriteSignal},
     traits::{Get, Set},
     wrappers::read::Signal,
 };
-#[cfg(feature = "reactive_stores")]
-use reactive_stores::{ArcField, Field, KeyedSubfield, Subfield};
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsValue;
+#[cfg(feature = "reactive_stores")]
+use {
+    reactive_graph::owner::Storage,
+    reactive_stores::{
+        ArcField, AtIndex, AtKeyed, DerefedField, Field, KeyedSubfield,
+        StoreField, Subfield,
+    },
+    std::ops::{Deref, DerefMut, IndexMut},
+};
 
 /// `group` attribute used for radio inputs with `bind`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -387,6 +392,57 @@ where
     for<'a> &'a T: IntoIterator,
 {
     type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<Inner, Prev, K, T> IntoSplitSignal for AtKeyed<Inner, Prev, K, T>
+where
+    Self: Get<Value = T> + Set<Value = T> + Clone,
+    for<'a> &'a T: IntoIterator,
+{
+    type Value = T;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<Inner, Prev> IntoSplitSignal for AtIndex<Inner, Prev>
+where
+    Prev: Send + Sync + IndexMut<usize> + 'static,
+    Inner: Send + Sync + Clone + 'static,
+    Self: Get<Value = Prev::Output> + Set<Value = Prev::Output> + Clone,
+    Prev::Output: Sized,
+{
+    type Value = Prev::Output;
+    type Read = Self;
+    type Write = Self;
+
+    fn into_split_signal(self) -> (Self::Read, Self::Write) {
+        (self.clone(), self.clone())
+    }
+}
+
+#[cfg(feature = "reactive_stores")]
+impl<S> IntoSplitSignal for DerefedField<S>
+where
+    Self: Get<Value = <S::Value as Deref>::Target>
+        + Set<Value = <S::Value as Deref>::Target>
+        + Clone,
+    S: Clone + StoreField + Send + Sync + 'static,
+    <S as StoreField>::Value: Deref + DerefMut,
+    <S::Value as Deref>::Target: Sized,
+{
+    type Value = <S::Value as Deref>::Target;
     type Read = Self;
     type Write = Self;
 
