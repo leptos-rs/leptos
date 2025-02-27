@@ -391,12 +391,13 @@ impl AddAnyAttr for MatchedRoute {
         Self::Output<NewAttr>: RenderHtml,
     {
         let MatchedRoute(id, view) = self;
-        MatchedRoute(id, view.add_any_attr(attr))
+        MatchedRoute(id, view.add_any_attr(attr).into_any())
     }
 }
 
 impl RenderHtml for MatchedRoute {
     type AsyncOutput = Self;
+    type Owned = Self;
     const MIN_LENGTH: usize = 0;
 
     fn dry_resolve(&mut self) {
@@ -415,12 +416,18 @@ impl RenderHtml for MatchedRoute {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if mark_branches {
             buf.open_branch(&self.0);
         }
-        self.1
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.1.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         if mark_branches {
             buf.close_branch(&self.0);
         }
@@ -432,6 +439,7 @@ impl RenderHtml for MatchedRoute {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -443,6 +451,7 @@ impl RenderHtml for MatchedRoute {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
         if mark_branches {
             buf.close_branch(&self.0);
@@ -455,6 +464,10 @@ impl RenderHtml for MatchedRoute {
         position: &PositionState,
     ) -> Self::State {
         self.1.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
