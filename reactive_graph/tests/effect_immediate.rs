@@ -23,7 +23,7 @@ fn effect_runs() {
 
     ImmediateEffect::new({
         let b = b.clone();
-        move |_| {
+        move || {
             let formatted = format!("Value is {}", a.get());
             *b.write().unwrap() = formatted;
         }
@@ -51,7 +51,7 @@ fn dynamic_dependencies() {
 
     ImmediateEffect::new({
         let combined_count = Arc::clone(&combined_count);
-        move |_| {
+        move || {
             *combined_count.write().unwrap() += 1;
             if use_last.get() {
                 println!("{} {}", first.get(), last.get());
@@ -106,7 +106,7 @@ fn recursive_effect_runs_recursively() {
 
     ImmediateEffect::new({
         let logged_values = Arc::clone(&logged_values);
-        move |_| {
+        move || {
             let a = s.get();
             println!("a = {a}");
             logged_values.write().unwrap().push(a);
@@ -142,7 +142,7 @@ fn paused_effect_pauses() {
     let owner = StoredValue::new(None);
 
     ImmediateEffect::new({
-        move |_| {
+        move || {
             *owner.write_value() = Owner::current();
 
             let _ = a.get();

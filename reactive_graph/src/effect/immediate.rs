@@ -92,10 +92,7 @@ impl ImmediateEffect<LocalStorage> {
     /// NOTE: this requires a `Fn` function because it might recurse.
     /// Use [Self::new_mut] to pass a `FnMut` function, it'll panic on recursion.
     #[track_caller]
-    pub fn new<T>(fun: impl Fn(Option<T>) -> T + Send + Sync + 'static) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
+    pub fn new(fun: impl Fn() + Send + Sync + 'static) -> Self {
         if !cfg!(feature = "effects") {
             return Self { inner: None };
         }
@@ -113,27 +110,17 @@ impl ImmediateEffect<LocalStorage> {
     /// # Panics
     /// Panics on recursion. Also see [Self::new]
     #[track_caller]
-    pub fn new_mut<T>(
-        fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
+    pub fn new_mut(fun: impl FnMut() + Send + Sync + 'static) -> Self {
         const MSG: &str = "The effect recursed or its function panicked.";
         let fun = Mutex::new(fun);
-        Self::new(move |v| fun.try_lock().expect(MSG)(v))
+        Self::new(move || fun.try_lock().expect(MSG)())
     }
 }
 
 impl ImmediateEffect<SyncStorage> {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     #[track_caller]
-    pub fn new_sync<T>(
-        fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
+    pub fn new_sync(fun: impl Fn() + Send + Sync + 'static) -> Self {
         if !cfg!(feature = "effects") {
             return Self { inner: None };
         }
@@ -145,12 +132,7 @@ impl ImmediateEffect<SyncStorage> {
     ///
     /// This will run whether the `effects` feature is enabled or not.
     #[track_caller]
-    pub fn new_isomorphic<T>(
-        fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
-    ) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
+    pub fn new_isomorphic(fun: impl Fn() + Send + Sync + 'static) -> Self {
         let inner = inner::EffectInner::new(fun);
 
         inner.update_if_necessary();
@@ -202,7 +184,7 @@ mod inner {
     use or_poisoned::OrPoisoned;
     use std::{
         panic::Location,
-        sync::{Arc, Mutex, RwLock, Weak},
+        sync::{Arc, RwLock, Weak},
     };
 
     /// Handles subscription logic for effects.
@@ -228,22 +210,10 @@ mod inner {
 
     impl EffectInner {
         #[track_caller]
-        pub fn new<T>(
-            fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
-        ) -> Arc<RwLock<EffectInner>>
-        where
-            T: Send + Sync + 'static,
-        {
+        pub fn new(
+            fun: impl Fn() + Send + Sync + 'static,
+        ) -> Arc<RwLock<EffectInner>> {
             let owner = Owner::new();
-
-            let fun = {
-                let value = Mutex::new(None);
-                move || {
-                    let old = value.lock().unwrap().take();
-                    let new = fun(old);
-                    value.lock().unwrap().replace(new);
-                }
-            };
 
             Arc::new_cyclic(|weak| {
                 let any_subscriber = AnySubscriber(
