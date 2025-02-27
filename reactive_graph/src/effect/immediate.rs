@@ -188,24 +188,35 @@ mod inner {
     };
 
     /// Handles subscription logic for effects.
+    ///
+    /// To handle parallelism and recursion we assign ordered (1..) ids to each run.
+    /// We only keep the sources tracked by the run with the highest id (the last one).
+    ///
+    /// We do this by:
+    /// - Clearing the sources before every run, so the last one clears anything before it.
+    /// - We stop tracking sources after the last run has completed.
+    ///   (A parent run will start before and end after a recursive child run.)
+    /// - To handle parallelism with the last run, we only allow sources to be added by its thread.
     pub(super) struct EffectInner {
         #[cfg(any(debug_assertions, leptos_debuginfo))]
         defined_at: &'static Location<'static>,
         owner: Owner,
         state: ReactiveNodeState,
-        /// The number of *ongoing* effect runs.
-        /// Cleared when no runs are ongoing anymore.
-        recursion_count_start: usize,
+        /// The number of effect runs in this 'batch'.
+        /// Cleared when no runs are *ongoing* anymore.
+        /// Used to assign ordered ids to each run, and to know when we can clear these values.
+        run_count_start: usize,
         /// The number of effect runs that have completed in the current 'batch'.
-        /// Cleared when no runs are ongoing anymore.
-        recursion_done_count: usize,
-        /// Given ordered ids (1..), the run with the highest id that has completed.
-        /// The run with the highest id is the run we preserve the sources of.
-        /// Cleared when no runs are ongoing anymore.
-        recursion_done_max: usize,
+        /// Cleared when no runs are *ongoing* anymore.
+        /// Used to know when we can clear these values.
+        run_done_count: usize,
+        /// Given ordered ids (1..), the run with the highest id that has completed in this 'batch'.
+        /// Cleared when no runs are *ongoing* anymore.
+        /// Used to know whether the current run is the latest one.
+        run_done_max: usize,
         /// The [ThreadId] of the run with the highest id.
-        /// Helps preventing over-subscribing during parallel execution.
-        recursion_done_max_thread: ThreadId,
+        /// Used to prevent over-subscribing during parallel execution with the last run.
+        last_run_thread_id: ThreadId,
         fun: Arc<dyn Fn() + Send + Sync>,
         sources: SourceSet,
         any_subscriber: AnySubscriber,
@@ -229,10 +240,10 @@ mod inner {
                     defined_at: Location::caller(),
                     owner,
                     state: ReactiveNodeState::Dirty,
-                    recursion_count_start: 0,
-                    recursion_done_count: 0,
-                    recursion_done_max: 0,
-                    recursion_done_max_thread: thread::current().id(),
+                    run_count_start: 0,
+                    run_done_count: 0,
+                    run_done_max: 0,
+                    last_run_thread_id: thread::current().id(),
                     fun: Arc::new(fun),
                     sources: SourceSet::new(),
                     any_subscriber,
@@ -283,15 +294,15 @@ mod inner {
                 let fun = guard.fun.clone();
 
                 // New run has started.
-                guard.recursion_count_start += 1;
+                guard.run_count_start += 1;
                 // We get a value for this run, the highest value will be what we keep the sources from.
-                let recursion_count = guard.recursion_count_start;
+                let recursion_count = guard.run_count_start;
                 // We clear the sources before running the effect.
                 // Note that this is tied to the ordering of the initial write lock acquisition
                 // to ensure the last run is also the last to clear them.
                 guard.sources.clear_sources(&any_subscriber);
                 // Only this thread will be able to subscribe.
-                guard.recursion_done_max_thread = thread::current().id();
+                guard.last_run_thread_id = thread::current().id();
 
                 if recursion_count > 2 {
                     warn_excessive_recursion(&guard);
@@ -306,22 +317,22 @@ mod inner {
                 let mut guard = self.write().or_poisoned();
 
                 // This run has completed.
-                guard.recursion_done_count += 1;
+                guard.run_done_count += 1;
 
                 // We update the done count.
                 // Sources will only be added if recursion_done_max < recursion_count_start.
                 // (Meaning the last run is not done yet.)
-                guard.recursion_done_max =
-                    Ord::max(recursion_count, guard.recursion_done_max);
+                guard.run_done_max =
+                    Ord::max(recursion_count, guard.run_done_max);
 
                 // The same amount of runs has started and completed,
                 // so we can clear everything up for next time.
-                if guard.recursion_count_start == guard.recursion_done_count {
-                    guard.recursion_count_start = 0;
-                    guard.recursion_done_count = 0;
-                    guard.recursion_done_max = 0;
+                if guard.run_count_start == guard.run_done_count {
+                    guard.run_count_start = 0;
+                    guard.run_done_count = 0;
+                    guard.run_done_max = 0;
                     // Can be left unchanged, it'll be set again next time.
-                    // guard.recursion_done_max_thread = thread::current().id();
+                    // guard.last_run_thread_id = thread::current().id();
                 }
 
                 guard.state = ReactiveNodeState::Clean;
@@ -344,8 +355,8 @@ mod inner {
     impl Subscriber for RwLock<EffectInner> {
         fn add_source(&self, source: AnySource) {
             let mut guard = self.write().or_poisoned();
-            if guard.recursion_done_max < guard.recursion_count_start
-                && guard.recursion_done_max_thread == thread::current().id()
+            if guard.run_done_max < guard.run_count_start
+                && guard.last_run_thread_id == thread::current().id()
             {
                 guard.sources.insert(source);
             }
