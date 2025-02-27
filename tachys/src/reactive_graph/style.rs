@@ -394,7 +394,7 @@ mod stable {
     style_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
     style_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
     style_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
-    
+
     #[cfg(feature = "reactive_stores")]
     use {
         reactive_stores::{
