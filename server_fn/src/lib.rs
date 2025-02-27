@@ -157,7 +157,12 @@ pub use serde;
 pub use serde_lite;
 use server::Server;
 use std::{
-    fmt::Display, future::Future, marker::PhantomData, pin::Pin, sync::Arc,
+    fmt::{Debug, Display},
+    future::Future,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    sync::Arc,
 };
 #[doc(hidden)]
 pub use xxhash_rust;
@@ -416,56 +421,63 @@ pub struct Websocket<InputEncoding, OutputEncoding>(
     PhantomData<(InputEncoding, OutputEncoding)>,
 );
 
-/// A type alias for a boxed result stream.
-pub type BoxedStream<T, Error> =
-    Pin<Box<dyn Stream<Item = Result<T, Error>> + Send>>;
-
-/// A trait for types that can be converted from a boxed stream.
-trait FromBoxedStream {
-    type Output;
-    type Error;
-    fn from_boxed_stream(
-        stream: Pin<
-            Box<dyn Stream<Item = Result<Self::Output, Self::Error>> + Send>,
-        >,
-    ) -> Self;
+/// A boxed stream type that can be used with the websocket protocol.
+pub struct BoxedStream<T, E> {
+    stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
 }
 
-impl<T, Error> FromBoxedStream for BoxedStream<T, Error> {
-    type Output = T;
-    type Error = Error;
+impl<T, E> Deref for BoxedStream<T, E> {
+    type Target = Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>;
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
 
-    fn from_boxed_stream(stream: BoxedStream<T, Error>) -> Self {
-        stream
+impl<T, E> DerefMut for BoxedStream<T, E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stream
+    }
+}
+
+impl<T, E> Debug for BoxedStream<T, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BoxedStream").finish()
+    }
+}
+
+impl<T, E, S> From<S> for BoxedStream<T, E>
+where
+    S: Stream<Item = Result<T, E>> + Send + 'static,
+{
+    fn from(stream: S) -> Self {
+        BoxedStream {
+            stream: Box::pin(stream),
+        }
     }
 }
 
 impl<
         Input,
         InputItem,
-        Output,
         OutputItem,
         InputEncoding,
         OutputEncoding,
         Client,
         Server,
         E,
-    > Protocol<Input, Output, Client, Server, E>
+    > Protocol<Input, BoxedStream<OutputItem, E>, Client, Server, E>
     for Websocket<InputEncoding, OutputEncoding>
 where
-    Input: Stream<Item = Result<InputItem, E>>
-        + FromBoxedStream<Output = InputItem, Error = E>
-        + Send
-        + 'static,
-    Output: Stream<Item = Result<OutputItem, E>>
-        + FromBoxedStream<Output = InputItem, Error = E>
-        + Send
-        + 'static,
+    Input: Deref<Target = BoxedStream<InputItem, E>>
+        + Into<BoxedStream<InputItem, E>>
+        + From<BoxedStream<InputItem, E>>,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
     Server: crate::Server<E>,
     E: FromServerFnError + Send,
     Client: crate::Client<E>,
+    OutputItem: Send + 'static,
+    InputItem: Send + 'static,
 {
     const METHOD: Method = Method::GET;
 
@@ -475,7 +487,7 @@ where
     ) -> Result<Server::Response, E>
     where
         F: Fn(Input) -> Fut + Send,
-        Fut: Future<Output = Result<Output, E>> + Send,
+        Fut: Future<Output = Result<BoxedStream<OutputItem, E>, E>> + Send,
     {
         let (request_bytes, response_stream, response) =
             request.try_into_websocket()?;
@@ -491,11 +503,11 @@ where
         });
         let boxed = Box::pin(input)
             as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
-        let input = FromBoxedStream::from_boxed_stream(boxed);
+        let input = BoxedStream { stream: boxed };
 
-        let output = server_fn(input).await?;
+        let output = server_fn(input.into()).await?;
 
-        let output = output.map(|output| match output {
+        let output = output.stream.map(|output| match output {
             Ok(output) => OutputEncoding::encode(output).map_err(|e| {
                 E::from_server_fn_error(ServerFnErrorErr::Serialization(
                     e.to_string(),
@@ -520,16 +532,18 @@ where
     fn run_client(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<Output, E>> + Send {
+    ) -> impl Future<Output = Result<BoxedStream<OutputItem, E>, E>> + Send
+    {
+        let input = input.into();
+
         async move {
             let (stream, sink) = Client::open_websocket(path).await?;
 
             // Forward the input stream to the websocket
-            #[cfg(feature = "browser")]
-            wasm_bindgen_futures::spawn_local(async move {
+            Client::spawn(async move {
                 pin_mut!(input);
                 pin_mut!(sink);
-                while let Some(input) = input.next().await {
+                while let Some(input) = input.stream.next().await {
                     if sink
                         .send(input.and_then(|input| {
                             InputEncoding::encode(input).map_err(|e| {
@@ -550,7 +564,7 @@ where
 
             // Return the output stream
             let stream = stream.map(|request_bytes| match request_bytes {
-                Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                Ok(request_bytes) => OutputEncoding::decode(request_bytes)
                     .map_err(|e| {
                         E::from_server_fn_error(
                             ServerFnErrorErr::Deserialization(e.to_string()),
@@ -559,9 +573,9 @@ where
                 Err(err) => Err(err),
             });
             let boxed = Box::pin(stream)
-                as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
-            let output = FromBoxedStream::from_boxed_stream(boxed);
-            Ok(output)
+                as Pin<Box<dyn Stream<Item = Result<OutputItem, E>> + Send>>;
+            let output = BoxedStream { stream: boxed };
+            Ok(output.into())
         }
     }
 }

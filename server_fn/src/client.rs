@@ -46,6 +46,9 @@ pub trait Client<E> {
             E,
         >,
     > + Send;
+
+    /// Spawn a future that runs in the background.
+    fn spawn(future: impl Future<Output = ()> + Send + 'static);
 }
 
 #[cfg(feature = "browser")]
@@ -199,6 +202,10 @@ pub mod browser {
 
                 Ok((stream, sink))
             })
+        }
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            wasm_bindgen_futures::spawn_local(future);
         }
     }
 }
