@@ -208,7 +208,7 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    macro_rules! style_store_field {
+    macro_rules! style_reactive {
         ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
         {
             #[allow(deprecated)]
@@ -350,7 +350,7 @@ mod stable {
     };
     use std::sync::Arc;
 
-    style_store_field!(
+    style_reactive!(
         RwSignal,
         <V, S>,
         V,
@@ -358,7 +358,7 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    style_store_field!(
+    style_reactive!(
         ReadSignal,
         <V, S>,
         V,
@@ -366,7 +366,7 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    style_store_field!(
+    style_reactive!(
         Memo,
         <V, S>,
         V,
@@ -374,7 +374,7 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    style_store_field!(
+    style_reactive!(
         Signal,
         <V, S>,
         V,
@@ -382,7 +382,7 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    style_store_field!(
+    style_reactive!(
         MaybeSignal,
         <V, S>,
         V,
@@ -390,10 +390,10 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    style_store_field!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
-    style_store_field!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
-    style_store_field!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
-    style_store_field!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+    style_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
+    style_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
+    style_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
+    style_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
     
     #[cfg(feature = "reactive_stores")]
     use {
@@ -405,7 +405,7 @@ mod stable {
     };
 
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         Subfield,
         <Inner, Prev, V>,
         V,
@@ -415,7 +415,7 @@ mod stable {
     );
 
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         AtKeyed,
         <Inner, Prev, K, V>,
         V,
@@ -427,7 +427,7 @@ mod stable {
     );
 
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
         V,
@@ -439,7 +439,7 @@ mod stable {
     );
 
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         DerefedField,
         <S>,
         <S::Value as Deref>::Target,
@@ -448,7 +448,7 @@ mod stable {
     );
 
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         AtIndex,
         <Inner, Prev>,
         <Prev as Index<usize>>::Output,
@@ -457,7 +457,7 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         Store,
         <V, S>,
         V,
@@ -466,7 +466,7 @@ mod stable {
         S: Send + Sync + 'static,
     );
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(
+    style_reactive!(
         Field,
         <V, S>,
         V,
@@ -475,9 +475,9 @@ mod stable {
         S: Send + Sync + 'static,
     );
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
+    style_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
     #[cfg(feature = "reactive_stores")]
-    style_store_field!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
+    style_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 }
 
 /*
