@@ -31,7 +31,6 @@ use crate::{
 ///
 /// NOTE: since effects are executed immediately, they might recurse.
 /// Under recursion only the last run to start is tracked.
-/// (Oversubscription might still happen under parallel execution.)
 ///
 /// ## Example
 ///
@@ -185,6 +184,7 @@ mod inner {
     use std::{
         panic::Location,
         sync::{Arc, RwLock, Weak},
+        thread::{self, ThreadId},
     };
 
     /// Handles subscription logic for effects.
@@ -203,6 +203,9 @@ mod inner {
         /// The run with the highest id is the run we preserve the sources of.
         /// Cleared when no runs are ongoing anymore.
         recursion_done_max: usize,
+        /// The [ThreadId] of the run with the highest id.
+        /// Helps preventing over-subscribing during parallel execution.
+        recursion_done_max_thread: ThreadId,
         fun: Arc<dyn Fn() + Send + Sync>,
         sources: SourceSet,
         any_subscriber: AnySubscriber,
@@ -229,6 +232,7 @@ mod inner {
                     recursion_count_start: 0,
                     recursion_done_count: 0,
                     recursion_done_max: 0,
+                    recursion_done_max_thread: thread::current().id(),
                     fun: Arc::new(fun),
                     sources: SourceSet::new(),
                     any_subscriber,
@@ -286,6 +290,8 @@ mod inner {
                 // Note that this is tied to the ordering of the initial write lock acquisition
                 // to ensure the last run is also the last to clear them.
                 guard.sources.clear_sources(&any_subscriber);
+                // Only this thread will be able to subscribe.
+                guard.recursion_done_max_thread = thread::current().id();
 
                 if recursion_count > 2 {
                     warn_excessive_recursion(&guard);
@@ -295,7 +301,6 @@ mod inner {
 
                 // We execute the effect.
                 // Note that *this could happen in parallel across threads*.
-                // If that happens, there could still be over-counting of the sources.
                 owner.with_cleanup(|| any_subscriber.with_observer(|| fun()));
 
                 let mut guard = self.write().or_poisoned();
@@ -315,6 +320,8 @@ mod inner {
                     guard.recursion_count_start = 0;
                     guard.recursion_done_count = 0;
                     guard.recursion_done_max = 0;
+                    // Can be left unchanged, it'll be set again next time.
+                    // guard.recursion_done_max_thread = thread::current().id();
                 }
 
                 guard.state = ReactiveNodeState::Clean;
@@ -337,7 +344,9 @@ mod inner {
     impl Subscriber for RwLock<EffectInner> {
         fn add_source(&self, source: AnySource) {
             let mut guard = self.write().or_poisoned();
-            if guard.recursion_done_max < guard.recursion_count_start {
+            if guard.recursion_done_max < guard.recursion_count_start
+                && guard.recursion_done_max_thread == thread::current().id()
+            {
                 guard.sources.insert(source);
             }
         }
