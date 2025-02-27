@@ -793,6 +793,7 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn handle_response<IV>(
     method: Method,
     additional_context: impl Fn() + 'static + Clone + Send,
