@@ -347,7 +347,7 @@ pub fn Route<Segments, View>(
 ) -> <NestedRoute<Segments, (), (), View> as IntoMaybeErased>::Output
 where
     View: ChooseView + Clone + 'static,
-    Segments: PossibleRouteMatch + Debug + Clone + Send + 'static,
+    Segments: PossibleRouteMatch + Clone + Send + 'static,
 {
     NestedRoute::new(path, view)
         .ssr_mode(ssr)
@@ -375,7 +375,7 @@ pub fn ParentRoute<Segments, View, Children>(
 where
     View: ChooseView + Clone + 'static,
     Children: MatchNestedRoutes + Send + Clone + 'static,
-    Segments: PossibleRouteMatch + Debug + Clone + Send + 'static,
+    Segments: PossibleRouteMatch + Clone + Send + 'static,
 {
     let children = children.into_inner();
     NestedRoute::new(path, view)
@@ -414,7 +414,7 @@ macro_rules! define_protected_route {
             ssr: SsrMode,
         ) -> $ret
         where
-            Segments: PossibleRouteMatch + Debug + Clone + Send + 'static,
+            Segments: PossibleRouteMatch + Clone + Send + 'static,
             ViewFn: Fn() -> View + Send + Clone + 'static,
             View: IntoView + 'static,
             C: Fn() -> Option<bool> + Send + Clone + 'static,
@@ -495,7 +495,7 @@ macro_rules! define_protected_parent_route {
             ssr: SsrMode,
         ) -> $ret
         where
-            Segments: PossibleRouteMatch + Debug + Clone + Send + 'static,
+            Segments: PossibleRouteMatch + Clone + Send + 'static,
             Children: MatchNestedRoutes + Send + Clone + 'static,
             ViewFn: Fn() -> View + Send + Clone + 'static,
             View: IntoView + 'static,
