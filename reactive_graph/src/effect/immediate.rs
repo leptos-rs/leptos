@@ -1,9 +1,15 @@
+use std::{
+    panic::Location,
+    sync::{Arc, Mutex, RwLock},
+};
+
+use or_poisoned::OrPoisoned;
+
 use crate::{
     graph::{AnySubscriber, ReactiveNode, ToAnySubscriber},
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
-    traits::Dispose,
+    traits::{DefinedAt, Dispose},
 };
-use std::sync::{Arc, Mutex, RwLock};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 ///
@@ -22,6 +28,10 @@ use std::sync::{Arc, Mutex, RwLock};
 /// whatever value it returned the last time it ran. On the initial run, this is `None`.
 ///
 /// Effects stop running when their reactive [`Owner`](crate::owner::Owner) is disposed.
+///
+/// NOTE: since effects are executed immediately, they might recurse.
+/// Under recursion only the last run to start is tracked.
+/// (Oversubscription might still happen under parallel execution.)
 ///
 /// ## Example
 ///
@@ -81,6 +91,7 @@ impl ImmediateEffect<LocalStorage> {
     ///
     /// NOTE: this requires a `Fn` function because it might recurse.
     /// Use [Self::new_mut] to pass a `FnMut` function, it'll panic on recursion.
+    #[track_caller]
     pub fn new<T>(fun: impl Fn(Option<T>) -> T + Send + Sync + 'static) -> Self
     where
         T: Send + Sync + 'static,
@@ -101,6 +112,7 @@ impl ImmediateEffect<LocalStorage> {
     ///
     /// # Panics
     /// Panics on recursion. Also see [Self::new]
+    #[track_caller]
     pub fn new_mut<T>(
         fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
     ) -> Self
@@ -115,6 +127,7 @@ impl ImmediateEffect<LocalStorage> {
 
 impl ImmediateEffect<SyncStorage> {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
+    #[track_caller]
     pub fn new_sync<T>(
         fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
     ) -> Self
@@ -131,6 +144,7 @@ impl ImmediateEffect<SyncStorage> {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     ///
     /// This will run whether the `effects` feature is enabled or not.
+    #[track_caller]
     pub fn new_isomorphic<T>(
         fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
     ) -> Self
@@ -161,27 +175,59 @@ where
     }
 }
 
+impl<S> DefinedAt for ImmediateEffect<S>
+where
+    S: Storage<StoredEffect>,
+{
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        self.inner
+            .as_ref()?
+            .try_with_value(|inner| {
+                inner.as_ref()?.read().or_poisoned().defined_at()
+            })
+            .flatten()
+    }
+}
+
 mod inner {
     use crate::{
         graph::{
             AnySource, AnySubscriber, ReactiveNode, ReactiveNodeState,
             SourceSet, Subscriber, ToAnySubscriber, WithObserver,
         },
+        log_warning,
         owner::Owner,
+        traits::DefinedAt,
     };
     use or_poisoned::OrPoisoned;
-    use std::sync::{Arc, Mutex, RwLock, Weak};
+    use std::{
+        panic::Location,
+        sync::{Arc, Mutex, RwLock, Weak},
+    };
 
     /// Handles subscription logic for effects.
     pub(super) struct EffectInner {
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        defined_at: &'static Location<'static>,
         owner: Owner,
         state: ReactiveNodeState,
+        /// The number of *ongoing* effect runs.
+        /// Cleared when no runs are ongoing anymore.
+        recursion_count_start: usize,
+        /// The number of effect runs that have completed in the current 'batch'.
+        /// Cleared when no runs are ongoing anymore.
+        recursion_done_count: usize,
+        /// Given ordered ids (1..), the run with the highest id that has completed.
+        /// The run with the highest id is the run we preserve the sources of.
+        /// Cleared when no runs are ongoing anymore.
+        recursion_done_max: usize,
         fun: Arc<dyn Fn() + Send + Sync>,
         sources: SourceSet,
         any_subscriber: AnySubscriber,
     }
 
     impl EffectInner {
+        #[track_caller]
         pub fn new<T>(
             fun: impl Fn(Option<T>) -> T + Send + Sync + 'static,
         ) -> Arc<RwLock<EffectInner>>
@@ -206,8 +252,13 @@ mod inner {
                 );
 
                 RwLock::new(EffectInner {
+                    #[cfg(any(debug_assertions, leptos_debuginfo))]
+                    defined_at: Location::caller(),
                     owner,
                     state: ReactiveNodeState::Dirty,
+                    recursion_count_start: 0,
+                    recursion_done_count: 0,
+                    recursion_done_max: 0,
                     fun: Arc::new(fun),
                     sources: SourceSet::new(),
                     any_subscriber,
@@ -251,19 +302,52 @@ mod inner {
             };
 
             if needs_update {
-                let guard = self.read().or_poisoned();
+                let mut guard = self.write().or_poisoned();
 
                 let owner = guard.owner.clone();
                 let any_subscriber = guard.any_subscriber.clone();
                 let fun = guard.fun.clone();
 
+                // New run has started.
+                guard.recursion_count_start += 1;
+                // We get a value for this run, the highest value will be what we keep the sources from.
+                let recursion_count = guard.recursion_count_start;
+                // We clear the sources before running the effect.
+                // Note that this is tied to the ordering of the initial write lock acquisition
+                // to ensure the last run is also the last to clear them.
+                guard.sources.clear_sources(&any_subscriber);
+
+                if recursion_count > 2 {
+                    warn_excessive_recursion(&guard);
+                }
+
                 drop(guard);
 
-                any_subscriber.clear_sources(&any_subscriber);
-
+                // We execute the effect.
+                // Note that *this could happen in parallel across threads*.
+                // If that happens, there could still be over-counting of the sources.
                 owner.with_cleanup(|| any_subscriber.with_observer(|| fun()));
 
-                self.write().or_poisoned().state = ReactiveNodeState::Clean;
+                let mut guard = self.write().or_poisoned();
+
+                // This run has completed.
+                guard.recursion_done_count += 1;
+
+                // We update the done count.
+                // Sources will only be added if recursion_done_max < recursion_count_start.
+                // (Meaning the last run is not done yet.)
+                guard.recursion_done_max =
+                    Ord::max(recursion_count, guard.recursion_done_max);
+
+                // The same amount of runs has started and completed,
+                // so we can clear everything up for next time.
+                if guard.recursion_count_start == guard.recursion_done_count {
+                    guard.recursion_count_start = 0;
+                    guard.recursion_done_count = 0;
+                    guard.recursion_done_max = 0;
+                }
+
+                guard.state = ReactiveNodeState::Clean;
             }
 
             needs_update
@@ -282,11 +366,27 @@ mod inner {
 
     impl Subscriber for RwLock<EffectInner> {
         fn add_source(&self, source: AnySource) {
-            self.write().or_poisoned().sources.insert(source);
+            let mut guard = self.write().or_poisoned();
+            if guard.recursion_done_max < guard.recursion_count_start {
+                guard.sources.insert(source);
+            }
         }
 
         fn clear_sources(&self, subscriber: &AnySubscriber) {
             self.write().or_poisoned().sources.clear_sources(subscriber);
+        }
+    }
+
+    impl DefinedAt for EffectInner {
+        fn defined_at(&self) -> Option<&'static Location<'static>> {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            {
+                Some(self.defined_at)
+            }
+            #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+            {
+                None
+            }
         }
     }
 
@@ -298,6 +398,18 @@ mod inner {
                 .field("sources", &self.sources)
                 .field("any_subscriber", &self.any_subscriber)
                 .finish()
+        }
+    }
+
+    fn warn_excessive_recursion(effect: &EffectInner) {
+        const MSG: &str = "ImmediateEffect recursed more than once.";
+        match effect.defined_at() {
+            Some(defined_at) => {
+                log_warning(format_args!("{MSG} Defined at: {}", defined_at));
+            }
+            None => {
+                log_warning(format_args!("{MSG}"));
+            }
         }
     }
 }
