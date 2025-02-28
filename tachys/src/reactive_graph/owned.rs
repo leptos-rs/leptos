@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     prelude::Mountable,
     ssr::StreamBuilder,
@@ -92,6 +92,7 @@ where
 {
     // TODO
     type AsyncOutput = OwnedView<T::AsyncOutput>;
+    type Owned = OwnedView<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -101,10 +102,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         self.owner.with(|| {
-            self.view
-                .to_html_with_buf(buf, position, escape, mark_branches)
+            self.view.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            )
         });
     }
 
@@ -114,6 +121,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -123,6 +131,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             )
         });
 
@@ -155,6 +164,13 @@ where
     fn dry_resolve(&mut self) {
         self.owner.with(|| self.view.dry_resolve());
     }
+
+    fn into_owned(self) -> Self::Owned {
+        OwnedView {
+            owner: self.owner,
+            view: self.view.into_owned(),
+        }
+    }
 }
 
 impl<T> Mountable for OwnedViewState<T>
@@ -175,5 +191,9 @@ where
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.state.elements()
     }
 }

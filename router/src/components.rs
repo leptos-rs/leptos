@@ -11,7 +11,8 @@ use crate::{
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
     resolve_path::resolve_path,
-    ChooseView, MatchNestedRoutes, NestedRoute, RouteDefs, SsrMode,
+    ChooseView, MatchNestedRoutes, NestedRoute, PossibleRouteMatch, RouteDefs,
+    SsrMode,
 };
 use either_of::EitherOf3;
 use leptos::{children, prelude::*};
@@ -28,7 +29,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tachys::view::any_view::AnyView;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
@@ -344,11 +344,14 @@ pub fn Route<Segments, View>(
     /// Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-) -> NestedRoute<Segments, (), (), View>
+) -> <NestedRoute<Segments, (), (), View> as IntoMaybeErased>::Output
 where
-    View: ChooseView,
+    View: ChooseView + Clone + 'static,
+    Segments: PossibleRouteMatch + Clone + Send + 'static,
 {
-    NestedRoute::new(path, view).ssr_mode(ssr)
+    NestedRoute::new(path, view)
+        .ssr_mode(ssr)
+        .into_maybe_erased()
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match
@@ -368,145 +371,185 @@ pub fn ParentRoute<Segments, View, Children>(
     /// Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-) -> NestedRoute<Segments, Children, (), View>
+) -> <NestedRoute<Segments, Children, (), View> as IntoMaybeErased>::Output
 where
-    View: ChooseView,
+    View: ChooseView + Clone + 'static,
+    Children: MatchNestedRoutes + Send + Clone + 'static,
+    Segments: PossibleRouteMatch + Clone + Send + 'static,
 {
     let children = children.into_inner();
-    NestedRoute::new(path, view).ssr_mode(ssr).child(children)
+    NestedRoute::new(path, view)
+        .ssr_mode(ssr)
+        .child(children)
+        .into_maybe_erased()
 }
 
-/// Describes a route that is guarded by a certain condition. This works the same way as
-/// [`<Route/>`], except that if the `condition` function evaluates to `Some(false)`, it
-/// redirects to `redirect_path` instead of displaying its `view`.
-#[component(transparent)]
-pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
-    /// The path fragment that this route should match. This can be created using the
-    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
-    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
-    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
-    path: Segments,
-    /// The view for this route.
-    view: ViewFn,
-    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
-    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
-    /// information is still loading.
-    condition: C,
-    /// The path that will be redirected to if the condition is `Some(false)`.
-    redirect_path: PathFn,
-    /// Will be displayed while the condition is pending. By default this is the empty view.
-    #[prop(optional, into)]
-    fallback: children::ViewFn,
-    /// The mode that this route prefers during server-side rendering.
-    /// Defaults to out-of-order streaming.
-    #[prop(optional)]
-    ssr: SsrMode,
-) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>
-where
-    ViewFn: Fn() -> View + Send + Clone + 'static,
-    View: IntoView + 'static,
-    C: Fn() -> Option<bool> + Send + Clone + 'static,
-    PathFn: Fn() -> P + Send + Clone + 'static,
-    P: Display + 'static,
-{
-    let fallback = move || fallback.run();
-    let view = move || {
-        let condition = condition.clone();
-        let redirect_path = redirect_path.clone();
-        let view = view.clone();
-        let fallback = fallback.clone();
-        (view! {
-            <Transition fallback=fallback.clone()>
-                {move || {
-                    let condition = condition();
-                    let view = view.clone();
-                    let redirect_path = redirect_path.clone();
-                    let fallback = fallback.clone();
-                    Unsuspend::new(move || match condition {
-                        Some(true) => EitherOf3::A(view()),
-                        #[allow(clippy::unit_arg)]
-                        Some(false) => {
-                            EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
-                        }
-                        None => EitherOf3::C(fallback()),
-                    })
-                }}
-
-            </Transition>
-        })
-        .into_any()
-    };
-    NestedRoute::new(path, view).ssr_mode(ssr)
-}
-
-#[component(transparent)]
-pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
-    /// The path fragment that this route should match. This can be created using the
-    /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
-    /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
-    /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
-    path: Segments,
-    /// The view for this route.
-    view: ViewFn,
-    /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
-    /// the page, `Some(false)` means the user cannot access the page, and `None` means this
-    /// information is still loading.
-    condition: C,
-    /// Will be displayed while the condition is pending. By default this is the empty view.
-    #[prop(optional, into)]
-    fallback: children::ViewFn,
-    /// The path that will be redirected to if the condition is `Some(false)`.
-    redirect_path: PathFn,
-    /// Nested child routes.
-    children: RouteChildren<Children>,
-    /// The mode that this route prefers during server-side rendering.
-    /// Defaults to out-of-order streaming.
-    #[prop(optional)]
-    ssr: SsrMode,
-) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>
-where
-    ViewFn: Fn() -> View + Send + Clone + 'static,
-    View: IntoView + 'static,
-    C: Fn() -> Option<bool> + Send + Clone + 'static,
-    PathFn: Fn() -> P + Send + Clone + 'static,
-    P: Display + 'static,
-{
-    let fallback = move || fallback.run();
-    let children = children.into_inner();
-    let view = move || {
-        let condition = condition.clone();
-        let redirect_path = redirect_path.clone();
-        let fallback = fallback.clone();
-        let view = view.clone();
-        let owner = Owner::current().unwrap();
-        let view = {
-            let fallback = fallback.clone();
-            move || {
-                let condition = condition();
+/// With the `impl Fn` in the return signature, IntoMaybeErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
+macro_rules! define_protected_route {
+    ($ret:ty) => {
+        /// Describes a route that is guarded by a certain condition. This works the same way as
+        /// [`<Route/>`], except that if the `condition` function evaluates to `Some(false)`, it
+        /// redirects to `redirect_path` instead of displaying its `view`.
+        #[component(transparent)]
+        pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
+            /// The path fragment that this route should match. This can be created using the
+            /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+            /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+            /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
+            path: Segments,
+            /// The view for this route.
+            view: ViewFn,
+            /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+            /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+            /// information is still loading.
+            condition: C,
+            /// The path that will be redirected to if the condition is `Some(false)`.
+            redirect_path: PathFn,
+            /// Will be displayed while the condition is pending. By default this is the empty view.
+            #[prop(optional, into)]
+            fallback: children::ViewFn,
+            /// The mode that this route prefers during server-side rendering.
+            /// Defaults to out-of-order streaming.
+            #[prop(optional)]
+            ssr: SsrMode,
+        ) -> $ret
+        where
+            Segments: PossibleRouteMatch + Clone + Send + 'static,
+            ViewFn: Fn() -> View + Send + Clone + 'static,
+            View: IntoView + 'static,
+            C: Fn() -> Option<bool> + Send + Clone + 'static,
+            PathFn: Fn() -> P + Send + Clone + 'static,
+            P: Display + 'static,
+        {
+            let fallback = move || fallback.run();
+            let view = move || {
+                let condition = condition.clone();
+                let redirect_path = redirect_path.clone();
                 let view = view.clone();
+                let fallback = fallback.clone();
+                (view! {
+                    <Transition fallback=fallback.clone()>
+                        {move || {
+                            let condition = condition();
+                            let view = view.clone();
+                            let redirect_path = redirect_path.clone();
+                            let fallback = fallback.clone();
+                            Unsuspend::new(move || match condition {
+                                Some(true) => EitherOf3::A(view()),
+                                #[allow(clippy::unit_arg)]
+                                Some(false) => {
+                                    EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
+                                }
+                                None => EitherOf3::C(fallback()),
+                            })
+                        }}
+
+                    </Transition>
+                })
+                .into_any()
+            };
+            NestedRoute::new(path, view).ssr_mode(ssr).into_maybe_erased()
+        }
+    };
+}
+
+#[cfg(erase_components)]
+define_protected_route!(crate::any_nested_route::AnyNestedRoute);
+#[cfg(not(erase_components))]
+define_protected_route!(NestedRoute<Segments, (), (), impl Fn() -> AnyView + Send + Clone>);
+
+/// With the `impl Fn` in the return signature, IntoMaybeErased::Output isn't accepted by the compiler, so changing return type depending on the erasure flag.
+macro_rules! define_protected_parent_route {
+    ($ret:ty) => {
+        #[component(transparent)]
+        pub fn ProtectedParentRoute<
+            Segments,
+            ViewFn,
+            View,
+            C,
+            PathFn,
+            P,
+            Children,
+        >(
+            /// The path fragment that this route should match. This can be created using the
+            /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
+            /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
+            /// [`OptionalParamSegment`](crate::OptionalParamSegment)).
+            path: Segments,
+            /// The view for this route.
+            view: ViewFn,
+            /// A function that returns `Option<bool>`, where `Some(true)` means that the user can access
+            /// the page, `Some(false)` means the user cannot access the page, and `None` means this
+            /// information is still loading.
+            condition: C,
+            /// Will be displayed while the condition is pending. By default this is the empty view.
+            #[prop(optional, into)]
+            fallback: children::ViewFn,
+            /// The path that will be redirected to if the condition is `Some(false)`.
+            redirect_path: PathFn,
+            /// Nested child routes.
+            children: RouteChildren<Children>,
+            /// The mode that this route prefers during server-side rendering.
+            /// Defaults to out-of-order streaming.
+            #[prop(optional)]
+            ssr: SsrMode,
+        ) -> $ret
+        where
+            Segments: PossibleRouteMatch + Clone + Send + 'static,
+            Children: MatchNestedRoutes + Send + Clone + 'static,
+            ViewFn: Fn() -> View + Send + Clone + 'static,
+            View: IntoView + 'static,
+            C: Fn() -> Option<bool> + Send + Clone + 'static,
+            PathFn: Fn() -> P + Send + Clone + 'static,
+            P: Display + 'static,
+        {
+            let fallback = move || fallback.run();
+            let children = children.into_inner();
+            let view = move || {
+                let condition = condition.clone();
                 let redirect_path = redirect_path.clone();
                 let fallback = fallback.clone();
-                let owner = owner.clone();
-                Unsuspend::new(move || match condition {
-                    // reset the owner so that things like providing context work
-                    // otherwise, this will be a child owner nested within the Transition, not
-                    // the parent owner of the Outlet
-                    //
-                    // clippy: not redundant, a FnOnce vs FnMut issue
-                    #[allow(clippy::redundant_closure)]
-                    Some(true) => EitherOf3::A(owner.with(|| view())),
-                    #[allow(clippy::unit_arg)]
-                    Some(false) => EitherOf3::B(
-                        view! { <Redirect path=redirect_path()/> }.into_inner(),
-                    ),
-                    None => EitherOf3::C(fallback()),
-                })
-            }
-        };
-        (view! { <Transition fallback>{view}</Transition> }).into_any()
+                let view = view.clone();
+                let owner = Owner::current().unwrap();
+                let view = {
+                    let fallback = fallback.clone();
+                    move || {
+                        let condition = condition();
+                        let view = view.clone();
+                        let redirect_path = redirect_path.clone();
+                        let fallback = fallback.clone();
+                        let owner = owner.clone();
+                        Unsuspend::new(move || match condition {
+                            // reset the owner so that things like providing context work
+                            // otherwise, this will be a child owner nested within the Transition, not
+                            // the parent owner of the Outlet
+                            //
+                            // clippy: not redundant, a FnOnce vs FnMut issue
+                            #[allow(clippy::redundant_closure)]
+                            Some(true) => EitherOf3::A(owner.with(|| view())),
+                            #[allow(clippy::unit_arg)]
+                            Some(false) => EitherOf3::B(
+                                view! { <Redirect path=redirect_path()/> }
+                                    .into_inner(),
+                            ),
+                            None => EitherOf3::C(fallback()),
+                        })
+                    }
+                };
+                (view! { <Transition fallback>{view}</Transition> }).into_any()
+            };
+            NestedRoute::new(path, view)
+                .ssr_mode(ssr)
+                .child(children)
+                .into_maybe_erased()
+        }
     };
-    NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
+
+#[cfg(erase_components)]
+define_protected_parent_route!(crate::any_nested_route::AnyNestedRoute);
+#[cfg(not(erase_components))]
+define_protected_parent_route!(NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>);
 
 /// Redirects the user to a new URL, whether on the client side or on the server
 /// side. If rendered on the server, this sets a `302` status code and sets a `Location`

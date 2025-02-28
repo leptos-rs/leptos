@@ -389,13 +389,13 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "axum"
-version = "0.7.9"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
+checksum = "6d6fd624c75e18b3b4c6b9caf42b1afe24437daaee904069137d8bab077be8b8"
 dependencies = [
- "async-trait",
  "axum-core",
  "bytes",
+ "form_urlencoded",
  "futures-util",
  "http 1.2.0",
  "http-body",
@@ -424,11 +424,10 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.4.5"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09f2bd6146b97ae3359fa0cc6d6b376d9539582c7b4220f041a33ec24c226199"
+checksum = "df1362f362fd16024ae199c1970ce98f9661bf5ef94b9808fee734bc3698b733"
 dependencies = [
- "async-trait",
  "bytes",
  "futures-util",
  "http 1.2.0",
@@ -680,6 +679,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-str"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3618cccc083bb987a415d85c02ca6c9994ea5b44731ec28b9ecf09658655fba9"
+
+[[package]]
 name = "const_format"
 version = "0.2.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -875,12 +880,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "669a445ee724c5c69b1b06fe0b63e70a1c84bc9bb7d9696cd4f4e3ec45050408"
 
 [[package]]
-name = "dyn-clone"
-version = "1.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feeef44e73baff3a26d371801df019877a9866a8c493d315ab00177843314f35"
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -926,6 +925,12 @@ name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
+
+[[package]]
+name = "erased"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1731451909bde27714eacba19c2566362a7f35224f52b153d3f42cf60f72472"
 
 [[package]]
 name = "errno"
@@ -1734,7 +1739,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "any_spawner",
  "base64",
@@ -1784,7 +1789,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "actix-files",
  "actix-http",
@@ -1809,7 +1814,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "any_spawner",
  "axum",
@@ -1832,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "config",
  "regex",
@@ -1846,7 +1851,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "js-sys",
  "leptos",
@@ -1863,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_hot_reload"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "anyhow",
  "camino",
@@ -1879,7 +1884,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "futures",
  "hydration_context",
@@ -1892,7 +1897,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -1911,7 +1916,7 @@ dependencies = [
  "rstml",
  "serde",
  "server_fn",
- "server_fn_macro 0.7.7",
+ "server_fn_macro 0.8.0-alpha",
  "syn 2.0.98",
  "tracing",
  "trybuild",
@@ -1921,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_meta"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "futures",
  "indexmap",
@@ -1936,7 +1941,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -1960,7 +1965,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router_macro"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "leptos_macro",
  "leptos_router",
@@ -1972,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2079,9 +2084,9 @@ dependencies = [
 
 [[package]]
 name = "matchit"
-version = "0.7.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "memchr"
@@ -3155,12 +3160,14 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "actix-web",
  "axum",
+ "base64",
  "bytes",
  "ciborium",
+ "const-str",
  "const_format",
  "dashmap",
  "futures",
@@ -3211,7 +3218,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
  "const_format",
  "convert_case 0.6.0",
@@ -3223,9 +3230,9 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro_default"
-version = "0.7.7"
+version = "0.8.0-alpha"
 dependencies = [
- "server_fn_macro 0.7.7",
+ "server_fn_macro 0.8.0-alpha",
  "syn 2.0.98",
 ]
 
@@ -3425,8 +3432,8 @@ dependencies = [
  "async-trait",
  "const_str_slice_concat",
  "drain_filter_polyfill",
- "dyn-clone",
  "either_of",
+ "erased",
  "futures",
  "html-escape",
  "indexmap",
@@ -3541,7 +3548,7 @@ dependencies = [
 
 [[package]]
 name = "throw_error"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "pin-project-lite",
 ]

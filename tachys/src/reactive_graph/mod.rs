@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::{Attribute, AttributeValue},
+    html::attribute::{any_attribute::AnyAttribute, Attribute, AttributeValue},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
@@ -119,6 +119,13 @@ where
             false
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.0
+            .as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<F, V> RenderHtml for F
@@ -128,6 +135,7 @@ where
     V::State: 'static,
 {
     type AsyncOutput = V::AsyncOutput;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -149,9 +157,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         let value = self.invoke();
-        value.to_html_with_buf(buf, position, escape, mark_branches)
+        value.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -160,6 +175,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -169,6 +185,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -177,13 +194,32 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let cursor = cursor.clone();
-        let position = position.clone();
-        let hook = throw_error::get_error_hook();
+        /// codegen optimisation:
+        fn prep(
+            cursor: &Cursor,
+            position: &PositionState,
+        ) -> (
+            Cursor,
+            PositionState,
+            Option<Arc<dyn throw_error::ErrorHook>>,
+        ) {
+            let cursor = cursor.clone();
+            let position = position.clone();
+            let hook = throw_error::get_error_hook();
+            (cursor, position, hook)
+        }
+        let (cursor, position, hook) = prep(cursor, position);
+
         RenderEffect::new(move |prev| {
-            let _guard = hook
-                .as_ref()
-                .map(|h| throw_error::set_error_hook(Arc::clone(h)));
+            /// codegen optimisation:
+            fn get_guard(
+                hook: &Option<Arc<dyn throw_error::ErrorHook>>,
+            ) -> Option<throw_error::ResetErrorHookOnDrop> {
+                hook.as_ref()
+                    .map(|h| throw_error::set_error_hook(Arc::clone(h)))
+            }
+            let _guard = get_guard(&hook);
+
             let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
@@ -193,6 +229,10 @@ where
             }
         })
         .into()
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -238,6 +278,11 @@ where
         self.with_value_mut(|value| value.insert_before_this(child))
             .unwrap_or(false)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.with_value_mut(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<M, E> Mountable for Result<M, E>
@@ -266,6 +311,12 @@ where
         } else {
             false
         }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
     }
 }
 
@@ -507,7 +558,9 @@ where
 mod stable {
     use super::RenderEffectState;
     use crate::{
-        html::attribute::{Attribute, AttributeValue},
+        html::attribute::{
+            any_attribute::AnyAttribute, Attribute, AttributeValue,
+        },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
@@ -576,6 +629,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
@@ -599,9 +653,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -610,6 +671,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) where
                     Self: Sized,
                 {
@@ -619,6 +681,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 
@@ -629,6 +692,10 @@ mod stable {
                 ) -> Self::State {
                     (move || self.get())
                         .hydrate::<FROM_SERVER>(cursor, position)
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 
@@ -750,6 +817,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
+                type Owned = Self;
 
                 const MIN_LENGTH: usize = 0;
 
@@ -773,9 +841,16 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    value.to_html_with_buf(
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
+                        extra_attrs,
+                    )
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -784,6 +859,7 @@ mod stable {
                     position: &mut Position,
                     escape: bool,
                     mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>,
                 ) where
                     Self: Sized,
                 {
@@ -793,6 +869,7 @@ mod stable {
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
                 }
 
@@ -803,6 +880,10 @@ mod stable {
                 ) -> Self::State {
                     (move || self.get())
                         .hydrate::<FROM_SERVER>(cursor, position)
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    self
                 }
             }
 

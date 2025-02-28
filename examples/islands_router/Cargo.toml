@@ -10,22 +10,20 @@ crate-type = ["cdylib", "rlib"]
 console_error_panic_hook = "0.1.7"
 futures = "0.3.30"
 http = "1.1"
-leptos = { path = "../../leptos", features = [
-  "tracing",
-  "islands",
-] }
+leptos = { path = "../../leptos", features = ["tracing", "islands"] }
 leptos_router = { path = "../../router" }
 server_fn = { path = "../../server_fn", features = ["serde-lite"] }
 leptos_axum = { path = "../../integrations/axum", features = [
-  "dont-use-islands-router",
+  "islands-router",
 ], optional = true }
 log = "0.4.22"
 serde = { version = "1.0", features = ["derive"] }
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.8.1", optional = true }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
-wasm-bindgen = "0.2.93"
+wasm-bindgen = "0.2.100"
+serde_json = "1.0.133"
 
 [features]
 hydrate = ["leptos/hydrate"]
@@ -58,11 +56,11 @@ site-root = "target/site"
 # Defaults to pkg
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
-style-file = "./style.css"
+style-file = "style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "127.0.0.1:3000"
+site-addr = "127.0.0.1:3009"
 # The port to use for automatic reload monitoring
 reload-port = 3001
 #  The browserlist query used for optimizing the CSS.

@@ -129,8 +129,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
-        mark_branches: bool,
-    ) {
+        mark_branches: bool, extra_attrs: Vec<AnyAttribute>) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
             let mut routes = RouteList::new();
@@ -155,8 +154,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
-        mark_branches: bool,
-    ) where
+        mark_branches: bool, extra_attrs: Vec<AnyAttribute>) where
         Self: Sized,
     {
         self.inner
@@ -323,8 +321,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
-        mark_branches: bool,
-    ) {
+        mark_branches: bool, extra_attrs: Vec<AnyAttribute>) {
         let MatchedRoute {
             search_params,
             params,
@@ -345,8 +342,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
-        mark_branches: bool,
-    ) where
+        mark_branches: bool, extra_attrs: Vec<AnyAttribute>) where
         Self: Sized,
     {
         let MatchedRoute {

@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
     html::attribute::{
+        any_attribute::AnyAttribute,
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
@@ -161,6 +162,7 @@ where
 
 impl<const V: &'static str> RenderHtml for Static<V> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = V.len();
 
@@ -180,6 +182,7 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -221,6 +224,10 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         position.set(Position::NextChildAfterText);
 
         Some(node)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

@@ -3,7 +3,7 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{Attribute, NextAttribute},
+    html::attribute::{any_attribute::AnyAttribute, Attribute, NextAttribute},
     hydration::Cursor,
     ssr::StreamBuilder,
 };
@@ -75,6 +75,13 @@ where
         match &self {
             Either::Left(left) => left.insert_before_this(child),
             Either::Right(right) => right.insert_before_this(child),
+        }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        match &self {
+            Either::Left(left) => left.elements(),
+            Either::Right(right) => right.elements(),
         }
     }
 }
@@ -266,6 +273,7 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
+    type Owned = Either<A::Owned, B::Owned>;
 
     fn dry_resolve(&mut self) {
         match self {
@@ -297,13 +305,20 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Either::Left(left) => {
                 if mark_branches {
                     buf.open_branch("0");
                 }
-                left.to_html_with_buf(buf, position, escape, mark_branches);
+                left.to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
                 if mark_branches {
                     buf.close_branch("0");
                 }
@@ -312,7 +327,13 @@ where
                 if mark_branches {
                     buf.open_branch("1");
                 }
-                right.to_html_with_buf(buf, position, escape, mark_branches);
+                right.to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
                 if mark_branches {
                     buf.close_branch("1");
                 }
@@ -326,6 +347,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -339,6 +361,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("0");
@@ -353,6 +376,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
                 if mark_branches {
                     buf.close_branch("1");
@@ -373,6 +397,13 @@ where
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        match self {
+            Either::Left(left) => Either::Left(left.into_owned()),
+            Either::Right(right) => Either::Right(right.into_owned()),
         }
     }
 }
@@ -479,6 +510,7 @@ where
     B: RenderHtml,
 {
     type AsyncOutput = EitherKeepAlive<A::AsyncOutput, B::AsyncOutput>;
+    type Owned = EitherKeepAlive<A::Owned, B::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -517,15 +549,28 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if self.show_b {
             self.b
                 .expect("rendering B to HTML without filling it")
-                .to_html_with_buf(buf, position, escape, mark_branches);
+                .to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
         } else {
             self.a
                 .expect("rendering A to HTML without filling it")
-                .to_html_with_buf(buf, position, escape, mark_branches);
+                .to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
         }
     }
 
@@ -535,6 +580,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -546,6 +592,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
         } else {
             self.a
@@ -555,6 +602,7 @@ where
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
         }
     }
@@ -581,6 +629,14 @@ where
         });
 
         EitherKeepAliveState { showing_b, a, b }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        EitherKeepAlive {
+            a: self.a.map(|a| a.into_owned()),
+            b: self.b.map(|b| b.into_owned()),
+            show_b: self.show_b,
+        }
     }
 }
 
@@ -628,6 +684,20 @@ where
                 .insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        if self.showing_b {
+            self.b
+                .as_ref()
+                .map(|inner| inner.elements())
+                .unwrap_or_default()
+        } else {
+            self.a
+                .as_ref()
+                .map(|inner| inner.elements())
+                .unwrap_or_default()
+        }
+    }
 }
 
 macro_rules! tuples {
@@ -669,6 +739,12 @@ macro_rules! tuples {
                 ) -> bool {
                     match &self.state {
                         $([<EitherOf $num>]::$ty(this) =>this.insert_before_this(child),)*
+                    }
+                }
+
+                fn elements(&self) -> Vec<crate::renderer::types::Element> {
+                    match &self.state {
+                        $([<EitherOf $num>]::$ty(this) => this.elements(),)*
                     }
                 }
             }
@@ -738,6 +814,7 @@ macro_rules! tuples {
 
             {
                 type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
+                type Owned = [<EitherOf $num>]<$($ty::Owned,)*>;
 
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
 
@@ -763,13 +840,20 @@ macro_rules! tuples {
                     }
                 }
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
+                fn to_html_with_buf(
+                    self,
+                    buf: &mut String,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>
+                ) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_with_buf(buf, position, escape, mark_branches);
+                            this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }
@@ -779,7 +863,12 @@ macro_rules! tuples {
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
-                    buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
+                    buf: &mut StreamBuilder,
+                    position: &mut Position,
+                    escape: bool,
+                    mark_branches: bool,
+                    extra_attrs: Vec<AnyAttribute>
+                ) where
                     Self: Sized,
                 {
                     match self {
@@ -787,7 +876,7 @@ macro_rules! tuples {
                             if mark_branches {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
+                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches {
                                 buf.close_branch(stringify!($ty));
                             }
@@ -807,6 +896,14 @@ macro_rules! tuples {
                     };
 
                     Self::State { state }
+                }
+
+                fn into_owned(self) -> Self::Owned {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => {
+                            [<EitherOf $num>]::$ty(this.into_owned())
+                        })*
+                    }
                 }
             }
         }

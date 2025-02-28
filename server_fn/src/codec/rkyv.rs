@@ -1,8 +1,8 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    response::{ClientRes, TryRes},
 };
 use bytes::Bytes;
 use futures::StreamExt;
@@ -29,39 +29,38 @@ impl Encoding for Rkyv {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<Rkyv, Request, CustErr> for T
+impl<E, T, Request> IntoReq<Rkyv, Request, E> for T
 where
-    Request: ClientReq<CustErr>,
+    Request: ClientReq<E>,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let encoded = rkyv::to_bytes::<rancor::Error>(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Request::try_new_post_bytes(path, accepts, Rkyv::CONTENT_TYPE, bytes)
     }
 }
 
-impl<CustErr, T, Request> FromReq<Rkyv, Request, CustErr> for T
+impl<E, T, Request> FromReq<Rkyv, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let mut aligned = AlignedVec::<1024>::new();
         let mut body_stream = Box::pin(req.try_into_stream()?);
         while let Some(chunk) = body_stream.next().await {
             match chunk {
                 Err(e) => {
-                    return Err(ServerFnError::Deserialization(e.to_string()))
+                    return Err(e);
                 }
                 Ok(bytes) => {
                     for byte in bytes {
@@ -71,36 +70,40 @@ where
             }
         }
         rkyv::from_bytes::<T, rancor::Error>(aligned.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
-impl<CustErr, T, Response> IntoRes<Rkyv, Response, CustErr> for T
+impl<E, T, Response> IntoRes<Rkyv, Response, E> for T
 where
-    Response: Res<CustErr>,
+    Response: TryRes<E>,
     T: Send,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
+    E: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
-            .map_err(|e| ServerFnError::Serialization(format!("{e:?}")))?;
+    async fn into_res(self) -> Result<Response, E> {
+        let encoded = rkyv::to_bytes::<rancor::Error>(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(format!("{e:?}")).into_app_error()
+        })?;
         let bytes = Bytes::copy_from_slice(encoded.as_ref());
         Response::try_from_bytes(Rkyv::CONTENT_TYPE, bytes)
     }
 }
 
-impl<CustErr, T, Response> FromRes<Rkyv, Response, CustErr> for T
+impl<E, T, Response> FromRes<Rkyv, Response, E> for T
 where
-    Response: ClientRes<CustErr> + Send,
+    Response: ClientRes<E> + Send,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
+    E: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_res(res: Response) -> Result<Self, E> {
         let data = res.try_into_bytes().await?;
-        rkyv::from_bytes::<T, rancor::Error>(&data)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        rkyv::from_bytes::<T, rancor::Error>(&data).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }

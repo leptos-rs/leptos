@@ -1,6 +1,6 @@
 use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
-    attr::Attribute,
+    attr::{any_attribute::AnyAttribute, Attribute},
     component,
     oco::Oco,
     reactive::{
@@ -234,6 +234,7 @@ impl AddAnyAttr for TitleView {
 
 impl RenderHtml for TitleView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -249,6 +250,7 @@ impl RenderHtml for TitleView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -282,6 +284,10 @@ impl RenderHtml for TitleView {
         });
         TitleViewState { effect }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self
+    }
 }
 
 impl Mountable for TitleViewState {
@@ -298,5 +304,9 @@ impl Mountable for TitleViewState {
 
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
+    }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        vec![]
     }
 }

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
@@ -31,14 +33,20 @@ pub trait ExtendResponse: Sized {
         stream_builder: fn(
             IV,
             BoxedFnOnce<PinnedStream<String>>,
+            bool,
         ) -> PinnedFuture<PinnedStream<String>>,
+        supports_ooo: bool,
     ) -> impl Future<Output = Self> + Send
     where
         IV: IntoView + 'static,
     {
         async move {
-            let (owner, stream) =
-                build_response(app_fn, additional_context, stream_builder);
+            let (owner, stream) = build_response(
+                app_fn,
+                additional_context,
+                stream_builder,
+                supports_ooo,
+            );
 
             let sc = owner.shared_context().unwrap();
 
@@ -94,7 +102,11 @@ pub fn build_response<IV>(
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
+        // this argument indicates whether a request wants to support out-of-order streaming
+        // responses
+        bool,
     ) -> PinnedFuture<PinnedStream<String>>,
+    is_islands_router_navigation: bool,
 ) -> (Owner, PinnedFuture<PinnedStream<String>>)
 where
     IV: IntoView + 'static,
@@ -138,7 +150,7 @@ where
                 //
                 // we also don't actually start hydrating until after the whole stream is complete,
                 // so it's not useful to send those scripts down earlier.
-                stream_builder(app, chunks)
+                stream_builder(app, chunks, is_islands_router_navigation)
             });
 
             stream.await

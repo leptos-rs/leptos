@@ -18,7 +18,7 @@ use crate::{
 use reactive_graph::owner::Storage;
 use reactive_graph::{
     signal::{ReadSignal, RwSignal, WriteSignal},
-    traits::{Get, Update},
+    traits::{Get, Set},
     wrappers::read::Signal,
 };
 #[cfg(feature = "reactive_stores")]
@@ -129,7 +129,7 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
-    W: Update<Value = T>,
+    W: Set<Value = T>,
 {
     key: Key,
     read_signal: R,
@@ -141,7 +141,7 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
-    W: Update<Value = T> + Clone,
+    W: Set<Value = T> + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -157,7 +157,7 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
-    W: Update<Value = T> + Clone + 'static,
+    W: Set<Value = T> + Clone + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
     /// Attaches the event listener that updates the signal value to the element.
@@ -198,7 +198,7 @@ where
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
     Signal<BoolOrT<T>>: IntoProperty,
-    W: Update<Value = T> + Clone + Send + 'static,
+    W: Set<Value = T> + Clone + Send + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
     const MIN_LENGTH: usize = 0;
@@ -278,7 +278,7 @@ where
     T: FromEventTarget + AttributeValue + PartialEq + Sync + 'static,
     R: Get<Value = T> + Clone + Send + Sync + 'static,
     Signal<BoolOrT<T>>: IntoProperty,
-    W: Update<Value = T> + Clone + Send + 'static,
+    W: Set<Value = T> + Clone + Send + 'static,
     Element: ChangeEvent + GetValue<T>,
 {
     next_attr_output_type!(Self, NewAttr);
@@ -296,7 +296,7 @@ where
     Key: AttributeKey,
     T: FromEventTarget + AttributeValue + 'static,
     R: Get<Value = T> + Clone + 'static,
-    W: Update<Value = T> + Clone,
+    W: Set<Value = T> + Clone,
 {
     #[inline(always)]
     fn to_template(
@@ -318,7 +318,7 @@ pub trait IntoSplitSignal {
     /// The read part of the signal
     type Read: Get<Value = Self::Value>;
     /// The write part of the signal
-    type Write: Update<Value = Self::Value>;
+    type Write: Set<Value = Self::Value>;
     /// Splits a combined signal into its read and write parts.
     fn into_split_signal(self) -> (Self::Read, Self::Write);
 }
@@ -340,7 +340,7 @@ where
 impl<T, R, W> IntoSplitSignal for (R, W)
 where
     R: Get<Value = T>,
-    W: Update<Value = T>,
+    W: Set<Value = T>,
 {
     type Value = T;
     type Read = R;
@@ -354,7 +354,7 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, T> IntoSplitSignal for Subfield<Inner, Prev, T>
 where
-    Self: Get<Value = T> + Update<Value = T> + Clone,
+    Self: Get<Value = T> + Set<Value = T> + Clone,
 {
     type Value = T;
     type Read = Self;
@@ -368,7 +368,7 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<T, S> IntoSplitSignal for Field<T, S>
 where
-    Self: Get<Value = T> + Update<Value = T> + Clone,
+    Self: Get<Value = T> + Set<Value = T> + Clone,
     S: Storage<ArcField<T>>,
 {
     type Value = T;
@@ -383,7 +383,7 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, K, T> IntoSplitSignal for KeyedSubfield<Inner, Prev, K, T>
 where
-    Self: Get<Value = T> + Update<Value = T> + Clone,
+    Self: Get<Value = T> + Set<Value = T> + Clone,
     for<'a> &'a T: IntoIterator,
 {
     type Value = T;
@@ -425,7 +425,7 @@ pub trait ChangeEvent {
     ) -> RemoveEventHandler<Self>
     where
         T: FromEventTarget + AttributeValue + 'static,
-        W: Update<Value = T> + 'static,
+        W: Set<Value = T> + 'static,
         Self: Sized;
 }
 
@@ -437,21 +437,20 @@ impl ChangeEvent for web_sys::Element {
     ) -> RemoveEventHandler<Self>
     where
         T: FromEventTarget + AttributeValue + 'static,
-        W: Update<Value = T> + 'static,
+        W: Set<Value = T> + 'static,
     {
         if key == "group" {
             let handler = move |evt| {
                 let checked = event_target_checked(&evt);
                 if checked {
-                    write_signal
-                        .try_update(|v| *v = T::from_event_target(&evt));
+                    write_signal.try_set(T::from_event_target(&evt));
                 }
             };
 
             on::<_, _>(change, handler).attach(self)
         } else {
             let handler = move |evt| {
-                write_signal.try_update(|v| *v = T::from_event_target(&evt));
+                write_signal.try_set(T::from_event_target(&evt));
             };
 
             if key == "checked" || self.tag_name() == "SELECT" {
