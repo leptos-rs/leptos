@@ -1,0 +1,69 @@
+/*! tailwindcss v4.0.0 | MIT License | https://tailwindcss.com */
+@tailwind base;
+@tailwind components;
+.relative {
+  position: relative;
+}
+.m-auto {
+  margin: auto;
+}
+.flex {
+  display: flex;
+}
+.min-h-screen {
+  min-height: 100vh;
+}
+.transform {
+  transform: var(--tw-rotate-x) var(--tw-rotate-y) var(--tw-rotate-z) var(--tw-skew-x) var(--tw-skew-y);
+}
+.flex-col {
+  flex-direction: column;
+}
+.flex-row-reverse {
+  flex-direction: row-reverse;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.border-b-4 {
+  border-bottom-style: var(--tw-border-style);
+  border-bottom-width: 4px;
+}
+.border-l-2 {
+  border-left-style: var(--tw-border-style);
+  border-left-width: 2px;
+}
+.bg-gradient-to-tl {
+  --tw-gradient-position: to top left in oklab,;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateX(0);
+}
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateY(0);
+}
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateZ(0);
+}
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: skewX(0);
+}
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: skewY(0);
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
