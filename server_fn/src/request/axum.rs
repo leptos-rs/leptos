@@ -4,10 +4,7 @@ use crate::{
 };
 use axum::{
     body::{Body, Bytes},
-    extract::{
-        ws::Message,
-        FromRequest,
-    },
+    extract::{ws::Message, FromRequest},
     response::Response,
 };
 use futures::{FutureExt, Sink, Stream, StreamExt};
@@ -85,17 +82,19 @@ where
         >,
     > + Send {
         async move {
-        let upgrade =
-            axum::extract::ws::WebSocketUpgrade::from_request(self, &())
-                .await
-                .map_err(|err| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))
-                })?;
-        let (mut outgoing_tx, outgoing_rx) =
-            futures::channel::mpsc::channel(2048);
-        let (incoming_tx, mut incoming_rx) =
-            futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
-        let response = upgrade
+            let upgrade =
+                axum::extract::ws::WebSocketUpgrade::from_request(self, &())
+                    .await
+                    .map_err(|err| {
+                        E::from_server_fn_error(ServerFnErrorErr::Request(
+                            err.to_string(),
+                        ))
+                    })?;
+            let (mut outgoing_tx, outgoing_rx) =
+                futures::channel::mpsc::channel(2048);
+            let (incoming_tx, mut incoming_rx) =
+                futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
+            let response = upgrade
             .on_failed_upgrade({
                 let mut outgoing_tx = outgoing_tx.clone();
                 move |err: axum::Error| {
@@ -150,6 +149,7 @@ where
                 }
             });
 
-        Ok((outgoing_rx, incoming_tx, response))}
+            Ok((outgoing_rx, incoming_tx, response))
+        }
     }
 }
