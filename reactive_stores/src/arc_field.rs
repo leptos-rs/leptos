@@ -47,8 +47,8 @@ where
         #[cfg(any(debug_assertions, leptos_debuginfo))]
         let f = f.field("defined_at", &self.defined_at);
         f.field("path", &self.path)
-         .field("trigger", &self.trigger)
-         .finish()
+            .field("trigger", &self.trigger)
+            .finish()
     }
 }
 
