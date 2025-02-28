@@ -107,14 +107,16 @@ where
     /// Attempts to convert the body of the request into a websocket handle.
     fn try_into_websocket(
         self,
-    ) -> Result<
-        (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl Sink<Result<Bytes, E>> + Send + 'static,
-            Self::WebsocketResponse,
-        ),
-        E,
-    >;
+    ) -> impl Future<
+        Output = Result<
+            (
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
+                Self::WebsocketResponse,
+            ),
+            E,
+        >,
+    > + Send;
 }
 
 /// A mocked request type that can be used in place of the actual server request,
@@ -155,19 +157,26 @@ impl<E: Send + 'static> Req<E> for BrowserMockReq {
 
     fn try_into_websocket(
         self,
-    ) -> Result<
-        (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl Sink<Result<Bytes, E>> + Send + 'static,
-            Self::WebsocketResponse,
-        ),
-        E,
-    > {
+    ) -> impl Future<
+        Output = Result<
+            (
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
+                Self::WebsocketResponse,
+            ),
+            E,
+        >,
+    > + Send {
         #[allow(unreachable_code)]
-        Ok((
-            futures::stream::once(async { unreachable!() }),
-            futures::sink::drain(),
-            unreachable!(),
-        ))
+        async {
+            Err::<
+                (
+                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                    futures::sink::Drain<Result<Bytes, E>>,
+                    Self::WebsocketResponse,
+                ),
+                _,
+            >(unreachable!())
+        }
     }
 }

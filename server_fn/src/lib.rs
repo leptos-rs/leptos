@@ -426,6 +426,14 @@ pub struct BoxedStream<T, E> {
     stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
 }
 
+impl<T, E> Into<Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>>
+    for BoxedStream<T, E>
+{
+    fn into(self) -> Pin<Box<dyn Stream<Item = Result<T, E>> + Send>> {
+        self.stream
+    }
+}
+
 impl<T, E> Deref for BoxedStream<T, E> {
     type Target = Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>;
     fn deref(&self) -> &Self::Target {
@@ -490,7 +498,7 @@ where
         Fut: Future<Output = Result<BoxedStream<OutputItem, E>, E>> + Send,
     {
         let (request_bytes, response_stream, response) =
-            request.try_into_websocket()?;
+            request.try_into_websocket().await?;
         let input = request_bytes.map(|request_bytes| match request_bytes {
             Ok(request_bytes) => {
                 InputEncoding::decode(request_bytes).map_err(|e| {

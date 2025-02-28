@@ -64,7 +64,7 @@ pub mod browser {
     use futures::{Sink, SinkExt, StreamExt, TryStreamExt};
     use gloo_net::websocket::{events::CloseEvent, Message, WebSocketError};
     use send_wrapper::SendWrapper;
-    use std::{future::Future, pin::Pin};
+    use std::future::Future;
 
     /// Implements [`Client`] for a `fetch` request in the browser.
     pub struct BrowserClient;
@@ -115,6 +115,7 @@ pub mod browser {
                 let websocket =
                     gloo_net::websocket::futures::WebSocket::open(url)
                         .map_err(|err| {
+                            web_sys::console::error_1(&err.to_string().into());
                             E::from_server_fn_error(ServerFnErrorErr::Request(
                                 err.to_string(),
                             ))
@@ -123,6 +124,7 @@ pub mod browser {
 
                 let stream = stream
                     .map_err(|err| {
+                        web_sys::console::error_1(&err.to_string().into());
                         E::from_server_fn_error(ServerFnErrorErr::Request(
                             err.to_string(),
                         ))
@@ -134,22 +136,20 @@ pub mod browser {
                 let stream = SendWrapper::new(stream);
 
                 struct SendWrapperSink<S> {
-                    // NOTE: We can't use pin project here because the `SendWrapper` doesn't export
-                    // that invariant. It could change in a minor version.
-                    sink: Pin<Box<SendWrapper<Pin<Box<S>>>>>,
+                    sink: SendWrapper<S>,
                 }
 
                 impl<S> SendWrapperSink<S> {
                     fn new(sink: S) -> Self {
                         Self {
-                            sink: Box::pin(SendWrapper::new(Box::pin(sink))),
+                            sink: SendWrapper::new(sink),
                         }
                     }
                 }
 
                 impl<S, Item> Sink<Item> for SendWrapperSink<S>
                 where
-                    S: Sink<Item>,
+                    S: Sink<Item> + Unpin,
                 {
                     type Error = S::Error;
 
@@ -189,6 +189,9 @@ pub mod browser {
                     match message {
                         Ok(message) => Ok(Message::Bytes(message.into())),
                         Err(err) => {
+                            web_sys::console::error_1(&js_sys::JsString::from(
+                                err.ser(),
+                            ));
                             const CLOSE_CODE_ERROR: u16 = 1011;
                             Err(WebSocketError::ConnectionClose(CloseEvent {
                                 code: CLOSE_CODE_ERROR,
@@ -198,7 +201,7 @@ pub mod browser {
                         }
                     }
                 });
-                let sink = SendWrapperSink::new(sink);
+                let sink = SendWrapperSink::new(Box::pin(sink));
 
                 Ok((stream, sink))
             })

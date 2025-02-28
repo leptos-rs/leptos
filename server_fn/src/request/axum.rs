@@ -5,18 +5,18 @@ use crate::{
 use axum::{
     body::{Body, Bytes},
     extract::{
-        ws::{CloseFrame, Message, Utf8Bytes},
+        ws::Message,
         FromRequest,
     },
     response::Response,
 };
-use futures::{FutureExt, SinkExt, Stream, StreamExt};
+use futures::{FutureExt, Sink, Stream, StreamExt};
 use http::{
     header::{ACCEPT, CONTENT_TYPE, REFERER},
     Request,
 };
 use http_body_util::BodyExt;
-use std::borrow::Cow;
+use std::{borrow::Cow, future::Future};
 
 impl<E> Req<E> for Request<Body>
 where
@@ -74,19 +74,23 @@ where
 
     fn try_into_websocket(
         self,
-    ) -> Result<
-        (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl futures::Sink<Result<Bytes, E>> + Send + 'static,
-            Self::WebsocketResponse,
-        ),
-        E,
-    > {
+    ) -> impl Future<
+        Output = Result<
+            (
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
+                Self::WebsocketResponse,
+            ),
+            E,
+        >,
+    > + Send {
+        async move {
         let upgrade =
             axum::extract::ws::WebSocketUpgrade::from_request(self, &())
-                .now_or_never()
-                .unwrap()
-                .unwrap();
+                .await
+                .map_err(|err| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))
+                })?;
         let (mut outgoing_tx, outgoing_rx) =
             futures::channel::mpsc::channel(2048);
         let (incoming_tx, mut incoming_rx) =
@@ -103,6 +107,7 @@ where
                     futures::select! {
                         incoming = incoming_rx.next() => {
                             let Some(incoming) = incoming else {
+                                println!("incoming is none");
                                 return;
                             };
                             match incoming {
@@ -112,21 +117,14 @@ where
                                     }
                                 }
                                 Err(err) => {
-                                    if let Err(err) = msg.send(Message::Close(Some(CloseFrame {
-                                        code: axum::extract::ws::close_code::ERROR,
-                                        reason: Utf8Bytes::from(err.ser()),
-                                    }))).await {
-                                        _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
-                                    }
-                                    if let Err(err) =  msg.close().await {
-                                        _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
-                                    }
-                                    return;
+                                    println!("ran into error: {err:?}");
+                                    _ = outgoing_tx.start_send(Err(err));
                                 }
                             }
                         },
                         outgoing = msg.recv().fuse() => {
                             let Some(outgoing) = outgoing else {
+                                println!("outgoing is none");
                                 return;
                             };
                             match outgoing {
@@ -139,8 +137,11 @@ where
                                 Ok(Message::Text(text)) => {
                                     _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
                                 }
-                                Ok(_) => {}
+                                Ok(other) => {
+                                    println!("other message: {other:?}");
+                                } 
                                 Err(e) => {
+                                    println!("ran into error: {e:?}");
                                     _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
                                 }
                             }
@@ -149,6 +150,6 @@ where
                 }
             });
 
-        Ok((outgoing_rx, incoming_tx, response))
+        Ok((outgoing_rx, incoming_tx, response))}
     }
 }

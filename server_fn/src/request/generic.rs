@@ -19,10 +19,10 @@ use crate::{
 use bytes::Bytes;
 use futures::{
     stream::{self, Stream},
-    StreamExt,
+    Sink, StreamExt,
 };
 use http::{Request, Response};
-use std::borrow::Cow;
+use std::{borrow::Cow, future::Future};
 
 impl<E> Req<E> for Request<Bytes>
 where
@@ -72,23 +72,30 @@ where
 
     fn try_into_websocket(
         self,
-    ) -> Result<
-        (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl futures::Sink<Result<Bytes, E>> + Send + 'static,
-            Self::WebsocketResponse,
-        ),
-        E,
-    > {
-        Err::<
+    ) -> impl Future<
+        Output = Result<
             (
-                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                futures::sink::Drain<Result<Bytes, E>>,
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
                 Self::WebsocketResponse,
             ),
-            _,
-        >(E::from_server_fn_error(crate::ServerFnErrorErr::Response(
-            "Websockets are not supported on this platform.".to_string(),
-        )))
+            E,
+        >,
+    > + Send {
+        async {
+            Err::<
+                (
+                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                    futures::sink::Drain<Result<Bytes, E>>,
+                    Self::WebsocketResponse,
+                ),
+                _,
+            >(E::from_server_fn_error(
+                crate::ServerFnErrorErr::Response(
+                    "Websockets are not supported on this platform."
+                        .to_string(),
+                ),
+            ))
+        }
     }
 }

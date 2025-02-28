@@ -102,7 +102,7 @@ where
         Ok(SendWrapper::new(stream))
     }
 
-    fn try_into_websocket(
+    async fn try_into_websocket(
         self,
     ) -> Result<
         (
