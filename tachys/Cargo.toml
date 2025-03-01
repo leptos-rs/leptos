@@ -162,6 +162,8 @@ sledgehammer_bindgen = { version = "0.6.0", features = [
 ], optional = true }
 sledgehammer_utils = { version = "0.3.1", optional = true }
 tracing = { version = "0.1.41", optional = true }
+serde = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4.4"
@@ -172,7 +174,7 @@ default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
 hydrate = []
-islands = []
+islands = ["dep:serde", "dep:serde_json"]
 ssr = []
 oco = ["dep:oco_ref"]
 nightly = ["reactive_graph/nightly"]

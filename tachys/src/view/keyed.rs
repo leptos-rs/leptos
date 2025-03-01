@@ -50,6 +50,39 @@ where
     view_fn: VF,
 }
 
+/// By default, keys used in for keyed iteration do not need to be serializable.
+///
+/// However, for some scenarios (like the “islands routing” mode that mixes server-side
+/// rendering with client-side navigation) it is useful to have serializable keys.
+///
+/// When the `islands` feature is not enabled, this trait is implemented by all types.
+///
+/// When the `islands` features is enabled, this is automatically implemented for all types
+/// that implement [`Serialize`](serde::Serialize), and can be manually implemented otherwise.
+pub trait SerializableKey {
+    /// Serializes the key to a unique string.
+    ///
+    /// The string can have any value, as long as it is idempotent (i.e., serializing the same key
+    /// multiple times will give the same value).
+    fn ser_key(&self) -> String;
+}
+
+#[cfg(not(feature = "islands"))]
+impl<T> SerializableKey for T {
+    fn ser_key(&self) -> String {
+        panic!(
+            "SerializableKey called without the `islands` feature enabled. \
+             Something has gone wrong."
+        );
+    }
+}
+#[cfg(feature = "islands")]
+impl<T: serde::Serialize> SerializableKey for T {
+    fn ser_key(&self) -> String {
+        serde_json::to_string(self).expect("failed to serialize key")
+    }
+}
+
 /// Retained view state for a keyed list.
 pub struct KeyedState<K, VFS, V>
 where
@@ -66,7 +99,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> Render for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T>,
-    K: Eq + Hash + ToString + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     KF: Fn(&T) -> K,
     V: Render,
     VF: Fn(usize, T) -> (VFS, V),
@@ -132,7 +165,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send + 'static,
-    K: Eq + Hash + ToString + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
@@ -185,7 +218,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T> + Send + 'static,
-    K: Eq + Hash + ToString + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -261,7 +294,7 @@ where
         for (index, item) in self.items.into_iter().enumerate() {
             let branch_name = mark_branches.then(|| {
                 let key = (self.key_fn)(&item);
-                let key = key.to_string();
+                let key = key.ser_key();
                 format!("item-{key}")
             });
             let (_, item) = (self.view_fn)(index, item);
