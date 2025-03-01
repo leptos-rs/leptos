@@ -146,13 +146,10 @@ where
 }
 
 #[cfg(erase_components)]
-use crate::html::attribute::any_attribute::{AnyAttribute, IntoAnyAttribute};
-
-#[cfg(erase_components)]
 impl<A, B> NextAttribute for Either<A, B>
 where
-    B: IntoAnyAttribute,
-    A: IntoAnyAttribute,
+    B: crate::html::attribute::any_attribute::IntoAnyAttribute,
+    A: crate::html::attribute::any_attribute::IntoAnyAttribute,
 {
     type Output<NewAttr: Attribute> = Vec<AnyAttribute>;
 
@@ -160,6 +157,8 @@ where
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
+        use crate::html::attribute::any_attribute::IntoAnyAttribute;
+
         vec![
             match self {
                 Either::Left(left) => left.into_any_attr(),

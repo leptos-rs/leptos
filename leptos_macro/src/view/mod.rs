@@ -428,7 +428,7 @@ fn element_children_to_tokens(
                 { #child }
             )
         })
-    } else if cfg!(erase_components) {
+    } else if cfg!(feature = "__internal_erase_components") {
         Some(quote! {
             .child(
                 leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
@@ -479,7 +479,7 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
-    } else if cfg!(erase_components) {
+    } else if cfg!(feature = "__internal_erase_components") {
         Some(quote! {
             leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
         })
@@ -768,9 +768,9 @@ pub(crate) fn element_to_tokens(
             }
         }
 
-        if cfg!(erase_components) {
+        if cfg!(feature = "__internal_erase_components") {
             Some(quote! {
-                vec![#(#attributes.into_attr().into_any_attr(),)*]
+                vec![#(#attributes.into_any_attr(),)*]
                 #(.add_any_attr(#additions))*
             })
         } else {

@@ -5,6 +5,9 @@ on:
       directory:
         required: true
         type: string
+      erased_mode:
+        required: true
+        type: boolean      
       cargo_make_task:
         required: true
         type: string
@@ -15,9 +18,10 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   DEBIAN_FRONTEND: noninteractive
+  RUSTFLAGS: ${{ inputs.erased_mode && '--cfg erase_components' || '' }}
 jobs:
   test:
-    name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
+    name: "Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
     runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space

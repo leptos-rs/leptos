@@ -83,7 +83,7 @@ pub(crate) fn slot_to_tokens(
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
-            Some(quote! { (#name, ::leptos::IntoAttribute::into_attribute(#value)) })
+            Some(quote! { (#name, #value) })
         })
         .collect::<Vec<_>>();
 

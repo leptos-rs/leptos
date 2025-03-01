@@ -32,6 +32,8 @@ pub struct Model {
 impl Parse for Model {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut item = ItemFn::parse(input)?;
+        maybe_modify_return_type(&mut item.sig.output);
+
         convert_impl_trait_to_generic(&mut item.sig);
 
         let docs = Docs::new(&item.attrs);
@@ -73,6 +75,39 @@ impl Parse for Model {
             ret: item.sig.output.clone(),
             body: item,
         })
+    }
+}
+
+/// Exists to fix nested routes defined in a separate component in erased mode,
+/// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
+fn maybe_modify_return_type(ret: &mut ReturnType) {
+    #[cfg(feature = "__internal_erase_components")]
+    {
+        if let ReturnType::Type(_, ty) = ret {
+            if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
+                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+                if bounds.iter().any(|bound| {
+                    if let syn::TypeParamBound::Trait(trait_bound) = bound {
+                        if trait_bound.path.segments.iter().any(
+                            |path_segment| {
+                                path_segment.ident == "MatchNestedRoutes"
+                            },
+                        ) {
+                            return true;
+                        }
+                    }
+                    false
+                }) {
+                    *ty = parse_quote!(
+                        ::leptos_router::any_nested_route::AnyNestedRoute
+                    );
+                }
+            }
+        }
+    }
+    #[cfg(not(feature = "__internal_erase_components"))]
+    {
+        let _ = ret;
     }
 }
 
@@ -296,9 +331,9 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             body_expr
-        } else if cfg!(erase_components) {
+        } else if cfg!(feature = "__internal_erase_components") {
             quote! {
-                ::leptos::prelude::IntoAny::into_any(
+                ::leptos::prelude::IntoMaybeErased::into_maybe_erased(
                     ::leptos::reactive::graph::untrack_with_diagnostics(
                         move || {
                             #tracing_guard_expr
@@ -613,7 +648,8 @@ impl Parse for DummyModel {
         drain_filter(&mut attrs, |attr| !attr.path().is_ident("doc"));
 
         let vis: Visibility = input.parse()?;
-        let sig: Signature = input.parse()?;
+        let mut sig: Signature = input.parse()?;
+        maybe_modify_return_type(&mut sig.output);
 
         // The body is left untouched, so it will not cause an error
         // even if the syntax is invalid.

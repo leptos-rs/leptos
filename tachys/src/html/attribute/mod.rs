@@ -78,25 +78,6 @@ pub trait Attribute: NextAttribute + Send {
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
-/// A type that can be converted into an attribute.
-///
-/// Used type-erasing attrs and tuples of attrs to [`Vec<AnyAttribute>`] as early as possible to prevent type explosion.
-pub trait IntoAttribute {
-    /// The type of the attribute.
-    type Output: Attribute;
-
-    /// Converts this into an attribute.
-    fn into_attr(self) -> Self::Output;
-}
-
-impl<T: Attribute> IntoAttribute for T {
-    type Output = T;
-
-    fn into_attr(self) -> Self::Output {
-        self
-    }
-}
-
 /// Adds another attribute to this one, returning a new attribute.
 ///
 /// This is typically achieved by creating or extending a tuple of attributes.
@@ -288,7 +269,6 @@ where
 
 macro_rules! impl_attr_for_tuples {
     ($first:ident, $($ty:ident),* $(,)?) => {
-        #[cfg(not(erase_components))]
         impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
         where
             $first: Attribute,
@@ -376,7 +356,6 @@ macro_rules! impl_attr_for_tuples {
             }
         }
 
-        #[cfg(not(erase_components))]
         impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
         where
             $first: Attribute,
@@ -394,38 +373,15 @@ macro_rules! impl_attr_for_tuples {
                 ($first, $($ty,)* new_attr)
             }
         }
-
-
-        #[cfg(erase_components)]
-        impl<$first, $($ty),*> IntoAttribute for ($first, $($ty,)*)
-        where
-            $first: IntoAttribute,
-            $($ty: IntoAttribute),*,
-            {
-            type Output = Vec<$crate::html::attribute::any_attribute::AnyAttribute>;
-
-            fn into_attr(self) -> Self::Output {
-                use crate::html::attribute::any_attribute::IntoAnyAttribute;
-
-                #[allow(non_snake_case)]
-                let ($first, $($ty,)*) = self;
-                vec![
-                    $first.into_attr().into_any_attr(),
-                    $($ty.into_attr().into_any_attr(),)*
-                ]
-            }
-        }
     };
 }
 
 macro_rules! impl_attr_for_tuples_truncate_additional {
     ($first:ident, $($ty:ident),* $(,)?) => {
-        #[cfg(not(erase_components))]
         impl<$first, $($ty),*> Attribute for ($first, $($ty,)*)
         where
             $first: Attribute,
             $($ty: Attribute),*,
-
         {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
@@ -509,7 +465,6 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
         }
 
-        #[cfg(not(erase_components))]
         impl<$first, $($ty),*> NextAttribute for ($first, $($ty,)*)
         where
             $first: Attribute,
@@ -526,38 +481,9 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 //($first, $($ty,)*)
             }
         }
-
-        #[cfg(erase_components)]
-        impl<$first, $($ty),*> IntoAttribute for ($first, $($ty,)*)
-        where
-            $first: IntoAttribute,
-            $($ty: IntoAttribute),*,
-        {
-            type Output = $crate::html::attribute::any_attribute::AnyAttribute;
-
-            fn into_attr(self) -> Self::Output {
-                todo!("adding more than 26 attributes is not supported");
-                //crate::html::attribute::any_attribute::IntoAnyAttribute::into_any_attr(self)
-            }
-        }
     };
 }
 
-#[cfg(erase_components)]
-impl<A> IntoAttribute for (A,)
-where
-    A: IntoAttribute,
-{
-    type Output = Vec<crate::html::attribute::any_attribute::AnyAttribute>;
-
-    fn into_attr(self) -> Self::Output {
-        use crate::html::attribute::any_attribute::IntoAnyAttribute;
-
-        vec![self.0.into_attr().into_any_attr()]
-    }
-}
-
-#[cfg(not(erase_components))]
 impl<A> Attribute for (A,)
 where
     A: Attribute,
@@ -615,7 +541,6 @@ where
     }
 }
 
-#[cfg(not(erase_components))]
 impl<A> NextAttribute for (A,)
 where
     A: Attribute,
