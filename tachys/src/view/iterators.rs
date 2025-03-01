@@ -598,12 +598,12 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let parent = cursor.current().parent_element();
         let states = self
             .0
             .into_iter()
             .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
+        let parent = cursor.current().parent_element();
         Self::State { states, parent }
     }
 
