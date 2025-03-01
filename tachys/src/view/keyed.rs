@@ -50,9 +50,20 @@ where
     view_fn: VF,
 }
 
-/// TODO
+/// By default, keys used in for keyed iteration do not need to be serializable.
+///
+/// However, for some scenarios (like the “islands routing” mode that mixes server-side
+/// rendering with client-side navigation) it is useful to have serializable keys.
+///
+/// When the `islands` feature is not enabled, this trait is implemented by all types.
+///
+/// When the `islands` features is enabled, this is automatically implemented for all types
+/// that implement [`Serialize`](serde::Serialize), and can be manually implemented otherwise.
 pub trait SerializableKey {
-    /// TODO
+    /// Serializes the key to a unique string.
+    ///
+    /// The string can have any value, as long as it is idempotent (i.e., serializing the same key
+    /// multiple times will give the same value).
     fn ser_key(&self) -> String;
 }
 
