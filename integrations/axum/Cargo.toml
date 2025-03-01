@@ -22,6 +22,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
+tachys = { workspace = true }
 once_cell = "1"
 parking_lot = "0.12.3"
 tokio = { version = "1.43", default-features = false }
@@ -36,7 +37,7 @@ tokio = { version = "1.43", features = ["net", "rt-multi-thread"] }
 [features]
 wasm = []
 default = ["tokio/fs", "tokio/sync", "tower-http/fs", "tower/util"]
-islands-router = []
+islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]
