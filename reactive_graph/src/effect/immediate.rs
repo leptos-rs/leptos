@@ -1,14 +1,12 @@
-use std::{
-    panic::Location,
-    sync::{Arc, Mutex, RwLock},
-};
-
-use or_poisoned::OrPoisoned;
-
 use crate::{
     graph::{AnySubscriber, ReactiveNode, ToAnySubscriber},
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     traits::{DefinedAt, Dispose},
+};
+use or_poisoned::OrPoisoned;
+use std::{
+    panic::Location,
+    sync::{Arc, Mutex, RwLock},
 };
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
