@@ -155,28 +155,24 @@ impl<E: Send + 'static> Req<E> for BrowserMockReq {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 
-    fn try_into_websocket(
+    async fn try_into_websocket(
         self,
-    ) -> impl Future<
-        Output = Result<
+    ) -> Result<
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
+        #[allow(unreachable_code)]
+        Err::<
             (
-                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-                impl Sink<Result<Bytes, E>> + Send + 'static,
+                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                futures::sink::Drain<Result<Bytes, E>>,
                 Self::WebsocketResponse,
             ),
-            E,
-        >,
-    > + Send {
-        #[allow(unreachable_code)]
-        async {
-            Err::<
-                (
-                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                    futures::sink::Drain<Result<Bytes, E>>,
-                    Self::WebsocketResponse,
-                ),
-                _,
-            >(unreachable!())
-        }
+            _,
+        >(unreachable!())
     }
 }

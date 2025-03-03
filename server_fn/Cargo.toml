@@ -76,12 +76,13 @@ reqwest = { version = "0.12.9", default-features = false, optional = true, featu
   "multipart",
   "stream",
 ] }
+tokio-tungstenite = { version = "0.26.2", optional = true }
 url = "2"
 pin-project-lite = "0.2.15"
 tokio = { version = "1.43.0", features = ["rt"], optional = true }
 
 [features]
-default = ["json", "msgpack", "postcard", "rkyv", "cbor", "url", "multipart", "serde-lite"]
+default = ["json"]
 axum-no-default = [
   "ssr",
   "generic",
@@ -112,8 +113,8 @@ rkyv = ["dep:rkyv"]
 msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
 default-tls = ["reqwest?/default-tls"]
-rustls = ["reqwest?/rustls-tls"]
-reqwest = ["dep:reqwest"]
+rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
+reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
 ssr = ["inventory"]
 generic = []
 

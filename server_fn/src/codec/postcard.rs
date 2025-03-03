@@ -16,7 +16,7 @@ where
     type Error = postcard::Error;
 
     fn encode(value: T) -> Result<Bytes, Self::Error> {
-        postcard::to_allocvec(&value).map(|bytes| Bytes::from(bytes))
+        postcard::to_allocvec(&value).map(Bytes::from)
     }
 }
 

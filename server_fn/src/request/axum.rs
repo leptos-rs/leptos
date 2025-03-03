@@ -138,7 +138,7 @@ where
                                 }
                                 Ok(other) => {
                                     println!("other message: {other:?}");
-                                } 
+                                }
                                 Err(e) => {
                                     println!("ran into error: {e:?}");
                                     _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));

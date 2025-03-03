@@ -3233,6 +3233,7 @@ dependencies = [
  "thiserror 2.0.11",
  "throw_error",
  "tokio",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "url",
@@ -3731,6 +3732,7 @@ checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
  "tokio",
  "tungstenite",
 ]

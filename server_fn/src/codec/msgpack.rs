@@ -16,7 +16,7 @@ where
     type Error = rmp_serde::encode::Error;
 
     fn encode(value: T) -> Result<Bytes, Self::Error> {
-        rmp_serde::to_vec(&value).map(|bytes| Bytes::from(bytes))
+        rmp_serde::to_vec(&value).map(Bytes::from)
     }
 }
 

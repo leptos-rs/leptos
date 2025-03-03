@@ -216,19 +216,20 @@ pub mod browser {
 #[cfg(feature = "reqwest")]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
-    use super::Client;
+    use super::{get_server_url, Client};
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::reqwest::CLIENT,
     };
-    use futures::TryFutureExt;
+    use bytes::Bytes;
+    use futures::{SinkExt, StreamExt, TryFutureExt};
     use reqwest::{Request, Response};
     use std::future::Future;
 
     /// Implements [`Client`] for a request made by [`reqwest`].
     pub struct ReqwestClient;
 
-    impl<E: FromServerFnError> Client<E> for ReqwestClient {
+    impl<E: FromServerFnError + Send + 'static> Client<E> for ReqwestClient {
         type Request = Request;
         type Response = Response;
 
@@ -238,6 +239,68 @@ pub mod reqwest {
             CLIENT.execute(req).map_err(|e| {
                 ServerFnErrorErr::Request(e.to_string()).into_app_error()
             })
+        }
+
+        async fn open_websocket(
+            path: &str,
+        ) -> Result<
+            (
+                impl futures::Stream<Item = Result<bytes::Bytes, E>>
+                    + Send
+                    + 'static,
+                impl futures::Sink<Result<bytes::Bytes, E>> + Send + 'static,
+            ),
+            E,
+        > {
+            let mut websocket_server_url = get_server_url().to_string();
+            if let Some(postfix) = websocket_server_url.strip_prefix("http://")
+            {
+                websocket_server_url = format!("ws://{}", postfix);
+            } else if let Some(postfix) =
+                websocket_server_url.strip_prefix("https://")
+            {
+                websocket_server_url = format!("wss://{}", postfix);
+            }
+            let url = format!("{}{}", websocket_server_url, path);
+            println!("url: {}", url);
+            let (ws_stream, _) =
+                tokio_tungstenite::connect_async(url).await.map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
+                })?;
+
+            let (write, read) = ws_stream.split();
+
+            Ok((
+                read.map(|msg| match msg {
+                    Ok(msg) => Ok(msg.into_data()),
+                    Err(e) => Err(E::from_server_fn_error(
+                        ServerFnErrorErr::Request(e.to_string()),
+                    )),
+                }),
+                write.with(|msg: Result<Bytes, E>| async move {
+                    match msg {
+                        Ok(msg) => {
+                            Ok(tokio_tungstenite::tungstenite::Message::Binary(
+                                msg,
+                            ))
+                        }
+                        Err(e) => {
+                            Err(tokio_tungstenite::tungstenite::Error::Io(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    e.ser(),
+                                ),
+                            ))
+                        }
+                    }
+                }),
+            ))
+        }
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            tokio::spawn(future);
         }
     }
 }
