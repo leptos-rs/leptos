@@ -207,11 +207,7 @@ impl Owner {
 
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
-        let prev = {
-            OWNER.with(|o| {
-                (*o.borrow_mut()).replace(self.clone())
-            })
-        };
+        let prev = { OWNER.with(|o| (*o.borrow_mut()).replace(self.clone())) };
         #[cfg(feature = "sandboxed-arenas")]
         Arena::set(&self.inner.read().or_poisoned().arena);
         let val = fun();
