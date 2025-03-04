@@ -209,11 +209,8 @@ impl Owner {
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         // codegen optimisation:
         fn inner_1(self_: &Owner) -> Option<Owner> {
-            let prev = {
-                OWNER.with(|o| {
-                    (*o.borrow_mut()).replace(self_.clone())
-                })
-            };
+            let prev =
+                { OWNER.with(|o| (*o.borrow_mut()).replace(self_.clone())) };
             #[cfg(feature = "sandboxed-arenas")]
             Arena::set(&self_.inner.read().or_poisoned().arena);
             prev
