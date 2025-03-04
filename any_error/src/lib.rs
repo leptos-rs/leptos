@@ -104,7 +104,7 @@ pub fn get_error_hook() -> Option<Arc<dyn ErrorHook>> {
 /// Sets the current thread-local error hook, which will be invoked when [`throw`] is called.
 pub fn set_error_hook(hook: Arc<dyn ErrorHook>) -> ResetErrorHookOnDrop {
     ResetErrorHookOnDrop(
-        ERROR_HOOK.with_borrow_mut(|this| mem::replace(this, Some(hook))),
+        ERROR_HOOK.with_borrow_mut(|this| this.replace(hook)),
     )
 }
 
