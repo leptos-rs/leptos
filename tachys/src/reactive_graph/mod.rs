@@ -579,15 +579,17 @@ mod stable {
         wrappers::read::{ArcSignal, Signal},
     };
 
-    macro_rules! signal_impl {
-        ($sig:ident $dry_resolve:literal) => {
-            impl<V> Render for $sig<V>
+    macro_rules! reactive_impl {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $dry_resolve:literal, $( $where_clause:tt )*) =>
+        {
+            #[allow(deprecated)]
+            impl<$($gen),*> Render for $name<$($gen),*>
             where
-                $sig<V>: Get<Value = V>,
-                V: Render + Clone + Send + Sync + 'static,
-                V::State: 'static,
+                $v: Render + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
             {
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffectState<<$v as Render>::State>;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
@@ -603,11 +605,12 @@ mod stable {
                 }
             }
 
-            impl<V> AddAnyAttr for $sig<V>
+            #[allow(deprecated)]
+            impl<$($gen),*> AddAnyAttr for $name<$($gen),*>
             where
-                $sig<V>: Get<Value = V>,
-                V: RenderHtml + Clone + Send + Sync + 'static,
-                V::State: 'static,
+                $v: RenderHtml + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
             {
                 type Output<SomeNewAttr: Attribute> = Self;
 
@@ -622,11 +625,12 @@ mod stable {
                 }
             }
 
-            impl<V> RenderHtml for $sig<V>
+            #[allow(deprecated)]
+            impl<$($gen),*> RenderHtml for $name<$($gen),*>
             where
-                $sig<V>: Get<Value = V>,
-                V: RenderHtml + Clone + Send + Sync + 'static,
-                V::State: 'static,
+                $v: RenderHtml + Clone + Send + Sync + 'static,
+                <$v as Render>::State: 'static,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
                 type Owned = Self;
@@ -644,195 +648,7 @@ mod stable {
                 }
 
                 fn html_len(&self) -> usize {
-                    V::MIN_LENGTH
-                }
-
-                fn to_html_with_buf(
-                    self,
-                    buf: &mut String,
-                    position: &mut Position,
-                    escape: bool,
-                    mark_branches: bool,
-                    extra_attrs: Vec<AnyAttribute>,
-                ) {
-                    let value = self.get();
-                    value.to_html_with_buf(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                        extra_attrs,
-                    )
-                }
-
-                fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-                    self,
-                    buf: &mut StreamBuilder,
-                    position: &mut Position,
-                    escape: bool,
-                    mark_branches: bool,
-                    extra_attrs: Vec<AnyAttribute>,
-                ) where
-                    Self: Sized,
-                {
-                    let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                        extra_attrs,
-                    );
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    cursor: &Cursor,
-                    position: &PositionState,
-                ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
-                }
-
-                fn into_owned(self) -> Self::Owned {
-                    self
-                }
-            }
-
-            impl<V> AttributeValue for $sig<V>
-            where
-                $sig<V>: Get<Value = V>,
-                V: AttributeValue + Clone + Send + Sync + 'static,
-                V::State: 'static,
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn html_len(&self) -> usize {
-                    0
-                }
-
-                fn to_html(self, key: &str, buf: &mut String) {
-                    let value = self.get();
-                    value.to_html(key, buf);
-                }
-
-                fn to_template(_key: &str, _buf: &mut String) {}
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    key: &str,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                    key: &str,
-                ) -> Self::State {
-                    (move || self.get()).build(el, key)
-                }
-
-                fn rebuild(self, key: &str, state: &mut Self::State) {
-                    (move || self.get()).rebuild(key, state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-            }
-        };
-    }
-
-    macro_rules! signal_impl_arena {
-        ($sig:ident $dry_resolve:literal) => {
-            #[allow(deprecated)]
-            impl<V, S> Render for $sig<V, S>
-            where
-                $sig<V, S>: Get<Value = V>,
-                S: Send + Sync + 'static,
-                S: Storage<V> + Storage<Option<V>>,
-                V: Render + Send + Sync + Clone + 'static,
-                V::State: 'static,
-            {
-                type State = RenderEffectState<V::State>;
-
-                #[track_caller]
-                fn build(self) -> Self::State {
-                    (move || self.get()).build()
-                }
-
-                #[track_caller]
-                fn rebuild(self, state: &mut Self::State) {
-                    let new = self.build();
-                    let mut old = std::mem::replace(state, new);
-                    old.insert_before_this(state);
-                    old.unmount();
-                }
-            }
-
-            #[allow(deprecated)]
-            impl<V, S> AddAnyAttr for $sig<V, S>
-            where
-                $sig<V, S>: Get<Value = V>,
-                S: Send + Sync + 'static,
-                S: Storage<V> + Storage<Option<V>>,
-                V: RenderHtml + Clone + Send + Sync + 'static,
-                V::State: 'static,
-            {
-                type Output<SomeNewAttr: Attribute> = $sig<V, S>;
-
-                fn add_any_attr<NewAttr: Attribute>(
-                    self,
-                    _attr: NewAttr,
-                ) -> Self::Output<NewAttr>
-                where
-                    Self::Output<NewAttr>: RenderHtml,
-                {
-                    todo!()
-                }
-            }
-
-            #[allow(deprecated)]
-            impl<V, S> RenderHtml for $sig<V, S>
-            where
-                $sig<V, S>: Get<Value = V>,
-                S: Send + Sync + 'static,
-                S: Storage<V> + Storage<Option<V>>,
-                V: RenderHtml + Clone + Send + Sync + 'static,
-                V::State: 'static,
-            {
-                type AsyncOutput = Self;
-                type Owned = Self;
-
-                const MIN_LENGTH: usize = 0;
-
-                fn dry_resolve(&mut self) {
-                    if $dry_resolve {
-                        _ = self.get();
-                    }
-                }
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn html_len(&self) -> usize {
-                    V::MIN_LENGTH
+                    <$v>::MIN_LENGTH
                 }
 
                 fn to_html_with_buf(
@@ -888,16 +704,14 @@ mod stable {
             }
 
             #[allow(deprecated)]
-            impl<V, S> AttributeValue for $sig<V, S>
+            impl<$($gen),*> AttributeValue for $name<$($gen),*>
             where
-                $sig<V, S>: Get<Value = V>,
-                S: Storage<V> + Storage<Option<V>>,
-                S: Send + Sync + 'static,
-                V: AttributeValue + Send + Sync + Clone + 'static,
-                V::State: 'static,
+                $v: AttributeValue + Send + Sync + Clone + 'static,
+                <$v as AttributeValue>::State: 'static,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<<$v as AttributeValue>::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -949,15 +763,146 @@ mod stable {
         };
     }
 
-    signal_impl_arena!(RwSignal false);
-    signal_impl_arena!(ReadSignal false);
-    signal_impl_arena!(Memo true);
-    signal_impl_arena!(Signal true);
-    signal_impl_arena!(MaybeSignal true);
-    signal_impl!(ArcRwSignal false);
-    signal_impl!(ArcReadSignal false);
-    signal_impl!(ArcMemo false);
-    signal_impl!(ArcSignal true);
+    reactive_impl!(
+        RwSignal,
+        <V, S>,
+        V,
+        false,
+        RwSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    reactive_impl!(
+        ReadSignal,
+        <V, S>,
+        V,
+        false,
+        ReadSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    reactive_impl!(
+        Memo,
+        <V, S>,
+        V,
+        true,
+        Memo<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    reactive_impl!(
+        Signal,
+        <V, S>,
+        V,
+        true,
+        Signal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    reactive_impl!(
+        MaybeSignal,
+        <V, S>,
+        V,
+        true,
+        MaybeSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    reactive_impl!(ArcRwSignal, <V>, V, false, ArcRwSignal<V>: Get<Value = V>);
+    reactive_impl!(ArcReadSignal, <V>, V, false, ArcReadSignal<V>: Get<Value = V>);
+    reactive_impl!(ArcMemo, <V>, V, false, ArcMemo<V>: Get<Value = V>);
+    reactive_impl!(ArcSignal, <V>, V, true, ArcSignal<V>: Get<Value = V>);
+
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
+
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        false,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        false,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        false,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        false,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        false,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        Store,
+        <V, S>,
+        V,
+        false,
+        Store<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(
+        Field,
+        <V, S>,
+        V,
+        false,
+        Field<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(ArcStore, <V>, V, false, ArcStore<V>: Get<Value = V>);
+    #[cfg(feature = "reactive_stores")]
+    reactive_impl!(ArcField, <V>, V, false, ArcField<V>: Get<Value = V>);
 }
 
 /*

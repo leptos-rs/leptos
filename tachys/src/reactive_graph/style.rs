@@ -208,16 +208,18 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    macro_rules! style_signal {
-        ($sig:ident) => {
-            impl<C> IntoStyle for $sig<C>
+    macro_rules! style_reactive {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            #[allow(deprecated)]
+            impl<$($gen),*> IntoStyle for $name<$($gen),*>
             where
-                $sig<C>: Get<Value = C>,
-                C: IntoStyle + Clone + Send + Sync + 'static,
-                C::State: 'static,
+                $v: IntoStyle + Clone + Send + Sync + 'static,
+                <$v as IntoStyle>::State: 'static,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<<$v as IntoStyle>::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -262,7 +264,7 @@ mod stable {
                     *state = RenderEffect::new_with_value(
                         move |prev| {
                             if let Some(mut state) = prev {
-                                C::reset(&mut state);
+                                <$v>::reset(&mut state);
                                 state
                             } else {
                                 unreachable!()
@@ -273,15 +275,16 @@ mod stable {
                 }
             }
 
-            impl<S> IntoStyleValue for $sig<S>
+            #[allow(deprecated)]
+            impl<$($gen),*> IntoStyleValue for $name<$($gen),*>
             where
-                $sig<S>: Get<Value = S>,
-                S: IntoStyleValue + Send + Sync + Clone + 'static,
+                $v: IntoStyleValue + Send + Sync + Clone + 'static,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
-                type State = (Arc<str>, RenderEffect<S::State>);
-                type Cloneable = $sig<S>;
-                type CloneableOwned = $sig<S>;
+                type State = (Arc<str>, RenderEffect<<$v as IntoStyleValue>::State>);
+                type Cloneable = $name<$($gen),*>;
+                type CloneableOwned = $name<$($gen),*>;
 
                 fn to_html(self, name: &str, style: &mut String) {
                     IntoStyleValue::to_html(move || self.get(), name, style)
@@ -334,76 +337,6 @@ mod stable {
         };
     }
 
-    macro_rules! style_signal_arena {
-        ($sig:ident) => {
-            #[allow(deprecated)]
-            impl<C, S> IntoStyle for $sig<C, S>
-            where
-                $sig<C, S>: Get<Value = C>,
-                S: Storage<C> + Storage<Option<C>>,
-                S: Send + Sync + 'static,
-                C: IntoStyle + Send + Sync + Clone + 'static,
-                C::State: 'static,
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn to_html(self, style: &mut String) {
-                    let value = self.get();
-                    value.to_html(style);
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.take_value(),
-                    );
-                }
-            }
-        };
-    }
-
     use super::RenderEffect;
     use crate::html::style::{IntoStyle, IntoStyleValue};
     #[allow(deprecated)]
@@ -417,15 +350,134 @@ mod stable {
     };
     use std::sync::Arc;
 
-    style_signal_arena!(RwSignal);
-    style_signal_arena!(ReadSignal);
-    style_signal_arena!(Memo);
-    style_signal_arena!(Signal);
-    style_signal_arena!(MaybeSignal);
-    style_signal!(ArcRwSignal);
-    style_signal!(ArcReadSignal);
-    style_signal!(ArcMemo);
-    style_signal!(ArcSignal);
+    style_reactive!(
+        RwSignal,
+        <V, S>,
+        V,
+        RwSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    style_reactive!(
+        ReadSignal,
+        <V, S>,
+        V,
+        ReadSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    style_reactive!(
+        Memo,
+        <V, S>,
+        V,
+        Memo<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    style_reactive!(
+        Signal,
+        <V, S>,
+        V,
+        Signal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    style_reactive!(
+        MaybeSignal,
+        <V, S>,
+        V,
+        MaybeSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    style_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
+    style_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
+    style_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
+    style_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
+
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        Store,
+        <V, S>,
+        V,
+        Store<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(
+        Field,
+        <V, S>,
+        V,
+        Field<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
+    #[cfg(feature = "reactive_stores")]
+    style_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 }
 
 /*
