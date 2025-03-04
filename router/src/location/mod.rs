@@ -91,7 +91,9 @@ impl Url {
             path.push_str(&self.search);
         }
         if !self.hash.is_empty() {
-            path.push('#');
+            if !self.hash.starts_with('#') {
+                path.push('#');
+            }
             path.push_str(&self.hash);
         }
         path
