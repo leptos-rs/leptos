@@ -59,15 +59,14 @@ pub fn server_macro_impl(
         .inputs
         .iter_mut()
         .map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => {
-                    return Err(syn::Error::new(
+            let typed_arg =
+                match f {
+                    FnArg::Receiver(_) => return Err(syn::Error::new(
                         f.span(),
                         "cannot use receiver types in server function macro",
-                    ))
-                }
-                FnArg::Typed(t) => t,
-            };
+                    )),
+                    FnArg::Typed(t) => t,
+                };
 
             // strip `mut`, which is allowed in fn args but not in struct fields
             if let Pat::Ident(ident) = &mut *typed_arg.pat {
