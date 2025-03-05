@@ -72,13 +72,13 @@ where
     async fn try_into_websocket(
         self,
     ) -> Result<
-            (
-                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-                impl Sink<Result<Bytes, E>> + Send + 'static,
-                Self::WebsocketResponse,
-            ),
-            E,
-        > {
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
         let upgrade =
             axum::extract::ws::WebSocketUpgrade::from_request(self, &())
                 .await

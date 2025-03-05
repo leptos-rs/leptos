@@ -73,13 +73,13 @@ where
     async fn try_into_websocket(
         self,
     ) -> Result<
-            (
-                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-                impl Sink<Result<Bytes, E>> + Send + 'static,
-                Self::WebsocketResponse,
-            ),
-            E,
-        > {
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
         Err::<
             (
                 futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
@@ -87,11 +87,8 @@ where
                 Self::WebsocketResponse,
             ),
             _,
-        >(E::from_server_fn_error(
-            crate::ServerFnErrorErr::Response(
-                "Websockets are not supported on this platform."
-                    .to_string(),
-            ),
-        ))
+        >(E::from_server_fn_error(crate::ServerFnErrorErr::Response(
+            "Websockets are not supported on this platform.".to_string(),
+        )))
     }
 }
