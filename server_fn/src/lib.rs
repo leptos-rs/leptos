@@ -532,7 +532,7 @@ where
                     break;
                 }
             }
-        });
+        })?;
 
         Ok(response)
     }
@@ -763,8 +763,19 @@ pub mod axum {
         type Request = Request<Body>;
         type Response = Response<Body>;
 
-        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
-            tokio::spawn(future);
+        #[allow(unused_variables)]
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
+            #[cfg(feature = "axum")]
+            {
+                tokio::spawn(future);
+                Ok(())
+            }
+            #[cfg(not(feature = "axum"))]
+            {
+                Err(E::from_server_fn_error(crate::error::ServerFnErrorErr::Request(
+                    "No async runtime available. You need to either enable the full axum feature to pull in tokio, or implement the `Server` trait for your async runtime manually.".into(),
+                )))
+            }
         }
     }
 
@@ -862,8 +873,9 @@ pub mod actix {
         type Request = ActixRequest;
         type Response = ActixResponse;
 
-        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
             actix_web::rt::spawn(future);
+            Ok(())
         }
     }
 
@@ -968,7 +980,7 @@ pub mod mock {
         type Request = crate::request::BrowserMockReq;
         type Response = crate::response::BrowserMockRes;
 
-        fn spawn(_: impl Future<Output = ()> + Send + 'static) {
+        fn spawn(_: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
             unreachable!()
         }
     }
