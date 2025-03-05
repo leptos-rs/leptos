@@ -22,7 +22,7 @@ use futures::{
     Sink, StreamExt,
 };
 use http::{Request, Response};
-use std::{borrow::Cow, future::Future};
+use std::borrow::Cow;
 
 impl<E> Req<E> for Request<Bytes>
 where
@@ -70,32 +70,28 @@ where
         self.uri().query()
     }
 
-    fn try_into_websocket(
+    async fn try_into_websocket(
         self,
-    ) -> impl Future<
-        Output = Result<
+    ) -> Result<
             (
                 impl Stream<Item = Result<Bytes, E>> + Send + 'static,
                 impl Sink<Result<Bytes, E>> + Send + 'static,
                 Self::WebsocketResponse,
             ),
             E,
-        >,
-    > + Send {
-        async {
-            Err::<
-                (
-                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                    futures::sink::Drain<Result<Bytes, E>>,
-                    Self::WebsocketResponse,
-                ),
-                _,
-            >(E::from_server_fn_error(
-                crate::ServerFnErrorErr::Response(
-                    "Websockets are not supported on this platform."
-                        .to_string(),
-                ),
-            ))
-        }
+        > {
+        Err::<
+            (
+                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                futures::sink::Drain<Result<Bytes, E>>,
+                Self::WebsocketResponse,
+            ),
+            _,
+        >(E::from_server_fn_error(
+            crate::ServerFnErrorErr::Response(
+                "Websockets are not supported on this platform."
+                    .to_string(),
+            ),
+        ))
     }
 }

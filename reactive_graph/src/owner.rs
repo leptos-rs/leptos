@@ -211,7 +211,7 @@ impl Owner {
         fn inner_1(self_: &Owner) -> Option<Owner> {
             let prev = {
                 OWNER.with(|o| {
-                    mem::replace(&mut *o.borrow_mut(), Some(self_.clone()))
+                    (*o.borrow_mut()).replace(self_.clone())
                 })
             };
             #[cfg(feature = "sandboxed-arenas")]

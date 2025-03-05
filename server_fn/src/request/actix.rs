@@ -159,7 +159,7 @@ where
                             Ok(Message::Binary(bytes)) => {
                                 _ = response_stream_tx
                                     .start_send(
-                                        Ok(Bytes::from(bytes)),
+                                        Ok(bytes),
                                     );
                             }
                             Ok(Message::Text(text)) => {

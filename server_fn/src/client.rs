@@ -288,8 +288,7 @@ pub mod reqwest {
                         }
                         Err(e) => {
                             Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::new(
-                                    std::io::ErrorKind::Other,
+                                std::io::Error::other(
                                     e.ser(),
                                 ),
                             ))

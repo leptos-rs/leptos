@@ -426,11 +426,11 @@ pub struct BoxedStream<T, E> {
     stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
 }
 
-impl<T, E> Into<Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>>
-    for BoxedStream<T, E>
+impl<T, E> From<BoxedStream<T, E>>
+    for Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>
 {
-    fn into(self) -> Pin<Box<dyn Stream<Item = Result<T, E>> + Send>> {
-        self.stream
+    fn from(val: BoxedStream<T, E>) -> Self {
+        val.stream
     }
 }
 
@@ -583,7 +583,7 @@ where
             let boxed = Box::pin(stream)
                 as Pin<Box<dyn Stream<Item = Result<OutputItem, E>> + Send>>;
             let output = BoxedStream { stream: boxed };
-            Ok(output.into())
+            Ok(output)
         }
     }
 }
@@ -764,7 +764,9 @@ pub mod axum {
         type Response = Response<Body>;
 
         #[allow(unused_variables)]
-        fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
+        fn spawn(
+            future: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), E> {
             #[cfg(feature = "axum")]
             {
                 tokio::spawn(future);
@@ -772,9 +774,15 @@ pub mod axum {
             }
             #[cfg(not(feature = "axum"))]
             {
-                Err(E::from_server_fn_error(crate::error::ServerFnErrorErr::Request(
-                    "No async runtime available. You need to either enable the full axum feature to pull in tokio, or implement the `Server` trait for your async runtime manually.".into(),
-                )))
+                Err(E::from_server_fn_error(
+                    crate::error::ServerFnErrorErr::Request(
+                        "No async runtime available. You need to either \
+                         enable the full axum feature to pull in tokio, or \
+                         implement the `Server` trait for your async runtime \
+                         manually."
+                            .into(),
+                    ),
+                ))
             }
         }
     }
@@ -873,7 +881,9 @@ pub mod actix {
         type Request = ActixRequest;
         type Response = ActixResponse;
 
-        fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
+        fn spawn(
+            future: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), E> {
             actix_web::rt::spawn(future);
             Ok(())
         }
@@ -980,7 +990,9 @@ pub mod mock {
         type Request = crate::request::BrowserMockReq;
         type Response = crate::response::BrowserMockRes;
 
-        fn spawn(_: impl Future<Output = ()> + Send + 'static) -> Result<(), E> {
+        fn spawn(
+            _: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), E> {
             unreachable!()
         }
     }

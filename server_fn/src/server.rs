@@ -18,5 +18,7 @@ pub trait Server<E> {
     type Response: Res + TryRes<E> + Send + 'static;
 
     /// Spawn an async task on the server.
-    fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Result<(), E>;
+    fn spawn(
+        future: impl Future<Output = ()> + Send + 'static,
+    ) -> Result<(), E>;
 }

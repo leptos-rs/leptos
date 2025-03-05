@@ -13,7 +13,7 @@ use http::{
     Request,
 };
 use http_body_util::BodyExt;
-use std::{borrow::Cow, future::Future};
+use std::borrow::Cow;
 
 impl<E> Req<E> for Request<Body>
 where
@@ -69,82 +69,78 @@ where
         }))
     }
 
-    fn try_into_websocket(
+    async fn try_into_websocket(
         self,
-    ) -> impl Future<
-        Output = Result<
+    ) -> Result<
             (
                 impl Stream<Item = Result<Bytes, E>> + Send + 'static,
                 impl Sink<Result<Bytes, E>> + Send + 'static,
                 Self::WebsocketResponse,
             ),
             E,
-        >,
-    > + Send {
-        async move {
-            let upgrade =
-                axum::extract::ws::WebSocketUpgrade::from_request(self, &())
-                    .await
-                    .map_err(|err| {
-                        E::from_server_fn_error(ServerFnErrorErr::Request(
-                            err.to_string(),
-                        ))
-                    })?;
-            let (mut outgoing_tx, outgoing_rx) =
-                futures::channel::mpsc::channel(2048);
-            let (incoming_tx, mut incoming_rx) =
-                futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
-            let response = upgrade
-            .on_failed_upgrade({
-                let mut outgoing_tx = outgoing_tx.clone();
-                move |err: axum::Error| {
-                    _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(err.to_string()))));
-                }
-            })
-            .on_upgrade(|mut session| async move {
-                loop {
-                    futures::select! {
-                        incoming = incoming_rx.next() => {
-                            let Some(incoming) = incoming else {
-                                break;
-                            };
-                            match incoming {
-                                Ok(message) => {
-                                    if let Err(err) = session.send(Message::Binary(message)).await {
-                                        _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
-                                    }
-                                }
-                                Err(err) => {
-                                    _ = outgoing_tx.start_send(Err(err));
+        > {
+        let upgrade =
+            axum::extract::ws::WebSocketUpgrade::from_request(self, &())
+                .await
+                .map_err(|err| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        err.to_string(),
+                    ))
+                })?;
+        let (mut outgoing_tx, outgoing_rx) =
+            futures::channel::mpsc::channel(2048);
+        let (incoming_tx, mut incoming_rx) =
+            futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
+        let response = upgrade
+        .on_failed_upgrade({
+            let mut outgoing_tx = outgoing_tx.clone();
+            move |err: axum::Error| {
+                _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(err.to_string()))));
+            }
+        })
+        .on_upgrade(|mut session| async move {
+            loop {
+                futures::select! {
+                    incoming = incoming_rx.next() => {
+                        let Some(incoming) = incoming else {
+                            break;
+                        };
+                        match incoming {
+                            Ok(message) => {
+                                if let Err(err) = session.send(Message::Binary(message)).await {
+                                    _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
                                 }
                             }
-                        },
-                        outgoing = session.recv().fuse() => {
-                            let Some(outgoing) = outgoing else {
-                                break;
-                            };
-                            match outgoing {
-                                Ok(Message::Binary(bytes)) => {
-                                    _ = outgoing_tx
-                                        .start_send(
-                                            Ok(Bytes::from(bytes)),
-                                        );
-                                }
-                                Ok(Message::Text(text)) => {
-                                    _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
-                                }
-                                Ok(_other) => {}
-                                Err(e) => {
-                                    _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
-                                }
+                            Err(err) => {
+                                _ = outgoing_tx.start_send(Err(err));
+                            }
+                        }
+                    },
+                    outgoing = session.recv().fuse() => {
+                        let Some(outgoing) = outgoing else {
+                            break;
+                        };
+                        match outgoing {
+                            Ok(Message::Binary(bytes)) => {
+                                _ = outgoing_tx
+                                    .start_send(
+                                        Ok(bytes),
+                                    );
+                            }
+                            Ok(Message::Text(text)) => {
+                                _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
+                            }
+                            Ok(_other) => {}
+                            Err(e) => {
+                                _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
                             }
                         }
                     }
                 }
-                _ = session.send(Message::Close(None)).await;
-            });
+            }
+            _ = session.send(Message::Close(None)).await;
+        });
 
-            Ok((outgoing_rx, incoming_tx, response))
-        }
+        Ok((outgoing_rx, incoming_tx, response))
     }
 }
