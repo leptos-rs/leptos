@@ -140,3 +140,23 @@ fn into_inner_non_arc_signal() {
     b.dispose();
     assert_eq!(a.into_inner(), Some(2));
 }
+
+#[test]
+fn threaded_get_set() {
+    let owner = Owner::new();
+    owner.set();
+
+    let signal = ArcRwSignal::new(0);
+
+    std::thread::scope(|s| {
+        for _ in 0..5 {
+            let signal = signal.clone();
+            s.spawn(move || {
+                for _ in 0..1_000 {
+                    signal.get();
+                    signal.set(1);
+                }
+            });
+        }
+    });
+}
