@@ -21,7 +21,7 @@ fn effect_runs() {
     // simulate an arbitrary side effect
     let b = Arc::new(RwLock::new(String::new()));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let b = b.clone();
         move || {
             let formatted = format!("Value is {}", a.get());
@@ -49,7 +49,7 @@ fn dynamic_dependencies() {
 
     let combined_count = Arc::new(RwLock::new(0));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let combined_count = Arc::clone(&combined_count);
         move || {
             *combined_count.write().unwrap() += 1;
@@ -104,7 +104,7 @@ fn recursive_effect_runs_recursively() {
 
     let logged_values = Arc::new(RwLock::new(Vec::new()));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let logged_values = Arc::clone(&logged_values);
         move || {
             let a = s.get();
@@ -141,7 +141,7 @@ fn paused_effect_pauses() {
 
     let owner = StoredValue::new(None);
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         move || {
             *owner.write_value() = Owner::current();
 

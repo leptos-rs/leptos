@@ -1,6 +1,6 @@
 use crate::{
     graph::{AnySubscriber, ReactiveNode, ToAnySubscriber},
-    owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
+    owner::on_cleanup,
     traits::{DefinedAt, Dispose},
 };
 use or_poisoned::OrPoisoned;
@@ -16,19 +16,10 @@ use std::{
 /// NOTE: you probably want use [`Effect`](super::Effect) instead.
 /// This is for the few cases where it's important to execute effects immediately and in order.
 ///
-/// Effects are intended to run *side-effects* of the system, not to synchronize state
-/// *within* the system. In other words: In most cases, you usually should not write to
-/// signals inside effects. (If you need to define a signal that depends on the value of
-/// other signals, use a derived signal or a [`Memo`](crate::computed::Memo)).
-///
-/// You can provide an effect function without parameters or one with one parameter.
-/// If you provide such a parameter, the effect function is called with an argument containing
-/// whatever value it returned the last time it ran. On the initial run, this is `None`.
-///
-/// Effects stop running when their reactive [`Owner`](crate::owner::Owner) is disposed.
+/// [ImmediateEffect]s stop running when dropped.
 ///
 /// NOTE: since effects are executed immediately, they might recurse.
-/// Under recursion only the last run to start is tracked.
+/// Under recursion or parallelism only the last run to start is tracked.
 ///
 /// ## Example
 ///
@@ -36,14 +27,14 @@ use std::{
 /// # use reactive_graph::computed::*;
 /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::effect::immediateEffect;
+/// # use reactive_graph::effect::ImmediateEffect;
 /// # use reactive_graph::owner::ArenaItem;
 /// # let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let a = RwSignal::new(0);
 /// let b = RwSignal::new(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// ImmediateEffect::new(move || {
+/// let _drop_guard = ImmediateEffect::new(move || {
 ///   // on the next “tick” prints "Value: 0" and subscribes to `a`
 ///   println!("Value: {}", a.get());
 /// });
@@ -53,42 +44,32 @@ use std::{
 /// a.set(1);
 /// # assert_eq!(a.get(), 1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
-///
-/// // ❌ don't use effects to synchronize state within the reactive system
-/// Effect::new(move || {
-///   // this technically works but can cause unnecessary runs
-///   // and easily lead to problems like infinite loops
-///   b.set(a.get() + 1);
-/// });
 /// ```
-/// ## Web-Specific Notes
+/// ## Notes
 ///
 /// 1. **Scheduling**: Effects run immediately, as soon as any tracked signal changes.
 /// 2. By default, effects do not run unless the `effects` feature is enabled. If you are using
 ///    this with a web framework, this generally means that effects **do not run on the server**.
 ///    and you can call browser-specific APIs within the effect function without causing issues.
 ///    If you need an effect to run on the server, use [`ImmediateEffect::new_isomorphic`].
-#[derive(Debug, Clone, Copy)]
-pub struct ImmediateEffect<S> {
-    inner: Option<ArenaItem<StoredEffect, S>>,
+#[derive(Debug, Clone)]
+pub struct ImmediateEffect {
+    inner: StoredEffect,
 }
 
 type StoredEffect = Option<Arc<RwLock<inner::EffectInner>>>;
 
-impl<S> Dispose for ImmediateEffect<S> {
-    fn dispose(self) {
-        if let Some(inner) = self.inner {
-            inner.dispose()
-        }
-    }
+impl Dispose for ImmediateEffect {
+    fn dispose(self) {}
 }
 
-impl ImmediateEffect<LocalStorage> {
+impl ImmediateEffect {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     ///
     /// NOTE: this requires a `Fn` function because it might recurse.
     /// Use [Self::new_mut] to pass a `FnMut` function, it'll panic on recursion.
     #[track_caller]
+    #[must_use]
     pub fn new(fun: impl Fn() + Send + Sync + 'static) -> Self {
         if !cfg!(feature = "effects") {
             return Self { inner: None };
@@ -98,73 +79,54 @@ impl ImmediateEffect<LocalStorage> {
 
         inner.update_if_necessary();
 
-        Self {
-            inner: Some(ArenaItem::new_with_storage(Some(inner))),
-        }
+        Self { inner: Some(inner) }
     }
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     ///
     /// # Panics
-    /// Panics on recursion. Also see [Self::new]
+    /// Panics on recursion or if triggered in parallel. Also see [Self::new]
     #[track_caller]
+    #[must_use]
     pub fn new_mut(fun: impl FnMut() + Send + Sync + 'static) -> Self {
         const MSG: &str = "The effect recursed or its function panicked.";
         let fun = Mutex::new(fun);
         Self::new(move || fun.try_lock().expect(MSG)())
     }
-}
-
-impl ImmediateEffect<SyncStorage> {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
+    ///
+    /// NOTE: this requires a `Fn` function because it might recurse.
+    /// NOTE: this effect is automatically cleaned up when the current owner is cleared or disposed.
     #[track_caller]
-    pub fn new_sync(fun: impl Fn() + Send + Sync + 'static) -> Self {
-        if !cfg!(feature = "effects") {
-            return Self { inner: None };
-        }
+    pub fn new_scoped(fun: impl Fn() + Send + Sync + 'static) {
+        let effect = Self::new(fun);
 
-        Self::new_isomorphic(fun)
+        on_cleanup(move || effect.dispose());
     }
 
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     ///
     /// This will run whether the `effects` feature is enabled or not.
     #[track_caller]
+    #[must_use]
     pub fn new_isomorphic(fun: impl Fn() + Send + Sync + 'static) -> Self {
         let inner = inner::EffectInner::new(fun);
 
         inner.update_if_necessary();
 
-        Self {
-            inner: Some(ArenaItem::new_with_storage(Some(inner))),
-        }
+        Self { inner: Some(inner) }
     }
 }
 
-impl<S> ToAnySubscriber for ImmediateEffect<S>
-where
-    S: Storage<StoredEffect>,
-{
+impl ToAnySubscriber for ImmediateEffect {
     fn to_any_subscriber(&self) -> AnySubscriber {
         const MSG: &str = "tried to set effect that has been stopped";
-        let inner = self.inner.as_ref().expect(MSG);
-        inner
-            .try_with_value(|inner| Some(inner.as_ref()?.to_any_subscriber()))
-            .flatten()
-            .expect(MSG)
+        self.inner.as_ref().expect(MSG).to_any_subscriber()
     }
 }
 
-impl<S> DefinedAt for ImmediateEffect<S>
-where
-    S: Storage<StoredEffect>,
-{
+impl DefinedAt for ImmediateEffect {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        self.inner
-            .as_ref()?
-            .try_with_value(|inner| {
-                inner.as_ref()?.read().or_poisoned().defined_at()
-            })
-            .flatten()
+        self.inner.as_ref()?.read().or_poisoned().defined_at()
     }
 }
 
