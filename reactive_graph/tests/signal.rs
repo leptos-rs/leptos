@@ -160,3 +160,36 @@ fn threaded_get_set() {
         }
     });
 }
+
+#[test]
+fn read_during_write() {
+    let owner = Owner::new();
+    owner.set();
+
+    let signal = ArcRwSignal::new(0);
+
+    let guard1 = signal.write();
+    let guard2 = signal.read();
+
+    println!("DONE");
+
+    drop(guard1);
+    drop(guard2);
+}
+
+#[test]
+#[ignore = "hangs"]
+fn overlapping_writes() {
+    let owner = Owner::new();
+    owner.set();
+
+    let signal = ArcRwSignal::new(0);
+
+    let guard1 = signal.write();
+    let guard2 = signal.write();
+
+    println!("DONE");
+
+    drop(guard1);
+    drop(guard2);
+}
