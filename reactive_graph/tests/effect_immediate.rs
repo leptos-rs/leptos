@@ -174,3 +174,54 @@ fn paused_effect_pauses() {
     println!("checking value");
     assert_eq!(runs.get_value(), 3);
 }
+
+#[cfg(feature = "effects")]
+#[test]
+#[ignore = "Parallel signal access can panic."]
+fn threaded_chaos_effect() {
+    use imports::*;
+    use reactive_graph::owner::StoredValue;
+
+    const SIGNAL_COUNT: usize = 5;
+    const THREAD_COUNT: usize = 10;
+
+    let owner = Owner::new();
+    owner.set();
+
+    let signals = vec![RwSignal::new(0); SIGNAL_COUNT];
+
+    let runs = StoredValue::new(0);
+
+    let _guard = ImmediateEffect::new({
+        let signals = signals.clone();
+        move || {
+            *runs.write_value() += 1;
+
+            let mut values = vec![];
+            for s in &signals {
+                let v = s.get();
+                values.push(v);
+                if v != 0 {
+                    s.set(v - 1);
+                }
+            }
+            println!("{values:?}");
+        }
+    });
+
+    std::thread::scope(|s| {
+        for _ in 0..THREAD_COUNT {
+            let signals = signals.clone();
+            s.spawn(move || {
+                for s in &signals {
+                    s.set(1);
+                }
+            });
+        }
+    });
+
+    assert_eq!(runs.get_value(), 1 + THREAD_COUNT * SIGNAL_COUNT);
+
+    let values: Vec<_> = signals.iter().map(|s| s.get_untracked()).collect();
+    println!("FINAL: {values:?}");
+}
