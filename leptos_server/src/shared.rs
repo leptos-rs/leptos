@@ -217,7 +217,7 @@ where
                             Ok(encoded) => {
                                 let decoded = Ser::decode(encoded.borrow());
                                 #[cfg(feature = "tracing")]
-                                decoded
+                                let decoded = decoded
                                     .inspect_err(|e| tracing::error!("{e:?}"));
                                 decoded.ok()
                             }
