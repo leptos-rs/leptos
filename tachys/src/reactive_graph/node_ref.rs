@@ -47,8 +47,9 @@ where
 
         Effect::new(move |_| {
             if let Some(node_ref) = self.get() {
+                let f = f.take().unwrap();
                 untrack(move || {
-                    f.take().unwrap()(node_ref);
+                    f(node_ref);
                 });
             }
         });
