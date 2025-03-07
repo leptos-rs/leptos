@@ -4,13 +4,13 @@ use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Serializes and deserializes JSON with [`serde_json`].
-pub struct Json;
+pub struct JsonEncoding;
 
-impl ContentType for Json {
+impl ContentType for JsonEncoding {
     const CONTENT_TYPE: &'static str = "application/json";
 }
 
-impl<T> Encodes<T> for Json
+impl<T> Encodes<T> for JsonEncoding
 where
     T: Serialize,
 {
@@ -21,7 +21,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for Json
+impl<T> Decodes<T> for JsonEncoding
 where
     T: DeserializeOwned,
 {
@@ -33,4 +33,4 @@ where
 }
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
-pub type PostJson = Post<Json>;
+pub type Json = Post<JsonEncoding>;

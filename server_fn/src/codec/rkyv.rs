@@ -15,13 +15,13 @@ type RkyvDeserializer = HighDeserializer<rancor::Error>;
 type RkyvValidator<'a> = HighValidator<'a, rancor::Error>;
 
 /// Pass arguments and receive responses using `rkyv` in a `POST` request.
-pub struct Rkyv;
+pub struct RkyvEncoding;
 
-impl ContentType for Rkyv {
+impl ContentType for RkyvEncoding {
     const CONTENT_TYPE: &'static str = "application/rkyv";
 }
 
-impl<T> Encodes<T> for Rkyv
+impl<T> Encodes<T> for RkyvEncoding
 where
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
@@ -35,7 +35,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for Rkyv
+impl<T> Decodes<T> for RkyvEncoding
 where
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
@@ -51,4 +51,4 @@ where
 }
 
 /// Pass arguments and receive responses as `rkyv` in a `POST` request.
-pub type PostRkyv = Post<Rkyv>;
+pub type Rkyv = Post<RkyvEncoding>;

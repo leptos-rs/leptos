@@ -3,13 +3,13 @@ use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Serializes and deserializes MessagePack with [`rmp_serde`].
-pub struct MsgPack;
+pub struct MsgPackEncoding;
 
-impl ContentType for MsgPack {
+impl ContentType for MsgPackEncoding {
     const CONTENT_TYPE: &'static str = "application/msgpack";
 }
 
-impl<T> Encodes<T> for MsgPack
+impl<T> Encodes<T> for MsgPackEncoding
 where
     T: Serialize,
 {
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for MsgPack
+impl<T> Decodes<T> for MsgPackEncoding
 where
     T: DeserializeOwned,
 {
@@ -32,4 +32,4 @@ where
 }
 
 /// Pass arguments and receive responses as MessagePack in a `POST` request.
-pub type PostMsgPack = Post<MsgPack>;
+pub type MsgPack = Post<MsgPackEncoding>;

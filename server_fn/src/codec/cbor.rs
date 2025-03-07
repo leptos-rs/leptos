@@ -4,13 +4,13 @@ use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Serializes and deserializes CBOR with [`ciborium`].
-pub struct Cbor;
+pub struct CborEncoding;
 
-impl ContentType for Cbor {
+impl ContentType for CborEncoding {
     const CONTENT_TYPE: &'static str = "application/cbor";
 }
 
-impl<T> Encodes<T> for Cbor
+impl<T> Encodes<T> for CborEncoding
 where
     T: Serialize,
 {
@@ -23,7 +23,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for Cbor
+impl<T> Decodes<T> for CborEncoding
 where
     T: DeserializeOwned,
 {
@@ -35,4 +35,4 @@ where
 }
 
 /// Pass arguments and receive responses using `cbor` in a `POST` request.
-pub type PostCbor = Post<Cbor>;
+pub type Cbor = Post<CborEncoding>;

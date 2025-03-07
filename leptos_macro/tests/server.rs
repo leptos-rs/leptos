@@ -1,6 +1,5 @@
 #[cfg(not(feature = "ssr"))]
 pub mod tests {
-
     use leptos::{
         server,
         server_fn::{codec, Http, ServerFn, ServerFnError},
@@ -20,7 +19,7 @@ pub mod tests {
         );
         assert_eq!(
             TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -33,7 +32,7 @@ pub mod tests {
         assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostCbor, codec::PostCbor>>()
+            TypeId::of::<Http<codec::Cbor, codec::Cbor>>()
         );
     }
 
@@ -46,7 +45,7 @@ pub mod tests {
         assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostCbor, codec::PostCbor>>()
+            TypeId::of::<Http<codec::Cbor, codec::Cbor>>()
         );
     }
 
@@ -59,7 +58,7 @@ pub mod tests {
         assert_eq!(<FooBar as ServerFn>::PATH, "/api/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -75,7 +74,7 @@ pub mod tests {
         );
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -92,7 +91,7 @@ pub mod tests {
         );
         assert_eq!(
             TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -109,7 +108,7 @@ pub mod tests {
         );
         assert_eq!(
             TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::GetUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::GetUrl, codec::Json>>()
         );
     }
 
@@ -125,7 +124,7 @@ pub mod tests {
         );
         assert_eq!(
             TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
-            TypeId::of::<Http<codec::PostUrl, codec::PostJson>>()
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 }

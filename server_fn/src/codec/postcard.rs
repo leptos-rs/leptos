@@ -3,13 +3,13 @@ use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// A codec for Postcard.
-pub struct Postcard;
+pub struct PostcardEncoding;
 
-impl ContentType for Postcard {
+impl ContentType for PostcardEncoding {
     const CONTENT_TYPE: &'static str = "application/x-postcard";
 }
 
-impl<T> Encodes<T> for Postcard
+impl<T> Encodes<T> for PostcardEncoding
 where
     T: Serialize,
 {
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for Postcard
+impl<T> Decodes<T> for PostcardEncoding
 where
     T: DeserializeOwned,
 {
@@ -32,4 +32,4 @@ where
 }
 
 /// Pass arguments and receive responses with postcard in a `POST` request.
-pub type PostPostcard = Post<Postcard>;
+pub type Postcard = Post<PostcardEncoding>;

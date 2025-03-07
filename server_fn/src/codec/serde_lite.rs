@@ -5,13 +5,13 @@ use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
-pub struct SerdeLite;
+pub struct SerdeLiteEncoding;
 
-impl ContentType for SerdeLite {
+impl ContentType for SerdeLiteEncoding {
     const CONTENT_TYPE: &'static str = "application/json";
 }
 
-impl<T> Encodes<T> for SerdeLite
+impl<T> Encodes<T> for SerdeLiteEncoding
 where
     T: Serialize,
 {
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<T> Decodes<T> for SerdeLite
+impl<T> Decodes<T> for SerdeLiteEncoding
 where
     T: Deserialize,
 {
@@ -45,4 +45,4 @@ where
 }
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
-pub type PostSerdeLite = Post<SerdeLite>;
+pub type SerdeLite = Post<SerdeLiteEncoding>;

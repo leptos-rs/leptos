@@ -255,7 +255,7 @@ pub fn server_macro_impl(
             }
             (Some(input), None) => {
                 parse_quote! {
-                    #server_fn_path::Http<#input, #server_fn_path::codec::PostJson>
+                    #server_fn_path::Http<#input, #server_fn_path::codec::Json>
                 }
             }
             (None, Some(output)) => {
@@ -270,7 +270,7 @@ pub fn server_macro_impl(
             }
             _ => {
                 parse_quote! {
-                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #server_fn_path::codec::PostJson>
+                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #server_fn_path::codec::Json>
                 }
             }
         }
@@ -1023,23 +1023,23 @@ impl Parse for ServerFnArgs {
         if let Some(encoding) = encoding {
             match encoding.to_string().to_lowercase().as_str() {
                 "\"url\"" => {
-                    input = Some(type_from_ident(syn::parse_quote!(PostUrl)));
-                    output = Some(type_from_ident(syn::parse_quote!(PostJson)));
+                    input = Some(type_from_ident(syn::parse_quote!(Url)));
+                    output = Some(type_from_ident(syn::parse_quote!(Json)));
                     builtin_encoding = true;
                 }
                 "\"cbor\"" => {
-                    input = Some(type_from_ident(syn::parse_quote!(PostCbor)));
-                    output = Some(type_from_ident(syn::parse_quote!(PostCbor)));
+                    input = Some(type_from_ident(syn::parse_quote!(Cbor)));
+                    output = Some(type_from_ident(syn::parse_quote!(Cbor)));
                     builtin_encoding = true;
                 }
                 "\"getcbor\"" => {
                     input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
-                    output = Some(type_from_ident(syn::parse_quote!(PostCbor)));
+                    output = Some(type_from_ident(syn::parse_quote!(Cbor)));
                     builtin_encoding = true;
                 }
                 "\"getjson\"" => {
                     input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
-                    output = Some(syn::parse_quote!(PostJson));
+                    output = Some(syn::parse_quote!(Json));
                     builtin_encoding = true;
                 }
                 _ => {
