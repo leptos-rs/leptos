@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn callback_matches_same() {
         let callback1 = Callback::new(|x: i32| x * 2);
-        let callback2 = callback1.clone();
+        let callback2 = callback1;
         assert!(callback1.matches(&callback2));
     }
 
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn unsync_callback_matches_same() {
         let callback1 = UnsyncCallback::new(|x: i32| x * 2);
-        let callback2 = callback1.clone();
+        let callback2 = callback1;
         assert!(callback1.matches(&callback2));
     }
 

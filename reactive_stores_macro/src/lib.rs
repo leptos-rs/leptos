@@ -79,7 +79,7 @@ impl Parse for Model {
 
 #[derive(Clone)]
 enum SubfieldMode {
-    Keyed(ExprClosure, Type),
+    Keyed(ExprClosure, Box<Type>),
     Skip,
 }
 
@@ -91,7 +91,7 @@ impl Parse for SubfieldMode {
             let ty: Type = input.parse()?;
             let _eq: Token![=] = input.parse()?;
             let closure: ExprClosure = input.parse()?;
-            Ok(SubfieldMode::Keyed(closure, ty))
+            Ok(SubfieldMode::Keyed(closure, Box::new(ty)))
         } else if mode == "skip" {
             Ok(SubfieldMode::Skip)
         } else {
