@@ -1,3 +1,4 @@
+use super::Post;
 use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
@@ -30,3 +31,6 @@ where
         serde_json::from_slice(&bytes)
     }
 }
+
+/// Pass arguments and receive responses as JSON in the body of a `POST` request.
+pub type PostJson = Post<Json>;

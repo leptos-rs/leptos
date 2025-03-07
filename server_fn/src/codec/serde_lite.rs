@@ -1,4 +1,6 @@
-use crate::{error::ServerFnErrorErr, ContentType, Decodes, Encodes};
+use crate::{
+    codec::Post, error::ServerFnErrorErr, ContentType, Decodes, Encodes,
+};
 use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};
 
@@ -41,3 +43,6 @@ where
         .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()))
     }
 }
+
+/// Pass arguments and receive responses as JSON in the body of a `POST` request.
+pub type PostSerdeLite = Post<SerdeLite>;

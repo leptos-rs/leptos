@@ -1,4 +1,4 @@
-use crate::{ContentType, Decodes, Encodes};
+use crate::{codec::Post, ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -30,3 +30,6 @@ where
         rmp_serde::from_slice(&bytes)
     }
 }
+
+/// Pass arguments and receive responses as MessagePack in a `POST` request.
+pub type PostMsgPack = Post<MsgPack>;

@@ -1,4 +1,4 @@
-use crate::{ContentType, Decodes, Encodes};
+use crate::{codec::Post, ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use rkyv::{
     api::high::{HighDeserializer, HighSerializer, HighValidator},
@@ -49,3 +49,6 @@ where
         rkyv::from_bytes::<T, rancor::Error>(aligned.as_ref())
     }
 }
+
+/// Pass arguments and receive responses as `rkyv` in a `POST` request.
+pub type PostRkyv = Post<Rkyv>;
