@@ -4,7 +4,6 @@ use crate::{
 };
 use axum::{
     body::{Body, Bytes},
-    extract::FromRequest,
     response::Response,
 };
 use futures::{FutureExt, Sink, Stream, StreamExt};
