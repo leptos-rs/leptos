@@ -6,7 +6,7 @@ use axum::{
     body::{Body, Bytes},
     response::Response,
 };
-use futures::{FutureExt, Sink, Stream, StreamExt};
+use futures::{Sink, Stream, StreamExt};
 use http::{
     header::{ACCEPT, CONTENT_TYPE, REFERER},
     Request,
@@ -80,16 +80,25 @@ where
     > {
         #[cfg(not(feature = "axum"))]
         {
-            panic!(
-                "Websocket connections not supported for Axum when the `axum` \
-                 feature is not enabled on the `server_fn` crate."
-            );
-            let (tx, rx) = futures::channel::mpsc::unbounded();
-            Ok((rx, tx, todo!()))
+            Err::<
+                (
+                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                    futures::sink::Drain<Result<Bytes, E>>,
+                    Self::WebsocketResponse,
+                ),
+                _,
+            >(E::from_server_fn_error(
+                crate::ServerFnErrorErr::Response(
+                    "Websocket connections not supported for Axum when the \
+                     `axum` feature is not enabled on the `server_fn` crate."
+                        .to_string(),
+                ),
+            ))
         }
         #[cfg(feature = "axum")]
         {
             use axum::extract::ws::Message;
+            use futures::FutureExt;
 
             let upgrade =
                 axum::extract::ws::WebSocketUpgrade::from_request(self, &())
