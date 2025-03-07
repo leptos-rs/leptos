@@ -8,17 +8,17 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 }
 
 /// A type-erased service, which takes an HTTP request and returns a response.
-pub struct BoxedService<Req, Res>(pub Box<dyn Service<Req, Res> + Send>);
+pub struct BoxedService<Req, Res>(pub Box<dyn Service<Req, Res> + Send + Sync>);
 
 impl<Req, Res> BoxedService<Req, Res> {
     /// Constructs a type-erased service from this service.
-    pub fn new(service: impl Service<Req, Res> + Send + 'static) -> Self {
+    pub fn new(service: impl Service<Req, Res> + Send + Sync + 'static) -> Self {
         Self(Box::new(service))
     }
 }
 
 /// A service converts an HTTP request into a response.
-pub trait Service<Request, Response> {
+pub trait Service<Request, Response>: Sync {
     /// Converts a request into a response.
     fn run(
         &mut self,
@@ -43,6 +43,7 @@ mod axum {
         S: tower::Service<Request<Body>, Response = Response<Body>>,
         S::Future: Send + 'static,
         S::Error: Into<ServerFnError> + Send + Debug + Display + Sync + 'static,
+        S: Send + Sync + 'static,
     {
         fn run(
             &mut self,
