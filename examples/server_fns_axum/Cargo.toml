@@ -17,6 +17,7 @@ server_fn = { path = "../../server_fn", features = [
   "rkyv",
   "multipart",
   "postcard",
+  "ssr_generics",
 ] }
 log = "0.4.22"
 simple_logger = "5.0"
