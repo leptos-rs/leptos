@@ -4,7 +4,7 @@ use crate::{
 };
 use axum::{
     body::{Body, Bytes},
-    extract::{ws::Message, FromRequest},
+    extract::FromRequest,
     response::Response,
 };
 use futures::{FutureExt, Sink, Stream, StreamExt};
@@ -79,19 +79,32 @@ where
         ),
         E,
     > {
-        let upgrade =
-            axum::extract::ws::WebSocketUpgrade::from_request(self, &())
-                .await
-                .map_err(|err| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        err.to_string(),
-                    ))
-                })?;
-        let (mut outgoing_tx, outgoing_rx) =
-            futures::channel::mpsc::channel(2048);
-        let (incoming_tx, mut incoming_rx) =
-            futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
-        let response = upgrade
+        #[cfg(not(feature = "axum"))]
+        {
+            panic!(
+                "Websocket connections not supported for Axum when the `axum` \
+                 feature is not enabled on the `server_fn` crate."
+            );
+            let (tx, rx) = futures::channel::mpsc::unbounded();
+            Ok((rx, tx, todo!()))
+        }
+        #[cfg(feature = "axum")]
+        {
+            use axum::extract::ws::Message;
+
+            let upgrade =
+                axum::extract::ws::WebSocketUpgrade::from_request(self, &())
+                    .await
+                    .map_err(|err| {
+                        E::from_server_fn_error(ServerFnErrorErr::Request(
+                            err.to_string(),
+                        ))
+                    })?;
+            let (mut outgoing_tx, outgoing_rx) =
+                futures::channel::mpsc::channel(2048);
+            let (incoming_tx, mut incoming_rx) =
+                futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
+            let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
             move |err: axum::Error| {
@@ -141,6 +154,7 @@ where
             _ = session.send(Message::Close(None)).await;
         });
 
-        Ok((outgoing_rx, incoming_tx, response))
+            Ok((outgoing_rx, incoming_tx, response))
+        }
     }
 }

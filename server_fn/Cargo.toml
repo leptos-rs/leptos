@@ -34,7 +34,6 @@ actix-ws = { version = "0.3.0", optional = true }
 # axum
 axum = { version = "0.8.1", optional = true, default-features = false, features = [
   "multipart",
-  "ws",
 ] }
 tower = { version = "0.5.1", optional = true }
 tower-layer = { version = "0.3.3", optional = true }
@@ -95,7 +94,7 @@ axum-no-default = [
 ]
 form-redirects = []
 actix = ["ssr", "dep:actix-web", "dep:actix-ws", "dep:send_wrapper"]
-axum = ["axum/default", "axum-no-default", "dep:tokio"]
+axum = ["axum/default", "axum-no-default", "axum/ws", "dep:tokio"]
 browser = [
   "dep:gloo-net",
   "dep:js-sys",
