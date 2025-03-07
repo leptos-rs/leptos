@@ -53,7 +53,7 @@ where
             })
         };
         OWNER.with(|o| {
-            if let Some(owner) = &*o.borrow() {
+            if let Some(owner) = o.borrow().as_ref().and_then(|o| o.upgrade()) {
                 owner.register(node);
             }
         });
