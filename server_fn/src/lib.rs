@@ -81,9 +81,12 @@
 //!
 //! Server functions are designed to allow a flexible combination of input and output encodings, the set
 //! of which can be found in the [`codec`] module.
+//! 
+//! Calling and handling server functions is done through the [`Protocol`] trait, which is implemented
+//! for the [`Http`] and [`Websocket`] protocols. Most server functions will use the [`Http`] protocol.
 //!
-//! The serialization/deserialization process for server functions consists of a series of steps,
-//! each of which is represented by a different trait:
+//! When using the [`Http`] protocol, the serialization/deserialization process for server functions
+//! consists of a series of steps, each of which is represented by a different trait:
 //! 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
 //! 2. The [`Client`] sends the request to the server.
 //! 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
@@ -319,7 +322,8 @@ pub trait ServerFn: Send + Sized {
 }
 
 /// The protocol that a server function uses to communicate with the client. This trait handles
-/// the server and client side of running a server function.
+/// the server and client side of running a server function. It is implemented for the [`Http`] and
+/// [`Websocket`] protocols and can be used to implement custom protocols.
 pub trait Protocol<Input, Output, Client, Server, E>
 where
     Server: crate::Server<E>,
@@ -346,7 +350,35 @@ where
     ) -> impl Future<Output = Result<Output, E>> + Send;
 }
 
-/// The http protocol with specific input and output encodings for the request and response.
+/// The http protocol with specific input and output encodings for the request and response. This is
+/// the default protocol server functions use if no override is set in the server function macro
+/// 
+/// The http protocol accepts two generic argument that define how the input and output for a server
+/// function are turned into HTTP requests and responses. For example, [`Http<GetUrl, Json>`] will 
+/// accept a Url encoded Get request and return a JSON post response.
+/// 
+/// # Example
+/// 
+/// ```rust, no_run
+/// #[derive(Clone, Serialize, Deserialize)]
+/// pub struct Message {
+///     user: String,
+///     message: String,
+/// }
+/// 
+/// // The http protocol can be used on any server function that accepts and returns arguments that implement
+/// // the [`IntoReq`] and [`FromRes`] traits.
+/// //
+/// // In this case, the input and output encodings are [`GetUrl`] and [`Json`], respectively which requires
+/// // the items to implement [`IntoReq<GetUrl, ...>`] and [`FromRes<Json, ...>`]. Both of those implementations
+/// // require the items to implement [`Serialize`] and [`Deserialize`].
+/// #[server(protocol = Http<GetUrl, Json>)]
+/// async fn echo_http(
+///     input: Message,
+/// ) -> Result<Message, ServerFnError> {
+///     Ok(input)
+/// }
+/// ```
 pub struct Http<InputProtocol, OutputProtocol>(
     PhantomData<(InputProtocol, OutputProtocol)>,
 );
@@ -417,11 +449,47 @@ where
 }
 
 /// The websocket protocol that encodes the input and output streams using a websocket connection.
+/// 
+/// The websocket protocol accepts two generic argument that define the input and output serialization
+/// formats. For example, [`Websocket<CborEncoding, JsonEncoding>`] would accept a stream of Cbor-encoded messages
+/// and return a stream of JSON-encoded messages.
+/// 
+/// # Example
+/// 
+/// ```rust, no_run
+/// #[derive(Clone, Serialize, Deserialize)]
+/// pub struct Message {
+///     user: String,
+///     message: String,
+/// }
+/// // The websocket protocol can be used on any server function that accepts and returns a [`BoxedStream`]
+/// // with items that can be encoded by the input and output encoding generics.
+/// //
+/// // In this case, the input and output encodings are [`Json`] and [`Json`], respectively which requires
+/// // the items to implement [`Serialize`] and [`Deserialize`].
+/// #[server(protocol = Websocket<Json, Json>)]
+/// async fn echo_websocket(
+///     input: BoxedStream<Message, ServerFnError>,
+/// ) -> Result<BoxedStream<Message, ServerFnError>, ServerFnError> {
+///     Ok(input.into())
+/// }
+/// ```
 pub struct Websocket<InputEncoding, OutputEncoding>(
     PhantomData<(InputEncoding, OutputEncoding)>,
 );
 
 /// A boxed stream type that can be used with the websocket protocol.
+/// 
+/// You can easily convert any static type that implement [`futures::Stream`] into a [`BoxedStream`]
+/// with the [`From`] trait.
+/// 
+/// # Example
+/// 
+/// ```rust, no_run
+/// use server_fn::BoxedStream;
+/// 
+/// let stream: BoxedStream = futures::stream::iter(0..10).into();
+/// ```
 pub struct BoxedStream<T, E> {
     stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
 }
