@@ -35,7 +35,7 @@ pub trait OrPoisoned {
     fn or_poisoned(self) -> Self::Inner;
 }
 
-impl<'a, T> OrPoisoned
+impl<'a, T: ?Sized> OrPoisoned
     for Result<RwLockReadGuard<'a, T>, PoisonError<RwLockReadGuard<'a, T>>>
 {
     type Inner = RwLockReadGuard<'a, T>;
@@ -45,7 +45,7 @@ impl<'a, T> OrPoisoned
     }
 }
 
-impl<'a, T> OrPoisoned
+impl<'a, T: ?Sized> OrPoisoned
     for Result<RwLockWriteGuard<'a, T>, PoisonError<RwLockWriteGuard<'a, T>>>
 {
     type Inner = RwLockWriteGuard<'a, T>;
@@ -55,7 +55,7 @@ impl<'a, T> OrPoisoned
     }
 }
 
-impl<'a, T> OrPoisoned for LockResult<MutexGuard<'a, T>> {
+impl<'a, T: ?Sized> OrPoisoned for LockResult<MutexGuard<'a, T>> {
     type Inner = MutexGuard<'a, T>;
 
     fn or_poisoned(self) -> Self::Inner {
