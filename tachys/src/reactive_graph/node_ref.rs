@@ -1,6 +1,7 @@
 use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
     effect::Effect,
+    graph::untrack,
     signal::{
         guards::{Derefable, ReadGuard},
         RwSignal,
