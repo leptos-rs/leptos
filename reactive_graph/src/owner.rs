@@ -65,10 +65,7 @@ impl Owner {
         WeakOwner {
             inner: Arc::downgrade(&self.inner),
             #[cfg(feature = "hydration")]
-            shared_context: self
-                .shared_context
-                .as_ref()
-                .map(|sc| Arc::downgrade(sc)),
+            shared_context: self.shared_context.as_ref().map(Arc::downgrade),
         }
     }
 }
@@ -142,8 +139,12 @@ impl Owner {
     /// Creates a new `Owner` and registers it as a child of the current `Owner`, if there is one.
     pub fn new() -> Self {
         #[cfg(not(feature = "hydration"))]
-        let parent = OWNER
-            .with(|o| o.borrow().as_ref().map(|o| Arc::downgrade(&o.inner)));
+        let parent = OWNER.with(|o| {
+            o.borrow()
+                .as_ref()
+                .and_then(|o| o.upgrade())
+                .map(|o| Arc::downgrade(&o.inner))
+        });
         #[cfg(feature = "hydration")]
         let (parent, shared_context) = OWNER
             .with(|o| {
