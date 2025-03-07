@@ -60,6 +60,41 @@ pub struct Owner {
     pub(crate) shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
 }
 
+impl Owner {
+    fn downgrade(&self) -> WeakOwner {
+        WeakOwner {
+            inner: Arc::downgrade(&self.inner),
+            #[cfg(feature = "hydration")]
+            shared_context: self
+                .shared_context
+                .as_ref()
+                .map(|sc| Arc::downgrade(sc)),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct WeakOwner {
+    inner: Weak<RwLock<OwnerInner>>,
+    #[cfg(feature = "hydration")]
+    shared_context: Option<Weak<dyn SharedContext + Send + Sync>>,
+}
+
+impl WeakOwner {
+    fn upgrade(&self) -> Option<Owner> {
+        self.inner.upgrade().map(|inner| {
+            #[cfg(feature = "hydration")]
+            let shared_context =
+                self.shared_context.as_ref().and_then(|sc| sc.upgrade());
+            Owner {
+                inner,
+                #[cfg(feature = "hydration")]
+                shared_context,
+            }
+        })
+    }
+}
+
 impl PartialEq for Owner {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
@@ -67,7 +102,7 @@ impl PartialEq for Owner {
 }
 
 thread_local! {
-    static OWNER: RefCell<Option<Owner>> = Default::default();
+    static OWNER: RefCell<Option<WeakOwner>> = Default::default();
 }
 
 impl Owner {
@@ -112,7 +147,7 @@ impl Owner {
         #[cfg(feature = "hydration")]
         let (parent, shared_context) = OWNER
             .with(|o| {
-                o.borrow().as_ref().map(|o| {
+                o.borrow().as_ref().and_then(|o| o.upgrade()).map(|o| {
                     (Some(Arc::downgrade(&o.inner)), o.shared_context.clone())
                 })
             })
@@ -200,7 +235,7 @@ impl Owner {
 
     /// Sets this as the current `Owner`.
     pub fn set(&self) {
-        OWNER.with_borrow_mut(|owner| *owner = Some(self.clone()));
+        OWNER.with_borrow_mut(|owner| *owner = Some(self.downgrade()));
         #[cfg(feature = "sandboxed-arenas")]
         Arena::set(&self.inner.read().or_poisoned().arena);
     }
@@ -208,7 +243,9 @@ impl Owner {
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
-            OWNER.with(|o| Option::replace(&mut *o.borrow_mut(), self.clone()))
+            OWNER.with(|o| {
+                Option::replace(&mut *o.borrow_mut(), self.downgrade())
+            })
         };
         #[cfg(feature = "sandboxed-arenas")]
         Arena::set(&self.inner.read().or_poisoned().arena);
@@ -255,7 +292,7 @@ impl Owner {
 
     /// Returns the current `Owner`, if any.
     pub fn current() -> Option<Owner> {
-        OWNER.with(|o| o.borrow().clone())
+        OWNER.with(|o| o.borrow().as_ref().and_then(|n| n.upgrade()))
     }
 
     /// Returns the [`SharedContext`] associated with this owner, if any.
@@ -269,7 +306,7 @@ impl Owner {
     /// Removes this from its state as the thread-local owner and drops it.
     pub fn unset(self) {
         OWNER.with_borrow_mut(|owner| {
-            if owner.as_ref() == Some(&self) {
+            if owner.as_ref().and_then(|n| n.upgrade()) == Some(self) {
                 mem::take(owner);
             }
         })
@@ -282,6 +319,7 @@ impl Owner {
         OWNER.with(|o| {
             o.borrow()
                 .as_ref()
+                .and_then(|o| o.upgrade())
                 .and_then(|current| current.shared_context.clone())
         })
     }
@@ -295,6 +333,7 @@ impl Owner {
 
             let sc = OWNER.with_borrow(|o| {
                 o.as_ref()
+                    .and_then(|o| o.upgrade())
                     .and_then(|current| current.shared_context.clone())
             });
             match sc {
@@ -320,6 +359,7 @@ impl Owner {
 
             let sc = OWNER.with_borrow(|o| {
                 o.as_ref()
+                    .and_then(|o| o.upgrade())
                     .and_then(|current| current.shared_context.clone())
             });
             match sc {
