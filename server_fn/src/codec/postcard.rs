@@ -1,77 +1,35 @@
-use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
-use crate::{
-    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
-    request::{ClientReq, Req},
-    response::{ClientRes, TryRes},
-};
+use crate::{codec::Post, ContentType, Decodes, Encodes};
 use bytes::Bytes;
-use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// A codec for Postcard.
-pub struct Postcard;
+pub struct PostcardEncoding;
 
-impl Encoding for Postcard {
+impl ContentType for PostcardEncoding {
     const CONTENT_TYPE: &'static str = "application/x-postcard";
-    const METHOD: Method = Method::POST;
 }
 
-impl<T, Request, E> IntoReq<Postcard, Request, E> for T
+impl<T> Encodes<T> for PostcardEncoding
 where
-    Request: ClientReq<E>,
     T: Serialize,
-    E: FromServerFnError,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
-        let data = postcard::to_allocvec(&self).map_err(|e| {
-            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
-        })?;
-        Request::try_new_post_bytes(
-            path,
-            Postcard::CONTENT_TYPE,
-            accepts,
-            Bytes::from(data),
-        )
+    type Error = postcard::Error;
+
+    fn encode(value: T) -> Result<Bytes, Self::Error> {
+        postcard::to_allocvec(&value).map(Bytes::from)
     }
 }
 
-impl<T, Request, E> FromReq<Postcard, Request, E> for T
+impl<T> Decodes<T> for PostcardEncoding
 where
-    Request: Req<E> + Send,
     T: DeserializeOwned,
-    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, E> {
-        let data = req.try_into_bytes().await?;
-        postcard::from_bytes::<T>(&data)
-            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
+    type Error = postcard::Error;
+
+    fn decode(bytes: Bytes) -> Result<T, Self::Error> {
+        postcard::from_bytes(&bytes)
     }
 }
 
-impl<T, Response, E> IntoRes<Postcard, Response, E> for T
-where
-    Response: TryRes<E>,
-    T: Serialize + Send,
-    E: FromServerFnError,
-{
-    async fn into_res(self) -> Result<Response, E> {
-        let data = postcard::to_allocvec(&self).map_err(|e| {
-            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
-        })?;
-        Response::try_from_bytes(Postcard::CONTENT_TYPE, Bytes::from(data))
-    }
-}
-
-impl<T, Response, E> FromRes<Postcard, Response, E> for T
-where
-    Response: ClientRes<E> + Send,
-    T: DeserializeOwned,
-    E: FromServerFnError,
-{
-    async fn from_res(res: Response) -> Result<Self, E> {
-        let data = res.try_into_bytes().await?;
-        postcard::from_bytes(&data).map_err(|e| {
-            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
-        })
-    }
-}
+/// Pass arguments and receive responses with postcard in a `POST` request.
+pub type Postcard = Post<PostcardEncoding>;
