@@ -81,7 +81,7 @@
 //!
 //! Server functions are designed to allow a flexible combination of input and output encodings, the set
 //! of which can be found in the [`codec`] module.
-//! 
+//!
 //! Calling and handling server functions is done through the [`Protocol`] trait, which is implemented
 //! for the [`Http`] and [`Websocket`] protocols. Most server functions will use the [`Http`] protocol.
 //!
@@ -352,20 +352,20 @@ where
 
 /// The http protocol with specific input and output encodings for the request and response. This is
 /// the default protocol server functions use if no override is set in the server function macro
-/// 
+///
 /// The http protocol accepts two generic argument that define how the input and output for a server
-/// function are turned into HTTP requests and responses. For example, [`Http<GetUrl, Json>`] will 
+/// function are turned into HTTP requests and responses. For example, [`Http<GetUrl, Json>`] will
 /// accept a Url encoded Get request and return a JSON post response.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust, no_run
 /// #[derive(Clone, Serialize, Deserialize)]
 /// pub struct Message {
 ///     user: String,
 ///     message: String,
 /// }
-/// 
+///
 /// // The http protocol can be used on any server function that accepts and returns arguments that implement
 /// // the [`IntoReq`] and [`FromRes`] traits.
 /// //
@@ -449,13 +449,13 @@ where
 }
 
 /// The websocket protocol that encodes the input and output streams using a websocket connection.
-/// 
+///
 /// The websocket protocol accepts two generic argument that define the input and output serialization
 /// formats. For example, [`Websocket<CborEncoding, JsonEncoding>`] would accept a stream of Cbor-encoded messages
 /// and return a stream of JSON-encoded messages.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust, no_run
 /// #[derive(Clone, Serialize, Deserialize)]
 /// pub struct Message {
@@ -479,15 +479,15 @@ pub struct Websocket<InputEncoding, OutputEncoding>(
 );
 
 /// A boxed stream type that can be used with the websocket protocol.
-/// 
+///
 /// You can easily convert any static type that implement [`futures::Stream`] into a [`BoxedStream`]
 /// with the [`From`] trait.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust, no_run
 /// use server_fn::BoxedStream;
-/// 
+///
 /// let stream: BoxedStream = futures::stream::iter(0..10).into();
 /// ```
 pub struct BoxedStream<T, E> {
