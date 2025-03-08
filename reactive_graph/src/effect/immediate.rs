@@ -176,6 +176,20 @@ mod inner {
         run_done_max: usize,
         /// The [ThreadId] of the run with the highest id.
         /// Used to prevent over-subscribing during parallel execution with the last run.
+        ///
+        /// ```text
+        /// Thread 1:
+        /// -------------------------
+        ///   ---   ---    =======
+        ///
+        /// Thread 2:
+        /// -------------------------
+        ///             -----------
+        /// ```
+        ///
+        /// In the parallel example above, we can see why we need this.
+        /// The last run is marked using `=`, but another run in the other thread might
+        /// also be gathering sources. So we only allow the run from the correct [ThreadId] to push sources.
         last_run_thread_id: ThreadId,
         fun: Arc<dyn Fn() + Send + Sync>,
         sources: SourceSet,
