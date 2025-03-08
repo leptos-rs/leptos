@@ -539,6 +539,20 @@ impl<T: 'static> ReactiveFunction for Arc<Mutex<dyn FnMut() -> T + Send>> {
     }
 }
 
+impl<T: Send + Sync + 'static> ReactiveFunction
+    for Arc<dyn Fn() -> T + Send + Sync>
+{
+    type Output = T;
+
+    fn invoke(&mut self) -> Self::Output {
+        self()
+    }
+
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>> {
+        Arc::new(Mutex::new(move || self()))
+    }
+}
+
 impl<F, T> ReactiveFunction for F
 where
     F: FnMut() -> T + Send + 'static,

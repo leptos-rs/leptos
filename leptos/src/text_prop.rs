@@ -76,9 +76,9 @@ impl Default for TextProp {
 }
 
 impl IntoAttributeValue for TextProp {
-    type Output = Oco<'static, str>;
+    type Output = Arc<dyn Fn() -> Oco<'static, str> + Send + Sync>;
 
     fn into_attribute_value(self) -> Self::Output {
-        self.get()
+        self.0
     }
 }
