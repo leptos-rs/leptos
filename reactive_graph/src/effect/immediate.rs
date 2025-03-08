@@ -40,7 +40,7 @@ use std::{
 /// # use reactive_graph::owner::ArenaItem;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
-/// # any_spawner::Executor::init_tokio(); 
+/// # any_spawner::Executor::init_tokio();
 /// # let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let a = RwSignal::new(0);
 /// let b = RwSignal::new(0);
