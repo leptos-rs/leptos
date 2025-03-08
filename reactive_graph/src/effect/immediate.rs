@@ -36,7 +36,7 @@ use std::{
 /// # use reactive_graph::computed::*;
 /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # use reactive_graph::prelude::*;
-/// # use reactive_graph::effect::immediateEffect;
+/// # use reactive_graph::effect::ImmediateEffect;
 /// # use reactive_graph::owner::ArenaItem;
 /// # let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// let a = RwSignal::new(0);
