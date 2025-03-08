@@ -10,6 +10,7 @@ mod read;
 mod rw;
 mod subscriber_traits;
 mod trigger;
+mod tuples;
 mod write;
 
 use crate::owner::LocalStorage;
