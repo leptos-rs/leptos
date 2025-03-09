@@ -21,7 +21,7 @@ fn effect_runs() {
     // simulate an arbitrary side effect
     let b = Arc::new(RwLock::new(String::new()));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let b = b.clone();
         move || {
             let formatted = format!("Value is {}", a.get());
@@ -49,7 +49,7 @@ fn dynamic_dependencies() {
 
     let combined_count = Arc::new(RwLock::new(0));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let combined_count = Arc::clone(&combined_count);
         move || {
             *combined_count.write().unwrap() += 1;
@@ -104,7 +104,7 @@ fn recursive_effect_runs_recursively() {
 
     let logged_values = Arc::new(RwLock::new(Vec::new()));
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         let logged_values = Arc::clone(&logged_values);
         move || {
             let a = s.get();
@@ -141,7 +141,7 @@ fn paused_effect_pauses() {
 
     let owner = StoredValue::new(None);
 
-    ImmediateEffect::new({
+    let _guard = ImmediateEffect::new({
         move || {
             *owner.write_value() = Owner::current();
 
@@ -173,4 +173,55 @@ fn paused_effect_pauses() {
 
     println!("checking value");
     assert_eq!(runs.get_value(), 3);
+}
+
+#[cfg(feature = "effects")]
+#[test]
+#[ignore = "Parallel signal access can panic."]
+fn threaded_chaos_effect() {
+    use imports::*;
+    use reactive_graph::owner::StoredValue;
+
+    const SIGNAL_COUNT: usize = 5;
+    const THREAD_COUNT: usize = 10;
+
+    let owner = Owner::new();
+    owner.set();
+
+    let signals = vec![RwSignal::new(0); SIGNAL_COUNT];
+
+    let runs = StoredValue::new(0);
+
+    let _guard = ImmediateEffect::new({
+        let signals = signals.clone();
+        move || {
+            *runs.write_value() += 1;
+
+            let mut values = vec![];
+            for s in &signals {
+                let v = s.get();
+                values.push(v);
+                if v != 0 {
+                    s.set(v - 1);
+                }
+            }
+            println!("{values:?}");
+        }
+    });
+
+    std::thread::scope(|s| {
+        for _ in 0..THREAD_COUNT {
+            let signals = signals.clone();
+            s.spawn(move || {
+                for s in &signals {
+                    s.set(1);
+                }
+            });
+        }
+    });
+
+    assert_eq!(runs.get_value(), 1 + THREAD_COUNT * SIGNAL_COUNT);
+
+    let values: Vec<_> = signals.iter().map(|s| s.get_untracked()).collect();
+    println!("FINAL: {values:?}");
 }
