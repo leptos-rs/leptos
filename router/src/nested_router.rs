@@ -107,6 +107,7 @@ where
                     &mut loaders,
                     &mut outlets,
                     &outer_owner,
+                    Some(RouteMatchId::new_from_route_id()),
                 );
                 drop(url);
                 outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
@@ -339,6 +340,7 @@ where
                         &mut loaders,
                         &mut outlets,
                         &outer_owner,
+                        Some(RouteMatchId::new_from_route_id()),
                     );
 
                     // outlets will not send their views if the loaders are never polled
@@ -393,6 +395,7 @@ where
                     &mut loaders,
                     &mut outlets,
                     &outer_owner,
+                    Some(RouteMatchId::new_from_route_id()),
                 );
 
                 // outlets will not send their views if the loaders are never polled
@@ -447,6 +450,7 @@ where
                         &mut loaders,
                         &mut outlets,
                         &outer_owner,
+                        Some(RouteMatchId::new_from_route_id()),
                     );
                     drop(url);
 
@@ -529,6 +533,7 @@ trait AddNestedRoute {
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
+        initial_outlet_id: Option<RouteMatchId>,
     );
 
     #[allow(clippy::too_many_arguments)]
@@ -557,6 +562,7 @@ where
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
         parent: &Owner,
+        initial_outlet_id: Option<RouteMatchId>,
     ) {
         let orig_url = url;
 
@@ -618,7 +624,7 @@ where
 
         // add this outlet to the end of the outlet stack used for diffing
         let outlet = RouteContext {
-            id: self.as_id(),
+            id: initial_outlet_id.unwrap_or(self.as_id()),
             url,
             trigger: trigger.clone(),
             params,
@@ -681,7 +687,9 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(orig_url, base, loaders, outlets, &owner);
+            child.build_nested_route(
+                orig_url, base, loaders, outlets, &owner, None,
+            );
         }
     }
 
@@ -707,7 +715,14 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(url, base, preloaders, outlets, parent);
+                self.build_nested_route(
+                    url,
+                    base,
+                    preloaders,
+                    outlets,
+                    parent,
+                    Some(RouteMatchId::new_from_route_id()),
+                );
                 level
             }
             Some(current) => {
@@ -841,7 +856,12 @@ where
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
                         child.build_nested_route(
-                            url, base, preloaders, outlets, &owner,
+                            url,
+                            base,
+                            preloaders,
+                            outlets,
+                            &owner,
+                            Some(RouteMatchId::new_from_route_id()),
                         );
                     }
 
