@@ -365,7 +365,11 @@ where
 /// # Example
 ///
 /// ```rust, no_run
-/// #[derive(Clone, Serialize, Deserialize)]
+/// # use server_fn_macro_default::server;
+/// use serde::{Serialize, Deserialize};
+/// use server_fn::{Http, ServerFnError, codec::{Json, GetUrl}};
+///
+/// #[derive(Debug, Clone, Serialize, Deserialize)]
 /// pub struct Message {
 ///     user: String,
 ///     message: String,
@@ -377,12 +381,14 @@ where
 /// // In this case, the input and output encodings are [`GetUrl`] and [`Json`], respectively which requires
 /// // the items to implement [`IntoReq<GetUrl, ...>`] and [`FromRes<Json, ...>`]. Both of those implementations
 /// // require the items to implement [`Serialize`] and [`Deserialize`].
+/// # #[cfg(feature = "browser")] {
 /// #[server(protocol = Http<GetUrl, Json>)]
 /// async fn echo_http(
 ///     input: Message,
 /// ) -> Result<Message, ServerFnError> {
 ///     Ok(input)
 /// }
+/// # }
 /// ```
 pub struct Http<InputProtocol, OutputProtocol>(
     PhantomData<(InputProtocol, OutputProtocol)>,
@@ -462,6 +468,11 @@ where
 /// # Example
 ///
 /// ```rust, no_run
+/// # use server_fn_macro_default::server;
+/// # #[cfg(feature = "browser")] {
+/// use server_fn::{ServerFnError, BoxedStream, Websocket, codec::JsonEncoding};
+/// use serde::{Serialize, Deserialize};
+///
 /// #[derive(Clone, Serialize, Deserialize)]
 /// pub struct Message {
 ///     user: String,
@@ -472,12 +483,13 @@ where
 /// //
 /// // In this case, the input and output encodings are [`Json`] and [`Json`], respectively which requires
 /// // the items to implement [`Serialize`] and [`Deserialize`].
-/// #[server(protocol = Websocket<Json, Json>)]
+/// #[server(protocol = Websocket<JsonEncoding, JsonEncoding>)]
 /// async fn echo_websocket(
 ///     input: BoxedStream<Message, ServerFnError>,
 /// ) -> Result<BoxedStream<Message, ServerFnError>, ServerFnError> {
 ///     Ok(input.into())
 /// }
+/// # }
 /// ```
 pub struct Websocket<InputEncoding, OutputEncoding>(
     PhantomData<(InputEncoding, OutputEncoding)>,
@@ -491,9 +503,11 @@ pub struct Websocket<InputEncoding, OutputEncoding>(
 /// # Example
 ///
 /// ```rust, no_run
-/// use server_fn::BoxedStream;
+/// use futures::StreamExt;
+/// use server_fn::{BoxedStream, ServerFnError};
 ///
-/// let stream: BoxedStream = futures::stream::iter(0..10).into();
+/// let stream: BoxedStream<_, ServerFnError> =
+///     futures::stream::iter(0..10).map(Result::Ok).into();
 /// ```
 pub struct BoxedStream<T, E> {
     stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
