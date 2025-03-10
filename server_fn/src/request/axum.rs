@@ -97,8 +97,7 @@ where
         }
         #[cfg(feature = "axum")]
         {
-            use axum::extract::ws::Message;
-            use axum::extract::FromRequest;
+            use axum::extract::{ws::Message, FromRequest};
             use futures::FutureExt;
 
             let upgrade =
