@@ -7,7 +7,7 @@ use server_fn::{
     codec::PostUrl,
     error::{IntoAppError, ServerFnErrorErr},
     request::ClientReq,
-    ServerFn,
+    Http, ServerFn,
 };
 use tachys::{
     either::Either,
@@ -75,7 +75,7 @@ use web_sys::{
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
-pub fn ActionForm<ServFn>(
+pub fn ActionForm<ServFn, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -86,7 +86,7 @@ pub fn ActionForm<ServFn>(
 ) -> impl IntoView
 where
     ServFn: DeserializeOwned
-        + ServerFn<InputEncoding = PostUrl>
+        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
         + Clone
         + Send
         + Sync
@@ -151,7 +151,7 @@ where
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[component]
-pub fn MultiActionForm<ServFn>(
+pub fn MultiActionForm<ServFn, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerMultiAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -165,7 +165,7 @@ where
         + Sync
         + Clone
         + DeserializeOwned
-        + ServerFn<InputEncoding = PostUrl>
+        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
         + 'static,
     ServFn::Output: Send + Sync + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<

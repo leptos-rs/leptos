@@ -54,7 +54,10 @@ mod postcard;
 #[cfg(feature = "postcard")]
 pub use postcard::*;
 
+mod post;
+pub use post::*;
 mod stream;
+use crate::ContentType;
 use futures::Future;
 use http::Method;
 pub use stream::*;
@@ -200,10 +203,7 @@ where
 }
 
 /// Defines a particular encoding format, which can be used for serializing or deserializing data.
-pub trait Encoding {
-    /// The MIME type of the data.
-    const CONTENT_TYPE: &'static str;
-
+pub trait Encoding: ContentType {
     /// The HTTP method used for requests.
     ///
     /// This should be `POST` in most cases.

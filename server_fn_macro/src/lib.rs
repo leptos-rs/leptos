@@ -35,10 +35,11 @@ pub fn server_macro_impl(
     body: TokenStream2,
     server_fn_path: Option<Path>,
     default_path: &str,
-    preset_req: Option<Type>,
-    preset_res: Option<Type>,
+    preset_server: Option<Type>,
+    default_protocol: Option<Type>,
 ) -> Result<TokenStream2> {
     let mut body = syn::parse::<ServerFnBody>(body.into())?;
+    let vis = body.vis.clone();
 
     // extract all #[middleware] attributes, removing them from signature of dummy
     let mut middlewares: Vec<Middleware> = vec![];
@@ -184,7 +185,7 @@ pub fn server_macro_impl(
                 })
                 .collect::<Result<Vec<_>>>()?;
             typed_arg.attrs = vec![];
-            Ok(quote! { #(#attrs ) * pub #typed_arg })
+            Ok(quote! { #(#attrs ) * #vis #typed_arg })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -215,11 +216,12 @@ pub fn server_macro_impl(
         output,
         fn_path,
         builtin_encoding,
-        req_ty,
-        res_ty,
+        server,
         client,
         custom_wrapper,
         impl_from,
+        impl_deref,
+        protocol,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
@@ -231,32 +233,57 @@ pub fn server_macro_impl(
         _ => None,
     };
 
-    let input = input
-        .map(|n| {
-            if builtin_encoding {
-                quote! { #server_fn_path::codec::#n }
-            } else {
-                n.to_token_stream()
+    let input = input.map(|n| {
+        if builtin_encoding {
+            quote! { #server_fn_path::codec::#n }
+        } else {
+            n.to_token_stream()
+        }
+    });
+    let output = output.map(|n| {
+        if builtin_encoding {
+            quote! { #server_fn_path::codec::#n }
+        } else {
+            n.to_token_stream()
+        }
+    });
+    let protocol = protocol.unwrap_or_else(|| {
+        match (input, output) {
+            (Some(input), Some(output)) => {
+                parse_quote! {
+                    #server_fn_path::Http<#input, #output>
+                }
             }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #server_fn_path::codec::PostUrl
+            (Some(input), None) => {
+                parse_quote! {
+                    #server_fn_path::Http<#input, #server_fn_path::codec::Json>
+                }
             }
-        });
-    let output = output
-        .map(|n| {
-            if builtin_encoding {
-                quote! { #server_fn_path::codec::#n }
-            } else {
-                n.to_token_stream()
+            (None, Some(output)) => {
+                parse_quote! {
+                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #output>
+                }
             }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #server_fn_path::codec::Json
+            _ if default_protocol.is_some() => {
+                parse_quote! {
+                    #default_protocol
+                }
             }
-        });
+            _ => {
+                parse_quote! {
+                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #server_fn_path::codec::Json>
+                }
+            }
+        }
+    });
+    let mut websocket_protocol = false;
+    if let Type::Path(path) = &protocol {
+        websocket_protocol = path
+            .path
+            .segments
+            .iter()
+            .any(|segment| segment.ident == "Websocket");
+    }
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -282,7 +309,6 @@ pub fn server_macro_impl(
     // build struct for type
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
-    let vis = body.vis;
     let attrs = body.attrs;
 
     let fn_args = body
@@ -311,7 +337,7 @@ pub fn server_macro_impl(
     let impl_from = impl_from.map(|v| v.value).unwrap_or(true);
     let from_impl = (body.inputs.len() == 1
         && first_field.is_some()
-        && impl_from)
+        && (impl_from || websocket_protocol))
         .then(|| {
             let field = first_field.unwrap();
             let (name, ty) = field;
@@ -326,6 +352,23 @@ pub fn server_macro_impl(
                 impl From<#ty> for #struct_name {
                     fn from(#name: #ty) -> Self {
                         #struct_name { #name }
+                    }
+                }
+            }
+        });
+
+    let impl_deref = impl_deref.map(|v| v.value).unwrap_or(true);
+    let deref_impl = (body.inputs.len() == 1
+        && first_field.is_some()
+        && (impl_deref || websocket_protocol))
+        .then(|| {
+            let field = first_field.unwrap();
+            let (name, ty) = field;
+            quote! {
+                impl std::ops::Deref for #struct_name {
+                    type Target = #ty;
+                    fn deref(&self) -> &Self::Target {
+                        &self.#name
                     }
                 }
             }
@@ -503,12 +546,18 @@ pub fn server_macro_impl(
                 let d = derives.elems;
                 (PathInfo::None, quote! { #d })
             }
-            None => (
-                PathInfo::Serde,
-                quote! {
-                    Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
-                },
-            ),
+            None => {
+                if websocket_protocol {
+                    (PathInfo::None, quote! {})
+                } else {
+                    (
+                        PathInfo::Serde,
+                        quote! {
+                            Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
+                        },
+                    )
+                }
+            }
         },
     };
     let addl_path = match path {
@@ -531,60 +580,32 @@ pub fn server_macro_impl(
         }
     };
 
-    let req = if !cfg!(feature = "ssr") {
+    let server = if !cfg!(feature = "ssr") {
         quote! {
-            #server_fn_path::request::BrowserMockReq
+            #server_fn_path::mock::BrowserMockServer
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            #server_fn_path::http_export::Request<#server_fn_path::axum_export::body::Body>
+            #server_fn_path::axum::AxumServerFnBackend
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            #server_fn_path::request::actix::ActixRequest
+            #server_fn_path::actix::ActixServerFnBackend
         }
     } else if cfg!(feature = "generic") {
         quote! {
-            #server_fn_path::http_export::Request<#server_fn_path::bytes_export::Bytes>
+            #server_fn_path::axum::AxumServerFnBackend
         }
-    } else if let Some(req_ty) = req_ty {
-        req_ty.to_token_stream()
-    } else if let Some(req_ty) = preset_req {
-        req_ty.to_token_stream()
+    } else if let Some(server) = server {
+        server.to_token_stream()
+    } else if let Some(server) = preset_server {
+        server.to_token_stream()
     } else {
         // fall back to the browser version, to avoid erroring out
         // in things like doctests
         // in reality, one of the above needs to be set
         quote! {
-            #server_fn_path::request::BrowserMockReq
-        }
-    };
-    let res = if !cfg!(feature = "ssr") {
-        quote! {
-            #server_fn_path::response::BrowserMockRes
-        }
-    } else if cfg!(feature = "axum") {
-        quote! {
-            #server_fn_path::http_export::Response<#server_fn_path::axum_export::body::Body>
-        }
-    } else if cfg!(feature = "actix") {
-        quote! {
-            #server_fn_path::response::actix::ActixResponse
-        }
-    } else if cfg!(feature = "generic") {
-        quote! {
-            #server_fn_path::http_export::Response<#server_fn_path::response::generic::Body>
-        }
-    } else if let Some(res_ty) = res_ty {
-        res_ty.to_token_stream()
-    } else if let Some(res_ty) = preset_res {
-        res_ty.to_token_stream()
-    } else {
-        // fall back to the browser version, to avoid erroring out
-        // in things like doctests
-        // in reality, one of the above needs to be set
-        quote! {
-            #server_fn_path::response::BrowserMockRes
+            #server_fn_path::mock::BrowserMockServer
         }
     };
 
@@ -667,24 +688,24 @@ pub fn server_macro_impl(
         #docs
         #[derive(Debug, #derives)]
         #addl_path
-        pub struct #struct_name {
+        #vis struct #struct_name {
             #(#fields),*
         }
 
         #from_impl
 
+        #deref_impl
+
         impl #server_fn_path::ServerFn for #wrapped_struct_name {
             const PATH: &'static str = #path;
 
             type Client = #client;
-            type ServerRequest = #req;
-            type ServerResponse = #res;
+            type Server = #server;
+            type Protocol = #protocol;
             type Output = #output_ty;
-            type InputEncoding = #input;
-            type OutputEncoding = #output;
             type Error = #error_ty;
 
-            fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<#req, #res>>> {
+            fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<<Self::Server as #server_fn_path::server::Server<Self::Error>>::Request, <Self::Server as #server_fn_path::server::Server<Self::Error>>::Response>>> {
                 #middlewares
             }
 
@@ -788,12 +809,13 @@ struct ServerFnArgs {
     input_derive: Option<ExprTuple>,
     output: Option<Type>,
     fn_path: Option<Literal>,
-    req_ty: Option<Type>,
-    res_ty: Option<Type>,
+    server: Option<Type>,
     client: Option<Type>,
     custom_wrapper: Option<Path>,
     builtin_encoding: bool,
     impl_from: Option<LitBool>,
+    impl_deref: Option<LitBool>,
+    protocol: Option<Type>,
 }
 
 impl Parse for ServerFnArgs {
@@ -808,11 +830,12 @@ impl Parse for ServerFnArgs {
         let mut input: Option<Type> = None;
         let mut input_derive: Option<ExprTuple> = None;
         let mut output: Option<Type> = None;
-        let mut req_ty: Option<Type> = None;
-        let mut res_ty: Option<Type> = None;
+        let mut server: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
         let mut impl_from: Option<LitBool> = None;
+        let mut impl_deref: Option<LitBool> = None;
+        let mut protocol: Option<Type> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -896,22 +919,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         output = Some(stream.parse()?);
-                    } else if key == "req" {
-                        if req_ty.is_some() {
+                    } else if key == "server" {
+                        if server.is_some() {
                             return Err(syn::Error::new(
                                 key.span(),
-                                "keyword argument repeated: `req`",
+                                "keyword argument repeated: `server`",
                             ));
                         }
-                        req_ty = Some(stream.parse()?);
-                    } else if key == "res" {
-                        if res_ty.is_some() {
-                            return Err(syn::Error::new(
-                                key.span(),
-                                "keyword argument repeated: `res`",
-                            ));
-                        }
-                        res_ty = Some(stream.parse()?);
+                        server = Some(stream.parse()?);
                     } else if key == "client" {
                         if client.is_some() {
                             return Err(syn::Error::new(
@@ -936,6 +951,22 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         impl_from = Some(stream.parse()?);
+                    } else if key == "impl_deref" {
+                        if impl_deref.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `impl_deref`",
+                            ));
+                        }
+                        impl_deref = Some(stream.parse()?);
+                    } else if key == "protocol" {
+                        if protocol.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `protocol`",
+                            ));
+                        }
+                        protocol = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -992,7 +1023,7 @@ impl Parse for ServerFnArgs {
         if let Some(encoding) = encoding {
             match encoding.to_string().to_lowercase().as_str() {
                 "\"url\"" => {
-                    input = Some(type_from_ident(syn::parse_quote!(PostUrl)));
+                    input = Some(type_from_ident(syn::parse_quote!(Url)));
                     output = Some(type_from_ident(syn::parse_quote!(Json)));
                     builtin_encoding = true;
                 }
@@ -1008,7 +1039,7 @@ impl Parse for ServerFnArgs {
                 }
                 "\"getjson\"" => {
                     input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
-                    output = Some(type_from_ident(syn::parse_quote!(Json)));
+                    output = Some(syn::parse_quote!(Json));
                     builtin_encoding = true;
                 }
                 _ => {
@@ -1028,11 +1059,12 @@ impl Parse for ServerFnArgs {
             output,
             fn_path,
             builtin_encoding,
-            req_ty,
-            res_ty,
+            server,
             client,
             custom_wrapper,
             impl_from,
+            impl_deref,
+            protocol,
         })
     }
 }
