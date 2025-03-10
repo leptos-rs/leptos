@@ -131,7 +131,6 @@ where
                 futures::select! {
                     incoming = response_sink_rx.next() => {
                         let Some(incoming) = incoming else {
-                            println!("incoming is none");
                             break;
                         };
                         match incoming {
@@ -141,7 +140,6 @@ where
                                 }
                             }
                             Err(err) => {
-                                println!("ran into error: {err:?}");
                                 _ = response_stream_tx.start_send(Err(err));
                             }
                         }

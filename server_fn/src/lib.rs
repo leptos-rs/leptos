@@ -170,6 +170,13 @@ use std::{
 #[doc(hidden)]
 pub use xxhash_rust;
 
+type ServerFnServerRequest<Fn> = <<Fn as ServerFn>::Server as crate::Server<
+    <Fn as ServerFn>::Error,
+>>::Request;
+type ServerFnServerResponse<Fn> = <<Fn as ServerFn>::Server as crate::Server<
+    <Fn as ServerFn>::Error,
+>>::Response;
+
 /// Defines a function that runs only on the server, but can be called from the server or the client.
 ///
 /// The type for which `ServerFn` is implemented is actually the type of the arguments to the function,
@@ -240,8 +247,8 @@ pub trait ServerFn: Send + Sized {
     fn middlewares() -> Vec<
         Arc<
             dyn Layer<
-                <Self::Server as crate::Server<Self::Error>>::Request,
-                <Self::Server as crate::Server<Self::Error>>::Response,
+                ServerFnServerRequest<Self>,
+                ServerFnServerResponse<Self>,
             >,
         >,
     > {
@@ -255,10 +262,8 @@ pub trait ServerFn: Send + Sized {
 
     #[doc(hidden)]
     fn run_on_server(
-        req: <Self::Server as crate::Server<Self::Error>>::Request,
-    ) -> impl Future<
-        Output = <Self::Server as crate::Server<Self::Error>>::Response,
-    > + Send {
+        req: ServerFnServerRequest<Self>,
+    ) -> impl Future<Output = ServerFnServerResponse<Self>> + Send {
         // Server functions can either be called by a real Client,
         // or directly by an HTML <form>. If they're accessed by a <form>, default to
         // redirecting back to the Referer.

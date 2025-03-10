@@ -39,6 +39,7 @@ pub fn server_macro_impl(
     default_protocol: Option<Type>,
 ) -> Result<TokenStream2> {
     let mut body = syn::parse::<ServerFnBody>(body.into())?;
+    let vis = body.vis.clone();
 
     // extract all #[middleware] attributes, removing them from signature of dummy
     let mut middlewares: Vec<Middleware> = vec![];
@@ -184,7 +185,7 @@ pub fn server_macro_impl(
                 })
                 .collect::<Result<Vec<_>>>()?;
             typed_arg.attrs = vec![];
-            Ok(quote! { #(#attrs ) * pub #typed_arg })
+            Ok(quote! { #(#attrs ) * #vis #typed_arg })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -308,7 +309,6 @@ pub fn server_macro_impl(
     // build struct for type
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
-    let vis = body.vis;
     let attrs = body.attrs;
 
     let fn_args = body
@@ -688,7 +688,7 @@ pub fn server_macro_impl(
         #docs
         #[derive(Debug, #derives)]
         #addl_path
-        pub struct #struct_name {
+        #vis struct #struct_name {
             #(#fields),*
         }
 

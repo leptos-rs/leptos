@@ -35,6 +35,7 @@ pub trait Client<E> {
     ) -> impl Future<Output = Result<Self::Response, E>> + Send;
 
     /// Opens a websocket connection to the server.
+    #[allow(clippy::type_complexity)]
     fn open_websocket(
         path: &str,
     ) -> impl Future<
@@ -262,7 +263,6 @@ pub mod reqwest {
                 websocket_server_url = format!("wss://{}", postfix);
             }
             let url = format!("{}{}", websocket_server_url, path);
-            println!("url: {}", url);
             let (ws_stream, _) =
                 tokio_tungstenite::connect_async(url).await.map_err(|e| {
                     E::from_server_fn_error(ServerFnErrorErr::Request(

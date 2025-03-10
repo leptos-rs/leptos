@@ -105,6 +105,7 @@ where
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E>;
 
     /// Attempts to convert the body of the request into a websocket handle.
+    #[allow(clippy::type_complexity)]
     fn try_into_websocket(
         self,
     ) -> impl Future<
