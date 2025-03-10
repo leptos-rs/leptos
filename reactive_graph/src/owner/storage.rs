@@ -76,24 +76,26 @@ where
     }
 
     fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
-        Arena::with(|arena| {
+        Arena::try_with(|arena| {
             let m = arena.get(node);
             m.and_then(|n| n.downcast_ref::<T>()).map(fun)
         })
+        .flatten()
     }
 
     fn try_with_mut<U>(
         node: NodeId,
         fun: impl FnOnce(&mut T) -> U,
     ) -> Option<U> {
-        Arena::with_mut(|arena| {
+        Arena::try_with_mut(|arena| {
             let m = arena.get_mut(node);
             m.and_then(|n| n.downcast_mut::<T>()).map(fun)
         })
+        .flatten()
     }
 
     fn try_set(node: NodeId, value: T) -> Option<T> {
-        Arena::with_mut(|arena| {
+        Arena::try_with_mut(|arena| {
             let m = arena.get_mut(node);
             match m.and_then(|n| n.downcast_mut::<T>()) {
                 Some(inner) => {
@@ -103,6 +105,7 @@ where
                 None => Some(value),
             }
         })
+        .flatten()
     }
 
     fn take(node: NodeId) -> Option<T> {
