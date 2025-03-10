@@ -19,9 +19,7 @@ mod cbor;
 #[cfg(feature = "cbor")]
 pub use cbor::*;
 
-#[cfg(feature = "json")]
 mod json;
-#[cfg(feature = "json")]
 pub use json::*;
 
 #[cfg(feature = "serde-lite")]
@@ -34,9 +32,7 @@ mod rkyv;
 #[cfg(feature = "rkyv")]
 pub use rkyv::*;
 
-#[cfg(feature = "url")]
 mod url;
-#[cfg(feature = "url")]
 pub use url::*;
 
 #[cfg(feature = "multipart")]
