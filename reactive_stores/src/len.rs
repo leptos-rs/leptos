@@ -46,7 +46,7 @@ macro_rules! delegate_impl_len {
             fn len(&self) -> usize {
                 Len::len(*self)
             }
-            
+
             #[inline(always)]
             fn is_empty(&self) -> bool {
                 Len::is_empty(*self)
