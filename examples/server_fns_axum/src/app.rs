@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use futures::{Sink, Stream, StreamExt};
 use http::Method;
 use leptos::{html::Input, prelude::*, task::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -12,6 +12,7 @@ use server_fn::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, TryRes},
+    ContentType,
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -761,8 +762,11 @@ pub struct Toml;
 #[derive(Serialize, Deserialize)]
 pub struct TomlEncoded<T>(T);
 
-impl Encoding for Toml {
+impl ContentType for Toml {
     const CONTENT_TYPE: &'static str = "application/toml";
+}
+
+impl Encoding for Toml {
     const METHOD: Method = Method::POST;
 }
 
@@ -901,6 +905,24 @@ pub fn CustomClientExample() -> impl IntoView {
             headers.append("X-Custom-Header", "foobar");
             // delegate back out to BrowserClient to send the modified request
             BrowserClient::send(req)
+        }
+
+        fn open_websocket(
+            path: &str,
+        ) -> impl Future<
+            Output = Result<
+                (
+                    impl Stream<Item = Result<server_fn::Bytes, E>> + Send + 'static,
+                    impl Sink<Result<server_fn::Bytes, E>> + Send + 'static,
+                ),
+                E,
+            >,
+        > + Send {
+            BrowserClient::open_websocket(path)
+        }
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            <BrowserClient as Client<E>>::spawn(future)
         }
     }
 
