@@ -578,14 +578,14 @@ impl ToTokens for PatchModel {
         } = &self;
 
         let fields = fields.iter().enumerate().map(|(idx, field)| {
-            let field_name = match &field.ident {
-                Some(ident) => quote! { #ident },
-                None => quote! { #idx },
+            let locator = match &field.ident {
+                Some(ident) => Either::Left(ident),
+                None => Either::Right(Index::from(idx)),
             };
             quote! {
                 #library_path::PatchField::patch_field(
-                    &mut self.#field_name,
-                    new.#field_name,
+                    &mut self.#locator,
+                    new.#locator,
                     &new_path,
                     notify
                 );
@@ -609,5 +609,19 @@ impl ToTokens for PatchModel {
                 }
             }
         });
+    }
+}
+
+enum Either<A, B> {
+    Left(A),
+    Right(B),
+}
+
+impl<A: ToTokens, B: ToTokens> ToTokens for Either<A, B> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Either::Left(a) => a.to_tokens(tokens),
+            Either::Right(b) => b.to_tokens(tokens),
+        }
     }
 }
