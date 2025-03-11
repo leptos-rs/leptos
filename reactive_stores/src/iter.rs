@@ -1,4 +1,5 @@
 use crate::{
+    len::Len,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
     KeyMap, StoreFieldTrigger,
@@ -19,7 +20,6 @@ use std::{
     ops::{DerefMut, IndexMut},
     panic::Location,
 };
-use crate::len::Len;
 
 /// Provides access to the data at some index in another collection.
 #[derive(Debug)]

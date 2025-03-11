@@ -45,7 +45,7 @@ delegate_impl_len!(String);
 impl<'a> Len for Cow<'a, str> {
     #[inline(always)]
     fn len(&self) -> usize {
-        <str>::len(&**self)
+        <str>::len(self)
     }
 }
 
@@ -69,7 +69,7 @@ where
 {
     #[inline(always)]
     fn len(&self) -> usize {
-        <[T]>::len(&**self)
+        <[T]>::len(self)
     }
 }
 
