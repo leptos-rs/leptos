@@ -132,7 +132,9 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
-use bytes::Bytes;
+// re-exported to make it possible to implement a custom Client without adding a separate
+// dependency on `bytes`
+pub use bytes::Bytes;
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
