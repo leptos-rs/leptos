@@ -91,7 +91,9 @@ impl Url {
             path.push_str(&self.search);
         }
         if !self.hash.is_empty() {
-            path.push('#');
+            if !self.hash.starts_with('#') {
+                path.push('#');
+            }
             path.push_str(&self.hash);
         }
         path
@@ -123,14 +125,20 @@ impl Url {
 
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri_component(s).unwrap().into()
+            match js_sys::decode_uri_component(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
         }
     }
 
     pub fn unescape_minimal(s: &str) -> String {
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri(s).unwrap().into()
+            match js_sys::decode_uri(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
         }
 
         #[cfg(feature = "ssr")]

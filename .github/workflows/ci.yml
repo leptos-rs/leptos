@@ -4,10 +4,12 @@ on:
     branches:
       - main
       - leptos_0.6
+      - leptos_0.8
   pull_request:
     branches:
       - main
       - leptos_0.6
+      - leptos_0.8
 jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
@@ -24,4 +26,4 @@ jobs:
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "ci"
-      toolchain: nightly-2024-08-01
+      toolchain: nightly-2025-03-05

@@ -9,8 +9,7 @@ use reactive_graph::{
         guards::{Plain, UntrackedWriteGuard, WriteGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, Track, UntrackableGuard},
-    unwrap_signal,
+    traits::{Track, UntrackableGuard},
 };
 use std::{iter, ops::Deref, sync::Arc};
 
@@ -105,7 +104,7 @@ where
         self.inner
             .try_get_value()
             .map(|n| n.get_trigger(path))
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     #[track_caller]
@@ -113,7 +112,7 @@ where
         self.inner
             .try_get_value()
             .map(|n| n.path().into_iter().collect::<Vec<_>>())
-            .unwrap_or_else(unwrap_signal!(self))
+            .unwrap_or_default()
     }
 
     #[track_caller]

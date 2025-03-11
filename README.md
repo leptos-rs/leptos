@@ -5,6 +5,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
 [![docs.rs](https://docs.rs/leptos/badge.svg)](https://docs.rs/leptos)
+![Crates.io MSRV](https://img.shields.io/crates/msrv/leptos)
 [![Discord](https://img.shields.io/discord/1031524867910148188?color=%237289DA&label=discord)](https://discord.gg/YdRAhS7eQB)
 [![Matrix](https://img.shields.io/badge/Matrix-leptos-grey?logo=matrix&labelColor=white&logoColor=black)](https://matrix.to/#/#leptos:matrix.org)
 
@@ -20,7 +21,7 @@ use leptos::*;
 #[component]
 pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
     // create a reactive signal with the initial value
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
 
     // create event handlers for our buttons
     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -45,7 +46,7 @@ pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
 pub fn SimpleCounterWithBuilder(initial_value: i32) -> impl IntoView {
     use leptos::html::*;
 
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
     let clear = move |_| set_value(0);
     let decrement = move |_| set_value.update(|value| *value -= 1);
     let increment = move |_| set_value.update(|value| *value += 1);
@@ -167,14 +168,14 @@ Yew is the most-used library for Rust web UI development, but there are several 
 - **Performance:** This has huge performance implications: Leptos is simply much faster at both creating and updating the UI than Yew is.
 - **Server integration:** Yew was created in an era in which browser-rendered single-page apps (SPAs) were the dominant paradigm. While Leptos supports client-side rendering, it also focuses on integrating with the server side of your application via server functions and multiple modes of serving HTML, including out-of-order streaming.
 
-- ### How is this different from Dioxus?
+### How is this different from Dioxus?
 
 Like Leptos, Dioxus is a framework for building UIs using web technologies. However, there are significant differences in approach and features.
 
 - **VDOM vs. fine-grained:** While Dioxus has a performant virtual DOM (VDOM), it still uses coarse-grained/component-scoped reactivity: changing a stateful value reruns the component function and diffs the old UI against the new one. Leptos components use a different mental model, creating (and returning) actual DOM nodes and setting up a reactive system to update those DOM nodes.
 - **Web vs. desktop priorities:** Dioxus uses Leptos server functions in its fullstack mode, but does not have the same `<Suspense>`-based support for things like streaming HTML rendering, or share the same focus on holistic web performance. Leptos tends to prioritize holistic web performance (streaming HTML rendering, smaller WASM binary sizes, etc.), whereas Dioxus has an unparalleled experience when building desktop apps, because your application logic runs as a native Rust binary.
 
-- ### How is this different from Sycamore?
+### How is this different from Sycamore?
 
 Sycamore and Leptos are both heavily influenced by SolidJS. At this point, Leptos has a larger community and ecosystem and is more actively developed. Other differences:
 

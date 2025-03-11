@@ -10,7 +10,7 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-config = { version = "0.14.1", default-features = false, features = [
+config = { version = "0.15.8", default-features = false, features = [
   "toml",
   "convert-case",
 ] }
@@ -20,7 +20,7 @@ thiserror = "2.0"
 typed-builder = "0.20.0"
 
 [dev-dependencies]
-tokio = { version = "1.41", features = ["rt", "macros"] }
+tokio = { version = "1.43", features = ["rt", "macros"] }
 tempfile = "3.14"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
 

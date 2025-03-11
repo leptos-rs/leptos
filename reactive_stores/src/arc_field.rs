@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, AtIndex, AtKeyed, KeyMap, KeyedSubfield, Store, StoreField,
-    StoreFieldTrigger, Subfield,
+    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield, Store,
+    StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::Storage,
@@ -36,6 +36,20 @@ where
         Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
     track_field: Arc<dyn Fn() + Send + Sync>,
+}
+
+impl<T> Debug for ArcField<T>
+where
+    T: 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("ArcField");
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        let f = f.field("defined_at", &self.defined_at);
+        f.field("path", &self.path)
+            .field("trigger", &self.trigger)
+            .finish()
+    }
 }
 
 pub struct StoreFieldReader<T>(Box<dyn Deref<Target = T>>);
@@ -173,6 +187,43 @@ where
 {
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        ArcField {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+        }
+    }
+}
+
+impl<Inner, T> From<DerefedField<Inner>> for ArcField<T>
+where
+    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner::Value: Deref<Target = T> + DerefMut,
+    T: Sized + 'static,
+{
+    #[track_caller]
+    fn from(value: DerefedField<Inner>) -> Self {
         ArcField {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),

@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.7.3"
+version = "0.7.7"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -15,7 +15,7 @@ or_poisoned = { workspace = true }
 indexmap = "2.6"
 send_wrapper = "0.6.0"
 tracing = { version = "0.1.41", optional = true }
-wasm-bindgen = "0.2.97"
+wasm-bindgen = { workspace = true }
 futures = "0.3.31"
 
 [dependencies.web-sys]
@@ -26,6 +26,7 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 default = []
 ssr = []
 tracing = ["dep:tracing"]
+nonce = ["leptos/nonce"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

@@ -1,11 +1,10 @@
 use crate::{
     html::{
-        attribute::{Attr, Attribute, AttributeValue},
+        attribute::{Attr, Attribute, AttributeValue, NextAttribute},
         element::{ElementType, ElementWithChildren, HtmlElement},
     },
     view::Render,
 };
-use next_tuple::NextTuple;
 use std::fmt::Debug;
 
 macro_rules! html_element_inner {
@@ -48,13 +47,13 @@ macro_rules! html_element_inner {
                     #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                     pub fn $attr<V>(self, value: V) -> HtmlElement <
                         $struct_name,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                        <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                         Ch
                     >
                     where
                         V: AttributeValue,
-                        At: NextTuple,
-                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
+                        At: NextAttribute,
+                        <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                     {
                         let HtmlElement {
                             #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -68,7 +67,7 @@ macro_rules! html_element_inner {
                             defined_at,
                             tag,
                             children,
-                            attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                            attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                         }
                     }
                 )*
@@ -153,13 +152,13 @@ macro_rules! html_self_closing_elements {
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                         pub fn $attr<V>(self, value: V) -> HtmlElement<
                             [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>,
                             (),
                         >
                         where
                             V: AttributeValue,
-                            At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
+                            At: NextAttribute,
+                            <At as NextAttribute>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V>>: Attribute,
                         {
                             let HtmlElement {
                                  #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -173,7 +172,7 @@ macro_rules! html_self_closing_elements {
                                 defined_at,
                                 tag,
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                attributes: attributes.add_any_attr($crate::html::attribute::$attr(value)),
                             }
                         }
                     )*
@@ -284,7 +283,7 @@ html_elements! {
     /// The `<em>` HTML element marks text that has stress emphasis. The `<em>` element can be nested, with each level of nesting indicating a greater degree of emphasis.
     em HtmlElement [] true,
     /// The `<fieldset>` HTML element is used to group several controls as well as labels (label) within a web form.
-    fieldset HtmlFieldSetElement [] true,
+    fieldset HtmlFieldSetElement [disabled, form, name] true,
     /// The `<figcaption>` HTML element represents a caption or legend describing the rest of the contents of its parent figure element.
     figcaption HtmlElement [] true,
     /// The `<figure>` HTML element represents self-contained content, potentially with an optional caption, which is specified using the figcaption element. The figure, its caption, and its contents are referenced as a single unit.

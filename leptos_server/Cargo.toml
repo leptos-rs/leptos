@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 base64 = "0.22.1"
-codee = { version = "0.2.0", features = ["json_serde"] }
+codee = { version = "0.3.0", features = ["json_serde"] }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
 server_fn = { workspace = true }
@@ -26,8 +26,8 @@ send_wrapper = "0.6"
 # serialization formats
 serde = { version = "1.0" }
 js-sys = { version = "0.3.74", optional = true }
-wasm-bindgen = { version = "0.2.97", optional = true }
-serde_json = { version = "1.0" }
+wasm-bindgen = { version = "0.2.100", optional = true }
+serde_json = { workspace = true }
 
 [features]
 ssr = []

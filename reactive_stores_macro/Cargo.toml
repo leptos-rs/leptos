@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores_macro"
-version = "0.1.0"
+version = "0.1.7"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -13,7 +13,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-convert_case = "0.6"
+convert_case = "0.7"
 proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"

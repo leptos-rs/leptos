@@ -1,5 +1,6 @@
 [tasks.install-cargo-leptos]
 install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
+args = ["--locked"]
 
 [tasks.cargo-leptos-e2e]
 command = "cargo"

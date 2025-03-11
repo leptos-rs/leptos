@@ -130,6 +130,7 @@ impl Owner {
                     .and_then(|parent| parent.upgrade())
                     .map(|parent| parent.read().or_poisoned().arena.clone())
                     .unwrap_or_default(),
+                paused: false,
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -163,6 +164,7 @@ impl Owner {
                 children: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: Default::default(),
+                paused: false,
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -174,8 +176,10 @@ impl Owner {
     /// Creates a new `Owner` that is the child of the current `Owner`, if any.
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));
+        let mut inner = self.inner.write().or_poisoned();
         #[cfg(feature = "sandboxed-arenas")]
-        let arena = self.inner.read().or_poisoned().arena.clone();
+        let arena = inner.arena.clone();
+        let paused = inner.paused;
         let child = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
@@ -185,15 +189,12 @@ impl Owner {
                 children: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena,
+                paused,
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
-        self.inner
-            .write()
-            .or_poisoned()
-            .children
-            .push(Arc::downgrade(&child.inner));
+        inner.children.push(Arc::downgrade(&child.inner));
         child
     }
 
@@ -207,9 +208,7 @@ impl Owner {
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
-            OWNER.with(|o| {
-                mem::replace(&mut *o.borrow_mut(), Some(self.clone()))
-            })
+            OWNER.with(|o| Option::replace(&mut *o.borrow_mut(), self.clone()))
         };
         #[cfg(feature = "sandboxed-arenas")]
         Arena::set(&self.inner.read().or_poisoned().arena);
@@ -337,6 +336,47 @@ impl Owner {
 
         inner(Box::new(fun))
     }
+
+    /// Pauses the execution of side effects for this owner, and any of its descendants.
+    ///
+    /// If this owner is the owner for an [`Effect`](crate::effect::Effect) or [`RenderEffect`](crate::effect::RenderEffect), this effect will not run until [`Owner::resume`] is called. All children of this effects are also paused.
+    ///
+    /// Any notifications will be ignored; effects that are notified will paused will not run when
+    /// resumed, until they are notified again by a source after being resumed.
+    pub fn pause(&self) {
+        let mut stack = Vec::with_capacity(16);
+        stack.push(Arc::downgrade(&self.inner));
+        while let Some(curr) = stack.pop() {
+            if let Some(curr) = curr.upgrade() {
+                let mut curr = curr.write().or_poisoned();
+                curr.paused = true;
+                stack.extend(curr.children.iter().map(Weak::clone));
+            }
+        }
+    }
+
+    /// Whether this owner has been paused by [`Owner::pause`].
+    pub fn paused(&self) -> bool {
+        self.inner.read().or_poisoned().paused
+    }
+
+    /// Resumes side effects that have been paused by [`Owner::pause`].
+    ///
+    /// All children will also be resumed.
+    ///
+    /// This will *not* cause side effects that were notified while paused to run, until they are
+    /// notified again by a source after being resumed.
+    pub fn resume(&self) {
+        let mut stack = Vec::with_capacity(16);
+        stack.push(Arc::downgrade(&self.inner));
+        while let Some(curr) = stack.pop() {
+            if let Some(curr) = curr.upgrade() {
+                let mut curr = curr.write().or_poisoned();
+                curr.paused = false;
+                stack.extend(curr.children.iter().map(Weak::clone));
+            }
+        }
+    }
 }
 
 #[doc(hidden)]
@@ -363,6 +403,7 @@ pub(crate) struct OwnerInner {
     pub children: Vec<Weak<RwLock<OwnerInner>>>,
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
+    paused: bool,
 }
 
 impl Debug for OwnerInner {

@@ -23,6 +23,7 @@ mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod lazy;
 mod memo;
 mod slice;
 mod slot;
@@ -676,17 +677,21 @@ fn component_macro(
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
-    } else if let Ok(mut dummy) = dummy {
-        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
-        quote! {
-            #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
-            #dummy
-        }
     } else {
-        quote! {}
-    }
-    .into()
+        match dummy {
+            Ok(mut dummy) => {
+                dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+                quote! {
+                    #[doc(hidden)]
+                    #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+                    #dummy
+                }
+            }
+            Err(e) => {
+                proc_macro_error2::abort!(e.span(), e);
+            }
+        }
+    }.into()
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.
@@ -1001,4 +1006,18 @@ pub fn slice(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
+}
+
+/// The `#[lazy]` macro marks an `async` function as a function that can be lazy-loaded from a
+/// separate (WebAssembly) binary.
+///
+/// The first time the function is called, calling the function will first load that other binary,
+/// then call the function. On subsequent call it will be called immediately, but still return
+/// asynchronously to maintain the same API.
+///
+/// All parameters and output types should be concrete types, with no generics.
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    lazy::lazy_impl(args, s)
 }

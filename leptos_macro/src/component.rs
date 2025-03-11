@@ -144,8 +144,6 @@ impl ToTokens for Model {
         let (impl_generics, generics, where_clause) =
             body.sig.generics.split_for_impl();
 
-        let lifetimes = body.sig.generics.lifetimes();
-
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
@@ -301,7 +299,7 @@ impl ToTokens for Model {
         } else if cfg!(erase_components) {
             quote! {
                 ::leptos::prelude::IntoAny::into_any(
-                    ::leptos::prelude::untrack(
+                    ::leptos::reactive::graph::untrack_with_diagnostics(
                         move || {
                             #tracing_guard_expr
                             #tracing_props_expr
@@ -312,7 +310,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                ::leptos::prelude::untrack(
+                ::leptos::reactive::graph::untrack_with_diagnostics(
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
@@ -570,7 +568,7 @@ impl ToTokens for Model {
             #tracing_instrument_attr
             #vis fn #name #impl_generics (
                 #props_arg
-            ) #ret #(+ #lifetimes)*
+            ) #ret
             #where_clause
             {
                 #body

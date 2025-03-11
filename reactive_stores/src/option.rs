@@ -1,5 +1,5 @@
 use crate::{StoreField, Subfield};
-use reactive_graph::traits::{Read, ReadUntracked};
+use reactive_graph::traits::{FlattenOptionRefOption, Read, ReadUntracked};
 use std::ops::Deref;
 
 /// Extends optional store fields, with the ability to unwrap or map over them.
@@ -12,6 +12,13 @@ where
 
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
+
+    /// Inverts a subfield of an `Option` to an `Option` of a subfield.
+    fn invert(
+        self,
+    ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
+        self.map(|f| f)
+    }
 
     /// Reactively maps over the field.
     ///
@@ -56,7 +63,7 @@ where
         self,
         map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
     ) -> Option<U> {
-        if self.read().is_some() {
+        if self.try_read().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
         } else {
             None
@@ -67,7 +74,7 @@ where
         self,
         map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
     ) -> Option<U> {
-        if self.read_untracked().is_some() {
+        if self.try_read_untracked().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
         } else {
             None
@@ -77,11 +84,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Store};
+    use crate::{self as reactive_stores, Patch as _, Store};
     use reactive_graph::{
         effect::Effect,
         traits::{Get, Read, ReadUntracked, Set, Write},
     };
+    use reactive_stores_macro::Patch;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -236,5 +244,116 @@ mod tests {
         tick().await;
         assert_eq!(parent_count.load(Ordering::Relaxed), 3);
         assert_eq!(inner_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn patch() {
+        use crate::OptionStoreExt;
+
+        #[derive(Debug, Clone, Store, Patch)]
+        struct Outer {
+            inner: Option<Inner>,
+        }
+
+        #[derive(Debug, Clone, Store, Patch)]
+        struct Inner {
+            first: String,
+            second: String,
+        }
+
+        let store = Store::new(Outer {
+            inner: Some(Inner {
+                first: "A".to_owned(),
+                second: "B".to_owned(),
+            }),
+        });
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let parent_count = Arc::new(AtomicUsize::new(0));
+        let inner_first_count = Arc::new(AtomicUsize::new(0));
+        let inner_second_count = Arc::new(AtomicUsize::new(0));
+
+        Effect::new_sync({
+            let parent_count = Arc::clone(&parent_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("parent: first run");
+                } else {
+                    println!("parent: next run");
+                }
+
+                println!("  value = {:?}", store.inner().get());
+                parent_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let inner_first_count = Arc::clone(&inner_first_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("inner_first: first run");
+                } else {
+                    println!("inner_first: next run");
+                }
+
+                println!(
+                    "  value = {:?}",
+                    store.inner().map(|inner| inner.first().get())
+                );
+                inner_first_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let inner_second_count = Arc::clone(&inner_second_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("inner_second: first run");
+                } else {
+                    println!("inner_second: next run");
+                }
+
+                println!(
+                    "  value = {:?}",
+                    store.inner().map(|inner| inner.second().get())
+                );
+                inner_second_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_second_count.load(Ordering::Relaxed), 1);
+
+        store.patch(Outer {
+            inner: Some(Inner {
+                first: "A".to_string(),
+                second: "C".to_string(),
+            }),
+        });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_second_count.load(Ordering::Relaxed), 2);
+
+        store.patch(Outer { inner: None });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_second_count.load(Ordering::Relaxed), 3);
+
+        store.patch(Outer {
+            inner: Some(Inner {
+                first: "A".to_string(),
+                second: "B".to_string(),
+            }),
+        });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 3);
+        assert_eq!(inner_second_count.load(Ordering::Relaxed), 4);
     }
 }

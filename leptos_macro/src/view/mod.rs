@@ -154,7 +154,12 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
                                         Some(value) => {
                                             matches!(&value.value, KVAttributeValue::Expr(expr) if {
                                                 if let Expr::Lit(lit) = expr {
-                                                    matches!(&lit.lit, Lit::Str(_))
+                                                    let key = attr.key.to_string();
+                                                    if key.starts_with("style:") || key.starts_with("prop:") || key.starts_with("on:") || key.starts_with("use:") || key.starts_with("bind") {
+                                                        false
+                                                    } else {
+                                                        matches!(&lit.lit, Lit::Str(_))
+                                                    }
                                                 } else {
                                                     false
                                                 }
@@ -1129,6 +1134,11 @@ pub(crate) fn attribute_absolute(
                     ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)
                 }
             }
+            else if name == "node_ref" {
+                quote! {
+                    ::leptos::tachys::html::node_ref::#key(#value)
+                }
+            }
             else {
                 quote! {
                     ::leptos::tachys::html::attribute::#key(#value)
@@ -1147,8 +1157,14 @@ pub(crate) fn two_way_binding_to_tokens(
     let ident =
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
 
-    quote! {
-        .bind(::leptos::attr::#ident, #value)
+    if name == "group" {
+        quote! {
+            .bind(leptos::tachys::reactive_graph::bind::#ident, #value)
+        }
+    } else {
+        quote! {
+            .bind(::leptos::attr::#ident, #value)
+        }
     }
 }
 
@@ -1169,8 +1185,7 @@ pub(crate) fn event_type_and_handler(
 ) -> (TokenStream, TokenStream, TokenStream) {
     let handler = attribute_value(node, false);
 
-    let (event_type, is_custom, is_force_undelegated, is_targeted) =
-        parse_event_name(name);
+    let (event_type, is_custom, options) = parse_event_name(name);
 
     let event_name_ident = match &node.key {
         NodeName::Punctuated(parts) => {
@@ -1188,11 +1203,17 @@ pub(crate) fn event_type_and_handler(
         }
         _ => unreachable!(),
     };
+    let capture_ident = match &node.key {
+        NodeName::Punctuated(parts) => {
+            parts.iter().find(|part| part.to_string() == "capture")
+        }
+        _ => unreachable!(),
+    };
     let on = match &node.key {
         NodeName::Punctuated(parts) => &parts[0],
         _ => unreachable!(),
     };
-    let on = if is_targeted {
+    let on = if options.targeted {
         Ident::new("on_target", on.span()).to_token_stream()
     } else {
         on.to_token_stream()
@@ -1205,15 +1226,29 @@ pub(crate) fn event_type_and_handler(
         event_type
     };
 
-    let event_type = if is_force_undelegated {
+    let event_type = quote! {
+        ::leptos::tachys::html::event::#event_type
+    };
+    let event_type = if options.captured {
+        let capture = if let Some(capture) = capture_ident {
+            quote! { #capture }
+        } else {
+            quote! { capture }
+        };
+        quote! { ::leptos::tachys::html::event::#capture(#event_type) }
+    } else {
+        event_type
+    };
+
+    let event_type = if options.undelegated {
         let undelegated = if let Some(undelegated) = undelegated_ident {
             quote! { #undelegated }
         } else {
             quote! { undelegated }
         };
-        quote! { ::leptos::tachys::html::event::#undelegated(::leptos::tachys::html::event::#event_type) }
+        quote! { ::leptos::tachys::html::event::#undelegated(#event_type) }
     } else {
-        quote! { ::leptos::tachys::html::event::#event_type }
+        event_type
     };
 
     (on, event_type, handler)
@@ -1419,13 +1454,22 @@ fn is_ambiguous_element(tag: &str) -> bool {
     tag == "a" || tag == "script" || tag == "title"
 }
 
-fn parse_event(event_name: &str) -> (String, bool, bool) {
-    let is_undelegated = event_name.contains(":undelegated");
-    let is_targeted = event_name.contains(":target");
+fn parse_event(event_name: &str) -> (String, EventNameOptions) {
+    let undelegated = event_name.contains(":undelegated");
+    let targeted = event_name.contains(":target");
+    let captured = event_name.contains(":capture");
     let event_name = event_name
         .replace(":undelegated", "")
-        .replace(":target", "");
-    (event_name, is_undelegated, is_targeted)
+        .replace(":target", "")
+        .replace(":capture", "");
+    (
+        event_name,
+        EventNameOptions {
+            undelegated,
+            targeted,
+            captured,
+        },
+    )
 }
 
 /// Escapes Rust keywords that are also HTML attribute names
@@ -1617,8 +1661,17 @@ const TYPED_EVENTS: [&str; 126] = [
 
 const CUSTOM_EVENT: &str = "Custom";
 
-pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
-    let (name, is_force_undelegated, is_targeted) = parse_event(name);
+#[derive(Debug)]
+pub(crate) struct EventNameOptions {
+    undelegated: bool,
+    targeted: bool,
+    captured: bool,
+}
+
+pub(crate) fn parse_event_name(
+    name: &str,
+) -> (TokenStream, bool, EventNameOptions) {
+    let (name, options) = parse_event(name);
 
     let (event_type, is_custom) = TYPED_EVENTS
         .binary_search(&name.as_str())
@@ -1634,7 +1687,7 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
     } else {
         event_type
     };
-    (event_type, is_custom, is_force_undelegated, is_targeted)
+    (event_type, is_custom, options)
 }
 
 fn convert_to_snake_case(name: String) -> String {
@@ -1651,7 +1704,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .path
             .segments
             .iter()
-            .last()
+            .next_back()
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
         NodeName::Block(_) => {

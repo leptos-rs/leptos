@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.1.3"
+version = "0.1.7"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -28,7 +28,7 @@ send_wrapper = { version = "0.6.0", features = ["futures"] }
 web-sys = { version = "0.3.72", features = ["console"] }
 
 [dev-dependencies]
-tokio = { version = "1.41", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 

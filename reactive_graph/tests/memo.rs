@@ -444,6 +444,69 @@ fn unsync_derived_signal_and_memo() {
     assert_eq!(f.get_untracked(), 6);
 }
 
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn test_memo_multiple_read_guards() {
+    // regression test for https://github.com/leptos-rs/leptos/issues/3158
+    let owner = Owner::new();
+    owner.set();
+    use imports::*;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+    task::LocalSet::new()
+        .run_until(async {
+            let memo = Memo::<i32>::new_with_compare(|_| 42, |_, _| true);
+
+            Effect::new(move |_| {
+                let guard_a = memo.read();
+                let guard_b = memo.read();
+                assert_eq!(guard_a, 42);
+                assert_eq!(guard_b, 42);
+            });
+            Executor::tick().await;
+        })
+        .await
+}
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn test_memo_read_guard_held() {
+    // regression test for https://github.com/leptos-rs/leptos/issues/3252
+    let owner = Owner::new();
+    owner.set();
+    use imports::*;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+    task::LocalSet::new()
+        .run_until(async {
+            let source = RwSignal::new(0);
+
+            let directly_derived =
+                Memo::new_with_compare(move |_| source.get(), |_, _| true);
+            let indirect = Memo::new_with_compare(
+                move |_| directly_derived.get(),
+                |_, _| true,
+            );
+
+            Effect::new(move |_| {
+                let direct_value = directly_derived.read();
+                let indirect_value = indirect.get();
+                assert_eq!(direct_value, indirect_value);
+            });
+
+            Executor::tick().await;
+            source.set(1);
+            Executor::tick().await;
+            source.set(2);
+            Executor::tick().await;
+        })
+        .await
+}
+
 #[test]
 fn memo_updates_even_if_not_read_until_later() {
     #![allow(clippy::bool_assert_comparison)]

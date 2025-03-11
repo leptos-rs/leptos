@@ -67,7 +67,141 @@
 //!     completed: false,
 //! });
 //! ```
+//! ### Generated traits
+//! The [`Store`](macro@Store) macro generates traits for each `struct` to which it is applied.  When working
+//! within a single file more module, this is not an issue.  However, when working with multiple modules
+//! or files, one needs to `use` the generated traits.  The general pattern is that for each `struct`
+//! named `Foo`, the macro generates a trait named `FooStoreFields`.  For example:
+//! ```rust
+//! pub mod foo {
+//!   use reactive_stores::Store;
+
+//!   #[derive(Store)]
+//!   pub struct Foo {
+//!     field: i32,
+//!   }
+//! }
 //!
+//! pub mod user {
+//!   use leptos::prelude::*;
+//!   use reactive_stores::Field;
+//!   // Using FooStore fields here.
+//!   use crate::foo::{ Foo, FooStoreFields };
+//!
+//!   #[component]
+//!   pub fn UseFoo(foo: Field<Foo>) {
+//!     // Without FooStoreFields, foo.field() would fail to compile.
+//!     println!("field: {}", foo.field().read());
+//!   }
+//! }
+//!
+//! # fn main() {
+//! # }
+//! ```
+//! 
+//! ### Additional field types
+//!
+//! Most of the time, your structs will have fields as in the example above: the struct is comprised
+//! of primitive types, builtin types like [String], or other structs that implement [Store](struct@Store) or [Field].
+//! However, there are some special cases that require some additional understanding.
+//!
+//! #### Option
+//! [`Option<T>`](std::option::Option) behaves pretty much as you would expect, utilizing [.is_some()](std::option::Option::is_some)
+//! and [.is_none()](std::option::Option::is_none) to check the value and  [.unwrap()](OptionStoreExt::unwrap) method to access the inner value.  The [OptionStoreExt]
+//! trait is required to use the [.unwrap()](OptionStoreExt::unwrap) method.  Here is a quick example:
+//! ```rust
+//! // Including the trait OptionStoreExt here is required to use unwrap()
+//! use reactive_stores::{OptionStoreExt, Store};
+//! use reactive_graph::traits::{Get, Read};
+//!
+//! #[derive(Store)]
+//! struct StructWithOption {
+//!     opt_field: Option<i32>,
+//! }
+//!
+//! fn describe(store: &Store<StructWithOption>) -> String {
+//!     if store.opt_field().read().is_some() {
+//!         // Note here we need to use OptionStoreExt or unwrap() would not compile
+//!         format!("store has a value {}", store.opt_field().unwrap().get())
+//!     } else {
+//!         format!("store has no value")
+//!     }
+//! }
+//! let none_store = Store::new(StructWithOption { opt_field: None });
+//! let some_store = Store::new(StructWithOption { opt_field: Some(42)});
+//!
+//! assert_eq!(describe(&none_store), "store has no value");
+//! assert_eq!(describe(&some_store), "store has a value 42");
+//! ```
+//! #### Vec
+//! [`Vec<T>`](std::vec::Vec) requires some special treatment when trying to access
+//! elements of the vector directly.  Use the [StoreFieldIterator::at_unkeyed()] method to
+//! access a particular value in a [struct@Store] or [Field] for a [std::vec::Vec].  For example:
+//! ```rust
+//! # use reactive_stores::Store;
+//! // Needed to use at_unkeyed() on Vec
+//! use reactive_stores::StoreFieldIter;
+//! use crate::reactive_stores::StoreFieldIterator;
+//! use reactive_graph::traits::Read;
+//! use reactive_graph::traits::Get;
+//!
+//! #[derive(Store)]
+//! struct StructWithVec {
+//!     vec_field: Vec<i32>,
+//! }
+//!
+//! let store = Store::new(StructWithVec { vec_field: vec![1, 2, 3] });
+//!
+//! assert_eq!(store.vec_field().at_unkeyed(0).get(), 1);
+//! assert_eq!(store.vec_field().at_unkeyed(1).get(), 2);
+//! assert_eq!(store.vec_field().at_unkeyed(2).get(), 3);
+//! ```
+//! #### Enum
+//! Enumerated types behave a bit differently as the [`Store`](macro@Store) macro builds underlying traits instead of alternate
+//! enumerated structures.  Each element in an `Enum` generates methods to access it in the store: a
+//! method with the name of the field gives a boolean if the `Enum` is that variant, and possible accessor
+//! methods for anonymous fields of that variant.  For example:
+//! ```rust
+//! use reactive_stores::Store;
+//! use reactive_graph::traits::{Read, Get};
+//!
+//! #[derive(Store)]
+//! enum Choices {
+//!    First,
+//!    Second(String),
+//! }
+//!
+//! let choice_one = Store::new(Choices::First);
+//! let choice_two = Store::new(Choices::Second("hello".to_string()));
+//!
+//! assert!(choice_one.first());
+//! assert!(!choice_one.second());
+//! // Note the use of the accessor method here .second_0()
+//! assert_eq!(choice_two.second_0().unwrap().get(), "hello");
+//! ```
+//! #### Box
+//! [`Box<T>`](std::boxed::Box) also requires some special treatment in how you dereference elements of the Box, especially
+//! when trying to build a recursive data structure.  [DerefField](trait@DerefField) provides a [.deref_value()](DerefField::deref_field) method to access
+//! the inner value.  For example:
+//! ```rust
+//! // Note here we need to use DerefField to use deref_field() and OptionStoreExt to use unwrap()
+//! use reactive_stores::{Store, DerefField, OptionStoreExt};
+//! use reactive_graph::traits::{ Read, Get };
+//!
+//! #[derive(Store)]
+//! struct List {
+//!     value: i32,
+//!     #[store]
+//!     child: Option<Box<List>>,
+//! }
+//!
+//! let tree = Store::new(List {
+//!     value: 1,
+//!     child: Some(Box::new(List { value: 2, child: None })),
+//! });
+//!
+//! assert_eq!(tree.child().unwrap().deref_field().value().get(), 2);
+//! ```
 //! ### Implementation Notes
 //!
 //! Every struct field can be understood as an index. For example, given the following definition
@@ -131,6 +265,7 @@ use std::{
 };
 
 mod arc_field;
+mod deref;
 mod field;
 mod iter;
 mod keyed;
@@ -141,6 +276,7 @@ mod store_field;
 mod subfield;
 
 pub use arc_field::ArcField;
+pub use deref::*;
 pub use field::Field;
 pub use iter::*;
 pub use keyed::*;
@@ -621,6 +757,7 @@ mod tests {
     use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
+        owner::StoredValue,
         traits::{Read, ReadUntracked, Set, Update, Write},
     };
     use std::sync::{
@@ -885,8 +1022,184 @@ mod tests {
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
     }
 
+    #[tokio::test]
+    async fn patching_only_notifies_changed_field_with_custom_patch() {
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodos {
+            #[patch(|this, new| *this = new)]
+            user: String,
+            todos: Vec<CustomTodo>,
+        }
+
+        #[derive(Debug, Store, Patch, Default)]
+        struct CustomTodo {
+            label: String,
+            completed: bool,
+        }
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(CustomTodos {
+            user: "Alice".into(),
+            todos: vec![],
+        });
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.user().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.patch(CustomTodos {
+            user: "Bob".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+
+        store.patch(CustomTodos {
+            user: "Carol".into(),
+            todos: vec![CustomTodo {
+                label: "First CustomTodo".into(),
+                completed: false,
+            }],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
     #[derive(Debug, Store)]
     pub struct StructWithOption {
         opt_field: Option<Todo>,
+    }
+
+    // regression test for https://github.com/leptos-rs/leptos/issues/3523
+    #[tokio::test]
+    async fn notifying_all_descendants() {
+        use reactive_graph::traits::*;
+        _ = any_spawner::Executor::init_tokio();
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Foo {
+            id: i32,
+            bar: Bar,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Bar {
+            bar_signature: i32,
+            baz: Baz,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Baz {
+            more_data: i32,
+            baw: Baw,
+        }
+
+        #[derive(Debug, Clone, Store, Patch, Default)]
+        struct Baw {
+            more_data: i32,
+            end: i32,
+        }
+
+        let store = Store::new(Foo {
+            id: 42,
+            bar: Bar {
+                bar_signature: 69,
+                baz: Baz {
+                    more_data: 9999,
+                    baw: Baw {
+                        more_data: 22,
+                        end: 1112,
+                    },
+                },
+            },
+        });
+
+        let store_runs = StoredValue::new(0);
+        let id_runs = StoredValue::new(0);
+        let bar_runs = StoredValue::new(0);
+        let bar_signature_runs = StoredValue::new(0);
+        let bar_baz_runs = StoredValue::new(0);
+        let more_data_runs = StoredValue::new(0);
+        let baz_baw_end_runs = StoredValue::new(0);
+
+        Effect::new_sync(move |_| {
+            println!("foo: {:?}", store.get());
+            *store_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.id: {:?}", store.id().get());
+            *id_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.bar: {:?}", store.bar().get());
+            *bar_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.bar_signature: {:?}",
+                store.bar().bar_signature().get()
+            );
+            *bar_signature_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!("foo.bar.baz: {:?}", store.bar().baz().get());
+            *bar_baz_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.baz.more_data: {:?}",
+                store.bar().baz().more_data().get()
+            );
+            *more_data_runs.write_value() += 1;
+        });
+
+        Effect::new_sync(move |_| {
+            println!(
+                "foo.bar.baz.baw.end: {:?}",
+                store.bar().baz().baw().end().get()
+            );
+            *baz_baw_end_runs.write_value() += 1;
+        });
+
+        println!("[INITIAL EFFECT RUN]");
+        tick().await;
+        println!("\n\n[SETTING STORE]");
+        store.set(Default::default());
+        tick().await;
+        println!("\n\n[SETTING STORE.BAR.BAZ]");
+        store.bar().baz().set(Default::default());
+        tick().await;
+
+        assert_eq!(store_runs.get_value(), 3);
+        assert_eq!(id_runs.get_value(), 2);
+        assert_eq!(bar_runs.get_value(), 3);
+        assert_eq!(bar_signature_runs.get_value(), 2);
+        assert_eq!(bar_baz_runs.get_value(), 3);
+        assert_eq!(more_data_runs.get_value(), 3);
+        assert_eq!(baz_baw_end_runs.get_value(), 3);
     }
 }

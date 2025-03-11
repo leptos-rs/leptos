@@ -148,11 +148,8 @@ where
 {
     fn latest_keys(&self) -> Vec<K> {
         self.reader()
-            .expect("trying to update keys")
-            .deref()
-            .into_iter()
-            .map(|n| (self.key_fn)(n))
-            .collect()
+            .map(|r| r.deref().into_iter().map(|n| (self.key_fn)(n)).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -483,8 +480,7 @@ where
                 || self.inner.latest_keys(),
             )
             .flatten()
-            .map(|(_, idx)| idx)
-            .expect("reading from a keyed field that has not yet been created");
+            .map(|(_, idx)| idx)?;
 
         Some(WriteGuard::new(
             trigger.children,
@@ -654,13 +650,15 @@ where
         self.track_field();
 
         // get the current length of the field by accessing slice
-        let reader = self
-            .reader()
-            .expect("creating iterator from unavailable store field");
+        let reader = self.reader();
+
         let keys = reader
-            .into_iter()
-            .map(|item| (self.key_fn)(item))
-            .collect::<VecDeque<_>>();
+            .map(|r| {
+                r.into_iter()
+                    .map(|item| (self.key_fn)(item))
+                    .collect::<VecDeque<_>>()
+            })
+            .unwrap_or_default();
 
         // return the iterator
         StoreFieldKeyedIter { inner: self, keys }

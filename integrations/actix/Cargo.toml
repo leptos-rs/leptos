@@ -18,13 +18,13 @@ hydration_context = { workspace = true }
 leptos = { workspace = true, features = ["nonce", "ssr"] }
 leptos_integration_utils = { workspace = true }
 leptos_macro = { workspace = true, features = ["actix"] }
-leptos_meta = { workspace = true }
+leptos_meta = { workspace = true, features = ["nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 server_fn = { workspace = true, features = ["actix"] }
-serde_json = "1.0"
+serde_json = { workspace = true }
 parking_lot = "0.12.3"
 tracing = { version = "0.1", optional = true }
-tokio = { version = "1.41", features = ["rt", "fs"] }
+tokio = { version = "1.43", features = ["rt", "fs"] }
 send_wrapper = "0.6.0"
 dashmap = "6"
 once_cell = "1"

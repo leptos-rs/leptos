@@ -9,9 +9,10 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-        Write,
+        DefinedAt, Get as _, IsDisposed, Notify, ReadUntracked, Track,
+        UntrackableGuard, Write,
     },
+    wrappers::read::Signal,
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
@@ -74,7 +75,7 @@ where
 {
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
-    type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
+    type Writer = MappedMut<WriteGuard<Vec<ArcTrigger>, Inner::Writer>, T>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -94,8 +95,24 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
-        Some(MappedMut::new(inner, self.read, self.write))
+        let mut parent = self.inner.writer()?;
+        parent.untrack();
+
+        let mut full_path = self.path().into_iter().collect::<StorePath>();
+        full_path.pop();
+        let mut triggers = Vec::with_capacity(full_path.len());
+        triggers.push(trigger.this.clone());
+        loop {
+            let inner = self.get_trigger(full_path.clone());
+            triggers.push(inner.children.clone());
+            if full_path.is_empty() {
+                break;
+            }
+            full_path.pop();
+        }
+        let guard = WriteGuard::new(triggers, parent);
+
+        Some(MappedMut::new(guard, self.read, self.write))
     }
 
     #[inline(always)]
@@ -105,10 +122,19 @@ where
 
     #[track_caller]
     fn track_field(&self) {
-        let inner = self
-            .inner
-            .get_trigger(self.inner.path().into_iter().collect());
-        inner.this.track();
+        let mut full_path = self.path().into_iter().collect::<StorePath>();
+        // tracks `this` for all ancestors: i.e., it will track any change that is made
+        // directly to one of its ancestors, but not a change made to a *child* of an ancestor
+        // (which would end up with every subfield tracking its own siblings, because they are
+        // children of its parent)
+        loop {
+            let inner = self.get_trigger(full_path.clone());
+            inner.this.track();
+            if full_path.is_empty() {
+                break;
+            }
+            full_path.pop();
+        }
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.track();
         trigger.children.track();
@@ -196,5 +222,16 @@ where
             writer.untrack();
             writer
         })
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for Signal<T>
+where
+    Inner: StoreField<Value = Prev> + Track + Send + Sync + 'static,
+    Prev: 'static,
+    T: Send + Sync + Clone + 'static,
+{
+    fn from(subfield: Subfield<Inner, Prev, T>) -> Self {
+        Signal::derive(move || subfield.get())
     }
 }

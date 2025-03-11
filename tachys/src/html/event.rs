@@ -1,5 +1,7 @@
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+    },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
@@ -165,6 +167,9 @@ where
             el: &crate::renderer::types::Element,
             cb: Box<dyn FnMut(crate::renderer::types::Event)>,
             name: Cow<'static, str>,
+            // TODO investigate: does passing this as an option
+            // (rather than, say, having a const DELEGATED: bool)
+            // add to binary size?
             delegation_key: Option<Cow<'static, str>>,
         ) -> RemoveEventHandler<crate::renderer::types::Element> {
             match delegation_key {
@@ -198,6 +203,39 @@ where
             (E::BUBBLES && cfg!(feature = "delegation"))
                 .then(|| self.event.event_delegation_key()),
         )
+    }
+
+    /// Attaches the event listener to the element as a listener that is triggered during the capture phase,
+    /// meaning it will fire before any event listeners further down in the DOM.
+    pub fn attach_capture(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> RemoveEventHandler<crate::renderer::types::Element> {
+        fn attach_inner(
+            el: &crate::renderer::types::Element,
+            cb: Box<dyn FnMut(crate::renderer::types::Event)>,
+            name: Cow<'static, str>,
+        ) -> RemoveEventHandler<crate::renderer::types::Element> {
+            Rndr::add_event_listener_use_capture(el, &name, cb)
+        }
+
+        let mut cb = self.cb.expect("callback removed before attaching").take();
+
+        #[cfg(feature = "tracing")]
+        let span = tracing::Span::current();
+
+        let cb = Box::new(move |ev: crate::renderer::types::Event| {
+            #[cfg(all(debug_assertions, feature = "reactive_graph"))]
+            let _rx_guard =
+                reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+            #[cfg(feature = "tracing")]
+            let _tracing_guard = span.enter();
+
+            let ev = E::EventType::from(ev);
+            cb.invoke(ev);
+        }) as Box<dyn FnMut(crate::renderer::types::Event)>;
+
+        attach_inner(el, cb, self.event.name())
     }
 }
 
@@ -248,13 +286,21 @@ where
         self,
         el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let cleanup = self.attach(el);
+        let cleanup = if E::CAPTURE {
+            self.attach_capture(el)
+        } else {
+            self.attach(el)
+        };
         (el.clone(), Some(cleanup))
     }
 
     #[inline(always)]
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let cleanup = self.attach(el);
+        let cleanup = if E::CAPTURE {
+            self.attach_capture(el)
+        } else {
+            self.attach(el)
+        };
         (el.clone(), Some(cleanup))
     }
 
@@ -264,7 +310,11 @@ where
         if let Some(prev) = prev_cleanup.take() {
             (prev.into_inner())(el);
         }
-        *prev_cleanup = Some(self.attach(el));
+        *prev_cleanup = Some(if E::CAPTURE {
+            self.attach_capture(el)
+        } else {
+            self.attach(el)
+        });
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -302,13 +352,13 @@ where
 
     E::EventType: From<crate::renderer::types::Event>,
 {
-    type Output<NewAttr: Attribute> = (Self, NewAttr);
+    next_attr_output_type!(Self, NewAttr);
 
     fn add_any_attr<NewAttr: Attribute>(
         self,
         new_attr: NewAttr,
     ) -> Self::Output<NewAttr> {
-        (self, new_attr)
+        next_attr_combine!(self, new_attr)
     }
 }
 
@@ -332,9 +382,12 @@ pub trait EventDescriptor: Clone {
     /// Indicates if this event bubbles. For example, `click` bubbles,
     /// but `focus` does not.
     ///
-    /// If this is true, then the event will be delegated globally,
-    /// otherwise, event listeners will be directly attached to the element.
+    /// If this is true, then the event will be delegated globally if the `delegation`
+    /// feature is enabled. Otherwise, event listeners will be directly attached to the element.
     const BUBBLES: bool;
+
+    /// Indicates if this event should be handled during the capture phase.
+    const CAPTURE: bool = false;
 
     /// The name of the event, such as `click` or `mouseover`.
     fn name(&self) -> Cow<'static, str>;
@@ -347,6 +400,32 @@ pub trait EventDescriptor: Clone {
     #[inline(always)]
     fn options(&self) -> Option<&web_sys::AddEventListenerOptions> {
         None
+    }
+}
+
+/// A wrapper that tells the framework to handle an event during the capture phase.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Capture<E> {
+    inner: E,
+}
+
+/// Wraps an event to indicate that it should be handled during the capture phase.
+pub fn capture<E>(event: E) -> Capture<E> {
+    Capture { inner: event }
+}
+
+impl<E: EventDescriptor> EventDescriptor for Capture<E> {
+    type EventType = E::EventType;
+
+    const CAPTURE: bool = true;
+    const BUBBLES: bool = E::BUBBLES;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.inner.name()
+    }
+
+    fn event_delegation_key(&self) -> Cow<'static, str> {
+        self.inner.event_delegation_key()
     }
 }
 
@@ -671,7 +750,12 @@ generate_event_types! {
 }
 
 // Export `web_sys` event types
-use super::{attribute::NextAttribute, element::HasElementType};
+use super::{
+    attribute::{
+        maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+    },
+    element::HasElementType,
+};
 #[doc(no_inline)]
 pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,

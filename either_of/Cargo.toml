@@ -1,6 +1,6 @@
 [package]
 name = "either_of"
-version = "0.1.3"
+version = "0.1.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -10,4 +10,9 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-pin-project-lite = "0.2.15"
+pin-project-lite = "0.2.16"
+paste = "1.0.15"
+
+[features]
+default = ["no_std"]
+no_std = []

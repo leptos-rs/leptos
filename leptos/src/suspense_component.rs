@@ -16,6 +16,7 @@ use reactive_graph::{
     traits::{Dispose, Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
+use std::sync::Arc;
 use tachys::{
     either::Either,
     html::attribute::Attribute,
@@ -130,6 +131,18 @@ where
             children,
         })
     })
+}
+
+fn nonce_or_not() -> Option<Arc<str>> {
+    #[cfg(feature = "nonce")]
+    {
+        use crate::nonce::Nonce;
+        use_context::<Nonce>().map(|n| n.0)
+    }
+    #[cfg(not(feature = "nonce"))]
+    {
+        None
+    }
 }
 
 pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
@@ -290,11 +303,13 @@ where
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             move |_| {
                 tasks.track();
-                if tasks.read().is_empty() {
-                    if let Some(tx) = tasks_tx.take() {
-                        // If the receiver has dropped, it means the ScopedFuture has already
-                        // dropped, so it doesn't matter if we manage to send this.
-                        _ = tx.send(());
+                if let Some(tasks) = tasks.try_read() {
+                    if tasks.is_empty() {
+                        if let Some(tx) = tasks_tx.take() {
+                            // If the receiver has dropped, it means the ScopedFuture has already
+                            // dropped, so it doesn't matter if we manage to send this.
+                            _ = tx.send(());
+                        }
                     }
                 }
             }
@@ -379,7 +394,12 @@ where
                         &mut fallback_position,
                         mark_branches,
                     );
-                    buf.push_async_out_of_order(fut, position, mark_branches);
+                    buf.push_async_out_of_order_with_nonce(
+                        fut,
+                        position,
+                        mark_branches,
+                        nonce_or_not(),
+                    );
                 } else {
                     buf.push_async({
                         let mut position = *position;

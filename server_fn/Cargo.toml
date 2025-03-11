@@ -42,7 +42,7 @@ multer = { version = "3.1", optional = true }
 
 ## output encodings
 # serde
-serde_json = "1.0"
+serde_json = { workspace = true }
 serde-lite = { version = "0.5.0", features = ["derive"], optional = true }
 futures = "0.3.31"
 http = { version = "1.1" }
@@ -57,8 +57,8 @@ rmp-serde = { version = "1.3.0", optional = true }
 # client
 gloo-net = { version = "0.6.0", optional = true }
 js-sys = { version = "0.3.74", optional = true }
-wasm-bindgen = { version = "0.2.97", optional = true }
-wasm-bindgen-futures = { version = "0.4.47", optional = true }
+wasm-bindgen = { version = "0.2.100", optional = true }
+wasm-bindgen-futures = { version = "0.4.50", optional = true }
 wasm-streams = { version = "0.4.2", optional = true }
 web-sys = { version = "0.3.72", optional = true, features = [
   "console",

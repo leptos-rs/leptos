@@ -40,36 +40,39 @@ members = [
 exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
-version = "0.7.3"
+version = "0.7.7"
 edition = "2021"
 rust-version = "1.76"
 
 [workspace.dependencies]
 throw_error = { path = "./any_error/", version = "0.2.0" }
 any_spawner = { path = "./any_spawner/", version = "0.2.0" }
-const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1.0" }
-either_of = { path = "./either_of/", version = "0.1.0" }
+const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
+either_of = { path = "./either_of/", version = "0.1.5" }
 hydration_context = { path = "./hydration_context", version = "0.2.0" }
-leptos = { path = "./leptos", version = "0.7.3" }
-leptos_config = { path = "./leptos_config", version = "0.7.3" }
-leptos_dom = { path = "./leptos_dom", version = "0.7.3" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.7.3" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.7.3" }
-leptos_macro = { path = "./leptos_macro", version = "0.7.3" }
-leptos_router = { path = "./router", version = "0.7.3" }
-leptos_router_macro = { path = "./router_macro", version = "0.7.3" }
-leptos_server = { path = "./leptos_server", version = "0.7.3" }
-leptos_meta = { path = "./meta", version = "0.7.3" }
+itertools = "0.14.0"
+leptos = { path = "./leptos", version = "0.7.7" }
+leptos_config = { path = "./leptos_config", version = "0.7.7" }
+leptos_dom = { path = "./leptos_dom", version = "0.7.7" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.7.7" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.7.7" }
+leptos_macro = { path = "./leptos_macro", version = "0.7.7" }
+leptos_router = { path = "./router", version = "0.7.7" }
+leptos_router_macro = { path = "./router_macro", version = "0.7.7" }
+leptos_server = { path = "./leptos_server", version = "0.7.7" }
+leptos_meta = { path = "./meta", version = "0.7.7" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.0" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
-reactive_graph = { path = "./reactive_graph", version = "0.1.0" }
-reactive_stores = { path = "./reactive_stores", version = "0.1.0" }
-reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.1.0" }
-server_fn = { path = "./server_fn", version = "0.7.3" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.7.3" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.3" }
-tachys = { path = "./tachys", version = "0.1.0" }
+reactive_graph = { path = "./reactive_graph", version = "0.1.7" }
+reactive_stores = { path = "./reactive_stores", version = "0.1.7" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.1.7" }
+serde_json = "1.0.0"
+server_fn = { path = "./server_fn", version = "0.7.7" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.7.7" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.7" }
+tachys = { path = "./tachys", version = "0.1.7" }
+wasm-bindgen = { version = "0.2.100" }
 
 [profile.release]
 codegen-units = 1

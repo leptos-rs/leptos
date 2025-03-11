@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.3"
+version = { workspace = true }
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -16,7 +16,7 @@ proc-macro = true
 attribute-derive = { version = "0.10.3", features = ["syn-full"] }
 cfg-if = "1.0"
 html-escape = "0.2.13"
-itertools = "0.13.0"
+itertools = { workspace = true }
 prettyplease = "0.2.25"
 proc-macro-error2 = { version = "2.0", default-features = false }
 proc-macro2 = "1.0"
@@ -25,7 +25,7 @@ syn = { version = "2.0", features = ["full"] }
 rstml = "0.12.0"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
-convert_case = "0.6.0"
+convert_case = "0.7"
 uuid = { version = "1.11", features = ["v4"] }
 tracing = { version = "0.1.41", optional = true }
 
@@ -34,6 +34,7 @@ log = "0.4.22"
 typed-builder = "0.20.0"
 trybuild = "1.0"
 leptos = { path = "../leptos" }
+leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = "1.41"
 serde = "1.0"
@@ -54,30 +55,30 @@ generic = ["server_fn_macro/generic"]
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
 skip_feature_sets = [
-	[
-		"csr",
-		"hydrate",
-	],
-	[
-		"hydrate",
-		"csr",
-	],
-	[
-		"hydrate",
-		"ssr",
-	],
-	[
-		"actix",
-		"axum",
-	],
-	[
-		"actix",
-		"generic",
-	],
-	[
-		"generic",
-		"axum",
-	],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "hydrate",
+    "csr",
+  ],
+  [
+    "hydrate",
+    "ssr",
+  ],
+  [
+    "actix",
+    "axum",
+  ],
+  [
+    "actix",
+    "generic",
+  ],
+  [
+    "generic",
+    "axum",
+  ],
 ]
 
 [package.metadata.docs.rs]
@@ -85,6 +86,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
-	'cfg(leptos_debuginfo)',
-	'cfg(erase_components)',
+  'cfg(leptos_debuginfo)',
+  'cfg(erase_components)',
 ] }

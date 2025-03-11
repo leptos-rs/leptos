@@ -47,6 +47,7 @@ use leptos::{
     attr::NextAttribute,
     component,
     logging::debug_warn,
+    oco::Oco,
     reactive::owner::{provide_context, use_context},
     tachys::{
         dom::document,
@@ -322,37 +323,13 @@ pub(crate) fn register<E, At, Ch>(
 where
     HtmlElement<E, At, Ch>: RenderHtml,
 {
-    #[allow(unused_mut)] // used for `ssr`
-    let mut el = Some(el);
-
-    #[cfg(feature = "ssr")]
-    if let Some(cx) = use_context::<ServerMetaContext>() {
-        let mut buf = String::new();
-        el.take().unwrap().to_html_with_buf(
-            &mut buf,
-            &mut Position::NextChild,
-            false,
-            false,
-        );
-        _ = cx.elements.send(buf); // fails only if the receiver is already dropped
-    } else {
-        let msg = "tried to use a leptos_meta component without \
-                   `ServerMetaContext` provided";
-
-        #[cfg(feature = "tracing")]
-        tracing::warn!("{}", msg);
-
-        #[cfg(not(feature = "tracing"))]
-        eprintln!("{}", msg);
-    }
-
     RegisteredMetaTag { el }
 }
 
 struct RegisteredMetaTag<E, At, Ch> {
     // this is `None` if we've already taken it out to render to HTML on the server
     // we don't render it in place in RenderHtml, so it's fine
-    el: Option<HtmlElement<E, At, Ch>>,
+    el: HtmlElement<E, At, Ch>,
 }
 
 struct RegisteredMetaTagState<E, At, Ch>
@@ -390,12 +367,12 @@ where
     type State = RegisteredMetaTagState<E, At, Ch>;
 
     fn build(self) -> Self::State {
-        let state = self.el.unwrap().build();
+        let state = self.el.build();
         RegisteredMetaTagState { state }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.el.unwrap().rebuild(&mut state.state);
+        self.el.rebuild(&mut state.state);
     }
 }
 
@@ -416,7 +393,7 @@ where
         Self::Output<NewAttr>: RenderHtml,
     {
         RegisteredMetaTag {
-            el: self.el.map(|inner| inner.add_any_attr(attr)),
+            el: self.el.add_any_attr(attr),
         }
     }
 }
@@ -448,6 +425,26 @@ where
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
+        #[cfg(feature = "ssr")]
+        if let Some(cx) = use_context::<ServerMetaContext>() {
+            let mut buf = String::new();
+            self.el.to_html_with_buf(
+                &mut buf,
+                &mut Position::NextChild,
+                false,
+                false,
+            );
+            _ = cx.elements.send(buf); // fails only if the receiver is already dropped
+        } else {
+            let msg = "tried to use a leptos_meta component without \
+                       `ServerMetaContext` provided";
+
+            #[cfg(feature = "tracing")]
+            tracing::warn!("{}", msg);
+
+            #[cfg(not(feature = "tracing"))]
+            eprintln!("{}", msg);
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -461,7 +458,7 @@ where
                  MetaContext provided",
             )
             .cursor;
-        let state = self.el.unwrap().hydrate::<FROM_SERVER>(
+        let state = self.el.hydrate::<FROM_SERVER>(
             &cursor,
             &PositionState::new(Position::NextChild),
         );
@@ -564,5 +561,27 @@ impl RenderHtml for MetaTagsView {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+}
+
+pub(crate) trait OrDefaultNonce {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>>;
+}
+
+impl OrDefaultNonce for Option<Oco<'static, str>> {
+    fn or_default_nonce(self) -> Option<Oco<'static, str>> {
+        #[cfg(feature = "nonce")]
+        {
+            use leptos::nonce::use_nonce;
+
+            match self {
+                Some(nonce) => Some(nonce),
+                None => use_nonce().map(|n| Arc::clone(n.as_inner()).into()),
+            }
+        }
+        #[cfg(not(feature = "nonce"))]
+        {
+            self
+        }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.7.3"
+version = "0.7.7"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -16,9 +16,11 @@ proc-macro = true
 proc-macro-error2 = { version = "2.0", default-features = false }
 proc-macro2 = "1.0"
 quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
 
 [dev-dependencies]
 leptos_router = { path = "../router" }
+leptos_macro = { path = "../leptos_macro" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

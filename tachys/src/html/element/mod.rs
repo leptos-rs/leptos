@@ -141,7 +141,7 @@ where
 }
 
 /// An HTML element.
-pub trait ElementType: Send {
+pub trait ElementType: Send + 'static {
     /// The underlying native widget type that this represents.
     type Output;
 

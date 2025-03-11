@@ -170,9 +170,10 @@ impl Effect<LocalStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
-                            || first_run
+                        if !owner.paused()
+                            && (subscriber.with_observer(|| {
+                                subscriber.update_if_necessary()
+                            }) || first_run)
                         {
                             first_run = false;
                             subscriber.clear_sources(&subscriber);
@@ -321,9 +322,10 @@ impl Effect<LocalStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
-                            || first_run
+                        if !owner.paused()
+                            && (subscriber.with_observer(|| {
+                                subscriber.update_if_necessary()
+                            }) || first_run)
                         {
                             subscriber.clear_sources(&subscriber);
 
@@ -372,46 +374,16 @@ impl Effect<SyncStorage> {
     /// This spawns a task that can be run on any thread. For an effect that will be spawned on
     /// the current thread, use [`new`](Effect::new).
     pub fn new_sync<T, M>(
-        mut fun: impl EffectFunction<T, M> + Send + Sync + 'static,
+        fun: impl EffectFunction<T, M> + Send + Sync + 'static,
     ) -> Self
     where
         T: Send + Sync + 'static,
     {
-        let inner = cfg!(feature = "effects").then(|| {
-            let (mut rx, owner, inner) = effect_base();
-            let mut first_run = true;
-            let value = Arc::new(RwLock::new(None::<T>));
+        if !cfg!(feature = "effects") {
+            return Self { inner: None };
+        }
 
-            crate::spawn({
-                let value = Arc::clone(&value);
-                let subscriber = inner.to_any_subscriber();
-
-                async move {
-                    while rx.next().await.is_some() {
-                        if subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
-                            || first_run
-                        {
-                            first_run = false;
-                            subscriber.clear_sources(&subscriber);
-
-                            let old_value =
-                                mem::take(&mut *value.write().or_poisoned());
-                            let new_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| {
-                                    run_in_effect_scope(|| fun.run(old_value))
-                                })
-                            });
-                            *value.write().or_poisoned() = Some(new_value);
-                        }
-                    }
-                }
-            });
-
-            ArenaItem::new_with_storage(Some(inner))
-        });
-
-        Self { inner }
+        Self::new_isomorphic(fun)
     }
 
     /// Creates a new effect, which runs once on the next “tick”, and then runs again when reactive values
@@ -434,9 +406,10 @@ impl Effect<SyncStorage> {
 
             async move {
                 while rx.next().await.is_some() {
-                    if subscriber
-                        .with_observer(|| subscriber.update_if_necessary())
-                        || first_run
+                    if !owner.paused()
+                        && (subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                            || first_run)
                     {
                         first_run = false;
                         subscriber.clear_sources(&subscriber);
@@ -487,9 +460,10 @@ impl Effect<SyncStorage> {
 
                 async move {
                     while rx.next().await.is_some() {
-                        if subscriber
-                            .with_observer(|| subscriber.update_if_necessary())
-                            || first_run
+                        if !owner.paused()
+                            && (subscriber.with_observer(|| {
+                                subscriber.update_if_necessary()
+                            }) || first_run)
                         {
                             subscriber.clear_sources(&subscriber);
 

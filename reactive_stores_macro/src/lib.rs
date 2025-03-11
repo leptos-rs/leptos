@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error2::{abort, abort_call_site, proc_macro_error};
+use proc_macro_error2::{abort, abort_call_site, proc_macro_error, OptionExt};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream, Parser},
@@ -19,7 +19,7 @@ pub fn derive_store(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(Patch, attributes(store))]
+#[proc_macro_derive(Patch, attributes(store, patch))]
 pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     syn::parse_macro_input!(input as PatchModel)
         .into_token_stream()
@@ -79,7 +79,7 @@ impl Parse for Model {
 
 #[derive(Clone)]
 enum SubfieldMode {
-    Keyed(ExprClosure, Type),
+    Keyed(ExprClosure, Box<Type>),
     Skip,
 }
 
@@ -87,15 +87,15 @@ impl Parse for SubfieldMode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mode: Ident = input.parse()?;
         if mode == "key" {
-            let _col: Token!(:) = input.parse()?;
+            let _col: Token![:] = input.parse()?;
             let ty: Type = input.parse()?;
-            let _eq: Token!(=) = input.parse()?;
-            let ident: ExprClosure = input.parse()?;
-            Ok(SubfieldMode::Keyed(ident, ty))
+            let _eq: Token![=] = input.parse()?;
+            let closure: ExprClosure = input.parse()?;
+            Ok(SubfieldMode::Keyed(closure, Box::new(ty)))
         } else if mode == "skip" {
             Ok(SubfieldMode::Skip)
         } else {
-            Err(input.error("expected `key = <ident>: <Type>`"))
+            Err(input.error("expected `key: <Type> = <closure>`"))
         }
     }
 }
@@ -537,33 +537,58 @@ fn variant_to_tokens(
 struct PatchModel {
     pub name: Ident,
     pub generics: Generics,
-    pub fields: Vec<Field>,
+    pub ty: PatchModelTy,
+}
+
+enum PatchModelTy {
+    Struct {
+        fields: Vec<Field>,
+    },
+    #[allow(dead_code)]
+    Enum {
+        variants: Vec<Variant>,
+    },
 }
 
 impl Parse for PatchModel {
     fn parse(input: ParseStream) -> Result<Self> {
         let input = syn::DeriveInput::parse(input)?;
 
-        let syn::Data::Struct(s) = input.data else {
-            abort_call_site!("only structs can be used with `Patch`");
-        };
+        let ty = match input.data {
+            syn::Data::Struct(s) => {
+                let fields = match s.fields {
+                    syn::Fields::Unit => {
+                        abort!(s.semi_token, "unit structs are not supported");
+                    }
+                    syn::Fields::Named(fields) => {
+                        fields.named.into_iter().collect::<Vec<_>>()
+                    }
+                    syn::Fields::Unnamed(fields) => {
+                        fields.unnamed.into_iter().collect::<Vec<_>>()
+                    }
+                };
 
-        let fields = match s.fields {
-            syn::Fields::Unit => {
-                abort!(s.semi_token, "unit structs are not supported");
+                PatchModelTy::Struct { fields }
             }
-            syn::Fields::Named(fields) => {
-                fields.named.into_iter().collect::<Vec<_>>()
+            syn::Data::Enum(_e) => {
+                abort_call_site!("only structs can be used with `Patch`");
+
+                // TODO: support enums later on
+                // PatchModelTy::Enum {
+                //     variants: e.variants.into_iter().collect(),
+                // }
             }
-            syn::Fields::Unnamed(fields) => {
-                fields.unnamed.into_iter().collect::<Vec<_>>()
+            _ => {
+                abort_call_site!(
+                    "only structs and enums can be used with `Store`"
+                );
             }
         };
 
         Ok(Self {
             name: input.ident,
             generics: input.generics,
-            fields,
+            ty,
         })
     }
 }
@@ -571,27 +596,75 @@ impl Parse for PatchModel {
 impl ToTokens for PatchModel {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let library_path = quote! { reactive_stores };
-        let PatchModel {
-            name,
-            generics,
-            fields,
-        } = &self;
+        let PatchModel { name, generics, ty } = &self;
 
-        let fields = fields.iter().enumerate().map(|(idx, field)| {
-            let locator = match &field.ident {
-                Some(ident) => Either::Left(ident),
-                None => Either::Right(Index::from(idx)),
-            };
-            quote! {
-                #library_path::PatchField::patch_field(
-                    &mut self.#locator,
-                    new.#locator,
-                    &new_path,
-                    notify
-                );
-                new_path.replace_last(#idx + 1);
+        let fields = match ty {
+            PatchModelTy::Struct { fields } => {
+                fields.iter().enumerate().map(|(idx, field)| {
+                    let Field {
+                        attrs, ident, ..
+                    } = &field;
+                    let locator = match &ident {
+                        Some(ident) => Either::Left(ident),
+                        None => Either::Right(Index::from(idx)),
+                    };
+                    let closure = attrs
+                        .iter()
+                        .find_map(|attr| {
+                            attr.meta.path().is_ident("patch").then(
+                                || match &attr.meta {
+                                    Meta::List(list) => {
+                                        match Punctuated::<
+                                                ExprClosure,
+                                                Comma,
+                                            >::parse_terminated
+                                                .parse2(list.tokens.clone())
+                                            {
+                                                Ok(closures) => {
+                                                    let closure = closures.iter().next().cloned().expect_or_abort("should have ONE closure");
+                                                    if closure.inputs.len() != 2 {
+                                                        abort!(closure.inputs, "patch closure should have TWO params as in #[patch(|this, new| ...)]");
+                                                    }
+                                                    closure
+                                                },
+                                                Err(e) => abort!(list, e),
+                                            }
+                                    }
+                                    _ => abort!(attr.meta, "needs to be as `#[patch(|this, new| ...)]`"),
+                                },
+                            )
+                        });
+
+                    if let Some(closure) = closure {
+                        let params = closure.inputs;
+                        let body = closure.body;
+                        quote! {
+                            if new.#locator != self.#locator {
+                                _ = {
+                                    let (#params) = (&mut self.#locator, new.#locator);
+                                    #body
+                                };
+                                notify(&new_path);
+                            }
+                            new_path.replace_last(#idx + 1);
+                        }
+                    } else {
+                        quote! {
+                            #library_path::PatchField::patch_field(
+                                &mut self.#locator,
+                                new.#locator,
+                                &new_path,
+                                notify
+                            );
+                            new_path.replace_last(#idx + 1);
+                        }
+                    }
+                }).collect::<Vec<_>>()
             }
-        });
+            PatchModelTy::Enum { variants: _ } => {
+                unreachable!("not implemented currently")
+            }
+        };
 
         // read access
         tokens.extend(quote! {
