@@ -21,6 +21,7 @@ pub(super) mod counter {
     pub struct Counter(AtomicU32);
 
     impl Counter {
+        #[allow(dead_code)]
         pub const fn new() -> Self {
             Self(AtomicU32::new(0))
         }
