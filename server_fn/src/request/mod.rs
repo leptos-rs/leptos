@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use futures::Stream;
+use futures::{Sink, Stream};
 use std::{borrow::Cow, future::Future};
 
 /// Request types for Actix.
@@ -78,6 +78,9 @@ pub trait Req<E>
 where
     Self: Sized,
 {
+    /// The response type for websockets.
+    type WebsocketResponse: Send;
+
     /// Returns the query string of the request’s URL, starting after the `?`.
     fn as_query(&self) -> Option<&str>;
 
@@ -100,13 +103,30 @@ where
     fn try_into_stream(
         self,
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E>;
+
+    /// Attempts to convert the body of the request into a websocket handle.
+    #[allow(clippy::type_complexity)]
+    fn try_into_websocket(
+        self,
+    ) -> impl Future<
+        Output = Result<
+            (
+                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+                impl Sink<Result<Bytes, E>> + Send + 'static,
+                Self::WebsocketResponse,
+            ),
+            E,
+        >,
+    > + Send;
 }
 
 /// A mocked request type that can be used in place of the actual server request,
 /// when compiling for the browser.
 pub struct BrowserMockReq;
 
-impl<E: 'static> Req<E> for BrowserMockReq {
+impl<E: Send + 'static> Req<E> for BrowserMockReq {
+    type WebsocketResponse = crate::response::BrowserMockRes;
+
     fn as_query(&self) -> Option<&str> {
         unreachable!()
     }
@@ -134,5 +154,26 @@ impl<E: 'static> Req<E> for BrowserMockReq {
         self,
     ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
         Ok(futures::stream::once(async { unreachable!() }))
+    }
+
+    async fn try_into_websocket(
+        self,
+    ) -> Result<
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
+        #[allow(unreachable_code)]
+        Err::<
+            (
+                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
+                futures::sink::Drain<Result<Bytes, E>>,
+                Self::WebsocketResponse,
+            ),
+            _,
+        >(unreachable!())
     }
 }

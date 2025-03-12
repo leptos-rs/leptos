@@ -1,10 +1,12 @@
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
+    response::actix::ActixResponse,
 };
 use actix_web::{web::Payload, HttpRequest};
+use actix_ws::Message;
 use bytes::Bytes;
-use futures::{Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt};
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 
@@ -38,8 +40,10 @@ impl From<(HttpRequest, Payload)> for ActixRequest {
 
 impl<E> Req<E> for ActixRequest
 where
-    E: FromServerFnError,
+    E: FromServerFnError + Send,
 {
+    type WebsocketResponse = ActixResponse;
+
     fn as_query(&self) -> Option<&str> {
         self.0 .0.uri().query()
     }
@@ -97,5 +101,84 @@ where
             })
         });
         Ok(SendWrapper::new(stream))
+    }
+
+    async fn try_into_websocket(
+        self,
+    ) -> Result<
+        (
+            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+            impl futures::Sink<Result<Bytes, E>> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        E,
+    > {
+        let (request, payload) = self.0.take();
+        let (response, mut session, mut msg_stream) =
+            actix_ws::handle(&request, payload).map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?;
+
+        let (mut response_stream_tx, response_stream_rx) =
+            futures::channel::mpsc::channel(2048);
+        let (response_sink_tx, mut response_sink_rx) =
+            futures::channel::mpsc::channel(2048);
+
+        actix_web::rt::spawn(async move {
+            loop {
+                futures::select! {
+                    incoming = response_sink_rx.next() => {
+                        let Some(incoming) = incoming else {
+                            break;
+                        };
+                        match incoming {
+                            Ok(message) => {
+                                if let Err(err) = session.binary(message).await {
+                                    _ = response_stream_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
+                                }
+                            }
+                            Err(err) => {
+                                _ = response_stream_tx.start_send(Err(err));
+                            }
+                        }
+                    },
+                    outgoing = msg_stream.next().fuse() => {
+                        let Some(outgoing) = outgoing else {
+                            break;
+                        };
+                        match outgoing {
+                            Ok(Message::Ping(bytes)) => {
+                                if session.pong(&bytes).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Ok(Message::Binary(bytes)) => {
+                                _ = response_stream_tx
+                                    .start_send(
+                                        Ok(bytes),
+                                    );
+                            }
+                            Ok(Message::Text(text)) => {
+                                _ = response_stream_tx.start_send(Ok(text.into_bytes()));
+                            }
+                            Ok(_other) => {
+                            }
+                            Err(e) => {
+                                _ = response_stream_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
+                            }
+                        }
+                    }
+                }
+            }
+            let _ = session.close(None).await;
+        });
+
+        Ok((
+            response_stream_rx,
+            response_sink_tx,
+            ActixResponse::from(response),
+        ))
     }
 }
