@@ -473,7 +473,7 @@ where
     }
 }
 
-type OutletViewFn = Box<dyn Fn() -> Suspend<AnyView> + Send>;
+type OutletViewFn = Box<dyn FnMut() -> Suspend<AnyView> + Send>;
 
 pub(crate) struct RouteContext {
     id: RouteMatchId,
@@ -774,8 +774,8 @@ where
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
-                    let old_owner =
-                        mem::replace(&mut current.owner, parent.child());
+                    let mut old_owner =
+                        Some(mem::replace(&mut current.owner, parent.child()));
                     let owner = current.owner.clone();
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
@@ -802,6 +802,7 @@ where
                                         let view = view.clone();
                                         let full_tx =
                                             full_tx.lock().or_poisoned().take();
+                                        let old_owner = old_owner.take();
                                         Suspend::new(Box::pin(async move {
                                             let view = SendWrapper::new(
                                                 owner.with(|| {
@@ -817,6 +818,10 @@ where
                                                 }),
                                             );
                                             let view = view.await;
+                                            if let Some(old_owner) = old_owner {
+                                                old_owner.cleanup();
+                                            }
+
                                             if let Some(tx) = full_tx {
                                                 _ = tx.send(());
                                             }
@@ -825,7 +830,7 @@ where
                                             })
                                         }))
                                     });
-                                drop(old_owner);
+
                                 drop(old_params);
                                 drop(old_url);
                                 drop(old_matched);
@@ -913,7 +918,7 @@ where
             trigger, view_fn, ..
         } = ctx;
         trigger.track();
-        let view_fn = view_fn.lock().or_poisoned();
+        let mut view_fn = view_fn.lock().or_poisoned();
         view_fn()
     }
 }

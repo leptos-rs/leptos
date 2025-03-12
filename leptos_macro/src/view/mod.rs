@@ -1175,8 +1175,14 @@ pub(crate) fn two_way_binding_to_tokens(
     let ident =
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
 
-    quote! {
-        .bind(::leptos::attr::#ident, #value)
+    if name == "group" {
+        quote! {
+            .bind(leptos::tachys::reactive_graph::bind::#ident, #value)
+        }
+    } else {
+        quote! {
+            .bind(::leptos::attr::#ident, #value)
+        }
     }
 }
 

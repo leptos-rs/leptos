@@ -215,16 +215,11 @@ where
                                 None
                             }
                             Ok(encoded) => {
-                                match Ser::decode(encoded.borrow()) {
-                                    #[allow(unused_variables)]
-                                    // used in tracing
-                                    Err(e) => {
-                                        #[cfg(feature = "tracing")]
-                                        tracing::error!("{e:?}");
-                                        None
-                                    }
-                                    Ok(value) => Some(value),
-                                }
+                                let decoded = Ser::decode(encoded.borrow());
+                                #[cfg(feature = "tracing")]
+                                let decoded = decoded
+                                    .inspect_err(|e| tracing::error!("{e:?}"));
+                                decoded.ok()
                             }
                         }
                     }

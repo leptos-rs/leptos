@@ -1,6 +1,7 @@
 use crate::html::{element::ElementType, node_ref::NodeRefContainer};
 use reactive_graph::{
     effect::Effect,
+    graph::untrack,
     signal::{
         guards::{Derefable, ReadGuard},
         RwSignal,
@@ -46,7 +47,10 @@ where
 
         Effect::new(move |_| {
             if let Some(node_ref) = self.get() {
-                f.take().unwrap()(node_ref);
+                let f = f.take().unwrap();
+                untrack(move || {
+                    f(node_ref);
+                });
             }
         });
     }

@@ -38,6 +38,20 @@ where
     track_field: Arc<dyn Fn() + Send + Sync>,
 }
 
+impl<T> Debug for ArcField<T>
+where
+    T: 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("ArcField");
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        let f = f.field("defined_at", &self.defined_at);
+        f.field("path", &self.path)
+            .field("trigger", &self.trigger)
+            .finish()
+    }
+}
+
 pub struct StoreFieldReader<T>(Box<dyn Deref<Target = T>>);
 
 impl<T> StoreFieldReader<T> {

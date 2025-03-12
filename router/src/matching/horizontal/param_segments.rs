@@ -62,7 +62,7 @@ impl PossibleRouteMatch for ParamSegment {
             }
         }
 
-        if matched_len == 0 {
+        if matched_len == 0 || (matched_len == 1 && path.starts_with('/')) {
             return None;
         }
 
