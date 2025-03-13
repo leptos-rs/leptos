@@ -172,12 +172,6 @@ where
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
-        } else if cfg!(feature = "ssr") {
-            panic!(
-                "Reading from a LocalResource outside Suspense in `ssr` mode \
-                 will cause the response to hang, because LocalResources are \
-                 always pending on the server."
-            );
         }
         self.data.try_read_untracked()
     }
@@ -364,12 +358,6 @@ where
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
-        } else if cfg!(feature = "ssr") {
-            panic!(
-                "Reading from a LocalResource outside Suspense in `ssr` mode \
-                 will cause the response to hang, because LocalResources are \
-                 always pending on the server."
-            );
         }
         self.data.try_read_untracked()
     }
