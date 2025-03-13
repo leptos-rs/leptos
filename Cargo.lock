@@ -1852,7 +1852,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.0-alpha"
+version = "0.8.0-alpha2"
 dependencies = [
  "any_spawner",
  "axum",
