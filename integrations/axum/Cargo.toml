@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
-version = { workspace = true }
+version = "0.8.0-alpha2"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -36,7 +36,13 @@ tokio = { version = "1.43", features = ["net", "rt-multi-thread"] }
 
 [features]
 wasm = []
-default = ["tokio/fs", "tokio/sync", "tower-http/fs", "tower/util"]
+default = [
+  "tokio/fs",
+  "tokio/sync",
+  "tower-http/fs",
+  "tower/util",
+  "server_fn/axum",
+]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
