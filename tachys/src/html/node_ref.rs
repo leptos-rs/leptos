@@ -1,7 +1,7 @@
 use super::{
     attribute::{
-        maybe_next_attr_erasure_macros::next_attr_output_type,
-        panic_on_clone_attribute::PanicOnCloneAttr, Attribute, NextAttribute,
+        maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
+        NextAttribute,
     },
     element::ElementType,
 };
@@ -65,8 +65,8 @@ where
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
     type State = crate::renderer::types::Element;
-    type Cloneable = PanicOnCloneAttr<Self>;
-    type CloneableOwned = PanicOnCloneAttr<Self>;
+    type Cloneable = Self;
+    type CloneableOwned = Self;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -100,17 +100,11 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        PanicOnCloneAttr::new(
-            self,
-            "node_ref should not be spread across multiple elements.",
-        )
+        self
     }
 
     fn into_cloneable_owned(self) -> Self::Cloneable {
-        PanicOnCloneAttr::new(
-            self,
-            "node_ref should not be spread across multiple elements.",
-        )
+        self
     }
 
     fn dry_resolve(&mut self) {}

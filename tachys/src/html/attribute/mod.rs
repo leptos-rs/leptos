@@ -8,7 +8,6 @@ pub mod custom;
 pub mod global;
 mod key;
 pub(crate) mod maybe_next_attr_erasure_macros;
-pub(crate) mod panic_on_clone_attribute;
 mod value;
 
 use crate::view::{Position, ToTemplate};
