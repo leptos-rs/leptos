@@ -100,6 +100,9 @@ where
 
         let mut full_path = self.path().into_iter().collect::<StorePath>();
         full_path.pop();
+
+        // build a list of triggers, starting with the full path to this node and ending with the root
+        // this will mean that the root is the final item, and this path is first
         let mut triggers = Vec::with_capacity(full_path.len());
         triggers.push(trigger.this.clone());
         loop {
@@ -110,6 +113,17 @@ where
             }
             full_path.pop();
         }
+
+        // when the WriteGuard is dropped, each trigger will be notified, in order
+        // reversing the list will cause the triggers to be notified starting from the root,
+        // then to each child down to this one
+        //
+        // notifying from the root down is important for things like OptionStoreExt::map()/unwrap(),
+        // where it's really important that any effects that subscribe to .is_some() run before effects
+        // that subscribe to the inner value, so that the inner effect can be canceled if the outer switches to `None`
+        // (see https://github.com/leptos-rs/leptos/issues/3704)
+        triggers.reverse();
+
         let guard = WriteGuard::new(triggers, parent);
 
         Some(MappedMut::new(guard, self.read, self.write))
