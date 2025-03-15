@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
       - name: Get source files that changed
         id: changed-source
-        uses: tj-actions/changed-files@v45
+        uses: trmlabs/changed-files@3cafe8b47d83dc1df61b7de8d274088004fda43c
         with:
           files_ignore: |
             .*/**/*
