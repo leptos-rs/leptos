@@ -1,7 +1,10 @@
 //! A value that **might** be wrapped in a [`SendWrapper`] to make non-threadsafe at runtime.
 
 use send_wrapper::SendWrapper;
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::{Debug, Formatter},
+    ops::{Deref, DerefMut},
+};
 
 /// A value that might be wrapped in a [`SendWrapper`] to make non-threadsafe at runtime.
 pub enum MaybeSendWrapper<T> {
@@ -53,6 +56,28 @@ impl<T> DerefMut for MaybeSendWrapper<T> {
         match self {
             Self::Threadsafe(value) => value,
             Self::Local(value) => value.deref_mut(),
+        }
+    }
+}
+
+impl<T: Debug> Debug for MaybeSendWrapper<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Threadsafe(value) => {
+                write!(f, "MaybeSendWrapper::Threadsafe({:?})", value)
+            }
+            Self::Local(value) => {
+                write!(f, "MaybeSendWrapper::Local({:?})", value)
+            }
+        }
+    }
+}
+
+impl<T: Clone> Clone for MaybeSendWrapper<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Threadsafe(value) => Self::Threadsafe(value.clone()),
+            Self::Local(value) => Self::Local(value.clone()),
         }
     }
 }
