@@ -2013,7 +2013,7 @@ where
 #[cfg(feature = "default")]
 pub fn file_and_error_handler_with_context<S, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
-    shell: fn(LeptosOptions) -> IV,
+    shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
 ) -> impl Fn(
     Uri,
     State<S>,
@@ -2030,6 +2030,7 @@ where
     move |uri: Uri, State(state): State<S>, req: Request<Body>| {
         Box::pin({
             let additional_context = additional_context.clone();
+            let shell = shell.clone();
             async move {
                 let options = LeptosOptions::from_ref(&state);
                 let res =
@@ -2073,7 +2074,7 @@ where
 /// simply reuse the source code of this function in your own application.
 #[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
-    shell: fn(LeptosOptions) -> IV,
+    shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
 ) -> impl Fn(
     Uri,
     State<S>,
