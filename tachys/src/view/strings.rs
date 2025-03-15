@@ -2,6 +2,7 @@ use super::{
     Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
+    html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
     no_attrs,
     renderer::{CastFrom, Rndr},
@@ -38,6 +39,7 @@ impl<'a> Render for &'a str {
 
 impl RenderHtml for &str {
     type AsyncOutput = Self;
+    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
@@ -57,6 +59,7 @@ impl RenderHtml for &str {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -102,6 +105,10 @@ impl RenderHtml for &str {
 
         StrState { node, str: self }
     }
+
+    fn into_owned(self) -> Self::Owned {
+        self.to_string()
+    }
 }
 
 impl ToTemplate for &str {
@@ -138,6 +145,10 @@ impl Mountable for StrState<'_> {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `String`.
@@ -166,6 +177,7 @@ impl Render for String {
 impl RenderHtml for String {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
+    type Owned = Self;
 
     fn dry_resolve(&mut self) {}
 
@@ -183,6 +195,7 @@ impl RenderHtml for String {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             self.as_str(),
@@ -190,6 +203,7 @@ impl RenderHtml for String {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -201,6 +215,10 @@ impl RenderHtml for String {
         let StrState { node, .. } =
             self.as_str().hydrate::<FROM_SERVER>(cursor, position);
         StringState { node, str: self }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -235,6 +253,10 @@ impl Mountable for StringState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -328,6 +350,10 @@ impl Mountable for RcStrState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `Arc<str>`.
@@ -355,6 +381,7 @@ impl Render for Arc<str> {
 
 impl RenderHtml for Arc<str> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -374,6 +401,7 @@ impl RenderHtml for Arc<str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -381,6 +409,7 @@ impl RenderHtml for Arc<str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -393,6 +422,10 @@ impl RenderHtml for Arc<str> {
         let StrState { node, .. } =
             this.hydrate::<FROM_SERVER>(cursor, position);
         ArcStrState { node, str: self }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -428,6 +461,10 @@ impl Mountable for ArcStrState {
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 /// Retained view state for `Cow<'_, str>`.
@@ -455,6 +492,7 @@ impl<'a> Render for Cow<'a, str> {
 
 impl RenderHtml for Cow<'_, str> {
     type AsyncOutput = Self;
+    type Owned = String;
 
     const MIN_LENGTH: usize = 0;
 
@@ -474,6 +512,7 @@ impl RenderHtml for Cow<'_, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -481,6 +520,7 @@ impl RenderHtml for Cow<'_, str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -493,6 +533,10 @@ impl RenderHtml for Cow<'_, str> {
         let StrState { node, .. } =
             this.hydrate::<FROM_SERVER>(cursor, position);
         CowStrState { node, str: self }
+    }
+
+    fn into_owned(self) -> <Self as RenderHtml>::Owned {
+        self.into_owned()
     }
 }
 
@@ -527,5 +571,9 @@ impl Mountable for CowStrState<'_> {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }

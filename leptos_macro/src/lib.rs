@@ -281,7 +281,11 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
-    view_macro_impl(tokens, true)
+    if cfg!(feature = "__internal_erase_components") {
+        view(tokens)
+    } else {
+        view_macro_impl(tokens, true)
+    }
 }
 
 fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
@@ -923,7 +927,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         args.into(),
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
-        "/api",
+        option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
     ) {

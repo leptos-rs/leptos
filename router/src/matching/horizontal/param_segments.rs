@@ -35,6 +35,10 @@ use std::borrow::Cow;
 pub struct ParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for ParamSegment {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
@@ -121,6 +125,10 @@ impl PossibleRouteMatch for ParamSegment {
 pub struct WildcardSegment(pub &'static str);
 
 impl PossibleRouteMatch for WildcardSegment {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
@@ -158,7 +166,9 @@ impl PossibleRouteMatch for WildcardSegment {
 pub struct OptionalParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for OptionalParamSegment {
-    const OPTIONAL: bool = true;
+    fn optional(&self) -> bool {
+        true
+    }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;

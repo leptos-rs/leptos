@@ -93,61 +93,17 @@ mod stable {
         wrappers::read::{ArcSignal, Signal},
     };
 
-    macro_rules! property_signal {
-        ($sig:ident) => {
-            impl<V> IntoProperty for $sig<V>
-            where
-                $sig<V>: Get<Value = V>,
-                V: IntoProperty + Send + Sync + Clone + 'static,
-                V::State: 'static,
-            {
-                type State = RenderEffect<V::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                    key: &str,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el, key)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                    key: &str,
-                ) -> Self::State {
-                    (move || self.get()).build(el, key)
-                }
-
-                fn rebuild(self, state: &mut Self::State, key: &str) {
-                    (move || self.get()).rebuild(state, key)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-            }
-        };
-    }
-
-    macro_rules! property_signal_arena {
-        ($sig:ident) => {
+    macro_rules! property_reactive {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
             #[allow(deprecated)]
-            impl<V, S> IntoProperty for $sig<V, S>
+            impl<$($gen),*> IntoProperty for $name<$($gen),*>
             where
-                $sig<V, S>: Get<Value = V>,
-                S: Send + Sync + 'static,
-                S: Storage<V> + Storage<Option<V>>,
-                V: IntoProperty + Send + Sync + Clone + 'static,
-                V::State: 'static,
+                $v: IntoProperty + Clone + Send + Sync + 'static,
+                <$v as IntoProperty>::State: 'static,
+                $($where_clause)*
             {
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<<$v as IntoProperty>::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -182,13 +138,132 @@ mod stable {
         };
     }
 
-    property_signal_arena!(RwSignal);
-    property_signal_arena!(ReadSignal);
-    property_signal_arena!(Memo);
-    property_signal_arena!(Signal);
-    property_signal_arena!(MaybeSignal);
-    property_signal!(ArcRwSignal);
-    property_signal!(ArcReadSignal);
-    property_signal!(ArcMemo);
-    property_signal!(ArcSignal);
+    property_reactive!(
+        RwSignal,
+        <V, S>,
+        V,
+        RwSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    property_reactive!(
+        ReadSignal,
+        <V, S>,
+        V,
+        ReadSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    property_reactive!(
+        Memo,
+        <V, S>,
+        V,
+        Memo<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    property_reactive!(
+        Signal,
+        <V, S>,
+        V,
+        Signal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    property_reactive!(
+        MaybeSignal,
+        <V, S>,
+        V,
+        MaybeSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    property_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
+    property_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
+    property_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
+    property_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
+
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        Store,
+        <V, S>,
+        V,
+        Store<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(
+        Field,
+        <V, S>,
+        V,
+        Field<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
+    #[cfg(feature = "reactive_stores")]
+    property_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 }

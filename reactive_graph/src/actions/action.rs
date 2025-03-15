@@ -961,11 +961,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// Creates a new action, which does not require the action itself to be `Send`, but will run
     /// it on the same thread it was created on.
@@ -992,6 +991,56 @@ where
     /// In all other ways, this is identical to [`Action::new`].
     #[track_caller]
     pub fn new_unsync_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: ArenaItem::new_with_storage(
+                ArcAction::new_unsync_with_value(value, action_fn),
+            ),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
+impl<I, O> Action<I, O, LocalStorage>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Creates a new action, which neither requires the action itself nor the
+    /// value it returns to be `Send`. If this action is accessed from outside the
+    /// thread on which it was created, it panics.
+    ///
+    /// This combines the features of [`Action::new_local`] and [`Action::new_unsync`].
+    #[track_caller]
+    pub fn new_unsync_local<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: ArenaItem::new_with_storage(ArcAction::new_unsync(
+                action_fn,
+            )),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+        }
+    }
+
+    /// Creates a new action, which neither requires the action itself nor the
+    /// value it returns to be `Send`, and provides it with an initial value.
+    /// If this action is accessed from outside the thread on which it was created, it panics.
+    ///
+    /// This combines the features of [`Action::new_local_with_value`] and
+    /// [`Action::new_unsync_with_value`].
+    #[track_caller]
+    pub fn new_unsync_local_with_value<F, Fu>(
+        value: Option<O>,
+        action_fn: F,
+    ) -> Self
     where
         F: Fn(&I) -> Fu + 'static,
         Fu: Future<Output = O> + 'static,

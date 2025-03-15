@@ -24,7 +24,7 @@ jobs:
           sed "s|$(pwd)/||" |
           jq -R -s -c 'split("\n")[:-1]')
           echo "Leptos Directories: $crates"
-          echo "matrix={\"directory\":$crates}" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"directory\":$crates, \"erased_mode\": [false, true]}" >> "$GITHUB_OUTPUT"
       - name: Print Location Info
         run: |
           echo "Workspace: ${{ github.workspace }}"

@@ -44,7 +44,7 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
-    attr::NextAttribute,
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component,
     logging::debug_warn,
     oco::Oco,
@@ -405,6 +405,7 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = Self;
+    type Owned = RegisteredMetaTag<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -422,6 +423,7 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -433,6 +435,7 @@ where
                 &mut Position::NextChild,
                 false,
                 false,
+                vec![],
             );
             _ = cx.elements.send(buf); // fails only if the receiver is already dropped
         } else {
@@ -463,6 +466,12 @@ where
             &PositionState::new(Position::NextChild),
         );
         RegisteredMetaTagState { state }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        RegisteredMetaTag {
+            el: self.el.into_owned(),
+        }
     }
 }
 
@@ -495,6 +504,10 @@ where
         // the alternate view will end up being mounted in the <head> -- which is not at all what
         // we intended!
         false
+    }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        self.state.elements()
     }
 }
 
@@ -537,6 +550,7 @@ impl AddAnyAttr for MetaTagsView {
 
 impl RenderHtml for MetaTagsView {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -552,6 +566,7 @@ impl RenderHtml for MetaTagsView {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!--HEAD-->");
     }
@@ -561,6 +576,10 @@ impl RenderHtml for MetaTagsView {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 

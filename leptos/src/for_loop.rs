@@ -6,7 +6,10 @@ use reactive_graph::{
     traits::Set,
 };
 use std::hash::Hash;
-use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
+use tachys::{
+    reactive_graph::OwnedView,
+    view::keyed::{keyed, SerializableKey},
+};
 
 /// Iterates over children and displays them, keyed by the `key` function given.
 ///
@@ -121,7 +124,7 @@ where
     EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + Send + Clone + 'static,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     T: Send + 'static,
 {
     // this takes the owner of the For itself
@@ -195,7 +198,7 @@ where
     EF: Fn(ReadSignal<usize>, T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + Send + Clone + 'static,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     T: Send + 'static,
 {
     // this takes the owner of the For itself
@@ -218,6 +221,7 @@ where
     };
     move || keyed(each(), key.clone(), children.clone())
 }
+
 /*
 #[cfg(test)]
 mod tests {

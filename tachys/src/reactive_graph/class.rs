@@ -517,84 +517,13 @@ mod stable {
     use super::RenderEffectWithClassName;
     use crate::renderer::Rndr;
 
-    macro_rules! class_signal_arena {
-        ($sig:ident) => {
+    macro_rules!  tuple_class_reactive {
+        ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $( $where_clause:tt )*) =>
+        {
             #[allow(deprecated)]
-            impl<C, S> IntoClass for $sig<C, S>
+            impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
             where
-                $sig<C, S>: Get<Value = C>,
-                S: Send + Sync + 'static,
-                S: Storage<C> + Storage<Option<C>>,
-                C: IntoClass + Send + Sync + Clone + 'static,
-                C::State: 'static,
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn html_len(&self) -> usize {
-                    0
-                }
-
-                fn to_html(self, class: &mut String) {
-                    let value = self.get();
-                    value.to_html(class);
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                C::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.take_value(),
-                    );
-                }
-            }
-
-            #[allow(deprecated)]
-            impl<S> IntoClass for (&'static str, $sig<bool, S>)
-            where
-                $sig<bool, S>: Get<Value = bool>,
-                S: Send + 'static,
-                S: Storage<bool>,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
                 type State = RenderEffectWithClassName<(
@@ -674,16 +603,18 @@ mod stable {
         };
     }
 
-    macro_rules! class_signal {
-        ($sig:ident) => {
-            impl<C> IntoClass for $sig<C>
+    macro_rules!  class_reactive {
+        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+        {
+            #[allow(deprecated)]
+            impl<$($gen),*> IntoClass for $name<$($gen),*>
             where
-                $sig<C>: Get<Value = C>,
-                C: IntoClass + Send + Sync + Clone + 'static,
-                C::State: 'static,
+                $v: IntoClass + Clone + Send + Sync + 'static,
+                <$v as IntoClass>::State: 'static,
+                $($where_clause)*
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<C::State>;
+                type State = RenderEffect<<$v as IntoClass>::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -732,93 +663,13 @@ mod stable {
                     *state = RenderEffect::new_with_value(
                         move |prev| {
                             if let Some(mut state) = prev {
-                                C::reset(&mut state);
+                                <$v>::reset(&mut state);
                                 state
                             } else {
                                 unreachable!()
                             }
                         },
                         state.take_value(),
-                    );
-                }
-            }
-
-            impl IntoClass for (&'static str, $sig<bool>)
-            where
-                $sig<bool>: Get<Value = bool>,
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffectWithClassName<(
-                    crate::renderer::types::ClassList,
-                    bool,
-                )>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn html_len(&self) -> usize {
-                    self.0.len()
-                }
-
-                fn to_html(self, class: &mut String) {
-                    let (name, f) = self;
-                    let include = f.get();
-                    if include {
-                        <&str as IntoClass>::to_html(name, class);
-                    }
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoClass::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
-                    )
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoClass::build((self.0, move || self.1.get()), el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::rebuild((self.0, move || self.1.get()), state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    let name = state.name;
-                    *state = RenderEffectWithClassName::new(
-                        state.name,
-                        RenderEffect::new_with_value(
-                            move |prev| {
-                                if let Some(mut state) = prev {
-                                    let (class_list, prev) = &mut state;
-                                    Rndr::remove_class(class_list, name);
-                                    *prev = false;
-                                    state
-                                } else {
-                                    unreachable!()
-                                }
-                            },
-                            state.effect.take_value(),
-                        ),
                     );
                 }
             }
@@ -836,16 +687,254 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    class_reactive!(
+        RwSignal,
+        <V, S>,
+        V,
+        RwSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    class_reactive!(
+        ReadSignal,
+        <V, S>,
+        V,
+        ReadSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    class_reactive!(
+        Memo,
+        <V, S>,
+        V,
+        Memo<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    class_reactive!(
+        Signal,
+        <V, S>,
+        V,
+        Signal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    class_reactive!(
+        MaybeSignal,
+        <V, S>,
+        V,
+        MaybeSignal<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    class_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
+    class_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
+    class_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
+    class_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
 
-    class_signal_arena!(RwSignal);
-    class_signal_arena!(ReadSignal);
-    class_signal_arena!(Memo);
-    class_signal_arena!(Signal);
-    class_signal_arena!(MaybeSignal);
-    class_signal!(ArcRwSignal);
-    class_signal!(ArcReadSignal);
-    class_signal!(ArcMemo);
-    class_signal!(ArcSignal);
+    tuple_class_reactive!(
+        RwSignal,
+        <S>,
+        <bool, S>,
+        RwSignal<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send  + 'static,
+    );
+    tuple_class_reactive!(
+        ReadSignal,
+        <S>,
+        <bool, S>,
+        ReadSignal<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send + 'static,
+    );
+    tuple_class_reactive!(
+        Memo,
+        <S>,
+        <bool, S>,
+        Memo<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send + 'static,
+    );
+    tuple_class_reactive!(
+        Signal,
+        <S>,
+        <bool, S>,
+        Signal<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send + 'static,
+    );
+    tuple_class_reactive!(
+        MaybeSignal,
+        <S>,
+        <bool, S>,
+        MaybeSignal<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send + 'static,
+    );
+    tuple_class_reactive!(ArcRwSignal,<>, <bool>, ArcRwSignal<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcReadSignal,<>, <bool>, ArcReadSignal<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcMemo,<>, <bool>, ArcMemo<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcSignal,<>, <bool>, ArcSignal<bool>: Get<Value = bool>);
+
+    #[cfg(feature = "reactive_stores")]
+    use {
+        reactive_stores::{
+            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+            KeyedSubfield, Store, StoreField, Subfield,
+        },
+        std::ops::{Deref, DerefMut, Index, IndexMut},
+    };
+
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        Subfield,
+        <Inner, Prev, V>,
+        V,
+        Subfield<Inner, Prev, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        AtKeyed,
+        <Inner, Prev, K, V>,
+        V,
+        AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        KeyedSubfield,
+        <Inner, Prev, K, V>,
+        V,
+        KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a V: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        DerefedField,
+        <S>,
+        <S::Value as Deref>::Target,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        AtIndex,
+        <Inner, Prev>,
+        <Prev as Index<usize>>::Output,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        Store,
+        <V, S>,
+        V,
+        Store<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(
+        Field,
+        <V, S>,
+        V,
+        Field<V, S>: Get<Value = V>,
+        S: Storage<V> + Storage<Option<V>>,
+        S: Send + Sync + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
+    #[cfg(feature = "reactive_stores")]
+    class_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        Subfield,
+        <Inner, Prev>,
+        <Inner, Prev, bool>,
+        Subfield<Inner, Prev, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        AtKeyed,
+        <Inner, Prev, K>,
+        <Inner, Prev, K, bool>,
+        AtKeyed<Inner, Prev, K, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a bool: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        KeyedSubfield,
+        <Inner, Prev, K>,
+        <Inner, Prev, K, bool>,
+        KeyedSubfield<Inner, Prev, K, bool>: Get<Value = bool>,
+        Prev: Send + Sync + 'static,
+        Inner: Send + Sync + Clone + 'static,
+        K: Send + Sync + std::fmt::Debug + Clone + 'static,
+        for<'a> &'a bool: IntoIterator,
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        DerefedField,
+        <S>,
+        <S>,
+        S: Clone + StoreField + Send + Sync + 'static,
+        <S as StoreField>::Value: Deref<Target = bool> + DerefMut
+    );
+
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        AtIndex,
+        <Inner, Prev>,
+        <Inner, Prev>,
+        AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
+        Prev: Send + Sync + IndexMut<usize,Output = bool> + 'static,
+        Inner: Send + Sync + Clone + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        Store,
+        <S>,
+        <bool, S>,
+        Store<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send  + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(
+        Field,
+        <S>,
+        <bool, S>,
+        Field<bool, S>: Get<Value = bool>,
+        S: Storage<bool>,
+        S: Send  + 'static,
+    );
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(ArcStore,<>, <bool>, ArcStore<bool>: Get<Value = bool>);
+    #[cfg(feature = "reactive_stores")]
+    tuple_class_reactive!(ArcField,<>, <bool>, ArcField<bool>: Get<Value = bool>);
 }
 
 /*

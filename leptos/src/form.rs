@@ -3,7 +3,11 @@ use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
-    client::Client, codec::PostUrl, request::ClientReq, ServerFn, ServerFnError,
+    client::Client,
+    codec::PostUrl,
+    error::{IntoAppError, ServerFnErrorErr},
+    request::ClientReq,
+    Http, ServerFn,
 };
 use tachys::{
     either::Either,
@@ -71,7 +75,7 @@ use web_sys::{
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
-pub fn ActionForm<ServFn>(
+pub fn ActionForm<ServFn, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -82,7 +86,7 @@ pub fn ActionForm<ServFn>(
 ) -> impl IntoView
 where
     ServFn: DeserializeOwned
-        + ServerFn<InputEncoding = PostUrl>
+        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
         + Clone
         + Send
         + Sync
@@ -121,9 +125,10 @@ where
                         "Error converting form field into server function \
                          arguments: {err:?}"
                     );
-                    value.set(Some(Err(ServerFnError::Serialization(
+                    value.set(Some(Err(ServerFnErrorErr::Serialization(
                         err.to_string(),
-                    ))));
+                    )
+                    .into_app_error())));
                     version.update(|n| *n += 1);
                 }
             }
@@ -146,7 +151,7 @@ where
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[component]
-pub fn MultiActionForm<ServFn>(
+pub fn MultiActionForm<ServFn, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerMultiAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -160,7 +165,7 @@ where
         + Sync
         + Clone
         + DeserializeOwned
-        + ServerFn<InputEncoding = PostUrl>
+        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
         + 'static,
     ServFn::Output: Send + Sync + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
@@ -187,9 +192,10 @@ where
                 action.dispatch(new_input);
             }
             Err(err) => {
-                action.dispatch_sync(Err(ServerFnError::Serialization(
+                action.dispatch_sync(Err(ServerFnErrorErr::Serialization(
                     err.to_string(),
-                )));
+                )
+                .into_app_error()));
             }
         }
     };

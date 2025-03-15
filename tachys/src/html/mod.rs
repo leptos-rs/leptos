@@ -9,6 +9,7 @@ use crate::{
     },
     view::{Position, PositionState, Render, RenderHtml},
 };
+use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
 
 /// Types for HTML attributes.
@@ -52,6 +53,7 @@ no_attrs!(Doctype);
 
 impl RenderHtml for Doctype {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 
@@ -67,6 +69,7 @@ impl RenderHtml for Doctype {
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!DOCTYPE ");
         buf.push_str(self.value);
@@ -78,6 +81,10 @@ impl RenderHtml for Doctype {
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -107,6 +114,10 @@ impl Mountable for InertElementState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.1.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.1.clone()]
     }
 }
 
@@ -149,6 +160,7 @@ impl AddAnyAttr for InertElement {
 
 impl RenderHtml for InertElement {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -168,6 +180,7 @@ impl RenderHtml for InertElement {
         position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str(&self.html);
         *position = Position::NextChild;
@@ -188,5 +201,9 @@ impl RenderHtml for InertElement {
             .unwrap();
         position.set(Position::NextChild);
         InertElementState(self.html, el)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

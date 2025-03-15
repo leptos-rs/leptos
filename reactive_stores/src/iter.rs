@@ -1,4 +1,5 @@
 use crate::{
+    len::Len,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
     KeyMap, StoreFieldTrigger,
@@ -209,7 +210,7 @@ impl<Inner, Prev> StoreFieldIterator<Prev> for Inner
 where
     Inner: StoreField<Value = Prev> + Clone,
     Prev::Output: Sized,
-    Prev: IndexMut<usize> + AsRef<[Prev::Output]>,
+    Prev: IndexMut<usize> + Len,
 {
     #[track_caller]
     fn at_unkeyed(self, index: usize) -> AtIndex<Inner, Prev> {
@@ -224,7 +225,7 @@ where
         trigger.children.track();
 
         // get the current length of the field by accessing slice
-        let len = self.reader().map(|n| n.as_ref().len()).unwrap_or(0);
+        let len = self.reader().map(|n| n.len()).unwrap_or(0);
 
         // return the iterator
         StoreFieldIter {
