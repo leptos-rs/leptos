@@ -1,8 +1,7 @@
 //! A value that **might** be wrapped in a [`SendWrapper`] to make non-threadsafe at runtime.
 
-use std::ops::{Deref, DerefMut};
-
 use send_wrapper::SendWrapper;
+use std::ops::{Deref, DerefMut};
 
 /// A value that might be wrapped in a [`SendWrapper`] to make non-threadsafe at runtime.
 pub enum MaybeSendWrapper<T> {
