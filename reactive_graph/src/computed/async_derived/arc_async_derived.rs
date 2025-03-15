@@ -12,9 +12,10 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
+    maybe_send_wrapper::MaybeSendWrapper,
     owner::{use_context, Owner},
     signal::{
-        guards::{AsyncPlain, ReadGuard, WriteGuard},
+        guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
         ArcTrigger,
     },
     traits::{
@@ -32,7 +33,7 @@ use send_wrapper::SendWrapper;
 use std::{
     future::Future,
     mem,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     panic::Location,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -110,7 +111,7 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<AsyncRwLock<Option<T>>>,
+    pub(crate) value: Arc<AsyncRwLock<MaybeSendWrapper<Option<T>>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
@@ -280,7 +281,7 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.state = AsyncDerivedState::Clean;
-                        *value.blocking_write() = Some(orig_value);
+                        *value.blocking_write() = orig_value.map(Some);
                         this.loading.store(false, Ordering::Relaxed);
                         (true, None)
                     }
@@ -405,14 +406,14 @@ macro_rules! spawn_derived {
 
 impl<T: 'static> ArcAsyncDerived<T> {
     async fn set_inner_value(
-        new_value: T,
-        value: Arc<AsyncRwLock<Option<T>>>,
+        new_value: MaybeSendWrapper<T>,
+        value: Arc<AsyncRwLock<MaybeSendWrapper<Option<T>>>>,
         wakers: Arc<RwLock<Vec<Waker>>>,
         inner: Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        *value.write().await = Some(new_value);
+        **value.write().await.deref_mut() = Some(new_value.take());
         Self::notify_subs(&wakers, &inner, &loading, ready_tx);
     }
 
@@ -479,6 +480,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
+        let fun = move || {
+            let fut = fun();
+            async move { MaybeSendWrapper::Threadsafe(fut.await) }
+        };
+        let initial_value = MaybeSendWrapper::Threadsafe(initial_value);
         let (this, _) = spawn_derived!(
             Executor::spawn,
             initial_value,
@@ -508,6 +514,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Fut: Future<Output = T> + Send + 'static,
         S: Track,
     {
+        let fun = move || {
+            let fut = fun();
+            async move { MaybeSendWrapper::Threadsafe(fut.await) }
+        };
+        let initial_value = MaybeSendWrapper::Threadsafe(initial_value);
         let (this, _) = spawn_derived!(
             Executor::spawn,
             initial_value,
@@ -545,6 +556,12 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
+        let fun = move || {
+            let fut = fun();
+            async move { MaybeSendWrapper::Local(SendWrapper::new(fut.await)) }
+        };
+        let initial_value =
+            MaybeSendWrapper::Local(SendWrapper::new(initial_value));
         let (this, _) = spawn_derived!(
             Executor::spawn_local,
             initial_value,
@@ -567,7 +584,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
+impl<T: 'static> ArcAsyncDerived<T> {
     #[doc(hidden)]
     #[track_caller]
     pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
@@ -575,13 +592,10 @@ impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        let initial = None::<SendWrapper<T>>;
+        let initial = MaybeSendWrapper::Local(SendWrapper::new(None::<T>));
         let fun = move || {
             let fut = fun();
-            async move {
-                let value = fut.await;
-                SendWrapper::new(value)
-            }
+            async move { MaybeSendWrapper::Local(SendWrapper::new(fut.await)) }
         };
         let (this, _) = spawn_derived!(
             Executor::spawn_local,
@@ -597,7 +611,10 @@ impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
 }
 
 impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
-    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
+    type Value = ReadGuard<
+        Option<T>,
+        Mapped<AsyncPlain<MaybeSendWrapper<Option<T>>>, Option<T>>,
+    >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
@@ -613,7 +630,9 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
                 .suspenses
                 .push(suspense_context);
         }
-        AsyncPlain::try_new(&self.value).map(ReadGuard::new)
+        AsyncPlain::try_new(&self.value).map(|plain| {
+            ReadGuard::new(Mapped::new_with_guard(plain, |v| v.deref()))
+        })
     }
 }
 
@@ -627,13 +646,21 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
     type Value = Option<T>;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
-        Some(WriteGuard::new(self.clone(), self.value.blocking_write()))
+        Some(MappedMut::new(
+            WriteGuard::new(self.clone(), self.value.blocking_write()),
+            |v| v.deref(),
+            |v| v.deref_mut(),
+        ))
     }
 
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        Some(self.value.blocking_write())
+        Some(MappedMut::new(
+            self.value.blocking_write(),
+            |v| v.deref(),
+            |v| v.deref_mut(),
+        ))
     }
 }
 
