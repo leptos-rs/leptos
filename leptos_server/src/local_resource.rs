@@ -7,8 +7,8 @@ use reactive_graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    maybe_send_wrapper::MaybeSendWrapper,
-    owner::{use_context, LocalStorage},
+    owner::use_context,
+    send_wrapper_ext::MaybeSendWrapperOption,
     signal::{
         guards::{AsyncPlain, Mapped, ReadGuard},
         ArcRwSignal, RwSignal,
@@ -161,7 +161,7 @@ where
 {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapper<Option<T>>>, Option<T>>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
@@ -235,7 +235,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
 
 /// A resource that only loads its data locally on the client.
 pub struct LocalResource<T> {
-    data: AsyncDerived<T, LocalStorage>,
+    data: AsyncDerived<T>,
     refetch: RwSignal<usize>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
@@ -285,7 +285,7 @@ impl<T> LocalResource<T> {
             data: if cfg!(feature = "ssr") {
                 AsyncDerived::new_mock(fetcher)
             } else {
-                AsyncDerived::new_unsync(move || {
+                AsyncDerived::new_unsync_threadsafe_storage(move || {
                     refetch.track();
                     fetcher()
                 })
@@ -342,7 +342,7 @@ where
 {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapper<Option<T>>>, Option<T>>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {

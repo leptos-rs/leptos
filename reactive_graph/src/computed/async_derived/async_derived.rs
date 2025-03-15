@@ -4,8 +4,8 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    maybe_send_wrapper::MaybeSendWrapper,
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
+    send_wrapper_ext::MaybeSendWrapperOption,
     signal::guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
@@ -185,7 +185,7 @@ where
     }
 }
 
-impl<T> AsyncDerived<T, LocalStorage> {
+impl<T> AsyncDerived<T> {
     #[doc(hidden)]
     pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
     where
@@ -196,6 +196,24 @@ impl<T> AsyncDerived<T, LocalStorage> {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
+        }
+    }
+
+    /// Same as [`AsyncDerived::new_unsync`] except it produces AsyncDerived<T> instead of AsyncDerived<T, LocalStorage>.
+    /// The internal value will still be wrapped in a [`send_wrapper::SendWrapper`].
+    pub fn new_unsync_threadsafe_storage<Fut>(
+        fun: impl Fn() -> Fut + 'static,
+    ) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        Self {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_unsync(
+                fun,
+            )),
         }
     }
 }
@@ -302,7 +320,7 @@ where
 {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapper<Option<T>>>, Option<T>>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
