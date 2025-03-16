@@ -244,7 +244,7 @@ impl Owner {
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         // codegen optimisation:
-        fn inner_1(self_: &Owner) -> Option<Owner> {
+        fn inner_1(self_: &Owner) -> Option<WeakOwner> {
             let prev = {
                 OWNER.with(|o| (*o.borrow_mut()).replace(self_.downgrade()))
             };
@@ -257,7 +257,7 @@ impl Owner {
         let val = fun();
 
         // monomorphisation optimisation:
-        fn inner_2(prev: Option<Owner>) {
+        fn inner_2(prev: Option<WeakOwner>) {
             OWNER.with(|o| {
                 *o.borrow_mut() = prev;
             });
