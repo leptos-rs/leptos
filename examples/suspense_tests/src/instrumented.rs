@@ -492,8 +492,9 @@ fn ItemInspect() -> impl IntoView {
             // result
         },
     );
-    on_cleanup(|| {
-        if let Some(c) = use_context::<WriteSignal<Option<FieldNavCtx>>>() {
+    let ws = use_context::<WriteSignal<Option<FieldNavCtx>>>();
+    on_cleanup(move || {
+        if let Some(c) = ws {
             c.set(None);
         }
     });
