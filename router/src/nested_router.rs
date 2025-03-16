@@ -655,8 +655,10 @@ where
                                         ScopedFuture::new(view.choose()),
                                     );
                                     let view = view.await;
-                                    let view =
-                                        MatchedRoute(matched.0.get(), view);
+                                    let view = MatchedRoute(
+                                        matched.0.get_untracked(),
+                                        view,
+                                    );
                                     OwnedView::new(view).into_any()
                                 })
                                     as Pin<
