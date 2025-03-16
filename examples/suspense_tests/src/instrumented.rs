@@ -4,7 +4,7 @@ use leptos_router::{
     hooks::use_params,
     nested_router::Outlet,
     params::Params,
-    MatchNestedRoutes, ParamSegment, SsrMode, StaticSegment, WildcardSegment,
+    ParamSegment, SsrMode, StaticSegment, WildcardSegment,
 };
 
 #[cfg(feature = "ssr")]
@@ -21,6 +21,7 @@ pub(super) mod counter {
     pub struct Counter(AtomicU32);
 
     impl Counter {
+        #[allow(dead_code)]
         pub const fn new() -> Self {
             Self(AtomicU32::new(0))
         }
@@ -203,20 +204,20 @@ pub struct SuspenseCounters {
 }
 
 #[component]
-pub fn InstrumentedRoutes() -> impl MatchNestedRoutes + Clone {
+pub fn InstrumentedRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
     // TODO should make this mode configurable via feature flag?
     let ssr = SsrMode::Async;
     view! {
         <ParentRoute path=StaticSegment("instrumented") view=InstrumentedRoot ssr>
-            <Route path=StaticSegment("/") view=InstrumentedTop/>
+            <Route path=StaticSegment("/") view=InstrumentedTop />
             <ParentRoute path=StaticSegment("item") view=ItemRoot>
-                <Route path=StaticSegment("/") view=ItemListing/>
+                <Route path=StaticSegment("/") view=ItemListing />
                 <ParentRoute path=ParamSegment("id") view=ItemTop>
-                    <Route path=StaticSegment("/") view=ItemOverview/>
-                    <Route path=WildcardSegment("path") view=ItemInspect/>
+                    <Route path=StaticSegment("/") view=ItemOverview />
+                    <Route path=WildcardSegment("path") view=ItemInspect />
                 </ParentRoute>
             </ParentRoute>
-            <Route path=StaticSegment("counters") view=ShowCounters/>
+            <Route path=StaticSegment("counters") view=ShowCounters />
         </ParentRoute>
     }
     .into_inner()
@@ -279,32 +280,41 @@ fn InstrumentedRoot() -> impl IntoView {
         <section id="instrumented">
             <nav>
                 <a href="/">"Site Root"</a>
-                <A href="./" exact=true>"Instrumented Root"</A>
-                <A href="item/" strict_trailing_slash=true>"Item Listing"</A>
-                <A href="counters" strict_trailing_slash=true>"Counters"</A>
+                <A href="./" exact=true>
+                    "Instrumented Root"
+                </A>
+                <A href="item/" strict_trailing_slash=true>
+                    "Item Listing"
+                </A>
+                <A href="counters" strict_trailing_slash=true>
+                    "Counters"
+                </A>
             </nav>
-            <FieldNavPortlet/>
-            <Outlet/>
-            <Suspense>{
-                move || Suspend::new(async move {
+            <FieldNavPortlet />
+            <Outlet />
+            <Suspense>
+                {move || Suspend::new(async move {
                     let clear_suspense_counters = move |_| {
                         counters.update(|c| *c = SuspenseCounters::default());
                     };
-                    csr_ticket.get().map(|ticket| {
-                        let ticket = ticket.0;
-                        view! {
-                            <ActionForm action=reset_counters>
-                                <input type="hidden" name="ticket" value=format!("{ticket}") />
-                                <input
-                                    id="reset-csr-counters"
-                                    type="submit"
-                                    value="Reset CSR Counters"
-                                    on:click=clear_suspense_counters/>
-                            </ActionForm>
-                        }
-                    })
-                })
-            }</Suspense>
+                    csr_ticket
+                        .get()
+                        .map(|ticket| {
+                            let ticket = ticket.0;
+                            view! {
+                                <ActionForm action=reset_counters>
+                                    <input type="hidden" name="ticket" value=format!("{ticket}") />
+                                    <input
+                                        id="reset-csr-counters"
+                                        type="submit"
+                                        value="Reset CSR Counters"
+                                        on:click=clear_suspense_counters
+                                    />
+                                </ActionForm>
+                            }
+                        })
+                })}
+            </Suspense>
             <footer>
                 <nav>
                     <A href="item/3/">"Target 3##"</A>
@@ -323,11 +333,17 @@ fn InstrumentedRoot() -> impl IntoView {
 fn InstrumentedTop() -> impl IntoView {
     view! {
         <h1>"Instrumented Tests"</h1>
-        <p>"These tests validates the number of invocations of server functions and suspenses per access."</p>
+        <p>
+            "These tests validates the number of invocations of server functions and suspenses per access."
+        </p>
         <ul>
             // not using `A` because currently some bugs with artix
-            <li><a href="item/">"Item Listing"</a></li>
-            <li><a href="item/4/path1/">"Target 41#"</a></li>
+            <li>
+                <a href="item/">"Item Listing"</a>
+            </li>
+            <li>
+                <a href="item/4/path1/">"Target 41#"</a>
+            </li>
         </ul>
     }
 }
@@ -342,7 +358,7 @@ fn ItemRoot() -> impl IntoView {
 
     view! {
         <h2>"<ItemRoot/>"</h2>
-        <Outlet/>
+        <Outlet />
     }
 }
 
@@ -360,7 +376,9 @@ fn ItemListing() -> impl IntoView {
                 // adding an extra `/` in artix; manually construct `a` instead.
                 // <li><A href=format!("./{item}/")>"Item "{item}</A></li>
                 view! {
-                    <li><a href=format!("/instrumented/item/{item}/")>"Item "{item}</a></li>
+                    <li>
+                        <a href=format!("/instrumented/item/{item}/")>"Item "{item}</a>
+                    </li>
                 }
             )
             .collect_view()
@@ -373,9 +391,7 @@ fn ItemListing() -> impl IntoView {
     view! {
         <h3>"<ItemListing/>"</h3>
         <ul>
-        <Suspense>
-            {item_listing}
-        </Suspense>
+            <Suspense>{item_listing}</Suspense>
         </ul>
     }
 }
@@ -402,7 +418,7 @@ fn ItemTop() -> impl IntoView {
     ));
     view! {
         <h4>"<ItemTop/>"</h4>
-        <Outlet/>
+        <Outlet />
     }
 }
 
@@ -412,24 +428,29 @@ fn ItemOverview() -> impl IntoView {
     let resource = expect_context::<Resource<Option<GetItemResult>>>();
     let item_view = move || {
         Suspend::new(async move {
-            let result = resource.await.map(|GetItemResult(item, names)| view! {
-            <p>{format!("Viewing {item:?}")}</p>
-            <ul>{
-                names.into_iter()
-                    .map(|name| {
-                        // FIXME seems like relative link isn't working, it is currently
-                        // adding an extra `/` in artix; manually construct `a` instead.
-                        // <li><A href=format!("./{name}/")>{format!("Inspect {name}")}</A></li>
-                        let id = item.id;
-                        view! {
-                            <li><a href=format!("/instrumented/item/{id}/{name}/")>
-                                "Inspect "{name.clone()}
-                            </a></li>
-                        }
-                    })
-                    .collect_view()
-            }</ul>
-        });
+            let result = resource.await.map(|GetItemResult(item, names)| {
+                view! {
+                    <p>{format!("Viewing {item:?}")}</p>
+                    <ul>
+                        {names
+                            .into_iter()
+                            .map(|name| {
+                                let id = item.id;
+                                // FIXME seems like relative link isn't working, it is currently
+                                // adding an extra `/` in artix; manually construct `a` instead.
+                                // <li><A href=format!("./{name}/")>{format!("Inspect {name}")}</A></li>
+                                view! {
+                                    <li>
+                                        <a href=format!(
+                                            "/instrumented/item/{id}/{name}/",
+                                        )>"Inspect "{name.clone()}</a>
+                                    </li>
+                                }
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+            });
             suspense_counters.update_untracked(|c| c.item_overview += 1);
             result
         })
@@ -437,9 +458,7 @@ fn ItemOverview() -> impl IntoView {
 
     view! {
         <h5>"<ItemOverview/>"</h5>
-        <Suspense>
-            {item_view}
-        </Suspense>
+        <Suspense>{item_view}</Suspense>
     }
 }
 
@@ -473,8 +492,9 @@ fn ItemInspect() -> impl IntoView {
             // result
         },
     );
-    on_cleanup(|| {
-        if let Some(c) = use_context::<WriteSignal<Option<FieldNavCtx>>>() {
+    let ws = use_context::<WriteSignal<Option<FieldNavCtx>>>();
+    on_cleanup(move || {
+        if let Some(c) = ws {
             c.set(None);
         }
     });
@@ -496,23 +516,26 @@ fn ItemInspect() -> impl IntoView {
                 ));
                 view! {
                     <p>{format!("Inspecting {item:?}")}</p>
-                    <ul>{
-                        fields.iter()
+                    <ul>
+                        {fields
+                            .iter()
                             .map(|field| {
                                 // FIXME seems like relative link to root for a wildcard isn't
                                 // working as expected, so manually construct `a` instead.
                                 // let text = format!("Inspect {name}/{field}");
                                 // view! {
-                                //     <li><A href=format!("{field}")>{text}</A></li>
+                                // <li><A href=format!("{field}")>{text}</A></li>
                                 // }
                                 view! {
-                                    <li><a href=format!("/instrumented/item/{id}/{name}/{field}")>{
-                                        format!("Inspect {name}/{field}")
-                                    }</a></li>
+                                    <li>
+                                        <a href=format!(
+                                            "/instrumented/item/{id}/{name}/{field}",
+                                        )>{format!("Inspect {name}/{field}")}</a>
+                                    </li>
                                 }
                             })
-                            .collect_view()
-                    }</ul>
+                            .collect_view()}
+                    </ul>
                 }
             });
             suspense_counters.update_untracked(|c| c.item_inspect += 1);
@@ -527,9 +550,7 @@ fn ItemInspect() -> impl IntoView {
 
     view! {
         <h5>"<ItemInspect/>"</h5>
-        <Suspense>
-            {inspect_view}
-        </Suspense>
+        <Suspense>{inspect_view}</Suspense>
     }
 }
 
@@ -590,7 +611,8 @@ fn ShowCounters() -> impl IntoView {
                             id="reset-counters"
                             type="submit"
                             value="Reset Counters"
-                            on:click=clear_suspense_counters/>
+                            on:click=clear_suspense_counters
+                        />
                     </ActionForm>
                 }
             })
@@ -601,20 +623,23 @@ fn ShowCounters() -> impl IntoView {
         <h2>"Counters"</h2>
 
         <h3 id="suspend-calls">"Suspend Calls"</h3>
-        {move || suspense_counters.with(|c| view! {
-            <dl>
-                <dt>"item_listing"</dt>
-                <dd id="item_listing">{c.item_listing}</dd>
-                <dt>"item_overview"</dt>
-                <dd id="item_overview">{c.item_overview}</dd>
-                <dt>"item_inspect"</dt>
-                <dd id="item_inspect">{c.item_inspect}</dd>
-            </dl>
-        })}
+        {move || {
+            suspense_counters
+                .with(|c| {
+                    view! {
+                        <dl>
+                            <dt>"item_listing"</dt>
+                            <dd id="item_listing">{c.item_listing}</dd>
+                            <dt>"item_overview"</dt>
+                            <dd id="item_overview">{c.item_overview}</dd>
+                            <dt>"item_inspect"</dt>
+                            <dd id="item_inspect">{c.item_inspect}</dd>
+                        </dl>
+                    }
+                })
+        }}
 
-        <Suspense>
-            {counter_view}
-        </Suspense>
+        <Suspense>{counter_view}</Suspense>
     }
 }
 
@@ -642,17 +667,17 @@ pub fn FieldNavPortlet() -> impl IntoView {
             view! {
                 <div id="FieldNavPortlet">
                     <span>"FieldNavPortlet:"</span>
-                    <nav>{
-                        ctx.0.map(|ctx| {
-                            ctx.into_iter()
-                                .map(|FieldNavItem { href, text }| {
-                                    view! {
-                                        <A href=href>{text}</A>
-                                    }
-                                })
-                                .collect_view()
-                        })
-                    }</nav>
+                    <nav>
+                        {ctx
+                            .0
+                            .map(|ctx| {
+                                ctx.into_iter()
+                                    .map(|FieldNavItem { href, text }| {
+                                        view! { <A href=href>{text}</A> }
+                                    })
+                                    .collect_view()
+                            })}
+                    </nav>
                 </div>
             }
         })
