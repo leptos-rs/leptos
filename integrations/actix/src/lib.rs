@@ -334,7 +334,7 @@ pub fn handle_server_fns() -> Route {
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn handle_server_fns_with_context(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
 ) -> Route {
     web::to(move |req: HttpRequest, payload: Payload| {
         let additional_context = additional_context.clone();
@@ -473,7 +473,7 @@ pub fn handle_server_fns_with_context(
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -532,7 +532,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -587,7 +587,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -611,8 +611,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -646,8 +646,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
     replace_blocks: bool,
 ) -> Route
@@ -679,8 +679,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -710,8 +710,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     method: Method,
 ) -> Route
 where
@@ -770,8 +770,8 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
 
 fn handle_response<IV>(
     method: Method,
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
@@ -823,7 +823,7 @@ where
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Sync + Clone,
 ) -> Vec<ActixRouteListing>
 where
     IV: IntoView + 'static,
@@ -835,7 +835,7 @@ where
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list_with_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Sync + Clone,
 ) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
@@ -848,7 +848,7 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Sync + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<ActixRouteListing>
 where
@@ -862,7 +862,7 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Sync + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
@@ -996,9 +996,9 @@ impl ActixRouteListing {
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format.
 /// Additional context will be provided to the app Element.
 pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
-    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Sync + Clone,
     excluded_routes: Option<Vec<String>>,
-    additional_context: impl Fn() + 'static + Send + Clone,
+    additional_context: impl Fn() + 'static + Send + Sync + Clone,
 ) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
@@ -1070,7 +1070,7 @@ pub struct StaticRouteGenerator(
 impl StaticRouteGenerator {
     fn render_route<IV: IntoView + 'static>(
         path: String,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
         additional_context: impl Fn() + Clone + Send + 'static,
     ) -> impl Future<Output = (Owner, String)> {
         let (meta_context, meta_output) = ServerMetaContext::new();
@@ -1116,8 +1116,8 @@ impl StaticRouteGenerator {
     /// Creates a new static route generator from the given list of route definitions.
     pub fn new<IV>(
         routes: &RouteList,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
-        additional_context: impl Fn() + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
+        additional_context: impl Fn() + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1212,8 +1212,8 @@ async fn write_static_route(
 }
 
 fn handle_static_route<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     regenerate: Vec<RegenerationFn>,
 ) -> Route
 where
@@ -1306,7 +1306,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1320,8 +1320,8 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1345,7 +1345,7 @@ where
     fn leptos_routes<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1360,8 +1360,8 @@ where
     fn leptos_routes_with_context<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1458,7 +1458,7 @@ impl LeptosRoutes for &mut ServiceConfig {
     fn leptos_routes<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1473,8 +1473,8 @@ impl LeptosRoutes for &mut ServiceConfig {
     fn leptos_routes_with_context<IV>(
         self,
         paths: Vec<ActixRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
