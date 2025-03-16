@@ -13,8 +13,8 @@ edition.workspace = true
 throw_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
-const_format = "0.2.33"
-xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
+const_format = "0.2.34"
+xxhash-rust = { version = "0.8.15", features = ["const_xxh64"] }
 # used across multiple features
 serde = { version = "1.0", features = ["derive"] }
 send_wrapper = { version = "0.6.0", features = ["futures"], optional = true }
@@ -23,21 +23,21 @@ thiserror = "2.0"
 # registration system
 inventory = { version = "0.3.15", optional = true }
 dashmap = "6.1"
-once_cell = "1.20"
+once_cell = "1.21"
 
 ## servers
 # actix
-actix-web = { version = "4.9", optional = true }
+actix-web = { version = "4.10", optional = true }
 
 # axum
-axum = { version = "0.7.9", optional = true, default-features = false, features = [
+axum = { version = "0.8.1", optional = true, default-features = false, features = [
   "multipart",
 ] }
-tower = { version = "0.5.1", optional = true }
+tower = { version = "0.5.2", optional = true }
 tower-layer = { version = "0.3.3", optional = true }
 
 ## input encodings
-serde_qs = { version = "0.13.0", optional = true }
+serde_qs = { version = "0.14.0", optional = true }
 multer = { version = "3.1", optional = true }
 
 ## output encodings
@@ -49,18 +49,18 @@ http = { version = "1.1" }
 ciborium = { version = "0.2.2", optional = true }
 postcard = { version = "1", features = ["alloc"], optional = true }
 hyper = { version = "1.5", optional = true }
-bytes = "1.9"
-http-body-util = { version = "0.1.2", optional = true }
-rkyv = { version = "0.8.9", optional = true }
+bytes = "1.10"
+http-body-util = { version = "0.1.3", optional = true }
+rkyv = { version = "0.8.10", optional = true }
 rmp-serde = { version = "1.3.0", optional = true }
 
 # client
 gloo-net = { version = "0.6.0", optional = true }
-js-sys = { version = "0.3.74", optional = true }
+js-sys = { version = "0.3.77", optional = true }
 wasm-bindgen = { version = "0.2.100", optional = true }
 wasm-bindgen-futures = { version = "0.4.50", optional = true }
 wasm-streams = { version = "0.4.2", optional = true }
-web-sys = { version = "0.3.72", optional = true, features = [
+web-sys = { version = "0.3.77", optional = true, features = [
   "console",
   "ReadableStream",
   "ReadableStreamDefaultReader",
@@ -69,12 +69,12 @@ web-sys = { version = "0.3.72", optional = true, features = [
 ] }
 
 # reqwest client
-reqwest = { version = "0.12.9", default-features = false, optional = true, features = [
+reqwest = { version = "0.12.14", default-features = false, optional = true, features = [
   "multipart",
   "stream",
 ] }
 url = "2"
-pin-project-lite = "0.2.15"
+pin-project-lite = "0.2.16"
 
 [features]
 default = ["json"]
