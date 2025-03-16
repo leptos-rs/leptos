@@ -34,7 +34,7 @@ async fn main() {
         // here, we're not actually doing server side rendering, so we set up a manual
         // handler for the server fns
         // this should include a get() handler if you have any GetUrl-based server fns
-        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+        .route("/api/{*fn_name}", post(leptos_axum::handle_server_fns))
         .fallback(file_or_index_handler)
         .with_state(leptos_options);
 
