@@ -604,9 +604,9 @@ impl ToTokens for PatchModel {
                     let Field {
                         attrs, ident, ..
                     } = &field;
-                    let field_name = match &ident {
-                        Some(ident) => quote! { #ident },
-                        None => quote! { #idx },
+                    let locator = match &ident {
+                        Some(ident) => Either::Left(ident),
+                        None => Either::Right(Index::from(idx)),
                     };
                     let closure = attrs
                         .iter()
@@ -639,9 +639,9 @@ impl ToTokens for PatchModel {
                         let params = closure.inputs;
                         let body = closure.body;
                         quote! {
-                            if new.#field_name != self.#field_name {
+                            if new.#locator != self.#locator {
                                 _ = {
-                                    let (#params) = (&mut self.#field_name, new.#field_name);
+                                    let (#params) = (&mut self.#locator, new.#locator);
                                     #body
                                 };
                                 notify(&new_path);
@@ -651,8 +651,8 @@ impl ToTokens for PatchModel {
                     } else {
                         quote! {
                             #library_path::PatchField::patch_field(
-                                &mut self.#field_name,
-                                new.#field_name,
+                                &mut self.#locator,
+                                new.#locator,
                                 &new_path,
                                 notify
                             );
@@ -682,5 +682,19 @@ impl ToTokens for PatchModel {
                 }
             }
         });
+    }
+}
+
+enum Either<A, B> {
+    Left(A),
+    Right(B),
+}
+
+impl<A: ToTokens, B: ToTokens> ToTokens for Either<A, B> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Either::Left(a) => a.to_tokens(tokens),
+            Either::Right(b) => b.to_tokens(tokens),
+        }
     }
 }
