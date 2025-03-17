@@ -24,6 +24,8 @@ pub struct ServerFnCall {
     server_fn_path: Option<Path>,
     preset_server: Option<Type>,
     default_protocol: Option<Type>,
+    default_input_encoding: Option<Type>,
+    default_output_encoding: Option<Type>,
 }
 
 impl ServerFnCall {
@@ -48,15 +50,34 @@ impl ServerFnCall {
     ) -> Result<Self> {
         let args = syn::parse2(args)?;
         let body = syn::parse2(body)?;
-
-        Ok(ServerFnCall {
+        let mut myself = ServerFnCall {
             default_path: default_path.into(),
             args,
             body,
             server_fn_path: None,
             preset_server: None,
             default_protocol: None,
-        })
+            default_input_encoding: None,
+            default_output_encoding: None,
+        };
+
+        // We need to make the server function body send if actix is enabled. To
+        // do that, we wrap the body in a SendWrapper, which is an async fn that
+        // asserts that the future is always polled from the same thread.
+        if cfg!(feature = "actix") {
+            let server_fn_path = myself.server_fn_path();
+            let block = myself.body.block.to_token_stream();
+            myself.body.block = quote! {
+                {
+                    #server_fn_path::actix::SendWrapper::new(async move {
+                        #block
+                    })
+                    .await
+                }
+            };
+        }
+
+        Ok(myself)
     }
 
     /// Set the path to the server function crate.
@@ -77,8 +98,26 @@ impl ServerFnCall {
         self
     }
 
+    /// Set the default input http encoding. This will be used by [`Self::protocol`]
+    /// if no protocol or default protocol is set or if only the output encoding is set
+    ///
+    /// Defaults to `PostUrl`
+    pub fn default_input_encoding(mut self, protocol: Option<Type>) -> Self {
+        self.default_input_encoding = protocol;
+        self
+    }
+
+    /// Set the default output http encoding. This will be used by [`Self::protocol`]
+    /// if no protocol or default protocol is set or if only the input encoding is set
+    ///
+    /// Defaults to `Json`
+    pub fn default_output_encoding(mut self, protocol: Option<Type>) -> Self {
+        self.default_output_encoding = protocol;
+        self
+    }
+
     /// Get the client type to use for the server function.
-    fn client_type(&self) -> Type {
+    pub fn client_type(&self) -> Type {
         let server_fn_path = self.server_fn_path();
         if let Some(client) = self.args.client.clone() {
             client
@@ -94,7 +133,7 @@ impl ServerFnCall {
     }
 
     /// Get the server type to use for the server function.
-    fn server_type(&self) -> Type {
+    pub fn server_type(&self) -> Type {
         let server_fn_path = self.server_fn_path();
         if !cfg!(feature = "ssr") {
             parse_quote! {
@@ -127,62 +166,84 @@ impl ServerFnCall {
     }
 
     /// Get the path to the server_fn crate.
-    fn server_fn_path(&self) -> Path {
+    pub fn server_fn_path(&self) -> Path {
         self.server_fn_path
             .clone()
             .unwrap_or_else(|| parse_quote! { server_fn })
     }
 
-    /// Get the protocol to use for the server function.
-    fn protocol(&self) -> Type {
+    /// Get the input http encoding if no protocol is set
+    fn input_http_encoding(&self) -> Type {
         let server_fn_path = self.server_fn_path();
-        let builtin_encoding = &self.args.builtin_encoding;
+        self.args
+            .input
+            .as_ref()
+            .map(|n| {
+                if self.args.builtin_encoding {
+                    parse_quote! { #server_fn_path::codec::#n }
+                } else {
+                    n.clone()
+                }
+            })
+            .unwrap_or_else(|| {
+                self.default_input_encoding.clone().unwrap_or_else(
+                    || parse_quote!(#server_fn_path::codec::PostUrl),
+                )
+            })
+    }
+
+    /// Get the output http encoding if no protocol is set
+    fn output_http_encoding(&self) -> Type {
+        let server_fn_path = self.server_fn_path();
+        self.args
+            .output
+            .as_ref()
+            .map(|n| {
+                if self.args.builtin_encoding {
+                    parse_quote! { #server_fn_path::codec::#n }
+                } else {
+                    n.clone()
+                }
+            })
+            .unwrap_or_else(|| {
+                self.default_output_encoding.clone().unwrap_or_else(
+                    || parse_quote!(#server_fn_path::codec::Json),
+                )
+            })
+    }
+
+    /// Get the http input and output encodings for the server function
+    /// if no protocol is set
+    pub fn http_encodings(&self) -> Option<(Type, Type)> {
+        self.args
+            .protocol
+            .is_none()
+            .then(|| (self.input_http_encoding(), self.output_http_encoding()))
+    }
+
+    /// Get the protocol to use for the server function.
+    pub fn protocol(&self) -> Type {
+        let server_fn_path = self.server_fn_path();
         let default_protocol = &self.default_protocol;
-        let input = &self.args.input;
-        let output = &self.args.output;
-        let input = input.as_ref().map(|n| {
-            if *builtin_encoding {
-                quote! { #server_fn_path::codec::#n }
-            } else {
-                n.to_token_stream()
-            }
-        });
-        let output = output.as_ref().map(|n| {
-            if *builtin_encoding {
-                quote! { #server_fn_path::codec::#n }
-            } else {
-                n.to_token_stream()
-            }
-        });
         self.args.protocol.clone().unwrap_or_else(|| {
-        match (input, output) {
-            (Some(input), Some(output)) => {
+            // If both the input and output encodings are none,
+            // use the default protocol
+            if self.args.input.is_none() && self.args.output.is_none() {
+                default_protocol.clone().unwrap_or_else(|| {
+                    parse_quote! {
+                        #server_fn_path::Http<#server_fn_path::codec::PostUrl, #server_fn_path::codec::Json>
+                    }
+                })
+            } else {
+                // Otherwise use the input and output encodings, filling in
+                // defaults if necessary
+                let input = self.input_http_encoding();
+                let output = self.output_http_encoding();
                 parse_quote! {
                     #server_fn_path::Http<#input, #output>
                 }
             }
-            (Some(input), None) => {
-                parse_quote! {
-                    #server_fn_path::Http<#input, #server_fn_path::codec::Json>
-                }
-            }
-            (None, Some(output)) => {
-                parse_quote! {
-                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #output>
-                }
-            }
-            _ if default_protocol.is_some() => {
-                parse_quote! {
-                    #default_protocol
-                }
-            }
-            _ => {
-                parse_quote! {
-                    #server_fn_path::Http<#server_fn_path::codec::PostUrl, #server_fn_path::codec::Json>
-                }
-            }
-        }
-    })
+        })
     }
 
     fn input_ident(&self) -> Option<String> {
@@ -217,7 +278,8 @@ impl ServerFnCall {
         format!("{path}::serde")
     }
 
-    fn docs(&self) -> TokenStream2 {
+    /// Get the docs for the server function.
+    pub fn docs(&self) -> TokenStream2 {
         // pass through docs from the function body
         self.body
             .docs
@@ -325,7 +387,11 @@ impl ServerFnCall {
         }
     }
 
-    fn struct_name(&self) -> Ident {
+    /// Get the name of the server function struct that will be submitted to inventory.
+    ///
+    /// This will either be the name specified in the macro arguments or the PascalCase
+    /// version of the function name.
+    pub fn struct_name(&self) -> Ident {
         // default to PascalCase version of function name if no struct name given
         self.args.struct_name.clone().unwrap_or_else(|| {
             let upper_camel_case_name = Converter::new()
@@ -336,8 +402,8 @@ impl ServerFnCall {
         })
     }
 
-    // Wrap the struct name in any custom wrapper specified in the macro arguments
-    // and return it as a type
+    /// Wrap the struct name in any custom wrapper specified in the macro arguments
+    /// and return it as a type
     fn wrapped_struct_name(&self) -> TokenStream2 {
         let struct_name = self.struct_name();
         if let Some(wrapper) = self.args.custom_wrapper.as_ref() {
@@ -347,8 +413,8 @@ impl ServerFnCall {
         }
     }
 
-    // Wrap the struct name in any custom wrapper specified in the macro arguments
-    // and return it as a type with turbofish
+    /// Wrap the struct name in any custom wrapper specified in the macro arguments
+    /// and return it as a type with turbofish
     fn wrapped_struct_name_turbofish(&self) -> TokenStream2 {
         let struct_name = self.struct_name();
         if let Some(wrapper) = self.args.custom_wrapper.as_ref() {
@@ -359,7 +425,7 @@ impl ServerFnCall {
     }
 
     /// Generate the code to submit the server function type to inventory.
-    fn submit_to_inventory(&self) -> TokenStream2 {
+    pub fn submit_to_inventory(&self) -> TokenStream2 {
         // auto-registration with inventory
         if cfg!(feature = "ssr") {
             let server_fn_path = self.server_fn_path();
@@ -379,8 +445,10 @@ impl ServerFnCall {
         }
     }
 
-    /// Generate the code that expands to the server function's url
-    fn server_fn_url(&self) -> TokenStream2 {
+    /// Generate the server function's URL. This will be the prefix path, then by the
+    /// module path if `SERVER_FN_MOD_PATH` is set, then the function name, and finally
+    /// a hash of the function name and location in the source code.
+    pub fn server_fn_url(&self) -> TokenStream2 {
         let default_path = &self.default_path;
         let prefix =
             self.args.prefix.clone().unwrap_or_else(|| {
@@ -556,41 +624,84 @@ impl ServerFnCall {
             }
         }
     }
-}
 
-impl ToTokens for ServerFnCall {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let ServerFnCall { args, body, .. } = self;
-        let server_fn_path = self.server_fn_path();
-        #[allow(unused_mut)]
-        let mut body = body.clone();
-        let vis = &body.vis;
-
-        // we need to apply the same sort of Actix SendWrapper workaround here
-        // that we do for the body of the function provided in the trait (see below)
-        if cfg!(feature = "actix") {
-            let block = body.block.to_token_stream();
-            body.block = quote! {
-                {
-                    #server_fn_path::actix::SendWrapper::new(async move {
-                        #block
-                    })
-                    .await
-                }
-            };
+    /// Return the name and type of the first field if there is only one field.
+    fn single_field(&self) -> Option<(&Pat, &Type)> {
+        if let Some(field) = self
+            .body
+            .inputs
+            .first()
+            .filter(|_| self.body.inputs.len() == 1)
+        {
+            Some((&field.arg.pat, &field.arg.ty))
+        } else {
+            None
         }
+    }
 
-        // only emit the dummy (unmodified server-only body) for the server build
-        let dummy = cfg!(feature = "ssr").then(|| body.to_dummy_output());
+    fn deref_impl(&self) -> TokenStream2 {
+        let impl_deref = self
+            .args
+            .impl_deref
+            .as_ref()
+            .map(|v| v.value)
+            .unwrap_or(true)
+            || self.websocket_protocol();
+        if !impl_deref {
+            return quote! {};
+        }
+        // if there's exactly one field, impl Deref<T> for the struct
+        let Some(single_field) = self.single_field() else {
+            return quote! {};
+        };
+        let struct_name = self.struct_name();
+        let (name, ty) = single_field;
+        quote! {
+            impl std::ops::Deref for #struct_name {
+                type Target = #ty;
+                fn deref(&self) -> &Self::Target {
+                    &self.#name
+                }
+            }
+        }
+    }
 
+    fn from_impl(&self) -> TokenStream2 {
+        let impl_from = self
+            .args
+            .impl_from
+            .as_ref()
+            .map(|v| v.value)
+            .unwrap_or(true)
+            || self.websocket_protocol();
+        if !impl_from {
+            return quote! {};
+        }
+        // if there's exactly one field, impl From<T> for the struct
+        let Some(single_field) = self.single_field() else {
+            return quote! {};
+        };
+        let struct_name = self.struct_name();
+        let (name, ty) = single_field;
+        quote! {
+            impl From<#struct_name> for #ty {
+                fn from(value: #struct_name) -> Self {
+                    let #struct_name { #name } = value;
+                    #name
+                }
+            }
+
+            impl From<#ty> for #struct_name {
+                fn from(#name: #ty) -> Self {
+                    #struct_name { #name }
+                }
+            }
+        }
+    }
+
+    fn func_tokens(&self) -> TokenStream2 {
+        let body = &self.body;
         // default values for args
-        let ServerFnArgs {
-            custom_wrapper,
-            impl_from,
-            impl_deref,
-            ..
-        } = args;
-        let websocket_protocol = self.websocket_protocol();
         let struct_name = self.struct_name();
 
         // build struct for type
@@ -601,59 +712,16 @@ impl ToTokens for ServerFnCall {
 
         let field_names = self.field_names();
 
-        // if there's exactly one field, impl From<T> for the struct
-        let first_field = body.inputs.first().map(|f| (&f.arg.pat, &f.arg.ty));
-        let impl_from = impl_from.as_ref().map(|v| v.value).unwrap_or(true);
-        let from_impl = (body.inputs.len() == 1
-            && first_field.is_some()
-            && (impl_from || websocket_protocol))
-            .then(|| {
-                let field = first_field.unwrap();
-                let (name, ty) = field;
-                quote! {
-                    impl From<#struct_name> for #ty {
-                        fn from(value: #struct_name) -> Self {
-                            let #struct_name { #name } = value;
-                            #name
-                        }
-                    }
-
-                    impl From<#ty> for #struct_name {
-                        fn from(#name: #ty) -> Self {
-                            #struct_name { #name }
-                        }
-                    }
-                }
-            });
-
-        let impl_deref = impl_deref.as_ref().map(|v| v.value).unwrap_or(true);
-        let deref_impl = (body.inputs.len() == 1
-            && first_field.is_some()
-            && (impl_deref || websocket_protocol))
-            .then(|| {
-                let field = first_field.unwrap();
-                let (name, ty) = field;
-                quote! {
-                    impl std::ops::Deref for #struct_name {
-                        type Target = #ty;
-                        fn deref(&self) -> &Self::Target {
-                            &self.#name
-                        }
-                    }
-                }
-            });
-
         // check output type
         let output_arrow = body.output_arrow;
         let return_ty = &body.return_ty;
-
-        let inventory = self.submit_to_inventory();
+        let vis = &body.vis;
 
         // Forward the docs from the function
         let docs = self.docs();
 
         // the actual function definition
-        let func = if cfg!(feature = "ssr") {
+        if cfg!(feature = "ssr") {
             let dummy_name = body.to_dummy_ident();
             quote! {
                 #docs
@@ -664,7 +732,7 @@ impl ToTokens for ServerFnCall {
             }
         } else {
             let restructure = if let Some(custom_wrapper) =
-                custom_wrapper.as_ref()
+                self.args.custom_wrapper.as_ref()
             {
                 quote! {
                     let data = #custom_wrapper(#struct_name { #(#field_names),* });
@@ -674,6 +742,7 @@ impl ToTokens for ServerFnCall {
                     let data = #struct_name { #(#field_names),* };
                 }
             };
+            let server_fn_path = self.server_fn_path();
             quote! {
                 #docs
                 #(#attrs)*
@@ -684,7 +753,24 @@ impl ToTokens for ServerFnCall {
                     data.run_on_client().await
                 }
             }
-        };
+        }
+    }
+}
+
+impl ToTokens for ServerFnCall {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let body = &self.body;
+
+        // only emit the dummy (unmodified server-only body) for the server build
+        let dummy = cfg!(feature = "ssr").then(|| body.to_dummy_output());
+
+        let from_impl = self.from_impl();
+
+        let deref_impl = self.deref_impl();
+
+        let inventory = self.submit_to_inventory();
+
+        let func = self.func_tokens();
 
         let server_fn_impl = self.server_fn_impl();
 
