@@ -1355,6 +1355,7 @@ impl Parse for ServerFnArg {
 
 /// The body of a server function.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ServerFnBody {
     /// The attributes on the server function.
     pub attrs: Vec<Attribute>,
