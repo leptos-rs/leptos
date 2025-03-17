@@ -687,7 +687,7 @@ impl ServerFnCall {
         }
     }
 
-    fn from_impl(&self) -> TokenStream2 {
+    fn impl_from(&self) -> TokenStream2 {
         let impl_from = self
             .args
             .impl_from
@@ -785,7 +785,7 @@ impl ToTokens for ServerFnCall {
         // only emit the dummy (unmodified server-only body) for the server build
         let dummy = cfg!(feature = "ssr").then(|| body.to_dummy_output());
 
-        let from_impl = self.from_impl();
+        let impl_from = self.impl_from();
 
         let deref_impl = self.deref_impl();
 
@@ -800,7 +800,7 @@ impl ToTokens for ServerFnCall {
         tokens.extend(quote! {
             #struct_tokens
 
-            #from_impl
+            #impl_from
 
             #deref_impl
 
