@@ -81,6 +81,26 @@ impl ServerFnCall {
         Ok(myself)
     }
 
+    /// Get a reference to the server function arguments.
+    pub fn get_args(&self) -> &ServerFnArgs {
+        &self.args
+    }
+
+    /// Get a mutable reference to the server function arguments.
+    pub fn get_args_mut(&mut self) -> &mut ServerFnArgs {
+        &mut self.args
+    }
+
+    /// Get a reference to the server function body.
+    pub fn get_body(&self) -> &ServerFnBody {
+        &self.body
+    }
+
+    /// Get a mutable reference to the server function body.
+    pub fn get_body_mut(&mut self) -> &mut ServerFnBody {
+        &mut self.body
+    }
+
     /// Set the path to the server function crate.
     pub fn default_server_fn_path(mut self, path: Option<Path>) -> Self {
         self.server_fn_path = path;
@@ -840,8 +860,9 @@ fn type_from_ident(ident: Ident) -> Type {
     })
 }
 
+/// Middleware for a server function.
 #[derive(Debug, Clone)]
-struct Middleware {
+pub struct Middleware {
     expr: syn::Expr,
 }
 
@@ -906,21 +927,36 @@ fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
     ))
 }
 
+/// The arguments to the `server` macro.
 #[derive(Debug)]
-struct ServerFnArgs {
-    struct_name: Option<Ident>,
-    prefix: Option<LitStr>,
-    input: Option<Type>,
-    input_derive: Option<ExprTuple>,
-    output: Option<Type>,
-    fn_path: Option<LitStr>,
-    server: Option<Type>,
-    client: Option<Type>,
-    custom_wrapper: Option<Path>,
+#[non_exhaustive]
+pub struct ServerFnArgs {
+    /// The name of the struct that will implement the server function trait
+    /// and be submitted to inventory.
+    pub struct_name: Option<Ident>,
+    /// The prefix to use for the server function URL.
+    pub prefix: Option<LitStr>,
+    /// The input http encoding to use for the server function.
+    pub input: Option<Type>,
+    /// Additional traits to derive on the input struct for the server function.
+    pub input_derive: Option<ExprTuple>,
+    /// The output http encoding to use for the server function.
+    pub output: Option<Type>,
+    /// The path to the server function crate.
+    pub fn_path: Option<LitStr>,
+    /// The server type to use for the server function.
+    pub server: Option<Type>,
+    /// The client type to use for the server function.
+    pub client: Option<Type>,
+    /// The custom wrapper to use for the server function struct.
+    pub custom_wrapper: Option<Path>,
+    /// If the generated input type should implement `From` the only field in the input
+    pub impl_from: Option<LitBool>,
+    /// If the generated input type should implement `Deref` to the only field in the input
+    pub impl_deref: Option<LitBool>,
+    /// The protocol to use for the server function implementation.
+    pub protocol: Option<Type>,
     builtin_encoding: bool,
-    impl_from: Option<LitBool>,
-    impl_deref: Option<LitBool>,
-    protocol: Option<Type>,
 }
 
 impl Parse for ServerFnArgs {
@@ -1173,9 +1209,12 @@ impl Parse for ServerFnArgs {
     }
 }
 
+/// An argument type in a server function.
 #[derive(Debug, Clone)]
-struct ServerFnArg {
+pub struct ServerFnArg {
+    /// The attributes on the server function argument.
     server_fn_attributes: Vec<Attribute>,
+    /// The type of the server function argument.
     arg: syn::PatType,
 }
 
@@ -1314,22 +1353,34 @@ impl Parse for ServerFnArg {
     }
 }
 
+/// The body of a server function.
 #[derive(Debug, Clone)]
-struct ServerFnBody {
+pub struct ServerFnBody {
+    /// The attributes on the server function.
     pub attrs: Vec<Attribute>,
+    /// The visibility of the server function.
     pub vis: syn::Visibility,
-    pub async_token: Token![async],
-    pub fn_token: Token![fn],
+    async_token: Token![async],
+    fn_token: Token![fn],
+    /// The name of the server function.
     pub ident: Ident,
+    /// The generics of the server function.
     pub generics: Generics,
-    pub _paren_token: token::Paren,
+    _paren_token: token::Paren,
+    /// The arguments to the server function.
     pub inputs: Punctuated<ServerFnArg, Token![,]>,
-    pub output_arrow: Token![->],
+    output_arrow: Token![->],
+    /// The return type of the server function.
     pub return_ty: syn::Type,
+    /// The Ok output type of the server function.
     pub output_ty: syn::GenericArgument,
+    /// The error output type of the server function.
     pub error_ty: Option<syn::Type>,
+    /// The body of the server function.
     pub block: TokenStream2,
+    /// The documentation of the server function.
     pub docs: Vec<(String, Span)>,
+    /// The middleware attributes applied to the server function.
     pub middlewares: Vec<Middleware>,
 }
 
