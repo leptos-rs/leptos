@@ -35,6 +35,7 @@ impl ServerFnCall {
     /// #[proc_macro_attribute]
     /// pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     ///     match ServerFnCall::parse(
+    ///         "/api",
     ///         args.into(),
     ///         s.into(),
     ///     ) {
