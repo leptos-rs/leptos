@@ -7,7 +7,7 @@
 //! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
 use convert_case::{Case, Converter};
-use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
@@ -298,7 +298,7 @@ impl ServerFnCall {
         };
 
         let vis = &self.body.vis;
-        let struct_name = self.args.struct_name.clone();
+        let struct_name = self.struct_name();
         let fields = self
             .body
             .inputs
@@ -382,32 +382,19 @@ impl ServerFnCall {
     /// Generate the code that expands to the server function's url
     fn server_fn_url(&self) -> TokenStream2 {
         let default_path = &self.default_path;
-        let prefix = self
-            .args
-            .prefix
-            .clone()
-            .unwrap_or_else(|| Literal::string(default_path));
+        let prefix =
+            self.args.prefix.clone().unwrap_or_else(|| {
+                LitStr::new(default_path, Span::call_site())
+            });
         let server_fn_path = self.server_fn_path();
         let fn_path = self
             .args
             .fn_path
             .clone()
-            .unwrap_or_else(|| Literal::string(""));
-        // Remove any leading slashes, even if they exist (we'll add them below)
-        let fn_path = Literal::string(
-            fn_path
-                .to_string()
-                .trim_start_matches('\"')
-                .trim_start_matches('/')
-                .trim_end_matches('\"'),
-        );
-        let fn_path_starts_with_slash = fn_path.to_string().starts_with("\"/");
-        let fn_path =
-            if fn_path_starts_with_slash || fn_path.to_string() == "\"\"" {
-                quote! { #fn_path }
-            } else {
-                quote! { concat!("/", #fn_path) }
-            };
+            .unwrap_or_else(|| LitStr::new("", Span::call_site()));
+        let fn_path = fn_path.value();
+        // Remove any leading slashes, then add one slash back
+        let fn_path = "/".to_string() + &fn_path.trim_start_matches('/');
 
         let enable_server_fn_mod_path =
             option_env!("SERVER_FN_MOD_PATH").is_some();
@@ -510,10 +497,11 @@ impl ServerFnCall {
             //
             // however, SendWrapper<Future<Output = T>> impls Future<Output = T>
             let body = quote! {
-                #destructure
-                #dummy_name(#(#field_names),*).await
+                async move {
+                    #destructure
+                    #dummy_name(#(#field_names),*).await
+                }
             };
-            let body = body;
             quote! {
                 // we need this for Actix, for the SendWrapper to count as impl Future
                 // but non-Actix will have a clippy warning otherwise
@@ -834,11 +822,11 @@ fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
 #[derive(Debug)]
 struct ServerFnArgs {
     struct_name: Option<Ident>,
-    prefix: Option<Literal>,
+    prefix: Option<LitStr>,
     input: Option<Type>,
     input_derive: Option<ExprTuple>,
     output: Option<Type>,
-    fn_path: Option<Literal>,
+    fn_path: Option<LitStr>,
     server: Option<Type>,
     client: Option<Type>,
     custom_wrapper: Option<Path>,
@@ -852,9 +840,9 @@ impl Parse for ServerFnArgs {
     fn parse(stream: ParseStream) -> syn::Result<Self> {
         // legacy 4-part arguments
         let mut struct_name: Option<Ident> = None;
-        let mut prefix: Option<Literal> = None;
-        let mut encoding: Option<Literal> = None;
-        let mut fn_path: Option<Literal> = None;
+        let mut prefix: Option<LitStr> = None;
+        let mut encoding: Option<LitStr> = None;
+        let mut fn_path: Option<LitStr> = None;
 
         // new arguments: can only be keyed by name
         let mut input: Option<Type> = None;
@@ -1018,10 +1006,9 @@ impl Parse for ServerFnArgs {
                     }
                 }
             } else if lookahead.peek(LitStr) {
-                let value: Literal = stream.parse()?;
                 if use_key_and_value {
                     return Err(syn::Error::new(
-                        value.span(),
+                        stream.span(),
                         "If you use keyword arguments (e.g., `name` = \
                          Something), then you can no longer use arguments \
                          without a keyword.",
@@ -1029,12 +1016,12 @@ impl Parse for ServerFnArgs {
                 }
                 match arg_pos {
                     1 => return Err(lookahead.error()),
-                    2 => prefix = Some(value),
-                    3 => encoding = Some(value),
-                    4 => fn_path = Some(value),
+                    2 => prefix = Some(stream.parse()?),
+                    3 => encoding = Some(stream.parse()?),
+                    4 => fn_path = Some(stream.parse()?),
                     _ => {
                         return Err(syn::Error::new(
-                            value.span(),
+                            stream.span(),
                             "unexpected extra argument",
                         ))
                     }
@@ -1051,23 +1038,23 @@ impl Parse for ServerFnArgs {
         // parse legacy encoding into input/output
         let mut builtin_encoding = false;
         if let Some(encoding) = encoding {
-            match encoding.to_string().to_lowercase().as_str() {
-                "\"url\"" => {
+            match encoding.value().to_lowercase().as_str() {
+                "url" => {
                     input = Some(type_from_ident(syn::parse_quote!(Url)));
                     output = Some(type_from_ident(syn::parse_quote!(Json)));
                     builtin_encoding = true;
                 }
-                "\"cbor\"" => {
+                "cbor" => {
                     input = Some(type_from_ident(syn::parse_quote!(Cbor)));
                     output = Some(type_from_ident(syn::parse_quote!(Cbor)));
                     builtin_encoding = true;
                 }
-                "\"getcbor\"" => {
+                "getcbor" => {
                     input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
                     output = Some(type_from_ident(syn::parse_quote!(Cbor)));
                     builtin_encoding = true;
                 }
-                "\"getjson\"" => {
+                "getjson" => {
                     input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
                     output = Some(syn::parse_quote!(Json));
                     builtin_encoding = true;
