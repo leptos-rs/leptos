@@ -318,7 +318,7 @@ impl ServerFnCall {
         let fn_name_as_str = self.fn_name_as_str();
         let link_to_server_fn = format!(
             "Serialized arguments for the [`{fn_name_as_str}`] server \
-         function.\n\n"
+             function.\n\n"
         );
         let args_docs = quote! {
             #[doc = #link_to_server_fn]
@@ -483,7 +483,7 @@ impl ServerFnCall {
             .unwrap_or_else(|| LitStr::new("", Span::call_site()));
         let fn_path = fn_path.value();
         // Remove any leading slashes, then add one slash back
-        let fn_path = "/".to_string() + &fn_path.trim_start_matches('/');
+        let fn_path = "/".to_string() + fn_path.trim_start_matches('/');
 
         let enable_server_fn_mod_path =
             option_env!("SERVER_FN_MOD_PATH").is_some();
@@ -1321,8 +1321,8 @@ impl Parse for ServerFnArg {
                         _ => Err(Error::new(
                             attr.span(),
                             "Unrecognized #[server] attribute, expected \
-                         #[server(default)] or #[server(rename = \
-                         \"fieldName\")]",
+                             #[server(default)] or #[server(rename = \
+                             \"fieldName\")]",
                         )),
                     }
                 } else if attr.path().is_ident("doc") {
