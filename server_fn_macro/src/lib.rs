@@ -476,14 +476,12 @@ impl ServerFnCall {
                 LitStr::new(default_path, Span::call_site())
             });
         let server_fn_path = self.server_fn_path();
-        let fn_path = self
-            .args
-            .fn_path
-            .clone()
-            .unwrap_or_else(|| LitStr::new("", Span::call_site()));
-        let fn_path = fn_path.value();
-        // Remove any leading slashes, then add one slash back
-        let fn_path = "/".to_string() + fn_path.trim_start_matches('/');
+        let fn_path = self.args.fn_path.clone().map(|fn_path| {
+            let fn_path = fn_path.value();
+            // Remove any leading slashes, then add one slash back
+            let fn_path = "/".to_string() + fn_path.trim_start_matches('/');
+            fn_path
+        });
 
         let enable_server_fn_mod_path =
             option_env!("SERVER_FN_MOD_PATH").is_some();
@@ -506,7 +504,7 @@ impl ServerFnCall {
         let hash = if enable_hash {
             quote! {
                 #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                    concat!(env!(#key_env_var), ":", module_path!()).as_bytes(),
                     0
                 )
             }
@@ -515,20 +513,22 @@ impl ServerFnCall {
         };
 
         let fn_name_as_str = self.fn_name_as_str();
-        quote! {
-            if #fn_path.is_empty() {
+        if let Some(fn_path) = fn_path {
+            quote! {
+                #server_fn_path::const_format::concatcp!(
+                    #prefix,
+                    #mod_path,
+                    #fn_path
+                )
+            }
+        } else {
+            quote! {
                 #server_fn_path::const_format::concatcp!(
                     #prefix,
                     "/",
                     #mod_path,
                     #fn_name_as_str,
                     #hash
-                )
-            } else {
-                #server_fn_path::const_format::concatcp!(
-                    #prefix,
-                    #mod_path,
-                    #fn_path
                 )
             }
         }
