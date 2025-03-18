@@ -1,10 +1,10 @@
-use std::{fmt, ops::Deref, panic::Location, sync::Arc};
-
 use crate::traits::{
     DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Set, Track,
 };
+use std::{fmt, ops::Deref, panic::Location, sync::Arc};
 
-const DEFINED_AT_MSG: &str = "`DefinedAt::defined_at` called on a tuple. Only the first value will be reported.";
+const DEFINED_AT_MSG: &str = "`DefinedAt::defined_at` called on a tuple. Only \
+                              the first value will be reported.";
 const PARTIAL_SET_MSG: &str =
     "Tried to fallibly set a tuple, but only some values succeeded.";
 
@@ -201,12 +201,11 @@ impl<const N: usize> fmt::Display for MaybeLocations<'_, N> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         signal::ArcRwSignal,
         traits::{GetUntracked, WithUntracked},
     };
-
-    use super::*;
 
     #[test]
     fn compile_test() {

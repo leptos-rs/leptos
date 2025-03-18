@@ -209,7 +209,7 @@ impl Owner {
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
             OWNER.with(|o| {
-                mem::replace(&mut *o.borrow_mut(), Some(self.clone()))
+                (*o.borrow_mut()).replace(self.clone())
             })
         };
         #[cfg(feature = "sandboxed-arenas")]
