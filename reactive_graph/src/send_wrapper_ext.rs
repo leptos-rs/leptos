@@ -14,7 +14,12 @@ use std::{
 pub struct MaybeSendWrapperOption<T> {
     inner: Inner<T>,
 }
-
+// SAFETY: `MaybeSendWrapperOption` can *only* be given a T in four ways
+// 1) via new(), which requires T: Send + Sync
+// 2) via new_local(), which wraps T in a SendWrapper if given Some(T)
+// 3) via deref_mut(), which creates a SendWrapper<Option<T>> as needed
+// 4) via update(), which either dereferences an existing SendWrapper 
+//    or creates a new SendWrapper as needed
 unsafe impl<T> Send for MaybeSendWrapperOption<T> {}
 unsafe impl<T> Sync for MaybeSendWrapperOption<T> {}
 
