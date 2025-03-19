@@ -272,9 +272,9 @@ impl Effect<LocalStorage> {
     ///
     /// ## Immediate
     ///
-    /// If the final parameter `immediate` is true, the `callback` will run immediately.
-    /// If it's `false`, the `callback` will run only after
-    /// the first change is detected of any signal that is accessed in `deps`.
+    /// If the final parameter `immediate` is true, the `handler` will run immediately.
+    /// If it's `false`, the `handler` will run only after
+    /// the first change is detected of any signal that is accessed in `dependency_fn`.
     ///
     /// ```
     /// # use reactive_graph::effect::Effect;
