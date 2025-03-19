@@ -80,8 +80,8 @@ pub mod computed;
 pub mod diagnostics;
 pub mod effect;
 pub mod graph;
-pub mod maybe_send_wrapper;
 pub mod owner;
+pub mod send_wrapper_ext;
 #[cfg(feature = "serde")]
 mod serde;
 pub mod signal;

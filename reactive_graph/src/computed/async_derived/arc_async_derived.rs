@@ -12,8 +12,8 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
-    maybe_send_wrapper::MaybeSendWrapper,
     owner::{use_context, Owner},
+    send_wrapper_ext::MaybeSendWrapperOption,
     signal::{
         guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
         ArcTrigger,
@@ -29,7 +29,6 @@ use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
-use send_wrapper::SendWrapper;
 use std::{
     future::Future,
     mem,
@@ -111,7 +110,7 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<AsyncRwLock<MaybeSendWrapper<Option<T>>>>,
+    pub(crate) value: Arc<AsyncRwLock<MaybeSendWrapperOption<T>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
@@ -281,7 +280,7 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.state = AsyncDerivedState::Clean;
-                        *value.blocking_write() = orig_value.map(Some);
+                        *value.blocking_write() = orig_value;
                         this.loading.store(false, Ordering::Relaxed);
                         (true, None)
                     }
@@ -406,14 +405,14 @@ macro_rules! spawn_derived {
 
 impl<T: 'static> ArcAsyncDerived<T> {
     async fn set_inner_value(
-        new_value: MaybeSendWrapper<T>,
-        value: Arc<AsyncRwLock<MaybeSendWrapper<Option<T>>>>,
+        new_value: MaybeSendWrapperOption<T>,
+        value: Arc<AsyncRwLock<MaybeSendWrapperOption<T>>>,
         wakers: Arc<RwLock<Vec<Waker>>>,
         inner: Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        **value.write().await.deref_mut() = Some(new_value.take());
+        *value.write().await.deref_mut() = new_value;
         Self::notify_subs(&wakers, &inner, &loading, ready_tx);
     }
 
@@ -482,9 +481,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { MaybeSendWrapper::Threadsafe(fut.await) }
+            async move { MaybeSendWrapperOption::new(Some(fut.await)) }
         };
-        let initial_value = MaybeSendWrapper::Threadsafe(initial_value);
+        let initial_value = MaybeSendWrapperOption::new(initial_value);
         let (this, _) = spawn_derived!(
             Executor::spawn,
             initial_value,
@@ -516,9 +515,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { MaybeSendWrapper::Threadsafe(fut.await) }
+            async move { MaybeSendWrapperOption::new(Some(fut.await)) }
         };
-        let initial_value = MaybeSendWrapper::Threadsafe(initial_value);
+        let initial_value = MaybeSendWrapperOption::new(initial_value);
         let (this, _) = spawn_derived!(
             Executor::spawn,
             initial_value,
@@ -558,10 +557,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { MaybeSendWrapper::Local(SendWrapper::new(fut.await)) }
+            async move { MaybeSendWrapperOption::new_local(Some(fut.await)) }
         };
-        let initial_value =
-            MaybeSendWrapper::Local(SendWrapper::new(initial_value));
+        let initial_value = MaybeSendWrapperOption::new_local(initial_value);
         let (this, _) = spawn_derived!(
             Executor::spawn_local,
             initial_value,
@@ -592,10 +590,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        let initial = MaybeSendWrapper::Local(SendWrapper::new(None::<T>));
+        let initial = MaybeSendWrapperOption::new_local(None::<T>);
         let fun = move || {
             let fut = fun();
-            async move { MaybeSendWrapper::Local(SendWrapper::new(fut.await)) }
+            async move { MaybeSendWrapperOption::new_local(Some(fut.await)) }
         };
         let (this, _) = spawn_derived!(
             Executor::spawn_local,
@@ -613,7 +611,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
 impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapper<Option<T>>>, Option<T>>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
