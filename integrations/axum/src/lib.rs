@@ -360,14 +360,14 @@ fn init_executor() {
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub async fn handle_server_fns_with_context(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
     req: Request<Body>,
 ) -> impl IntoResponse {
     handle_server_fns_inner(additional_context, req).await
 }
 
 async fn handle_server_fns_inner(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
     req: Request<Body>,
 ) -> impl IntoResponse {
     use server_fn::middleware::Service;
@@ -487,7 +487,7 @@ pub type PinnedHtmlStream =
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -511,7 +511,7 @@ where
 )]
 pub fn render_route<S, IV>(
     paths: Vec<AxumRouteListing>,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     State<S>,
     Request<Body>,
@@ -576,7 +576,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -629,8 +629,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -658,8 +658,8 @@ where
 )]
 pub fn render_route_with_context<S, IV>(
     paths: Vec<AxumRouteListing>,
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     State<S>,
     Request<Body>,
@@ -760,8 +760,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
@@ -827,8 +827,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_to_stream_in_order_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -851,8 +851,8 @@ where
 }
 
 fn handle_response<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
@@ -869,7 +869,7 @@ where
 }
 
 fn handle_response_inner<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
     app_fn: impl FnOnce() -> IV + Send + 'static,
     req: Request<Body>,
     stream_builder: fn(
@@ -985,7 +985,7 @@ fn provide_contexts(
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1039,8 +1039,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1106,8 +1106,8 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn render_app_async_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -1147,7 +1147,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn generate_route_list<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send + Sync,
 ) -> Vec<AxumRouteListing>
 where
     IV: IntoView + 'static,
@@ -1163,7 +1163,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn generate_route_list_with_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send + Sync,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
@@ -1180,7 +1180,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send + Sync,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<AxumRouteListing>
 where
@@ -1198,7 +1198,7 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send + Sync,
     excluded_routes: Option<Vec<String>>,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
 where
@@ -1297,7 +1297,7 @@ impl AxumRouteListing {
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     excluded_routes: Option<Vec<String>>,
     additional_context: impl Fn() + Clone + Send + 'static,
 ) -> (Vec<AxumRouteListing>, StaticRouteGenerator)
@@ -1372,7 +1372,7 @@ impl StaticRouteGenerator {
     #[cfg(feature = "default")]
     fn render_route<IV: IntoView + 'static>(
         path: String,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
         additional_context: impl Fn() + Clone + Send + 'static,
     ) -> impl Future<Output = (Owner, String)> {
         let (meta_context, meta_output) = ServerMetaContext::new();
@@ -1423,7 +1423,7 @@ impl StaticRouteGenerator {
     /// Creates a new static route generator from the given list of route definitions.
     pub fn new<IV>(
         routes: &RouteList,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
         additional_context: impl Fn() + Clone + Send + 'static,
     ) -> Self
     where
@@ -1540,8 +1540,8 @@ async fn write_static_route(
 
 #[cfg(feature = "default")]
 fn handle_static_route<S, IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     regenerate: Vec<RegenerationFn>,
 ) -> impl Fn(
     State<S>,
@@ -1646,7 +1646,7 @@ where
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1661,8 +1661,8 @@ where
         self,
         options: &S,
         paths: Vec<AxumRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1732,7 +1732,7 @@ where
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1748,8 +1748,8 @@ where
         self,
         state: &S,
         paths: Vec<AxumRouteListing>,
-        additional_context: impl Fn() + 'static + Clone + Send,
-        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send + Sync,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1775,7 +1775,7 @@ where
         // register server functions
         for (path, method) in server_fn::axum::server_fn_paths() {
             let cx_with_state = cx_with_state.clone();
-            let handler = move |req: Request<Body>| async move {
+            let handler = |req: Request<Body>| async move {
                 handle_server_fns_with_context(cx_with_state, req).await
             };
 
@@ -1987,7 +1987,7 @@ where
 /// simply reuse the source code of this function in your own application.
 #[cfg(feature = "default")]
 pub fn file_and_error_handler_with_context<S, IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send + Sync,
     shell: fn(LeptosOptions) -> IV,
 ) -> impl Fn(
     Uri,

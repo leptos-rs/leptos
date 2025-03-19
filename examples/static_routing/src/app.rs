@@ -64,7 +64,7 @@ pub fn App() -> impl IntoView {
                     />
 
                     <Route
-                        path=path!("/post/:slug/")
+                        path=path!("/post/*slug")
                         view=Post
                         ssr=SsrMode::Static(
                             StaticRoute::new()
