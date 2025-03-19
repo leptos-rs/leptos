@@ -319,6 +319,28 @@ mod tests {
     }
 
     #[test]
+    fn static_before_param() {
+        let path = "/foo/bar";
+        let def = (StaticSegment("foo"), ParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("b".into(), "bar".into()));
+    }
+
+    #[test]
+    fn static_before_optional_param() {
+        let path = "/foo/bar";
+        let def = (StaticSegment("foo"), OptionalParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("b".into(), "bar".into()));
+    }
+
+    #[test]
     fn multiple_optional_params_match_first() {
         let path = "/foo/bar";
         let def = (
