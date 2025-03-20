@@ -54,5 +54,5 @@ denylist = ["tracing"]
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
-  'rustc_nightly',
+  'cfg(rustc_nightly)',
 ] }
