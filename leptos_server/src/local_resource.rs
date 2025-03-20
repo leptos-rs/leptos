@@ -71,18 +71,21 @@ impl<T> ArcLocalResource<T> {
                 }
             }
         };
-        let fetcher = SendWrapper::new(fetcher);
+
         let refetch = ArcRwSignal::new(0);
-        let data = {
-            let refetch = refetch.clone();
-            ArcAsyncDerived::new(move || {
-                refetch.track();
-                let fut = fetcher();
-                SendWrapper::new(async move { SendWrapper::new(fut.await) })
-            })
-        };
+
         Self {
-            data,
+            data: if cfg!(feature = "ssr") {
+                ArcAsyncDerived::new_mock(fetcher)
+            } else {
+                let fetcher = SendWrapper::new(fetcher);
+                let refetch = refetch.clone();
+                ArcAsyncDerived::new(move || {
+                    refetch.track();
+                    let fut = fetcher();
+                    SendWrapper::new(async move { SendWrapper::new(fut.await) })
+                })
+            },
             refetch,
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
