@@ -133,7 +133,9 @@ jobs:
       - name: Install Tailwind and Sass dependencies
         if: contains(inputs.directory, 'examples')
         run: |
-          pnpm add tailwindcss@4.0.14 @tailwindcss/cli@4.0.14 sass@1.86.0
+          tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
+          sass_version="$LEPTOS_SASS_VERSION"
+          pnpm add "tailwindcss@$tailwindcss_version" ""@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
 
           echo "Tailwind CSS version:"
           ./node_modules/.bin/tailwindcss --version
