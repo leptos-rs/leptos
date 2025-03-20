@@ -29,6 +29,31 @@ mod suspense;
 pub use owned::*;
 pub use suspense::*;
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! dispose_warn {
+    () => {
+        let called_at = std::panic::Location::caller();
+        reactive_graph::log_warning(format_args!(
+            "At {called_at}, you access a signal which is already disposed"
+        ));
+    };
+    ($signal:ident,$($context:tt)*) => {
+        if let Some(defined_at) = $signal.defined_at() {
+            let called_at = std::panic::Location::caller();
+            reactive_graph::log_warning(format_args!(
+                "At {called_at}, you tried to access a reactive value which was \
+                defined at {defined_at}, but it has already been disposed.\n{}",$($context)*
+            ));
+        } else {
+            let called_at = std::panic::Location::caller();
+            reactive_graph::log_warning(format_args!(
+                "At {called_at}, you access a signal which is already disposed.\n{}", $($context)*
+            ));
+        }
+    };
+}
+
 impl<F, V> ToTemplate for F
 where
     F: ReactiveFunction<Output = V>,
@@ -509,6 +534,7 @@ mod stable {
     use crate::{
         html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
+        renderer::Rndr,
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -525,6 +551,7 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    use std::sync::Arc;
 
     macro_rules! signal_impl {
         ($sig:ident $dry_resolve:literal) => {
@@ -534,11 +561,29 @@ mod stable {
                 V: Render + Clone + Send + Sync + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffectState<Option<V::State>>;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build()),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
+                    .into()
                 }
 
                 #[track_caller]
@@ -581,7 +626,10 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.get();
+                        let value = self.try_get();
+                        if value.is_none() {
+                            crate::dispose_warn!();
+                        }
                     }
                 }
 
@@ -600,8 +648,17 @@ mod stable {
                     escape: bool,
                     mark_branches: bool,
                 ) {
-                    let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        )
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -613,13 +670,17 @@ mod stable {
                 ) where
                     Self: Sized,
                 {
-                    let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                    );
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -627,8 +688,30 @@ mod stable {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    let cursor = cursor.clone();
+                    let position = position.clone();
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
+                    .into()
                 }
             }
 
@@ -639,7 +722,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -648,8 +731,12 @@ mod stable {
                 }
 
                 fn to_html(self, key: &str, buf: &mut String) {
-                    let value = self.get();
-                    value.to_html(key, buf);
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html(key, buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_key: &str, _buf: &mut String) {}
@@ -659,7 +746,29 @@ mod stable {
                     key: &str,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn build(
@@ -667,11 +776,51 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn rebuild(self, key: &str, state: &mut Self::State) {
-                    (move || self.get()).rebuild(key, state)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let prev_value = state.take_value();
+
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&key, &mut state);
+                                    Some(state)
+                                }
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -702,11 +851,29 @@ mod stable {
                 V: Render + Send + Sync + Clone + 'static,
                 V::State: 'static,
             {
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffectState<Option<V::State>>;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
-                    (move || self.get()).build()
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build()),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
+                    .into()
                 }
 
                 #[track_caller]
@@ -755,7 +922,10 @@ mod stable {
 
                 fn dry_resolve(&mut self) {
                     if $dry_resolve {
-                        _ = self.get();
+                        let value = self.try_get();
+                        if value.is_none() {
+                            crate::dispose_warn!();
+                        }
                     }
                 }
 
@@ -774,8 +944,17 @@ mod stable {
                     escape: bool,
                     mark_branches: bool,
                 ) {
-                    let value = self.get();
-                    value.to_html_with_buf(buf, position, escape, mark_branches)
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_with_buf(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        )
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -787,13 +966,17 @@ mod stable {
                 ) where
                     Self: Sized,
                 {
-                    let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf,
-                        position,
-                        escape,
-                        mark_branches,
-                    );
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                            buf,
+                            position,
+                            escape,
+                            mark_branches,
+                        );
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -801,8 +984,30 @@ mod stable {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    (move || self.get())
-                        .hydrate::<FROM_SERVER>(cursor, position)
+                    let cursor = cursor.clone();
+                    let position = position.clone();
+                    let hook = throw_error::get_error_hook();
+                    RenderEffect::new(move |prev| {
+                        let _guard = hook.as_ref().map(|h| {
+                            throw_error::set_error_hook(Arc::clone(h))
+                        });
+                        let value = self.try_get();
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(
+                                value
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
+                    .into()
                 }
             }
 
@@ -816,7 +1021,7 @@ mod stable {
                 V::State: 'static,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffect<V::State>;
+                type State = RenderEffect<Option<V::State>>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -825,8 +1030,12 @@ mod stable {
                 }
 
                 fn to_html(self, key: &str, buf: &mut String) {
-                    let value = self.get();
-                    value.to_html(key, buf);
+                    let value = self.try_get();
+                    if let Some(value) = value {
+                        value.to_html(key, buf);
+                    } else {
+                        crate::dispose_warn!();
+                    }
                 }
 
                 fn to_template(_key: &str, _buf: &mut String) {}
@@ -836,7 +1045,29 @@ mod stable {
                     key: &str,
                     el: &crate::renderer::types::Element,
                 ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => {
+                                Some(value.hydrate::<FROM_SERVER>(&key, &el))
+                            }
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn build(
@@ -844,11 +1075,51 @@ mod stable {
                     el: &crate::renderer::types::Element,
                     key: &str,
                 ) -> Self::State {
-                    (move || self.get()).build(el, key)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let el = el.to_owned();
+
+                    RenderEffect::new(move |prev| {
+                        let value = self.try_get();
+                        // Outer Some means there was a previous state
+                        // Inner Some means the previous state was valid
+                        // (i.e., the signal was successfully accessed)
+                        match (prev, value) {
+                            (Some(Some(mut state)), Some(value)) => {
+                                value.rebuild(&key, &mut state);
+                                Some(state)
+                            }
+                            (None, Some(value)) => Some(value.build(&el, &key)),
+                            (_, None) | (Some(None), _) => {
+                                crate::dispose_warn!();
+                                None
+                            }
+                        }
+                    })
                 }
 
                 fn rebuild(self, key: &str, state: &mut Self::State) {
-                    (move || self.get()).rebuild(key, state)
+                    let key = Rndr::intern(key);
+                    let key = key.to_owned();
+                    let prev_value = state.take_value();
+
+                    *state = RenderEffect::new_with_value(
+                        move |prev| {
+                            let value = self.try_get();
+                            match (prev, value) {
+                                (Some(Some(mut state)), Some(value)) => {
+                                    value.rebuild(&key, &mut state);
+                                    Some(state)
+                                }
+                                (_, None) | (Some(None), _) => {
+                                    crate::dispose_warn!();
+                                    None
+                                }
+                                (None, _) => None, // unreachable!()
+                            }
+                        },
+                        prev_value,
+                    );
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
