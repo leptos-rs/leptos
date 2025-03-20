@@ -2658,7 +2658,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "convert_case 0.7.1",
  "proc-macro-error2",
@@ -3419,7 +3419,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "any_spawner",
  "async-trait",
