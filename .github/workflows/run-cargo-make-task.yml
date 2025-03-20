@@ -7,7 +7,7 @@ on:
         type: string
       erased_mode:
         required: true
-        type: boolean      
+        type: boolean
       cargo_make_task:
         required: true
         type: string
@@ -19,6 +19,8 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   DEBIAN_FRONTEND: noninteractive
   RUSTFLAGS: ${{ inputs.erased_mode && '--cfg erase_components' || '' }}
+  LEPTOS_TAILWIND_VERSION: v4.0.14
+  LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
     name: "Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
@@ -87,6 +89,16 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+      - name: Install Tailwind and Sass dependencies
+        run: |
+          pnpm add -g tailwindcss@4.0.14 @tailwindcss/cli@4.0.14 sass@1.86.0
+      - name: Verify Tailwind and Sass installations
+        run: |
+          echo "Tailwind CSS version:"
+          tailwindcss --version
+
+          echo "Sass version:"
+          sass --version
       - name: Maybe install chromedriver
         run: |
           project_makefile=${{inputs.directory}}/Makefile.toml
