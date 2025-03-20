@@ -32,11 +32,19 @@ jobs:
           df -h
           sudo rm -rf /usr/local/.ghcup
           sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/node_modules
           sudo apt-get clean
+          sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^llvm-.*' '^mono-.*' '^php.*' '^ruby.*'
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af
+          docker image prune -af
+          docker volume prune -f
           echo "Disk space after cleanup:"
           df -h
       # Setup environment
@@ -146,3 +154,7 @@ jobs:
       - name: ${{ inputs.cargo_make_task }}
         run: |
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
+      - name: Clean up ${{ inputs.directory }}
+        run: |
+          cargo clean || true
+          rm -rf node_modules || true
