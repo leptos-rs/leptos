@@ -56,6 +56,9 @@ features = [
   "Response",
 ]
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 tracing = ["dep:tracing"]
 ssr = ["dep:percent-encoding"]
@@ -71,4 +74,5 @@ denylist = ["tracing"]
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
+  'cfg(rustc_nightly)',
 ] }

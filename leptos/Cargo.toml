@@ -96,6 +96,9 @@ trace-component-props = [
 ]
 delegation = ["tachys/delegation"]
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 # Having an erasure feature rather than normal --cfg erase_components for the proc macro crate is a workaround for this rust issue:
 # https://github.com/rust-lang/cargo/issues/4423
 # TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
@@ -165,4 +168,7 @@ skip_feature_sets = [
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(leptos_debuginfo)',
+  'cfg(rustc_nightly)',
+] }

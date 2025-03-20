@@ -32,6 +32,9 @@ tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 nightly = []
 serde = ["dep:serde"]
@@ -49,4 +52,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 denylist = ["tracing"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(leptos_debuginfo)',
+  'rustc_nightly',
+] }

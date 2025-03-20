@@ -327,9 +327,9 @@ fn is_attr_let(key: &NodeName) -> bool {
     }
 }
 
-pub fn items_to_clone_to_tokens<'a>(
-    items_to_clone: &'a [Ident],
-) -> impl Iterator<Item = TokenStream> + 'a {
+pub fn items_to_clone_to_tokens(
+    items_to_clone: &[Ident],
+) -> impl Iterator<Item = TokenStream> + '_ {
     items_to_clone.iter().map(|ident| {
         let ident_ref = quote_spanned!(ident.span()=> &#ident);
         quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }

@@ -169,6 +169,9 @@ serde_json = { version = "1", optional = true }
 tokio-test = "0.4.4"
 tokio = { version = "1.43", features = ["rt", "macros"] }
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 default = ["testing"]
 delegation = []                                                       # enables event delegation
@@ -205,4 +208,5 @@ skip_feature_sets = [
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
+  'cfg(rustc_nightly)',
 ] }

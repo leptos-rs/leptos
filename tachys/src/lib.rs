@@ -6,7 +6,10 @@
 // this is specifically used for `unsized_const_params` below
 // this allows us to use const generic &'static str for static text nodes and attributes
 #![allow(incomplete_features)]
-#![cfg_attr(feature = "nightly", feature(unsized_const_params))]
+#![cfg_attr(
+    all(feature = "nightly", rustc_nightly),
+    feature(unsized_const_params)
+)]
 #![deny(missing_docs)]
 
 /// Commonly-used traits.
