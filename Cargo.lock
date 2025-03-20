@@ -1734,7 +1734,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "any_spawner",
  "base64",
@@ -1784,7 +1784,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "actix-files",
  "actix-http",
@@ -1809,7 +1809,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "any_spawner",
  "axum",
@@ -1832,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "config",
  "regex",
@@ -1846,7 +1846,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "js-sys",
  "leptos",
@@ -1863,7 +1863,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_hot_reload"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "anyhow",
  "camino",
@@ -1879,7 +1879,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "futures",
  "hydration_context",
@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -1911,7 +1911,7 @@ dependencies = [
  "rstml",
  "serde",
  "server_fn",
- "server_fn_macro 0.7.7",
+ "server_fn_macro 0.7.8",
  "syn 2.0.98",
  "tracing",
  "trybuild",
@@ -1921,7 +1921,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_meta"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "futures",
  "indexmap",
@@ -1936,7 +1936,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -1960,7 +1960,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router_macro"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "leptos_macro",
  "leptos_router",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "any_spawner",
  "base64",
@@ -3155,7 +3155,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "actix-web",
  "axum",
@@ -3211,7 +3211,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "const_format",
  "convert_case 0.6.0",
@@ -3223,9 +3223,9 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro_default"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
- "server_fn_macro 0.7.7",
+ "server_fn_macro 0.7.8",
  "syn 2.0.98",
 ]
 
