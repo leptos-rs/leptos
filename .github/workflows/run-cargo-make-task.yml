@@ -89,16 +89,6 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - name: Install Tailwind and Sass dependencies
-        run: |
-          pnpm add -g tailwindcss@4.0.14 @tailwindcss/cli@4.0.14 sass@1.86.0
-      - name: Verify Tailwind and Sass installations
-        run: |
-          echo "Tailwind CSS version:"
-          tailwindcss --version
-
-          echo "Sass version:"
-          sass --version
       - name: Maybe install chromedriver
         run: |
           project_makefile=${{inputs.directory}}/Makefile.toml
@@ -137,8 +127,20 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
           fi
+      - name: Enter ${{ inputs.directory }}
+        run: |
+          cd ${{ inputs.directory }}
+      - name: Install Tailwind and Sass dependencies
+        if: contains(inputs.directory, 'examples')
+        run: |
+          pnpm add tailwindcss@4.0.14 @tailwindcss/cli@4.0.14 sass@1.86.0
+
+          echo "Tailwind CSS version:"
+          ./node_modules/.bin/tailwindcss --version
+
+          echo "Sass version:"
+          ./node_modules/.bin/sass --version
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          cd ${{ inputs.directory }}
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
