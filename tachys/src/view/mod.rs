@@ -22,7 +22,7 @@ pub mod iterators;
 pub mod keyed;
 mod primitives;
 /// Optimized types for static strings known at compile time.
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 pub mod static_types;
 /// View implementation for string types.
 pub mod strings;

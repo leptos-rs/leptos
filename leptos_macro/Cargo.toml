@@ -39,6 +39,9 @@ server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = "1.41"
 serde = "1.0"
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 csr = []
 hydrate = []
@@ -87,6 +90,10 @@ skip_feature_sets = [
     "axum",
   ],
 ]
+max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rustc_nightly)'] }

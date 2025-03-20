@@ -611,7 +611,7 @@ fn node_to_tokens(
 
 fn text_to_tokens(text: &LitStr) -> TokenStream {
     // on nightly, can use static string optimization
-    if cfg!(feature = "nightly") {
+    if cfg!(all(feature = "nightly", rustc_nightly)) {
         quote! {
             ::leptos::tachys::view::static_types::Static::<#text>
         }
@@ -1512,7 +1512,7 @@ fn attribute_value(
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
                 if let Expr::Lit(lit) = expr {
-                    if cfg!(feature = "nightly") {
+                    if cfg!(all(feature = "nightly", rustc_nightly)) {
                         if let Lit::Str(str) = &lit.lit {
                             return quote! {
                                 ::leptos::tachys::view::static_types::Static::<#str>
