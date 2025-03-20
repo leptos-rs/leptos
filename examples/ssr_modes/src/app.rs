@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{
@@ -9,6 +7,7 @@ use leptos_router::{
     ParamSegment, SsrMode, StaticSegment,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 #[component]
@@ -18,14 +17,14 @@ pub fn App() -> impl IntoView {
     let fallback = || view! { "Page not found." }.into_view();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
-        <Title text="Welcome to Leptos"/>
-        <Meta name="color-scheme" content="dark light"/>
+        <Stylesheet id="leptos" href="/pkg/ssr_modes.css" />
+        <Title text="Welcome to Leptos" />
+        <Meta name="color-scheme" content="dark light" />
         <Router>
             <main>
                 <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path=StaticSegment("") view=HomePage />
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
@@ -115,8 +114,8 @@ fn Post() -> impl IntoView {
                 // since we're using async rendering for this page,
                 // this metadata should be included in the actual HTML <head>
                 // when it's first served
-                <Title text=post.title/>
-                <Meta name="description" content=post.content/>
+                <Title text=post.title />
+                <Meta name="description" content=post.content />
             }),
             _ => Err(PostError::ServerError),
         }
