@@ -135,7 +135,7 @@ jobs:
         run: |
           tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
           sass_version="$LEPTOS_SASS_VERSION"
-          pnpm add "tailwindcss@$tailwindcss_version" ""@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
+          pnpm add "tailwindcss@$tailwindcss_version" "@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
 
           echo "Tailwind CSS version:"
           ./node_modules/.bin/tailwindcss --version
