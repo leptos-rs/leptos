@@ -90,6 +90,7 @@ skip_feature_sets = [
     "axum",
   ],
 ]
+max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

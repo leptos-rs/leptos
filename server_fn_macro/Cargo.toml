@@ -32,5 +32,8 @@ reqwest = []
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
 
+[package.metadata.cargo-all-features]
+max_combination_size = 2
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rustc_nightly)'] }

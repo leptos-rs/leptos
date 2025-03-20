@@ -203,6 +203,7 @@ skip_feature_sets = [
     "delegation",
   ],
 ]
+max_combination_size = 2
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
