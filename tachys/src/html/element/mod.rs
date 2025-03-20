@@ -745,7 +745,7 @@ where
 /*
 #[cfg(all(test, feature = "testing"))]
 mod tests {
-    #[cfg(feature = "nightly")]
+    #[cfg(all(feature = "nightly", rustc_nightly))]
     use super::RenderHtml;
     use super::{main, p, HtmlElement};
     use crate::{
@@ -782,7 +782,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "nightly")]
+    #[cfg(all(feature = "nightly", rustc_nightly))]
     #[test]
     fn html_render_allocates_appropriate_buffer() {
         use crate::view::static_types::Static;

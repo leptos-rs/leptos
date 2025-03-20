@@ -611,7 +611,7 @@ fn node_to_tokens(
 
 fn text_to_tokens(text: &LitStr) -> TokenStream {
     // on nightly, can use static string optimization
-    if cfg!(feature = "nightly") {
+    if cfg!(all(feature = "nightly", rustc_nightly)) {
         quote! {
             ::leptos::tachys::view::static_types::Static::<#text>
         }

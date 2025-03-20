@@ -170,7 +170,7 @@ impl CustomAttributeKey for Arc<str> {
     const KEY: &'static str = "";
 }
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const K: &'static str> CustomAttributeKey
     for crate::view::static_types::Static<K>
 {
