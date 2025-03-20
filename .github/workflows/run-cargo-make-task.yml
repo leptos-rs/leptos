@@ -155,6 +155,7 @@ jobs:
         run: |
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
       - name: Clean up ${{ inputs.directory }}
+        if: always()
         run: |
           cargo clean || true
           rm -rf node_modules || true
