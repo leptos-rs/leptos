@@ -92,7 +92,7 @@ pub mod wrappers;
 
 use computed::ScopedFuture;
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 mod nightly;
 
 /// Reexports frequently-used traits.
