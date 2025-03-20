@@ -121,12 +121,12 @@ where
         let read = {
             let sub = self.subs.read().or_poisoned().get(key).cloned();
             sub.unwrap_or_else(|| {
-                let signal = ArcRwSignal::new(false);
                 self.subs
                     .write()
                     .or_poisoned()
-                    .insert(key.clone(), signal.clone());
-                signal
+                    .entry(key.clone())
+                    .or_insert_with(|| ArcRwSignal::new(false))
+                    .clone()
             })
         };
         read.track();
