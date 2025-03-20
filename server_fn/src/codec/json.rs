@@ -1,3 +1,4 @@
+use super::Patch;
 use super::Post;
 use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
@@ -34,3 +35,4 @@ where
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub type Json = Post<JsonEncoding>;
+pub type PatchJson = Patch<JsonEncoding>;

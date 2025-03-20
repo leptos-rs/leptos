@@ -1,4 +1,7 @@
-use crate::{codec::Post, ContentType, Decodes, Encodes};
+use crate::{
+    codec::{Patch, Post},
+    ContentType, Decodes, Encodes,
+};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -33,3 +36,5 @@ where
 
 /// Pass arguments and receive responses as MessagePack in a `POST` request.
 pub type MsgPack = Post<MsgPackEncoding>;
+/// Pass arguments and receive responses as MessagePack in a `PATCH` request.
+pub type PatchMsgPack = Patch<MsgPackEncoding>;

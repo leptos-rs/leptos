@@ -1,4 +1,7 @@
-use crate::{codec::Post, ContentType, Decodes, Encodes};
+use crate::{
+    codec::{Patch, Post},
+    ContentType, Decodes, Encodes,
+};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -33,3 +36,5 @@ where
 
 /// Pass arguments and receive responses with postcard in a `POST` request.
 pub type Postcard = Post<PostcardEncoding>;
+/// Pass arguments and receive responses with postcard in a `PATCH` request.
+pub type PatchPostcard = Patch<PostcardEncoding>;

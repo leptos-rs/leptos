@@ -52,6 +52,8 @@ pub use postcard::*;
 
 mod post;
 pub use post::*;
+mod patch;
+pub use patch::*;
 mod stream;
 use crate::ContentType;
 use futures::Future;

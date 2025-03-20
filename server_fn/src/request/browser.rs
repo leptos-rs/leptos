@@ -233,6 +233,93 @@ where
         })))
     }
 
+    fn try_new_patch(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+    ) -> Result<Self, E> {
+        let (abort_ctrl, abort_signal) = abort_signal();
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(server_url.len() + path.len());
+        url.push_str(server_url);
+        url.push_str(path);
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::patch(&url)
+                .header("Content-Type", content_type)
+                .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
+                .body(body)
+                .map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
+                })?,
+            abort_ctrl,
+        })))
+    }
+
+    fn try_new_patch_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+    ) -> Result<Self, E> {
+        let (abort_ctrl, abort_signal) = abort_signal();
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(server_url.len() + path.len());
+        url.push_str(server_url);
+        url.push_str(path);
+        let body: &[u8] = &body;
+        let body = Uint8Array::from(body).buffer();
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::patch(&url)
+                .header("Content-Type", content_type)
+                .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
+                .body(body)
+                .map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
+                })?,
+            abort_ctrl,
+        })))
+    }
+
+    fn try_new_patch_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        let (abort_ctrl, abort_signal) = abort_signal();
+        let form_data = body.0.take();
+        let url_params =
+            UrlSearchParams::new_with_str_sequence_sequence(&form_data)
+                .map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Serialization(
+                        e.as_string().unwrap_or_else(|| {
+                            "Could not serialize FormData to URLSearchParams"
+                                .to_string()
+                        }),
+                    ))
+                })?;
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::patch(path)
+                .header("Content-Type", content_type)
+                .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
+                .body(url_params)
+                .map_err(|e| {
+                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
+                })?,
+            abort_ctrl,
+        })))
+    }
+
     fn try_new_streaming(
         path: &str,
         accepts: &str,

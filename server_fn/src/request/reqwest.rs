@@ -112,6 +112,59 @@ where
             })
     }
 
+    fn try_new_patch(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+    ) -> Result<Self, E> {
+        let url = format!("{}{}", get_server_url(), path);
+        CLIENT
+            .patch(url)
+            .header(CONTENT_TYPE, content_type)
+            .header(ACCEPT, accepts)
+            .body(body)
+            .build()
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
+    }
+
+    fn try_new_patch_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+    ) -> Result<Self, E> {
+        let url = format!("{}{}", get_server_url(), path);
+        CLIENT
+            .patch(url)
+            .header(CONTENT_TYPE, content_type)
+            .header(ACCEPT, accepts)
+            .body(body)
+            .build()
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
+    }
+
+    fn try_new_patch_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        CLIENT
+            .patch(path)
+            .header(CONTENT_TYPE, content_type)
+            .header(ACCEPT, accepts)
+            .multipart(body)
+            .build()
+            .map_err(|e| {
+                ServerFnErrorErr::Request(e.to_string()).into_app_error()
+            })
+    }
+
     fn try_new_streaming(
         path: &str,
         accepts: &str,

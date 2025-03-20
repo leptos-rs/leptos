@@ -1,3 +1,4 @@
+use super::Patch;
 use super::Post;
 use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
@@ -36,3 +37,5 @@ where
 
 /// Pass arguments and receive responses using `cbor` in a `POST` request.
 pub type Cbor = Post<CborEncoding>;
+/// Pass arguments and receive responses using `cbor` in a `PATCH` request.
+pub type PatchCbor = Patch<CborEncoding>;

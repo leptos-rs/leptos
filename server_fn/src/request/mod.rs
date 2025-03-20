@@ -71,6 +71,30 @@ where
         content_type: &str,
         body: impl Stream<Item = Bytes> + Send + 'static,
     ) -> Result<Self, E>;
+
+    /// Attempts to construct a new `PATCH` request with a text body.
+    fn try_new_patch(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new `PATCH` request with a binary body.
+    fn try_new_patch_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new `PATCH` request with form data as the body.
+    fn try_new_patch_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E>;
 }
 
 /// Represents the request as received by the server.

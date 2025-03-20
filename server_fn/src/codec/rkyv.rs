@@ -1,4 +1,7 @@
-use crate::{codec::Post, ContentType, Decodes, Encodes};
+use crate::{
+    codec::{Patch, Post},
+    ContentType, Decodes, Encodes,
+};
 use bytes::Bytes;
 use rkyv::{
     api::high::{HighDeserializer, HighSerializer, HighValidator},
@@ -52,3 +55,5 @@ where
 
 /// Pass arguments and receive responses as `rkyv` in a `POST` request.
 pub type Rkyv = Post<RkyvEncoding>;
+/// Pass arguments and receive responses as `rkyv` in a `PATCH` request.
+pub type PatchRkyv = Patch<RkyvEncoding>;
