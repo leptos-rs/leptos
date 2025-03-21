@@ -72,7 +72,8 @@ use leptos_router::{
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
+use server_fn::error::ServerFnErrorErr;
+use server_fn::redirect::REDIRECT_HEADER;
 #[cfg(feature = "default")]
 use std::path::Path;
 use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
@@ -1976,7 +1977,7 @@ where
 ///     Ok(format!("{method:?}"))
 /// }
 /// ```
-pub async fn extract<T>() -> Result<T, ServerFnError>
+pub async fn extract<T>() -> Result<T, ServerFnErrorErr>
 where
     T: Sized + FromRequestParts<()>,
     T::Rejection: Debug,
@@ -1991,19 +1992,20 @@ where
 /// therefore be used in an extractor. The compiler can often infer this type.
 ///
 /// Any error that occurs during extraction is converted to a [`ServerFnError`].
-pub async fn extract_with_state<T, S>(state: &S) -> Result<T, ServerFnError>
+pub async fn extract_with_state<T, S>(state: &S) -> Result<T, ServerFnErrorErr>
 where
     T: Sized + FromRequestParts<S>,
     T::Rejection: Debug,
 {
     let mut parts = use_context::<Parts>().ok_or_else(|| {
-        ServerFnError::new(
-            "should have had Parts provided by the leptos_axum integration",
+        ServerFnErrorErr::ServerError(
+            "should have had Parts provided by the leptos_axum integration"
+                .to_string(),
         )
     })?;
     T::from_request_parts(&mut parts, state)
         .await
-        .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+        .map_err(|e| ServerFnErrorErr::ServerError(format!("{e:?}")))
 }
 
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.

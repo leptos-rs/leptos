@@ -41,9 +41,8 @@ use leptos_router::{
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
-use server_fn::{
-    redirect::REDIRECT_HEADER, request::actix::ActixRequest, ServerFnError,
-};
+use server_fn::error::ServerFnErrorErr;
+use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
 use std::{
     collections::HashSet,
     fmt::{Debug, Display},
@@ -1614,19 +1613,21 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///     Ok(format!("{info:?}"))
 /// }
 /// ```
-pub async fn extract<T>() -> Result<T, ServerFnError>
+pub async fn extract<T>() -> Result<T, ServerFnErrorErr>
 where
     T: actix_web::FromRequest,
     <T as FromRequest>::Error: Display,
 {
     let req = use_context::<Request>().ok_or_else(|| {
-        ServerFnError::new("HttpRequest should have been provided via context")
+        ServerFnErrorErr::ServerError(
+            "HttpRequest should have been provided via context".to_string(),
+        )
     })?;
 
     SendWrapper::new(async move {
         T::extract(&req)
             .await
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::ServerError(e.to_string()))
     })
     .await
 }
