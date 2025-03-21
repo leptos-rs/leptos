@@ -174,7 +174,7 @@ pub mod prelude {
         };
         pub use server_fn::{
             self,
-            error::{FromServerFnError, ServerFnError},
+            error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
         };
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
