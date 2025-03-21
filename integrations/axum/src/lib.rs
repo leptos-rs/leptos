@@ -72,8 +72,7 @@ use leptos_router::{
 #[cfg(feature = "default")]
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use server_fn::error::ServerFnErrorErr;
-use server_fn::redirect::REDIRECT_HEADER;
+use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
 use std::path::Path;
 use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};

@@ -41,8 +41,10 @@ use leptos_router::{
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
-use server_fn::error::ServerFnErrorErr;
-use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
+use server_fn::{
+    error::ServerFnErrorErr, redirect::REDIRECT_HEADER,
+    request::actix::ActixRequest,
+};
 use std::{
     collections::HashSet,
     fmt::{Debug, Display},
