@@ -3,7 +3,9 @@ use super::{
     RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute, hydration::Cursor, renderer::Rndr,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    hydration::Cursor,
+    renderer::Rndr,
     ssr::StreamBuilder,
 };
 use either_of::Either;
@@ -58,6 +60,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Option<T::AsyncOutput>;
+    type Owned = Option<T::Owned>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -87,12 +90,19 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .to_html_with_buf(buf, position, escape, mark_branches)
+        .to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        )
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -101,6 +111,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -113,6 +124,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -127,6 +139,10 @@ where
             None => Either::Right(()),
         }
         .hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.map(RenderHtml::into_owned)
     }
 }
 
@@ -227,6 +243,13 @@ where
             self.marker.insert_before_this(child)
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
 }
 
 impl<T> AddAnyAttr for Vec<T>
@@ -255,6 +278,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = Vec<T::AsyncOutput>;
+    type Owned = Vec<T::Owned>;
 
     const MIN_LENGTH: usize = 0;
 
@@ -281,16 +305,32 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_with_buf(buf, position, escape, mark_branches);
+            first.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
         }
         for child in children {
-            child.to_html_with_buf(buf, position, escape, mark_branches);
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                // each child will have the extra attributes applied
+                extra_attrs.clone(),
+            );
         }
-        buf.push_str("<!>");
-        *position = Position::NextChild;
+        if escape {
+            buf.push_str("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -299,6 +339,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -309,6 +350,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
         for child in children {
@@ -317,10 +359,13 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
-        buf.push_sync("<!>");
-        *position = Position::NextChild;
+        if escape {
+            buf.push_sync("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -337,6 +382,237 @@ where
         position.set(Position::NextChild);
 
         VecState { states, marker }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+    }
+}
+
+/// A container used for ErasedMode. It's slightly better than a raw Vec<> because the rendering traits don't have to worry about the length of the Vec changing, therefore no marker traits etc.
+pub struct StaticVec<T>(pub(crate) Vec<T>);
+
+impl<T: Clone> Clone for StaticVec<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> IntoIterator for StaticVec<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T> StaticVec<T> {
+    /// Iterates over the items.
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
+    }
+}
+
+impl<T> From<Vec<T>> for StaticVec<T> {
+    fn from(vec: Vec<T>) -> Self {
+        Self(vec)
+    }
+}
+
+impl<T> From<StaticVec<T>> for Vec<T> {
+    fn from(static_vec: StaticVec<T>) -> Self {
+        static_vec.0
+    }
+}
+
+/// Retained view state for a `StaticVec<Vec<_>>`.
+pub struct StaticVecState<T>
+where
+    T: Mountable,
+{
+    states: Vec<T>,
+    parent: Option<crate::renderer::types::Element>,
+}
+
+impl<T> Mountable for StaticVecState<T>
+where
+    T: Mountable,
+{
+    fn unmount(&mut self) {
+        self.states.iter_mut().for_each(Mountable::unmount);
+    }
+
+    fn mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) {
+        for state in self.states.iter_mut() {
+            state.mount(parent, marker);
+        }
+        self.parent = Some(parent.clone());
+    }
+
+    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+        if let Some(first) = self.states.first() {
+            first.insert_before_this(child)
+        } else {
+            false
+        }
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
+}
+
+impl<T> Render for StaticVec<T>
+where
+    T: Render,
+{
+    type State = StaticVecState<T::State>;
+
+    fn build(self) -> Self::State {
+        Self::State {
+            states: self.0.into_iter().map(T::build).collect(),
+            parent: None,
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let Self::State { states, .. } = state;
+
+        // StaticVec's in general shouldn't need to be reused, but rebuild() will still trigger e.g. if 2 routes have the same tree,
+        // this can cause problems if differing in lengths. Because we don't use marker nodes in StaticVec, we rebuild the entire vec remounting to the parent.
+
+        for state in states {
+            state.unmount();
+        }
+        let parent = state
+            .parent
+            .take()
+            .expect("parent should always be Some() on a StaticVec rebuild()");
+        *state = self.build();
+        state.mount(&parent, None);
+    }
+}
+
+impl<T> AddAnyAttr for StaticVec<T>
+where
+    T: AddAnyAttr,
+{
+    type Output<SomeNewAttr: Attribute> =
+        StaticVec<<T as AddAnyAttr>::Output<SomeNewAttr::Cloneable>>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        let attr = attr.into_cloneable();
+        self.0
+            .into_iter()
+            .map(|n| n.add_any_attr(attr.clone()))
+            .collect::<Vec<_>>()
+            .into()
+    }
+}
+
+impl<T> RenderHtml for StaticVec<T>
+where
+    T: RenderHtml,
+{
+    type AsyncOutput = StaticVec<T::AsyncOutput>;
+    type Owned = StaticVec<T::Owned>;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        for inner in self.0.iter_mut() {
+            inner.dry_resolve();
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.0.into_iter().map(T::resolve))
+            .await
+            .into_iter()
+            .collect::<Vec<_>>()
+            .into()
+    }
+
+    fn html_len(&self) -> usize {
+        self.0.iter().map(RenderHtml::html_len).sum::<usize>()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
+    ) {
+        for child in self.0.into_iter() {
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
+    ) where
+        Self: Sized,
+    {
+        for child in self.0.into_iter() {
+            child.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let states = self
+            .0
+            .into_iter()
+            .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
+            .collect();
+        let parent = cursor.current().parent_element();
+        Self::State { states, parent }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.0
+            .into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+            .into()
     }
 }
 
@@ -395,6 +671,13 @@ where
             false
         }
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.states
+            .iter()
+            .flat_map(|item| item.elements())
+            .collect()
+    }
 }
 impl<T, const N: usize> AddAnyAttr for [T; N]
 where
@@ -420,6 +703,7 @@ where
     T: RenderHtml,
 {
     type AsyncOutput = [T::AsyncOutput; N];
+    type Owned = [T::Owned; N];
 
     const MIN_LENGTH: usize = 0;
 
@@ -448,9 +732,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         for child in self.into_iter() {
-            child.to_html_with_buf(buf, position, escape, mark_branches);
+            child.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
         }
     }
 
@@ -460,6 +751,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -469,6 +761,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
         }
     }
@@ -481,5 +774,13 @@ where
         let states =
             self.map(|child| child.hydrate::<FROM_SERVER>(cursor, position));
         ArrayState { states }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self.into_iter()
+            .map(RenderHtml::into_owned)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap_or_else(|_| unreachable!())
     }
 }

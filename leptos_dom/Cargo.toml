@@ -37,6 +37,7 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+max_combination_size = 2
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

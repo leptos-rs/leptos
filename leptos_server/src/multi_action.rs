@@ -2,7 +2,7 @@ use reactive_graph::{
     actions::{ArcMultiAction, MultiAction},
     traits::DefinedAt,
 };
-use server_fn::{ServerFn, ServerFnError};
+use server_fn::ServerFn;
 use std::{ops::Deref, panic::Location};
 
 /// An [`ArcMultiAction`] that can be used to call a server function.
@@ -11,7 +11,7 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner: ArcMultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
+    inner: ArcMultiAction<S, Result<S::Output, S::Error>>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
@@ -40,7 +40,7 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    type Target = ArcMultiAction<S, Result<S::Output, ServerFnError<S::Error>>>;
+    type Target = ArcMultiAction<S, Result<S::Output, S::Error>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -95,13 +95,13 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner: MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
+    inner: MultiAction<S, Result<S::Output, S::Error>>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
 impl<S> From<ServerMultiAction<S>>
-    for MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>
+    for MultiAction<S, Result<S::Output, S::Error>>
 where
     S: ServerFn + 'static,
     S::Output: 'static,
@@ -152,7 +152,7 @@ where
     S::Output: 'static,
     S::Error: 'static,
 {
-    type Target = MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>;
+    type Target = MultiAction<S, Result<S::Output, S::Error>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

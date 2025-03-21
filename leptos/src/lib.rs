@@ -141,8 +141,8 @@
 //! }
 //! ```
 
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
-#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 
 extern crate self as leptos;
 
@@ -172,12 +172,10 @@ pub mod prelude {
             actions::*, computed::*, effect::*, graph::untrack, owner::*,
             signal::*, wrappers::read::*,
         };
-        pub use server_fn::{self, ServerFnError};
+        pub use server_fn::{self, error::ServerFnError};
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
-            view::{
-                any_view::AnyView, fragment::Fragment, template::ViewTemplate,
-            },
+            view::{fragment::Fragment, template::ViewTemplate},
         };
     }
     pub use export_types::*;

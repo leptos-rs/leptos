@@ -39,6 +39,9 @@ server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = "1.41"
 serde = "1.0"
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 csr = []
 hydrate = []
@@ -51,9 +54,16 @@ trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
 generic = ["server_fn_macro/generic"]
+# Having an erasure feature rather than normal --cfg erase_components for the proc macro crate is a workaround for this rust issue:
+# https://github.com/rust-lang/cargo/issues/4423
+# TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
+# This works around the issue by the non proc-macro crate which does see RUSTFLAGS enabling the replacement feature on the proc-macro crate, which wouldn't.
+# This is automatic as long as the leptos crate is depended upon, 
+# downstream usage should never manually enable this feature.
+__internal_erase_components = []
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly", "tracing", "trace-component-props"]
+denylist = ["tracing", "trace-component-props", "trace-components"]
 skip_feature_sets = [
   [
     "csr",
@@ -79,13 +89,14 @@ skip_feature_sets = [
     "generic",
     "axum",
   ],
+  [
+    "nightly",
+  ],
 ]
+max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(leptos_debuginfo)',
-  'cfg(erase_components)',
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rustc_nightly)'] }

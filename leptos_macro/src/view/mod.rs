@@ -428,6 +428,12 @@ fn element_children_to_tokens(
                 { #child }
             )
         })
+    } else if cfg!(feature = "__internal_erase_components") {
+        Some(quote! {
+            .child(
+                leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+            )
+        })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
         // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
@@ -473,6 +479,10 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
+    } else if cfg!(feature = "__internal_erase_components") {
+        Some(quote! {
+            leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+        })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
         // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
@@ -601,7 +611,7 @@ fn node_to_tokens(
 
 fn text_to_tokens(text: &LitStr) -> TokenStream {
     // on nightly, can use static string optimization
-    if cfg!(feature = "nightly") {
+    if cfg!(all(feature = "nightly", rustc_nightly)) {
         quote! {
             ::leptos::tachys::view::static_types::Static::<#text>
         }
@@ -757,10 +767,18 @@ pub(crate) fn element_to_tokens(
                 }
             }
         }
-        Some(quote! {
-            (#(#attributes,)*)
-            #(.add_any_attr(#additions))*
-        })
+
+        if cfg!(feature = "__internal_erase_components") {
+            Some(quote! {
+                vec![#(#attributes.into_any_attr(),)*]
+                #(.add_any_attr(#additions))*
+            })
+        } else {
+            Some(quote! {
+                (#(#attributes,)*)
+                #(.add_any_attr(#additions))*
+            })
+        }
     } else {
         let tag = name.to_string();
         // collect close_tag name to emit semantic information for IDE.
@@ -1494,7 +1512,7 @@ fn attribute_value(
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
                 if let Expr::Lit(lit) = expr {
-                    if cfg!(feature = "nightly") {
+                    if cfg!(all(feature = "nightly", rustc_nightly)) {
                         if let Lit::Str(str) = &lit.lit {
                             return quote! {
                                 ::leptos::tachys::view::static_types::Static::<#str>

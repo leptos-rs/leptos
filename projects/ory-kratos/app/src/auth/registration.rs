@@ -89,7 +89,7 @@ pub async fn init_registration() -> Result<RegistrationResponse, ServerFnError> 
 #[tracing::instrument(err)]
 #[server]
 pub async fn register(
-    body: HashMap<String, String>,
+    mut body: HashMap<String, String>,
 ) -> Result<RegistrationResponse, ServerFnError> {
     use ory_kratos_client::models::error_browser_location_change_required::ErrorBrowserLocationChangeRequired;
     use ory_kratos_client::models::generic_error::GenericError;
@@ -97,7 +97,6 @@ pub async fn register(
 
     let pool = leptos_axum::extract::<axum::Extension<sqlx::SqlitePool>>().await?;
 
-    let mut body = body;
     let action = body
         .remove("action")
         .ok_or(ServerFnError::new("Can't find action on body."))?;

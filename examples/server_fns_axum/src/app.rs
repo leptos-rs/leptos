@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use futures::{Sink, Stream, StreamExt};
 use http::Method;
 use leptos::{html::Input, prelude::*, task::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -9,8 +9,10 @@ use server_fn::{
         MultipartFormData, Postcard, Rkyv, SerdeLite, StreamingText,
         TextStream,
     },
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
-    response::{browser::BrowserResponse, ClientRes, Res},
+    response::{browser::BrowserResponse, ClientRes, TryRes},
+    ContentType,
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -654,32 +656,72 @@ pub fn FileWatcher() -> impl IntoView {
 /// implementations if you'd like. However, it's much lighter weight to use something like `strum`
 /// simply to generate those trait implementations.
 #[server]
-pub async fn ascii_uppercase(
-    text: String,
-) -> Result<String, ServerFnError<InvalidArgument>> {
+pub async fn ascii_uppercase(text: String) -> Result<String, MyErrors> {
+    other_error()?;
+    Ok(ascii_uppercase_inner(text)?)
+}
+
+pub fn other_error() -> Result<(), String> {
+    Ok(())
+}
+
+pub fn ascii_uppercase_inner(text: String) -> Result<String, InvalidArgument> {
     if text.len() < 5 {
-        Err(InvalidArgument::TooShort.into())
+        Err(InvalidArgument::TooShort)
     } else if text.len() > 15 {
-        Err(InvalidArgument::TooLong.into())
+        Err(InvalidArgument::TooLong)
     } else if text.is_ascii() {
         Ok(text.to_ascii_uppercase())
     } else {
-        Err(InvalidArgument::NotAscii.into())
+        Err(InvalidArgument::NotAscii)
     }
 }
 
+#[server]
+pub async fn ascii_uppercase_classic(
+    text: String,
+) -> Result<String, ServerFnError<InvalidArgument>> {
+    Ok(ascii_uppercase_inner(text)?)
+}
+
 // The EnumString and Display derive macros are provided by strum
-#[derive(Debug, Clone, EnumString, Display)]
+#[derive(Debug, Clone, Display, EnumString, Serialize, Deserialize)]
 pub enum InvalidArgument {
     TooShort,
     TooLong,
     NotAscii,
 }
 
+#[derive(Debug, Clone, Display, Serialize, Deserialize)]
+pub enum MyErrors {
+    InvalidArgument(InvalidArgument),
+    ServerFnError(ServerFnErrorErr),
+    Other(String),
+}
+
+impl From<InvalidArgument> for MyErrors {
+    fn from(value: InvalidArgument) -> Self {
+        MyErrors::InvalidArgument(value)
+    }
+}
+
+impl From<String> for MyErrors {
+    fn from(value: String) -> Self {
+        MyErrors::Other(value)
+    }
+}
+
+impl FromServerFnError for MyErrors {
+    fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+        MyErrors::ServerFnError(value)
+    }
+}
+
 #[component]
 pub fn CustomErrorTypes() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
     let (result, set_result) = signal(None);
+    let (result_classic, set_result_classic) = signal(None);
 
     view! {
         <h3>Using custom error types</h3>
@@ -694,14 +736,17 @@ pub fn CustomErrorTypes() -> impl IntoView {
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
-                let data = ascii_uppercase(value).await;
+                let data = ascii_uppercase(value.clone()).await;
+                let data_classic = ascii_uppercase_classic(value).await;
                 set_result.set(Some(data));
+                set_result_classic.set(Some(data_classic));
             });
         }>
 
             "Submit"
         </button>
         <p>{move || format!("{:?}", result.get())}</p>
+        <p>{move || format!("{:?}", result_classic.get())}</p>
     }
 }
 
@@ -719,8 +764,11 @@ pub struct Toml;
 #[derive(Serialize, Deserialize)]
 pub struct TomlEncoded<T>(T);
 
-impl Encoding for Toml {
+impl ContentType for Toml {
     const CONTENT_TYPE: &'static str = "application/toml";
+}
+
+impl Encoding for Toml {
     const METHOD: Method = Method::POST;
 }
 
@@ -728,14 +776,12 @@ impl<T, Request, Err> IntoReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: ClientReq<Err>,
     T: Serialize,
+    Err: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<Err>> {
-        let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, Err> {
+        let data = toml::to_string(&self.0).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post(path, Toml::CONTENT_TYPE, accepts, data)
     }
 }
@@ -744,23 +790,26 @@ impl<T, Request, Err> FromReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: Req<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
+    async fn from_req(req: Request) -> Result<Self, Err> {
         let string_data = req.try_into_string().await?;
         toml::from_str::<T>(&string_data)
             .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
 impl<T, Response, Err> IntoRes<Toml, Response, Err> for TomlEncoded<T>
 where
-    Response: Res<Err>,
+    Response: TryRes<Err>,
     T: Serialize + Send,
+    Err: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
-        let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    async fn into_res(self) -> Result<Response, Err> {
+        let data = toml::to_string(&self.0).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Response::try_from_string(Toml::CONTENT_TYPE, data)
     }
 }
@@ -769,12 +818,13 @@ impl<T, Response, Err> FromRes<Toml, Response, Err> for TomlEncoded<T>
 where
     Response: ClientRes<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
+    async fn from_res(res: Response) -> Result<Self, Err> {
         let data = res.try_into_string().await?;
-        toml::from_str(&data)
-            .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        toml::from_str(&data).map(TomlEncoded).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }
 
@@ -837,7 +887,10 @@ pub fn CustomClientExample() -> impl IntoView {
     pub struct CustomClient;
 
     // Implement the `Client` trait for it.
-    impl<CustErr> Client<CustErr> for CustomClient {
+    impl<E> Client<E> for CustomClient
+    where
+        E: FromServerFnError,
+    {
         // BrowserRequest and BrowserResponse are the defaults used by other server functions.
         // They are wrappers for the underlying Web Fetch API types.
         type Request = BrowserRequest;
@@ -846,8 +899,7 @@ pub fn CustomClientExample() -> impl IntoView {
         // Our custom `send()` implementation does all the work.
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
-               + Send {
+        ) -> impl Future<Output = Result<Self::Response, E>> + Send {
             // BrowserRequest derefs to the underlying Request type from gloo-net,
             // so we can get access to the headers here
             let headers = req.headers();
@@ -855,6 +907,24 @@ pub fn CustomClientExample() -> impl IntoView {
             headers.append("X-Custom-Header", "foobar");
             // delegate back out to BrowserClient to send the modified request
             BrowserClient::send(req)
+        }
+
+        fn open_websocket(
+            path: &str,
+        ) -> impl Future<
+            Output = Result<
+                (
+                    impl Stream<Item = Result<server_fn::Bytes, E>> + Send + 'static,
+                    impl Sink<Result<server_fn::Bytes, E>> + Send + 'static,
+                ),
+                E,
+            >,
+        > + Send {
+            BrowserClient::open_websocket(path)
+        }
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            <BrowserClient as Client<E>>::spawn(future)
         }
     }
 

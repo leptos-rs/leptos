@@ -140,7 +140,7 @@ pub async fn init_settings_flow(
 #[server]
 pub async fn update_settings(
     flow_id: String,
-    body: HashMap<String, String>,
+    mut body: HashMap<String, String>,
 ) -> Result<ViewableSettingsFlow, ServerFnError> {
     use ory_kratos_client::models::{
         ErrorBrowserLocationChangeRequired, ErrorGeneric, GenericError,
@@ -148,7 +148,6 @@ pub async fn update_settings(
     use reqwest::StatusCode;
     let session = leptos_axum::extract::<extractors::ExtractSession>().await?.0;
     tracing::error!("{session:#?}");
-    let mut body = body;
     let action = body
         .remove("action")
         .ok_or(ServerFnError::new("Can't find action on body."))?;

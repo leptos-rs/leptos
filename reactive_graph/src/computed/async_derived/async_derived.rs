@@ -5,7 +5,8 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
-    signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
+    send_wrapper_ext::MaybeSendWrapperOption,
+    signal::guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
         UntrackableGuard, Write,
@@ -13,8 +14,11 @@ use crate::{
     unwrap_signal,
 };
 use core::fmt::Debug;
-use send_wrapper::SendWrapper;
-use std::{future::Future, ops::DerefMut, panic::Location};
+use std::{
+    future::Future,
+    ops::{Deref, DerefMut},
+    panic::Location,
+};
 
 /// A reactive value that is derived by running an asynchronous computation in response to changes
 /// in its sources.
@@ -94,9 +98,10 @@ impl<T, S> Dispose for AsyncDerived<T, S> {
     }
 }
 
-impl<T> From<ArcAsyncDerived<T>> for AsyncDerived<T>
+impl<T, S> From<ArcAsyncDerived<T>> for AsyncDerived<T, S>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
 {
     fn from(value: ArcAsyncDerived<T>) -> Self {
         #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -109,12 +114,13 @@ where
     }
 }
 
-impl<T> From<AsyncDerived<T>> for ArcAsyncDerived<T>
+impl<T, S> From<AsyncDerived<T, S>> for ArcAsyncDerived<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
 {
     #[track_caller]
-    fn from(value: AsyncDerived<T>) -> Self {
+    fn from(value: AsyncDerived<T, S>) -> Self {
         value
             .inner
             .try_get_value()
@@ -179,7 +185,7 @@ where
     }
 }
 
-impl<T> AsyncDerived<SendWrapper<T>> {
+impl<T> AsyncDerived<T> {
     #[doc(hidden)]
     pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
     where
@@ -190,6 +196,24 @@ impl<T> AsyncDerived<SendWrapper<T>> {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
+        }
+    }
+
+    /// Same as [`AsyncDerived::new_unsync`] except it produces AsyncDerived<T> instead of AsyncDerived<T, LocalStorage>.
+    /// The internal value will still be wrapped in a [`send_wrapper::SendWrapper`].
+    pub fn new_unsync_threadsafe_storage<Fut>(
+        fun: impl Fn() -> Fut + 'static,
+    ) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        Self {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_unsync(
+                fun,
+            )),
         }
     }
 }
@@ -294,7 +318,10 @@ where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,
 {
-    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
+    type Value = ReadGuard<
+        Option<T>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
+    >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
@@ -324,13 +351,21 @@ where
         let guard = self
             .inner
             .try_with_value(|n| n.value.blocking_write_arc())?;
-        Some(WriteGuard::new(*self, guard))
+        Some(MappedMut::new(
+            WriteGuard::new(*self, guard),
+            |v| v.deref(),
+            |v| v.deref_mut(),
+        ))
     }
 
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        self.inner.try_with_value(|n| n.value.blocking_write_arc())
+        self.inner
+            .try_with_value(|n| n.value.blocking_write_arc())
+            .map(|inner| {
+                MappedMut::new(inner, |v| v.deref(), |v| v.deref_mut())
+            })
     }
 }
 

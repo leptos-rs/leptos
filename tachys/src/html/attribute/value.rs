@@ -202,7 +202,7 @@ impl<'a> AttributeValue for &'a str {
     }
 }
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const V: &'static str> AttributeValue
     for crate::view::static_types::Static<V>
 {

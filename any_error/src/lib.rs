@@ -17,11 +17,6 @@ use std::{
 
 /* Wrapper Types */
 
-/// This is a result type into which any error can be converted.
-///
-/// Results are stored as [`Error`].
-pub type Result<T, E = Error> = core::result::Result<T, E>;
-
 /// A generic wrapper for any error.
 #[derive(Debug, Clone)]
 #[repr(transparent)]

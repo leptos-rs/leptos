@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use tachys::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
@@ -87,6 +87,7 @@ impl<T: Render> Render for View<T> {
 
 impl<T: RenderHtml> RenderHtml for View<T> {
     type AsyncOutput = T::AsyncOutput;
+    type Owned = View<T::Owned>;
 
     const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
 
@@ -104,18 +105,24 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         let vm = self.view_marker.to_owned();
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         if let Some(vm) = vm.as_ref() {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
 
-        self.inner
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.inner.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
 
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         if let Some(vm) = vm.as_ref() {
             buf.push_str(&format!("<!--hot-reload|{vm}|close-->"));
         }
@@ -127,12 +134,13 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         let vm = self.view_marker.to_owned();
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         if let Some(vm) = vm.as_ref() {
             buf.push_sync(&format!("<!--hot-reload|{vm}|open-->"));
         }
@@ -142,9 +150,10 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
         if let Some(vm) = vm.as_ref() {
             buf.push_sync(&format!("<!--hot-reload|{vm}|close-->"));
         }
@@ -156,6 +165,14 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &PositionState,
     ) -> Self::State {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        View {
+            inner: self.inner.into_owned(),
+            #[cfg(debug_assertions)]
+            view_marker: self.view_marker,
+        }
     }
 }
 

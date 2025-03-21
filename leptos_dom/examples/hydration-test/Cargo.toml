@@ -19,3 +19,6 @@ futures = "0.3.0"
 default = ["ssr"]
 ssr = ["leptos/ssr", "dep:actix-files", "dep:actix-web"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:gloo"]
+
+[package.metadata.cargo-all-features]
+max_combination_size = 2

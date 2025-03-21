@@ -10,6 +10,9 @@ on:
       - main
       - leptos_0.6
       - leptos_0.8
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   get-example-changed:
     uses: ./.github/workflows/get-example-changed.yml
@@ -28,5 +31,6 @@ jobs:
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
+      erased_mode: ${{ matrix.erased_mode }}
       cargo_make_task: "ci"
       toolchain: stable

@@ -571,7 +571,7 @@ impl IntoClass for (&'static str, bool) {
     }
 }
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const V: &'static str> IntoClass for crate::view::static_types::Static<V> {
     const TEMPLATE: &'static str = V;
 

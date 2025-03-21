@@ -1,6 +1,6 @@
 //! Macros for use with the Leptos framework.
 
-#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
@@ -281,7 +281,11 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
-    view_macro_impl(tokens, true)
+    if cfg!(feature = "__internal_erase_components") {
+        view(tokens)
+    } else {
+        view_macro_impl(tokens, true)
+    }
 }
 
 fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
@@ -355,7 +359,7 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
 
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
-        if #[cfg(all(debug_assertions, feature = "nightly"))] {
+        if #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))] {
             Some(leptos_hot_reload::span_to_stable_id(
                 site.source_file().path(),
                 site.start().line()
@@ -923,7 +927,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         args.into(),
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
-        "/api",
+        option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
     ) {

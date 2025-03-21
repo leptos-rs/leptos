@@ -1,4 +1,4 @@
-#[cfg(not(erase_components))]
+#[cfg(not(feature = "__internal_erase_components"))]
 #[test]
 fn ui() {
     let t = trybuild::TestCases::new();

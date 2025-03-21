@@ -42,11 +42,7 @@ typed-builder = "0.20.0"
 typed-builder-macro = "0.20.0"
 serde = "1.0"
 serde_json = { version = "1.0", optional = true }
-server_fn = { workspace = true, features = [
-  "form-redirects",
-  "browser",
-  "url",
-] }
+server_fn = { workspace = true, features = ["form-redirects", "browser"] }
 web-sys = { version = "0.3.72", features = [
   "ShadowRoot",
   "ShadowRootInit",
@@ -100,9 +96,20 @@ trace-component-props = [
 ]
 delegation = ["tachys/delegation"]
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
+# Having an erasure feature rather than normal --cfg erase_components for the proc macro crate is a workaround for this rust issue:
+# https://github.com/rust-lang/cargo/issues/4423
+# TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
+# This works around the issue by the non proc-macro crate which does see RUSTFLAGS enabling the replacement feature on the proc-macro crate, which wouldn't.
+# This is automatic as long as the leptos crate is depended upon, 
+# downstream usage should never manually enable this feature.
+[target.'cfg(erase_components)'.dependencies]
+leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
+
 [package.metadata.cargo-all-features]
 denylist = [
-  "nightly",
   "tracing",
   "template_macro",
   "rustls",
@@ -114,50 +121,26 @@ denylist = [
   "islands",
 ]
 skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "rkyv",
-  ],
-  [
-    "miniserde",
-    "rkyv",
-  ],
-  [
-    "serde-lite",
-    "rkyv",
-  ],
-  [
-    "default-tls",
-    "rustls",
-  ],
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["ssr", "hydrate"],
+  ["serde", "serde-lite"],
+  ["serde-lite", "miniserde"],
+  ["serde", "miniserde"],
+  ["serde", "rkyv"],
+  ["miniserde", "rkyv"],
+  ["serde-lite", "rkyv"],
+  ["default-tls", "rustls"],
+  # do not test against nightly feature alone
+  ["nightly"],
 ]
+max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(leptos_debuginfo)',
+  'cfg(rustc_nightly)',
+] }

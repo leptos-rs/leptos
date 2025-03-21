@@ -16,6 +16,11 @@ xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
 const_format = "0.2.33"
 convert_case = "0.6.0"
 
+
+[build-dependencies]
+rustc_version = "0.4.1"
+
+
 [features]
 nightly = []
 ssr = []
@@ -26,3 +31,10 @@ reqwest = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.cargo-all-features]
+max_combination_size = 2
+skip_feature_sets = [["nightly"]]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rustc_nightly)'] }

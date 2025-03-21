@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.7.8"
+version = "0.8.0-beta"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -56,6 +56,9 @@ features = [
   "Response",
 ]
 
+[build-dependencies]
+rustc_version = "0.4.1"
+
 [features]
 tracing = ["dep:tracing"]
 ssr = ["dep:percent-encoding"]
@@ -66,3 +69,11 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+max_combination_size = 2
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(leptos_debuginfo)',
+  'cfg(erase_components)',
+  'cfg(rustc_nightly)',
+] }

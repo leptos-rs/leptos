@@ -1,9 +1,8 @@
 #[cfg(not(feature = "ssr"))]
 pub mod tests {
-
     use leptos::{
         server,
-        server_fn::{codec, ServerFn, ServerFnError},
+        server_fn::{codec, Http, ServerFn, ServerFnError},
     };
     use std::any::TypeId;
 
@@ -19,8 +18,8 @@ pub mod tests {
             "/api/my_server_action"
         );
         assert_eq!(
-            TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::PostUrl>()
+            TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -32,8 +31,8 @@ pub mod tests {
         }
         assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
         assert_eq!(
-            TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::Cbor>()
+            TypeId::of::<<FooBar as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::Cbor, codec::Cbor>>()
         );
     }
 
@@ -45,8 +44,8 @@ pub mod tests {
         }
         assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
         assert_eq!(
-            TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::Cbor>()
+            TypeId::of::<<FooBar as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::Cbor, codec::Cbor>>()
         );
     }
 
@@ -58,8 +57,8 @@ pub mod tests {
         }
         assert_eq!(<FooBar as ServerFn>::PATH, "/api/my_path");
         assert_eq!(
-            TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::PostUrl>()
+            TypeId::of::<<FooBar as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -74,8 +73,8 @@ pub mod tests {
             "/api/my_server_action"
         );
         assert_eq!(
-            TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::PostUrl>()
+            TypeId::of::<<FooBar as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -91,8 +90,8 @@ pub mod tests {
             "/foo/bar/my_server_action"
         );
         assert_eq!(
-            TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::PostUrl>()
+            TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 
@@ -108,8 +107,8 @@ pub mod tests {
             "/api/my_server_action"
         );
         assert_eq!(
-            TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::GetUrl>()
+            TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::GetUrl, codec::Json>>()
         );
     }
 
@@ -124,8 +123,8 @@ pub mod tests {
             "/api/path/to/my/endpoint"
         );
         assert_eq!(
-            TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(),
-            TypeId::of::<codec::PostUrl>()
+            TypeId::of::<<MyServerAction as ServerFn>::Protocol>(),
+            TypeId::of::<Http<codec::PostUrl, codec::Json>>()
         );
     }
 }

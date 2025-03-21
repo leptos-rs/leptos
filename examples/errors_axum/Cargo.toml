@@ -13,7 +13,7 @@ leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
 serde = { version = "1.0", features = ["derive"] }
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.8.1", optional = true }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }

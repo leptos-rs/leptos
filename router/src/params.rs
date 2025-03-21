@@ -200,7 +200,7 @@ where
 }
 
 // TODO can we support Option<T> and T in a non-nightly way?
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 mod option_param {
     use super::{IntoParam, ParamsError};
     use std::{str::FromStr, sync::Arc};

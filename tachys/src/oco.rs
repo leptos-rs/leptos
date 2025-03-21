@@ -1,5 +1,9 @@
 use crate::{
-    html::{attribute::AttributeValue, class::IntoClass, style::IntoStyle},
+    html::{
+        attribute::{any_attribute::AnyAttribute, AttributeValue},
+        class::IntoClass,
+        style::IntoStyle,
+    },
     hydration::Cursor,
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
@@ -35,6 +39,7 @@ no_attrs!(Oco<'static, str>);
 
 impl RenderHtml for Oco<'static, str> {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -50,6 +55,7 @@ impl RenderHtml for Oco<'static, str> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
@@ -57,6 +63,7 @@ impl RenderHtml for Oco<'static, str> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         )
     }
 
@@ -70,6 +77,10 @@ impl RenderHtml for Oco<'static, str> {
             this, cursor, position,
         );
         OcoStrState { node, str: self }
+    }
+
+    fn into_owned(self) -> <Self as RenderHtml>::Owned {
+        self
     }
 }
 
@@ -104,6 +115,10 @@ impl Mountable for OcoStrState {
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.node.insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 

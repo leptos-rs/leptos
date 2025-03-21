@@ -1,5 +1,6 @@
 use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
+    html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
     no_attrs,
     renderer::{CastFrom, Rndr},
@@ -40,6 +41,10 @@ macro_rules! render_primitive {
 					) -> bool {
                         self.0.insert_before_this(child)
 					}
+
+					fn elements(&self) -> Vec<crate::renderer::types::Element> {
+						vec![]
+					}
 			}
 
 			impl Render for $child_type {
@@ -65,6 +70,7 @@ macro_rules! render_primitive {
 			impl RenderHtml for $child_type
 			{
 				type AsyncOutput = Self;
+				type Owned = Self;
 
 				const MIN_LENGTH: usize = 0;
 
@@ -74,7 +80,7 @@ macro_rules! render_primitive {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
 					// add a comment node to separate from previous sibling, if any
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
@@ -109,6 +115,10 @@ macro_rules! render_primitive {
 					position.set(Position::NextChildAfterText);
 
 					[<$child_type:camel State>](node, self)
+				}
+
+				fn into_owned(self) -> Self::Owned {
+					self
 				}
 			}
 

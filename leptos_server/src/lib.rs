@@ -79,7 +79,7 @@ mod view_implementations {
     use reactive_graph::traits::Read;
     use std::future::Future;
     use tachys::{
-        html::attribute::Attribute,
+        html::attribute::{any_attribute::AnyAttribute, Attribute},
         hydration::Cursor,
         reactive_graph::{RenderEffectState, Suspend, SuspendState},
         ssr::StreamBuilder,
@@ -135,6 +135,7 @@ mod view_implementations {
         Ser: Send + 'static,
     {
         type AsyncOutput = Option<T>;
+        type Owned = Self;
 
         const MIN_LENGTH: usize = 0;
 
@@ -152,12 +153,14 @@ mod view_implementations {
             position: &mut Position,
             escape: bool,
             mark_branches: bool,
+            extra_attrs: Vec<AnyAttribute>,
         ) {
             (move || Suspend::new(async move { self.await })).to_html_with_buf(
                 buf,
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             );
         }
 
@@ -167,6 +170,7 @@ mod view_implementations {
             position: &mut Position,
             escape: bool,
             mark_branches: bool,
+            extra_attrs: Vec<AnyAttribute>,
         ) where
             Self: Sized,
         {
@@ -176,6 +180,7 @@ mod view_implementations {
                     position,
                     escape,
                     mark_branches,
+                    extra_attrs,
                 );
         }
 
@@ -186,6 +191,10 @@ mod view_implementations {
         ) -> Self::State {
             (move || Suspend::new(async move { self.await }))
                 .hydrate::<FROM_SERVER>(cursor, position)
+        }
+
+        fn into_owned(self) -> Self::Owned {
+            self
         }
     }
 }

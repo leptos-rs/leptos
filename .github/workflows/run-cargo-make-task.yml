@@ -5,6 +5,9 @@ on:
       directory:
         required: true
         type: string
+      erased_mode:
+        required: true
+        type: boolean
       cargo_make_task:
         required: true
         type: string
@@ -15,9 +18,12 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   DEBIAN_FRONTEND: noninteractive
+  RUSTFLAGS: ${{ inputs.erased_mode && '--cfg erase_components' || '' }}
+  LEPTOS_TAILWIND_VERSION: v4.0.14
+  LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
+    name: "Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
     runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space
@@ -26,11 +32,19 @@ jobs:
           df -h
           sudo rm -rf /usr/local/.ghcup
           sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/node_modules
           sudo apt-get clean
+          sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^llvm-.*' '^mono-.*' '^php.*' '^ruby.*'
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af
+          docker image prune -af
+          docker volume prune -f
           echo "Disk space after cleanup:"
           df -h
       # Setup environment
@@ -121,8 +135,27 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
           fi
+      - name: Enter ${{ inputs.directory }}
+        run: |
+          cd ${{ inputs.directory }}
+      - name: Install Tailwind and Sass dependencies
+        if: contains(inputs.directory, 'examples')
+        run: |
+          tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
+          sass_version="$LEPTOS_SASS_VERSION"
+          pnpm add "tailwindcss@$tailwindcss_version" "@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
+
+          echo "Tailwind CSS version:"
+          ./node_modules/.bin/tailwindcss --version
+
+          echo "Sass version:"
+          ./node_modules/.bin/sass --version
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          cd ${{ inputs.directory }}
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
+      - name: Clean up ${{ inputs.directory }}
+        if: always()
+        run: |
+          cargo clean || true
+          rm -rf node_modules || true

@@ -19,3 +19,7 @@ nightly = ["server_fn_macro/nightly"]
 ssr = ["server_fn_macro/ssr"]
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
+
+[package.metadata.cargo-all-features]
+max_combination_size = 2
+skip_feature_sets = [["nightly"]]

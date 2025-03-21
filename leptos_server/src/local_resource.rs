@@ -8,15 +8,15 @@ use reactive_graph::{
         ToAnySource, ToAnySubscriber,
     },
     owner::use_context,
+    send_wrapper_ext::MaybeSendWrapperOption,
     signal::{
-        guards::{AsyncPlain, ReadGuard},
+        guards::{AsyncPlain, Mapped, ReadGuard},
         ArcRwSignal, RwSignal,
     },
     traits::{
         DefinedAt, IsDisposed, ReadUntracked, Track, Update, With, Write,
     },
 };
-use send_wrapper::SendWrapper;
 use std::{
     future::{pending, Future, IntoFuture},
     panic::Location,
@@ -24,7 +24,7 @@ use std::{
 
 /// A reference-counted resource that only loads its data locally on the client.
 pub struct ArcLocalResource<T> {
-    data: ArcAsyncDerived<SendWrapper<T>>,
+    data: ArcAsyncDerived<T>,
     refetch: ArcRwSignal<usize>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
@@ -71,19 +71,16 @@ impl<T> ArcLocalResource<T> {
                 }
             }
         };
-
         let refetch = ArcRwSignal::new(0);
 
         Self {
             data: if cfg!(feature = "ssr") {
                 ArcAsyncDerived::new_mock(fetcher)
             } else {
-                let fetcher = SendWrapper::new(fetcher);
                 let refetch = refetch.clone();
-                ArcAsyncDerived::new(move || {
+                ArcAsyncDerived::new_unsync(move || {
                     refetch.track();
-                    let fut = fetcher();
-                    SendWrapper::new(async move { SendWrapper::new(fut.await) })
+                    fetcher()
                 })
             },
             refetch,
@@ -100,7 +97,7 @@ impl<T> ArcLocalResource<T> {
     /// Synchronously, reactively reads the current value of the resource and applies the function
     /// `f` to its value if it is `Some(_)`.
     #[track_caller]
-    pub fn map<U>(&self, f: impl FnOnce(&SendWrapper<T>) -> U) -> Option<U>
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
     where
         T: 'static,
     {
@@ -131,14 +128,9 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = futures::future::Map<
-        AsyncDerivedFuture<SendWrapper<T>>,
-        fn(SendWrapper<T>) -> T,
-    >;
+    type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
-        use futures::FutureExt;
-
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
         } else if cfg!(feature = "ssr") {
@@ -148,7 +140,7 @@ where
                  always pending on the server."
             );
         }
-        self.data.into_future().map(|value| (*value).clone())
+        self.data.into_future()
     }
 }
 
@@ -169,8 +161,10 @@ impl<T> ReadUntracked for ArcLocalResource<T>
 where
     T: 'static,
 {
-    type Value =
-        ReadGuard<Option<SendWrapper<T>>, AsyncPlain<Option<SendWrapper<T>>>>;
+    type Value = ReadGuard<
+        Option<T>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
+    >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
@@ -243,7 +237,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
 
 /// A resource that only loads its data locally on the client.
 pub struct LocalResource<T> {
-    data: AsyncDerived<SendWrapper<T>>,
+    data: AsyncDerived<T>,
     refetch: RwSignal<usize>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
@@ -293,11 +287,9 @@ impl<T> LocalResource<T> {
             data: if cfg!(feature = "ssr") {
                 AsyncDerived::new_mock(fetcher)
             } else {
-                let fetcher = SendWrapper::new(fetcher);
-                AsyncDerived::new(move || {
+                AsyncDerived::new_unsync_threadsafe_storage(move || {
                     refetch.track();
-                    let fut = fetcher();
-                    SendWrapper::new(async move { SendWrapper::new(fut.await) })
+                    fetcher()
                 })
             },
             refetch,
@@ -317,14 +309,9 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = futures::future::Map<
-        AsyncDerivedFuture<SendWrapper<T>>,
-        fn(SendWrapper<T>) -> T,
-    >;
+    type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
-        use futures::FutureExt;
-
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
         } else if cfg!(feature = "ssr") {
@@ -334,7 +321,7 @@ where
                  always pending on the server."
             );
         }
-        self.data.into_future().map(|value| (*value).clone())
+        self.data.into_future()
     }
 }
 
@@ -355,8 +342,10 @@ impl<T> ReadUntracked for LocalResource<T>
 where
     T: 'static,
 {
-    type Value =
-        ReadGuard<Option<SendWrapper<T>>, AsyncPlain<Option<SendWrapper<T>>>>;
+    type Value = ReadGuard<
+        Option<T>,
+        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
+    >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {

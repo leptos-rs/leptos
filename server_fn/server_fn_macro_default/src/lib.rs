@@ -73,8 +73,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
-        Some(syn::parse_quote!(server_fns)),
-        "/api",
+        Some(syn::parse_quote!(server_fn)),
+        option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
     ) {

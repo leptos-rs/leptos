@@ -1,4 +1,4 @@
-use super::attribute::Attribute;
+use super::attribute::{any_attribute::AnyAttribute, Attribute};
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
@@ -100,6 +100,7 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = Island<View::AsyncOutput>;
+    type Owned = Island<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -130,10 +131,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         Self::open_tag(self.component, &self.props_json, buf);
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         Self::close_tag(buf);
     }
 
@@ -143,6 +150,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -157,6 +165,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         // and insert the closing tag synchronously
@@ -178,6 +187,14 @@ where
         position.set(Position::FirstChild);
 
         self.view.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        Island {
+            component: self.component,
+            props_json: self.props_json,
+            view: self.view.into_owned(),
+        }
     }
 }
 
@@ -259,6 +276,7 @@ where
     View: RenderHtml,
 {
     type AsyncOutput = IslandChildren<View::AsyncOutput>;
+    type Owned = IslandChildren<View::Owned>;
 
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
@@ -283,10 +301,16 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         Self::open_tag(buf);
-        self.view
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.view.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
         Self::close_tag(buf);
     }
 
@@ -296,6 +320,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -310,6 +335,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         // and insert the closing tag synchronously
@@ -354,6 +380,13 @@ where
                 &wasm_bindgen::JsValue::from_str("$$on_hydrate"),
                 &cb.into_js_value(),
             );
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        IslandChildren {
+            view: self.view.into_owned(),
+            on_hydrate: self.on_hydrate,
         }
     }
 }
