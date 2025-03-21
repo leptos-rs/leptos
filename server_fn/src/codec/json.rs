@@ -1,5 +1,4 @@
-use super::Patch;
-use super::Post;
+use super::{Patch, Post};
 use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
