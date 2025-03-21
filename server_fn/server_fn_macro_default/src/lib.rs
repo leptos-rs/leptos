@@ -68,6 +68,94 @@ use syn::__private::ToTokens;
 ///   // etc.
 /// }
 /// ```
+///
+/// ## Generic Server Functions
+/// You can make your server function generic by writing the function generically and adding a register attribute which will works like (and overrides) the endpoint attribute.
+/// but for specific identities of your generic server function.
+///
+/// When a generic type is not found in the inputs and is instead only found in the return type or the body the server function struct will include a `PhantomData<T>`
+/// Where T is the not found type. Or in the case of multiple not found types T,...,Tn will include them in a tuple. i.e `PhantomData<(T,...,Tn)>`
+///
+/// ```rust, ignore
+/// #[server]
+/// #[register(
+///     <SpecificT,DefaultU>,
+///     <OtherSpecificT,NotDefaultU>="other_struct_has_specific_route"
+/// )]
+/// pub async fn my_generic_server_fn<T : SomeTrait, U = DefaultU>(input:T) -> Result<(), ServerFnError>
+///     where
+///     U: ThisTraitIsInAWhereClause
+///  {
+///     todo!()
+/// }
+///
+/// // expands to
+/// #[derive(Deserialize, Serialize)]
+/// struct MyGenericServerFn<T,U>
+///     where
+///        // we require these traits always for generic fn input
+///        T : SomeTrait + Send + Serialize + DeserializeOwned + 'static,
+///        U : ThisTraitIsInAWhereClause  {
+///     _marker:PhantomData<U>
+///     input: T
+/// }
+///
+/// impl ServerFn for MyGenericServerFn<SpecificT,DefaultU> {
+///  // where our endpoint will be generated for us and unique to this type
+///   const PATH: &'static str = "/api/...generated_endpoint...";
+///     // ...
+/// }
+///
+/// impl ServerFn for MyGenericServerFn<OtherSpecificT,NotDefaultU> {
+///   const PATH: &'static str = "/api/other_struct_has_specific_route";
+///     // ..
+/// }
+/// ```
+///
+/// If your server function is generic over types that are not isomorphic, i.e a backend type or a database connection. You can use the `generic_fn`
+/// module helper shims to create
+/// the traits types and impls that the server macro will use to map the client side code onto the backend.
+///
+/// You can find more details about the macros in their respective `generic_fn` module.
+///
+/// ```rust,ignore
+/// ssr_type_shim!(BackendType);
+/// // generates
+/// pub struct BackendTypePhantom;
+/// #[cfg(feature="ssr")]
+/// impl ServerType for BackendTypePhantom{
+///     type ServerType = BackendType;
+/// }
+/// ssr_trait_shim!(BackendTrait);
+/// // generates
+/// pub trait BackendTraitConstraint{}
+/// ssr_impl_shim!(BackendType:BackendTrait);
+/// // generates
+/// impl BackendTypeConstraint for BackendTypePhantom{}
+///
+/// // see below how we are now registered with the phantom struct and not the original struct,
+/// // the server macro will "move through" the phantom struct via it's ServerType implemented above to find the server type and pass that to your server function.
+/// // We do this for any specified struct, in a register attribute, with no generic parameters that ends in the word Phantom. i.e Type1Phantom, DbPhantom, Phantom, PhantomPhantom, etc.
+/// #[server]
+/// #[register(<BackendTypePhantom,DefaultU>)]
+/// pub async fn generic_fn<T:BackendTrait,U = DefaultU>() -> Result<U,ServerFnError> {
+///     todo!()
+/// }
+///
+/// // expands to
+/// #[derive(Deserialize, Serialize)]
+/// struct GenericFc<T,U>
+///     where
+///        T : BackendTraitConstraint, {
+///     _marker:PhantomData<(T,U)>
+/// }
+///
+/// impl ServerFn for GenericFn<BackendTypePhantom,DefaultU> {
+///     // same as above...
+/// }
+/// ```
+///
+/// And can be referenced in your frontend code a `T:BackendTraitConstraint`.
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
