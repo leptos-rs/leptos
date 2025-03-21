@@ -110,7 +110,6 @@ leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
 
 [package.metadata.cargo-all-features]
 denylist = [
-  "nightly",
   "tracing",
   "template_macro",
   "rustls",
