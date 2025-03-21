@@ -33,4 +33,4 @@ jobs:
       directory: ${{ matrix.directory }}
       erased_mode: ${{ matrix.erased_mode }}
       cargo_make_task: "ci"
-      toolchain: stable
+      toolchain: '["stable", "nightly-2025-03-05"]'

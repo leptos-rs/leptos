@@ -23,8 +23,11 @@ env:
   LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: "Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
+    name: "Run ${{ inputs.cargo_make_task }} (${{ matrix.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: ${{ fromJSON(inputs.toolchain) }}
     steps:
       - name: Free Disk Space
         run: |
@@ -56,7 +59,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ inputs.toolchain }}
+          toolchain: ${{ matrix.toolchain }}
       - name: Add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
       - name: Setup cargo-make
