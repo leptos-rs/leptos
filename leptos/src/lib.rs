@@ -172,7 +172,10 @@ pub mod prelude {
             actions::*, computed::*, effect::*, graph::untrack, owner::*,
             signal::*, wrappers::read::*,
         };
-        pub use server_fn::{self, error::ServerFnError};
+        pub use server_fn::{
+            self,
+            error::{FromServerFnError, ServerFnError},
+        };
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
             view::{fragment::Fragment, template::ViewTemplate},
