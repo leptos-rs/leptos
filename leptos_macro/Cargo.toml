@@ -89,6 +89,9 @@ skip_feature_sets = [
     "generic",
     "axum",
   ],
+  [
+    "nightly",
+  ],
 ]
 max_combination_size = 2
 

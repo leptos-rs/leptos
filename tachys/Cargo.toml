@@ -202,6 +202,9 @@ skip_feature_sets = [
     "ssr",
     "delegation",
   ],
+  [
+    "nightly",
+  ],
 ]
 max_combination_size = 2
 
