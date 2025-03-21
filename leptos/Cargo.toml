@@ -121,46 +121,18 @@ denylist = [
   "islands",
 ]
 skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "rkyv",
-  ],
-  [
-    "miniserde",
-    "rkyv",
-  ],
-  [
-    "serde-lite",
-    "rkyv",
-  ],
-  [
-    "default-tls",
-    "rustls",
-  ],
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["ssr", "hydrate"],
+  ["serde", "serde-lite"],
+  ["serde-lite", "miniserde"],
+  ["serde", "miniserde"],
+  ["serde", "rkyv"],
+  ["miniserde", "rkyv"],
+  ["serde-lite", "rkyv"],
+  ["default-tls", "rustls"],
+  # do not test against nightly feature alone
+  ["nightly"],
 ]
 max_combination_size = 2
 
