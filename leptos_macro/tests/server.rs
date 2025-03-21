@@ -14,7 +14,7 @@ pub mod tests {
             Ok(())
         }
         assert_eq!(
-            <MyServerAction as ServerFn>::PATH
+            <MyServerAction as ServerFn>::url()
                 .trim_end_matches(char::is_numeric),
             "/api/my_server_action"
         );
@@ -30,7 +30,7 @@ pub mod tests {
         pub async fn my_server_action() -> Result<(), ServerFnError> {
             Ok(())
         }
-        assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
+        assert_eq!(<FooBar as ServerFn>::url(), "/foo/bar/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
             TypeId::of::<codec::Cbor>()
@@ -43,7 +43,7 @@ pub mod tests {
         pub async fn my_server_action() -> Result<(), ServerFnError> {
             Ok(())
         }
-        assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
+        assert_eq!(<FooBar as ServerFn>::url(), "/foo/bar/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
             TypeId::of::<codec::Cbor>()
@@ -56,7 +56,7 @@ pub mod tests {
         pub async fn my_server_action() -> Result<(), ServerFnError> {
             Ok(())
         }
-        assert_eq!(<FooBar as ServerFn>::PATH, "/api/my_path");
+        assert_eq!(<FooBar as ServerFn>::url(), "/api/my_path");
         assert_eq!(
             TypeId::of::<<FooBar as ServerFn>::InputEncoding>(),
             TypeId::of::<codec::PostUrl>()
@@ -70,7 +70,7 @@ pub mod tests {
             Ok(())
         }
         assert_eq!(
-            <FooBar as ServerFn>::PATH.trim_end_matches(char::is_numeric),
+            <FooBar as ServerFn>::url().trim_end_matches(char::is_numeric),
             "/api/my_server_action"
         );
         assert_eq!(
@@ -86,7 +86,7 @@ pub mod tests {
             Ok(())
         }
         assert_eq!(
-            <MyServerAction as ServerFn>::PATH
+            <MyServerAction as ServerFn>::url()
                 .trim_end_matches(char::is_numeric),
             "/foo/bar/my_server_action"
         );
@@ -103,7 +103,7 @@ pub mod tests {
             Ok(())
         }
         assert_eq!(
-            <MyServerAction as ServerFn>::PATH
+            <MyServerAction as ServerFn>::url()
                 .trim_end_matches(char::is_numeric),
             "/api/my_server_action"
         );
@@ -120,7 +120,7 @@ pub mod tests {
             Ok(())
         }
         assert_eq!(
-            <MyServerAction as ServerFn>::PATH,
+            <MyServerAction as ServerFn>::url(),
             "/api/path/to/my/endpoint"
         );
         assert_eq!(
