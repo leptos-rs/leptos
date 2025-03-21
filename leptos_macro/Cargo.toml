@@ -63,7 +63,7 @@ generic = ["server_fn_macro/generic"]
 __internal_erase_components = []
 
 [package.metadata.cargo-all-features]
-denylist = ["tracing", "trace-component-props"]
+denylist = ["tracing", "trace-component-props", "trace-components"]
 skip_feature_sets = [
   [
     "csr",
