@@ -177,7 +177,10 @@ pub mod prelude {
             signal::*,
             wrappers::{read::*, write::*},
         };
-        pub use server_fn::{self, error::ServerFnError};
+        pub use server_fn::{
+            self,
+            error::{FromServerFnError, ServerFnError},
+        };
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
             view::{fragment::Fragment, template::ViewTemplate},
