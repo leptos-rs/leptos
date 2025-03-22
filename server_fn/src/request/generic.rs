@@ -24,17 +24,20 @@ use futures::{
 use http::{Request, Response};
 use std::borrow::Cow;
 
-impl<E> Req<E> for Request<Bytes>
+impl<Error, InputStreamError, OutputStreamError>
+    Req<Error, InputStreamError, OutputStreamError> for Request<Bytes>
 where
-    E: FromServerFnError + Send,
+    Error: FromServerFnError + Send,
+    InputStreamError: FromServerFnError + Send,
+    OutputStreamError: FromServerFnError + Send,
 {
     type WebsocketResponse = Response<Bytes>;
 
-    async fn try_into_bytes(self) -> Result<Bytes, E> {
+    async fn try_into_bytes(self) -> Result<Bytes, Error> {
         Ok(self.into_body())
     }
 
-    async fn try_into_string(self) -> Result<String, E> {
+    async fn try_into_string(self) -> Result<String, Error> {
         String::from_utf8(self.into_body().into()).map_err(|err| {
             ServerFnErrorErr::Deserialization(err.to_string()).into_app_error()
         })
@@ -42,7 +45,10 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, Error>> + Send + 'static,
+        Error,
+    > {
         Ok(stream::iter(self.into_body())
             .ready_chunks(16)
             .map(|chunk| Ok(Bytes::from(chunk))))
@@ -74,21 +80,25 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl Sink<Result<Bytes, E>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
+            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
             Self::WebsocketResponse,
         ),
-        E,
+        Error,
     > {
         Err::<
             (
-                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                futures::sink::Drain<Result<Bytes, E>>,
+                futures::stream::Once<
+                    std::future::Ready<Result<Bytes, InputStreamError>>,
+                >,
+                futures::sink::Drain<Result<Bytes, OutputStreamError>>,
                 Self::WebsocketResponse,
             ),
             _,
-        >(E::from_server_fn_error(crate::ServerFnErrorErr::Response(
-            "Websockets are not supported on this platform.".to_string(),
-        )))
+        >(Error::from_server_fn_error(
+            crate::ServerFnErrorErr::Response(
+                "Websockets are not supported on this platform.".to_string(),
+            ),
+        ))
     }
 }

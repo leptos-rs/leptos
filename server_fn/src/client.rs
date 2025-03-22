@@ -23,16 +23,21 @@ pub fn get_server_url() -> &'static str {
 /// This trait is implemented for things like a browser `fetch` request or for
 /// the `reqwest` trait. It should almost never be necessary to implement it
 /// yourself, unless you’re trying to use an alternative HTTP crate on the client side.
-pub trait Client<E> {
+pub trait Client<
+    Error,
+    InputStreamError = Error,
+    OutputStreamError = Error,
+>
+{
     /// The type of a request sent by this client.
-    type Request: ClientReq<E> + Send + 'static;
+    type Request: ClientReq<Error> + Send + 'static;
     /// The type of a response received by this client.
-    type Response: ClientRes<E> + Send + 'static;
+    type Response: ClientRes<Error> + Send + 'static;
 
     /// Sends the request and receives a response.
     fn send(
         req: Self::Request,
-    ) -> impl Future<Output = Result<Self::Response, E>> + Send;
+    ) -> impl Future<Output = Result<Self::Response, Error>> + Send;
 
     /// Opens a websocket connection to the server.
     #[allow(clippy::type_complexity)]
@@ -41,10 +46,10 @@ pub trait Client<E> {
     ) -> impl Future<
         Output = Result<
             (
-                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-                impl Sink<Result<Bytes, E>> + Send + 'static,
+                impl Stream<Item = Result<Bytes, OutputStreamError>> + Send + 'static,
+                impl Sink<Result<Bytes, InputStreamError>> + Send + 'static,
             ),
-            E,
+            Error,
         >,
     > + Send;
 
@@ -70,13 +75,19 @@ pub mod browser {
     /// Implements [`Client`] for a `fetch` request in the browser.
     pub struct BrowserClient;
 
-    impl<E: FromServerFnError> Client<E> for BrowserClient {
+    impl<
+            Error: FromServerFnError,
+            InputStreamError: FromServerFnError,
+            OutputStreamError: FromServerFnError,
+        > Client<Error, InputStreamError, OutputStreamError> for BrowserClient
+    {
         type Request = BrowserRequest;
         type Response = BrowserResponse;
 
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, E>> + Send {
+        ) -> impl Future<Output = Result<Self::Response, Error>> + Send
+        {
             SendWrapper::new(async move {
                 let req = req.0.take();
                 let RequestInner {
@@ -106,10 +117,12 @@ pub mod browser {
         ) -> impl Future<
             Output = Result<
                 (
-                    impl futures::Stream<Item = Result<Bytes, E>> + Send + 'static,
-                    impl futures::Sink<Result<Bytes, E>> + Send + 'static,
+                    impl futures::Stream<Item = Result<Bytes, OutputStreamError>>
+                        + Send
+                        + 'static,
+                    impl futures::Sink<Result<Bytes, InputStreamError>> + Send + 'static,
                 ),
-                E,
+                Error,
             >,
         > + Send {
             SendWrapper::new(async move {
@@ -117,18 +130,18 @@ pub mod browser {
                     gloo_net::websocket::futures::WebSocket::open(url)
                         .map_err(|err| {
                             web_sys::console::error_1(&err.to_string().into());
-                            E::from_server_fn_error(ServerFnErrorErr::Request(
-                                err.to_string(),
-                            ))
+                            Error::from_server_fn_error(
+                                ServerFnErrorErr::Request(err.to_string()),
+                            )
                         })?;
                 let (sink, stream) = websocket.split();
 
                 let stream = stream
                     .map_err(|err| {
                         web_sys::console::error_1(&err.to_string().into());
-                        E::from_server_fn_error(ServerFnErrorErr::Request(
-                            err.to_string(),
-                        ))
+                        OutputStreamError::from_server_fn_error(
+                            ServerFnErrorErr::Request(err.to_string()),
+                        )
                     })
                     .map_ok(move |msg| match msg {
                         Message::Text(text) => Bytes::from(text),
@@ -186,22 +199,26 @@ pub mod browser {
                     }
                 }
 
-                let sink = sink.with(|message: Result<Bytes, E>| async move {
-                    match message {
-                        Ok(message) => Ok(Message::Bytes(message.into())),
-                        Err(err) => {
-                            web_sys::console::error_1(&js_sys::JsString::from(
-                                err.ser(),
-                            ));
-                            const CLOSE_CODE_ERROR: u16 = 1011;
-                            Err(WebSocketError::ConnectionClose(CloseEvent {
-                                code: CLOSE_CODE_ERROR,
-                                reason: err.ser(),
-                                was_clean: true,
-                            }))
+                let sink = sink.with(
+                    |message: Result<Bytes, InputStreamError>| async move {
+                        match message {
+                            Ok(message) => Ok(Message::Bytes(message.into())),
+                            Err(err) => {
+                                web_sys::console::error_1(
+                                    &js_sys::JsString::from(err.ser()),
+                                );
+                                const CLOSE_CODE_ERROR: u16 = 1011;
+                                Err(WebSocketError::ConnectionClose(
+                                    CloseEvent {
+                                        code: CLOSE_CODE_ERROR,
+                                        reason: err.ser(),
+                                        was_clean: true,
+                                    },
+                                ))
+                            }
                         }
-                    }
-                });
+                    },
+                );
                 let sink = SendWrapperSink::new(Box::pin(sink));
 
                 Ok((stream, sink))

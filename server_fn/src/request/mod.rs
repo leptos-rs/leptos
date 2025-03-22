@@ -74,8 +74,11 @@ where
 }
 
 /// Represents the request as received by the server.
-pub trait Req<E>
-where
+pub trait Req<
+    Error,
+    InputStreamError = Error,
+    OutputStreamError = Error,
+> where
     Self: Sized,
 {
     /// The response type for websockets.
@@ -94,15 +97,22 @@ where
     fn referer(&self) -> Option<Cow<'_, str>>;
 
     /// Attempts to extract the body of the request into [`Bytes`].
-    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, E>> + Send;
+    fn try_into_bytes(
+        self,
+    ) -> impl Future<Output = Result<Bytes, Error>> + Send;
 
     /// Attempts to convert the body of the request into a string.
-    fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send;
+    fn try_into_string(
+        self,
+    ) -> impl Future<Output = Result<String, Error>> + Send;
 
     /// Attempts to convert the body of the request into a stream of bytes.
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E>;
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, Error>> + Send + 'static,
+        Error,
+    >;
 
     /// Attempts to convert the body of the request into a websocket handle.
     #[allow(clippy::type_complexity)]
@@ -111,11 +121,11 @@ where
     ) -> impl Future<
         Output = Result<
             (
-                impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-                impl Sink<Result<Bytes, E>> + Send + 'static,
+                impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
+                impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
                 Self::WebsocketResponse,
             ),
-            E,
+            Error,
         >,
     > + Send;
 }
@@ -124,7 +134,13 @@ where
 /// when compiling for the browser.
 pub struct BrowserMockReq;
 
-impl<E: Send + 'static> Req<E> for BrowserMockReq {
+impl<Error, InputStreamError, OutputStreamError>
+    Req<Error, InputStreamError, OutputStreamError> for BrowserMockReq
+where
+    Error: Send + 'static,
+    InputStreamError: Send + 'static,
+    OutputStreamError: Send + 'static,
+{
     type WebsocketResponse = crate::response::BrowserMockRes;
 
     fn as_query(&self) -> Option<&str> {
@@ -142,17 +158,20 @@ impl<E: Send + 'static> Req<E> for BrowserMockReq {
     fn referer(&self) -> Option<Cow<'_, str>> {
         unreachable!()
     }
-    async fn try_into_bytes(self) -> Result<Bytes, E> {
+    async fn try_into_bytes(self) -> Result<Bytes, Error> {
         unreachable!()
     }
 
-    async fn try_into_string(self) -> Result<String, E> {
+    async fn try_into_string(self) -> Result<String, Error> {
         unreachable!()
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send, E> {
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, Error>> + Send,
+        Error,
+    > {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 
@@ -160,17 +179,19 @@ impl<E: Send + 'static> Req<E> for BrowserMockReq {
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl Sink<Result<Bytes, E>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
+            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
             Self::WebsocketResponse,
         ),
-        E,
+        Error,
     > {
         #[allow(unreachable_code)]
         Err::<
             (
-                futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                futures::sink::Drain<Result<Bytes, E>>,
+                futures::stream::Once<
+                    std::future::Ready<Result<Bytes, InputStreamError>>,
+                >,
+                futures::sink::Drain<Result<Bytes, OutputStreamError>>,
                 Self::WebsocketResponse,
             ),
             _,
