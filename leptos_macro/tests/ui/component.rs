@@ -59,5 +59,4 @@ fn destructure_without_name((default, value): (bool, i32)) -> impl IntoView {
     _ = value;
 }
 
-#[cfg(all(feature = "nightly", rustc_nightly))]
 fn main() {}

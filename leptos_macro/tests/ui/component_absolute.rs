@@ -54,5 +54,4 @@ pub fn using_the_view_macro() -> impl ::leptos::IntoView {
     leptos::view! { "ok" }
 }
 
-#[cfg(all(feature = "nightly", rustc_nightly))]
 fn main() {}
