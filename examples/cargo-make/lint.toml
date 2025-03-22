@@ -1,5 +1,20 @@
-[tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--no-deps --all-targets --all-features -- -D warnings" }
+[tasks.cargo-all-features]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features
+'''
+
+[tasks.check]
+dependencies = ["cargo-all-features"]
+command = "cargo"
+args = [
+  "all-features",
+  "clippy",
+  "--no-deps",
+  "--all-targets",
+  "--",
+  "-D",
+  "warnings",
+]
 
 [tasks.check-style]
 dependencies = ["check-format-flow", "clippy-flow"]

@@ -1,15 +1,15 @@
 extend = [
-    { path = "./compile.toml" },
-    { path = "./clean.toml" },
-    { path = "./lint.toml" },
-    { path = "./node.toml" },
-    { path = "./process.toml" },
+  { path = "./compile.toml" },
+  { path = "./clean.toml" },
+  { path = "./lint.toml" },
+  { path = "./node.toml" },
+  { path = "./process.toml" },
 ]
 
 # CI Stages
 
 [tasks.ci]
-dependencies = ["prepare", "lint", "build", "test-flow", "integration-test"]
+dependencies = ["prepare", "build", "lint", "test-flow", "integration-test"]
 
 [tasks.prepare]
 dependencies = ["setup-node"]
