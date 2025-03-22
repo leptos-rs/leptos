@@ -33,28 +33,28 @@ use std::{
 /// Effect::new_isomorphic({
 ///     let is_selected = is_selected.clone();
 ///     move |_| {
-///         if is_selected.selected(5) {
+///         if is_selected.selected(&5) {
 ///             total_notifications.update_value(|n| *n += 1);
 ///         }
 ///     }
 /// });
 ///
-/// assert_eq!(is_selected.selected(5), false);
+/// assert_eq!(is_selected.selected(&5), false);
 /// assert_eq!(total_notifications.get_value(), 0);
 /// a.set(5);
 /// # any_spawner::Executor::tick().await;
 ///
-/// assert_eq!(is_selected.selected(5), true);
+/// assert_eq!(is_selected.selected(&5), true);
 /// assert_eq!(total_notifications.get_value(), 1);
 /// a.set(5);
 /// # any_spawner::Executor::tick().await;
 ///
-/// assert_eq!(is_selected.selected(5), true);
+/// assert_eq!(is_selected.selected(&5), true);
 /// assert_eq!(total_notifications.get_value(), 1);
 /// a.set(4);
 ///
 /// # any_spawner::Executor::tick().await;
-/// assert_eq!(is_selected.selected(5), false);
+/// assert_eq!(is_selected.selected(&5), false);
 /// # }).await;
 /// # });
 /// ```
@@ -117,15 +117,20 @@ where
     }
 
     /// Reactively checks whether the given key is selected.
-    pub fn selected(&self, key: T) -> bool {
+    pub fn selected(&self, key: &T) -> bool {
         let read = {
-            let mut subs = self.subs.write().or_poisoned();
-            subs.entry(key.clone())
-                .or_insert_with(|| ArcRwSignal::new(false))
-                .clone()
+            let sub = self.subs.read().or_poisoned().get(key).cloned();
+            sub.unwrap_or_else(|| {
+                self.subs
+                    .write()
+                    .or_poisoned()
+                    .entry(key.clone())
+                    .or_insert_with(|| ArcRwSignal::new(false))
+                    .clone()
+            })
         };
         read.track();
-        (self.f)(&key, self.v.read().or_poisoned().as_ref().unwrap())
+        (self.f)(key, self.v.read().or_poisoned().as_ref().unwrap())
     }
 
     /// Removes the listener for the given key.
