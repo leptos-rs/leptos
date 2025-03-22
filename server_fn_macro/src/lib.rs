@@ -1473,7 +1473,10 @@ impl Parse for ServerFnBody {
 
 impl ServerFnBody {
     fn to_dummy_ident(&self) -> Ident {
-        Ident::new(&format!("__{}", self.ident), self.ident.span())
+        Ident::new(
+            &format!("__leptos_server_{}", self.ident),
+            self.ident.span(),
+        )
     }
 
     fn to_dummy_output(&self) -> TokenStream2 {
