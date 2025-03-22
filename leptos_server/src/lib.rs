@@ -16,6 +16,9 @@ mod resource;
 pub use resource::*;
 mod shared;
 
+/// Re-export of the `codee` crate.
+pub use codee;
+
 use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
 pub use shared::*;
 
