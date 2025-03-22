@@ -5,12 +5,6 @@ on:
       directory:
         required: true
         type: string
-      erased_mode:
-        required: true
-        type: boolean
-      toolchain:
-        required: true
-        type: string
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
