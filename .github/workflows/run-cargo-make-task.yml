@@ -5,15 +5,6 @@ on:
       directory:
         required: true
         type: string
-      erased_mode:
-        required: true
-        type: boolean
-      cargo_make_task:
-        required: true
-        type: string
-      toolchain:
-        required: true
-        type: string
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
@@ -23,8 +14,12 @@ env:
   LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: "Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
+    name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ matrix.erased_mode && 'enabled' || 'disabled' }})"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, nightly-2025-03-05]
+        erased_mode: [true, false]
     steps:
       - name: Free Disk Space
         run: |
@@ -56,11 +51,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ inputs.toolchain }}
+          toolchain: ${{ matrix.toolchain }}
       - name: Add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
-      - name: Setup cargo-make
-        uses: davidB/rust-cargo-make@v1
       - name: Cargo generate-lockfile
         run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
@@ -70,6 +63,8 @@ jobs:
         run: cargo binstall wasm-bindgen-cli --no-confirm
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --locked --no-confirm
+      - name: Install cargo-make
+        run: cargo binstall cargo-make --no-confirm
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
@@ -99,7 +94,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Maybe install chromedriver
         run: |
-          project_makefile=${{inputs.directory}}/Makefile.toml
+          project_makefile='${{inputs.directory}}/Makefile.toml'
           webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
           if [ $webdriver_count -eq 1 ]; then
               if ! command -v chromedriver &>/dev/null; then
@@ -114,7 +109,7 @@ jobs:
           fi
       - name: Maybe install playwright browser dependencies
         run: |
-          for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
+          for pw_path in $(find '${{inputs.directory}}' -name playwright.config.ts)
           do
             pw_dir=$(dirname $pw_path)
             if [ ! -v $pw_dir ]; then
@@ -131,16 +126,14 @@ jobs:
           deno-version: v1.x
       - name: Maybe install gtk-rs dependencies
         run: |
-          if [ ! -z $(echo ${{inputs.directory}} | grep gtk) ]; then
+          if [ ! -z $(echo '${{inputs.directory}}' | grep gtk) ]; then
             sudo apt-get update
             sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
           fi
-      - name: Enter ${{ inputs.directory }}
-        run: |
-          cd ${{ inputs.directory }}
       - name: Install Tailwind and Sass dependencies
         if: contains(inputs.directory, 'examples')
         run: |
+          cd '${{ inputs.directory }}'
           tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
           sass_version="$LEPTOS_SASS_VERSION"
           pnpm add "tailwindcss@$tailwindcss_version" "@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
@@ -153,9 +146,11 @@ jobs:
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
+          cd '${{ inputs.directory }}'
+          cargo make --no-workspace --profile=github-actions ci
       - name: Clean up ${{ inputs.directory }}
         if: always()
         run: |
+          cd '${{ inputs.directory }}'
           cargo clean || true
           rm -rf node_modules || true
