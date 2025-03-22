@@ -23,7 +23,7 @@ jobs:
   get-examples-matrix:
     uses: ./.github/workflows/get-examples-matrix.yml
   test-members:
-    name: CI
+    name: CI (members)
     needs: [get-leptos-changed, get-leptos-matrix]
     if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
     strategy:
