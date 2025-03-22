@@ -110,7 +110,6 @@ leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
 
 [package.metadata.cargo-all-features]
 denylist = [
-  "nightly",
   "tracing",
   "template_macro",
   "rustls",
@@ -122,46 +121,18 @@ denylist = [
   "islands",
 ]
 skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "rkyv",
-  ],
-  [
-    "miniserde",
-    "rkyv",
-  ],
-  [
-    "serde-lite",
-    "rkyv",
-  ],
-  [
-    "default-tls",
-    "rustls",
-  ],
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["ssr", "hydrate"],
+  ["serde", "serde-lite"],
+  ["serde-lite", "miniserde"],
+  ["serde", "miniserde"],
+  ["serde", "rkyv"],
+  ["miniserde", "rkyv"],
+  ["serde-lite", "rkyv"],
+  ["default-tls", "rustls"],
+  # do not test against nightly feature alone
+  ["nightly"],
 ]
 max_combination_size = 2
 

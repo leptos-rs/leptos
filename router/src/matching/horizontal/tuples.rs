@@ -31,7 +31,10 @@ macro_rules! tuples {
                     let mut p = Vec::new();
                     let mut m = String::new();
 
-                    if !$first.optional() || nth_field < include_optionals {
+                    if $first.optional() {
+                        nth_field += 1;
+                    }
+                    if !$first.optional() || nth_field <= include_optionals {
                         match $first.test(r) {
                             None => {
                                 return None;
@@ -49,7 +52,7 @@ macro_rules! tuples {
                         if $ty.optional() {
                             nth_field += 1;
                         }
-                        if !$ty.optional() || nth_field < include_optionals {
+                        if !$ty.optional() || nth_field <= include_optionals {
                             let PartialPathMatch {
                                 remaining,
                                 matched,

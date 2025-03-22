@@ -776,20 +776,20 @@ tuples!(EitherOf16 + EitherOf16Future + EitherOf16FutureProj {
 /// ```
 #[macro_export]
 macro_rules! either {
-    ($match:expr, $left_pattern:pat => $left_expression:expr, $right_pattern:pat => $right_expression:expr,) => {
+    ($match:expr, $left_pattern:pat => $left_expression:expr, $right_pattern:pat => $right_expression:expr$(,)?) => {
         match $match {
             $left_pattern => $crate::Either::Left($left_expression),
             $right_pattern => $crate::Either::Right($right_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf3::A($a_expression),
             $b_pattern => $crate::EitherOf3::B($b_expression),
             $c_pattern => $crate::EitherOf3::C($c_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf4::A($a_expression),
             $b_pattern => $crate::EitherOf4::B($b_expression),
@@ -797,7 +797,7 @@ macro_rules! either {
             $d_pattern => $crate::EitherOf4::D($d_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf5::A($a_expression),
             $b_pattern => $crate::EitherOf5::B($b_expression),
@@ -806,7 +806,7 @@ macro_rules! either {
             $e_pattern => $crate::EitherOf5::E($e_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf6::A($a_expression),
             $b_pattern => $crate::EitherOf6::B($b_expression),
@@ -816,7 +816,7 @@ macro_rules! either {
             $f_pattern => $crate::EitherOf6::F($f_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf7::A($a_expression),
             $b_pattern => $crate::EitherOf7::B($b_expression),
@@ -827,7 +827,7 @@ macro_rules! either {
             $g_pattern => $crate::EitherOf7::G($g_expression),
         }
     };
-    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr,) => {
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr$(,)?) => {
         match $match {
             $a_pattern => $crate::EitherOf8::A($a_expression),
             $b_pattern => $crate::EitherOf8::B($b_expression),

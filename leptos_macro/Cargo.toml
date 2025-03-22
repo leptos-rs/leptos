@@ -63,7 +63,7 @@ generic = ["server_fn_macro/generic"]
 __internal_erase_components = []
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly", "tracing", "trace-component-props"]
+denylist = ["tracing", "trace-component-props", "trace-components"]
 skip_feature_sets = [
   [
     "csr",
@@ -88,6 +88,9 @@ skip_feature_sets = [
   [
     "generic",
     "axum",
+  ],
+  [
+    "nightly",
   ],
 ]
 max_combination_size = 2
