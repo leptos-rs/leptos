@@ -2,6 +2,7 @@ use super::{
     any_view::{AnyView, IntoAny},
     iterators::StaticVec,
 };
+use crate::html::element::HtmlElement;
 
 /// A typed-erased collection of different views.
 pub struct Fragment {
@@ -40,6 +41,15 @@ impl Fragment {
         Self {
             nodes: nodes.into(),
         }
+    }
+}
+
+impl<E, At, Ch> IntoFragment for HtmlElement<E, At, Ch>
+where
+    HtmlElement<E, At, Ch>: IntoAny,
+{
+    fn into_fragment(self) -> Fragment {
+        Fragment::new(vec![self.into_any()])
     }
 }
 
