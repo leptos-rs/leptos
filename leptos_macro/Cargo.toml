@@ -32,7 +32,7 @@ tracing = { version = "0.1.41", optional = true }
 [dev-dependencies]
 log = "0.4.22"
 typed-builder = "0.20.0"
-trybuild = "1.0"
+trybuild = { workspace = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
@@ -58,7 +58,7 @@ generic = ["server_fn_macro/generic"]
 # https://github.com/rust-lang/cargo/issues/4423
 # TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
 # This works around the issue by the non proc-macro crate which does see RUSTFLAGS enabling the replacement feature on the proc-macro crate, which wouldn't.
-# This is automatic as long as the leptos crate is depended upon, 
+# This is automatic as long as the leptos crate is depended upon,
 # downstream usage should never manually enable this feature.
 __internal_erase_components = []
 

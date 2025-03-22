@@ -3279,6 +3279,7 @@ dependencies = [
  "tokio-tungstenite",
  "tower",
  "tower-layer",
+ "trybuild",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
