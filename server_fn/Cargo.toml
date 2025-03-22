@@ -81,6 +81,9 @@ url = "2"
 pin-project-lite = "0.2.15"
 tokio = { version = "1.43.0", features = ["rt"], optional = true }
 
+[dev-dependencies]
+trybuild = { workspace = true }
+
 [features]
 axum-no-default = [
   "ssr",
