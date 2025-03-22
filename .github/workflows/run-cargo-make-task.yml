@@ -64,7 +64,7 @@ jobs:
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --locked --no-confirm
       - name: Install cargo-make
-        uses: cargo binstall cargo-make --no-confirm
+        run: cargo binstall cargo-make --no-confirm
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
