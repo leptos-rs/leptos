@@ -148,7 +148,7 @@ jobs:
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          cargo make --no-workspace --profile=github-actions ${{ inputs.cargo_make_task }}
+          cargo make --no-workspace --profile=github-actions ci
       - name: Clean up ${{ inputs.directory }}
         if: always()
         run: |
