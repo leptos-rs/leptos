@@ -9,10 +9,13 @@ args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]
 dependencies = ["install-clippy"]
 command = "cargo"
 args = [
-    "clippy",
-    "--all-features",
-    "--no-deps",
-    "--",
-    "-D",
-    "clippy::print_stdout",
+  "all-features",
+  "clippy",
+  "--no-deps",
+  "--",
+  "-D",
+  "clippy::print_stdout",
 ]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features
+'''

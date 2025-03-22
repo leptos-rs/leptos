@@ -1,7 +1,0 @@
-[tasks.check]
-alias = "check-all"
-
-[tasks.check-all]
-command = "cargo"
-args = ["check-all-features"]
-install_crate = "cargo-all-features"

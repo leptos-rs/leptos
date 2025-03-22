@@ -5,14 +5,14 @@ extend = [
 ]
 
 [tasks.build]
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["build-all-features", "--target", "wasm32-unknown-unknown"]
-install_crate = "cargo-all-features"
+args = ["all-features", "build", "--target", "wasm32-unknown-unknown"]
 
 [tasks.check]
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features", "--target", "wasm32-unknown-unknown"]
-install_crate = "cargo-all-features"
+args = ["all-features", "clippy", "--target", "wasm32-unknown-unknown"]
 
 [tasks.pre-clippy]
 env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features --target wasm32-unknown-unknown -- -D warnings" }
