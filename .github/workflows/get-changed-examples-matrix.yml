@@ -48,4 +48,4 @@ jobs:
             # Create matrix with one item to prevent an empty vector error
           fi
 
-          echo "matrix={\"directory\":"$directories", \"erased_mode\": [false, true]}" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"directory\":"$directories"}" >> "$GITHUB_OUTPUT"

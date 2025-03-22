@@ -31,6 +31,3 @@ jobs:
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
-      erased_mode: ${{ matrix.erased_mode }}
-      cargo_make_task: "ci"
-      toolchain: '["stable", "nightly-2025-03-05"]'

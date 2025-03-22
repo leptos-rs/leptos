@@ -8,9 +8,6 @@ on:
       erased_mode:
         required: true
         type: boolean
-      cargo_make_task:
-        required: true
-        type: string
       toolchain:
         required: true
         type: string
@@ -23,11 +20,12 @@ env:
   LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: "Run ${{ inputs.cargo_make_task }} (${{ matrix.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
+    name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        toolchain: ${{ fromJSON(inputs.toolchain) }}
+        toolchain: [stable, nightly-2025-03-05]
+        erased_mode: [true, false]
     steps:
       - name: Free Disk Space
         run: |
