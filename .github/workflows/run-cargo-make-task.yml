@@ -14,7 +14,7 @@ env:
   LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ inputs.erased_mode }})"
+    name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ matrix.erased_mode && 'enabled' || 'disabled' }})"
     runs-on: ubuntu-latest
     strategy:
       matrix:
