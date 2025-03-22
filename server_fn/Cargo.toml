@@ -16,6 +16,7 @@ server_fn_macro_default = { workspace = true }
 const_format = "0.2.33"
 const-str = "0.5.7"
 xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
+rustversion = { workspace = true}
 # used across multiple features
 serde = { version = "1.0", features = ["derive"] }
 send_wrapper = { version = "0.6.0", features = ["futures"], optional = true }
