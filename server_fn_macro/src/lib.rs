@@ -648,16 +648,11 @@ impl ServerFnCall {
 
     /// Return the name and type of the first field if there is only one field.
     fn single_field(&self) -> Option<(&Pat, &Type)> {
-        if let Some(field) = self
-            .body
+        self.body
             .inputs
             .first()
             .filter(|_| self.body.inputs.len() == 1)
-        {
-            Some((&field.arg.pat, &field.arg.ty))
-        } else {
-            None
-        }
+            .map(|field| (&*field.arg.pat, &*field.arg.ty))
     }
 
     fn deref_impl(&self) -> TokenStream2 {
