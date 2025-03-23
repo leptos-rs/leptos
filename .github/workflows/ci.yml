@@ -44,7 +44,7 @@ jobs:
       directory: ${{ matrix.directory }}
   test-only-examples:
     name: CI (examples)
-    needs: [get-example-changed, get-examples-matrix]
+    needs: [get-leptos-changed, get-example-changed, get-examples-matrix]
     if: needs.get-leptos-changed.outputs.leptos_changed != 'true' && needs.get-example-changed.outputs.example_changed == 'true'
     strategy:
       matrix: ${{ fromJSON(needs.get-examples-matrix.outputs.matrix) }}
