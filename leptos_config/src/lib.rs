@@ -80,7 +80,7 @@ pub struct LeptosOptions {
     #[serde(default = "default_hash_file_name")]
     pub hash_file: Arc<str>,
     /// If true, hashes will be generated for all files in the site_root and added to their file names.
-    /// Defaults to `true`.
+    /// Defaults to `false`.
     #[builder(default = default_hash_files())]
     #[serde(default = "default_hash_files")]
     pub hash_files: bool,
