@@ -9,7 +9,7 @@ extend = [
 # CI Stages
 
 [tasks.ci]
-dependencies = ["prepare", "build", "lint", "test-flow", "integration-test"]
+dependencies = ["prepare", "lint", "test-flow", "integration-test"]
 
 [tasks.prepare]
 dependencies = ["setup-node"]
