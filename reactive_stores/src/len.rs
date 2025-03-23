@@ -63,7 +63,7 @@ delegate_impl_len!(<T,> Vec<T>);
 delegate_impl_len!(str);
 delegate_impl_len!(String);
 
-impl<'a> Len for Cow<'a, str> {
+impl Len for Cow<'_, str> {
     #[inline(always)]
     fn len(&self) -> usize {
         <str>::len(self)
@@ -75,7 +75,7 @@ impl<'a> Len for Cow<'a, str> {
     }
 }
 
-impl<'a> Len for &Cow<'a, str> {
+impl Len for &Cow<'_, str> {
     #[inline(always)]
     fn len(&self) -> usize {
         Len::len(*self)
@@ -87,7 +87,7 @@ impl<'a> Len for &Cow<'a, str> {
     }
 }
 
-impl<'a> Len for &mut Cow<'a, str> {
+impl Len for &mut Cow<'_, str> {
     #[inline(always)]
     fn len(&self) -> usize {
         Len::len(*self)
@@ -99,7 +99,7 @@ impl<'a> Len for &mut Cow<'a, str> {
     }
 }
 
-impl<'a, T> Len for Cow<'a, [T]>
+impl<T> Len for Cow<'_, [T]>
 where
     [T]: ToOwned,
 {
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<'a, T> Len for &Cow<'a, [T]>
+impl<T> Len for &Cow<'_, [T]>
 where
     [T]: ToOwned,
 {
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<'a, T> Len for &mut Cow<'a, [T]>
+impl<T> Len for &mut Cow<'_, [T]>
 where
     [T]: ToOwned,
 {
