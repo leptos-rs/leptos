@@ -532,7 +532,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
                 let len = len
                     .split('\n')
                     .filter(|n| !n.is_empty())
-                    .last()
+                    .next_back()
                     .expect(
                         "expected at least one non-empty value from \
                          newline-delimited rows",
