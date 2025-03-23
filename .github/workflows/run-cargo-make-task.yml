@@ -60,9 +60,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
       - name: Add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
-      - name: Cargo generate-lockfile
-        run: cargo generate-lockfile
-      - uses: Swatinem/rust-cache@v2
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
