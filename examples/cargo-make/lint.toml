@@ -3,6 +3,9 @@ install_script = '''
 cargo install --git https://github.com/sabify/cargo-all-features
 '''
 
+[tasks.pre-clippy]
+env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets -- -D warnings" }
+
 [tasks.check]
 dependencies = ["cargo-all-features"]
 command = "cargo"
