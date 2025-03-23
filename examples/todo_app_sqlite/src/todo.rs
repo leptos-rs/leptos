@@ -1,5 +1,4 @@
-use leptos::either::Either;
-use leptos::prelude::*;
+use leptos::{either::Either, prelude::*};
 use serde::{Deserialize, Serialize};
 use server_fn::ServerFnError;
 

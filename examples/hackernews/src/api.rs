@@ -1,5 +1,4 @@
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
     format!("https://node-hnapi.herokuapp.com/{path}")

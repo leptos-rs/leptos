@@ -1,6 +1,6 @@
 use crate::fixtures::{action, world::AppWorld};
 use anyhow::{Ok, Result};
-use cucumber::{given, when, gherkin::Step};
+use cucumber::{gherkin::Step, given, when};
 
 #[given("I see the app")]
 #[when("I open the app")]

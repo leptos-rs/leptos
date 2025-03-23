@@ -1,10 +1,8 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use chrono::{Local, NaiveDate};
-use leptos::logging::warn;
-use leptos::prelude::*;
+use leptos::{logging::warn, prelude::*};
 use reactive_stores::{Field, Patch, Store};
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);

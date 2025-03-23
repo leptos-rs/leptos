@@ -1,6 +1,4 @@
-use leptos::control_flow::Show;
-use leptos::portal::Portal;
-use leptos::prelude::*;
+use leptos::{control_flow::Show, portal::Portal, prelude::*};
 
 #[component]
 pub fn App() -> impl IntoView {
