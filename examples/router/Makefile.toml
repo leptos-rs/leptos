@@ -5,4 +5,4 @@ extend = [
 ]
 
 [tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--no-deps --target=wasm32-unknown-unknown --all-features -- -D warnings" }
+env = { CARGO_MAKE_CLIPPY_ARGS = "--no-deps --target=wasm32-unknown-unknown -- -D warnings" }
