@@ -67,6 +67,8 @@ jobs:
         run: cargo binstall cargo-leptos --locked --no-confirm
       - name: Install cargo-make
         run: cargo binstall cargo-make --no-confirm
+      - name: Install nextest
+        run: cargo binstall cargo-nextest --no-confirm
       - name: Install Trunk
         if: contains(inputs.directory, 'examples')
         run: cargo binstall trunk --no-confirm
