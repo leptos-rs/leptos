@@ -58,8 +58,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-      - name: Add wasm32-unknown-unknown
-        run: rustup target add wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
