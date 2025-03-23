@@ -1,7 +1,6 @@
 mod api;
 use crate::api::*;
-use leptos::either::Either;
-use leptos::prelude::*;
+use leptos::{either::Either, prelude::*};
 use leptos_router::{
     components::{
         Form, Outlet, ParentRoute, ProtectedRoute, Redirect, Route, Router,

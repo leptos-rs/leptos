@@ -71,10 +71,8 @@ pub async fn instrumented_counts(
     let mut actual = Vec::<(&str, u32)>::new();
 
     for (selector, _) in expected.iter() {
-        actual.push((
-            selector,
-            find::instrumented_count(client, selector).await?,
-        ))
+        actual
+            .push((selector, find::instrumented_count(client, selector).await?))
     }
 
     assert_eq!(actual, expected);
@@ -82,19 +80,27 @@ pub async fn instrumented_counts(
     Ok(())
 }
 
-pub async fn link_text_is_aria_current(client: &Client, text: &str) -> Result<()> {
+pub async fn link_text_is_aria_current(
+    client: &Client,
+    text: &str,
+) -> Result<()> {
     let link = find::link_with_text(client, text).await?;
 
-    link.attr("aria-current").await?
+    link.attr("aria-current")
+        .await?
         .expect(format!("aria-current missing for {text}").as_str());
 
     Ok(())
 }
 
-pub async fn link_text_is_not_aria_current(client: &Client, text: &str) -> Result<()> {
+pub async fn link_text_is_not_aria_current(
+    client: &Client,
+    text: &str,
+) -> Result<()> {
     let link = find::link_with_text(client, text).await?;
 
-    link.attr("aria-current").await?
+    link.attr("aria-current")
+        .await?
         .map(|_| anyhow::bail!("aria-current mistakenly set for {text}"))
         .unwrap_or(Ok(()))
 }

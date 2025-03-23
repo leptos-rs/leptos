@@ -26,8 +26,7 @@ async fn main() {
     };
     use axum_js_ssr::app::*;
     use http_body_util::BodyExt;
-    use leptos::logging::log;
-    use leptos::prelude::*;
+    use leptos::{logging::log, prelude::*};
     use leptos_axum::{generate_route_list, LeptosRoutes};
 
     latency::LATENCY.get_or_init(|| [0, 4, 40, 400].iter().cycle().into());
