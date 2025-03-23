@@ -42,6 +42,15 @@ where
     }
 }
 
+impl<T> From<Option<T>> for MaybeSendWrapperOption<T>
+where
+    T: Send + Sync,
+{
+    fn from(value: Option<T>) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<T> MaybeSendWrapperOption<T> {
     /// Create a new non-threadsafe value.
     pub fn new_local(value: Option<T>) -> Self {
