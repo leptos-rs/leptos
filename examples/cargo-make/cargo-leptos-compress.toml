@@ -1,6 +1,4 @@
-extend = [
-    { path = "./lint.toml" }
-]
+extend = [{ path = "./lint.toml" }]
 
 [tasks.make-target-site-dir]
 command = "mkdir"
@@ -24,13 +22,11 @@ clear = true
 dependencies = ["check-debug", "check-release"]
 
 [tasks.check-debug]
-toolchain = "stable"
 command = "cargo"
 args = ["check-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check-release]
-toolchain = "stable"
 command = "cargo"
 args = ["check-all-features", "--release"]
 install_crate = "cargo-all-features"
@@ -42,3 +38,4 @@ dependencies = ["make-target-site-dir", "check-style"]
 dependencies = ["install-cargo-leptos"]
 command = "cargo"
 args = ["leptos", "watch", "--release", "-P"]
+
