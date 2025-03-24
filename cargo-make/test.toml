@@ -1,7 +1,4 @@
-[tasks.test]
-alias = "test-all"
-
-[tasks.test-all]
+[tasks.test-each-feature]
 env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
 args = ["all-features", "nextest", "run"]

@@ -32,7 +32,7 @@ command = "cargo"
 args = ["all-features", "clippy", "--release"]
 
 [tasks.lint]
-dependencies = ["make-target-site-dir", "check-style"]
+dependencies = ["make-target-site-dir", "lint"]
 
 [tasks.start-client]
 dependencies = ["install-cargo-leptos"]
