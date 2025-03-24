@@ -54,7 +54,7 @@ jobs:
       directory: ${{ matrix.directory }}
   semver-check:
     name: SemVer check (stable)
-    needs: [test-members, test-examples]
+    needs: [get-leptos-changed, test-members, test-examples]
     if: ${{ success() }} && needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
     runs-on: ubuntu-latest
     steps:
