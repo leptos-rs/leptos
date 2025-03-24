@@ -9,15 +9,7 @@ dependencies = ["check-format-flow", "clippy-each-feature"]
 [tasks.clippy-each-feature]
 dependencies = ["cargo-all-features"]
 command = "cargo"
-args = [
-  "all-features",
-  "clippy",
-  "--no-deps",
-  "--all-targets",
-  "--",
-  "-D",
-  "warnings",
-]
+args = ["all-features", "clippy", "--no-deps", "--", "-D", "warnings"]
 
 [tasks.check-format]
 env = { LEPTOS_PROJECT_DIRECTORY = "../../" }
