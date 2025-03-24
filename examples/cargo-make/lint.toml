@@ -3,10 +3,7 @@ install_script = '''
 cargo install --git https://github.com/sabify/cargo-all-features
 '''
 
-[tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets -- -D warnings" }
-
-[tasks.check]
+[tasks.clippy]
 dependencies = ["cargo-all-features"]
 command = "cargo"
 args = [
@@ -20,7 +17,7 @@ args = [
 ]
 
 [tasks.check-style]
-dependencies = ["check-format-flow", "clippy-flow"]
+dependencies = ["check-format-flow", "clippy"]
 
 [tasks.check-format]
 env = { LEPTOS_PROJECT_DIRECTORY = "../../" }
