@@ -31,6 +31,10 @@ impl MatchNestedRoutes for () {
     type Data = ();
     type Match = ();
 
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn match_nested<'a>(
         &self,
         path: &'a str,
@@ -94,6 +98,10 @@ where
         &self,
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         self.0.generate_routes()
+    }
+
+    fn optional(&self) -> bool {
+        self.0.optional()
     }
 }
 
@@ -180,6 +188,10 @@ where
 
         A.chain(B)
     }
+
+    fn optional(&self) -> bool {
+        self.0.optional() && self.1.optional()
+    }
 }
 
 impl<T> MatchNestedRoutes for StaticVec<T>
@@ -205,6 +217,10 @@ where
         &self,
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         self.iter().flat_map(T::generate_routes)
+    }
+
+    fn optional(&self) -> bool {
+        self.iter().all(|n| n.optional())
     }
 }
 
@@ -272,6 +288,13 @@ macro_rules! tuples {
         {
             type Data = ($($ty::Data,)*);
             type Match = $either<$($ty::Match,)*>;
+
+            fn optional(&self) -> bool {
+                #[allow(non_snake_case)]
+                let ($($ty,)*) = &self;
+                $($ty.optional() &&)*
+                true
+            }
 
             fn match_nested<'a>(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
                 #[allow(non_snake_case)]
