@@ -40,4 +40,4 @@ jobs:
         run: |
           echo "example_changed=${{ steps.changed-files.outputs.any_changed }}" >> "$GITHUB_OUTPUT"
           # This is for test-only-examples workflow in ci.yml
-          echo "matrix={\"directory\": $(echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"directory\": $(echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')}" >> "$GITHUB_OUTPUT"
