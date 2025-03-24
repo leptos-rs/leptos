@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       example_changed: ${{ steps.set-example-changed.outputs.example_changed }}
+      example_directory: ${{ steps.set-example-changed.outputs.example_directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
