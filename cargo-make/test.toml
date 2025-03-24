@@ -3,7 +3,7 @@ alias = "test-all"
 
 [tasks.test-all]
 command = "cargo"
-args = ["all-features", "nextest", "run"]
+args = ["all-features", "nextest", "run", "--no-tests", "warn"]
 install_script = '''
 cargo install --git https://github.com/sabify/cargo-all-features
 '''

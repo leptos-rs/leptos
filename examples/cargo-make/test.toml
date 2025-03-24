@@ -6,4 +6,4 @@ cargo install --git https://github.com/sabify/cargo-all-features
 [tasks.test]
 dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["all-features", "nextest", "run", "--all-targets"]
+args = ["all-features", "nextest", "run", "--all-targets", "--no-tests", "warn"]
