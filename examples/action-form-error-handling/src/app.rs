@@ -39,6 +39,7 @@ fn HomePage() -> impl IntoView {
         do_something_action
             .value()
             .get()
+            .take()
             .unwrap_or_else(|| Ok(String::new()))
     });
 
