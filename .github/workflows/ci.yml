@@ -55,7 +55,7 @@ jobs:
   semver-check:
     name: SemVer check (stable)
     needs: [get-leptos-changed, test-members, test-examples]
-    if: ${{ success() }} && needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
+    if: ${{ success() && needs.get-leptos-changed.outputs.leptos_changed == 'true' && !contains(github.event.pull_request.labels.*.name, 'breaking') }}
     runs-on: ubuntu-latest
     steps:
       - name: Install Glib
