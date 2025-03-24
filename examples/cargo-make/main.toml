@@ -10,13 +10,10 @@ extend = [
 # CI Stages
 
 [tasks.ci]
-dependencies = ["prepare", "lint", "test", "integration-test"]
+dependencies = ["prepare", "lint", "test-each-feature", "integration-test"]
 
 [tasks.prepare]
 dependencies = ["setup-node"]
-
-[tasks.lint]
-dependencies = ["check-style"]
 
 [tasks.integration-test]
 
@@ -37,7 +34,7 @@ dependencies = ["build", "clean"]
 alias = "ci"
 
 [tasks.t]
-dependencies = ["test"]
+dependencies = ["test-each-feature"]
 
 [tasks.it]
 alias = "integration-test"
