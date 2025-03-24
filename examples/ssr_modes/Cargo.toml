@@ -36,7 +36,7 @@ ssr = [
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix"]
-skip_feature_sets = [["ssr", "hydrate"]]
+skip_feature_sets = [["ssr", "hydrate"], []]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
