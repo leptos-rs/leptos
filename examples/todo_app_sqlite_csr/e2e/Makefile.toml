@@ -11,6 +11,8 @@ command = "cargo"
 args = [
   "nextest",
   "run",
+  "--no-tests",
+  "warn",
   "--test",
   "app_suite",
   "--",
