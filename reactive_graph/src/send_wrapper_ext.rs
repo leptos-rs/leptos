@@ -3,6 +3,7 @@
 use send_wrapper::SendWrapper;
 use std::{
     fmt::{Debug, Formatter},
+    hash,
     ops::{Deref, DerefMut},
 };
 
@@ -14,6 +15,7 @@ use std::{
 pub struct MaybeSendWrapperOption<T> {
     inner: Inner<T>,
 }
+
 // SAFETY: `MaybeSendWrapperOption` can *only* be given a T in four ways
 // 1) via new(), which requires T: Send + Sync
 // 2) via new_local(), which wraps T in a SendWrapper if given Some(T)
@@ -22,6 +24,35 @@ pub struct MaybeSendWrapperOption<T> {
 //    or creates a new SendWrapper as needed
 unsafe impl<T> Send for MaybeSendWrapperOption<T> {}
 unsafe impl<T> Sync for MaybeSendWrapperOption<T> {}
+
+impl<T> PartialEq for MaybeSendWrapperOption<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl<T> Eq for MaybeSendWrapperOption<T> where T: Eq {}
+
+impl<T> PartialOrd for MaybeSendWrapperOption<T>
+where
+    T: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.deref().partial_cmp(other.deref())
+    }
+}
+
+impl<T> hash::Hash for MaybeSendWrapperOption<T>
+where
+    T: hash::Hash,
+{
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.deref().hash(state);
+    }
+}
 
 enum Inner<T> {
     /// A threadsafe value.
