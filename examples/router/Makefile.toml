@@ -3,6 +3,3 @@ extend = [
   { path = "../cargo-make/trunk_server.toml" },
   { path = "../cargo-make/playwright-test.toml" },
 ]
-
-[tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--no-deps --target=wasm32-unknown-unknown --all-features -- -D warnings" }
