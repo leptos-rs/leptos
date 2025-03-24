@@ -4,6 +4,7 @@ cargo install --git https://github.com/sabify/cargo-all-features --branch arbitr
 '''
 
 [tasks.test]
+env = { "NEXTEST_NO_TESTS" = "warn" }
 dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["all-features", "nextest", "run", "--all-targets", "--no-tests", "warn"]
+args = ["all-features", "nextest", "run", "--all-targets"]

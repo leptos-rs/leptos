@@ -2,8 +2,9 @@
 alias = "test-all"
 
 [tasks.test-all]
+env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
-args = ["all-features", "nextest", "run", "--no-tests", "warn"]
-install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
-'''
+args = ["all-features", "nextest", "run"]
+# install_script = '''
+# cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+# '''
