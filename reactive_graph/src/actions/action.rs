@@ -48,25 +48,25 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(*input.get(), None); // no argument yet
 /// assert_eq!(pending.get(), false); // isn't pending a response
-/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(*result_of_call.get(), None); // there's no "last value"
 /// assert_eq!(version.get(), 0);
 ///
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// assert_eq!(input.get(), Some("My todo".to_string()));
+/// assert_eq!(*input.get(), Some("My todo".to_string()));
 /// assert_eq!(pending.get(), true); // is pending
-/// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
+/// assert_eq!(*result_of_call.get(), None); // has not yet gotten a response
 ///
 /// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
-/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(*input.get(), None); // input clears out after resolved
 /// assert_eq!(pending.get(), false); // no longer pending
-/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(*result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
 /// # });
 /// ```
@@ -146,7 +146,7 @@ where
     /// });
     ///
     /// act.dispatch(3);
-    /// assert_eq!(act.input().get(), Some(3));
+    /// assert_eq!(*act.input().get(), Some(3));
     ///
     /// // Remember that async functions already return a future if they are
     /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -156,7 +156,7 @@ where
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     ///
     /// // after it resolves
-    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
     ///
     /// async fn yell(n: String) -> String {
     ///     n.to_uppercase()
@@ -423,13 +423,13 @@ impl<I, O> ArcAction<I, O> {
     /// });
     ///
     /// let input = act.input();
-    /// assert_eq!(input.get(), None);
+    /// assert_eq!(*input.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(input.get(), Some(3));
+    /// assert_eq!(*input.get(), Some(3));
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(input.get(), None);
+    /// assert_eq!(*input.get(), None);
     /// # });
     /// ```
     #[track_caller]
@@ -453,16 +453,16 @@ impl<I, O> ArcAction<I, O> {
     /// });
     ///
     /// let value = act.value();
-    /// assert_eq!(value.get(), None);
+    /// assert_eq!(*value.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(value.get(), None);
+    /// assert_eq!(*value.get(), None);
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(value.get(), Some(6));
+    /// assert_eq!(*value.get(), Some(6));
     /// // dispatch another value, and it still holds the old value
     /// act.dispatch(3);
-    /// assert_eq!(value.get(), Some(6));
+    /// assert_eq!(*value.get(), Some(6));
     /// # });
     /// ```
     #[track_caller]
@@ -553,25 +553,25 @@ where
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(*input.get(), None); // no argument yet
 /// assert_eq!(pending.get(), false); // isn't pending a response
-/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(*result_of_call.get(), None); // there's no "last value"
 /// assert_eq!(version.get(), 0);
 ///
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// assert_eq!(input.get(), Some("My todo".to_string()));
+/// assert_eq!(*input.get(), Some("My todo".to_string()));
 /// assert_eq!(pending.get(), true); // is pending
-/// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
+/// assert_eq!(*result_of_call.get(), None); // has not yet gotten a response
 ///
 /// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
-/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(*input.get(), None); // input clears out after resolved
 /// assert_eq!(pending.get(), false); // no longer pending
-/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(*result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
 /// # });
 /// ```
@@ -635,7 +635,7 @@ where
     /// });
     ///
     /// act.dispatch(3);
-    /// assert_eq!(act.input().get(), Some(3));
+    /// assert_eq!(*act.input().get(), Some(3));
     ///
     /// // Remember that async functions already return a future if they are
     /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -645,7 +645,7 @@ where
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     ///
     /// // after it resolves
-    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
     ///
     /// async fn yell(n: String) -> String {
     ///     n.to_uppercase()
@@ -835,13 +835,13 @@ where
     /// });
     ///
     /// let input = act.input();
-    /// assert_eq!(input.get(), None);
+    /// assert_eq!(*input.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(input.get(), Some(3));
+    /// assert_eq!(*input.get(), Some(3));
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(input.get(), None);
+    /// assert_eq!(*input.get(), None);
     /// # });
     /// ```
     #[track_caller]
@@ -890,16 +890,16 @@ where
     /// });
     ///
     /// let value = act.value();
-    /// assert_eq!(value.get(), None);
+    /// assert_eq!(*value.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(value.get(), None);
+    /// assert_eq!(*value.get(), None);
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(value.get(), Some(6));
+    /// assert_eq!(*value.get(), Some(6));
     /// // dispatch another value, and it still holds the old value
     /// act.dispatch(3);
-    /// assert_eq!(value.get(), Some(6));
+    /// assert_eq!(*value.get(), Some(6));
     /// # });
     /// ```
     #[track_caller]
@@ -1094,13 +1094,13 @@ impl<I, O> Copy for Action<I, O> {}
 /// # tokio_test::block_on(async move {
 /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
-/// let act = create_action(|n: &u8| {
+/// let act = Action::new(|n: &u8| {
 ///     let n = n.to_owned();
 ///     async move { n * 2 }
 /// });
 ///
 /// act.dispatch(3);
-/// assert_eq!(act.input().get(), Some(3));
+/// assert_eq!(*act.input().get(), Some(3));
 ///
 /// // Remember that async functions already return a future if they are
 /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -1110,7 +1110,7 @@ impl<I, O> Copy for Action<I, O> {}
 /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 ///
 /// // after it resolves
-/// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+/// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
 ///
 /// async fn yell(n: String) -> String {
 ///     n.to_uppercase()
