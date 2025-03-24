@@ -16,8 +16,8 @@ config = { version = "0.15.8", default-features = false, features = [
 ] }
 regex = "1.11"
 serde = { version = "1.0", features = ["derive", "rc"] }
-thiserror = "2.0"
-typed-builder = "0.20.0"
+thiserror = { workspace = true }
+typed-builder = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1.43", features = ["rt", "macros"] }
