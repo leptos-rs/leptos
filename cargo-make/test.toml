@@ -5,5 +5,5 @@ alias = "test-all"
 command = "cargo"
 args = ["all-features", "nextest", "run", "--no-tests", "warn"]
 install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
 '''

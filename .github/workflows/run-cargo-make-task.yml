@@ -71,7 +71,7 @@ jobs:
       - name: Install nextest
         run: cargo binstall cargo-nextest --no-confirm
       - name: Install cargo-all-features
-        run: cargo install --git https://github.com/sabify/cargo-all-features
+        run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
       - name: Install Trunk
         if: contains(inputs.directory, 'examples')
         run: cargo binstall trunk --no-confirm
