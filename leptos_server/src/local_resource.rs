@@ -161,10 +161,8 @@ impl<T> ReadUntracked for ArcLocalResource<T>
 where
     T: 'static,
 {
-    type Value = ReadGuard<
-        Option<T>,
-        Mapped<AsyncPlain<SendOption<T>>, Option<T>>,
-    >;
+    type Value =
+        ReadGuard<Option<T>, Mapped<AsyncPlain<SendOption<T>>, Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
@@ -342,10 +340,8 @@ impl<T> ReadUntracked for LocalResource<T>
 where
     T: 'static,
 {
-    type Value = ReadGuard<
-        Option<T>,
-        Mapped<AsyncPlain<SendOption<T>>, Option<T>>,
-    >;
+    type Value =
+        ReadGuard<Option<T>, Mapped<AsyncPlain<SendOption<T>>, Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
