@@ -17,5 +17,5 @@ args = [
   "clippy::print_stdout",
 ]
 install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
 '''
