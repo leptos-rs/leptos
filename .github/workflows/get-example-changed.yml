@@ -36,4 +36,4 @@ jobs:
         id: set-example-changed
         run: |
           echo "example_changed=${{ steps.changed-files.outputs.any_changed }}" >> "$GITHUB_OUTPUT"
-          echo "example_directory=$(echo '${{ steps.changed-files.outputs.any_changed }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')" >> "$GITHUB_OUTPUT"
+          echo "example_directory=$(echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')" >> "$GITHUB_OUTPUT"
