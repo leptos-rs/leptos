@@ -2,7 +2,7 @@ use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
     owner::{ArcStoredValue, ArenaItem, FromLocal, LocalStorage},
-    send_wrapper_ext::MaybeSendWrapperOption,
+    send_wrapper_ext::SendOption,
     signal::{ArcRwSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
     unwrap_signal,
@@ -91,8 +91,8 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// ```
 pub struct ArcAction<I, O> {
     in_flight: ArcRwSignal<usize>,
-    input: ArcRwSignal<MaybeSendWrapperOption<I>>,
-    value: ArcRwSignal<MaybeSendWrapperOption<O>>,
+    input: ArcRwSignal<SendOption<I>>,
+    value: ArcRwSignal<SendOption<O>>,
     version: ArcRwSignal<usize>,
     dispatched: ArcStoredValue<usize>,
     #[allow(clippy::complexity)]
@@ -195,8 +195,8 @@ where
     {
         ArcAction {
             in_flight: ArcRwSignal::new(0),
-            input: ArcRwSignal::new(MaybeSendWrapperOption::new(None)),
-            value: ArcRwSignal::new(MaybeSendWrapperOption::new(value)),
+            input: ArcRwSignal::new(SendOption::new(None)),
+            value: ArcRwSignal::new(SendOption::new(value)),
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
@@ -367,8 +367,8 @@ where
         let action_fn = SendWrapper::new(action_fn);
         ArcAction {
             in_flight: ArcRwSignal::new(0),
-            input: ArcRwSignal::new(MaybeSendWrapperOption::new_local(None)),
-            value: ArcRwSignal::new(MaybeSendWrapperOption::new_local(value)),
+            input: ArcRwSignal::new(SendOption::new_local(None)),
+            value: ArcRwSignal::new(SendOption::new_local(value)),
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
@@ -433,7 +433,7 @@ impl<I, O> ArcAction<I, O> {
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> ArcRwSignal<MaybeSendWrapperOption<I>> {
+    pub fn input(&self) -> ArcRwSignal<SendOption<I>> {
         self.input.clone()
     }
 
@@ -466,7 +466,7 @@ impl<I, O> ArcAction<I, O> {
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> ArcRwSignal<MaybeSendWrapperOption<O>> {
+    pub fn value(&self) -> ArcRwSignal<SendOption<O>> {
         self.value.clone()
     }
 
@@ -845,7 +845,7 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> RwSignal<MaybeSendWrapperOption<I>> {
+    pub fn input(&self) -> RwSignal<SendOption<I>> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.input())
@@ -860,9 +860,7 @@ where
     #[track_caller]
     #[deprecated = "You can now use .input() for any value, whether it's \
                     thread-safe or not."]
-    pub fn input_local(
-        &self,
-    ) -> RwSignal<MaybeSendWrapperOption<I>, LocalStorage> {
+    pub fn input_local(&self) -> RwSignal<SendOption<I>, LocalStorage> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.input())
@@ -905,7 +903,7 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> RwSignal<MaybeSendWrapperOption<O>> {
+    pub fn value(&self) -> RwSignal<SendOption<O>> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.value())
@@ -921,9 +919,7 @@ where
     #[deprecated = "You can now use .value() for any value, whether it's \
                     thread-safe or not."]
     #[track_caller]
-    pub fn value_local(
-        &self,
-    ) -> RwSignal<MaybeSendWrapperOption<O>, LocalStorage>
+    pub fn value_local(&self) -> RwSignal<SendOption<O>, LocalStorage>
     where
         O: Send + Sync,
     {

@@ -8,7 +8,7 @@ use reactive_graph::{
         ToAnySource, ToAnySubscriber,
     },
     owner::use_context,
-    send_wrapper_ext::MaybeSendWrapperOption,
+    send_wrapper_ext::SendOption,
     signal::{
         guards::{AsyncPlain, Mapped, ReadGuard},
         ArcRwSignal, RwSignal,
@@ -163,7 +163,7 @@ where
 {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
+        Mapped<AsyncPlain<SendOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
@@ -344,7 +344,7 @@ where
 {
     type Value = ReadGuard<
         Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
+        Mapped<AsyncPlain<SendOption<T>>, Option<T>>,
     >;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {

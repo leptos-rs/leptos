@@ -6,26 +6,25 @@ use std::{
     hash,
     ops::{Deref, DerefMut},
 };
-
 /// An optional value that might be wrapped in [`SendWrapper`].
 ///
 /// This struct is useful because:
 /// - Can be dereffed to &Option<T>, even when T is wrapped in a SendWrapper.
 /// - Until [`DerefMut`] is called, the None case will not construct a SendWrapper, so no panics if initialised when None and dropped on a different thread. Any access other than [`DerefMut`] will not construct a SendWrapper.
-pub struct MaybeSendWrapperOption<T> {
+pub struct SendOption<T> {
     inner: Inner<T>,
 }
 
-// SAFETY: `MaybeSendWrapperOption` can *only* be given a T in four ways
+// SAFETY: `SendOption` can *only* be given a T in four ways
 // 1) via new(), which requires T: Send + Sync
 // 2) via new_local(), which wraps T in a SendWrapper if given Some(T)
 // 3) via deref_mut(), which creates a SendWrapper<Option<T>> as needed
 // 4) via update(), which either dereferences an existing SendWrapper
 //    or creates a new SendWrapper as needed
-unsafe impl<T> Send for MaybeSendWrapperOption<T> {}
-unsafe impl<T> Sync for MaybeSendWrapperOption<T> {}
+unsafe impl<T> Send for SendOption<T> {}
+unsafe impl<T> Sync for SendOption<T> {}
 
-impl<T> PartialEq for MaybeSendWrapperOption<T>
+impl<T> PartialEq for SendOption<T>
 where
     T: PartialEq,
 {
@@ -34,9 +33,9 @@ where
     }
 }
 
-impl<T> Eq for MaybeSendWrapperOption<T> where T: Eq {}
+impl<T> Eq for SendOption<T> where T: Eq {}
 
-impl<T> PartialOrd for MaybeSendWrapperOption<T>
+impl<T> PartialOrd for SendOption<T>
 where
     T: PartialOrd,
 {
@@ -45,7 +44,7 @@ where
     }
 }
 
-impl<T> hash::Hash for MaybeSendWrapperOption<T>
+impl<T> hash::Hash for SendOption<T>
 where
     T: hash::Hash,
 {
@@ -61,7 +60,7 @@ enum Inner<T> {
     Local(Option<SendWrapper<Option<T>>>),
 }
 
-impl<T> MaybeSendWrapperOption<T>
+impl<T> SendOption<T>
 where
     T: Send + Sync,
 {
@@ -73,7 +72,7 @@ where
     }
 }
 
-impl<T> From<Option<T>> for MaybeSendWrapperOption<T>
+impl<T> From<Option<T>> for SendOption<T>
 where
     T: Send + Sync,
 {
@@ -82,7 +81,16 @@ where
     }
 }
 
-impl<T> MaybeSendWrapperOption<T> {
+impl<T> From<Option<T>> for SendOption<T>
+where
+    T: Send + Sync,
+{
+    fn from(value: Option<T>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T> SendOption<T> {
     /// Create a new non-threadsafe value.
     pub fn new_local(value: Option<T>) -> Self {
         Self {
@@ -131,7 +139,7 @@ impl<T> MaybeSendWrapperOption<T> {
     }
 }
 
-impl<T> Deref for MaybeSendWrapperOption<T> {
+impl<T> Deref for SendOption<T> {
     type Target = Option<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -145,7 +153,7 @@ impl<T> Deref for MaybeSendWrapperOption<T> {
     }
 }
 
-impl<T> DerefMut for MaybeSendWrapperOption<T> {
+impl<T> DerefMut for SendOption<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.inner {
             Inner::Threadsafe(value) => value,
@@ -160,20 +168,20 @@ impl<T> DerefMut for MaybeSendWrapperOption<T> {
     }
 }
 
-impl<T: Debug> Debug for MaybeSendWrapperOption<T> {
+impl<T: Debug> Debug for SendOption<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             Inner::Threadsafe(value) => {
-                write!(f, "MaybeSendWrapperOption::Threadsafe({:?})", value)
+                write!(f, "SendOption::Threadsafe({:?})", value)
             }
             Inner::Local(value) => {
-                write!(f, "MaybeSendWrapperOption::Local({:?})", value)
+                write!(f, "SendOption::Local({:?})", value)
             }
         }
     }
 }
 
-impl<T: Clone> Clone for MaybeSendWrapperOption<T> {
+impl<T: Clone> Clone for SendOption<T> {
     fn clone(&self) -> Self {
         Self {
             inner: match &self.inner {
