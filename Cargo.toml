@@ -45,6 +45,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [workspace.dependencies]
+convert_case = "0.8"
 throw_error = { path = "./any_error/", version = "0.3.0" }
 any_spawner = { path = "./any_spawner/", version = "0.3.0-rc1" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
@@ -74,6 +75,8 @@ server_fn_macro = { path = "./server_fn_macro", version = "0.8.0-rc1" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.0-rc1" }
 tachys = { path = "./tachys", version = "0.2.0-rc1" }
 trybuild = "1"
+typed-builder = "0.21.0"
+thiserror = "2.0.12"
 wasm-bindgen = { version = "0.2.100" }
 
 [profile.release]

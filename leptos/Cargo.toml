@@ -39,10 +39,10 @@ tachys = { workspace = true, features = [
   "reactive_stores",
   "oco",
 ] }
-thiserror = "2.0"
+thiserror = { workspace = true }
 tracing = { version = "0.1.41", optional = true }
-typed-builder = "0.20.0"
-typed-builder-macro = "0.20.0"
+typed-builder = { workspace = true }
+typed-builder-macro = "0.21.0"
 serde = "1.0"
 serde_json = { version = "1.0", optional = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }
@@ -52,7 +52,7 @@ web-sys = { version = "0.3.72", features = [
   "ShadowRootMode",
 ] }
 wasm-bindgen = { workspace = true }
-serde_qs = "0.13.0"
+serde_qs = "0.14.0"
 slotmap = "1.0"
 futures = "0.3.31"
 send_wrapper = "0.6.0"
@@ -107,7 +107,7 @@ rustc_version = "0.4.1"
 # https://github.com/rust-lang/cargo/issues/4423
 # TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
 # This works around the issue by the non proc-macro crate which does see RUSTFLAGS enabling the replacement feature on the proc-macro crate, which wouldn't.
-# This is automatic as long as the leptos crate is depended upon, 
+# This is automatic as long as the leptos crate is depended upon,
 # downstream usage should never manually enable this feature.
 [target.'cfg(erase_components)'.dependencies]
 leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
