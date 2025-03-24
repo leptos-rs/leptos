@@ -2,6 +2,7 @@ extend = [
   { path = "./compile.toml" },
   { path = "./clean.toml" },
   { path = "./lint.toml" },
+  { path = "./test.toml" },
   { path = "./node.toml" },
   { path = "./process.toml" },
 ]
@@ -9,7 +10,7 @@ extend = [
 # CI Stages
 
 [tasks.ci]
-dependencies = ["prepare", "lint", "test-flow", "integration-test"]
+dependencies = ["prepare", "lint", "test", "integration-test"]
 
 [tasks.prepare]
 dependencies = ["setup-node"]
@@ -36,7 +37,7 @@ dependencies = ["build", "clean"]
 alias = "ci"
 
 [tasks.t]
-dependencies = ["test-flow"]
+dependencies = ["test"]
 
 [tasks.it]
 alias = "integration-test"
