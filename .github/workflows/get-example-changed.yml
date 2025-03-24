@@ -5,16 +5,18 @@ on:
       example_changed:
         description: "Example Changed"
         value: ${{ jobs.get-example-changed.outputs.example_changed }}
-      example_directory:
+      # This is for test-only-examples workflow in ci.yml
+      matrix:
         description: "Example Changed Directories"
-        value: ${{ jobs.get-example-changed.outputs.example_directory }}
+        value: ${{ jobs.get-example-changed.outputs.matrix }}
 jobs:
   get-example-changed:
     name: Get Example Changed
     runs-on: ubuntu-latest
     outputs:
       example_changed: ${{ steps.set-example-changed.outputs.example_changed }}
-      example_directory: ${{ steps.set-example-changed.outputs.example_directory }}
+      # This is for test-only-examples workflow in ci.yml
+      matrix: ${{ steps.set-example-changed.outputs.matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,4 +39,5 @@ jobs:
         id: set-example-changed
         run: |
           echo "example_changed=${{ steps.changed-files.outputs.any_changed }}" >> "$GITHUB_OUTPUT"
-          echo "example_directory=$(echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')" >> "$GITHUB_OUTPUT"
+          # This is for test-only-examples workflow in ci.yml
+          echo "matrix={\"directory\": $(echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | awk -F'/' '{print $1 "/" $2}'| sort -u | jq -R -s -c 'split("\n") | .[:-1]')" >> "$GITHUB_OUTPUT"
