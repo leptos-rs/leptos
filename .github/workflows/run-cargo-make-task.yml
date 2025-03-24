@@ -59,6 +59,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
