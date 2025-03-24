@@ -6,11 +6,29 @@ use std::{
     hash,
     ops::{Deref, DerefMut},
 };
-/// An optional value that might be wrapped in [`SendWrapper`].
+/// An optional value that can always be sent between threads, even if its inner value
+/// in the `Some(_)` case would not be threadsafe.
 ///
-/// This struct is useful because:
-/// - Can be dereffed to &Option<T>, even when T is wrapped in a SendWrapper.
-/// - Until [`DerefMut`] is called, the None case will not construct a SendWrapper, so no panics if initialised when None and dropped on a different thread. Any access other than [`DerefMut`] will not construct a SendWrapper.
+/// This struct can be derefenced to `Option<T>`.
+///
+/// If it has been given a local (`!Send`) value, that value is wrapped in a [`SendWrapper`], which
+/// allows sending it between threads but will panic if it is accessed or updated from a  
+/// thread other than the one on which it was created.
+///
+/// If it is created with `None` for a local (`!Send`) type, no `SendWrapper` is created until a
+/// value is provided via [`DerefMut`] or [`update`](SendOption::update).
+///
+/// ### Use Case
+/// This is useful for cases like browser-only types, which are `!Send` but cannot be constructed
+/// on the server anyway, and are only created in a single-threaded browser environment. The local
+/// `SendOption` can be created with its `None` variant and sent between threads without causing issues
+/// when it is dropped.
+///
+/// ### Panics
+/// Dereferencing or dropping `SendOption` panics under the following conditions:
+/// 1) It is created via [`new_local`](SendOption::new_local) (signifying a `!Send` inner type),
+/// 2) It has `Some(_)` value, and
+/// 3) It has been sent to a thread other than the one on which it was created.
 pub struct SendOption<T> {
     inner: Inner<T>,
 }
