@@ -99,15 +99,6 @@ where
     }
 }
 
-impl<T> From<Option<T>> for SendOption<T>
-where
-    T: Send + Sync,
-{
-    fn from(value: Option<T>) -> Self {
-        Self::new(value)
-    }
-}
-
 impl<T> SendOption<T> {
     /// Create a new non-threadsafe value.
     pub fn new_local(value: Option<T>) -> Self {
