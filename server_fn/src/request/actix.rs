@@ -85,24 +85,21 @@ where
         SendWrapper::new(async move {
             let payload = self.0.take().1;
             let bytes = payload.to_bytes().await.map_err(|e| {
-                Error::from_server_fn_error(
-                    ServerFnErrorErr::Deserialization(e.to_string()),
-                )
+                Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
             })?;
             String::from_utf8(bytes.into()).map_err(|e| {
-                Error::from_server_fn_error(
-                    ServerFnErrorErr::Deserialization(e.to_string()),
-                )
+                Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
             })
         })
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, Error>> + Send,
-        Error,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send, Error> {
         let payload = self.0.take().1;
         let stream = payload.map(|res| {
             res.map_err(|e| {
@@ -126,15 +123,17 @@ where
         let (request, payload) = self.0.take();
         let (response, mut session, mut msg_stream) =
             actix_ws::handle(&request, payload).map_err(|e| {
-                Error::from_server_fn_error(
-                    ServerFnErrorErr::Request(e.to_string()),
-                )
+                Error::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
             })?;
 
         let (mut response_stream_tx, response_stream_rx) =
             futures::channel::mpsc::channel(2048);
         let (response_sink_tx, mut response_sink_rx) =
-            futures::channel::mpsc::channel::<Result<Bytes, OutputStreamError>>(2048);
+            futures::channel::mpsc::channel::<Result<Bytes, OutputStreamError>>(
+                2048,
+            );
 
         actix_web::rt::spawn(async move {
             loop {

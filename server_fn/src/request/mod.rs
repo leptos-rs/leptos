@@ -74,11 +74,8 @@ where
 }
 
 /// Represents the request as received by the server.
-pub trait Req<
-    Error,
-    InputStreamError = Error,
-    OutputStreamError = Error,
-> where
+pub trait Req<Error, InputStreamError = Error, OutputStreamError = Error>
+where
     Self: Sized,
 {
     /// The response type for websockets.
@@ -109,10 +106,7 @@ pub trait Req<
     /// Attempts to convert the body of the request into a stream of bytes.
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, Error>> + Send + 'static,
-        Error,
-    >;
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>;
 
     /// Attempts to convert the body of the request into a websocket handle.
     #[allow(clippy::type_complexity)]
@@ -168,10 +162,7 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, Error>> + Send,
-        Error,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send, Error> {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 

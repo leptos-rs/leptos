@@ -23,12 +23,7 @@ pub fn get_server_url() -> &'static str {
 /// This trait is implemented for things like a browser `fetch` request or for
 /// the `reqwest` trait. It should almost never be necessary to implement it
 /// yourself, unless you’re trying to use an alternative HTTP crate on the client side.
-pub trait Client<
-    Error,
-    InputStreamError = Error,
-    OutputStreamError = Error,
->
-{
+pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
     /// The type of a request sent by this client.
     type Request: ClientReq<Error> + Send + 'static;
     /// The type of a response received by this client.
@@ -46,7 +41,9 @@ pub trait Client<
     ) -> impl Future<
         Output = Result<
             (
-                impl Stream<Item = Result<Bytes, OutputStreamError>> + Send + 'static,
+                impl Stream<Item = Result<Bytes, OutputStreamError>>
+                    + Send
+                    + 'static,
                 impl Sink<Result<Bytes, InputStreamError>> + Send + 'static,
             ),
             Error,
@@ -120,7 +117,9 @@ pub mod browser {
                     impl futures::Stream<Item = Result<Bytes, OutputStreamError>>
                         + Send
                         + 'static,
-                    impl futures::Sink<Result<Bytes, InputStreamError>> + Send + 'static,
+                    impl futures::Sink<Result<Bytes, InputStreamError>>
+                        + Send
+                        + 'static,
                 ),
                 Error,
             >,

@@ -62,10 +62,8 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, Error>> + Send + 'static,
-        Error,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>
+    {
         Ok(self.into_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
                 ServerFnErrorErr::Deserialization(e.to_string())
@@ -112,16 +110,16 @@ where
                 axum::extract::ws::WebSocketUpgrade::from_request(self, &())
                     .await
                     .map_err(|err| {
-                        Error::from_server_fn_error(
-                            ServerFnErrorErr::Request(err.to_string()),
-                        )
+                        Error::from_server_fn_error(ServerFnErrorErr::Request(
+                            err.to_string(),
+                        ))
                     })?;
             let (mut outgoing_tx, outgoing_rx) =
                 futures::channel::mpsc::channel(2048);
             let (incoming_tx, mut incoming_rx) =
-                futures::channel::mpsc::channel::<Result<Bytes, OutputStreamError>>(
-                    2048,
-                );
+                futures::channel::mpsc::channel::<
+                    Result<Bytes, OutputStreamError>,
+                >(2048);
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();

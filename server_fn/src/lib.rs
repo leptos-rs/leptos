@@ -220,12 +220,20 @@ pub trait ServerFn: Send + Sized {
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
-    type Client: Client<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
+    type Client: Client<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
     /// The type of the HTTP server that will send the response from the server side.
     ///
     /// For example, this might be `axum` or `actix-web`.
-    type Server: Server<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
+    type Server: Server<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
     /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
@@ -640,7 +648,10 @@ where
         });
         let boxed = Box::pin(input)
             as Pin<
-                Box<dyn Stream<Item = Result<InputItem, InputStreamError>> + Send>,
+                Box<
+                    dyn Stream<Item = Result<InputItem, InputStreamError>>
+                        + Send,
+                >,
             >;
         let input = BoxedStream { stream: boxed };
 
@@ -909,7 +920,8 @@ pub mod axum {
     pub struct AxumServerFnBackend;
 
     impl<Error, InputStreamError, OutputStreamError>
-        Server<Error, InputStreamError, OutputStreamError> for AxumServerFnBackend
+        Server<Error, InputStreamError, OutputStreamError>
+        for AxumServerFnBackend
     where
         Error: FromServerFnError + Send + Sync,
         InputStreamError: FromServerFnError + Send + Sync,

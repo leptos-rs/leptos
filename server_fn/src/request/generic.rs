@@ -45,10 +45,8 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, Error>> + Send + 'static,
-        Error,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>
+    {
         Ok(stream::iter(self.into_body())
             .ready_chunks(16)
             .map(|chunk| Ok(Bytes::from(chunk))))
