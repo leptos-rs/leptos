@@ -16,7 +16,7 @@ wasm-bindgen = "0.2.93"
 web-sys = "0.3.70"
 minify-html = "0.16.4"
 
-[profile.dev]
+[profile.test]
 opt-level = "s"
 
 [profile.release]
