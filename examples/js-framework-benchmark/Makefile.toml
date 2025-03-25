@@ -4,15 +4,16 @@ extend = [
   { path = "../cargo-make/trunk_server.toml" },
 ]
 
-[tasks.build]
+[tasks.clippy-each-feature]
 dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["all-features", "build", "--target", "wasm32-unknown-unknown"]
-
-[tasks.check]
-dependencies = ["cargo-all-features"]
-command = "cargo"
-args = ["all-features", "clippy", "--target", "wasm32-unknown-unknown"]
-
-[tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features --target wasm32-unknown-unknown -- -D warnings" }
+args = [
+  "all-features",
+  "clippy",
+  "--target",
+  "wasm32-unknown-unknown",
+  "--no-deps",
+  "--",
+  "-D",
+  "warnings",
+]
