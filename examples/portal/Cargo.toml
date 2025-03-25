@@ -16,3 +16,10 @@ wasm-bindgen = "0.2.93"
 web-sys = "0.3.70"
 minify-html = "0.16.4"
 
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
