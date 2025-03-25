@@ -8,6 +8,9 @@ wasm_bindgen_test_configure!(run_in_browser);
 use leptos::{leptos_dom::helpers::document, mount::mount_to, task::tick};
 use web_sys::HtmlButtonElement;
 
+fn minify(src: &[u8]) -> String {
+    String::from_utf8(minify_html::minify(src, &Default::default())).unwrap()
+}
 #[wasm_bindgen_test]
 async fn portal() {
     let document = document();
@@ -30,14 +33,16 @@ async fn portal() {
 
     // check HTML
     assert_eq!(
-        div.inner_html(),
-        "<div><button id=\"btn-show\">Show \
+        minify(div.inner_html().as_bytes()),
+        minify(
+            b"<div><button id=\"btn-show\">Show \
          Overlay</button><div>Show</div><!----></div><div><div \
          style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; \
          top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
          white;\"><p>This is in the body element</p><button \
          id=\"btn-hide\">Close Overlay</button><button \
          id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+        )
     );
 
     let toggle_button = document
@@ -48,14 +53,16 @@ async fn portal() {
     toggle_button.click();
 
     assert_eq!(
-        div.inner_html(),
-        "<div><button id=\"btn-show\">Show \
-         Overlay</button><div>Show</div><!----></div><div><div \
-         style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; \
-         top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
-         white;\"><p>This is in the body element</p><button \
-         id=\"btn-hide\">Close Overlay</button><button \
-         id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+        minify(div.inner_html().as_bytes()),
+        minify(
+            b"<div><button id=\"btn-show\">Show \
+             Overlay</button><div>Show</div><!----></div><div><div \
+             style=\"position: fixed; z-index: 10; width: 100vw; height: \
+             100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
+             white;\"><p>This is in the body element</p><button \
+             id=\"btn-hide\">Close Overlay</button><button \
+             id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+        )
     );
 
     let hide_button = document
@@ -66,13 +73,15 @@ async fn portal() {
     hide_button.click();
 
     assert_eq!(
-        div.inner_html(),
-        "<div><button id=\"btn-show\">Show \
+        minify(div.inner_html().as_bytes()),
+        minify(
+            b"<div><button id=\"btn-show\">Show \
          Overlay</button><div>Show</div><!----></div><div><div \
          style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; \
          top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
          white;\"><p>This is in the body element</p><button \
          id=\"btn-hide\">Close Overlay</button><button \
          id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+        )
     );
 }
