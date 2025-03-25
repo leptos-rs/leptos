@@ -7,14 +7,13 @@ condition = { env_true = ["RUN_AUTOMATICALLY"] }
 [tasks.ci]
 
 [tasks.test-ui]
-env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
 args = [
-  "nextest",
-  "run",
+  "test",
   "--test",
   "app_suite",
-  "--retries",
+  "--",
+  "--retry",
   "5",
   "--fail-fast",
   "${@}",
