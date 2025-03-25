@@ -128,6 +128,8 @@ pub trait MatchNestedRoutes {
     fn generate_routes(
         &self,
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_;
+
+    fn optional(&self) -> bool;
 }
 
 #[derive(Default, Debug, PartialEq)]
