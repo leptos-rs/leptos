@@ -131,23 +131,12 @@ impl TitleContext {
 
     fn remove_id(&self, id: TitleId) -> (Option<TextProp>, Option<Formatter>) {
         let mut text_stack = self.text_stack.write().or_poisoned();
-        let text = if let Some(pos) =
-            text_stack.iter().position(|(item_id, _)| *item_id == id)
-        {
-            Some(text_stack.remove(pos).1)
-        } else {
-            None
-        };
+        let text = text_stack.iter().position(|(item_id, _)| *item_id == id).map(|pos| text_stack.remove(pos).1);
 
         let mut formatter_stack = self.formatter_stack.write().or_poisoned();
-        let formatter = if let Some(pos) = formatter_stack
+        let formatter = formatter_stack
             .iter()
-            .position(|(item_id, _)| *item_id == id)
-        {
-            Some(formatter_stack.remove(pos).1)
-        } else {
-            None
-        };
+            .position(|(item_id, _)| *item_id == id).map(|pos| formatter_stack.remove(pos).1);
 
         self.invalidate();
 
