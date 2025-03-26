@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "hackernews_bin"
+path = "src/main.rs"
+
 [profile.release]
 codegen-units = 1
 opt-level = "z"
