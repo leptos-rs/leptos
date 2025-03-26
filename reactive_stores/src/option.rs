@@ -11,9 +11,11 @@ where
     type Output;
 
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
+    #[track_caller]
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
 
     /// Inverts a subfield of an `Option` to an `Option` of a subfield.
+    #[track_caller]
     fn invert(
         self,
     ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
@@ -26,6 +28,7 @@ where
     /// and a new store subfield with the inner value if it is `Some`. This can be used in some  
     /// other reactive context, which will cause it to re-run if the field toggles betwen `None`
     /// and `Some(_)`.
+    #[track_caller]
     fn map<U>(
         self,
         map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
@@ -36,6 +39,7 @@ where
     /// This returns `None` if the subfield is currently `None`,
     /// and a new store subfield with the inner value if it is `Some`. This is an unreactive variant of
     /// `[OptionStoreExt::map]`, and will not cause the reactive context to re-run if the field changes.
+    #[track_caller]
     fn map_untracked<U>(
         self,
         map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
@@ -51,12 +55,7 @@ where
     type Output = T;
 
     fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output> {
-        Subfield::new(
-            self,
-            0.into(),
-            |t| t.as_ref().unwrap(),
-            |t| t.as_mut().unwrap(),
-        )
+        Subfield::new(self, 0.into(), as_ref_unwrap, as_mut_unwrap)
     }
 
     fn map<U>(
@@ -80,6 +79,16 @@ where
             None
         }
     }
+}
+
+#[track_caller]
+fn as_ref_unwrap<T>(prev: &Option<T>) -> &T {
+    prev.as_ref().unwrap()
+}
+
+#[track_caller]
+fn as_mut_unwrap<T>(prev: &mut Option<T>) -> &mut T {
+    prev.as_mut().unwrap()
 }
 
 #[cfg(test)]
