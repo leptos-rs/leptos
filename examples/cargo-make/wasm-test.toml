@@ -1,6 +1,6 @@
-[tasks.test]
-env = { RUN_CARGO_TEST = false }
-condition = { env_true = ["RUN_CARGO_TEST"] }
+# [tasks.test]
+# env = { RUN_CARGO_TEST = false }
+# condition = { env_true = ["RUN_CARGO_TEST"] }
 
 [tasks.post-test]
 dependencies = ["test-wasm"]
