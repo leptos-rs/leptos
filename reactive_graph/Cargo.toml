@@ -18,7 +18,7 @@ pin-project-lite = "0.2.15"
 rustc-hash = "2.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 slotmap = "1.0"
-thiserror = "2.0"
+thiserror = { workspace = true }
 tracing = { version = "0.1.41", optional = true }
 guardian = "1.2"
 async-lock = "3.4.0"
