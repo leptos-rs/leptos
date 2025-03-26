@@ -4,7 +4,3 @@ extend = [
   { path = "../cargo-make/wasm-test.toml" },
   { path = "../cargo-make/trunk_server.toml" },
 ]
-
-[tasks.test]
-env = { RUN_CARGO_TEST = true }
-condition = { env_true = ["RUN_CARGO_TEST"] }
