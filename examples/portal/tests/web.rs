@@ -146,7 +146,7 @@ fn test_minify() {
             </ul>
         </div>"#;
 
-    let expected = r#"<div><p> Hello world! </p><ul><li>Item 1</li><li>Item 2</li></ul></div>"#;
+    let expected = r#"<div><p>Hello world!</p><ul><li>Item 1</li><li>Item 2</li></ul></div>"#;
 
     assert_eq!(minify(input), expected);
 }
