@@ -17,6 +17,8 @@ pub use resource::*;
 mod shared;
 
 use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+/// Re-export of the `codee` crate.
+pub use codee;
 pub use shared::*;
 
 /// Encodes data into a string.
