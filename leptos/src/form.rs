@@ -97,6 +97,7 @@ where
     ServFn: Send + Sync + 'static,
     ServFn::Output: Send + Sync + 'static,
     ServFn::Error: Send + Sync + 'static,
+    <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
 {
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
     _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
@@ -175,6 +176,7 @@ where
         ServFn::Error,
     >>::FormData: From<FormData>,
     ServFn::Error: Send + Sync + 'static,
+    <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
 {
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
     _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
