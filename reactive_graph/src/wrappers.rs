@@ -225,32 +225,14 @@ pub mod read {
         /// Wraps a derived signal. Works like [`Signal::derive`] but uses [`LocalStorage`].
         #[track_caller]
         pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
-            let derived_signal = SendWrapper::new(derived_signal);
-            #[cfg(feature = "tracing")]
-            let span = ::tracing::Span::current();
-
-            let derived_signal = move || {
-                #[cfg(feature = "tracing")]
-                let _guard = span.enter();
-                derived_signal()
-            };
-
-            Self {
-                inner: SignalTypes::DerivedSignal(Arc::new(derived_signal)),
-                #[cfg(any(debug_assertions, leptos_debuginfo))]
-                defined_at: std::panic::Location::caller(),
-            }
+            Signal::derive_local(derived_signal).into()
         }
 
         /// Moves a static, nonreactive value into a signal, backed by [`ArcStoredValue`].
         /// Works like [`Signal::stored`] but uses [`LocalStorage`].
         #[track_caller]
         pub fn stored_local(value: T) -> Self {
-            Self {
-                inner: SignalTypes::Stored(ArcStoredValue::new(value)),
-                #[cfg(any(debug_assertions, leptos_debuginfo))]
-                defined_at: std::panic::Location::caller(),
-            }
+            Signal::stored_local(value).into()
         }
     }
 
