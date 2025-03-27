@@ -54,16 +54,17 @@ impl TitleContext {
         let this = self.clone();
         let revalidate = self.revalidate.clone();
 
-        let effect = RenderEffect::new({
-            move |_| {
-                revalidate.track();
-                let text = this.as_string();
-                document().set_title(text.as_deref().unwrap_or_default());
-                text
-            }
-        });
-
-        *self.effect.lock().or_poisoned() = Some(effect);
+        let mut effect_lock = self.effect.lock().or_poisoned();
+        if effect_lock.is_none() {
+            *effect_lock = Some(RenderEffect::new({
+                move |_| {
+                    revalidate.track();
+                    let text = this.as_string();
+                    document().set_title(text.as_deref().unwrap_or_default());
+                    text
+                }
+            }));
+        }
     }
 
     fn push_text_and_formatter(
