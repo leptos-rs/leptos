@@ -29,6 +29,7 @@ pub struct TitleContext {
     formatter_stack: Arc<RwLock<Vec<(TitleId, Formatter)>>>,
     text_stack: Arc<RwLock<Vec<(TitleId, TextProp)>>>,
     revalidate: ArcTrigger,
+    #[allow(clippy::type_complexity)]
     effect: Arc<Mutex<Option<RenderEffect<Option<Oco<'static, str>>>>>>,
 }
 
