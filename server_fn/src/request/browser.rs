@@ -6,6 +6,7 @@ use crate::{
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Request;
+use http::Method;
 use js_sys::{Reflect, Uint8Array};
 use send_wrapper::SendWrapper;
 use std::ops::{Deref, DerefMut};
@@ -92,11 +93,12 @@ where
 {
     type FormData = BrowserFormData;
 
-    fn try_new_get(
+    fn try_new_req_query(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         query: &str,
+        method: http::Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
@@ -108,25 +110,39 @@ where
         url.push('?');
         url.push_str(query);
         Ok(Self(SendWrapper::new(RequestInner {
-            request: Request::get(&url)
-                .header("Content-Type", content_type)
-                .header("Accept", accepts)
-                .abort_signal(abort_signal.as_ref())
-                .build()
-                .map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
+            request: match method {
+                Method::GET => Request::get(&url),
+                Method::DELETE => Request::delete(&url),
+                Method::POST => Request::post(&url),
+                Method::PUT => Request::put(&url),
+                Method::PATCH => Request::patch(&url),
+                m => {
+                    return Err(E::from_server_fn_error(
+                        ServerFnErrorErr::UnsupportedRequestMethod(
+                            m.to_string(),
+                        ),
                     ))
-                })?,
+                }
+            }
+            .header("Content-Type", content_type)
+            .header("Accept", accepts)
+            .abort_signal(abort_signal.as_ref())
+            .build()
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?,
             abort_ctrl,
         })))
     }
 
-    fn try_new_post(
+    fn try_new_req_text(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         body: String,
+        method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
@@ -134,25 +150,37 @@ where
         url.push_str(server_url);
         url.push_str(path);
         Ok(Self(SendWrapper::new(RequestInner {
-            request: Request::post(&url)
-                .header("Content-Type", content_type)
-                .header("Accept", accepts)
-                .abort_signal(abort_signal.as_ref())
-                .body(body)
-                .map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
+            request: match method {
+                Method::POST => Request::post(&url),
+                Method::PATCH => Request::patch(&url),
+                Method::PUT => Request::put(&url),
+                m => {
+                    return Err(E::from_server_fn_error(
+                        ServerFnErrorErr::UnsupportedRequestMethod(
+                            m.to_string(),
+                        ),
                     ))
-                })?,
+                }
+            }
+            .header("Content-Type", content_type)
+            .header("Accept", accepts)
+            .abort_signal(abort_signal.as_ref())
+            .body(body)
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?,
             abort_ctrl,
         })))
     }
 
-    fn try_new_post_bytes(
+    fn try_new_req_bytes(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         body: Bytes,
+        method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
@@ -162,24 +190,36 @@ where
         let body: &[u8] = &body;
         let body = Uint8Array::from(body).buffer();
         Ok(Self(SendWrapper::new(RequestInner {
-            request: Request::post(&url)
-                .header("Content-Type", content_type)
-                .header("Accept", accepts)
-                .abort_signal(abort_signal.as_ref())
-                .body(body)
-                .map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
+            request: match method {
+                Method::POST => Request::post(&url),
+                Method::PATCH => Request::patch(&url),
+                Method::PUT => Request::put(&url),
+                m => {
+                    return Err(E::from_server_fn_error(
+                        ServerFnErrorErr::UnsupportedRequestMethod(
+                            m.to_string(),
+                        ),
                     ))
-                })?,
+                }
+            }
+            .header("Content-Type", content_type)
+            .header("Accept", accepts)
+            .abort_signal(abort_signal.as_ref())
+            .body(body)
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?,
             abort_ctrl,
         })))
     }
 
-    fn try_new_multipart(
+    fn try_new_req_multipart(
         path: &str,
         accepts: &str,
         body: Self::FormData,
+        method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
@@ -187,24 +227,36 @@ where
         url.push_str(server_url);
         url.push_str(path);
         Ok(Self(SendWrapper::new(RequestInner {
-            request: Request::post(&url)
-                .header("Accept", accepts)
-                .abort_signal(abort_signal.as_ref())
-                .body(body.0.take())
-                .map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
+            request: match method {
+                Method::POST => Request::post(&url),
+                Method::PATCH => Request::patch(&url),
+                Method::PUT => Request::put(&url),
+                m => {
+                    return Err(E::from_server_fn_error(
+                        ServerFnErrorErr::UnsupportedRequestMethod(
+                            m.to_string(),
+                        ),
                     ))
-                })?,
+                }
+            }
+            .header("Accept", accepts)
+            .abort_signal(abort_signal.as_ref())
+            .body(body.0.take())
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?,
             abort_ctrl,
         })))
     }
 
-    fn try_new_post_form_data(
+    fn try_new_req_form_data(
         path: &str,
         accepts: &str,
         content_type: &str,
         body: Self::FormData,
+        method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
         let form_data = body.0.take();
@@ -219,35 +271,55 @@ where
                     ))
                 })?;
         Ok(Self(SendWrapper::new(RequestInner {
-            request: Request::post(path)
-                .header("Content-Type", content_type)
-                .header("Accept", accepts)
-                .abort_signal(abort_signal.as_ref())
-                .body(url_params)
-                .map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
+            request: match method {
+                Method::POST => Request::post(path),
+                Method::PUT => Request::put(path),
+                Method::PATCH => Request::patch(path),
+                m => {
+                    return Err(E::from_server_fn_error(
+                        ServerFnErrorErr::UnsupportedRequestMethod(
+                            m.to_string(),
+                        ),
                     ))
-                })?,
+                }
+            }
+            .header("Content-Type", content_type)
+            .header("Accept", accepts)
+            .abort_signal(abort_signal.as_ref())
+            .body(url_params)
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Request(
+                    e.to_string(),
+                ))
+            })?,
             abort_ctrl,
         })))
     }
 
-    fn try_new_streaming(
+    fn try_new_req_streaming(
         path: &str,
         accepts: &str,
         content_type: &str,
         body: impl Stream<Item = Bytes> + 'static,
+        method: Method,
     ) -> Result<Self, E> {
+        // Only allow for methods with bodies
+        match method {
+            Method::POST | Method::PATCH | Method::PUT => {}
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
         // TODO abort signal
         let (request, abort_ctrl) =
-            streaming_request(path, accepts, content_type, body).map_err(
-                |e| {
+            streaming_request(path, accepts, content_type, body, method)
+                .map_err(|e| {
                     E::from_server_fn_error(ServerFnErrorErr::Request(format!(
                         "{e:?}"
                     )))
-                },
-            )?;
+                })?;
         Ok(Self(SendWrapper::new(RequestInner {
             request,
             abort_ctrl,
@@ -260,6 +332,7 @@ fn streaming_request(
     accepts: &str,
     content_type: &str,
     body: impl Stream<Item = Bytes> + 'static,
+    method: Method,
 ) -> Result<(Request, Option<AbortOnDrop>), JsValue> {
     let (abort_ctrl, abort_signal) = abort_signal();
     let stream = ReadableStream::from_stream(body.map(|bytes| {
@@ -275,7 +348,7 @@ fn streaming_request(
 
     let init = RequestInit::new();
     init.set_headers(&headers);
-    init.set_method("POST");
+    init.set_method(method.as_str());
     init.set_signal(abort_signal.as_ref());
     init.set_body(&stream);
 

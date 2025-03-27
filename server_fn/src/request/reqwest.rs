@@ -20,116 +20,161 @@ where
 {
     type FormData = Form;
 
-    fn try_new_get(
+    fn try_new_req_query(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         query: &str,
+        method: Method,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
         let mut url = Url::try_from(url.as_str()).map_err(|e| {
             E::from_server_fn_error(ServerFnErrorErr::Request(e.to_string()))
         })?;
         url.set_query(Some(query));
-        let req = CLIENT
-            .get(url)
-            .header(CONTENT_TYPE, content_type)
-            .header(ACCEPT, accepts)
-            .build()
-            .map_err(|e| {
-                E::from_server_fn_error(ServerFnErrorErr::Request(
-                    e.to_string(),
+        let req = match method {
+            Method::GET => CLIENT.get(url),
+            Method::DELETE => CLIENT.delete(url),
+            Method::HEAD => CLIENT.head(url),
+            Method::POST => CLIENT.post(url),
+            Method::PATCH => CLIENT.patch(url),
+            Method::PUT => CLIENT.put(url),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
                 ))
-            })?;
+            }
+        }
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accepts)
+        .build()
+        .map_err(|e| {
+            E::from_server_fn_error(ServerFnErrorErr::Request(e.to_string()))
+        })?;
         Ok(req)
     }
 
-    fn try_new_post(
+    fn try_new_req_text(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         body: String,
+        method: Method,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
-        CLIENT
-            .post(url)
-            .header(CONTENT_TYPE, content_type)
-            .header(ACCEPT, accepts)
-            .body(body)
-            .build()
-            .map_err(|e| {
-                ServerFnErrorErr::Request(e.to_string()).into_app_error()
-            })
+        match method {
+            Method::POST => CLIENT.post(url),
+            Method::PUT => CLIENT.put(url),
+            Method::PATCH => CLIENT.patch(url),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accepts)
+        .body(body)
+        .build()
+        .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 
-    fn try_new_post_bytes(
+    fn try_new_req_bytes(
         path: &str,
-        accepts: &str,
         content_type: &str,
+        accepts: &str,
         body: Bytes,
+        method: Method,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
-        CLIENT
-            .post(url)
-            .header(CONTENT_TYPE, content_type)
-            .header(ACCEPT, accepts)
-            .body(body)
-            .build()
-            .map_err(|e| {
-                ServerFnErrorErr::Request(e.to_string()).into_app_error()
-            })
+        match method {
+            Method::POST => CLIENT.post(url),
+            Method::PATCH => CLIENT.patch(url),
+            Method::PUT => CLIENT.put(url),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accepts)
+        .body(body)
+        .build()
+        .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 
-    fn try_new_multipart(
+    fn try_new_req_multipart(
         path: &str,
         accepts: &str,
         body: Self::FormData,
+        method: Method,
     ) -> Result<Self, E> {
-        CLIENT
-            .post(path)
-            .header(ACCEPT, accepts)
-            .multipart(body)
-            .build()
-            .map_err(|e| {
-                ServerFnErrorErr::Request(e.to_string()).into_app_error()
-            })
+        match method {
+            Method::POST => CLIENT.post(path),
+            Method::PUT => CLIENT.put(path),
+            Method::PATCH => CLIENT.patch(path),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
+        .header(ACCEPT, accepts)
+        .multipart(body)
+        .build()
+        .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 
-    fn try_new_post_form_data(
+    fn try_new_req_form_data(
         path: &str,
         accepts: &str,
         content_type: &str,
         body: Self::FormData,
+        method: Method,
     ) -> Result<Self, E> {
-        CLIENT
-            .post(path)
-            .header(CONTENT_TYPE, content_type)
-            .header(ACCEPT, accepts)
-            .multipart(body)
-            .build()
-            .map_err(|e| {
-                ServerFnErrorErr::Request(e.to_string()).into_app_error()
-            })
+        match method {
+            Method::POST => CLIENT.post(path),
+            Method::PATCH => CLIENT.patch(path),
+            Method::PUT => CLIENT.put(path),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accepts)
+        .multipart(body)
+        .build()
+        .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 
-    fn try_new_streaming(
+    fn try_new_req_streaming(
         path: &str,
         accepts: &str,
         content_type: &str,
         body: impl Stream<Item = Bytes> + Send + 'static,
+        method: Method,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
         let body = Body::wrap_stream(
             body.map(|chunk| Ok(chunk) as Result<Bytes, ServerFnErrorErr>),
         );
-        CLIENT
-            .post(url)
-            .header(CONTENT_TYPE, content_type)
-            .header(ACCEPT, accepts)
-            .body(body)
-            .build()
-            .map_err(|e| {
-                ServerFnErrorErr::Request(e.to_string()).into_app_error()
-            })
+        match method {
+            Method::POST => CLIENT.post(url),
+            Method::PUT => CLIENT.put(url),
+            Method::PATCH => CLIENT.patch(url),
+            m => {
+                return Err(E::from_server_fn_error(
+                    ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
+                ))
+            }
+        }
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accepts)
+        .body(body)
+        .build()
+        .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 }
