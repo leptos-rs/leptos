@@ -59,7 +59,7 @@ impl Future for AsyncDerivedReadyFuture {
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
-        if self.loading.load(Ordering::Relaxed) {
+        if self.loading.load(Ordering::SeqCst) {
             self.wakers.write().or_poisoned().push(waker.clone());
             Poll::Pending
         } else {
@@ -137,7 +137,7 @@ where
         }
 
         pin_mut!(value);
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
+        match (self.loading.load(Ordering::SeqCst), value.poll(cx)) {
             (true, _) => {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending
@@ -203,7 +203,7 @@ where
         self.source.track();
         let value = self.value.read_arc();
         pin_mut!(value);
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
+        match (self.loading.load(Ordering::SeqCst), value.poll(cx)) {
             (true, _) => {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending

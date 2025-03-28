@@ -117,7 +117,7 @@ thread_local! {
 /// Returns whether the current thread is currently running an effect.
 pub fn in_effect_scope() -> bool {
     EFFECT_SCOPE_ACTIVE
-        .with(|scope| scope.load(std::sync::atomic::Ordering::Relaxed))
+        .with(|scope| scope.load(std::sync::atomic::Ordering::SeqCst))
 }
 
 /// Set a static to true whilst running the given function.
@@ -125,10 +125,10 @@ pub fn in_effect_scope() -> bool {
 fn run_in_effect_scope<T>(fun: impl FnOnce() -> T) -> T {
     // For the theoretical nested case, set back to initial value rather than false:
     let initial = EFFECT_SCOPE_ACTIVE
-        .with(|scope| scope.swap(true, std::sync::atomic::Ordering::Relaxed));
+        .with(|scope| scope.swap(true, std::sync::atomic::Ordering::SeqCst));
     let result = fun();
     EFFECT_SCOPE_ACTIVE.with(|scope| {
-        scope.store(initial, std::sync::atomic::Ordering::Relaxed)
+        scope.store(initial, std::sync::atomic::Ordering::SeqCst)
     });
     result
 }

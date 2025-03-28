@@ -141,7 +141,7 @@ pub async fn add_row(text: String) -> Result<usize, ServerFnError> {
     // insert a simulated wait
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
-    let nth_run = N.fetch_add(1, Ordering::Relaxed);
+    let nth_run = N.fetch_add(1, Ordering::SeqCst);
     // this will print on the server, like any server function
     println!("Adding {text:?} to the database!");
     if nth_run % 3 == 2 {
