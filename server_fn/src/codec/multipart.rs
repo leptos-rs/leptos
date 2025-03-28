@@ -66,7 +66,7 @@ where
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let multi = self.into();
-        Request::try_new_multipart(
+        Request::try_new_post_multipart(
             path,
             accepts,
             multi.into_client_data().unwrap(),

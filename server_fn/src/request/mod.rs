@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use futures::{Sink, Stream};
+use http::Method;
 use std::{borrow::Cow, future::Future};
 
 /// Request types for Actix.
@@ -25,13 +26,86 @@ where
     /// The type used for URL-encoded form data in this client.
     type FormData;
 
+    /// Attempts to construct a new request with query parameters.
+    fn try_new_req_query(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        query: &str,
+        method: Method,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new request with a text body.
+    fn try_new_req_text(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+        method: Method,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new request with a binary body.
+    fn try_new_req_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+        method: Method,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new request with form data as the body.
+    fn try_new_req_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+        method: Method,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new request with a multipart body.
+    fn try_new_req_multipart(
+        path: &str,
+        accepts: &str,
+        body: Self::FormData,
+        method: Method,
+    ) -> Result<Self, E>;
+
+    /// Attempts to construct a new request with a streaming body.
+    fn try_new_req_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + Send + 'static,
+        method: Method,
+    ) -> Result<Self, E>;
+
     /// Attempts to construct a new `GET` request.
     fn try_new_get(
         path: &str,
         content_type: &str,
         accepts: &str,
         query: &str,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_query(path, content_type, accepts, query, Method::GET)
+    }
+
+    /// Attempts to construct a new `DELETE` request.
+    /// **Note**: Browser support for `DELETE` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_delete(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        query: &str,
+    ) -> Result<Self, E> {
+        Self::try_new_req_query(
+            path,
+            content_type,
+            accepts,
+            query,
+            Method::DELETE,
+        )
+    }
 
     /// Attempts to construct a new `POST` request with a text body.
     fn try_new_post(
@@ -39,7 +113,33 @@ where
         content_type: &str,
         accepts: &str,
         body: String,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_text(path, content_type, accepts, body, Method::POST)
+    }
+
+    /// Attempts to construct a new `PATCH` request with a text body.
+    /// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_patch(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+    ) -> Result<Self, E> {
+        Self::try_new_req_text(path, content_type, accepts, body, Method::PATCH)
+    }
+
+    /// Attempts to construct a new `PUT` request with a text body.
+    /// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_put(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: String,
+    ) -> Result<Self, E> {
+        Self::try_new_req_text(path, content_type, accepts, body, Method::PUT)
+    }
 
     /// Attempts to construct a new `POST` request with a binary body.
     fn try_new_post_bytes(
@@ -47,7 +147,39 @@ where
         content_type: &str,
         accepts: &str,
         body: Bytes,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_bytes(path, content_type, accepts, body, Method::POST)
+    }
+
+    /// Attempts to construct a new `PATCH` request with a binary body.
+    /// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_patch_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+    ) -> Result<Self, E> {
+        Self::try_new_req_bytes(
+            path,
+            content_type,
+            accepts,
+            body,
+            Method::PATCH,
+        )
+    }
+
+    /// Attempts to construct a new `PUT` request with a binary body.
+    /// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_put_bytes(
+        path: &str,
+        content_type: &str,
+        accepts: &str,
+        body: Bytes,
+    ) -> Result<Self, E> {
+        Self::try_new_req_bytes(path, content_type, accepts, body, Method::PUT)
+    }
 
     /// Attempts to construct a new `POST` request with form data as the body.
     fn try_new_post_form_data(
@@ -55,22 +187,134 @@ where
         accepts: &str,
         content_type: &str,
         body: Self::FormData,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_form_data(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::POST,
+        )
+    }
+
+    /// Attempts to construct a new `PATCH` request with form data as the body.
+    /// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_patch_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        Self::try_new_req_form_data(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::PATCH,
+        )
+    }
+
+    /// Attempts to construct a new `PUT` request with form data as the body.
+    /// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_put_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        Self::try_new_req_form_data(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::PUT,
+        )
+    }
 
     /// Attempts to construct a new `POST` request with a multipart body.
-    fn try_new_multipart(
+    fn try_new_post_multipart(
         path: &str,
         accepts: &str,
         body: Self::FormData,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_multipart(path, accepts, body, Method::POST)
+    }
+
+    /// Attempts to construct a new `PATCH` request with a multipart body.
+    /// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_patch_multipart(
+        path: &str,
+        accepts: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        Self::try_new_req_multipart(path, accepts, body, Method::PATCH)
+    }
+
+    /// Attempts to construct a new `PUT` request with a multipart body.
+    /// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_put_multipart(
+        path: &str,
+        accepts: &str,
+        body: Self::FormData,
+    ) -> Result<Self, E> {
+        Self::try_new_req_multipart(path, accepts, body, Method::PUT)
+    }
 
     /// Attempts to construct a new `POST` request with a streaming body.
-    fn try_new_streaming(
+    fn try_new_post_streaming(
         path: &str,
         accepts: &str,
         content_type: &str,
         body: impl Stream<Item = Bytes> + Send + 'static,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, E> {
+        Self::try_new_req_streaming(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::POST,
+        )
+    }
+
+    /// Attempts to construct a new `PATCH` request with a streaming body.
+    /// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_patch_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + Send + 'static,
+    ) -> Result<Self, E> {
+        Self::try_new_req_streaming(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::PATCH,
+        )
+    }
+
+    /// Attempts to construct a new `PUT` request with a streaming body.
+    /// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+    /// Consider using a `POST` request if functionality without JS/WASM is required.
+    fn try_new_put_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + Send + 'static,
+    ) -> Result<Self, E> {
+        Self::try_new_req_streaming(
+            path,
+            accepts,
+            content_type,
+            body,
+            Method::PUT,
+        )
+    }
 }
 
 /// Represents the request as received by the server.

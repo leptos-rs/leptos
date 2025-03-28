@@ -282,6 +282,9 @@ where
                 ServerFnError::MissingArg(value)
             }
             ServerFnErrorErr::Response(value) => ServerFnError::Response(value),
+            ServerFnErrorErr::UnsupportedRequestMethod(value) => {
+                ServerFnError::Request(value)
+            }
         }
     }
 
@@ -377,6 +380,9 @@ pub enum ServerFnErrorErr {
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     #[error("error while trying to register the server function: {0}")]
     Registration(String),
+    /// Occurs on the client if trying to use an unsupported `HTTP` method when building a request.
+    #[error("error trying to build `HTTP` method request: {0}")]
+    UnsupportedRequestMethod(String),
     /// Occurs on the client if there is a network error while trying to run function on server.
     #[error("error reaching server to call server function: {0}")]
     Request(String),

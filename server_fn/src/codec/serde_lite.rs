@@ -1,5 +1,7 @@
 use crate::{
-    codec::Post, error::ServerFnErrorErr, ContentType, Decodes, Encodes,
+    codec::{Patch, Post, Put},
+    error::ServerFnErrorErr,
+    ContentType, Decodes, Encodes,
 };
 use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};
@@ -46,3 +48,13 @@ where
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub type SerdeLite = Post<SerdeLiteEncoding>;
+
+/// Pass arguments and receive responses as JSON in the body of a `PATCH` request.
+/// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PatchSerdeLite = Patch<SerdeLiteEncoding>;
+
+/// Pass arguments and receive responses as JSON in the body of a `PUT` request.
+/// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PutSerdeLite = Put<SerdeLiteEncoding>;
