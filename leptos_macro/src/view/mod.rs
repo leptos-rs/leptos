@@ -691,6 +691,13 @@ pub(crate) fn element_to_tokens(
 
     // check for duplicate attribute names and emit an error for all subsequent ones
     let mut names = HashSet::new();
+
+    // allow multiple class=(...) or style=(...) attributes
+    fn allow_multiples(name: &str, attr: &KeyedAttribute) -> bool {
+        (name == "class" || name == "style")
+            && matches!(attr.value(), Some(Expr::Tuple(..)))
+    }
+
     for attr in node.attributes() {
         if let NodeAttribute::Attribute(attr) = attr {
             let mut name = attr.key.to_string();
@@ -707,7 +714,7 @@ pub(crate) fn element_to_tokens(
                     }
                 }
             }
-            if names.contains(&name) {
+            if names.contains(&name) && !allow_multiples(&name, attr) {
                 proc_macro_error2::emit_error!(
                     attr.span(),
                     format!("This element already has a `{name}` attribute.")
