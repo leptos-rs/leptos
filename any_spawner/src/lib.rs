@@ -231,11 +231,11 @@ impl Executor {
     /// Uses `Executor::spawn`, respecting the global executor.
     pub async fn tick() {
         let (tx, rx) = futures::channel::oneshot::channel();
-        #[cfg(not(feature = "wasm-bindgen"))]
+        #[cfg(not(all(feature = "wasm-bindgen", target_family = "wasm")))]
         Executor::spawn(async move {
             _ = tx.send(());
         });
-        #[cfg(feature = "wasm-bindgen")]
+        #[cfg(all(feature = "wasm-bindgen", target_family = "wasm"))]
         Executor::spawn_local(async move {
             _ = tx.send(());
         });
