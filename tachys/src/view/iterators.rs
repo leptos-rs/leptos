@@ -237,11 +237,12 @@ where
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
-        if let Some(first) = self.states.first() {
-            first.insert_before_this(child)
-        } else {
-            self.marker.insert_before_this(child)
+        for state in &self.states {
+            if state.insert_before_this(child) {
+                return true;
+            }
         }
+        self.marker.insert_before_this(child)
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {
@@ -457,11 +458,12 @@ where
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
-        if let Some(first) = self.states.first() {
-            first.insert_before_this(child)
-        } else {
-            false
+        for state in &self.states {
+            if state.insert_before_this(child) {
+                return true;
+            }
         }
+        false
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {
@@ -665,11 +667,12 @@ where
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
-        if let Some(first) = self.states.first() {
-            first.insert_before_this(child)
-        } else {
-            false
+        for state in &self.states {
+            if state.insert_before_this(child) {
+                return true;
+            }
         }
+        false
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {
