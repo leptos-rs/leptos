@@ -85,6 +85,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{self as reactive_stores, Patch as _, Store};
+    use any_spawner::Executor;
     use reactive_graph::{
         effect::Effect,
         traits::{Get, Read, ReadUntracked, Set, Write},
@@ -96,7 +97,7 @@ mod tests {
     };
 
     pub async fn tick() {
-        tokio::time::sleep(std::time::Duration::from_micros(1)).await;
+        Executor::tick().await;
     }
 
     #[derive(Debug, Clone, Store)]
