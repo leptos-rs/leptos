@@ -1,4 +1,4 @@
-#![cfg(feature = "wasm-bindgen")]
+#![cfg(all(feature = "wasm-bindgen", target_family = "wasm"))]
 
 use any_spawner::Executor;
 use futures::channel::oneshot;
