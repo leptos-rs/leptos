@@ -66,12 +66,12 @@ fn build_data(count: usize) -> Vec<RowData> {
         label.push_str(noun);
 
         data.push(RowData {
-            id: ID_COUNTER.load(Ordering::Relaxed),
+            id: ID_COUNTER.load(Ordering::SeqCst),
             label: ArcRwSignal::new(label),
         });
 
         ID_COUNTER
-            .store(ID_COUNTER.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
+            .store(ID_COUNTER.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
     }
 
     data
