@@ -3,7 +3,7 @@ extend = { path = "../cargo-make/main.toml" }
 [tasks.check]
 clear = true
 dependencies = [
-  "check-all",
+  "clippy-each-feature",
   "check-wasm",
   "check-release",
   "check-wasm-release",

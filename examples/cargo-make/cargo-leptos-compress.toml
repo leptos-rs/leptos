@@ -22,20 +22,19 @@ clear = true
 dependencies = ["check-debug", "check-release"]
 
 [tasks.check-debug]
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features"]
-install_crate = "cargo-all-features"
+args = ["all-features", "clippy"]
 
 [tasks.check-release]
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features", "--release"]
-install_crate = "cargo-all-features"
+args = ["all-features", "clippy", "--release"]
 
 [tasks.lint]
-dependencies = ["make-target-site-dir", "check-style"]
+dependencies = ["make-target-site-dir", "lint"]
 
 [tasks.start-client]
 dependencies = ["install-cargo-leptos"]
 command = "cargo"
 args = ["leptos", "watch", "--release", "-P"]
-

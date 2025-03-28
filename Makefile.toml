@@ -10,8 +10,8 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 workspace = false
 clear = true
 dependencies = [
-	{ name = "check", path = "examples/counter_without_macros" },
-	{ name = "check", path = "examples/counters_stable" },
+  { name = "lint", path = "examples/counter_without_macros" },
+  { name = "lint", path = "examples/counters_stable" },
 ]
 
 [tasks.ci-examples]
