@@ -1,116 +1,26 @@
 //! This crate makes it easier to write asynchronous code that is executor-agnostic, by providing a
 //! utility that can be used to spawn tasks in a variety of executors.
 //!
-//! It supports a global executor, set once per program.
+//! It only supports single executor per program, but that executor can be set at runtime, anywhere
+//! in your crate (or an application that depends on it).
 //!
 //! This can be extended to support any executor or runtime that supports spawning [`Future`]s.
 //!
 //! This is a least common denominator implementation in many ways. Limitations include:
-//! - setting the *global* executor is a one-time action
+//! - setting an executor is a one-time, global action
 //! - no "join handle" or other result is returned from the spawn
 //! - the `Future` must output `()`
 //!
-//! ```rust
+//! ```no_run
 //! use any_spawner::Executor;
 //!
 //! // make sure an Executor has been initialized with one of the init_ functions
-//! // (e.g., Executor::init_tokio().unwrap(); )
 //!
-//! # #[cfg(feature = "tokio")]
-//! # {
-//! # let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
-//! # rt.block_on(async {
-//! # any_spawner::Executor::init_tokio().unwrap();
-//! // spawn a thread-safe Future (uses the global executor)
-//! Executor::spawn(async { println!("Global spawn") });
+//! // spawn a thread-safe Future
+//! Executor::spawn(async { /* ... */ });
 //!
-//! // spawn a Future that is !Send (uses the global executor)
-//! Executor::spawn_local(async { println!("Global spawn_local") });
-//! # });
-//! # }
-//! ```
-//!
-//! ## Custom Executors
-//!
-//! You can define and globally set a custom executor implementation:
-//!
-//! ```rust
-//! # #[cfg(feature = "futures-executor")] // Example uses LocalPool
-//! # {
-//! use any_spawner::{
-//!     CustomExecutor, Executor, PinnedFuture, PinnedLocalFuture,
-//! };
-//! use futures::{executor::LocalPool, task::LocalSpawnExt};
-//! use std::cell::RefCell;
-//! use std::sync::{Mutex, Arc};
-//!
-//! // Use Mutex for Send+Sync compliance if shared across threads globally
-//! struct MyGlobalExecutor {
-//!     // For simplicity, using futures LocalPool (not Send/Sync) wrapped correctly
-//!     // Note: A real global executor would likely use a Send+Sync pool like futures::ThreadPool
-//!     // or manage thread-specific local pools internally.
-//!     // This example demonstrates the interface, not a robust global executor.
-//!     // We'll use a simple local pool here, assuming access is synchronized.
-//!     // For a truly global, thread-safe example, consider futures::ThreadPool.
-//!     pool: Arc<Mutex<RefCell<LocalPool>>>, // Simplistic example synchronization
-//! }
-//!
-//! impl MyGlobalExecutor {
-//!     fn new() -> Self {
-//!         Self {
-//!             pool: Arc::new(Mutex::new(RefCell::new(LocalPool::new()))),
-//!         }
-//!     }
-//! }
-//!
-//! impl CustomExecutor for MyGlobalExecutor {
-//!     // spawn needs to handle Send futures, potentially across threads
-//!     fn spawn(&self, fut: PinnedFuture<()>) {
-//!         println!("MyGlobalExecutor::spawn called - spawning locally for demo");
-//!         // A real implementation might use a ThreadPool here.
-//!         // For this demo, we delegate to spawn_local, assuming synchronized access.
-//!         self.spawn_local(fut);
-//!     }
-//!
-//!     // spawn_local handles !Send futures, typically on the current thread's context
-//!     fn spawn_local(&self, fut: PinnedLocalFuture<()>) {
-//!         println!("MyGlobalExecutor::spawn_local called");
-//!         // Lock mutex, then borrow RefCell
-//!         let lock = self.pool.lock().unwrap();
-//!         let pool_ref = lock.borrow();
-//!         pool_ref
-//!             .spawner()
-//!             .spawn_local_obj(fut.into())
-//!             .expect("Failed to spawn local");
-//!     }
-//!
-//!     // poll_local might need to drive the local part of the executor
-//!     fn poll_local(&self) {
-//!          println!("MyGlobalExecutor::poll_local called");
-//!          // Lock mutex, then try_borrow_mut RefCell
-//!          let lock = self.pool.lock().unwrap();
-//!          if let Ok(mut pool_mut) = lock.try_borrow_mut() {
-//!              pool_mut.run_until_stalled();
-//!          } else {
-//!              // Already borrowed, likely a nested poll, do nothing.
-//!              println!("MyGlobalExecutor::poll_local - pool already borrowed");
-//!          }
-//!     }
-//! }
-//!
-//! let global_exec = MyGlobalExecutor::new();
-//!
-//! // Set the executor *globally*
-//! Executor::init_custom_executor(global_exec)
-//!     .expect("Failed to set global executor");
-//!
-//! // These spawns will now use MyGlobalExecutor
-//! Executor::spawn(async { println!("Global custom spawn") });
-//! Executor::spawn_local(async { println!("Global custom spawn_local") });
-//!
-//! // Need to drive the executor (if it requires polling like LocalPool)
-//! Executor::poll_local(); // Runs the tasks spawned above
-//! # }
+//! // spawn a Future that is !Send
+//! Executor::spawn_local(async { /* ... */ });
 //! ```
 
 #![forbid(unsafe_code)]
