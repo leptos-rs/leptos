@@ -26,6 +26,7 @@ tokio = { version = "1.41", default-features = false, features = [
   "time",
 ] }
 wasm-bindgen-test = { version = "0.3.50" }
+serial_test = "3.2.0"
 
 [features]
 async-executor = ["dep:async-executor"]

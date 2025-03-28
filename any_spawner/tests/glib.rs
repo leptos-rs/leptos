@@ -2,6 +2,7 @@
 
 use any_spawner::Executor;
 use glib::{MainContext, MainLoop};
+use serial_test::serial;
 use std::{
     cell::Cell,
     future::Future,
@@ -57,6 +58,7 @@ where
 // This test must run after a test that successfully initializes glib,
 // or within its own process.
 #[test]
+#[serial]
 fn test_glib_spawn() {
     let success_flag = Arc::new(AtomicBool::new(false));
     let flag_clone = success_flag.clone();
@@ -81,6 +83,7 @@ fn test_glib_spawn() {
 
 // Similar conditions as test_glib_spawn regarding initialization state.
 #[test]
+#[serial]
 fn test_glib_spawn_local() {
     let success_flag = Rc::new(Cell::new(false));
     let flag_clone = success_flag.clone();
@@ -115,6 +118,7 @@ fn test_glib_spawn_local() {
 
 // Test Executor::tick with glib backend
 #[test]
+#[serial]
 fn test_glib_tick() {
     run_on_glib_context(async {
         let value = Arc::new(Mutex::new(false));
@@ -136,6 +140,7 @@ fn test_glib_tick() {
 
 // Test Executor::poll_local with glib backend (should be a no-op)
 #[test]
+#[serial]
 fn test_glib_poll_local_is_no_op() {
     // Ensure glib executor is initialized
     let _ = Executor::init_glib();
