@@ -94,38 +94,9 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let mut parent = self.inner.writer()?;
-        parent.untrack();
-
-        let mut full_path = self.path().into_iter().collect::<StorePath>();
-        full_path.pop();
-
-        // build a list of triggers, starting with the full path to this node and ending with the root
-        // this will mean that the root is the final item, and this path is first
-        let mut triggers = Vec::with_capacity(full_path.len());
-        triggers.push(trigger.this.clone());
-        loop {
-            let inner = self.get_trigger(full_path.clone());
-            triggers.push(inner.children.clone());
-            if full_path.is_empty() {
-                break;
-            }
-            full_path.pop();
-        }
-
-        // when the WriteGuard is dropped, each trigger will be notified, in order
-        // reversing the list will cause the triggers to be notified starting from the root,
-        // then to each child down to this one
-        //
-        // notifying from the root down is important for things like OptionStoreExt::map()/unwrap(),
-        // where it's really important that any effects that subscribe to .is_some() run before effects
-        // that subscribe to the inner value, so that the inner effect can be canceled if the outer switches to `None`
-        // (see https://github.com/leptos-rs/leptos/issues/3704)
-        triggers.reverse();
-
+        let parent = self.inner.writer()?;
+        let triggers = self.triggers_for_current_path();
         let guard = WriteGuard::new(triggers, parent);
-
         Some(MappedMut::new(guard, self.read, self.write))
     }
 
