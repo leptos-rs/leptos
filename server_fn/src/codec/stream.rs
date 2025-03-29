@@ -38,7 +38,12 @@ where
     T: Stream<Item = Bytes> + Send + Sync + 'static,
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
-        Request::try_new_streaming(path, accepts, Streaming::CONTENT_TYPE, self)
+        Request::try_new_post_streaming(
+            path,
+            accepts,
+            Streaming::CONTENT_TYPE,
+            self,
+        )
     }
 }
 
@@ -201,7 +206,7 @@ where
 {
     fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let data = self.into();
-        Request::try_new_streaming(
+        Request::try_new_post_streaming(
             path,
             accepts,
             Streaming::CONTENT_TYPE,

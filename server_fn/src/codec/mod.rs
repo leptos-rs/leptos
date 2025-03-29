@@ -50,8 +50,12 @@ mod postcard;
 #[cfg(feature = "postcard")]
 pub use postcard::*;
 
+mod patch;
+pub use patch::*;
 mod post;
 pub use post::*;
+mod put;
+pub use put::*;
 mod stream;
 use crate::ContentType;
 use futures::Future;
