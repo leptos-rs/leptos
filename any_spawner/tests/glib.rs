@@ -65,7 +65,7 @@ fn test_glib_spawn() {
 
     run_on_glib_context(async move {
         // Simulate async work
-        YieldFuture::new().await;
+        futures_lite::future::yield_now().await;
         flag_clone.store(true, Ordering::SeqCst);
 
         // We need to give the spawned task time to run.
@@ -150,33 +150,4 @@ fn test_glib_poll_local_is_no_op() {
     Executor::poll_local();
 
     println!("Executor::poll_local called successfully (expected no-op).");
-}
-
-// A simple future that yields once and then completes.
-struct YieldFuture {
-    yielded: bool,
-}
-
-impl YieldFuture {
-    fn new() -> Self {
-        YieldFuture { yielded: false }
-    }
-}
-
-impl Future for YieldFuture {
-    type Output = ();
-
-    fn poll(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Self::Output> {
-        if self.yielded {
-            Poll::Ready(())
-        } else {
-            self.yielded = true;
-            // Wake immediately to re-poll
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        }
-    }
 }
