@@ -6,13 +6,11 @@ use serial_test::serial;
 use std::{
     cell::Cell,
     future::Future,
-    pin::Pin,
     rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    task::{Context, Poll},
     time::Duration,
 };
 
@@ -97,7 +95,7 @@ fn test_glib_spawn_local() {
         non_send_data.set(20); // Modify non-Send data
 
         // Simulate async work
-        YieldFuture::new().await;
+        futures_lite::future::yield_now().await;
 
         assert_eq!(
             non_send_data.get(),
