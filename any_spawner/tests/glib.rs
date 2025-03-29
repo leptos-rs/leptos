@@ -152,8 +152,6 @@ fn test_glib_poll_local_is_no_op() {
     println!("Executor::poll_local called successfully (expected no-op).");
 }
 
-// --- Helper Future ---
-
 // A simple future that yields once and then completes.
 struct YieldFuture {
     yielded: bool,
