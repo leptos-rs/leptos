@@ -138,11 +138,20 @@ impl Executor {
     }
 
     /// Waits until the next "tick" of the current async executor.
+    /// Respects the global executor.
     #[inline(always)]
     pub async fn tick() {
-        // We are already running this async function in the executor, no need to use
-        // spawn/spawn_local
-        futures_lite::future::yield_now().await;
+        let (tx, rx) = futures::channel::oneshot::channel();
+        #[cfg(not(all(feature = "wasm-bindgen", target_family = "wasm")))]
+        Executor::spawn(async move {
+            _ = tx.send(());
+        });
+        #[cfg(all(feature = "wasm-bindgen", target_family = "wasm"))]
+        Executor::spawn_local(async move {
+            _ = tx.send(());
+        });
+
+        _ = rx.await;
     }
 
     /// Polls the global async executor.

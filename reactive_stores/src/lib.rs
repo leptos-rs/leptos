@@ -865,7 +865,6 @@ mod tests {
             }
         });
         tick().await;
-        tick().await;
         store.user().set("Greg".into());
         tick().await;
         store.user().set("Carol".into());
