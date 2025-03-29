@@ -116,8 +116,10 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
+        let mut parent = self.inner.writer()?;
+        parent.untrack();
         let triggers = self.triggers_for_current_path();
-        let guard = WriteGuard::new(triggers, self.inner.writer()?);
+        let guard = WriteGuard::new(triggers, parent);
         Some(MappedMut::new(guard, self.read, self.write))
     }
 
@@ -464,7 +466,8 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let inner = self.inner.writer()?;
+        let mut inner = self.inner.writer()?;
+        inner.untrack();
         let inner_path = self.inner.path().into_iter().collect::<StorePath>();
         let keys = self
             .inner

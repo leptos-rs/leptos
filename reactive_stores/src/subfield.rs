@@ -94,7 +94,13 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let parent = self.inner.writer()?;
+        let mut parent = self.inner.writer()?;
+
+        // we will manually include all the parent and ancestor `children` triggers
+        // in triggers_for_current_path() below. we want to untrack the parent writer
+        // so that it doesn't notify on the parent's `this` trigger, which would notify our
+        // siblings too
+        parent.untrack();
         let triggers = self.triggers_for_current_path();
         let guard = WriteGuard::new(triggers, parent);
         Some(MappedMut::new(guard, self.read, self.write))
