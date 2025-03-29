@@ -1,4 +1,4 @@
-use core::sync::atomic::Ordering::Relaxed;
+use core::sync::atomic::Ordering;
 use futures::{task::AtomicWaker, Stream};
 use std::{
     fmt::Debug,
@@ -50,7 +50,7 @@ pub fn channel() -> (Sender, Receiver) {
 
 impl Sender {
     pub fn notify(&mut self) {
-        self.0.set.store(true, Relaxed);
+        self.0.set.store(true, Ordering::SeqCst);
         self.0.waker.wake();
     }
 }
@@ -65,7 +65,7 @@ impl Stream for Receiver {
         if let Some(inner) = self.0.upgrade() {
             inner.waker.register(cx.waker());
 
-            if inner.set.swap(false, Relaxed) {
+            if inner.set.swap(false, Ordering::SeqCst) {
                 Poll::Ready(Some(()))
             } else {
                 Poll::Pending

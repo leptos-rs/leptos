@@ -35,12 +35,12 @@ static IS_ADMIN: AtomicBool = AtomicBool::new(true);
 
 #[server]
 pub async fn is_admin() -> Result<bool, ServerFnError> {
-    Ok(IS_ADMIN.load(Ordering::Relaxed))
+    Ok(IS_ADMIN.load(Ordering::SeqCst))
 }
 
 #[server]
 pub async fn set_is_admin(is_admin: bool) -> Result<(), ServerFnError> {
-    IS_ADMIN.store(is_admin, Ordering::Relaxed);
+    IS_ADMIN.store(is_admin, Ordering::SeqCst);
     Ok(())
 }
 

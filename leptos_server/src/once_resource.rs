@@ -117,7 +117,7 @@ where
 
         let fut = ScopedFuture::new(fut);
 
-        if !is_ready && !IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+        if !is_ready && !IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::SeqCst) {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let loading = Arc::clone(&loading);
@@ -125,7 +125,7 @@ where
             reactive_graph::spawn(async move {
                 let loaded = fut.await;
                 *value.write().or_poisoned() = Some(loaded);
-                loading.store(false, Ordering::Relaxed);
+                loading.store(false, Ordering::SeqCst);
                 for waker in mem::take(&mut *wakers.write().or_poisoned()) {
                     waker.wake();
                 }
@@ -316,7 +316,7 @@ where
             self.suspenses.write().or_poisoned().push(suspense_context);
         }
 
-        if self.loading.load(Ordering::Relaxed) {
+        if self.loading.load(Ordering::SeqCst) {
             self.wakers.write().or_poisoned().push(waker.clone());
             Poll::Pending
         } else {

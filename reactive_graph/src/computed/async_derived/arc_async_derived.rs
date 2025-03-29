@@ -281,7 +281,7 @@ macro_rules! spawn_derived {
 
                         guard.state = AsyncDerivedState::Clean;
                         *value.blocking_write() = orig_value;
-                        this.loading.store(false, Ordering::Relaxed);
+                        this.loading.store(false, Ordering::SeqCst);
                         (true, None)
                     }
                 }
@@ -363,7 +363,7 @@ macro_rules! spawn_derived {
                                     });
 
                                     // generate and assign new value
-                                    loading.store(true, Ordering::Relaxed);
+                                    loading.store(true, Ordering::SeqCst);
 
                                     let (this_version, suspense_ids) = {
                                         let mut guard = inner.write().or_poisoned();
@@ -422,7 +422,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         loading: &Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        loading.store(false, Ordering::Relaxed);
+        loading.store(false, Ordering::SeqCst);
 
         let prev_state = mem::replace(
             &mut inner.write().or_poisoned().state,
