@@ -43,7 +43,7 @@ type TitleId = u32;
 
 impl TitleContext {
     fn next_id(&self) -> TitleId {
-        self.id.fetch_add(1, Ordering::Relaxed)
+        self.id.fetch_add(1, Ordering::SeqCst)
     }
 
     fn invalidate(&self) {
