@@ -296,9 +296,18 @@ mod tests {
                     println!("inner_first: next run");
                 }
 
+                // note: we specifically want to test whether using `.patch()`
+                // correctly limits notifications on the first field when only the second
+                // field has changed
+                //
+                // `.map()` would also track the parent field (to track when it changed from Some
+                // to None), which would mean the notification numbers were always the same
+                //
+                // so here, we'll do `.map_untracked()`, but in general in a real case you'd want
+                // to use `.map()` so that if the parent switches to None you do track that
                 println!(
                     "  value = {:?}",
-                    store.inner().map(|inner| inner.first().get())
+                    store.inner().map_untracked(|inner| inner.first().get())
                 );
                 inner_first_count.fetch_add(1, Ordering::Relaxed);
             }
@@ -325,6 +334,7 @@ mod tests {
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 1);
 
+        println!("\npatching with A/C");
         store.patch(Outer {
             inner: Some(Inner {
                 first: "A".to_string(),
@@ -333,17 +343,18 @@ mod tests {
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 2);
 
         store.patch(Outer { inner: None });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 3);
 
+        println!("\npatching with A/B");
         store.patch(Outer {
             inner: Some(Inner {
                 first: "A".to_string(),
@@ -352,8 +363,8 @@ mod tests {
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
-        assert_eq!(inner_first_count.load(Ordering::Relaxed), 3);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 4);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 4);
     }
 }
