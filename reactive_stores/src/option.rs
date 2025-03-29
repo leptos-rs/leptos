@@ -251,6 +251,8 @@ mod tests {
     async fn patch() {
         use crate::OptionStoreExt;
 
+        _ = any_spawner::Executor::init_tokio();
+
         #[derive(Debug, Clone, Store, Patch)]
         struct Outer {
             inner: Option<Inner>,
@@ -268,8 +270,6 @@ mod tests {
                 second: "B".to_owned(),
             }),
         });
-
-        _ = any_spawner::Executor::init_tokio();
 
         let parent_count = Arc::new(AtomicUsize::new(0));
         let inner_first_count = Arc::new(AtomicUsize::new(0));
