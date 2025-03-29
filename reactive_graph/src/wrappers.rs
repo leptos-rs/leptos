@@ -218,6 +218,24 @@ pub mod read {
         }
     }
 
+    impl<T> ArcSignal<T, LocalStorage>
+    where
+        T: 'static,
+    {
+        /// Wraps a derived signal. Works like [`Signal::derive`] but uses [`LocalStorage`].
+        #[track_caller]
+        pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
+            Signal::derive_local(derived_signal).into()
+        }
+
+        /// Moves a static, nonreactive value into a signal, backed by [`ArcStoredValue`].
+        /// Works like [`Signal::stored`] but uses [`LocalStorage`].
+        #[track_caller]
+        pub fn stored_local(value: T) -> Self {
+            Signal::stored_local(value).into()
+        }
+    }
+
     impl<T> Default for ArcSignal<T, SyncStorage>
     where
         T: Default + Send + Sync + 'static,
