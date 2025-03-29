@@ -49,8 +49,8 @@ fn can_create_custom_executor() {
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = Arc::clone(&counter);
     Executor::spawn_local(async move {
-        counter_clone.store(1, Ordering::Release);
+        counter_clone.store(1, Ordering::SeqCst);
     });
     Executor::poll_local();
-    assert_eq!(counter.load(Ordering::Acquire), 1);
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
 }
