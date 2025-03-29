@@ -82,15 +82,7 @@ fn test_wasm_bindgen_spawn_errors() {
     let _ = Executor::init_wasm_bindgen();
 
     // Using should_panic to test that Executor::spawn panics in wasm
-    // Note: We can't use #[should_panic] with async tests, so we test synchronously
-    let result = std::panic::catch_unwind(|| {
-        Executor::spawn(async {
-            // This should panic since wasm-bindgen doesn't support Send futures
-        });
+    Executor::spawn(async {
+        // This should panic since wasm-bindgen doesn't support Send futures
     });
-
-    assert!(
-        result.is_err(),
-        "Expected Executor::spawn to panic in wasm environment"
-    );
 }
