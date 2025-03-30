@@ -86,6 +86,67 @@ where
     }
 }
 
+macro_rules! inner_html_reactive {
+    ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+    {
+        #[allow(deprecated)]
+        impl<$($gen),*> InnerHtmlValue for $name<$($gen),*>
+        where
+            $v: InnerHtmlValue + Clone + Send + Sync + 'static,
+            <$v as InnerHtmlValue>::State: 'static,
+            $($where_clause)*
+        {
+            type AsyncOutput = Self;
+            type State = RenderEffect<<$v as InnerHtmlValue>::State>;
+            type Cloneable = Self;
+            type CloneableOwned = Self;
+
+            fn html_len(&self) -> usize {
+                0
+            }
+
+            fn to_html(self, buf: &mut String) {
+                let value = self.get();
+                value.to_html(buf);
+            }
+
+            fn to_template(_buf: &mut String) {}
+
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).hydrate::<FROM_SERVER>(el)
+            }
+
+            fn build(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).build(el)
+            }
+
+            fn rebuild(self, state: &mut Self::State) {
+                (move || self.get()).rebuild(state)
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
+
+            fn dry_resolve(&mut self) {}
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                self
+            }
+        }
+    };
+}
+
 #[cfg(not(feature = "nightly"))]
 mod stable {
     use crate::html::element::InnerHtmlValue;
@@ -99,67 +160,6 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-
-    macro_rules! inner_html_reactive {
-        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
-        {
-            #[allow(deprecated)]
-            impl<$($gen),*> InnerHtmlValue for $name<$($gen),*>
-            where
-                $v: InnerHtmlValue + Clone + Send + Sync + 'static,
-                <$v as InnerHtmlValue>::State: 'static,
-                $($where_clause)*
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<<$v as InnerHtmlValue>::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn html_len(&self) -> usize {
-                    0
-                }
-
-                fn to_html(self, buf: &mut String) {
-                    let value = self.get();
-                    value.to_html(buf);
-                }
-
-                fn to_template(_buf: &mut String) {}
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-            }
-        };
-    }
 
     inner_html_reactive!(
         RwSignal,
@@ -205,8 +205,13 @@ mod stable {
     inner_html_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
     inner_html_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
     inner_html_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+}
 
-    #[cfg(feature = "reactive_stores")]
+#[cfg(feature = "reactive_stores")]
+mod reactive_stores {
+    use crate::html::element::InnerHtmlValue;
+    #[allow(deprecated)]
+    use reactive_graph::{effect::RenderEffect, owner::Storage, traits::Get};
     use {
         reactive_stores::{
             ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
@@ -215,7 +220,6 @@ mod stable {
         std::ops::{Deref, DerefMut, Index, IndexMut},
     };
 
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         Subfield,
         <Inner, Prev, V>,
@@ -225,7 +229,6 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -237,7 +240,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -249,7 +251,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         DerefedField,
         <S>,
@@ -258,7 +259,6 @@ mod stable {
         <S as StoreField>::Value: Deref + DerefMut
     );
 
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         AtIndex,
         <Inner, Prev>,
@@ -267,7 +267,6 @@ mod stable {
         Prev: Send + Sync + IndexMut<usize> + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         Store,
         <V, S>,
@@ -276,7 +275,6 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(
         Field,
         <V, S>,
@@ -285,8 +283,6 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
-    #[cfg(feature = "reactive_stores")]
     inner_html_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 }

@@ -206,137 +206,137 @@ where
     }
 }
 
+macro_rules! style_reactive {
+    ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+    {
+        #[allow(deprecated)]
+        impl<$($gen),*> IntoStyle for $name<$($gen),*>
+        where
+            $v: IntoStyle + Clone + Send + Sync + 'static,
+            <$v as IntoStyle>::State: 'static,
+            $($where_clause)*
+        {
+            type AsyncOutput = Self;
+            type State = RenderEffect<<$v as IntoStyle>::State>;
+            type Cloneable = Self;
+            type CloneableOwned = Self;
+
+            fn to_html(self, style: &mut String) {
+                let value = self.get();
+                value.to_html(style);
+            }
+
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).hydrate::<FROM_SERVER>(el)
+            }
+
+            fn build(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).build(el)
+            }
+
+            fn rebuild(self, state: &mut Self::State) {
+                (move || self.get()).rebuild(state)
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
+
+            fn dry_resolve(&mut self) {}
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                self
+            }
+
+            fn reset(state: &mut Self::State) {
+                *state = RenderEffect::new_with_value(
+                    move |prev| {
+                        if let Some(mut state) = prev {
+                            <$v>::reset(&mut state);
+                            state
+                        } else {
+                            unreachable!()
+                        }
+                    },
+                    state.take_value(),
+                );
+            }
+        }
+
+        #[allow(deprecated)]
+        impl<$($gen),*> IntoStyleValue for $name<$($gen),*>
+        where
+            $v: IntoStyleValue + Send + Sync + Clone + 'static,
+            $($where_clause)*
+        {
+            type AsyncOutput = Self;
+            type State = (Arc<str>, RenderEffect<<$v as IntoStyleValue>::State>);
+            type Cloneable = $name<$($gen),*>;
+            type CloneableOwned = $name<$($gen),*>;
+
+            fn to_html(self, name: &str, style: &mut String) {
+                IntoStyleValue::to_html(move || self.get(), name, style)
+            }
+
+            fn build(
+                self,
+                style: &crate::renderer::dom::CssStyleDeclaration,
+                name: &str,
+            ) -> Self::State {
+                IntoStyleValue::build(move || self.get(), style, name)
+            }
+
+            fn rebuild(
+                self,
+                style: &crate::renderer::dom::CssStyleDeclaration,
+                name: &str,
+                state: &mut Self::State,
+            ) {
+                IntoStyleValue::rebuild(
+                    move || self.get(),
+                    style,
+                    name,
+                    state,
+                )
+            }
+
+            fn hydrate(
+                self,
+                style: &crate::renderer::dom::CssStyleDeclaration,
+                name: &str,
+            ) -> Self::State {
+                IntoStyleValue::hydrate(move || self.get(), style, name)
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
+
+            fn dry_resolve(&mut self) {}
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                self
+            }
+        }
+    };
+}
+
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    macro_rules! style_reactive {
-        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
-        {
-            #[allow(deprecated)]
-            impl<$($gen),*> IntoStyle for $name<$($gen),*>
-            where
-                $v: IntoStyle + Clone + Send + Sync + 'static,
-                <$v as IntoStyle>::State: 'static,
-                $($where_clause)*
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<<$v as IntoStyle>::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
-
-                fn to_html(self, style: &mut String) {
-                    let value = self.get();
-                    value.to_html(style);
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    *state = RenderEffect::new_with_value(
-                        move |prev| {
-                            if let Some(mut state) = prev {
-                                <$v>::reset(&mut state);
-                                state
-                            } else {
-                                unreachable!()
-                            }
-                        },
-                        state.take_value(),
-                    );
-                }
-            }
-
-            #[allow(deprecated)]
-            impl<$($gen),*> IntoStyleValue for $name<$($gen),*>
-            where
-                $v: IntoStyleValue + Send + Sync + Clone + 'static,
-                $($where_clause)*
-            {
-                type AsyncOutput = Self;
-                type State = (Arc<str>, RenderEffect<<$v as IntoStyleValue>::State>);
-                type Cloneable = $name<$($gen),*>;
-                type CloneableOwned = $name<$($gen),*>;
-
-                fn to_html(self, name: &str, style: &mut String) {
-                    IntoStyleValue::to_html(move || self.get(), name, style)
-                }
-
-                fn build(
-                    self,
-                    style: &crate::renderer::dom::CssStyleDeclaration,
-                    name: &str,
-                ) -> Self::State {
-                    IntoStyleValue::build(move || self.get(), style, name)
-                }
-
-                fn rebuild(
-                    self,
-                    style: &crate::renderer::dom::CssStyleDeclaration,
-                    name: &str,
-                    state: &mut Self::State,
-                ) {
-                    IntoStyleValue::rebuild(
-                        move || self.get(),
-                        style,
-                        name,
-                        state,
-                    )
-                }
-
-                fn hydrate(
-                    self,
-                    style: &crate::renderer::dom::CssStyleDeclaration,
-                    name: &str,
-                ) -> Self::State {
-                    IntoStyleValue::hydrate(move || self.get(), style, name)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-            }
-        };
-    }
-
     use super::RenderEffect;
     use crate::html::style::{IntoStyle, IntoStyleValue};
     #[allow(deprecated)]
@@ -394,8 +394,10 @@ mod stable {
     style_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
     style_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
     style_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+}
 
-    #[cfg(feature = "reactive_stores")]
+#[cfg(feature = "reactive_stores")]
+mod reactive_stores {
     use {
         reactive_stores::{
             ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
@@ -404,7 +406,12 @@ mod stable {
         std::ops::{Deref, DerefMut, Index, IndexMut},
     };
 
-    #[cfg(feature = "reactive_stores")]
+    use super::RenderEffect;
+    use crate::html::style::{IntoStyle, IntoStyleValue};
+    #[allow(deprecated)]
+    use reactive_graph::{owner::Storage, traits::Get};
+    use std::sync::Arc;
+
     style_reactive!(
         Subfield,
         <Inner, Prev, V>,
@@ -414,7 +421,6 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -426,7 +432,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -438,7 +443,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         DerefedField,
         <S>,
@@ -447,7 +451,6 @@ mod stable {
         <S as StoreField>::Value: Deref + DerefMut
     );
 
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         AtIndex,
         <Inner, Prev>,
@@ -456,7 +459,6 @@ mod stable {
         Prev: Send + Sync + IndexMut<usize> + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         Store,
         <V, S>,
@@ -465,7 +467,6 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(
         Field,
         <V, S>,
@@ -474,12 +475,9 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
-    #[cfg(feature = "reactive_stores")]
     style_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 }
-
 /*
 impl<Fut> IntoStyle for Suspend<Fut>
 where
