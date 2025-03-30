@@ -286,6 +286,7 @@ fn field_to_tokens(
             match mode {
                 SubfieldMode::Keyed(keyed_by, key_ty) => {
                     let signature = quote! {
+                        #[track_caller]
                         fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
                     };
                     return if include_body {
