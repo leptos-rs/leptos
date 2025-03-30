@@ -37,11 +37,7 @@ log = { version = "0.4", optional = true }
 
 [features]
 default = ["csr"]
-csr = [
-  "leptos/csr",
-  "dep:console_log",
-  "dep:log",
-]
+csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = [
   "dep:axum",
