@@ -673,11 +673,8 @@ macro_rules!  class_reactive {
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    use super::RenderEffectWithClassName;
-    use crate::renderer::Rndr;
-
-    use super::RenderEffect;
-    use crate::html::class::IntoClass;
+    use super::{RenderEffect, RenderEffectWithClassName};
+    use crate::{html::class::IntoClass, renderer::Rndr};
     #[allow(deprecated)]
     use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
@@ -780,20 +777,15 @@ mod stable {
 
 #[cfg(feature = "reactive_stores")]
 mod reactive_stores {
-    use super::RenderEffectWithClassName;
-    use crate::renderer::Rndr;
-    use {
-        reactive_stores::{
-            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-            KeyedSubfield, Store, StoreField, Subfield,
-        },
-        std::ops::{Deref, DerefMut, Index, IndexMut},
-    };
-
-    use super::RenderEffect;
-    use crate::html::class::IntoClass;
+    use super::{RenderEffect, RenderEffectWithClassName};
+    use crate::{html::class::IntoClass, renderer::Rndr};
     #[allow(deprecated)]
     use reactive_graph::{owner::Storage, traits::Get};
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
+    };
+    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     class_reactive!(
         Subfield,

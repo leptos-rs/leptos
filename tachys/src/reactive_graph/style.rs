@@ -398,19 +398,18 @@ mod stable {
 
 #[cfg(feature = "reactive_stores")]
 mod reactive_stores {
-    use {
-        reactive_stores::{
-            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-            KeyedSubfield, Store, StoreField, Subfield,
-        },
-        std::ops::{Deref, DerefMut, Index, IndexMut},
-    };
-
     use super::RenderEffect;
     use crate::html::style::{IntoStyle, IntoStyleValue};
     #[allow(deprecated)]
     use reactive_graph::{owner::Storage, traits::Get};
-    use std::sync::Arc;
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
+    };
+    use std::{
+        ops::{Deref, DerefMut, Index, IndexMut},
+        sync::Arc,
+    };
 
     style_reactive!(
         Subfield,

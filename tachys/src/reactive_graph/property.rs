@@ -189,13 +189,11 @@ mod reactive_stores {
     use crate::html::property::IntoProperty;
     #[allow(deprecated)]
     use reactive_graph::{effect::RenderEffect, owner::Storage, traits::Get};
-    use {
-        reactive_stores::{
-            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-            KeyedSubfield, Store, StoreField, Subfield,
-        },
-        std::ops::{Deref, DerefMut, Index, IndexMut},
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
     };
+    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
     property_reactive!(
         Subfield,
