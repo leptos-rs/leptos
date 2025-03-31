@@ -1,5 +1,5 @@
 use super::{Patch, Post, Put};
-use crate::{ContentType, Decodes, Encodes};
+use crate::{ContentType, Decodes, Encodes, Format, FormatType};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -10,14 +10,18 @@ impl ContentType for JsonEncoding {
     const CONTENT_TYPE: &'static str = "application/json";
 }
 
+impl FormatType for JsonEncoding {
+    const FORMAT_TYPE: Format = Format::Text;
+}
+
 impl<T> Encodes<T> for JsonEncoding
 where
     T: Serialize,
 {
     type Error = serde_json::Error;
 
-    fn encode(output: T) -> Result<Bytes, Self::Error> {
-        serde_json::to_vec(&output).map(Bytes::from)
+    fn encode(output: &T) -> Result<Bytes, Self::Error> {
+        serde_json::to_vec(output).map(Bytes::from)
     }
 }
 

@@ -132,6 +132,7 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
+use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
 // re-exported to make it possible to implement a custom Client without adding a separate
 // dependency on `bytes`
 pub use bytes::Bytes;
@@ -475,8 +476,7 @@ where
 
         // if it returns an error status, deserialize the error using FromStr
         let res = if (400..=599).contains(&status) {
-            let text = res.try_into_string().await?;
-            Err(E::de(&text))
+            Err(E::de(res.try_into_bytes().await?))
         } else {
             // otherwise, deserialize the body as is
             let output = Output::from_res(res).await?;
@@ -643,7 +643,7 @@ where
                     )
                 })
             }
-            Err(err) => Err(err),
+            Err(err) => Err(InputStreamError::de(err)),
         });
         let boxed = Box::pin(input)
             as Pin<
@@ -657,12 +657,13 @@ where
         let output = server_fn(input.into()).await?;
 
         let output = output.stream.map(|output| match output {
-            Ok(output) => OutputEncoding::encode(output).map_err(|e| {
+            Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
                 OutputStreamError::from_server_fn_error(
                     ServerFnErrorErr::Serialization(e.to_string()),
                 )
+                .ser()
             }),
-            Err(err) => Err(err),
+            Err(err) => Err(err.ser()),
         });
 
         Server::spawn(async move {
@@ -695,15 +696,19 @@ where
                 pin_mut!(sink);
                 while let Some(input) = input.stream.next().await {
                     if sink
-                        .send(input.and_then(|input| {
-                            InputEncoding::encode(input).map_err(|e| {
-                                InputStreamError::from_server_fn_error(
-                                    ServerFnErrorErr::Serialization(
-                                        e.to_string(),
-                                    ),
-                                )
-                            })
-                        }))
+                        .send(
+                            input
+                                .and_then(|input| {
+                                    InputEncoding::encode(&input).map_err(|e| {
+                                        InputStreamError::from_server_fn_error(
+                                            ServerFnErrorErr::Serialization(
+                                                e.to_string(),
+                                            ),
+                                        )
+                                    })
+                                })
+                                .map_err(|e| e.ser()),
+                        )
                         .await
                         .is_err()
                     {
@@ -720,7 +725,7 @@ where
                             ServerFnErrorErr::Deserialization(e.to_string()),
                         )
                     }),
-                Err(err) => Err(err),
+                Err(err) => Err(OutputStreamError::de(err)),
             });
             let boxed = Box::pin(stream)
                 as Pin<
@@ -735,19 +740,51 @@ where
     }
 }
 
+/// Encode format type
+pub enum Format {
+    /// Binary representation
+    Binary,
+    /// utf-8 compatible text representation
+    Text,
+}
 /// A trait for types with an associated content type.
 pub trait ContentType {
     /// The MIME type of the data.
     const CONTENT_TYPE: &'static str;
 }
 
+/// Data format representation
+pub trait FormatType {
+    /// The representation type
+    const FORMAT_TYPE: Format;
+
+    /// Encodes data into a string.
+    fn into_encoded_string(bytes: Bytes) -> String {
+        match Self::FORMAT_TYPE {
+            Format::Binary => STANDARD_NO_PAD.encode(bytes),
+            Format::Text => String::from_utf8(bytes.into())
+                .expect("Valid text format type with utf-8 comptabile string"),
+        }
+    }
+
+    /// Decodes string to bytes
+    fn from_encoded_string(data: &str) -> Result<Bytes, DecodeError> {
+        match Self::FORMAT_TYPE {
+            Format::Binary => {
+                STANDARD_NO_PAD.decode(data).map(|data| data.into())
+            }
+            Format::Text => Ok(Bytes::copy_from_slice(data.as_bytes())),
+        }
+    }
+}
+
 /// A trait for types that can be encoded into a bytes for a request body.
-pub trait Encodes<T>: ContentType {
+pub trait Encodes<T>: ContentType + FormatType {
     /// The error type that can be returned if the encoding fails.
-    type Error: Display;
+    type Error: Display + Debug;
 
     /// Encodes the given value into a bytes.
-    fn encode(output: T) -> Result<Bytes, Self::Error>;
+    fn encode(output: &T) -> Result<Bytes, Self::Error>;
 }
 
 /// A trait for types that can be decoded from a bytes for a response body.
@@ -789,7 +826,7 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
-    ser: fn(ServerFnErrorErr) -> String,
+    ser: fn(ServerFnErrorErr) -> Bytes,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
@@ -865,7 +902,7 @@ where
     fn run(
         &mut self,
         req: Req,
-        _ser: fn(ServerFnErrorErr) -> String,
+        _ser: fn(ServerFnErrorErr) -> Bytes,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })

@@ -45,7 +45,7 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>
     {
         Ok(stream::iter(self.into_body())
             .ready_chunks(16)
@@ -78,18 +78,16 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
-            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Result<Bytes, Bytes>> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
     > {
         Err::<
             (
-                futures::stream::Once<
-                    std::future::Ready<Result<Bytes, InputStreamError>>,
-                >,
-                futures::sink::Drain<Result<Bytes, OutputStreamError>>,
+                futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
+                futures::sink::Drain<Result<Bytes, Bytes>>,
                 Self::WebsocketResponse,
             ),
             _,

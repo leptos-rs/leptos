@@ -36,9 +36,10 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+        data: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E> {
-        let body = Body::from_stream(data.map_err(|e| ServerFnErrorWrapper(e)));
+        let body =
+            Body::from_stream(data.map_err(|e| ServerFnErrorWrapper(E::de(e))));
         let builder = http::Response::builder();
         builder
             .status(200)
@@ -51,7 +52,7 @@ where
 }
 
 impl Res for Response<Body> {
-    fn error_response(path: &str, err: String) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)

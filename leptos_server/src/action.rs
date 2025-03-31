@@ -3,7 +3,10 @@ use reactive_graph::{
     owner::use_context,
     traits::DefinedAt,
 };
-use server_fn::{error::FromServerFnError, ServerFn};
+use server_fn::{
+    error::{FromServerFnError, ServerFnErrorErr, ServerFnErrorWrapper},
+    ServerFn,
+};
 use std::{ops::Deref, panic::Location, sync::Arc};
 
 /// An error that can be caused by a server action.
@@ -59,7 +62,19 @@ where
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)
-                .then(|| S::Error::de(error.err()))
+                .then(|| {
+                    error
+                        .err()
+                        .parse::<ServerFnErrorWrapper<S::Error>>()
+                        .map(|e| e.0)
+                        .unwrap_or_else(|e| {
+                            S::Error::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        })
+                })
                 .map(Err)
         });
         Self {
@@ -147,7 +162,19 @@ where
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)
-                .then(|| S::Error::de(error.err()))
+                .then(|| {
+                    error
+                        .err()
+                        .parse::<ServerFnErrorWrapper<S::Error>>()
+                        .map(|e| e.0)
+                        .unwrap_or_else(|e| {
+                            S::Error::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        })
+                })
                 .map(Err)
         });
         Self {

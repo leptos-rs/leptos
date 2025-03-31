@@ -350,7 +350,7 @@ where
     /// Attempts to convert the body of the request into a stream of bytes.
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>;
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>;
 
     /// Attempts to convert the body of the request into a websocket handle.
     #[allow(clippy::type_complexity)]
@@ -359,8 +359,8 @@ where
     ) -> impl Future<
         Output = Result<
             (
-                impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
-                impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
+                impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+                impl Sink<Result<Bytes, Bytes>> + Send + 'static,
                 Self::WebsocketResponse,
             ),
             Error,
@@ -406,7 +406,7 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send, Error> {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send, Error> {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 
@@ -414,8 +414,8 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
-            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Result<Bytes, Bytes>> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -423,10 +423,8 @@ where
         #[allow(unreachable_code)]
         Err::<
             (
-                futures::stream::Once<
-                    std::future::Ready<Result<Bytes, InputStreamError>>,
-                >,
-                futures::sink::Drain<Result<Bytes, OutputStreamError>>,
+                futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
+                futures::sink::Drain<Result<Bytes, Bytes>>,
                 Self::WebsocketResponse,
             ),
             _,

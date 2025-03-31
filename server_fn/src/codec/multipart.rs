@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq};
 use crate::{
-    error::FromServerFnError,
+    error::{FromServerFnError, ServerFnErrorWrapper},
     request::{browser::BrowserFormData, ClientReq, Req},
     ContentType, IntoReq,
 };
@@ -59,7 +59,8 @@ impl From<FormData> for MultipartData {
     }
 }
 
-impl<E, T, Request> IntoReq<MultipartFormData, Request, E> for T
+impl<E: FromServerFnError, T, Request> IntoReq<MultipartFormData, Request, E>
+    for T
 where
     Request: ClientReq<E, FormData = BrowserFormData>,
     T: Into<MultipartData>,
@@ -78,7 +79,7 @@ impl<E, T, Request> FromReq<MultipartFormData, Request, E> for T
 where
     Request: Req<E> + Send + 'static,
     T: From<MultipartData>,
-    E: FromServerFnError,
+    E: FromServerFnError + Send + Sync,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let boundary = req
@@ -87,7 +88,7 @@ where
             .expect("couldn't parse boundary");
         let stream = req.try_into_stream()?;
         let data = multer::Multipart::new(
-            stream.map(|data| data.map_err(|e| e.ser())),
+            stream.map(|data| data.map_err(|e| ServerFnErrorWrapper(E::de(e)))),
             boundary,
         );
         Ok(MultipartData::Server(data).into())

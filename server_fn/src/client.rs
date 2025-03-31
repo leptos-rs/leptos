@@ -41,10 +41,8 @@ pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
     ) -> impl Future<
         Output = Result<
             (
-                impl Stream<Item = Result<Bytes, OutputStreamError>>
-                    + Send
-                    + 'static,
-                impl Sink<Result<Bytes, InputStreamError>> + Send + 'static,
+                impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+                impl Sink<Result<Bytes, Bytes>> + Send + 'static,
             ),
             Error,
         >,
@@ -114,12 +112,10 @@ pub mod browser {
         ) -> impl Future<
             Output = Result<
                 (
-                    impl futures::Stream<Item = Result<Bytes, OutputStreamError>>
+                    impl futures::Stream<Item = Result<Bytes, Bytes>>
                         + Send
                         + 'static,
-                    impl futures::Sink<Result<Bytes, InputStreamError>>
-                        + Send
-                        + 'static,
+                    impl futures::Sink<Result<Bytes, Bytes>> + Send + 'static,
                 ),
                 Error,
             >,
@@ -141,6 +137,7 @@ pub mod browser {
                         OutputStreamError::from_server_fn_error(
                             ServerFnErrorErr::Request(err.to_string()),
                         )
+                        .ser()
                     })
                     .map_ok(move |msg| match msg {
                         Message::Text(text) => Bytes::from(text),
@@ -198,26 +195,26 @@ pub mod browser {
                     }
                 }
 
-                let sink = sink.with(
-                    |message: Result<Bytes, InputStreamError>| async move {
+                let sink =
+                    sink.with(|message: Result<Bytes, Bytes>| async move {
                         match message {
                             Ok(message) => Ok(Message::Bytes(message.into())),
                             Err(err) => {
+                                let err = InputStreamError::de(err);
                                 web_sys::console::error_1(
-                                    &js_sys::JsString::from(err.ser()),
+                                    &js_sys::JsString::from(err.to_string()),
                                 );
                                 const CLOSE_CODE_ERROR: u16 = 1011;
                                 Err(WebSocketError::ConnectionClose(
                                     CloseEvent {
                                         code: CLOSE_CODE_ERROR,
-                                        reason: err.ser(),
+                                        reason: err.to_string(),
                                         was_clean: true,
                                     },
                                 ))
                             }
                         }
-                    },
-                );
+                    });
                 let sink = SendWrapperSink::new(Box::pin(sink));
 
                 Ok((stream, sink))
@@ -262,10 +259,10 @@ pub mod reqwest {
             path: &str,
         ) -> Result<
             (
-                impl futures::Stream<Item = Result<bytes::Bytes, E>>
+                impl futures::Stream<Item = Result<bytes::Bytes, Bytes>>
                     + Send
                     + 'static,
-                impl futures::Sink<Result<bytes::Bytes, E>> + Send + 'static,
+                impl futures::Sink<Result<bytes::Bytes, Bytes>> + Send + 'static,
             ),
             E,
         > {
@@ -293,18 +290,20 @@ pub mod reqwest {
                     Ok(msg) => Ok(msg.into_data()),
                     Err(e) => Err(E::from_server_fn_error(
                         ServerFnErrorErr::Request(e.to_string()),
-                    )),
+                    )
+                    .ser()),
                 }),
-                write.with(|msg: Result<Bytes, E>| async move {
+                write.with(|msg: Result<Bytes, Bytes>| async move {
                     match msg {
                         Ok(msg) => {
                             Ok(tokio_tungstenite::tungstenite::Message::Binary(
                                 msg,
                             ))
                         }
-                        Err(e) => {
+                        Err(err) => {
+                            let err = E::de(err);
                             Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::other(e.ser()),
+                                std::io::Error::other(err.to_string()),
                             ))
                         }
                     }
