@@ -41,6 +41,12 @@ impl From<String> for Body {
     }
 }
 
+impl From<Bytes> for Body {
+    fn from(value: Bytes) -> Self {
+        Body::Sync(value)
+    }
+}
+
 impl<E> TryRes<E> for Response<Body>
 where
     E: Send + Sync + FromServerFnError,
@@ -85,7 +91,7 @@ where
 }
 
 impl Res for Response<Body> {
-    fn error_response(path: &str, err: String) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)

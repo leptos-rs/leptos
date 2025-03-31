@@ -191,12 +191,12 @@ pub mod browser {
                         Ok(message) => Ok(Message::Bytes(message.into())),
                         Err(err) => {
                             web_sys::console::error_1(&js_sys::JsString::from(
-                                err.ser(),
+                                err.to_string(),
                             ));
                             const CLOSE_CODE_ERROR: u16 = 1011;
                             Err(WebSocketError::ConnectionClose(CloseEvent {
                                 code: CLOSE_CODE_ERROR,
-                                reason: err.ser(),
+                                reason: err.to_string(),
                                 was_clean: true,
                             }))
                         }
