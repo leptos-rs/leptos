@@ -1,7 +1,7 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{ArcStoredValue, ArenaItem, FromLocal, LocalStorage},
+    owner::{ArcStoredValue, ArenaItem, FromLocal},
     send_wrapper_ext::SendOption,
     signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},

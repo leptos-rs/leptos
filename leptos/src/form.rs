@@ -129,8 +129,7 @@ where
                         Some(Err(ServerFnErrorErr::Serialization(
                             err.to_string(),
                         )
-                        .into_app_error()))
-                        .into(),
+                        .into_app_error())),
                     );
                     version.update(|n| *n += 1);
                 }
