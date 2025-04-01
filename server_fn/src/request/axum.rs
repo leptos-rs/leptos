@@ -1,3 +1,5 @@
+#[cfg(feature = "axum")]
+use crate::error::ServerFnErrorWrapper;
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
