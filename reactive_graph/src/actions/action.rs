@@ -3,14 +3,20 @@ use crate::{
     diagnostics::is_suppressing_resource_load,
     owner::{ArcStoredValue, ArenaItem, FromLocal, LocalStorage},
     send_wrapper_ext::SendOption,
-    signal::{ArcRwSignal, RwSignal},
+    signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
     unwrap_signal,
 };
 use any_spawner::Executor;
 use futures::{channel::oneshot, select, FutureExt};
 use send_wrapper::SendWrapper;
-use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
+use std::{
+    future::Future,
+    ops::{Deref, DerefMut},
+    panic::Location,
+    pin::Pin,
+    sync::Arc,
+};
 
 /// An action runs some asynchronous code when you dispatch a new value to it, and gives you
 /// reactive access to the result.
@@ -48,25 +54,25 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(*input.get(), None); // no argument yet
+/// assert_eq!(input.get(), None); // no argument yet
 /// assert_eq!(pending.get(), false); // isn't pending a response
-/// assert_eq!(*result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
 /// assert_eq!(version.get(), 0);
 ///
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// assert_eq!(*input.get(), Some("My todo".to_string()));
+/// assert_eq!(input.get(), Some("My todo".to_string()));
 /// assert_eq!(pending.get(), true); // is pending
-/// assert_eq!(*result_of_call.get(), None); // has not yet gotten a response
+/// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
-/// assert_eq!(*input.get(), None); // input clears out after resolved
+/// assert_eq!(input.get(), None); // input clears out after resolved
 /// assert_eq!(pending.get(), false); // no longer pending
-/// assert_eq!(*result_of_call.get(), Some(42));
+/// assert_eq!(result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
 /// # });
 /// ```
@@ -146,7 +152,7 @@ where
     /// });
     ///
     /// act.dispatch(3);
-    /// assert_eq!(*act.input().get(), Some(3));
+    /// assert_eq!(act.input().get(), Some(3));
     ///
     /// // Remember that async functions already return a future if they are
     /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -156,7 +162,7 @@ where
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     ///
     /// // after it resolves
-    /// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
     ///
     /// async fn yell(n: String) -> String {
     ///     n.to_uppercase()
@@ -380,7 +386,11 @@ where
     }
 }
 
-impl<I, O> ArcAction<I, O> {
+impl<I, O> ArcAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
     /// The number of times the action has successfully completed.
     ///
     /// ```rust
@@ -423,18 +433,22 @@ impl<I, O> ArcAction<I, O> {
     /// });
     ///
     /// let input = act.input();
-    /// assert_eq!(*input.get(), None);
+    /// assert_eq!(input.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(*input.get(), Some(3));
+    /// assert_eq!(input.get(), Some(3));
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(*input.get(), None);
+    /// assert_eq!(input.get(), None);
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> ArcRwSignal<SendOption<I>> {
-        self.input.clone()
+    pub fn input(&self) -> ArcMappedSignal<Option<I>> {
+        ArcMappedSignal::new(
+            self.input.clone(),
+            |n| n.deref(),
+            |n| n.deref_mut(),
+        )
     }
 
     /// The most recent return value of the `async` function. This will be `None` before
@@ -453,21 +467,25 @@ impl<I, O> ArcAction<I, O> {
     /// });
     ///
     /// let value = act.value();
-    /// assert_eq!(*value.get(), None);
+    /// assert_eq!(value.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(*value.get(), None);
+    /// assert_eq!(value.get(), None);
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(*value.get(), Some(6));
+    /// assert_eq!(value.get(), Some(6));
     /// // dispatch another value, and it still holds the old value
     /// act.dispatch(3);
-    /// assert_eq!(*value.get(), Some(6));
+    /// assert_eq!(value.get(), Some(6));
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> ArcRwSignal<SendOption<O>> {
-        self.value.clone()
+    pub fn value(&self) -> ArcMappedSignal<Option<O>> {
+        ArcMappedSignal::new(
+            self.value.clone(),
+            |n| n.deref(),
+            |n| n.deref_mut(),
+        )
     }
 
     /// Whether the action has been dispatched and is currently waiting to resolve.
@@ -553,25 +571,25 @@ where
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(*input.get(), None); // no argument yet
+/// assert_eq!(input.get(), None); // no argument yet
 /// assert_eq!(pending.get(), false); // isn't pending a response
-/// assert_eq!(*result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
 /// assert_eq!(version.get(), 0);
 ///
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// assert_eq!(*input.get(), Some("My todo".to_string()));
+/// assert_eq!(input.get(), Some("My todo".to_string()));
 /// assert_eq!(pending.get(), true); // is pending
-/// assert_eq!(*result_of_call.get(), None); // has not yet gotten a response
+/// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
-/// assert_eq!(*input.get(), None); // input clears out after resolved
+/// assert_eq!(input.get(), None); // input clears out after resolved
 /// assert_eq!(pending.get(), false); // no longer pending
-/// assert_eq!(*result_of_call.get(), Some(42));
+/// assert_eq!(result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
 /// # });
 /// ```
@@ -635,7 +653,7 @@ where
     /// });
     ///
     /// act.dispatch(3);
-    /// assert_eq!(*act.input().get(), Some(3));
+    /// assert_eq!(act.input().get(), Some(3));
     ///
     /// // Remember that async functions already return a future if they are
     /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -645,7 +663,7 @@ where
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     ///
     /// // after it resolves
-    /// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
     ///
     /// async fn yell(n: String) -> String {
     ///     n.to_uppercase()
@@ -829,28 +847,27 @@ where
     /// # tokio_test::block_on(async move {
     /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
-    /// let act = ArcAction::new(|n: &u8| {
+    /// let act = Action::new(|n: &u8| {
     ///     let n = n.to_owned();
     ///     async move { n * 2 }
     /// });
     ///
     /// let input = act.input();
-    /// assert_eq!(*input.get(), None);
+    /// assert_eq!(input.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(*input.get(), Some(3));
+    /// assert_eq!(input.get(), Some(3));
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(*input.get(), None);
+    /// assert_eq!(input.get(), None);
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> RwSignal<SendOption<I>> {
-        let inner = self
-            .inner
+    pub fn input(&self) -> MappedSignal<Option<I>> {
+        self.inner
             .try_with_value(|inner| inner.input())
-            .unwrap_or_else(unwrap_signal!(self));
-        inner.into()
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 
     /// The current argument that was dispatched to the async function. This value will
@@ -860,12 +877,11 @@ where
     #[track_caller]
     #[deprecated = "You can now use .input() for any value, whether it's \
                     thread-safe or not."]
-    pub fn input_local(&self) -> RwSignal<SendOption<I>, LocalStorage> {
-        let inner = self
-            .inner
+    pub fn input_local(&self) -> MappedSignal<Option<I>> {
+        self.inner
             .try_with_value(|inner| inner.input())
-            .unwrap_or_else(unwrap_signal!(self));
-        RwSignal::from_local(inner)
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 }
 
@@ -890,25 +906,24 @@ where
     /// });
     ///
     /// let value = act.value();
-    /// assert_eq!(*value.get(), None);
+    /// assert_eq!(value.get(), None);
     /// act.dispatch(3);
-    /// assert_eq!(*value.get(), None);
+    /// assert_eq!(value.get(), None);
     ///
     /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     /// // after it resolves
-    /// assert_eq!(*value.get(), Some(6));
+    /// assert_eq!(value.get(), Some(6));
     /// // dispatch another value, and it still holds the old value
     /// act.dispatch(3);
-    /// assert_eq!(*value.get(), Some(6));
+    /// assert_eq!(value.get(), Some(6));
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> RwSignal<SendOption<O>> {
-        let inner = self
-            .inner
+    pub fn value(&self) -> MappedSignal<Option<O>> {
+        self.inner
             .try_with_value(|inner| inner.value())
-            .unwrap_or_else(unwrap_signal!(self));
-        inner.into()
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 
     /// The most recent return value of the `async` function. This will be `None` before
@@ -919,15 +934,14 @@ where
     #[deprecated = "You can now use .value() for any value, whether it's \
                     thread-safe or not."]
     #[track_caller]
-    pub fn value_local(&self) -> RwSignal<SendOption<O>, LocalStorage>
+    pub fn value_local(&self) -> MappedSignal<Option<O>>
     where
         O: Send + Sync,
     {
-        let inner = self
-            .inner
+        self.inner
             .try_with_value(|inner| inner.value())
-            .unwrap_or_else(unwrap_signal!(self));
-        RwSignal::from_local(inner)
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 }
 
@@ -1100,7 +1114,7 @@ impl<I, O> Copy for Action<I, O> {}
 /// });
 ///
 /// act.dispatch(3);
-/// assert_eq!(*act.input().get(), Some(3));
+/// assert_eq!(act.input().get(), Some(3));
 ///
 /// // Remember that async functions already return a future if they are
 /// // not `await`ed. You can save keystrokes by leaving out the `async move`
@@ -1110,7 +1124,7 @@ impl<I, O> Copy for Action<I, O> {}
 /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 ///
 /// // after it resolves
-/// assert_eq!(*act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+/// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
 ///
 /// async fn yell(n: String) -> String {
 ///     n.to_uppercase()

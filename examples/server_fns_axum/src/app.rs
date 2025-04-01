@@ -389,7 +389,7 @@ pub fn FileUpload() -> impl IntoView {
                     "Upload a file.".to_string()
                 } else if upload_action.pending().get() {
                     "Uploading...".to_string()
-                } else if let Some(Ok(value)) = *upload_action.value().get() {
+                } else if let Some(Ok(value)) = upload_action.value().get() {
                     value.to_string()
                 } else {
                     format!("{:?}", upload_action.value().get())
