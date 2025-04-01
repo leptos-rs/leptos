@@ -219,7 +219,10 @@ pub mod browser {
 pub mod reqwest {
     use super::{get_server_url, Client};
     use crate::{
-        error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+        error::{
+            FromServerFnError, IntoAppError, ServerFnErrorErr,
+            ServerFnErrorWrapper,
+        },
         request::reqwest::CLIENT,
     };
     use bytes::Bytes;
@@ -288,7 +291,9 @@ pub mod reqwest {
                         }
                         Err(e) => {
                             Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::other(e.ser()),
+                                std::io::Error::other(
+                                    ServerFnErrorWrapper(e).to_string(),
+                                ),
                             ))
                         }
                     }

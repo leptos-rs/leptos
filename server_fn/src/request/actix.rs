@@ -1,5 +1,7 @@
 use crate::{
-    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+    error::{
+        FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
+    },
     request::Req,
     response::actix::ActixResponse,
 };
@@ -166,7 +168,19 @@ where
                             Ok(_other) => {
                             }
                             Err(e) => {
-                                _ = response_stream_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
+                                let err: Result<ServerFnErrorWrapper<E>, E> =
+                                    e.to_string().parse().map_err(
+                                        |e: base64::DecodeError| {
+                                            E::from_server_fn_error(
+                                                ServerFnErrorErr::Deserialization(e.to_string()),
+                                            )
+                                        },
+                                    );
+                                let err = match err {
+                                    Ok(err) => err.0,
+                                    Err(err) => err,
+                                };
+                                _ = response_stream_tx.start_send(Err(err));
                             }
                         }
                     }
