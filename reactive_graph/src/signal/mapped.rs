@@ -44,6 +44,7 @@ pub struct ArcMappedSignal<T> {
 impl<T> Clone for ArcMappedSignal<T> {
     fn clone(&self) -> Self {
         Self {
+            #[cfg(debug_assertions)]
             defined_at: self.defined_at,
             try_read_untracked: self.try_read_untracked.clone(),
             try_write: self.try_write.clone(),
