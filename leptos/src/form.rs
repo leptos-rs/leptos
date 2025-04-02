@@ -125,13 +125,10 @@ where
                         "Error converting form field into server function \
                          arguments: {err:?}"
                     );
-                    value.set(
-                        Some(Err(ServerFnErrorErr::Serialization(
-                            err.to_string(),
-                        )
-                        .into_app_error()))
-                        .into(),
-                    );
+                    value.set(Some(Err(ServerFnErrorErr::Serialization(
+                        err.to_string(),
+                    )
+                    .into_app_error())));
                     version.update(|n| *n += 1);
                 }
             }
