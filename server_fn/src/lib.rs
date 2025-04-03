@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -257,10 +256,10 @@ pub trait ServerFn: Send + Sized {
     type Error: FromServerFnError + Send + Sync;
     /// The type of error in the server function for stream items sent from the client to the server.
     /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
-    type InputStreamError: FromServerFnError + Send + Sync = Self::Error;
+    type InputStreamError: FromServerFnError + Send + Sync;
     /// The type of error in the server function for stream items sent from the server to the client.
     /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
-    type OutputStreamError: FromServerFnError + Send + Sync = Self::Error;
+    type OutputStreamError: FromServerFnError + Send + Sync;
 
     /// Returns [`Self::PATH`].
     fn url() -> &'static str {
