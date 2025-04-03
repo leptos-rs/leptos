@@ -35,8 +35,7 @@ where
             // don't track the writer for the whole store
             writer.untrack();
             let mut notify = |path: &StorePath| {
-                self.get_trigger(path.to_owned()).this.notify();
-                self.get_trigger(path.to_owned()).children.notify();
+                self.triggers_for_path(path.to_owned()).notify();
             };
             writer.patch_field(new, &path, &mut notify);
         }

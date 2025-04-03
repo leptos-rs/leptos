@@ -512,172 +512,169 @@ where
 }
 */
 
-#[cfg(not(feature = "nightly"))]
-mod stable {
-    use super::RenderEffectWithClassName;
-    use crate::renderer::Rndr;
-
-    macro_rules!  tuple_class_reactive {
-        ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $( $where_clause:tt )*) =>
+macro_rules!  tuple_class_reactive {
+    ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $( $where_clause:tt )*) =>
+    {
+        #[allow(deprecated)]
+        impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
+        where
+            $($where_clause)*
         {
-            #[allow(deprecated)]
-            impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
-            where
-                $($where_clause)*
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffectWithClassName<(
-                    crate::renderer::types::ClassList,
-                    bool,
-                )>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
+            type AsyncOutput = Self;
+            type State = RenderEffectWithClassName<(
+                crate::renderer::types::ClassList,
+                bool,
+            )>;
+            type Cloneable = Self;
+            type CloneableOwned = Self;
 
-                fn html_len(&self) -> usize {
-                    self.0.len()
-                }
+            fn html_len(&self) -> usize {
+                self.0.len()
+            }
 
-                fn to_html(self, class: &mut String) {
-                    let (name, f) = self;
-                    let include = f.get();
-                    if include {
-                        <&str as IntoClass>::to_html(name, class);
-                    }
-                }
-
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoClass::hydrate::<FROM_SERVER>(
-                        (self.0, move || self.1.get()),
-                        el,
-                    )
-                }
-
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    IntoClass::build((self.0, move || self.1.get()), el)
-                }
-
-                fn rebuild(self, state: &mut Self::State) {
-                    IntoClass::rebuild((self.0, move || self.1.get()), state)
-                }
-
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
-
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    let name = state.name;
-                    *state = RenderEffectWithClassName::new(
-                        state.name,
-                        RenderEffect::new_with_value(
-                            move |prev| {
-                                if let Some(mut state) = prev {
-                                    let (class_list, prev) = &mut state;
-                                    Rndr::remove_class(class_list, name);
-                                    *prev = false;
-                                    state
-                                } else {
-                                    unreachable!()
-                                }
-                            },
-                            state.effect.take_value(),
-                        ),
-                    );
+            fn to_html(self, class: &mut String) {
+                let (name, f) = self;
+                let include = f.get();
+                if include {
+                    <&str as IntoClass>::to_html(name, class);
                 }
             }
-        };
-    }
 
-    macro_rules!  class_reactive {
-        ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
-        {
-            #[allow(deprecated)]
-            impl<$($gen),*> IntoClass for $name<$($gen),*>
-            where
-                $v: IntoClass + Clone + Send + Sync + 'static,
-                <$v as IntoClass>::State: 'static,
-                $($where_clause)*
-            {
-                type AsyncOutput = Self;
-                type State = RenderEffect<<$v as IntoClass>::State>;
-                type Cloneable = Self;
-                type CloneableOwned = Self;
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                IntoClass::hydrate::<FROM_SERVER>(
+                    (self.0, move || self.1.get()),
+                    el,
+                )
+            }
 
-                fn html_len(&self) -> usize {
-                    0
-                }
+            fn build(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                IntoClass::build((self.0, move || self.1.get()), el)
+            }
 
-                fn to_html(self, class: &mut String) {
-                    let value = self.get();
-                    value.to_html(class);
-                }
+            fn rebuild(self, state: &mut Self::State) {
+                IntoClass::rebuild((self.0, move || self.1.get()), state)
+            }
 
-                fn hydrate<const FROM_SERVER: bool>(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).hydrate::<FROM_SERVER>(el)
-                }
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
 
-                fn build(
-                    self,
-                    el: &crate::renderer::types::Element,
-                ) -> Self::State {
-                    (move || self.get()).build(el)
-                }
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
 
-                fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(state)
-                }
+            fn dry_resolve(&mut self) {}
 
-                fn into_cloneable(self) -> Self::Cloneable {
-                    self
-                }
+            async fn resolve(self) -> Self::AsyncOutput {
+                self
+            }
 
-                fn into_cloneable_owned(self) -> Self::CloneableOwned {
-                    self
-                }
-
-                fn dry_resolve(&mut self) {}
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
-
-                fn reset(state: &mut Self::State) {
-                    *state = RenderEffect::new_with_value(
+            fn reset(state: &mut Self::State) {
+                let name = state.name;
+                *state = RenderEffectWithClassName::new(
+                    state.name,
+                    RenderEffect::new_with_value(
                         move |prev| {
                             if let Some(mut state) = prev {
-                                <$v>::reset(&mut state);
+                                let (class_list, prev) = &mut state;
+                                Rndr::remove_class(class_list, name);
+                                *prev = false;
                                 state
                             } else {
                                 unreachable!()
                             }
                         },
-                        state.take_value(),
-                    );
-                }
+                        state.effect.take_value(),
+                    ),
+                );
             }
-        };
-    }
+        }
+    };
+}
 
-    use super::RenderEffect;
-    use crate::html::class::IntoClass;
+macro_rules!  class_reactive {
+    ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+    {
+        #[allow(deprecated)]
+        impl<$($gen),*> IntoClass for $name<$($gen),*>
+        where
+            $v: IntoClass + Clone + Send + Sync + 'static,
+            <$v as IntoClass>::State: 'static,
+            $($where_clause)*
+        {
+            type AsyncOutput = Self;
+            type State = RenderEffect<<$v as IntoClass>::State>;
+            type Cloneable = Self;
+            type CloneableOwned = Self;
+
+            fn html_len(&self) -> usize {
+                0
+            }
+
+            fn to_html(self, class: &mut String) {
+                let value = self.get();
+                value.to_html(class);
+            }
+
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).hydrate::<FROM_SERVER>(el)
+            }
+
+            fn build(
+                self,
+                el: &crate::renderer::types::Element,
+            ) -> Self::State {
+                (move || self.get()).build(el)
+            }
+
+            fn rebuild(self, state: &mut Self::State) {
+                (move || self.get()).rebuild(state)
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
+
+            fn dry_resolve(&mut self) {}
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                self
+            }
+
+            fn reset(state: &mut Self::State) {
+                *state = RenderEffect::new_with_value(
+                    move |prev| {
+                        if let Some(mut state) = prev {
+                            <$v>::reset(&mut state);
+                            state
+                        } else {
+                            unreachable!()
+                        }
+                    },
+                    state.take_value(),
+                );
+            }
+        }
+    };
+}
+
+#[cfg(not(feature = "nightly"))]
+mod stable {
+    use super::{RenderEffect, RenderEffectWithClassName};
+    use crate::{html::class::IntoClass, renderer::Rndr};
     #[allow(deprecated)]
     use reactive_graph::wrappers::read::MaybeSignal;
     use reactive_graph::{
@@ -776,17 +773,20 @@ mod stable {
     tuple_class_reactive!(ArcReadSignal,<>, <bool>, ArcReadSignal<bool>: Get<Value = bool>);
     tuple_class_reactive!(ArcMemo,<>, <bool>, ArcMemo<bool>: Get<Value = bool>);
     tuple_class_reactive!(ArcSignal,<>, <bool>, ArcSignal<bool>: Get<Value = bool>);
+}
 
-    #[cfg(feature = "reactive_stores")]
-    use {
-        reactive_stores::{
-            ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
-            KeyedSubfield, Store, StoreField, Subfield,
-        },
-        std::ops::{Deref, DerefMut, Index, IndexMut},
+#[cfg(feature = "reactive_stores")]
+mod reactive_stores {
+    use super::{RenderEffect, RenderEffectWithClassName};
+    use crate::{html::class::IntoClass, renderer::Rndr};
+    #[allow(deprecated)]
+    use reactive_graph::{owner::Storage, traits::Get};
+    use reactive_stores::{
+        ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, Field,
+        KeyedSubfield, Store, StoreField, Subfield,
     };
+    use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         Subfield,
         <Inner, Prev, V>,
@@ -796,7 +796,6 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         AtKeyed,
         <Inner, Prev, K, V>,
@@ -808,7 +807,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         KeyedSubfield,
         <Inner, Prev, K, V>,
@@ -820,7 +818,6 @@ mod stable {
         for<'a> &'a V: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         DerefedField,
         <S>,
@@ -829,7 +826,6 @@ mod stable {
         <S as StoreField>::Value: Deref + DerefMut
     );
 
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         AtIndex,
         <Inner, Prev>,
@@ -838,7 +834,6 @@ mod stable {
         Prev: Send + Sync + IndexMut<usize> + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         Store,
         <V, S>,
@@ -847,7 +842,6 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(
         Field,
         <V, S>,
@@ -856,12 +850,9 @@ mod stable {
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
-    #[cfg(feature = "reactive_stores")]
     class_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
 
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         Subfield,
         <Inner, Prev>,
@@ -871,7 +862,6 @@ mod stable {
         Inner: Send + Sync + Clone + 'static,
     );
 
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         AtKeyed,
         <Inner, Prev, K>,
@@ -883,7 +873,6 @@ mod stable {
         for<'a> &'a bool: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         KeyedSubfield,
         <Inner, Prev, K>,
@@ -895,7 +884,6 @@ mod stable {
         for<'a> &'a bool: IntoIterator,
     );
 
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         DerefedField,
         <S>,
@@ -904,7 +892,6 @@ mod stable {
         <S as StoreField>::Value: Deref<Target = bool> + DerefMut
     );
 
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         AtIndex,
         <Inner, Prev>,
@@ -913,7 +900,6 @@ mod stable {
         Prev: Send + Sync + IndexMut<usize,Output = bool> + 'static,
         Inner: Send + Sync + Clone + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         Store,
         <S>,
@@ -922,7 +908,6 @@ mod stable {
         S: Storage<bool>,
         S: Send  + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(
         Field,
         <S>,
@@ -931,9 +916,7 @@ mod stable {
         S: Storage<bool>,
         S: Send  + 'static,
     );
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(ArcStore,<>, <bool>, ArcStore<bool>: Get<Value = bool>);
-    #[cfg(feature = "reactive_stores")]
     tuple_class_reactive!(ArcField,<>, <bool>, ArcField<bool>: Get<Value = bool>);
 }
 

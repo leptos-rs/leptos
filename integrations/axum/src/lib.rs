@@ -2061,7 +2061,15 @@ where
                         },
                     )
                     .await;
-                    *res.status_mut() = StatusCode::NOT_FOUND;
+
+                    // set the status to 404
+                    // but if the status was already set (for example, to a 302 redirect) don't
+                    // overwrite it
+                    let status = res.status_mut();
+                    if *status == StatusCode::OK {
+                        *res.status_mut() = StatusCode::NOT_FOUND;
+                    }
+
                     res
                 }
             }

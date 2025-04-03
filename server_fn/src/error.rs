@@ -282,6 +282,9 @@ where
                 ServerFnError::MissingArg(value)
             }
             ServerFnErrorErr::Response(value) => ServerFnError::Response(value),
+            ServerFnErrorErr::UnsupportedRequestMethod(value) => {
+                ServerFnError::Request(value)
+            }
         }
     }
 
@@ -377,6 +380,9 @@ pub enum ServerFnErrorErr {
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     #[error("error while trying to register the server function: {0}")]
     Registration(String),
+    /// Occurs on the client if trying to use an unsupported `HTTP` method when building a request.
+    #[error("error trying to build `HTTP` method request: {0}")]
+    UnsupportedRequestMethod(String),
     /// Occurs on the client if there is a network error while trying to run function on server.
     #[error("error reaching server to call server function: {0}")]
     Request(String),
@@ -557,6 +563,31 @@ where
     fn into_app_error(self) -> E {
         E::from_server_fn_error(self)
     }
+}
+
+#[doc(hidden)]
+#[rustversion::attr(
+    since(1.78),
+    diagnostic::on_unimplemented(
+        message = "{Self} is not a `Result` or aliased `Result`. Server \
+                   functions must return a `Result` or aliased `Result`.",
+        label = "Must return a `Result` or aliased `Result`.",
+        note = "If you are trying to return an alias of `Result`, you must \
+                also implement `FromServerFnError` for the error type."
+    )
+)]
+/// A trait for extracting the error and ok types from a [`Result`]. This is used to allow alias types to be returned from server functions.
+pub trait ServerFnMustReturnResult {
+    /// The error type of the [`Result`].
+    type Err;
+    /// The ok type of the [`Result`].
+    type Ok;
+}
+
+#[doc(hidden)]
+impl<T, E> ServerFnMustReturnResult for Result<T, E> {
+    type Err = E;
+    type Ok = T;
 }
 
 #[test]

@@ -1,9 +1,6 @@
-use std::path::Path;
-
 use futures::{channel::mpsc, Stream};
 use leptos::prelude::*;
-use leptos_meta::MetaTags;
-use leptos_meta::*;
+use leptos_meta::{MetaTags, *};
 use leptos_router::{
     components::{FlatRoutes, Redirect, Route, Router},
     hooks::use_params,
@@ -13,6 +10,7 @@ use leptos_router::{
     SsrMode,
 };
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use thiserror::Error;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -204,8 +202,7 @@ pub struct Post {
 #[server]
 pub async fn list_slugs() -> Result<Vec<String>, ServerFnError> {
     use tokio::fs;
-    use tokio_stream::wrappers::ReadDirStream;
-    use tokio_stream::StreamExt;
+    use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
     let files = ReadDirStream::new(fs::read_dir("./posts").await?);
     Ok(files
@@ -295,8 +292,7 @@ fn watch_path(path: &Path) -> impl Stream<Item = ()> {
 
     #[cfg(feature = "ssr")]
     {
-        use notify::RecursiveMode;
-        use notify::Watcher;
+        use notify::{RecursiveMode, Watcher};
 
         let mut watcher =
             notify::recommended_watcher(move |res: Result<_, _>| {

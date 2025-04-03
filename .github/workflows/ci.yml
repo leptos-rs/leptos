@@ -18,8 +18,12 @@ jobs:
     uses: ./.github/workflows/get-leptos-changed.yml
   get-leptos-matrix:
     uses: ./.github/workflows/get-leptos-matrix.yml
-  test:
-    name: CI
+  get-example-changed:
+    uses: ./.github/workflows/get-example-changed.yml
+  get-examples-matrix:
+    uses: ./.github/workflows/get-examples-matrix.yml
+  test-members:
+    name: CI (members)
     needs: [get-leptos-changed, get-leptos-matrix]
     if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
     strategy:
@@ -28,6 +32,37 @@ jobs:
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
-      erased_mode: ${{ matrix.erased_mode }}
-      cargo_make_task: "ci"
-      toolchain: nightly-2025-03-05
+  test-examples:
+    name: CI (examples)
+    needs: [test-members, get-examples-matrix]
+    if: ${{ success() }}
+    strategy:
+      matrix: ${{ fromJSON(needs.get-examples-matrix.outputs.matrix) }}
+      fail-fast: false
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+  test-only-examples:
+    name: CI (examples)
+    needs: [get-leptos-changed, get-example-changed]
+    if: needs.get-leptos-changed.outputs.leptos_changed != 'true' && needs.get-example-changed.outputs.example_changed == 'true'
+    strategy:
+      matrix: ${{ fromJSON(needs.get-example-changed.outputs.matrix) }}
+      fail-fast: false
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+  semver-check:
+    name: SemVer check (stable)
+    needs: [get-leptos-changed, test-members, test-examples]
+    if: ${{ success() && needs.get-leptos-changed.outputs.leptos_changed == 'true' && !contains(github.event.pull_request.labels.*.name, 'breaking') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Glib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Semver Checks
+        uses: obi1kenobi/cargo-semver-checks-action@v2

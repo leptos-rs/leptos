@@ -5,7 +5,7 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
-    send_wrapper_ext::MaybeSendWrapperOption,
+    send_wrapper_ext::SendOption,
     signal::guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
@@ -318,10 +318,8 @@ where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,
 {
-    type Value = ReadGuard<
-        Option<T>,
-        Mapped<AsyncPlain<MaybeSendWrapperOption<T>>, Option<T>>,
-    >;
+    type Value =
+        ReadGuard<Option<T>, Mapped<AsyncPlain<SendOption<T>>, Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner

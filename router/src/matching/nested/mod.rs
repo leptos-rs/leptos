@@ -196,10 +196,19 @@ where
     type Data = Data;
     type Match = NestedMatch<Children::Match, View>;
 
+    fn optional(&self) -> bool {
+        self.segments.optional()
+            && self.children.as_ref().map(|n| n.optional()).unwrap_or(true)
+    }
+
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
     ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
+        // if this was optional (for example, this whole nested route definition consisted of an optional param),
+        // then we'll need to retest the inner value against the starting path, if this one succeeds and the inner one fails
+        let this_was_optional = self.segments.optional();
+
         self.segments
             .test(path)
             .and_then(
@@ -208,15 +217,49 @@ where
                      mut params,
                      matched,
                  }| {
-                    let (_, inner, remaining) = match &self.children {
-                        None => (None, None, remaining),
-                        Some(children) => {
-                            let (inner, remaining) =
-                                children.match_nested(remaining);
-                            let (id, inner) = inner?;
-                            (Some(id), Some(inner), remaining)
-                        }
-                    };
+                    let (_, inner, remaining, was_optional_fallback) =
+                        match &self.children {
+                            None => (None, None, remaining, false),
+                            Some(children) => {
+                                let (inner, remaining) =
+                                    children.match_nested(remaining);
+
+                                match inner {
+                                    Some((id, inner)) => (
+                                        Some(id),
+                                        Some(inner),
+                                        remaining,
+                                        false,
+                                    ),
+                                    None if this_was_optional => {
+                                        // if the parent route was optional, re-match children against full path
+                                        let (inner, remaining) =
+                                            children.match_nested(path);
+                                        let (id, inner) = inner?;
+                                        (Some(id), Some(inner), remaining, true)
+                                    }
+                                    None => {
+                                        return None;
+                                    }
+                                }
+                            }
+                        };
+
+                    // if this was an optional route, re-parse its params
+                    if was_optional_fallback {
+                        // new params are based on the path it matched (up to the point where the matched child begins)
+                        // e.g., if we have /:foo?/bar, for /bar we should *not* have { "foo": "bar" }
+                        // so, we re-parse based on "" to yield { "foo": "" }
+                        let matched = inner
+                            .as_ref()
+                            .map(|inner| inner.as_matched())
+                            .unwrap_or("");
+                        let rematch = path
+                            .trim_end_matches(&format!("{matched}{remaining}"));
+                        let new_partial = self.segments.test(rematch).unwrap();
+                        params = new_partial.params;
+                    }
+
                     let inner_params = inner
                         .as_ref()
                         .map(|inner| inner.to_params())

@@ -1,9 +1,7 @@
 use crate::api;
-use leptos::either::Either;
-use leptos::prelude::*;
+use leptos::{either::Either, prelude::*};
 use leptos_meta::Meta;
-use leptos_router::components::A;
-use leptos_router::hooks::use_params_map;
+use leptos_router::{components::A, hooks::use_params_map};
 
 #[server]
 pub async fn fetch_story(

@@ -1,4 +1,4 @@
-use super::Post;
+use super::{Patch, Post, Put};
 use crate::{ContentType, Decodes, Encodes};
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
@@ -36,3 +36,13 @@ where
 
 /// Pass arguments and receive responses using `cbor` in a `POST` request.
 pub type Cbor = Post<CborEncoding>;
+
+/// Pass arguments and receive responses using `cbor` in the body of a `PATCH` request.
+/// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PatchCbor = Patch<CborEncoding>;
+
+/// Pass arguments and receive responses using `cbor` in the body of a `PUT` request.
+/// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PutCbor = Put<CborEncoding>;

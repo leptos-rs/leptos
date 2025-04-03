@@ -1,6 +1,5 @@
 use crate::api;
-use leptos::server::Resource;
-use leptos::{either::Either, prelude::*};
+use leptos::{either::Either, prelude::*, server::Resource};
 use leptos_router::hooks::use_params_map;
 
 #[server]

@@ -53,7 +53,7 @@ site-pkg-dir = "pkg"
 # The tailwind input file.
 #
 # Optional, Activates the tailwind build
-tailwind-input-file = "style/tailwind.css"
+tailwind-input-file = "input.css"
 
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"

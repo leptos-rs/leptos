@@ -551,15 +551,20 @@ impl ServerFnCall {
         let protocol = self.protocol();
         let middlewares = &self.body.middlewares;
         let return_ty = &self.body.return_ty;
-        let output_ty = &self.body.output_ty;
-
-        let error_ty = &self.body.error_ty;
+        let output_ty = self.body.output_ty
+            .as_ref()
+            .map_or_else(|| {
+                quote! {
+                    <#return_ty as #server_fn_path::error::ServerFnMustReturnResult>::Ok
+                }
+            },
+            ToTokens::to_token_stream,
+        );
         let error_ty = error_ty
             .as_ref()
-            .map(ToTokens::to_token_stream)
-            .unwrap_or_else(|| {
+            .map_or_else(|| {
                 quote! {
-                    #server_fn_path::error::NoCustomError
+                    <#return_ty as #server_fn_path::error::ServerFnMustReturnResult>::Err
                 }
             });
         let error_ws_in_ty = if self.websocket_protocol() {
@@ -580,7 +585,6 @@ impl ServerFnCall {
         } else {
             error_ty.clone()
         };
-
         let field_names = self.field_names();
 
         // run_body in the trait implementation
@@ -670,16 +674,11 @@ impl ServerFnCall {
 
     /// Return the name and type of the first field if there is only one field.
     fn single_field(&self) -> Option<(&Pat, &Type)> {
-        if let Some(field) = self
-            .body
+        self.body
             .inputs
             .first()
             .filter(|_| self.body.inputs.len() == 1)
-        {
-            Some((&field.arg.pat, &field.arg.ty))
-        } else {
-            None
-        }
+            .map(|field| (&*field.arg.pat, &*field.arg.ty))
     }
 
     fn deref_impl(&self) -> TokenStream2 {
@@ -904,7 +903,7 @@ impl Parse for Middleware {
     }
 }
 
-fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
+fn output_type(return_ty: &Type) -> Option<&Type> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
             if pat.path.segments.is_empty() {
@@ -912,19 +911,17 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
             } else if let PathArguments::AngleBracketed(args) =
                 &pat.path.segments[0].arguments
             {
-                return Ok(&args.args[0]);
+                if let GenericArgument::Type(ty) = &args.args[0] {
+                    return Some(ty);
+                }
             }
         }
     };
 
-    Err(syn::Error::new(
-        return_ty.span(),
-        "server functions should return Result<T, E> where E: \
-         FromServerFnError",
-    ))
+    None
 }
 
-fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
+fn err_type(return_ty: &Type) -> Option<&Type> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
             if let PathArguments::AngleBracketed(args) =
@@ -932,21 +929,17 @@ fn err_type(return_ty: &Type) -> Result<Option<&Type>> {
             {
                 // Result<T>
                 if args.args.len() == 1 {
-                    return Ok(None);
+                    return None;
                 }
                 // Result<T, _>
                 else if let GenericArgument::Type(ty) = &args.args[1] {
-                    return Ok(Some(ty));
+                    return Some(ty);
                 }
             }
         }
     };
 
-    Err(syn::Error::new(
-        return_ty.span(),
-        "server functions should return Result<T, E> where E: \
-         FromServerFnError",
-    ))
+    None
 }
 
 fn err_ws_in_type(
@@ -1452,7 +1445,7 @@ pub struct ServerFnBody {
     /// The return type of the server function.
     pub return_ty: syn::Type,
     /// The Ok output type of the server function.
-    pub output_ty: syn::GenericArgument,
+    pub output_ty: Option<syn::Type>,
     /// The error output type of the server function.
     pub error_ty: Option<syn::Type>,
     /// The error type of WebSocket client-sent error
@@ -1486,8 +1479,8 @@ impl Parse for ServerFnBody {
 
         let output_arrow = input.parse()?;
         let return_ty = input.parse()?;
-        let output_ty = output_type(&return_ty)?.clone();
-        let error_ty = err_type(&return_ty)?.cloned();
+        let output_ty = output_type(&return_ty).cloned();
+        let error_ty = err_type(&return_ty).cloned();
         let error_ws_in_ty = err_ws_in_type(&inputs);
         let error_ws_out_ty = err_ws_out_type(&output_ty)?;
 

@@ -17,6 +17,7 @@ pub struct AnyNestedRoute {
         )
             -> (Option<(RouteMatchId, AnyNestedMatch)>, &'a str),
     generate_routes: fn(&Erased) -> Vec<GeneratedRouteData>,
+    optional: fn(&Erased) -> bool,
 }
 
 impl Clone for AnyNestedRoute {
@@ -74,11 +75,18 @@ where
             value.get_ref::<T>().generate_routes().into_iter().collect()
         }
 
+        fn optional<T: MatchNestedRoutes + Send + Clone + 'static>(
+            value: &Erased,
+        ) -> bool {
+            value.get_ref::<T>().optional()
+        }
+
         AnyNestedRoute {
             value: Erased::new(self),
             clone: clone::<T>,
             match_nested: match_nested::<T>,
             generate_routes: generate_routes::<T>,
+            optional: optional::<T>,
         }
     }
 }
@@ -96,5 +104,9 @@ impl MatchNestedRoutes for AnyNestedRoute {
 
     fn generate_routes(&self) -> impl IntoIterator<Item = GeneratedRouteData> {
         (self.generate_routes)(&self.value)
+    }
+
+    fn optional(&self) -> bool {
+        (self.optional)(&self.value)
     }
 }

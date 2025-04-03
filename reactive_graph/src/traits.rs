@@ -230,6 +230,12 @@ pub trait UntrackableGuard: DerefMut {
     fn untrack(&mut self);
 }
 
+impl<T> UntrackableGuard for Box<dyn UntrackableGuard<Target = T>> {
+    fn untrack(&mut self) {
+        (**self).untrack();
+    }
+}
+
 /// Gives mutable access to a signal's value through a guard type. When the guard is dropped, the
 /// signal's subscribers will be notified.
 pub trait Write: Sized + DefinedAt + Notify {

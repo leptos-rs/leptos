@@ -85,12 +85,11 @@ pub async fn instrumented_count(
         .wait()
         .for_element(Locator::Id(selector))
         .await
-        .expect(format!("Element #{selector} not found.")
-            .as_str());
+        .expect(format!("Element #{selector} not found.").as_str());
     let text = element.text().await?;
-    let count = text.parse::<u32>()
-        .expect(format!("Element #{selector} does not contain a number.")
-            .as_str());
+    let count = text.parse::<u32>().expect(
+        format!("Element #{selector} does not contain a number.").as_str(),
+    );
     Ok(count)
 }
 
