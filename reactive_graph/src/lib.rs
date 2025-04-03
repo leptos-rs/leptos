@@ -125,13 +125,17 @@ pub fn log_warning(text: Arguments) {
     }
 }
 
-/// Calls [`Executor::spawn`](any_spawner::Executor), but ensures that the task also runs in the current arena, if
+/// Calls [`Executor::spawn`](any_spawner::Executor::spawn) on non-wasm targets and [`Executor::spawn_local`](any_spawner::Executor::spawn_local) on wasm targets, but ensures that the task also runs in the current arena, if
 /// multithreaded arena sandboxing is enabled.
 pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     #[cfg(feature = "sandboxed-arenas")]
     let task = owner::Sandboxed::new(task);
 
+    #[cfg(not(target_family = "wasm"))]
     any_spawner::Executor::spawn(task);
+
+    #[cfg(target_family = "wasm")]
+    any_spawner::Executor::spawn_local(task);
 }
 
 /// Calls [`Executor::spawn_local`](any_spawner::Executor), but ensures that the task runs under the current reactive [`Owner`](crate::owner::Owner) and observer.

@@ -24,7 +24,6 @@ use crate::{
     },
     transition::AsyncTransition,
 };
-use any_spawner::Executor;
 use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
@@ -485,7 +484,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         };
         let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn,
+            crate::spawn,
             initial_value,
             fun,
             true,
@@ -519,7 +518,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         };
         let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn,
+            crate::spawn,
             initial_value,
             fun,
             true,
@@ -561,7 +560,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         };
         let initial_value = SendOption::new_local(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn_local,
+            crate::spawn_local_scoped,
             initial_value,
             fun,
             true,
@@ -596,7 +595,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
             async move { SendOption::new_local(Some(fut.await)) }
         };
         let (this, _) = spawn_derived!(
-            Executor::spawn_local,
+            crate::spawn_local_scoped,
             initial,
             fun,
             false,

@@ -19,6 +19,16 @@ tokio = { version = "1.41", optional = true, default-features = false, features 
 tracing = { version = "0.1.41", optional = true }
 wasm-bindgen-futures = { version = "0.4.50", optional = true }
 
+[dev-dependencies]
+futures-lite = { version = "2.6.0", default-features = false }
+tokio = { version = "1.41", default-features = false, features = [
+  "rt",
+  "macros",
+  "time",
+] }
+wasm-bindgen-test = { version = "0.3.50" }
+serial_test = "3.2.0"
+
 [features]
 async-executor = ["dep:async-executor"]
 tracing = ["dep:tracing"]

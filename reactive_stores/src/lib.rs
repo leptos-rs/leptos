@@ -865,7 +865,6 @@ mod tests {
             }
         });
         tick().await;
-        tick().await;
         store.user().set("Greg".into());
         tick().await;
         store.user().set("Carol".into());
@@ -1025,6 +1024,8 @@ mod tests {
 
     #[tokio::test]
     async fn patching_only_notifies_changed_field_with_custom_patch() {
+        _ = any_spawner::Executor::init_tokio();
+
         #[derive(Debug, Store, Patch, Default)]
         struct CustomTodos {
             #[patch(|this, new| *this = new)]
@@ -1037,8 +1038,6 @@ mod tests {
             label: String,
             completed: bool,
         }
-
-        _ = any_spawner::Executor::init_tokio();
 
         let combined_count = Arc::new(AtomicUsize::new(0));
 
@@ -1094,6 +1093,7 @@ mod tests {
     #[tokio::test]
     async fn notifying_all_descendants() {
         use reactive_graph::traits::*;
+
         _ = any_spawner::Executor::init_tokio();
 
         #[derive(Debug, Clone, Store, Patch, Default)]
