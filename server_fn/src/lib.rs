@@ -174,9 +174,13 @@ pub use xxhash_rust;
 
 type ServerFnServerRequest<Fn> = <<Fn as ServerFn>::Server as crate::Server<
     <Fn as ServerFn>::Error,
+    <Fn as ServerFn>::InputStreamError,
+    <Fn as ServerFn>::OutputStreamError,
 >>::Request;
 type ServerFnServerResponse<Fn> = <<Fn as ServerFn>::Server as crate::Server<
     <Fn as ServerFn>::Error,
+    <Fn as ServerFn>::InputStreamError,
+    <Fn as ServerFn>::OutputStreamError,
 >>::Response;
 
 /// Defines a function that runs only on the server, but can be called from the server or the client.
@@ -215,12 +219,20 @@ pub trait ServerFn: Send + Sized {
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
-    type Client: Client<Self::Error>;
+    type Client: Client<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
     /// The type of the HTTP server that will send the response from the server side.
     ///
     /// For example, this might be `axum` or `actix-web`.
-    type Server: Server<Self::Error>;
+    type Server: Server<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
     /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
@@ -229,6 +241,8 @@ pub trait ServerFn: Send + Sized {
         Self::Client,
         Self::Server,
         Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
     >;
 
     /// The return type of the server function.
@@ -237,8 +251,15 @@ pub trait ServerFn: Send + Sized {
     /// *from* `ClientResponse` when received by the client.
     type Output: Send;
 
-    /// The type of the error on the server function. Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    /// The type of error in the server function return.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
     type Error: FromServerFnError + Send + Sync;
+    /// The type of error in the server function for stream items sent from the client to the server.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type InputStreamError: FromServerFnError + Send + Sync;
+    /// The type of error in the server function for stream items sent from the server to the client.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type OutputStreamError: FromServerFnError + Send + Sync;
 
     /// Returns [`Self::PATH`].
     fn url() -> &'static str {
@@ -288,6 +309,8 @@ pub trait ServerFn: Send + Sized {
                         (
                             <<Self as ServerFn>::Server as crate::Server<
                                 Self::Error,
+                                Self::InputStreamError,
+                                Self::OutputStreamError,
                             >>::Response::error_response(
                                 Self::PATH, e.ser()
                             ),
@@ -331,10 +354,17 @@ pub trait ServerFn: Send + Sized {
 /// The protocol that a server function uses to communicate with the client. This trait handles
 /// the server and client side of running a server function. It is implemented for the [`Http`] and
 /// [`Websocket`] protocols and can be used to implement custom protocols.
-pub trait Protocol<Input, Output, Client, Server, E>
-where
-    Server: crate::Server<E>,
-    Client: crate::Client<E>,
+pub trait Protocol<
+    Input,
+    Output,
+    Client,
+    Server,
+    Error,
+    InputStreamError = Error,
+    OutputStreamError = Error,
+> where
+    Server: crate::Server<Error, InputStreamError, OutputStreamError>,
+    Client: crate::Client<Error, InputStreamError, OutputStreamError>,
 {
     /// The HTTP method used for requests.
     const METHOD: Method;
@@ -344,17 +374,17 @@ where
     fn run_server<F, Fut>(
         request: Server::Request,
         server_fn: F,
-    ) -> impl Future<Output = Result<Server::Response, E>> + Send
+    ) -> impl Future<Output = Result<Server::Response, Error>> + Send
     where
         F: Fn(Input) -> Fut + Send,
-        Fut: Future<Output = Result<Output, E>> + Send;
+        Fut: Future<Output = Result<Output, Error>> + Send;
 
     /// Run the server function on the client. The implementation should handle serializing the
     /// input, sending the request, and deserializing the output.
     fn run_client(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<Output, E>> + Send;
+    ) -> impl Future<Output = Result<Output, Error>> + Send;
 }
 
 /// The http protocol with specific input and output encodings for the request and response. This is
@@ -561,18 +591,30 @@ impl<
         OutputEncoding,
         Client,
         Server,
-        E,
-    > Protocol<Input, BoxedStream<OutputItem, E>, Client, Server, E>
-    for Websocket<InputEncoding, OutputEncoding>
+        Error,
+        InputStreamError,
+        OutputStreamError,
+    >
+    Protocol<
+        Input,
+        BoxedStream<OutputItem, OutputStreamError>,
+        Client,
+        Server,
+        Error,
+        InputStreamError,
+        OutputStreamError,
+    > for Websocket<InputEncoding, OutputEncoding>
 where
-    Input: Deref<Target = BoxedStream<InputItem, E>>
-        + Into<BoxedStream<InputItem, E>>
-        + From<BoxedStream<InputItem, E>>,
+    Input: Deref<Target = BoxedStream<InputItem, InputStreamError>>
+        + Into<BoxedStream<InputItem, InputStreamError>>
+        + From<BoxedStream<InputItem, InputStreamError>>,
     InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
     OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
-    Server: crate::Server<E>,
-    E: FromServerFnError + Send,
-    Client: crate::Client<E>,
+    InputStreamError: FromServerFnError + Send,
+    OutputStreamError: FromServerFnError + Send,
+    Error: FromServerFnError + Send,
+    Server: crate::Server<Error, InputStreamError, OutputStreamError>,
+    Client: crate::Client<Error, InputStreamError, OutputStreamError>,
     OutputItem: Send + 'static,
     InputItem: Send + 'static,
 {
@@ -581,34 +623,44 @@ where
     async fn run_server<F, Fut>(
         request: Server::Request,
         server_fn: F,
-    ) -> Result<Server::Response, E>
+    ) -> Result<Server::Response, Error>
     where
         F: Fn(Input) -> Fut + Send,
-        Fut: Future<Output = Result<BoxedStream<OutputItem, E>, E>> + Send,
+        Fut: Future<
+                Output = Result<
+                    BoxedStream<OutputItem, OutputStreamError>,
+                    Error,
+                >,
+            > + Send,
     {
         let (request_bytes, response_stream, response) =
             request.try_into_websocket().await?;
         let input = request_bytes.map(|request_bytes| match request_bytes {
             Ok(request_bytes) => {
                 InputEncoding::decode(request_bytes).map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Deserialization(
-                        e.to_string(),
-                    ))
+                    InputStreamError::from_server_fn_error(
+                        ServerFnErrorErr::Deserialization(e.to_string()),
+                    )
                 })
             }
             Err(err) => Err(err),
         });
         let boxed = Box::pin(input)
-            as Pin<Box<dyn Stream<Item = Result<InputItem, E>> + Send>>;
+            as Pin<
+                Box<
+                    dyn Stream<Item = Result<InputItem, InputStreamError>>
+                        + Send,
+                >,
+            >;
         let input = BoxedStream { stream: boxed };
 
         let output = server_fn(input.into()).await?;
 
         let output = output.stream.map(|output| match output {
             Ok(output) => OutputEncoding::encode(output).map_err(|e| {
-                E::from_server_fn_error(ServerFnErrorErr::Serialization(
-                    e.to_string(),
-                ))
+                OutputStreamError::from_server_fn_error(
+                    ServerFnErrorErr::Serialization(e.to_string()),
+                )
             }),
             Err(err) => Err(err),
         });
@@ -629,8 +681,9 @@ where
     fn run_client(
         path: &str,
         input: Input,
-    ) -> impl Future<Output = Result<BoxedStream<OutputItem, E>, E>> + Send
-    {
+    ) -> impl Future<
+        Output = Result<BoxedStream<OutputItem, OutputStreamError>, Error>,
+    > + Send {
         let input = input.into();
 
         async move {
@@ -644,7 +697,7 @@ where
                     if sink
                         .send(input.and_then(|input| {
                             InputEncoding::encode(input).map_err(|e| {
-                                E::from_server_fn_error(
+                                InputStreamError::from_server_fn_error(
                                     ServerFnErrorErr::Serialization(
                                         e.to_string(),
                                     ),
@@ -663,14 +716,19 @@ where
             let stream = stream.map(|request_bytes| match request_bytes {
                 Ok(request_bytes) => OutputEncoding::decode(request_bytes)
                     .map_err(|e| {
-                        E::from_server_fn_error(
+                        OutputStreamError::from_server_fn_error(
                             ServerFnErrorErr::Deserialization(e.to_string()),
                         )
                     }),
                 Err(err) => Err(err),
             });
             let boxed = Box::pin(stream)
-                as Pin<Box<dyn Stream<Item = Result<OutputItem, E>> + Send>>;
+                as Pin<
+                    Box<
+                        dyn Stream<Item = Result<OutputItem, OutputStreamError>>
+                            + Send,
+                    >,
+                >;
             let output = BoxedStream { stream: boxed };
             Ok(output)
         }
@@ -738,13 +796,25 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
     /// Converts the relevant parts of a server function into a trait object.
     pub const fn new<
         S: ServerFn<
-            Server: crate::Server<S::Error, Request = Req, Response = Res>,
+            Server: crate::Server<
+                S::Error,
+                S::InputStreamError,
+                S::OutputStreamError,
+                Request = Req,
+                Response = Res,
+            >,
         >,
     >(
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     ) -> Self
     where
-        Req: crate::Req<S::Error, WebsocketResponse = Res> + Send + 'static,
+        Req: crate::Req<
+                S::Error,
+                S::InputStreamError,
+                S::OutputStreamError,
+                WebsocketResponse = Res,
+            > + Send
+            + 'static,
         Res: crate::TryRes<S::Error> + Send + 'static,
     {
         Self {
@@ -848,14 +918,21 @@ pub mod axum {
     /// The axum server function backend
     pub struct AxumServerFnBackend;
 
-    impl<E: FromServerFnError + Send + Sync> Server<E> for AxumServerFnBackend {
+    impl<Error, InputStreamError, OutputStreamError>
+        Server<Error, InputStreamError, OutputStreamError>
+        for AxumServerFnBackend
+    where
+        Error: FromServerFnError + Send + Sync,
+        InputStreamError: FromServerFnError + Send + Sync,
+        OutputStreamError: FromServerFnError + Send + Sync,
+    {
         type Request = Request<Body>;
         type Response = Response<Body>;
 
         #[allow(unused_variables)]
         fn spawn(
             future: impl Future<Output = ()> + Send + 'static,
-        ) -> Result<(), E> {
+        ) -> Result<(), Error> {
             #[cfg(feature = "axum")]
             {
                 tokio::spawn(future);
@@ -863,7 +940,7 @@ pub mod axum {
             }
             #[cfg(not(feature = "axum"))]
             {
-                Err(E::from_server_fn_error(
+                Err(Error::from_server_fn_error(
                     crate::error::ServerFnErrorErr::Request(
                         "No async runtime available. You need to either \
                          enable the full axum feature to pull in tokio, or \
@@ -884,6 +961,8 @@ pub mod axum {
         T: ServerFn<
                 Server: crate::Server<
                     T::Error,
+                    T::InputStreamError,
+                    T::OutputStreamError,
                     Request = Request<Body>,
                     Response = Response<Body>,
                 >,
@@ -966,13 +1045,20 @@ pub mod actix {
     /// The actix server function backend
     pub struct ActixServerFnBackend;
 
-    impl<E: FromServerFnError + Send + Sync> Server<E> for ActixServerFnBackend {
+    impl<Error, InputStreamError, OutputStreamError>
+        Server<Error, InputStreamError, OutputStreamError>
+        for ActixServerFnBackend
+    where
+        Error: FromServerFnError + Send + Sync,
+        InputStreamError: FromServerFnError + Send + Sync,
+        OutputStreamError: FromServerFnError + Send + Sync,
+    {
         type Request = ActixRequest;
         type Response = ActixResponse;
 
         fn spawn(
             future: impl Future<Output = ()> + Send + 'static,
-        ) -> Result<(), E> {
+        ) -> Result<(), Error> {
             actix_web::rt::spawn(future);
             Ok(())
         }
@@ -986,6 +1072,8 @@ pub mod actix {
         T: ServerFn<
                 Server: crate::Server<
                     T::Error,
+                    T::InputStreamError,
+                    T::OutputStreamError,
                     Request = ActixRequest,
                     Response = ActixResponse,
                 >,
@@ -1075,13 +1163,20 @@ pub mod mock {
     /// server type when compiling for the client.
     pub struct BrowserMockServer;
 
-    impl<E: Send + 'static> crate::server::Server<E> for BrowserMockServer {
+    impl<Error, InputStreamError, OutputStreamError>
+        crate::server::Server<Error, InputStreamError, OutputStreamError>
+        for BrowserMockServer
+    where
+        Error: Send + 'static,
+        InputStreamError: Send + 'static,
+        OutputStreamError: Send + 'static,
+    {
         type Request = crate::request::BrowserMockReq;
         type Response = crate::response::BrowserMockRes;
 
         fn spawn(
             _: impl Future<Output = ()> + Send + 'static,
-        ) -> Result<(), E> {
+        ) -> Result<(), Error> {
             unreachable!()
         }
     }

@@ -885,9 +885,11 @@ pub fn CustomClientExample() -> impl IntoView {
     pub struct CustomClient;
 
     // Implement the `Client` trait for it.
-    impl<E> Client<E> for CustomClient
+    impl<E, IS, OS> Client<E, IS, OS> for CustomClient
     where
         E: FromServerFnError,
+        IS: FromServerFnError,
+        OS: FromServerFnError,
     {
         // BrowserRequest and BrowserResponse are the defaults used by other server functions.
         // They are wrappers for the underlying Web Fetch API types.
@@ -904,7 +906,7 @@ pub fn CustomClientExample() -> impl IntoView {
             // modify the headers by appending one
             headers.append("X-Custom-Header", "foobar");
             // delegate back out to BrowserClient to send the modified request
-            BrowserClient::send(req)
+            <BrowserClient as Client<E, IS, OS>>::send(req)
         }
 
         fn open_websocket(
@@ -912,8 +914,10 @@ pub fn CustomClientExample() -> impl IntoView {
         ) -> impl Future<
             Output = Result<
                 (
-                    impl Stream<Item = Result<server_fn::Bytes, E>> + Send + 'static,
-                    impl Sink<Result<server_fn::Bytes, E>> + Send + 'static,
+                    impl Stream<Item = Result<server_fn::Bytes, OS>>
+                        + Send
+                        + 'static,
+                    impl Sink<Result<server_fn::Bytes, IS>> + Send + 'static,
                 ),
                 E,
             >,
