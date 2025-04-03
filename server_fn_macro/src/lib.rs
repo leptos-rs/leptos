@@ -560,13 +560,16 @@ impl ServerFnCall {
             },
             ToTokens::to_token_stream,
         );
+        let error_ty = &self.body.error_ty;
         let error_ty = error_ty
             .as_ref()
             .map_or_else(|| {
                 quote! {
                     <#return_ty as #server_fn_path::error::ServerFnMustReturnResult>::Err
                 }
-            });
+            },
+            ToTokens::to_token_stream,
+        );
         let error_ws_in_ty = if self.websocket_protocol() {
             self.body
                 .error_ws_in_ty
@@ -969,30 +972,28 @@ fn err_ws_in_type(
     })
 }
 
-fn err_ws_out_type(output_ty: &GenericArgument) -> Result<Option<Type>> {
-    if let syn::GenericArgument::Type(ty) = output_ty {
-        if let syn::Type::Path(ref pat) = ty {
-            if pat.path.segments[0].ident == "BoxedStream" {
-                if let PathArguments::AngleBracketed(args) =
-                    &pat.path.segments[0].arguments
-                {
-                    // BoxedStream<T>
-                    if args.args.len() == 1 {
-                        return Ok(None);
-                    }
-                    // BoxedStream<T, E>
-                    else if let GenericArgument::Type(ty) = &args.args[1] {
-                        return Ok(Some(ty.clone()));
-                    }
+fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
+    if let Some(syn::Type::Path(ref pat)) = output_ty {
+        if pat.path.segments[0].ident == "BoxedStream" {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
+                // BoxedStream<T>
+                if args.args.len() == 1 {
+                    return Ok(None);
+                }
+                // BoxedStream<T, E>
+                else if let GenericArgument::Type(ty) = &args.args[1] {
+                    return Ok(Some(ty.clone()));
+                }
 
-                    return Err(syn::Error::new(
-                        output_ty.span(),
-                        "websocket server functions should return \
-                         BoxedStream<Result<T, E>> where E: FromServerFnError",
-                    ));
-                };
-            }
-        };
+                return Err(syn::Error::new(
+                    output_ty.span(),
+                    "websocket server functions should return \
+                     BoxedStream<Result<T, E>> where E: FromServerFnError",
+                ));
+            };
+        }
     };
 
     Ok(None)
