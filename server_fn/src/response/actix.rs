@@ -70,7 +70,7 @@ where
 }
 
 impl Res for ActixResponse {
-    fn error_response(path: &str, err: String) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))

@@ -1,6 +1,6 @@
 use crate::{
     codec::{Patch, Post, Put},
-    ContentType, Decodes, Encodes,
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
@@ -12,14 +12,18 @@ impl ContentType for PostcardEncoding {
     const CONTENT_TYPE: &'static str = "application/x-postcard";
 }
 
+impl FormatType for PostcardEncoding {
+    const FORMAT_TYPE: Format = Format::Binary;
+}
+
 impl<T> Encodes<T> for PostcardEncoding
 where
     T: Serialize,
 {
     type Error = postcard::Error;
 
-    fn encode(value: T) -> Result<Bytes, Self::Error> {
-        postcard::to_allocvec(&value).map(Bytes::from)
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
+        postcard::to_allocvec(value).map(Bytes::from)
     }
 }
 

@@ -1,12 +1,13 @@
 #![allow(deprecated)]
 
+use crate::{codec::JsonEncoding, Decodes, Encodes, FormatType};
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use bytes::Bytes;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Write},
     str::FromStr,
 };
-use thiserror::Error;
 use throw_error::Error;
 use url::Url;
 
@@ -259,6 +260,11 @@ where
         + FromStr
         + Display,
 {
+    // We ignore this encoding and we provide our own for backward compatibility with deprecated
+    // ServerFnError<CustomError>, only for trait satisfaction
+    type EncodeType = JsonEncoding;
+    type DecodeType = JsonEncoding;
+
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
         match value {
             ServerFnErrorErr::Registration(value) => {
@@ -288,7 +294,7 @@ where
         }
     }
 
-    fn ser(&self) -> String {
+    fn ser(&self) -> Bytes {
         let mut buf = String::new();
         let result = match self {
             ServerFnError::WrappedServerError(e) => {
@@ -317,12 +323,17 @@ where
             }
         };
         match result {
-            Ok(()) => buf,
-            Err(_) => "Serialization|".to_string(),
+            Ok(()) => buf.into(),
+            Err(_) => "Serialization|".into(),
         }
     }
 
-    fn de(data: &str) -> Self {
+    fn de(data: Bytes) -> Self {
+        let data = match String::from_utf8(data.to_vec()) {
+            Ok(data) => data,
+            Err(err) => return ServerFnError::Deserialization(err.to_string()),
+        };
+
         data.split_once('|')
             .and_then(|(ty, data)| match ty {
                 "WrappedServerFn" => match CustErr::from_str(data) {
@@ -344,9 +355,7 @@ where
                     Some(ServerFnError::Serialization(data.to_string()))
                 }
                 "Args" => Some(ServerFnError::Args(data.to_string())),
-                "MissingArg" => {
-                    Some(ServerFnError::MissingArg(data.to_string()))
-                }
+                "MissingArg" => Some(ServerFnError::MissingArg(data.into())),
                 _ => None,
             })
             .unwrap_or_else(|| {
@@ -371,7 +380,9 @@ where
 }
 
 /// Type for errors that can occur when using server functions. If you need to return a custom error type from a server function, implement `FromServerFnError` for your custom error type.
-#[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    thiserror::Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize,
+)]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
@@ -482,14 +493,7 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
                     .into_app_error();
             }
         };
-        let s = match String::from_utf8(decoded) {
-            Ok(s) => s,
-            Err(err) => {
-                return ServerFnErrorErr::Deserialization(err.to_string())
-                    .into_app_error();
-            }
-        };
-        E::de(&s)
+        E::de(decoded.into())
     }
 }
 
@@ -505,34 +509,56 @@ impl<E> From<ServerFnUrlError<ServerFnError<E>>> for ServerFnError<E> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 #[doc(hidden)]
 /// Only used instantly only when a framework needs E: Error.
 pub struct ServerFnErrorWrapper<E: FromServerFnError>(pub E);
 
 impl<E: FromServerFnError> Display for ServerFnErrorWrapper<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.ser())
+        write!(
+            f,
+            "{}",
+            <E::EncodeType as FormatType>::into_encoded_string(self.0.ser())
+        )
     }
 }
 
-impl<E: FromServerFnError> std::error::Error for ServerFnErrorWrapper<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
+impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
+    type Err = base64::DecodeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = <E::EncodeType as FormatType>::from_encoded_string(s)
+            .map_err(|e| {
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
+            });
+        let bytes = match bytes {
+            Ok(bytes) => bytes,
+            Err(err) => return Ok(Self(err)),
+        };
+        let err = E::de(bytes);
+        Ok(Self(err))
     }
 }
 
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError:
-    std::fmt::Debug + Serialize + DeserializeOwned + 'static
+    std::fmt::Debug + Serialize + DeserializeOwned + Display + 'static
 {
+    /// The encoding strategy used to serialize this error type. Must implement the [`Encodes`](server_fn::Encodes) trait for references to the error type.
+    type EncodeType: Encodes<Self>;
+    /// The decoding strategy used to deserialize this error type. Must implement the [`Decodes`](server_fn::Decodes) trait for the error type.
+    type DecodeType: Decodes<Self>;
+
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Converts the custom error type to a [`String`]. Defaults to serializing to JSON.
-    fn ser(&self) -> String {
-        serde_json::to_string(self).unwrap_or_else(|e| {
-            serde_json::to_string(&Self::from_server_fn_error(
+    /// Converts the custom error type to a [`String`].
+    fn ser(&self) -> Bytes {
+        Self::EncodeType::encode(self).unwrap_or_else(|e| {
+            Self::EncodeType::encode(&Self::from_server_fn_error(
                 ServerFnErrorErr::Serialization(e.to_string()),
             ))
             .expect(
@@ -542,9 +568,9 @@ pub trait FromServerFnError:
         })
     }
 
-    /// Deserializes the custom error type from a [`&str`]. Defaults to deserializing from JSON.
-    fn de(data: &str) -> Self {
-        serde_json::from_str(data).unwrap_or_else(|e| {
+    /// Deserializes the custom error type from a [`&str`].
+    fn de(data: Bytes) -> Self {
+        Self::DecodeType::decode(data).unwrap_or_else(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
     }

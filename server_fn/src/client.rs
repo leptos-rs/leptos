@@ -191,12 +191,12 @@ pub mod browser {
                         Ok(message) => Ok(Message::Bytes(message.into())),
                         Err(err) => {
                             web_sys::console::error_1(&js_sys::JsString::from(
-                                err.ser(),
+                                err.to_string(),
                             ));
                             const CLOSE_CODE_ERROR: u16 = 1011;
                             Err(WebSocketError::ConnectionClose(CloseEvent {
                                 code: CLOSE_CODE_ERROR,
-                                reason: err.ser(),
+                                reason: err.to_string(),
                                 was_clean: true,
                             }))
                         }
@@ -219,7 +219,10 @@ pub mod browser {
 pub mod reqwest {
     use super::{get_server_url, Client};
     use crate::{
-        error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+        error::{
+            FromServerFnError, IntoAppError, ServerFnErrorErr,
+            ServerFnErrorWrapper,
+        },
         request::reqwest::CLIENT,
     };
     use bytes::Bytes;
@@ -288,7 +291,9 @@ pub mod reqwest {
                         }
                         Err(e) => {
                             Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::other(e.ser()),
+                                std::io::Error::other(
+                                    ServerFnErrorWrapper(e).to_string(),
+                                ),
                             ))
                         }
                     }

@@ -3,7 +3,7 @@ use reactive_graph::{
     owner::use_context,
     traits::DefinedAt,
 };
-use server_fn::{error::FromServerFnError, ServerFn};
+use server_fn::{error::FromServerFnError, Bytes, ServerFn};
 use std::{ops::Deref, panic::Location, sync::Arc};
 
 /// An error that can be caused by a server action.
@@ -59,7 +59,9 @@ where
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)
-                .then(|| S::Error::de(error.err()))
+                .then(|| {
+                    S::Error::de(Bytes::copy_from_slice(error.err().as_bytes()))
+                })
                 .map(Err)
         });
         Self {
@@ -147,7 +149,9 @@ where
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)
-                .then(|| S::Error::de(error.err()))
+                .then(|| {
+                    S::Error::de(Bytes::copy_from_slice(error.err().as_bytes()))
+                })
                 .map(Err)
         });
         Self {
