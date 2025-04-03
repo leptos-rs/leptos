@@ -419,10 +419,10 @@ pub fn maybe_optimised_component_children(
     // // Debug check to see how many use this optimisation:
     // static COUNT: std::sync::atomic::AtomicUsize =
     //     std::sync::atomic::AtomicUsize::new(0);
-    // COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    // COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     // eprintln!(
     //     "Optimised children: {}",
-    //     COUNT.load(std::sync::atomic::Ordering::SeqCst)
+    //     COUNT.load(std::sync::atomic::Ordering::Relaxed)
     // );
 
     let clonables = items_to_clone_to_tokens(items_to_clone);

@@ -53,7 +53,7 @@ impl Status {
 impl Todo {
     pub fn new(label: impl ToString) -> Self {
         Self {
-            id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             label: label.to_string(),
             status: Status::Pending,
         }

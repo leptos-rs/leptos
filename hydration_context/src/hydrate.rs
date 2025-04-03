@@ -122,7 +122,7 @@ impl SharedContext for HydrateSharedContext {
     }
 
     fn next_id(&self) -> SerializedDataId {
-        let id = self.id.fetch_add(1, Ordering::SeqCst);
+        let id = self.id.fetch_add(1, Ordering::Relaxed);
         SerializedDataId(id)
     }
 
@@ -141,19 +141,19 @@ impl SharedContext for HydrateSharedContext {
     }
 
     fn during_hydration(&self) -> bool {
-        self.during_hydration.load(Ordering::SeqCst)
+        self.during_hydration.load(Ordering::Relaxed)
     }
 
     fn hydration_complete(&self) {
-        self.during_hydration.store(false, Ordering::SeqCst)
+        self.during_hydration.store(false, Ordering::Relaxed)
     }
 
     fn get_is_hydrating(&self) -> bool {
-        self.is_hydrating.load(Ordering::SeqCst)
+        self.is_hydrating.load(Ordering::Relaxed)
     }
 
     fn set_is_hydrating(&self, is_hydrating: bool) {
-        self.is_hydrating.store(is_hydrating, Ordering::SeqCst)
+        self.is_hydrating.store(is_hydrating, Ordering::Relaxed)
     }
 
     fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)> {

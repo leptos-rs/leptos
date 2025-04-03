@@ -98,7 +98,7 @@ impl RouteMatchId {
     /// In general, you do not need this; it should only be used for custom route matching behavior
     /// in a library that creates its own route types.
     pub fn new_from_route_id() -> RouteMatchId {
-        RouteMatchId(ROUTE_ID.fetch_add(1, Ordering::SeqCst))
+        RouteMatchId(ROUTE_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
 

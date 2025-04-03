@@ -829,7 +829,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.user().read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -841,7 +841,7 @@ mod tests {
         store.user().update(|name| name.push_str("!!!"));
         tick().await;
         // the effect reads from `user`, so it should trigger every time
-        assert_eq!(combined_count.load(Ordering::SeqCst), 4);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 4);
     }
 
     #[tokio::test]
@@ -861,7 +861,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.todos().read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -872,7 +872,7 @@ mod tests {
         store.user().update(|name| name.push_str("!!!"));
         tick().await;
         // the effect reads from `todos`, so it shouldn't trigger every time
-        assert_eq!(combined_count.load(Ordering::SeqCst), 1);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test]
@@ -892,7 +892,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.todos().read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -901,7 +901,7 @@ mod tests {
         tick().await;
         store.set(data());
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 3);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[tokio::test]
@@ -921,7 +921,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -934,7 +934,7 @@ mod tests {
         tick().await;
         store.todos().write().clear();
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 5);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 5);
     }
 
     #[tokio::test]
@@ -957,7 +957,7 @@ mod tests {
                     "{:?}",
                     store.todos().iter_unkeyed().collect::<Vec<_>>()
                 );
-                combined_count.store(1, Ordering::SeqCst);
+                combined_count.store(1, Ordering::Relaxed);
             }
         });
 
@@ -971,7 +971,7 @@ mod tests {
         tick().await;
         store.todos().write().push(Todo::new("Profit!"));
         // the effect only reads from `todos`, so it should trigger only the first time
-        assert_eq!(combined_count.load(Ordering::SeqCst), 1);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test]
@@ -994,7 +994,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.todos().read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -1009,7 +1009,7 @@ mod tests {
             todos: vec![],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 1);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
 
         store.patch(Todos {
             user: "Carol".into(),
@@ -1019,7 +1019,7 @@ mod tests {
             }],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 2);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test]
@@ -1055,7 +1055,7 @@ mod tests {
                     println!("next run");
                 }
                 println!("{:?}", *store.user().read());
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
@@ -1065,13 +1065,13 @@ mod tests {
             todos: vec![],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 2);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
         store.patch(CustomTodos {
             user: "Carol".into(),
             todos: vec![],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 3);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
 
         store.patch(CustomTodos {
             user: "Carol".into(),
@@ -1081,7 +1081,7 @@ mod tests {
             }],
         });
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 3);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[derive(Debug, Store)]

@@ -129,14 +129,14 @@ where
             .write_value()
             .push((key.clone(), value.as_ref().map(ToString::to_string)));
 
-        if !IS_NAVIGATING.load(Ordering::SeqCst) {
-            IS_NAVIGATING.store(true, Ordering::SeqCst);
+        if !IS_NAVIGATING.load(Ordering::Relaxed) {
+            IS_NAVIGATING.store(true, Ordering::Relaxed);
             request_animation_frame({
                 let navigate = navigate.clone();
                 let nav_options = nav_options.clone();
                 move || {
                     navigate(&new_url, nav_options.clone());
-                    IS_NAVIGATING.store(false, Ordering::SeqCst)
+                    IS_NAVIGATING.store(false, Ordering::Relaxed)
                 }
             })
         }

@@ -44,7 +44,7 @@ pub struct SuppressResourceLoad;
 impl SuppressResourceLoad {
     /// Prevents resources from loading until this is dropped.
     pub fn new() -> Self {
-        IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::SeqCst);
+        IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::Relaxed);
         Self
     }
 }
@@ -57,7 +57,7 @@ impl Default for SuppressResourceLoad {
 
 impl Drop for SuppressResourceLoad {
     fn drop(&mut self) {
-        IS_SUPPRESSING_RESOURCE_LOAD.store(false, Ordering::SeqCst);
+        IS_SUPPRESSING_RESOURCE_LOAD.store(false, Ordering::Relaxed);
     }
 }
 
@@ -253,7 +253,7 @@ where
                 let (_, source) = source.get();
                 let fut = fetcher(source);
                 async move {
-                    if IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::SeqCst) {
+                    if IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
                         pending().await
                     } else {
                         fut.await

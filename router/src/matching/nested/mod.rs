@@ -89,7 +89,7 @@ impl<Segments, View> NestedRoute<Segments, (), (), View> {
         View: ChooseView,
     {
         NestedRoute {
-            id: ROUTE_ID.fetch_add(1, Ordering::SeqCst),
+            id: ROUTE_ID.fetch_add(1, Ordering::Relaxed),
             segments: path,
             children: None,
             data: (),

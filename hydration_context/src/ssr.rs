@@ -100,9 +100,9 @@ impl SharedContext for SsrSharedContext {
     #[track_caller]
     fn next_id(&self) -> SerializedDataId {
         let id = if self.get_is_hydrating() {
-            self.id.fetch_add(1, Ordering::SeqCst)
+            self.id.fetch_add(1, Ordering::Relaxed)
         } else {
-            self.non_hydration_id.fetch_sub(1, Ordering::SeqCst)
+            self.non_hydration_id.fetch_sub(1, Ordering::Relaxed)
         };
         SerializedDataId(id)
     }

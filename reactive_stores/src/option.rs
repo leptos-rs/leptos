@@ -138,7 +138,7 @@ mod tests {
                     println!("no inner value");
                 }
 
-                combined_count.fetch_add(1, Ordering::SeqCst);
+                combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
 
@@ -162,7 +162,7 @@ mod tests {
             .unwrap()
             .push_str("!!!");
         tick().await;
-        assert_eq!(combined_count.load(Ordering::SeqCst), 5);
+        assert_eq!(combined_count.load(Ordering::Relaxed), 5);
         assert_eq!(
             store
                 .name()
@@ -197,7 +197,7 @@ mod tests {
                 }
 
                 println!("  is_some = {}", store.name().read().is_some());
-                parent_count.fetch_add(1, Ordering::SeqCst);
+                parent_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         Effect::new_sync({
@@ -217,20 +217,20 @@ mod tests {
                         .unwrap_or_default()
                         .len())
                 );
-                inner_count.fetch_add(1, Ordering::SeqCst);
+                inner_count.fetch_add(1, Ordering::Relaxed);
             }
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::SeqCst), 1);
-        assert_eq!(inner_count.load(Ordering::SeqCst), 1);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 1);
 
         store.name().set(Some(Name {
             first_name: Some("Greg".into()),
         }));
         tick().await;
-        assert_eq!(parent_count.load(Ordering::SeqCst), 2);
-        assert_eq!(inner_count.load(Ordering::SeqCst), 2);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 2);
 
         println!("\nUpdating first name only");
         store
@@ -243,8 +243,8 @@ mod tests {
             .push_str("!!!");
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::SeqCst), 3);
-        assert_eq!(inner_count.load(Ordering::SeqCst), 3);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 3);
     }
 
     #[tokio::test]
@@ -285,7 +285,7 @@ mod tests {
                 }
 
                 println!("  value = {:?}", store.inner().get());
-                parent_count.fetch_add(1, Ordering::SeqCst);
+                parent_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         Effect::new_sync({
@@ -310,7 +310,7 @@ mod tests {
                     "  value = {:?}",
                     store.inner().map_untracked(|inner| inner.first().get())
                 );
-                inner_first_count.fetch_add(1, Ordering::SeqCst);
+                inner_first_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         Effect::new_sync({
@@ -326,14 +326,14 @@ mod tests {
                     "  value = {:?}",
                     store.inner().map(|inner| inner.second().get())
                 );
-                inner_second_count.fetch_add(1, Ordering::SeqCst);
+                inner_second_count.fetch_add(1, Ordering::Relaxed);
             }
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::SeqCst), 1);
-        assert_eq!(inner_first_count.load(Ordering::SeqCst), 1);
-        assert_eq!(inner_second_count.load(Ordering::SeqCst), 1);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_second_count.load(Ordering::Relaxed), 1);
 
         println!("\npatching with A/C");
         store.patch(Outer {
@@ -347,6 +347,7 @@ mod tests {
         assert_eq!(parent_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 2);
+
         store.patch(Outer { inner: None });
 
         tick().await;
