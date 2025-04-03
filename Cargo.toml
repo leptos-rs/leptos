@@ -67,11 +67,13 @@ or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.2.0-beta" }
 reactive_stores = { path = "./reactive_stores", version = "0.2.0-beta" }
 reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.0-beta" }
+rustversion = "1"
 serde_json = "1.0.0"
 server_fn = { path = "./server_fn", version = "0.8.0-beta" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.0-beta" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.0-beta" }
 tachys = { path = "./tachys", version = "0.2.0-beta" }
+trybuild = "1"
 wasm-bindgen = { version = "0.2.100" }
 
 [profile.release]
