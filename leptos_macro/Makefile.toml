@@ -3,7 +3,7 @@ extend = { path = "../cargo-make/main.toml" }
 [tasks.test]
 clear = true
 dependencies = [
-  "test-all",
+  "test-each-feature",
   "test-leptos_macro-example",
   "doc-leptos_macro-example",
 ]
