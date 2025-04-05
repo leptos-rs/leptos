@@ -1502,12 +1502,15 @@ impl StaticRouteGenerator {
             _ = routes;
             _ = app_fn;
             _ = additional_context;
-            Self(Box::new(|_| {
-                panic!(
-                    "Static routes are not currently supported on WASM32 \
-                     server targets."
-                );
-            }))
+            Self(
+                Owner::new(),
+                Box::new(|_| {
+                    panic!(
+                        "Static routes are not currently supported on WASM32 \
+                         server targets."
+                    );
+                }),
+            )
         }
     }
 

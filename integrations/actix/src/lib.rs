@@ -1163,8 +1163,8 @@ impl StaticRouteGenerator {
     where
         IV: IntoView + 'static,
     {
-        Self({
-            let owner = Owner::new();
+        let owner = Owner::new();
+        Self(owner.clone(), {
             let routes = routes.clone();
             Box::new(move |options| {
                 let options = options.clone();
@@ -1206,7 +1206,7 @@ impl StaticRouteGenerator {
 
     /// Generates the routes.
     pub async fn generate(self, options: &LeptosOptions) {
-        (self.0)(options).await
+        (self.1)(options).await
     }
 }
 
