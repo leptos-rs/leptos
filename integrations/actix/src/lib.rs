@@ -1100,6 +1100,10 @@ where
 /// Allows generating any prerendered routes.
 #[allow(clippy::type_complexity)]
 pub struct StaticRouteGenerator(
+    // this is here to keep the root owner alive for the duration
+    // of the route generation, so that base context provided continues
+    // to exist until it is dropped
+    #[allow(dead_code)] Owner,
     Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
 );
 
@@ -1160,38 +1164,42 @@ impl StaticRouteGenerator {
         IV: IntoView + 'static,
     {
         Self({
+            let owner = Owner::new();
             let routes = routes.clone();
             Box::new(move |options| {
                 let options = options.clone();
                 let app_fn = app_fn.clone();
                 let additional_context = additional_context.clone();
 
-                Box::pin(routes.generate_static_files(
-                    move |path: &ResolvedStaticPath| {
-                        Self::render_route(
-                            path.to_string(),
-                            app_fn.clone(),
-                            additional_context.clone(),
-                        )
-                    },
-                    move |path: &ResolvedStaticPath,
-                          owner: &Owner,
-                          html: String| {
-                        let options = options.clone();
-                        let path = path.to_owned();
-                        let response_options = owner.with(use_context);
-                        async move {
-                            write_static_route(
-                                &options,
-                                response_options,
-                                path.as_ref(),
-                                &html,
+                owner.with(|| {
+                    additional_context();
+                    Box::pin(ScopedFuture::new(routes.generate_static_files(
+                        move |path: &ResolvedStaticPath| {
+                            Self::render_route(
+                                path.to_string(),
+                                app_fn.clone(),
+                                additional_context.clone(),
                             )
-                            .await
-                        }
-                    },
-                    was_404,
-                ))
+                        },
+                        move |path: &ResolvedStaticPath,
+                              owner: &Owner,
+                              html: String| {
+                            let options = options.clone();
+                            let path = path.to_owned();
+                            let response_options = owner.with(use_context);
+                            async move {
+                                write_static_route(
+                                    &options,
+                                    response_options,
+                                    path.as_ref(),
+                                    &html,
+                                )
+                                .await
+                            }
+                        },
+                        was_404,
+                    )))
+                })
             })
         })
     }
