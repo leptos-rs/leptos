@@ -1386,6 +1386,10 @@ where
 /// Allows generating any prerendered routes.
 #[allow(clippy::type_complexity)]
 pub struct StaticRouteGenerator(
+    // this is here to keep the root owner alive for the duration
+    // of the route generation, so that base context provided continues
+    // to exist until it is dropped
+    #[allow(dead_code)] Owner,
     Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
 );
 
@@ -1453,14 +1457,16 @@ impl StaticRouteGenerator {
     {
         #[cfg(feature = "default")]
         {
-            Self({
+            let owner = Owner::new();
+            Self(owner.clone(), {
                 let routes = routes.clone();
                 Box::new(move |options| {
                     let options = options.clone();
                     let app_fn = app_fn.clone();
                     let additional_context = additional_context.clone();
-
-                    Box::pin(routes.generate_static_files(
+                    owner.with(|| {
+                        additional_context();
+                        Box::pin(ScopedFuture::new(routes.generate_static_files(
                         move |path: &ResolvedStaticPath| {
                             Self::render_route(
                                 path.to_string(),
@@ -1485,7 +1491,8 @@ impl StaticRouteGenerator {
                             }
                         },
                         was_404,
-                    ))
+                    )))
+                    })
                 })
             })
         }
@@ -1495,18 +1502,21 @@ impl StaticRouteGenerator {
             _ = routes;
             _ = app_fn;
             _ = additional_context;
-            Self(Box::new(|_| {
-                panic!(
-                    "Static routes are not currently supported on WASM32 \
-                     server targets."
-                );
-            }))
+            Self(
+                Owner::new(),
+                Box::new(|_| {
+                    panic!(
+                        "Static routes are not currently supported on WASM32 \
+                         server targets."
+                    );
+                }),
+            )
         }
     }
 
     /// Generates the routes.
     pub async fn generate(self, options: &LeptosOptions) {
-        (self.0)(options).await
+        (self.1)(options).await
     }
 }
 
