@@ -1,7 +1,7 @@
 [tasks.test-each-feature]
 env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
-args = ["all-features", "nextest", "run", "--no-deps"]
+args = ["all-features", "nextest", "run", "--", "--no-deps"]
 # install_script = '''
 # cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
 # '''

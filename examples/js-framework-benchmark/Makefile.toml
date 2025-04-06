@@ -12,8 +12,8 @@ args = [
   "clippy",
   "--target",
   "wasm32-unknown-unknown",
-  "--no-deps",
   "--",
+  "--no-deps",
   "-D",
   "warnings",
 ]
