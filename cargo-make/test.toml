@@ -2,6 +2,12 @@
 env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
 args = ["all-features", "nextest", "run"]
-# install_script = '''
-# cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
-# '''
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''
+
+# This can be removed once doctests is supported in nextest
+# https://github.com/nextest-rs/nextest/issues/16
+[tasks.doctests]
+command = "cargo"
+args = ["test", "--doc"]
