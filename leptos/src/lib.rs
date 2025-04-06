@@ -299,14 +299,18 @@ pub mod logging {
 
 /// Utilities for working with asynchronous tasks.
 pub mod task {
-    pub use any_spawner::{self, CustomExecutor, Executor};
+    use any_spawner::Executor;
     use std::future::Future;
 
     /// Spawns a thread-safe [`Future`].
     #[track_caller]
     #[inline(always)]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-        Executor::spawn(fut)
+        #[cfg(not(target_family = "wasm"))]
+        Executor::spawn(fut);
+
+        #[cfg(target_family = "wasm")]
+        Executor::spawn_local(fut);
     }
 
     /// Spawns a [`Future`] that cannot be sent across threads.

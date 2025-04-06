@@ -85,6 +85,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{self as reactive_stores, Patch as _, Store};
+    use any_spawner::Executor;
     use reactive_graph::{
         effect::Effect,
         traits::{Get, Read, ReadUntracked, Set, Write},
@@ -96,7 +97,7 @@ mod tests {
     };
 
     pub async fn tick() {
-        tokio::time::sleep(std::time::Duration::from_micros(1)).await;
+        Executor::tick().await;
     }
 
     #[derive(Debug, Clone, Store)]
@@ -250,6 +251,8 @@ mod tests {
     async fn patch() {
         use crate::OptionStoreExt;
 
+        _ = any_spawner::Executor::init_tokio();
+
         #[derive(Debug, Clone, Store, Patch)]
         struct Outer {
             inner: Option<Inner>,
@@ -267,8 +270,6 @@ mod tests {
                 second: "B".to_owned(),
             }),
         });
-
-        _ = any_spawner::Executor::init_tokio();
 
         let parent_count = Arc::new(AtomicUsize::new(0));
         let inner_first_count = Arc::new(AtomicUsize::new(0));
