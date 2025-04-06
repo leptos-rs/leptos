@@ -1,5 +1,4 @@
 [tasks.test-each-feature]
-clear = true
 env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
 args = ["all-features", "nextest", "run", "--all-targets"]
@@ -10,6 +9,5 @@ cargo install --git https://github.com/sabify/cargo-all-features --branch arbitr
 # This can be removed once doctests is supported in nextest
 # https://github.com/nextest-rs/nextest/issues/16
 [tasks.doctests]
-clear = true
 command = "cargo"
 args = ["test", "--doc"]
