@@ -1,22 +1,8 @@
 extend = [
-    { path = "../cargo-make/playwright.toml" },
-    { path = "../cargo-make/trunk_server.toml" },
+  { path = "../cargo-make/playwright.toml" },
+  { path = "../cargo-make/trunk_server.toml" },
 ]
 
 [tasks.integration-test]
+dependencies = ["build", "start-client", "test-playwright"]
 description = "Run integration test with automated start and stop of processes"
-env = { SPAWN_CLIENT_PROCESS = "1" }
-run_task = { name = ["start", "wait-test-stop"], parallel = true }
-
-[tasks.wait-test-stop]
-private = true
-dependencies = ["wait-server", "test-playwright", "stop"]
-
-[tasks.wait-server]
-script = '''
-for run in {1..12}; do
-    echo "Waiting to ensure server is started..."
-    sleep 10
-done
-echo "Times up, running tests"
-'''
