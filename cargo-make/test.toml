@@ -10,4 +10,7 @@ cargo install --git https://github.com/sabify/cargo-all-features --branch arbitr
 # https://github.com/nextest-rs/nextest/issues/16
 [tasks.doctests]
 command = "cargo"
-args = ["test", "--doc", "--all-features"]
+args = ["all-features", "test", "--doc"]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''
