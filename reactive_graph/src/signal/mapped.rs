@@ -258,6 +258,14 @@ impl<T> MappedSignal<T> {
     }
 }
 
+impl<T> Copy for MappedSignal<T> {}
+
+impl<T> Clone for MappedSignal<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 impl<T> Debug for MappedSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut partial = f.debug_struct("MappedSignal");
