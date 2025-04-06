@@ -3,6 +3,7 @@ use axum::{
     http::{header, Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
+use rust_embed::Embed;
 use std::borrow::Cow;
 
 #[cfg(not(debug_assertions))]
@@ -11,7 +12,7 @@ const DEV_MODE: bool = false;
 #[cfg(debug_assertions)]
 const DEV_MODE: bool = true;
 
-#[derive(rust_embed::RustEmbed)]
+#[derive(Embed)]
 #[folder = "target/site/"]
 struct Assets;
 
