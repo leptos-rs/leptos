@@ -39,7 +39,7 @@ denylist = [
   "leptos_actix",
   "wasm-bindgen",
 ]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"], []]
 
 [profile.release]
 codegen-units = 1

@@ -1,7 +1,16 @@
-[tasks.test]
-alias = "test-all"
-
-[tasks.test-all]
+[tasks.test-each-feature]
+env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
-args = ["test-all-features"]
-install_crate = "cargo-all-features"
+args = ["all-features", "nextest", "run", "--all-targets"]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''
+
+# This can be removed once doctests is supported in nextest
+# https://github.com/nextest-rs/nextest/issues/16
+[tasks.doctests]
+command = "cargo"
+args = ["all-features", "test", "--doc"]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''

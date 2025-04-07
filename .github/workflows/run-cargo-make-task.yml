@@ -59,6 +59,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
@@ -67,6 +68,10 @@ jobs:
         run: cargo binstall cargo-leptos --locked --no-confirm
       - name: Install cargo-make
         run: cargo binstall cargo-make --no-confirm
+      - name: Install nextest
+        run: cargo binstall cargo-nextest --no-confirm
+      - name: Install cargo-all-features
+        run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
       - name: Install Trunk
         if: contains(inputs.directory, 'examples')
         run: cargo binstall trunk --no-confirm

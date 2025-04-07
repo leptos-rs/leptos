@@ -1,8 +1,16 @@
 extend = [
-    { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/cargo-leptos-compress.toml" },
+  { path = "../cargo-make/main.toml" },
+  { path = "../cargo-make/cargo-leptos-compress.toml" },
+]
+
+[tasks.ci]
+dependencies = [
+  "prepare",
+  "make-target-site-dir",
+  "lint",
+  "test-flow",
+  "integration-test",
 ]
 
 [env]
-
 CLIENT_PROCESS_NAME = "hackernews_islands"
