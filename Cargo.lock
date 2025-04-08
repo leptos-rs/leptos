@@ -2777,6 +2777,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "wasm_backtrace",
  "web-sys",
 ]
 
@@ -4273,6 +4274,16 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "wasm_backtrace"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba01d353899b9d98dc4c7ac7624d35500c1090af911d6919eb806bef43335e"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
 ]
 
 [[package]]
