@@ -570,6 +570,24 @@ impl ServerFnCall {
             },
             ToTokens::to_token_stream,
         );
+        let error_ws_in_ty = if self.websocket_protocol() {
+            self.body
+                .error_ws_in_ty
+                .as_ref()
+                .map(ToTokens::to_token_stream)
+                .unwrap_or(error_ty.clone())
+        } else {
+            error_ty.clone()
+        };
+        let error_ws_out_ty = if self.websocket_protocol() {
+            self.body
+                .error_ws_out_ty
+                .as_ref()
+                .map(ToTokens::to_token_stream)
+                .unwrap_or(error_ty.clone())
+        } else {
+            error_ty.clone()
+        };
         let field_names = self.field_names();
 
         // run_body in the trait implementation
@@ -645,6 +663,8 @@ impl ServerFnCall {
                 type Protocol = #protocol;
                 type Output = #output_ty;
                 type Error = #error_ty;
+                type InputStreamError = #error_ws_in_ty;
+                type OutputStreamError = #error_ws_out_ty;
 
                 fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<<Self::Server as #server_fn_path::server::Server<Self::Error>>::Request, <Self::Server as #server_fn_path::server::Server<Self::Error>>::Response>>> {
                     #middlewares
@@ -923,6 +943,60 @@ fn err_type(return_ty: &Type) -> Option<&Type> {
     };
 
     None
+}
+
+fn err_ws_in_type(
+    inputs: &Punctuated<ServerFnArg, syn::token::Comma>,
+) -> Option<Type> {
+    inputs.into_iter().find_map(|pat| {
+        if let syn::Type::Path(ref pat) = *pat.arg.ty {
+            if pat.path.segments[0].ident != "BoxedStream" {
+                return None;
+            }
+
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
+                // BoxedStream<T>
+                if args.args.len() == 1 {
+                    return None;
+                }
+                // BoxedStream<T, E>
+                else if let GenericArgument::Type(ty) = &args.args[1] {
+                    return Some(ty.clone());
+                }
+            };
+        };
+
+        None
+    })
+}
+
+fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
+    if let Some(syn::Type::Path(ref pat)) = output_ty {
+        if pat.path.segments[0].ident == "BoxedStream" {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
+                // BoxedStream<T>
+                if args.args.len() == 1 {
+                    return Ok(None);
+                }
+                // BoxedStream<T, E>
+                else if let GenericArgument::Type(ty) = &args.args[1] {
+                    return Ok(Some(ty.clone()));
+                }
+
+                return Err(syn::Error::new(
+                    output_ty.span(),
+                    "websocket server functions should return \
+                     BoxedStream<Result<T, E>> where E: FromServerFnError",
+                ));
+            };
+        }
+    };
+
+    Ok(None)
 }
 
 /// The arguments to the `server` macro.
@@ -1375,6 +1449,10 @@ pub struct ServerFnBody {
     pub output_ty: Option<syn::Type>,
     /// The error output type of the server function.
     pub error_ty: Option<syn::Type>,
+    /// The error type of WebSocket client-sent error
+    pub error_ws_in_ty: Option<syn::Type>,
+    /// The error type of WebSocket server-sent error
+    pub error_ws_out_ty: Option<syn::Type>,
     /// The body of the server function.
     pub block: TokenStream2,
     /// The documentation of the server function.
@@ -1404,6 +1482,8 @@ impl Parse for ServerFnBody {
         let return_ty = input.parse()?;
         let output_ty = output_type(&return_ty).cloned();
         let error_ty = err_type(&return_ty).cloned();
+        let error_ws_in_ty = err_ws_in_type(&inputs);
+        let error_ws_out_ty = err_ws_out_type(&output_ty)?;
 
         let block = input.parse()?;
 
@@ -1461,6 +1541,8 @@ impl Parse for ServerFnBody {
             return_ty,
             output_ty,
             error_ty,
+            error_ws_in_ty,
+            error_ws_out_ty,
             block,
             attrs,
             docs,

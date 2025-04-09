@@ -14,9 +14,12 @@ use http::{
 use http_body_util::BodyExt;
 use std::borrow::Cow;
 
-impl<E> Req<E> for Request<Body>
+impl<Error, InputStreamError, OutputStreamError>
+    Req<Error, InputStreamError, OutputStreamError> for Request<Body>
 where
-    E: FromServerFnError + Send,
+    Error: FromServerFnError + Send,
+    InputStreamError: FromServerFnError + Send,
+    OutputStreamError: FromServerFnError + Send,
 {
     type WebsocketResponse = Response;
 
@@ -42,7 +45,7 @@ where
             .map(|h| String::from_utf8_lossy(h.as_bytes()))
     }
 
-    async fn try_into_bytes(self) -> Result<Bytes, E> {
+    async fn try_into_bytes(self) -> Result<Bytes, Error> {
         let (_parts, body) = self.into_parts();
 
         body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
@@ -50,8 +53,8 @@ where
         })
     }
 
-    async fn try_into_string(self) -> Result<String, E> {
-        let bytes = self.try_into_bytes().await?;
+    async fn try_into_string(self) -> Result<String, Error> {
+        let bytes = Req::<Error>::try_into_bytes(self).await?;
         String::from_utf8(bytes.to_vec()).map_err(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
@@ -59,7 +62,8 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
+    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>
+    {
         Ok(self.into_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
                 ServerFnErrorErr::Deserialization(e.to_string())
@@ -72,22 +76,24 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-            impl Sink<Result<Bytes, E>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
+            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
             Self::WebsocketResponse,
         ),
-        E,
+        Error,
     > {
         #[cfg(not(feature = "axum"))]
         {
             Err::<
                 (
-                    futures::stream::Once<std::future::Ready<Result<Bytes, E>>>,
-                    futures::sink::Drain<Result<Bytes, E>>,
+                    futures::stream::Once<
+                        std::future::Ready<Result<Bytes, InputStreamError>>,
+                    >,
+                    futures::sink::Drain<Result<Bytes, OutputStreamError>>,
                     Self::WebsocketResponse,
                 ),
-                _,
-            >(E::from_server_fn_error(
+                Error,
+            >(Error::from_server_fn_error(
                 crate::ServerFnErrorErr::Response(
                     "Websocket connections not supported for Axum when the \
                      `axum` feature is not enabled on the `server_fn` crate."
@@ -104,19 +110,21 @@ where
                 axum::extract::ws::WebSocketUpgrade::from_request(self, &())
                     .await
                     .map_err(|err| {
-                        E::from_server_fn_error(ServerFnErrorErr::Request(
+                        Error::from_server_fn_error(ServerFnErrorErr::Request(
                             err.to_string(),
                         ))
                     })?;
             let (mut outgoing_tx, outgoing_rx) =
                 futures::channel::mpsc::channel(2048);
             let (incoming_tx, mut incoming_rx) =
-                futures::channel::mpsc::channel::<Result<Bytes, E>>(2048);
+                futures::channel::mpsc::channel::<
+                    Result<Bytes, OutputStreamError>,
+                >(2048);
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
             move |err: axum::Error| {
-                _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(err.to_string()))));
+                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string()))));
             }
         })
         .on_upgrade(|mut session| async move {
@@ -129,11 +137,11 @@ where
                         match incoming {
                             Ok(message) => {
                                 if let Err(err) = session.send(Message::Binary(message)).await {
-                                    _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
+                                    _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
                                 }
                             }
                             Err(err) => {
-                                _ = outgoing_tx.start_send(Err(err));
+                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::ServerError(err.ser()))));
                             }
                         }
                     },
@@ -153,7 +161,7 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                _ = outgoing_tx.start_send(Err(E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
+                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
                             }
                         }
                     }
