@@ -952,11 +952,11 @@ pub fn CustomClientExample() -> impl IntoView {
                 E,
             >,
         > + Send {
-            BrowserClient::open_websocket(path)
+            <BrowserClient as Client<E, IS, OS>>::open_websocket(path)
         }
 
         fn spawn(future: impl Future<Output = ()> + Send + 'static) {
-            <BrowserClient as Client<E>>::spawn(future)
+            <BrowserClient as Client<E, IS, OS>>::spawn(future)
         }
     }
 
