@@ -19,9 +19,11 @@ impl<E: FromServerFnError> ClientRes<E> for Response {
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, E>
+    {
         Ok(self.bytes_stream().map_err(|e| {
-            ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))
+                .ser()
         }))
     }
 

@@ -51,13 +51,14 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
-        E,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, E>
+    {
         Ok(self.into_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
-                ServerFnErrorErr::Deserialization(e.to_string()).into()
+                E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
+                .ser()
             })
         }))
     }

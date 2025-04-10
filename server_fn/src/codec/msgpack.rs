@@ -1,6 +1,6 @@
 use crate::{
     codec::{Patch, Post, Put},
-    ContentType, Decodes, Encodes,
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
@@ -12,14 +12,18 @@ impl ContentType for MsgPackEncoding {
     const CONTENT_TYPE: &'static str = "application/msgpack";
 }
 
+impl FormatType for MsgPackEncoding {
+    const FORMAT_TYPE: Format = Format::Binary;
+}
+
 impl<T> Encodes<T> for MsgPackEncoding
 where
     T: Serialize,
 {
     type Error = rmp_serde::encode::Error;
 
-    fn encode(value: T) -> Result<Bytes, Self::Error> {
-        rmp_serde::to_vec(&value).map(Bytes::from)
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
+        rmp_serde::to_vec(value).map(Bytes::from)
     }
 }
 

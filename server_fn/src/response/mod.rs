@@ -31,14 +31,14 @@ where
     /// Attempts to convert a stream of bytes into an HTTP response.
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+        data: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E>;
 }
 
 /// Represents the response as created by the server;
 pub trait Res {
     /// Converts an error into a response, with a `500` status code and the error text as its body.
-    fn error_response(path: &str, err: String) -> Self;
+    fn error_response(path: &str, err: Bytes) -> Self;
 
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);
@@ -55,7 +55,10 @@ pub trait ClientRes<E> {
     /// Attempts to extract a binary stream from an HTTP response.
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + Sync + 'static, E>;
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, Bytes>> + Send + Sync + 'static,
+        E,
+    >;
 
     /// HTTP status code of the response.
     fn status(&self) -> u16;
@@ -89,14 +92,14 @@ impl<E> TryRes<E> for BrowserMockRes {
 
     fn try_from_stream(
         _content_type: &str,
-        _data: impl Stream<Item = Result<Bytes, E>>,
+        _data: impl Stream<Item = Result<Bytes, Bytes>>,
     ) -> Result<Self, E> {
         unreachable!()
     }
 }
 
 impl Res for BrowserMockRes {
-    fn error_response(_path: &str, _err: String) -> Self {
+    fn error_response(_path: &str, _err: Bytes) -> Self {
         unreachable!()
     }
 

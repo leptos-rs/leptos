@@ -99,12 +99,14 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send, Error> {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send, Error> {
         let payload = self.0.take().1;
         let stream = payload.map(|res| {
             res.map_err(|e| {
-                ServerFnErrorErr::Deserialization(e.to_string())
-                    .into_app_error()
+                Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
+                .ser()
             })
         });
         Ok(SendWrapper::new(stream))
@@ -114,8 +116,8 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
-            impl futures::Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+            impl futures::Sink<Result<Bytes, Bytes>> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -131,9 +133,7 @@ where
         let (mut response_stream_tx, response_stream_rx) =
             futures::channel::mpsc::channel(2048);
         let (response_sink_tx, mut response_sink_rx) =
-            futures::channel::mpsc::channel::<Result<Bytes, OutputStreamError>>(
-                2048,
-            );
+            futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
 
         actix_web::rt::spawn(async move {
             loop {
@@ -145,11 +145,11 @@ where
                         match incoming {
                             Ok(message) => {
                                 if let Err(err) = session.binary(message).await {
-                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
+                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
                                 }
                             }
                             Err(err) => {
-                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::ServerError(err.ser()))));
+                                _ = response_stream_tx.start_send(Err(err));
                             }
                         }
                     },
@@ -175,7 +175,7 @@ where
                             Ok(_other) => {
                             }
                             Err(e) => {
-                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
+                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
                             }
                         }
                     }

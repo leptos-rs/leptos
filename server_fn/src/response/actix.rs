@@ -58,19 +58,21 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, E>> + 'static,
+        data: impl Stream<Item = Result<Bytes, Bytes>> + 'static,
     ) -> Result<Self, E> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
                 .insert_header((header::CONTENT_TYPE, content_type))
-                .streaming(data.map(|data| data.map_err(ServerFnErrorWrapper))),
+                .streaming(data.map(|data| {
+                    data.map_err(|e| ServerFnErrorWrapper(E::de(e)))
+                })),
         )))
     }
 }
 
 impl Res for ActixResponse {
-    fn error_response(path: &str, err: String) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))

@@ -40,14 +40,17 @@ impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, E>> + Send + 'static, E> {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, E>
+    {
         let stream = ReadableStream::from_raw(self.0.body().unwrap())
             .into_stream()
             .map(|data| match data {
                 Err(e) => {
                     web_sys::console::error_1(&e);
-                    Err(ServerFnErrorErr::Request(format!("{e:?}"))
-                        .into_app_error())
+                    Err(E::from_server_fn_error(ServerFnErrorErr::Request(
+                        format!("{e:?}"),
+                    ))
+                    .ser())
                 }
                 Ok(data) => {
                     let data = data.unchecked_into::<Uint8Array>();

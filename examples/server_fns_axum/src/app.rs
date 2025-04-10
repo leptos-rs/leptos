@@ -6,13 +6,13 @@ use server_fn::{
     client::{browser::BrowserClient, Client},
     codec::{
         Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, MultipartData,
-        MultipartFormData, Postcard, Rkyv, SerdeLite, StreamingText,
-        TextStream,
+        MultipartFormData, Postcard, Rkyv, RkyvEncoding, SerdeLite,
+        StreamingText, TextStream,
     },
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, TryRes},
-    ContentType,
+    ContentType, Format, FormatType,
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -29,16 +29,16 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone()/>
-                <HydrationScripts options/>
-                <meta name="color-scheme" content="dark light"/>
-                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
-                <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css"/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options=options.clone() />
+                <HydrationScripts options />
+                <meta name="color-scheme" content="dark light" />
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
+                <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css" />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -51,7 +51,7 @@ pub fn App() -> impl IntoView {
             <h1>"Server Function Demo"</h1>
         </header>
         <main>
-            <HomePage/>
+            <HomePage />
         </main>
     }
 }
@@ -60,20 +60,20 @@ pub fn App() -> impl IntoView {
 pub fn HomePage() -> impl IntoView {
     view! {
         <h2>"Some Simple Server Functions"</h2>
-        <SpawnLocal/>
-        <WithAnAction/>
-        <WithActionForm/>
+        <SpawnLocal />
+        <WithAnAction />
+        <WithActionForm />
         <h2>"Custom Error Types"</h2>
-        <CustomErrorTypes/>
+        <CustomErrorTypes />
         <h2>"Alternative Encodings"</h2>
-        <ServerFnArgumentExample/>
-        <RkyvExample/>
-        <PostcardExample/>
-        <FileUpload/>
-        <FileUploadWithProgress/>
-        <FileWatcher/>
-        <CustomEncoding/>
-        <CustomClientExample/>
+        <ServerFnArgumentExample />
+        <RkyvExample />
+        <PostcardExample />
+        <FileUpload />
+        <FileUploadWithProgress />
+        <FileWatcher />
+        <CustomEncoding />
+        <CustomClientExample />
     }
 }
 
@@ -109,7 +109,7 @@ pub fn SpawnLocal() -> impl IntoView {
             " in an event listener. "
             "Clicking this button should alert with the uppercase version of the input."
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -188,7 +188,7 @@ pub fn WithAnAction() -> impl IntoView {
             "Some server functions are conceptually \"mutations,\", which change something on the server. "
             "These often work well as actions."
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let text = input_ref.get().unwrap().value();
             action.dispatch(text.into());
@@ -278,9 +278,9 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
         <ul>
             <li>Specific server function <strong>paths</strong></li>
             <li>Mixing and matching input and output <strong>encodings</strong></li>
-            <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
+            <li>Adding custom <strong>middleware</strong>on a per-server-fn basis</li>
         </ul>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -318,8 +318,8 @@ pub fn RkyvExample() -> impl IntoView {
     let rkyv_result = Resource::new(move || input.get(), rkyv_example);
 
     view! {
-        <h3>Using <code>rkyv</code> encoding</h3>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <h3>Using <code>rkyv</code>encoding</h3>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             set_input.set(value);
@@ -379,8 +379,8 @@ pub fn FileUpload() -> impl IntoView {
             let form_data = FormData::new_with_form(&target).unwrap();
             upload_action.dispatch_local(form_data);
         }>
-            <input type="file" name="file_to_upload"/>
-            <input type="submit"/>
+            <input type="file" name="file_to_upload" />
+            <input type="submit" />
         </form>
         <p>
             {move || {
@@ -552,8 +552,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         <p>A file upload with progress can be handled with two separate server functions.</p>
         <aside>See the doc comment on the component for an explanation.</aside>
         <form on:submit=on_submit>
-            <input type="file" name="file_to_upload"/>
-            <input type="submit"/>
+            <input type="file" name="file_to_upload" />
+            <input type="submit" />
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
         {move || {
@@ -683,14 +683,35 @@ pub async fn ascii_uppercase_classic(
 }
 
 // The EnumString and Display derive macros are provided by strum
-#[derive(Debug, Clone, Display, EnumString, Serialize, Deserialize)]
+#[derive(
+    thiserror::Error,
+    Debug,
+    Clone,
+    Display,
+    EnumString,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub enum InvalidArgument {
     TooShort,
     TooLong,
     NotAscii,
 }
 
-#[derive(Debug, Clone, Display, Serialize, Deserialize)]
+#[derive(
+    thiserror::Error,
+    Debug,
+    Clone,
+    Display,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub enum MyErrors {
     InvalidArgument(InvalidArgument),
     ServerFnError(ServerFnErrorErr),
@@ -710,6 +731,8 @@ impl From<String> for MyErrors {
 }
 
 impl FromServerFnError for MyErrors {
+    type Encoder = RkyvEncoding;
+
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
         MyErrors::ServerFnError(value)
     }
@@ -730,7 +753,7 @@ pub fn CustomErrorTypes() -> impl IntoView {
             "Try typing a message that is between 5 and 15 characters of ASCII text below. Then try breaking \
             the rules!"
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -764,6 +787,10 @@ pub struct TomlEncoded<T>(T);
 
 impl ContentType for Toml {
     const CONTENT_TYPE: &'static str = "application/toml";
+}
+
+impl FormatType for Toml {
+    const FORMAT_TYPE: Format = Format::Text;
 }
 
 impl Encoding for Toml {
@@ -859,7 +886,7 @@ pub fn CustomEncoding() -> impl IntoView {
         <p>
             "This example creates a custom encoding that sends server fn data using TOML. Why? Well... why not?"
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -914,19 +941,22 @@ pub fn CustomClientExample() -> impl IntoView {
         ) -> impl Future<
             Output = Result<
                 (
-                    impl Stream<Item = Result<server_fn::Bytes, OS>>
+                    impl Stream<
+                            Item = Result<server_fn::Bytes, server_fn::Bytes>,
+                        > + Send
+                        + 'static,
+                    impl Sink<Result<server_fn::Bytes, server_fn::Bytes>>
                         + Send
                         + 'static,
-                    impl Sink<Result<server_fn::Bytes, IS>> + Send + 'static,
                 ),
                 E,
             >,
         > + Send {
-            BrowserClient::open_websocket(path)
+            <BrowserClient as Client<E, IS, OS>>::open_websocket(path)
         }
 
         fn spawn(future: impl Future<Output = ()> + Send + 'static) {
-            <BrowserClient as Client<E>>::spawn(future)
+            <BrowserClient as Client<E, IS, OS>>::spawn(future)
         }
     }
 
@@ -1000,16 +1030,14 @@ pub fn PostcardExample() -> impl IntoView {
     );
 
     view! {
-        <h3>Using <code>postcard</code> encoding</h3>
+        <h3>Using <code>postcard</code>encoding</h3>
         <p>"This example demonstrates using Postcard for efficient binary serialization."</p>
         <button on:click=move |_| {
-            // Update the input data when the button is clicked
-            set_input.update(|data| {
-                data.age += 1;
-            });
-        }>
-            "Increment Age"
-        </button>
+            set_input
+                .update(|data| {
+                    data.age += 1;
+                });
+        }>"Increment Age"</button>
         // Display the current input data
         <p>"Input: " {move || format!("{:?}", input.get())}</p>
         <Transition>

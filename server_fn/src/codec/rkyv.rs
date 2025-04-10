@@ -1,6 +1,6 @@
 use crate::{
     codec::{Patch, Post, Put},
-    ContentType, Decodes, Encodes,
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
 use rkyv::{
@@ -24,6 +24,10 @@ impl ContentType for RkyvEncoding {
     const CONTENT_TYPE: &'static str = "application/rkyv";
 }
 
+impl FormatType for RkyvEncoding {
+    const FORMAT_TYPE: Format = Format::Binary;
+}
+
 impl<T> Encodes<T> for RkyvEncoding
 where
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
@@ -32,8 +36,8 @@ where
 {
     type Error = rancor::Error;
 
-    fn encode(value: T) -> Result<Bytes, Self::Error> {
-        let encoded = rkyv::to_bytes::<rancor::Error>(&value)?;
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
+        let encoded = rkyv::to_bytes::<rancor::Error>(value)?;
         Ok(Bytes::copy_from_slice(encoded.as_ref()))
     }
 }

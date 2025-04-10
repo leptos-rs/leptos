@@ -1,7 +1,7 @@
 use crate::{
     codec::{Patch, Post, Put},
     error::ServerFnErrorErr,
-    ContentType, Decodes, Encodes,
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};
@@ -13,13 +13,17 @@ impl ContentType for SerdeLiteEncoding {
     const CONTENT_TYPE: &'static str = "application/json";
 }
 
+impl FormatType for SerdeLiteEncoding {
+    const FORMAT_TYPE: Format = Format::Text;
+}
+
 impl<T> Encodes<T> for SerdeLiteEncoding
 where
     T: Serialize,
 {
     type Error = ServerFnErrorErr;
 
-    fn encode(value: T) -> Result<Bytes, Self::Error> {
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
         serde_json::to_vec(
             &value
                 .serialize()

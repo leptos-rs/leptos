@@ -41,6 +41,12 @@ impl From<String> for Body {
     }
 }
 
+impl From<Bytes> for Body {
+    fn from(value: Bytes) -> Self {
+        Body::Sync(value)
+    }
+}
+
 impl<E> TryRes<E> for Response<Body>
 where
     E: Send + Sync + FromServerFnError,
@@ -69,14 +75,15 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+        data: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::Async(Box::pin(
-                data.map_err(ServerFnErrorWrapper).map_err(Error::from),
+                data.map_err(|e| ServerFnErrorWrapper(E::de(e)))
+                    .map_err(Error::from),
             )))
             .map_err(|e| {
                 ServerFnErrorErr::Response(e.to_string()).into_app_error()
@@ -85,7 +92,7 @@ where
 }
 
 impl Res for Response<Body> {
-    fn error_response(path: &str, err: String) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)

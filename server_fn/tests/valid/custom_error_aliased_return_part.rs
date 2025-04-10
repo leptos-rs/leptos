@@ -1,7 +1,12 @@
+use server_fn::{
+    codec::JsonEncoding,
+    error::{FromServerFnError, ServerFnErrorErr},
+};
 use server_fn_macro_default::server;
-use server_fn::error::{FromServerFnError, ServerFnErrorErr};
 
-#[derive(Debug, thiserror::Error, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, thiserror::Error, Clone, serde::Serialize, serde::Deserialize,
+)]
 pub enum CustomError {
     #[error("error a")]
     ErrorA,
@@ -10,6 +15,8 @@ pub enum CustomError {
 }
 
 impl FromServerFnError for CustomError {
+    type Encoder = JsonEncoding;
+
     fn from_server_fn_error(_: ServerFnErrorErr) -> Self {
         Self::ErrorA
     }

@@ -62,12 +62,14 @@ where
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, Error>> + Send + 'static, Error>
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>
     {
         Ok(self.into_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
-                ServerFnErrorErr::Deserialization(e.to_string())
-                    .into_app_error()
+                Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
+                    e.to_string(),
+                ))
+                .ser()
             })
         }))
     }
@@ -76,8 +78,8 @@ where
         self,
     ) -> Result<
         (
-            impl Stream<Item = Result<Bytes, InputStreamError>> + Send + 'static,
-            impl Sink<Result<Bytes, OutputStreamError>> + Send + 'static,
+            impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Result<Bytes, Bytes>> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -87,9 +89,9 @@ where
             Err::<
                 (
                     futures::stream::Once<
-                        std::future::Ready<Result<Bytes, InputStreamError>>,
+                        std::future::Ready<Result<Bytes, Bytes>>,
                     >,
-                    futures::sink::Drain<Result<Bytes, OutputStreamError>>,
+                    futures::sink::Drain<Result<Bytes, Bytes>>,
                     Self::WebsocketResponse,
                 ),
                 Error,
@@ -117,14 +119,12 @@ where
             let (mut outgoing_tx, outgoing_rx) =
                 futures::channel::mpsc::channel(2048);
             let (incoming_tx, mut incoming_rx) =
-                futures::channel::mpsc::channel::<
-                    Result<Bytes, OutputStreamError>,
-                >(2048);
+                futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
             move |err: axum::Error| {
-                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string()))));
+                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser()));
             }
         })
         .on_upgrade(|mut session| async move {
@@ -137,11 +137,11 @@ where
                         match incoming {
                             Ok(message) => {
                                 if let Err(err) = session.send(Message::Binary(message)).await {
-                                    _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string()))));
+                                    _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
                                 }
                             }
                             Err(err) => {
-                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::ServerError(err.ser()))));
+                                _ = outgoing_tx.start_send(Err(err));
                             }
                         }
                     },
@@ -161,7 +161,7 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))));
+                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
                             }
                         }
                     }
