@@ -474,7 +474,7 @@ where
         let location = res.location();
         let has_redirect_header = res.has_redirect();
 
-        // if it returns an error status, deserialize the error using FromStr
+        // if it returns an error status, deserialize the error using the error's decoder.
         let res = if (400..=599).contains(&status) {
             Err(E::de(res.try_into_bytes().await?))
         } else {
