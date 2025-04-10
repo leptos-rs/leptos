@@ -580,7 +580,7 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
 
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError:
-    std::fmt::Debug + Serialize + DeserializeOwned + Display + 'static
+    std::fmt::Debug + Sized + Display + 'static
 {
     /// The encoding strategy used to serialize and deserialize this error type. Must implement the [`Encodes`](server_fn::Encodes) trait for references to the error type.
     type Encoder: Encodes<Self> + Decodes<Self>;
