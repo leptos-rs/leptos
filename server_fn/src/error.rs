@@ -3,7 +3,7 @@
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use bytes::Bytes;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Write},
     str::FromStr,
@@ -263,13 +263,7 @@ impl FormatType for ServerFnErrorEncoding {
 
 impl<CustErr> Encodes<ServerFnError<CustErr>> for ServerFnErrorEncoding
 where
-    CustErr: std::fmt::Debug
-        + Display
-        + Serialize
-        + DeserializeOwned
-        + 'static
-        + FromStr
-        + Display,
+    CustErr: Display,
 {
     type Error = std::fmt::Error;
 
@@ -311,13 +305,7 @@ where
 
 impl<CustErr> Decodes<ServerFnError<CustErr>> for ServerFnErrorEncoding
 where
-    CustErr: std::fmt::Debug
-        + Display
-        + Serialize
-        + DeserializeOwned
-        + 'static
-        + FromStr
-        + Display,
+    CustErr: FromStr,
 {
     type Error = String;
 
@@ -361,13 +349,7 @@ where
 
 impl<CustErr> FromServerFnError for ServerFnError<CustErr>
 where
-    CustErr: std::fmt::Debug
-        + Display
-        + Serialize
-        + DeserializeOwned
-        + 'static
-        + FromStr
-        + Display,
+    CustErr: std::fmt::Debug + Display + FromStr + 'static,
 {
     type Encoder = ServerFnErrorEncoding;
 
