@@ -1,6 +1,6 @@
 [package]
 name = "either_of"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"

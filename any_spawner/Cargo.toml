@@ -1,6 +1,6 @@
 [package]
 name = "any_spawner"
-version = "0.2.1"
+version = "0.3.0-rc1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
