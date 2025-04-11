@@ -23,6 +23,7 @@ tracing = { version = "0.1.41", optional = true }
 guardian = "1.2"
 async-lock = "3.4.0"
 send_wrapper = { version = "0.6.0", features = ["futures"] }
+wasm_backtrace = "0.1.1"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 web-sys = { version = "0.3.72", features = ["console"] }
