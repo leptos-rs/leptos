@@ -28,10 +28,10 @@ leptos-spin-macro = { version = "0.2.0", optional = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = "1.0"
-rand = { version = "0.8.5", optional = true }
+rand = { version = "0.9.0", optional = true }
 # NOTE: While not used directly, `getrandom`'s `js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error
-getrandom = { version = "0.2", optional = true }
+getrandom = { version = "0.3.2", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = "2.0"
 tachys = { workspace = true, features = [
@@ -64,13 +64,13 @@ hydration = [
   "hydration_context/browser",
   "leptos_dom/hydration",
 ]
-csr = ["leptos_macro/csr", "reactive_graph/effects", "getrandom?/js"]
+csr = ["leptos_macro/csr", "reactive_graph/effects", "getrandom?/wasm_js"]
 hydrate = [
   "leptos_macro/hydrate",
   "hydration",
   "tachys/hydrate",
   "reactive_graph/effects",
-  "getrandom?/js",
+  "getrandom?/wasm_js",
 ]
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
