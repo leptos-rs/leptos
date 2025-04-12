@@ -352,10 +352,10 @@ pub fn handle_server_fns_with_context(
                 owner
                     .with(|| {
                         ScopedFuture::new(async move {
-                            additional_context();
                             provide_context(Request::new(&req));
                             let res_options = ResponseOptions::default();
                             provide_context(res_options.clone());
+                            additional_context();
 
                             // store Accepts and Referer in case we need them for redirect (below)
                             let accepts_html = req
