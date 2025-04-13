@@ -2785,6 +2785,7 @@ name = "reactive_stores"
 version = "0.2.0-rc1"
 dependencies = [
  "any_spawner",
+ "dashmap",
  "guardian",
  "itertools",
  "leptos",
@@ -2793,6 +2794,7 @@ dependencies = [
  "reactive_graph",
  "reactive_stores_macro",
  "rustc-hash 2.1.1",
+ "send_wrapper",
  "tokio",
  "tokio-test",
 ]
