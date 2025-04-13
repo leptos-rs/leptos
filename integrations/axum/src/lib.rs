@@ -381,10 +381,10 @@ async fn handle_server_fns_inner(
         owner
             .with(|| {
                 ScopedFuture::new(async move {
-                    additional_context();
                     provide_context(parts);
                     let res_options = ResponseOptions::default();
                     provide_context(res_options.clone());
+                    additional_context();
 
                     // store Accepts and Referer in case we need them for redirect (below)
                     let accepts_html = req
@@ -2053,8 +2053,8 @@ where
                 } else {
                     let mut res = handle_response_inner(
                         move || {
-                            additional_context();
                             provide_context(state.clone());
+                            additional_context();
                         },
                         move || shell(options),
                         req,
