@@ -32,7 +32,7 @@ web-sys = { version = "0.3.70", features = [
   "Request",
   "Response",
 ] }
-getrandom = { version = "0.2.15", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 wasm-bindgen = "0.2.93"
 wasm-bindgen-futures = { version = "0.4.42", features = [
   "futures-core-03-stream",

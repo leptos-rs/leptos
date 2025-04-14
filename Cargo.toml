@@ -74,7 +74,7 @@ server_fn_macro = { path = "./server_fn_macro", version = "0.8.0-rc1" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.0-rc1" }
 tachys = { path = "./tachys", version = "0.2.0-rc1" }
 trybuild = "1"
-wasm-bindgen = { version = "0.2.100" }
+wasm-bindgen = { version = "=0.2.100" }
 
 [profile.release]
 codegen-units = 1

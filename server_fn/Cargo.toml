@@ -13,9 +13,9 @@ edition.workspace = true
 throw_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
-const_format = "0.2.33"
-const-str = "0.5.7"
-xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
+const_format = "0.2"
+const-str = "0.6"
+xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
 rustversion = { workspace = true}
 # used across multiple features
 serde = { version = "1.0", features = ["derive"] }
@@ -40,7 +40,7 @@ tower = { version = "0.5.1", optional = true }
 tower-layer = { version = "0.3.3", optional = true }
 
 ## input encodings
-serde_qs = { version = "0.13.0" }
+serde_qs = { version = "0.14" }
 multer = { version = "3.1", optional = true }
 
 ## output encodings
@@ -77,7 +77,7 @@ reqwest = { version = "0.12.9", default-features = false, optional = true, featu
   "multipart",
   "stream",
 ] }
-tokio-tungstenite = { version = "0.26.2", optional = true }
+tokio-tungstenite = { version = "0.26", optional = true }
 url = "2"
 pin-project-lite = "0.2.15"
 tokio = { version = "1.43.0", features = ["rt"], optional = true }

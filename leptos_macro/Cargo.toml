@@ -31,7 +31,7 @@ tracing = { version = "0.1.41", optional = true }
 
 [dev-dependencies]
 log = "0.4.22"
-typed-builder = "0.20.0"
+typed-builder = "0.21"
 trybuild = { workspace = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router", features = ["ssr"] }
