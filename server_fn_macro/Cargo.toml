@@ -16,6 +16,7 @@ xxhash-rust = { features = ["const_xxh64"] , workspace = true, default-features 
 const_format = { workspace = true, default-features = true }
 convert_case = { workspace = true , default-features = true }
 
+
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
 
