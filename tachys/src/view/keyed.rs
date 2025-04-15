@@ -148,9 +148,7 @@ where
         let cmds = diff(hashed_items, &new_hashed_items);
 
         apply_diff(
-            parent
-                .as_ref()
-                .expect("Keyed list rebuilt before being mounted."),
+            parent.as_ref(),
             marker,
             cmds,
             rendered_items,
@@ -589,7 +587,7 @@ impl Default for DiffOpAddMode {
 }
 
 fn apply_diff<T, VFS, V>(
-    parent: &crate::renderer::types::Element,
+    parent: Option<&crate::renderer::types::Element>,
     marker: &crate::renderer::types::Placeholder,
     diff: Diff,
     children: &mut Vec<Option<(VFS, V::State)>>,
@@ -649,16 +647,18 @@ fn apply_diff<T, VFS, V>(
     {
         let (set_index, mut each_item) = moved_children[i].take().unwrap();
 
-        if let Some(Some((_, state))) =
-            children.get_next_closest_mounted_sibling(to)
-        {
-            state.insert_before_this_or_marker(
-                parent,
-                &mut each_item,
-                Some(marker.as_ref()),
-            )
-        } else {
-            each_item.mount(parent, Some(marker.as_ref()));
+        if let Some(parent) = parent {
+            if let Some(Some((_, state))) =
+                children.get_next_closest_mounted_sibling(to)
+            {
+                state.insert_before_this_or_marker(
+                    parent,
+                    &mut each_item,
+                    Some(marker.as_ref()),
+                )
+            } else {
+                each_item.mount(parent, Some(marker.as_ref()));
+            }
         }
 
         set_index(to);
@@ -670,22 +670,24 @@ fn apply_diff<T, VFS, V>(
         let (set_index, item) = view_fn(at, item);
         let mut item = item.build();
 
-        match mode {
-            DiffOpAddMode::Normal => {
-                if let Some(Some((_, state))) =
-                    children.get_next_closest_mounted_sibling(at)
-                {
-                    state.insert_before_this_or_marker(
-                        parent,
-                        &mut item,
-                        Some(marker.as_ref()),
-                    )
-                } else {
+        if let Some(parent) = parent {
+            match mode {
+                DiffOpAddMode::Normal => {
+                    if let Some(Some((_, state))) =
+                        children.get_next_closest_mounted_sibling(at)
+                    {
+                        state.insert_before_this_or_marker(
+                            parent,
+                            &mut item,
+                            Some(marker.as_ref()),
+                        )
+                    } else {
+                        item.mount(parent, Some(marker.as_ref()));
+                    }
+                }
+                DiffOpAddMode::Append => {
                     item.mount(parent, Some(marker.as_ref()));
                 }
-            }
-            DiffOpAddMode::Append => {
-                item.mount(parent, Some(marker.as_ref()));
             }
         }
 
