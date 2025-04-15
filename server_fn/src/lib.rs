@@ -746,6 +746,7 @@ where
 /// Format: [tag: u8][content: Bytes]
 /// - Tag 0: Ok variant
 /// - Tag 1: Err variant
+#[allow(dead_code)]
 pub(crate) fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     match result {
         Ok(bytes) => {
@@ -764,6 +765,7 @@ pub(crate) fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
 }
 
 /// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
+#[allow(dead_code)]
 pub(crate) fn deserialize_result<E: FromServerFnError>(
     bytes: Bytes,
 ) -> Result<Bytes, Bytes> {
@@ -780,12 +782,10 @@ pub(crate) fn deserialize_result<E: FromServerFnError>(
     match tag {
         0 => Ok(content),
         1 => Err(content),
-        _ => {
-            return Err(E::from_server_fn_error(
-                ServerFnErrorErr::Deserialization("Invalid data tag".into()),
-            )
-            .ser())
-        } // Invalid tag
+        _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+            "Invalid data tag".into(),
+        ))
+        .ser()), // Invalid tag
     }
 }
 

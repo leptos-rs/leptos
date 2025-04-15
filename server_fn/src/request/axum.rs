@@ -159,7 +159,6 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                println!("2");
                                 _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
                             }
                         }
