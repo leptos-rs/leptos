@@ -117,7 +117,7 @@ where
     ) -> Result<
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-            impl futures::Sink<Result<Bytes, Bytes>> + Send + 'static,
+            impl futures::Sink<Bytes> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -133,7 +133,7 @@ where
         let (mut response_stream_tx, response_stream_rx) =
             futures::channel::mpsc::channel(2048);
         let (response_sink_tx, mut response_sink_rx) =
-            futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
+            futures::channel::mpsc::channel::<Bytes>(2048);
 
         actix_web::rt::spawn(async move {
             loop {
@@ -142,16 +142,9 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                        match incoming {
-                            Ok(message) => {
-                                if let Err(err) = session.binary(message).await {
+                                if let Err(err) = session.binary(incoming).await {
                                     _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
                                 }
-                            }
-                            Err(err) => {
-                                _ = response_stream_tx.start_send(Err(err));
-                            }
-                        }
                     },
                     outgoing = msg_stream.next().fuse() => {
                         let Some(outgoing) = outgoing else {
@@ -166,11 +159,11 @@ where
                             Ok(Message::Binary(bytes)) => {
                                 _ = response_stream_tx
                                     .start_send(
-                                        Ok(bytes),
+                                        crate::deserialize_result::<InputStreamError>(bytes),
                                     );
                             }
                             Ok(Message::Text(text)) => {
-                                _ = response_stream_tx.start_send(Ok(text.into_bytes()));
+                                _ = response_stream_tx.start_send(crate::deserialize_result::<InputStreamError>(text.into_bytes()));
                             }
                             Ok(_other) => {
                             }

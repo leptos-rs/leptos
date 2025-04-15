@@ -42,7 +42,7 @@ pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
         Output = Result<
             (
                 impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-                impl Sink<Result<Bytes, Bytes>> + Send + 'static,
+                impl Sink<Bytes> + Send + 'static,
             ),
             Error,
         >,
@@ -62,8 +62,8 @@ pub mod browser {
         response::browser::BrowserResponse,
     };
     use bytes::Bytes;
-    use futures::{Sink, SinkExt, StreamExt, TryStreamExt};
-    use gloo_net::websocket::{events::CloseEvent, Message, WebSocketError};
+    use futures::{Sink, SinkExt, StreamExt};
+    use gloo_net::websocket::{Message, WebSocketError};
     use send_wrapper::SendWrapper;
     use std::future::Future;
 
@@ -115,7 +115,7 @@ pub mod browser {
                     impl futures::Stream<Item = Result<Bytes, Bytes>>
                         + Send
                         + 'static,
-                    impl futures::Sink<Result<Bytes, Bytes>> + Send + 'static,
+                    impl futures::Sink<Bytes> + Send + 'static,
                 ),
                 Error,
             >,
@@ -131,18 +131,23 @@ pub mod browser {
                         })?;
                 let (sink, stream) = websocket.split();
 
-                let stream = stream
-                    .map_err(|err| {
+                let stream = stream.map(|message| match message {
+                    Ok(message) => {
+                        crate::deserialize_result::<OutputStreamError>(
+                            match message {
+                                Message::Text(text) => Bytes::from(text),
+                                Message::Bytes(bytes) => Bytes::from(bytes),
+                            },
+                        )
+                    }
+                    Err(err) => {
                         web_sys::console::error_1(&err.to_string().into());
-                        OutputStreamError::from_server_fn_error(
+                        Err(OutputStreamError::from_server_fn_error(
                             ServerFnErrorErr::Request(err.to_string()),
                         )
-                        .ser()
-                    })
-                    .map_ok(move |msg| match msg {
-                        Message::Text(text) => Bytes::from(text),
-                        Message::Bytes(bytes) => Bytes::from(bytes),
-                    });
+                        .ser())
+                    }
+                });
                 let stream = SendWrapper::new(stream);
 
                 struct SendWrapperSink<S> {
@@ -195,29 +200,11 @@ pub mod browser {
                     }
                 }
 
-                let sink =
-                    sink.with(|message: Result<Bytes, Bytes>| async move {
-                        match message {
-                            Ok(message) => Ok(Message::Bytes(message.into())),
-                            Err(err) => {
-                                let err = InputStreamError::de(err);
-                                let formatted_err = format!("{:?}", err);
-                                web_sys::console::error_1(
-                                    &js_sys::JsString::from(
-                                        formatted_err.clone(),
-                                    ),
-                                );
-                                const CLOSE_CODE_ERROR: u16 = 1011;
-                                Err(WebSocketError::ConnectionClose(
-                                    CloseEvent {
-                                        code: CLOSE_CODE_ERROR,
-                                        reason: formatted_err,
-                                        was_clean: true,
-                                    },
-                                ))
-                            }
-                        }
-                    });
+                let sink = sink.with(|message: Bytes| async move {
+                    Ok::<Message, WebSocketError>(Message::Bytes(
+                        message.into(),
+                    ))
+                });
                 let sink = SendWrapperSink::new(Box::pin(sink));
 
                 Ok((stream, sink))
@@ -246,13 +233,19 @@ pub mod reqwest {
     /// Implements [`Client`] for a request made by [`reqwest`].
     pub struct ReqwestClient;
 
-    impl<E: FromServerFnError + Send + 'static> Client<E> for ReqwestClient {
+    impl<
+            Error: FromServerFnError,
+            InputStreamError: FromServerFnError,
+            OutputStreamError: FromServerFnError,
+        > Client<Error, InputStreamError, OutputStreamError> for ReqwestClient
+    {
         type Request = Request;
         type Response = Response;
 
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, E>> + Send {
+        ) -> impl Future<Output = Result<Self::Response, Error>> + Send
+        {
             CLIENT.execute(req).map_err(|e| {
                 ServerFnErrorErr::Request(e.to_string()).into_app_error()
             })
@@ -262,12 +255,10 @@ pub mod reqwest {
             path: &str,
         ) -> Result<
             (
-                impl futures::Stream<Item = Result<bytes::Bytes, Bytes>>
-                    + Send
-                    + 'static,
-                impl futures::Sink<Result<bytes::Bytes, Bytes>> + Send + 'static,
+                impl futures::Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+                impl futures::Sink<Bytes> + Send + 'static,
             ),
-            E,
+            Error,
         > {
             let mut websocket_server_url = get_server_url().to_string();
             if let Some(postfix) = websocket_server_url.strip_prefix("http://")
@@ -281,7 +272,7 @@ pub mod reqwest {
             let url = format!("{}{}", websocket_server_url, path);
             let (ws_stream, _) =
                 tokio_tungstenite::connect_async(url).await.map_err(|e| {
-                    E::from_server_fn_error(ServerFnErrorErr::Request(
+                    Error::from_server_fn_error(ServerFnErrorErr::Request(
                         e.to_string(),
                     ))
                 })?;
@@ -290,26 +281,21 @@ pub mod reqwest {
 
             Ok((
                 read.map(|msg| match msg {
-                    Ok(msg) => Ok(msg.into_data()),
-                    Err(e) => Err(E::from_server_fn_error(
+                    Ok(msg) => crate::deserialize_result::<OutputStreamError>(
+                        msg.into_data(),
+                    ),
+                    Err(e) => Err(OutputStreamError::from_server_fn_error(
                         ServerFnErrorErr::Request(e.to_string()),
                     )
                     .ser()),
                 }),
-                write.with(|msg: Result<Bytes, Bytes>| async move {
-                    match msg {
-                        Ok(msg) => {
-                            Ok(tokio_tungstenite::tungstenite::Message::Binary(
-                                msg,
-                            ))
-                        }
-                        Err(err) => {
-                            let err = E::de(err);
-                            Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::other(format!("{:?}", err)),
-                            ))
-                        }
-                    }
+                write.with(|msg: Bytes| async move {
+                    Ok::<
+                        tokio_tungstenite::tungstenite::Message,
+                        tokio_tungstenite::tungstenite::Error,
+                    >(
+                        tokio_tungstenite::tungstenite::Message::Binary(msg)
+                    )
                 }),
             ))
         }
