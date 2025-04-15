@@ -201,14 +201,17 @@ pub mod browser {
                             Ok(message) => Ok(Message::Bytes(message.into())),
                             Err(err) => {
                                 let err = InputStreamError::de(err);
+                                let formatted_err = format!("{:?}", err);
                                 web_sys::console::error_1(
-                                    &js_sys::JsString::from(err.to_string()),
+                                    &js_sys::JsString::from(
+                                        formatted_err.clone(),
+                                    ),
                                 );
                                 const CLOSE_CODE_ERROR: u16 = 1011;
                                 Err(WebSocketError::ConnectionClose(
                                     CloseEvent {
                                         code: CLOSE_CODE_ERROR,
-                                        reason: err.to_string(),
+                                        reason: formatted_err,
                                         was_clean: true,
                                     },
                                 ))
@@ -303,7 +306,7 @@ pub mod reqwest {
                         Err(err) => {
                             let err = E::de(err);
                             Err(tokio_tungstenite::tungstenite::Error::Io(
-                                std::io::Error::other(err.to_string()),
+                                std::io::Error::other(format!("{:?}", err)),
                             ))
                         }
                     }
