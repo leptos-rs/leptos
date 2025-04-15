@@ -747,7 +747,7 @@ where
 /// - Tag 0: Ok variant
 /// - Tag 1: Err variant
 #[allow(dead_code)]
-pub(crate) fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
+pub fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     match result {
         Ok(bytes) => {
             let mut buf = BytesMut::with_capacity(1 + bytes.len());
@@ -766,7 +766,7 @@ pub(crate) fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
 
 /// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
 #[allow(dead_code)]
-pub(crate) fn deserialize_result<E: FromServerFnError>(
+pub fn deserialize_result<E: FromServerFnError>(
     bytes: Bytes,
 ) -> Result<Bytes, Bytes> {
     if bytes.is_empty() {
