@@ -14,7 +14,7 @@ syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1.0"
 xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
 const_format = "0.2.33"
-convert_case = "0.6.0"
+convert_case = { workspace = true }
 
 
 [build-dependencies]

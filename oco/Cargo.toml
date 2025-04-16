@@ -10,7 +10,7 @@ edition.workspace = true
 
 [dependencies]
 serde = "1.0"
-thiserror = "2.0"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
