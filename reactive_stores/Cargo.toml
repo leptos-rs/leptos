@@ -17,6 +17,8 @@ paste = "1.0"
 reactive_graph = { workspace = true }
 rustc-hash = "2.0"
 reactive_stores_macro = { workspace = true }
+dashmap = "6.1"
+send_wrapper = "0.6.0"
 
 [dev-dependencies]
 tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }

@@ -239,7 +239,6 @@
 //! field in the signal inner `Arc<RwLock<_>>`, and tracks the trigger that corresponds with its
 //! path; calling `.write()` returns a writeable guard, and notifies that same trigger.
 
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
@@ -255,7 +254,6 @@ pub use reactive_stores_macro::{Patch, Store};
 use rustc_hash::FxHashMap;
 use std::{
     any::Any,
-    collections::HashMap,
     fmt::Debug,
     hash::Hash,
     ops::DerefMut,
@@ -408,9 +406,25 @@ impl<K> Default for FieldKeys<K> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+type HashMap<K, V> = Arc<dashmap::DashMap<K, V>>;
+#[cfg(target_arch = "wasm32")]
+type HashMap<K, V> = send_wrapper::SendWrapper<
+    std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>,
+>;
+
 /// A map of the keys for a keyed subfield.
-#[derive(Default, Clone)]
-pub struct KeyMap(Arc<RwLock<HashMap<StorePath, Box<dyn Any + Send + Sync>>>>);
+#[derive(Clone)]
+pub struct KeyMap(HashMap<StorePath, Box<dyn Any + Send + Sync>>);
+
+impl Default for KeyMap {
+    fn default() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        return Self(Default::default());
+        #[cfg(target_arch = "wasm32")]
+        return Self(send_wrapper::SendWrapper::new(Default::default()));
+    }
+}
 
 impl KeyMap {
     fn with_field_keys<K, T>(
@@ -422,26 +436,25 @@ impl KeyMap {
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
-        // this incredibly defensive mechanism takes the guard twice
-        // on initialization. unfortunately, this is because `initialize`, on
-        // a nested keyed field can, when being initialized), can in fact try
-        // to take the lock again, as we try to insert the keys of the parent
-        // while inserting the keys on this child.
-        //
-        // see here https://github.com/leptos-rs/leptos/issues/3086
-        let mut guard = self.0.write().or_poisoned();
-        if guard.contains_key(&path) {
-            let entry = guard.get_mut(&path)?;
-            let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-            Some(fun(entry))
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut entry = self
+            .0
+            .entry(path)
+            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+
+        #[cfg(target_arch = "wasm32")]
+        let entry = if !self.0.borrow().contains_key(&path) {
+            Some(Box::new(FieldKeys::new(initialize())))
         } else {
-            drop(guard);
-            let keys = Box::new(FieldKeys::new(initialize()));
-            let mut guard = self.0.write().or_poisoned();
-            let entry = guard.entry(path).or_insert(keys);
-            let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-            Some(fun(entry))
-        }
+            None
+        };
+        #[cfg(target_arch = "wasm32")]
+        let mut map = self.0.borrow_mut();
+        #[cfg(target_arch = "wasm32")]
+        let entry = map.entry(path).or_insert_with(|| entry.unwrap());
+
+        let entry = entry.downcast_mut::<FieldKeys<K>>()?;
+        Some(fun(entry))
     }
 }
 
