@@ -29,11 +29,14 @@ Steps to reproduce the behavior:
 3. Scroll down to '....'
 4. See error
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
+
+**Next Steps**
+[ ] I will make a PR
+[ ] I would like to make a PR, but need help getting started
+[ ] I want someone else to take the time to fix this
+[ ] This is a low priority for me and is just shared for your information
 
 **Additional context**
 Add any other context about the problem here.
