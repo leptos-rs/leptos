@@ -774,8 +774,7 @@ fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     }
 }
 
-/// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
-#[allow(dead_code)]
+// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
 fn deserialize_result<E: FromServerFnError>(
     bytes: Bytes,
 ) -> Result<Bytes, Bytes> {
