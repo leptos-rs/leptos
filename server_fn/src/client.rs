@@ -132,14 +132,10 @@ pub mod browser {
                 let (sink, stream) = websocket.split();
 
                 let stream = stream.map(|message| match message {
-                    Ok(message) => {
-                        crate::deserialize_result::<OutputStreamError>(
-                            match message {
-                                Message::Text(text) => Bytes::from(text),
-                                Message::Bytes(bytes) => Bytes::from(bytes),
-                            },
-                        )
-                    }
+                    Ok(message) => Ok(match message {
+                        Message::Text(text) => Bytes::from(text),
+                        Message::Bytes(bytes) => Bytes::from(bytes),
+                    }),
                     Err(err) => {
                         web_sys::console::error_1(&err.to_string().into());
                         Err(OutputStreamError::from_server_fn_error(
@@ -281,9 +277,7 @@ pub mod reqwest {
 
             Ok((
                 read.map(|msg| match msg {
-                    Ok(msg) => crate::deserialize_result::<OutputStreamError>(
-                        msg.into_data(),
-                    ),
+                    Ok(msg) => Ok(msg.into_data()),
                     Err(e) => Err(OutputStreamError::from_server_fn_error(
                         ServerFnErrorErr::Request(e.to_string()),
                     )

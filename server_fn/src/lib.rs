@@ -636,15 +636,19 @@ where
     {
         let (request_bytes, response_stream, response) =
             request.try_into_websocket().await?;
-        let input = request_bytes.map(|request_bytes| match request_bytes {
-            Ok(request_bytes) => {
-                InputEncoding::decode(request_bytes).map_err(|e| {
-                    InputStreamError::from_server_fn_error(
-                        ServerFnErrorErr::Deserialization(e.to_string()),
-                    )
-                })
+        let input = request_bytes.map(|request_bytes| {
+            let request_bytes = request_bytes
+                .map(|bytes| deserialize_result::<InputStreamError>(bytes))
+                .unwrap_or_else(Err);
+            match request_bytes {
+                Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                    .map_err(|e| {
+                        InputStreamError::from_server_fn_error(
+                            ServerFnErrorErr::Deserialization(e.to_string()),
+                        )
+                    }),
+                Err(err) => Err(InputStreamError::de(err)),
             }
-            Err(err) => Err(InputStreamError::de(err)),
         });
         let boxed = Box::pin(input)
             as Pin<
@@ -720,14 +724,21 @@ where
             });
 
             // Return the output stream
-            let stream = stream.map(|request_bytes| match request_bytes {
-                Ok(request_bytes) => OutputEncoding::decode(request_bytes)
-                    .map_err(|e| {
-                        OutputStreamError::from_server_fn_error(
-                            ServerFnErrorErr::Deserialization(e.to_string()),
-                        )
-                    }),
-                Err(err) => Err(OutputStreamError::de(err)),
+            let stream = stream.map(|request_bytes| {
+                let request_bytes = request_bytes
+                    .map(|bytes| deserialize_result::<OutputStreamError>(bytes))
+                    .unwrap_or_else(Err);
+                match request_bytes {
+                    Ok(request_bytes) => OutputEncoding::decode(request_bytes)
+                        .map_err(|e| {
+                            OutputStreamError::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        }),
+                    Err(err) => Err(OutputStreamError::de(err)),
+                }
             });
             let boxed = Box::pin(stream)
                 as Pin<
@@ -742,12 +753,11 @@ where
     }
 }
 
-/// Serializes a Result<Bytes, Bytes> into a single Bytes instance.
-/// Format: [tag: u8][content: Bytes]
-/// - Tag 0: Ok variant
-/// - Tag 1: Err variant
-#[allow(dead_code)]
-pub fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
+// Serializes a Result<Bytes, Bytes> into a single Bytes instance.
+// Format: [tag: u8][content: Bytes]
+// - Tag 0: Ok variant
+// - Tag 1: Err variant
+fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     match result {
         Ok(bytes) => {
             let mut buf = BytesMut::with_capacity(1 + bytes.len());
@@ -766,7 +776,7 @@ pub fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
 
 /// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
 #[allow(dead_code)]
-pub fn deserialize_result<E: FromServerFnError>(
+fn deserialize_result<E: FromServerFnError>(
     bytes: Bytes,
 ) -> Result<Bytes, Bytes> {
     if bytes.is_empty() {

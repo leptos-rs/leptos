@@ -159,11 +159,11 @@ where
                             Ok(Message::Binary(bytes)) => {
                                 _ = response_stream_tx
                                     .start_send(
-                                        crate::deserialize_result::<InputStreamError>(bytes),
+                                        Ok(bytes),
                                     );
                             }
                             Ok(Message::Text(text)) => {
-                                _ = response_stream_tx.start_send(crate::deserialize_result::<InputStreamError>(text.into_bytes()));
+                                _ = response_stream_tx.start_send(Ok(text.into_bytes()));
                             }
                             Ok(_other) => {
                             }

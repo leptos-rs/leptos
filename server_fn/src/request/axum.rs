@@ -146,11 +146,11 @@ where
                             Ok(Message::Binary(bytes)) => {
                                 _ = outgoing_tx
                                     .start_send(
-                                        crate::deserialize_result::<InputStreamError>(bytes),
+                                        Ok(bytes),
                                     );
                             }
                             Ok(Message::Text(text)) => {
-                                _ = outgoing_tx.start_send(crate::deserialize_result::<InputStreamError>(Bytes::from(text)));
+                                _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
                             }
                             Ok(Message::Ping(bytes)) => {
                                 if session.send(Message::Pong(bytes)).await.is_err() {
