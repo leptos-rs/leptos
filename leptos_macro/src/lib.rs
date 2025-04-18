@@ -356,10 +356,16 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
         if #[cfg(all(debug_assertions, feature = "nightly"))] {
-            Some(leptos_hot_reload::span_to_stable_id(
-                site.file().path(),
-                site.start().line()
-            ))
+            // site.file() is a String, site.local_file() is an Option<PathBuf>
+            if let Some(file) = site.local_file() {
+                Some(leptos_hot_reload::span_to_stable_id(
+                    file,
+                    site.start().line()
+                ))
+            } else {
+                // analogous to span_to_stable_id, but site.file() might not actually be stable. Y/N?
+                Some(format!("{}-{}",site.file().replace(['/', '\\'], "-"),site.start().line()))
+            }
         } else {
             _ = site;
             None
