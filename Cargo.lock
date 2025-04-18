@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.7.8"
+version = "0.7.9"
 dependencies = [
  "attribute-derive",
  "cfg-if",
