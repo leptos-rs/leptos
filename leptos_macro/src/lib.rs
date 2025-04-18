@@ -357,7 +357,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
         if #[cfg(all(debug_assertions, feature = "nightly"))] {
             Some(leptos_hot_reload::span_to_stable_id(
-                site.file().path(),
+                site.file(),
                 site.start().line()
             ))
         } else {
