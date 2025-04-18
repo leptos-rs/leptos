@@ -364,7 +364,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
                 ))
             } else {
                 // analogous to span_to_stable_id, but site.file() might not actually be stable. Y/N?
-                Some(format!("{}-{}",site.file(),site.start().line()))
+                Some(format!("{}-{}",site.file().replace(['/', '\\'], "-"),site.start().line()))
             }
         } else {
             _ = site;
