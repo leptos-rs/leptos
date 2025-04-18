@@ -61,7 +61,7 @@ pub struct Owner {
 }
 
 impl Owner {
-    fn downgrade(&self) -> WeakOwner {
+    pub(crate) fn downgrade(&self) -> WeakOwner {
         WeakOwner {
             inner: Arc::downgrade(&self.inner),
             #[cfg(feature = "hydration")]
@@ -71,14 +71,14 @@ impl Owner {
 }
 
 #[derive(Clone)]
-struct WeakOwner {
+pub(crate) struct WeakOwner {
     inner: Weak<RwLock<OwnerInner>>,
     #[cfg(feature = "hydration")]
     shared_context: Option<Weak<dyn SharedContext + Send + Sync>>,
 }
 
 impl WeakOwner {
-    fn upgrade(&self) -> Option<Owner> {
+    pub(crate) fn upgrade(&self) -> Option<Owner> {
         self.inner.upgrade().map(|inner| {
             #[cfg(feature = "hydration")]
             let shared_context =
