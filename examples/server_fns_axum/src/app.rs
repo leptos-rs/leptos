@@ -945,9 +945,7 @@ pub fn CustomClientExample() -> impl IntoView {
                             Item = Result<server_fn::Bytes, server_fn::Bytes>,
                         > + Send
                         + 'static,
-                    impl Sink<Result<server_fn::Bytes, server_fn::Bytes>>
-                        + Send
-                        + 'static,
+                    impl Sink<server_fn::Bytes> + Send + 'static,
                 ),
                 E,
             >,

@@ -79,7 +79,7 @@ where
     ) -> Result<
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-            impl Sink<Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Bytes> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -91,7 +91,7 @@ where
                     futures::stream::Once<
                         std::future::Ready<Result<Bytes, Bytes>>,
                     >,
-                    futures::sink::Drain<Result<Bytes, Bytes>>,
+                    futures::sink::Drain<Bytes>,
                     Self::WebsocketResponse,
                 ),
                 Error,
@@ -117,9 +117,9 @@ where
                         ))
                     })?;
             let (mut outgoing_tx, outgoing_rx) =
-                futures::channel::mpsc::channel(2048);
-            let (incoming_tx, mut incoming_rx) =
                 futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
+            let (incoming_tx, mut incoming_rx) =
+                futures::channel::mpsc::channel::<Bytes>(2048);
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
@@ -134,18 +134,11 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                        match incoming {
-                            Ok(message) => {
-                                if let Err(err) = session.send(Message::Binary(message)).await {
-                                    _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
-                                }
-                            }
-                            Err(err) => {
-                                _ = outgoing_tx.start_send(Err(err));
-                            }
+                        if let Err(err) = session.send(Message::Binary(incoming)).await {
+                            _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
                         }
                     },
-                    outgoing = session.recv().fuse() => {
+                        outgoing = session.recv().fuse() => {
                         let Some(outgoing) = outgoing else {
                             break;
                         };
@@ -158,6 +151,11 @@ where
                             }
                             Ok(Message::Text(text)) => {
                                 _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
+                            }
+                            Ok(Message::Ping(bytes)) => {
+                                if session.send(Message::Pong(bytes)).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(_other) => {}
                             Err(e) => {
