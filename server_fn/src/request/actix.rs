@@ -172,6 +172,9 @@ where
                             Ok(Message::Text(text)) => {
                                 _ = response_stream_tx.start_send(Ok(text.into_bytes()));
                             }
+                            Ok(Message::Close(_)) => {
+                                break;
+                            }
                             Ok(_other) => {
                             }
                             Err(e) => {
