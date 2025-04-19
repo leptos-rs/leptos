@@ -11,7 +11,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0" }
+syn = { workspace = true, default-features = true }
 server_fn_macro = { workspace = true }
 
 [features]
