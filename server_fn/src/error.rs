@@ -561,9 +561,7 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
 }
 
 /// A trait for types that can be returned from a server function.
-pub trait FromServerFnError:
-    std::fmt::Debug + Sized + Display + 'static
-{
+pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// The encoding strategy used to serialize and deserialize this error type. Must implement the [`Encodes`](server_fn::Encodes) trait for references to the error type.
     type Encoder: Encodes<Self> + Decodes<Self>;
 
@@ -588,6 +586,20 @@ pub trait FromServerFnError:
         Self::Encoder::decode(data).unwrap_or_else(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
+    }
+
+    /// Reason for the error, used for errors in WebSocket connections.
+    ///
+    /// **Note**: Ideally, this method would default to using `Display` if implemented, falling back
+    /// to `Debug` otherwise. However, due to limitations in Rust's type system (notably the lack of
+    /// specialization or conditional trait detection), it's not currently possible to implement
+    /// that behavior in a sound and automatic way in Rust.
+    ///
+    /// The current Debug-based fallback is a safe default. If a type implements Display and/or more
+    /// customized output is desired, we recommend overriding this method explicitly with the better
+    /// error message(s).
+    fn websocket_error_reason(&self) -> String {
+        format!("{self:?}")
     }
 }
 
