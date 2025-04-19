@@ -10,8 +10,8 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-pin-project-lite = "0.2.16"
-paste = "1.0.15"
+pin-project-lite = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
 
 [features]
 default = ["no_std"]

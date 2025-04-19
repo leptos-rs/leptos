@@ -10,22 +10,22 @@ edition.workspace = true
 
 [dependencies]
 async-executor = { version = "1.13.1", optional = true }
-futures = "0.3.31"
-glib = { version = "0.20.6", optional = true }
-thiserror = { workspace = true }
-tokio = { version = "1.41", optional = true, default-features = false, features = [
+futures = { workspace = true, default-features = true }
+glib = { version = "0.20.9", optional = true }
+thiserror = { workspace = true , default-features = true }
+tokio = { optional = true, default-features = false, features = [
   "rt",
-] }
-tracing = { version = "0.1.41", optional = true }
-wasm-bindgen-futures = { version = "0.4.50", optional = true }
+] , workspace = true }
+tracing = { optional = true , workspace = true, default-features = true }
+wasm-bindgen-futures = { optional = true , workspace = true, default-features = true }
 
 [dev-dependencies]
 futures-lite = { version = "2.6.0", default-features = false }
-tokio = { version = "1.41", default-features = false, features = [
+tokio = { default-features = false, features = [
   "rt",
   "macros",
   "time",
-] }
+] , workspace = true }
 wasm-bindgen-test = { version = "0.3.50" }
 serial_test = "3.2.0"
 
