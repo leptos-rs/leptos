@@ -560,7 +560,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         };
         let initial_value = SendOption::new_local(initial_value);
         let (this, _) = spawn_derived!(
-            crate::spawn_local_scoped,
+            crate::spawn_local,
             initial_value,
             fun,
             true,
@@ -595,7 +595,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
             async move { SendOption::new_local(Some(fut.await)) }
         };
         let (this, _) = spawn_derived!(
-            crate::spawn_local_scoped,
+            crate::spawn_local,
             initial,
             fun,
             false,

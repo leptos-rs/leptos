@@ -138,6 +138,15 @@ pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     any_spawner::Executor::spawn_local(task);
 }
 
+/// Calls [`Executor::spawn_local`](any_spawner::Executor::spawn_local), but ensures that the task also runs in the current arena, if
+/// multithreaded arena sandboxing is enabled.
+pub fn spawn_local(task: impl Future<Output = ()> + 'static) {
+    #[cfg(feature = "sandboxed-arenas")]
+    let task = owner::Sandboxed::new(task);
+
+    any_spawner::Executor::spawn_local(task);
+}
+
 /// Calls [`Executor::spawn_local`](any_spawner::Executor), but ensures that the task runs under the current reactive [`Owner`](crate::owner::Owner) and observer.
 ///
 /// Does not cancel the task if the owner is cleaned up.
