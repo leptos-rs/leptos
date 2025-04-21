@@ -418,7 +418,9 @@ where
                         }
                         StreamChunk::OutOfOrder { chunks } => {
                             let chunks = chunks.await;
-                            my_chunks.extend(chunks.take_chunks());
+                            my_chunks.push_back(StreamChunk::OutOfOrder {
+                                chunks: Box::pin(async move { chunks }),
+                            });
                         }
                     }
                 }
