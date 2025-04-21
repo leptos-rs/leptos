@@ -174,14 +174,14 @@ pub struct TextStream<E = ServerFnError>(
     Pin<Box<dyn Stream<Item = Result<String, E>> + Send>>,
 );
 
-impl<E: FromServerFnError> Debug for TextStream<E> {
+impl<E> Debug for TextStream<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("TextStream").finish()
     }
 }
 
-impl<E: FromServerFnError> TextStream<E> {
-    /// Creates a new `ByteStream` from the given stream.
+impl<E> TextStream<E> {
+    /// Creates a new `TextStream` from the given stream.
     pub fn new(
         value: impl Stream<Item = Result<String, E>> + Send + 'static,
     ) -> Self {
@@ -189,7 +189,7 @@ impl<E: FromServerFnError> TextStream<E> {
     }
 }
 
-impl<E: FromServerFnError> TextStream<E> {
+impl<E> TextStream<E> {
     /// Consumes the wrapper, returning a stream of text.
     pub fn into_inner(self) -> impl Stream<Item = Result<String, E>> + Send {
         self.0
@@ -200,7 +200,6 @@ impl<E, S, T> From<S> for TextStream<E>
 where
     S: Stream<Item = T> + Send + 'static,
     T: Into<String>,
-    E: FromServerFnError,
 {
     fn from(value: S) -> Self {
         Self(Box::pin(value.map(|data| Ok(data.into()))))
