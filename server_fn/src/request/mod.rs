@@ -360,7 +360,7 @@ where
         Output = Result<
             (
                 impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-                impl Sink<Result<Bytes, Bytes>> + Send + 'static,
+                impl Sink<Bytes> + Send + 'static,
                 Self::WebsocketResponse,
             ),
             Error,
@@ -415,7 +415,7 @@ where
     ) -> Result<
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-            impl Sink<Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Bytes> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -424,7 +424,7 @@ where
         Err::<
             (
                 futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
-                futures::sink::Drain<Result<Bytes, Bytes>>,
+                futures::sink::Drain<Bytes>,
                 Self::WebsocketResponse,
             ),
             _,

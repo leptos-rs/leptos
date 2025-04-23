@@ -136,6 +136,7 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
 // re-exported to make it possible to implement a custom Client without adding a separate
 // dependency on `bytes`
 pub use bytes::Bytes;
+use bytes::{BufMut, BytesMut};
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
@@ -635,15 +636,19 @@ where
     {
         let (request_bytes, response_stream, response) =
             request.try_into_websocket().await?;
-        let input = request_bytes.map(|request_bytes| match request_bytes {
-            Ok(request_bytes) => {
-                InputEncoding::decode(request_bytes).map_err(|e| {
-                    InputStreamError::from_server_fn_error(
-                        ServerFnErrorErr::Deserialization(e.to_string()),
-                    )
-                })
+        let input = request_bytes.map(|request_bytes| {
+            let request_bytes = request_bytes
+                .map(|bytes| deserialize_result::<InputStreamError>(bytes))
+                .unwrap_or_else(Err);
+            match request_bytes {
+                Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                    .map_err(|e| {
+                        InputStreamError::from_server_fn_error(
+                            ServerFnErrorErr::Deserialization(e.to_string()),
+                        )
+                    }),
+                Err(err) => Err(InputStreamError::de(err)),
             }
-            Err(err) => Err(InputStreamError::de(err)),
         });
         let boxed = Box::pin(input)
             as Pin<
@@ -656,14 +661,17 @@ where
 
         let output = server_fn(input.into()).await?;
 
-        let output = output.stream.map(|output| match output {
-            Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
-                OutputStreamError::from_server_fn_error(
-                    ServerFnErrorErr::Serialization(e.to_string()),
-                )
-                .ser()
-            }),
-            Err(err) => Err(err.ser()),
+        let output = output.stream.map(|output| {
+            let result = match output {
+                Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
+                    OutputStreamError::from_server_fn_error(
+                        ServerFnErrorErr::Serialization(e.to_string()),
+                    )
+                    .ser()
+                }),
+                Err(err) => Err(err.ser()),
+            };
+            serialize_result(result)
         });
 
         Server::spawn(async move {
@@ -695,37 +703,42 @@ where
                 pin_mut!(input);
                 pin_mut!(sink);
                 while let Some(input) = input.stream.next().await {
-                    if sink
-                        .send(
-                            input
-                                .and_then(|input| {
-                                    InputEncoding::encode(&input).map_err(|e| {
-                                        InputStreamError::from_server_fn_error(
-                                            ServerFnErrorErr::Serialization(
-                                                e.to_string(),
-                                            ),
-                                        )
-                                    })
-                                })
-                                .map_err(|e| e.ser()),
-                        )
-                        .await
-                        .is_err()
-                    {
+                    let result = match input {
+                        Ok(input) => {
+                            InputEncoding::encode(&input).map_err(|e| {
+                                InputStreamError::from_server_fn_error(
+                                    ServerFnErrorErr::Serialization(
+                                        e.to_string(),
+                                    ),
+                                )
+                                .ser()
+                            })
+                        }
+                        Err(err) => Err(err.ser()),
+                    };
+                    let result = serialize_result(result);
+                    if sink.send(result).await.is_err() {
                         break;
                     }
                 }
             });
 
             // Return the output stream
-            let stream = stream.map(|request_bytes| match request_bytes {
-                Ok(request_bytes) => OutputEncoding::decode(request_bytes)
-                    .map_err(|e| {
-                        OutputStreamError::from_server_fn_error(
-                            ServerFnErrorErr::Deserialization(e.to_string()),
-                        )
-                    }),
-                Err(err) => Err(OutputStreamError::de(err)),
+            let stream = stream.map(|request_bytes| {
+                let request_bytes = request_bytes
+                    .map(|bytes| deserialize_result::<OutputStreamError>(bytes))
+                    .unwrap_or_else(Err);
+                match request_bytes {
+                    Ok(request_bytes) => OutputEncoding::decode(request_bytes)
+                        .map_err(|e| {
+                            OutputStreamError::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        }),
+                    Err(err) => Err(OutputStreamError::de(err)),
+                }
             });
             let boxed = Box::pin(stream)
                 as Pin<
@@ -737,6 +750,51 @@ where
             let output = BoxedStream { stream: boxed };
             Ok(output)
         }
+    }
+}
+
+// Serializes a Result<Bytes, Bytes> into a single Bytes instance.
+// Format: [tag: u8][content: Bytes]
+// - Tag 0: Ok variant
+// - Tag 1: Err variant
+fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
+    match result {
+        Ok(bytes) => {
+            let mut buf = BytesMut::with_capacity(1 + bytes.len());
+            buf.put_u8(0); // Tag for Ok variant
+            buf.extend_from_slice(&bytes);
+            buf.freeze()
+        }
+        Err(bytes) => {
+            let mut buf = BytesMut::with_capacity(1 + bytes.len());
+            buf.put_u8(1); // Tag for Err variant
+            buf.extend_from_slice(&bytes);
+            buf.freeze()
+        }
+    }
+}
+
+// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
+fn deserialize_result<E: FromServerFnError>(
+    bytes: Bytes,
+) -> Result<Bytes, Bytes> {
+    if bytes.is_empty() {
+        return Err(E::from_server_fn_error(
+            ServerFnErrorErr::Deserialization("Data is empty".into()),
+        )
+        .ser());
+    }
+
+    let tag = bytes[0];
+    let content = bytes.slice(1..);
+
+    match tag {
+        0 => Ok(content),
+        1 => Err(content),
+        _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+            "Invalid data tag".into(),
+        ))
+        .ser()), // Invalid tag
     }
 }
 
@@ -1216,5 +1274,47 @@ pub mod mock {
         ) -> Result<(), Error> {
             unreachable!()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::codec::JsonEncoding;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize)]
+    enum TestError {
+        ServerFnError(ServerFnErrorErr),
+    }
+
+    impl FromServerFnError for TestError {
+        type Encoder = JsonEncoding;
+
+        fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+            Self::ServerFnError(value)
+        }
+    }
+    #[test]
+    fn test_result_serialization() {
+        // Test Ok variant
+        let ok_result: Result<Bytes, Bytes> =
+            Ok(Bytes::from_static(b"success data"));
+        let serialized = serialize_result(ok_result);
+        let deserialized = deserialize_result::<TestError>(serialized);
+        assert!(deserialized.is_ok());
+        assert_eq!(deserialized.unwrap(), Bytes::from_static(b"success data"));
+
+        // Test Err variant
+        let err_result: Result<Bytes, Bytes> =
+            Err(Bytes::from_static(b"error details"));
+        let serialized = serialize_result(err_result);
+        let deserialized = deserialize_result::<TestError>(serialized);
+        assert!(deserialized.is_err());
+        assert_eq!(
+            deserialized.unwrap_err(),
+            Bytes::from_static(b"error details")
+        );
     }
 }
