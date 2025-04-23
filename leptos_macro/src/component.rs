@@ -645,7 +645,9 @@ impl Parse for DummyModel {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = input.call(Attribute::parse_outer)?;
         // Drop unknown attributes like #[deprecated]
-        drain_filter(&mut attrs, |attr| !attr.path().is_ident("doc"));
+        drain_filter(&mut attrs, |attr| {
+            !(attr.path().is_ident("doc") || attr.path().is_ident("allow"))
+        });
 
         let vis: Visibility = input.parse()?;
         let mut sig: Signature = input.parse()?;
@@ -937,6 +939,10 @@ impl UnknownAttrs {
                     if let Meta::NameValue(_) = &attr.meta {
                         return None;
                     }
+                }
+
+                if attr.path().is_ident("allow") {
+                    return None;
                 }
 
                 Some((attr.into_token_stream(), attr.span()))
