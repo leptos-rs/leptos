@@ -6,14 +6,33 @@ use crate::{
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Response;
+use http::{HeaderMap, HeaderName, HeaderValue};
 use js_sys::Uint8Array;
 use send_wrapper::SendWrapper;
-use std::future::Future;
+use std::{future::Future, str::FromStr};
 use wasm_bindgen::JsCast;
 use wasm_streams::ReadableStream;
 
 /// The response to a `fetch` request made in the browser.
 pub struct BrowserResponse(pub(crate) SendWrapper<Response>);
+
+impl BrowserResponse {
+    /// Generate the headers from the internal [`Response`] object.
+    /// This is a workaround for the fact that the `Response` object does not
+    /// have a [`HeaderMap`] directly. This function will iterate over the
+    /// headers and convert them to a [`HeaderMap`].
+    pub fn generate_headers(&self) -> HeaderMap {
+        self.0
+            .headers()
+            .entries()
+            .filter_map(|(key, value)| {
+                let key = HeaderName::from_str(&key).ok()?;
+                let value = HeaderValue::from_str(&value).ok()?;
+                Some((key, value))
+            })
+            .collect()
+    }
+}
 
 impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
     fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send {
