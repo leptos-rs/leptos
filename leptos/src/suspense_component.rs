@@ -1,8 +1,9 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    error::ErrorBoundarySuspendedChildren,
     IntoView,
 };
-use futures::{select, FutureExt};
+use futures::{channel::oneshot, select, FutureExt};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use reactive_graph::{
@@ -13,7 +14,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, Track, With},
+    traits::{Dispose, Get, Read, Track, With, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::Arc;
@@ -99,6 +100,8 @@ pub fn Suspense<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
+    let error_boundary_parent = use_context::<ErrorBoundarySuspendedChildren>();
+
     let owner = Owner::new();
     owner.with(|| {
         let (starts_local, id) = {
@@ -129,6 +132,7 @@ where
             none_pending,
             fallback,
             children,
+            error_boundary_parent,
         })
     })
 }
@@ -150,6 +154,7 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub none_pending: ArcMemo<bool>,
     pub fallback: Fal,
     pub children: Chil,
+    pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -228,12 +233,14 @@ where
             none_pending,
             fallback,
             children,
+            error_boundary_parent,
         } = self;
         SuspenseBoundary {
             id,
             none_pending,
             fallback,
             children: children.add_any_attr(attr),
+            error_boundary_parent,
         }
     }
 }
@@ -288,6 +295,13 @@ where
         let suspense_context = use_context::<SuspenseContext>().unwrap();
         let owner = Owner::current().unwrap();
 
+        let mut notify_error_boundary =
+            self.error_boundary_parent.map(|children| {
+                let (tx, rx) = oneshot::channel();
+                children.write_value().push(rx);
+                tx
+            });
+
         // we need to wait for one of two things: either
         // 1. all tasks are finished loading, or
         // 2. we read from a local resource, meaning this Suspense can never resolve on the server
@@ -316,6 +330,9 @@ where
                         if let Some(tx) = tasks_tx.take() {
                             // If the receiver has dropped, it means the ScopedFuture has already
                             // dropped, so it doesn't matter if we manage to send this.
+                            _ = tx.send(());
+                        }
+                        if let Some(tx) = notify_error_boundary.take() {
                             _ = tx.send(());
                         }
                     }

@@ -82,6 +82,10 @@ impl StreamBuilder {
 
     /// Appends another stream to this one.
     pub fn append(&mut self, mut other: StreamBuilder) {
+        if !self.sync_buf.is_empty() {
+            self.chunks
+                .push_back(StreamChunk::Sync(mem::take(&mut self.sync_buf)));
+        }
         self.chunks.append(&mut other.chunks);
         self.sync_buf.push_str(&other.sync_buf);
     }
@@ -318,6 +322,11 @@ impl OooChunk {
             buf.push_str("close.remove();open.remove();");
         }
         buf.push_str("})()</script>");
+    }
+
+    /// Consumes this structure and returns its inner chunks of the stream.
+    pub fn take_chunks(self) -> VecDeque<StreamChunk> {
+        self.chunks
     }
 }
 
