@@ -733,9 +733,9 @@ generate_event_types! {
   // =========================================================
   // DocumentAndElementEventHandlersEventMap
   // =========================================================
-  copy: Event, // ClipboardEvent is unstable
-  cut: Event, // ClipboardEvent is unstable
-  paste: Event, // ClipboardEvent is unstable
+  copy: ClipboardEvent,
+  cut: ClipboardEvent,
+  paste: ClipboardEvent,
 
   // =========================================================
   // DocumentEventMap
@@ -758,11 +758,11 @@ use super::{
 };
 #[doc(no_inline)]
 pub use web_sys::{
-    AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
-    DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,
-    FocusEvent, GamepadEvent, HashChangeEvent, InputEvent, KeyboardEvent,
-    MessageEvent, MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
-    ProgressEvent, PromiseRejectionEvent, SecurityPolicyViolationEvent,
-    StorageEvent, SubmitEvent, TouchEvent, TransitionEvent, UiEvent,
-    WheelEvent,
+    AnimationEvent, BeforeUnloadEvent, ClipboardEvent, CompositionEvent,
+    CustomEvent, DeviceMotionEvent, DeviceOrientationEvent, DragEvent,
+    ErrorEvent, Event, FocusEvent, GamepadEvent, HashChangeEvent, InputEvent,
+    KeyboardEvent, MessageEvent, MouseEvent, PageTransitionEvent, PointerEvent,
+    PopStateEvent, ProgressEvent, PromiseRejectionEvent,
+    SecurityPolicyViolationEvent, StorageEvent, SubmitEvent, TouchEvent,
+    TransitionEvent, UiEvent, WheelEvent,
 };
