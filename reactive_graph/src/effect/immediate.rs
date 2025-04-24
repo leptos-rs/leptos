@@ -369,7 +369,7 @@ mod inner {
         const MSG: &str = "ImmediateEffect recursed more than once.";
         match effect.defined_at() {
             Some(defined_at) => {
-                log_warning(format_args!("{MSG} Defined at: {}", defined_at));
+                log_warning(format_args!("{MSG} Defined at: {defined_at}"));
             }
             None => {
                 log_warning(format_args!("{MSG}"));

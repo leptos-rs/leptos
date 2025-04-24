@@ -443,7 +443,7 @@ where
             tracing::warn!("{}", msg);
 
             #[cfg(not(feature = "tracing"))]
-            eprintln!("{}", msg);
+            eprintln!("{msg}");
         }
     }
 

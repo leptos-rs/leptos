@@ -1185,7 +1185,7 @@ fn static_path(options: &LeptosOptions, path: &str) -> String {
     // If the path ends with a trailing slash, we generate the path
     // as a directory with a index.html file inside.
     if path != "/" && path.ends_with("/") {
-        static_file_path(options, &format!("{}index", path))
+        static_file_path(options, &format!("{path}index"))
     } else {
         static_file_path(options, path)
     }
