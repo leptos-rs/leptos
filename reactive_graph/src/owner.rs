@@ -303,7 +303,13 @@ impl Owner {
 
     /// Returns the current `Owner`, if any.
     pub fn current() -> Option<Owner> {
-        OWNER.with(|o| o.borrow().as_ref().and_then(|n| n.upgrade()))
+        OWNER.with(|o| {
+            if let Ok(borrowed) = o.try_borrow() {
+                borrowed.as_ref().and_then(|o| o.upgrade())
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns the [`SharedContext`] associated with this owner, if any.
