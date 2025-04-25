@@ -259,13 +259,13 @@ pub mod reqwest {
             let mut websocket_server_url = get_server_url().to_string();
             if let Some(postfix) = websocket_server_url.strip_prefix("http://")
             {
-                websocket_server_url = format!("ws://{}", postfix);
+                websocket_server_url = format!("ws://{postfix}");
             } else if let Some(postfix) =
                 websocket_server_url.strip_prefix("https://")
             {
-                websocket_server_url = format!("wss://{}", postfix);
+                websocket_server_url = format!("wss://{postfix}");
             }
-            let url = format!("{}{}", websocket_server_url, path);
+            let url = format!("{websocket_server_url}{path}");
             let (ws_stream, _) =
                 tokio_tungstenite::connect_async(url).await.map_err(|e| {
                     Error::from_server_fn_error(ServerFnErrorErr::Request(
