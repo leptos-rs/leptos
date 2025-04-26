@@ -181,10 +181,10 @@ impl<T: Debug> Debug for SendOption<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             Inner::Threadsafe(value) => {
-                write!(f, "SendOption::Threadsafe({:?})", value)
+                write!(f, "SendOption::Threadsafe({value:?})")
             }
             Inner::Local(value) => {
-                write!(f, "SendOption::Local({:?})", value)
+                write!(f, "SendOption::Local({value:?})")
             }
         }
     }
