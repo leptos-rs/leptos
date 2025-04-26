@@ -430,6 +430,11 @@ where
                         extra_attrs,
                     );
                 } else {
+                    // calling this will walk over the tree, removing all event listeners
+                    // and other single-threaded values from the view tree. this needs to be
+                    // done because the fallback can be shifted to another thread in push_async below.
+                    self.fallback.dry_resolve();
+
                     buf.push_async({
                         let mut position = *position;
                         async move {
