@@ -5,7 +5,7 @@ use pin_project_lite::pin_project;
 use std::{cell::RefCell, future::Future, sync::mpsc};
 
 thread_local! {
-    static TRANSITION: RefCell<Option<TransitionInner>> = RefCell::new(None);
+    static TRANSITION: RefCell<Option<TransitionInner>> = const { RefCell::new(None) };
 }
 
 /// A Drop guard is needed because drop is called even in case of a panic
