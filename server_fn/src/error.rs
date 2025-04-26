@@ -311,7 +311,7 @@ where
 
     fn decode(bytes: Bytes) -> Result<ServerFnError<CustErr>, Self::Error> {
         let data = String::from_utf8(bytes.to_vec())
-            .map_err(|err| format!("UTF-8 conversion error: {}", err))?;
+            .map_err(|err| format!("UTF-8 conversion error: {err}"))?;
 
         data.split_once('|')
             .ok_or_else(|| {
