@@ -1,4 +1,3 @@
-use super::find;
 use anyhow::{Ok, Result};
 use fantoccini::{Client, Locator};
 use pretty_assertions::assert_eq;
