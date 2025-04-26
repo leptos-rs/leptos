@@ -153,7 +153,7 @@ impl StreamBuilder {
             self.sync_buf.reserve(11 + (id.len() * 2));
             self.sync_buf.push_str("<!--s-");
             for piece in id {
-                write!(&mut self.sync_buf, "{}-", piece).unwrap();
+                write!(&mut self.sync_buf, "{piece}-").unwrap();
             }
             if opening {
                 self.sync_buf.push_str("o-->");
@@ -206,7 +206,7 @@ impl StreamBuilder {
                 let mut id = String::new();
                 if let Some(ids) = &subbuilder.id {
                     for piece in ids {
-                        write!(&mut id, "{}-", piece).unwrap();
+                        write!(&mut id, "{piece}-").unwrap();
                     }
                 }
                 if let Some(id) = subbuilder.id.as_mut() {
