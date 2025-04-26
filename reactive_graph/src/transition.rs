@@ -1,16 +1,53 @@
 //! Utilities to wait for asynchronous primitives to resolve.
 
 use futures::{channel::oneshot, future::join_all};
-use or_poisoned::OrPoisoned;
-use std::{
-    future::Future,
-    sync::{mpsc, OnceLock, RwLock},
-};
+use pin_project_lite::pin_project;
+use std::{cell::RefCell, future::Future, sync::mpsc};
 
-static TRANSITION: OnceLock<RwLock<Option<TransitionInner>>> = OnceLock::new();
+thread_local! {
+    static TRANSITION: RefCell<Option<TransitionInner>> = RefCell::new(None);
+}
 
-fn global_transition() -> &'static RwLock<Option<TransitionInner>> {
-    TRANSITION.get_or_init(|| RwLock::new(None))
+/// A Drop guard is needed because drop is called even in case of a panic
+struct TransitionGuard<'a>(&'a mut Option<TransitionInner>);
+impl<'a> TransitionGuard<'a> {
+    fn new(value: &'a mut Option<TransitionInner>) -> Self {
+        TRANSITION.with(|transaction| {
+            std::mem::swap(&mut *transaction.borrow_mut(), value)
+        });
+        Self(value)
+    }
+}
+impl Drop for TransitionGuard<'_> {
+    fn drop(&mut self) {
+        TRANSITION.with(|transaction| {
+            std::mem::swap(&mut *transaction.borrow_mut(), self.0)
+        });
+    }
+}
+
+// A future wrapper, to use in async functions
+pin_project! {
+    struct WithTransition<Fut>{
+        transition: Option<TransitionInner>,
+        #[pin]
+        inner: Fut
+    }
+}
+impl<Fut> Future for WithTransition<Fut>
+where
+    Fut: Future,
+{
+    type Output = <Fut as Future>::Output;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let this = self.project();
+        let _guard = TransitionGuard::new(this.transition);
+        this.inner.poll(cx)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -35,19 +72,16 @@ impl AsyncTransition {
         T: Future<Output = U>,
     {
         let (tx, rx) = mpsc::channel();
-        let global_transition = global_transition();
-        let inner = TransitionInner { tx };
-        let prev = Option::replace(
-            &mut *global_transition.write().or_poisoned(),
-            inner.clone(),
-        );
-        let value = action().await;
-        _ = std::mem::replace(
-            &mut *global_transition.write().or_poisoned(),
-            prev,
-        );
+        let transition = Some(TransitionInner { tx });
+        let value = WithTransition {
+            transition,
+            inner: action(),
+        }
+        .await;
+
         let mut pending = Vec::new();
-        while let Ok(tx) = rx.try_recv() {
+        // This should never block since all tx instances have been dropped
+        while let Ok(tx) = rx.recv() {
             pending.push(tx);
         }
         join_all(pending).await;
@@ -55,16 +89,13 @@ impl AsyncTransition {
     }
 
     pub(crate) fn register(rx: oneshot::Receiver<()>) {
-        if let Some(tx) = global_transition()
-            .read()
-            .or_poisoned()
-            .as_ref()
-            .map(|n| &n.tx)
-        {
-            // if it's an Err, that just means the Receiver was dropped
-            // i.e., the transition is no longer listening, in which case it doesn't matter if we
-            // successfully register with it or not
-            _ = tx.send(rx);
-        }
+        TRANSITION.with_borrow(|transition| {
+            if let Some(transition) = transition {
+                // if it's an Err, that just means the Receiver was dropped
+                // i.e., the transition is no longer listening, in which case it doesn't matter if we
+                // successfully register with it or not
+                _ = transition.tx.send(rx);
+            }
+        })
     }
 }
