@@ -1282,7 +1282,7 @@ fn prop_to_doc(
 
 pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
     Ident::new(
-        &format!("__leptos_component_{}", ident.to_string().to_case(Snake)),
+        &format!("__component_{}", ident.to_string().to_case(Snake)),
         ident.span(),
     )
 }
