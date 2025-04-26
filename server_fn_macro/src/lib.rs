@@ -1119,7 +1119,7 @@ impl Parse for ServerFnBody {
 impl ServerFnBody {
     fn to_dummy_ident(&self) -> Ident {
         Ident::new(
-            &format!("__leptos_server_{}", self.ident),
+            &format!("__server_{}", self.ident),
             self.ident.span(),
         )
     }
