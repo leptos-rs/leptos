@@ -472,9 +472,8 @@ fn handle_uninitialized_spawn(_fut: PinnedFuture<()>) {
     #[cfg(all(debug_assertions, not(feature = "tracing")))]
     {
         panic!(
-            "At {}, tried to spawn a Future with Executor::spawn() before a \
-             global executor was initialized.",
-            caller
+            "At {caller}, tried to spawn a Future with Executor::spawn() before a \
+             global executor was initialized."
         );
     }
     // In release builds (without tracing), call the specific no-op function.
@@ -503,9 +502,8 @@ fn handle_uninitialized_spawn_local(_fut: PinnedLocalFuture<()>) {
     #[cfg(all(debug_assertions, not(feature = "tracing")))]
     {
         panic!(
-            "At {}, tried to spawn a Future with Executor::spawn_local() \
-             before a global executor was initialized.",
-            caller
+            "At {caller}, tried to spawn a Future with Executor::spawn_local() \
+             before a global executor was initialized."
         );
     }
     // In release builds (without tracing), call the specific no-op function (which usually panics).

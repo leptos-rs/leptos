@@ -121,7 +121,7 @@ pub fn log_warning(text: Arguments) {
         not(all(target_arch = "wasm32", target_os = "unknown"))
     ))]
     {
-        eprintln!("{}", text);
+        eprintln!("{text}");
     }
 }
 

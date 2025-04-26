@@ -403,7 +403,7 @@ fn variant_to_tokens(
                     let field_ident = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
-                        &format!("{}_{}", ident, field_ident),
+                        &format!("{ident}_{field_ident}"),
                         field_ident.span(),
                     );
 
@@ -481,7 +481,7 @@ fn variant_to_tokens(
                     let field_ident = idx;
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
-                        &format!("{}_{}", ident, field_ident),
+                        &format!("{ident}_{field_ident}"),
                         ident.span(),
                     );
 
