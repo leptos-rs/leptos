@@ -1945,6 +1945,13 @@ dependencies = [
 name = "leptos_macro"
 version = "0.8.0-rc3"
 dependencies = [
+ "leptos_macro_core",
+]
+
+[[package]]
+name = "leptos_macro_core"
+version = "0.8.0-rc3"
+dependencies = [
  "attribute-derive",
  "cfg-if",
  "convert_case 0.8.0",

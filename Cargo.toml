@@ -1,41 +1,42 @@
 [workspace]
 resolver = "2"
 members = [
-  # utilities
-  "oco",
-  "any_spawner",
-  "const_str_slice_concat",
-  "either_of",
-  "next_tuple",
-  "oco",
-  "or_poisoned",
+    # utilities
+    "oco",
+    "any_spawner",
+    "const_str_slice_concat",
+    "either_of",
+    "next_tuple",
+    "oco",
+    "or_poisoned",
 
-  # core
-  "hydration_context",
-  "leptos",
-  "leptos_dom",
-  "leptos_config",
-  "leptos_hot_reload",
-  "leptos_macro",
-  "leptos_server",
-  "reactive_graph",
-  "reactive_stores",
-  "reactive_stores_macro",
-  "server_fn",
-  "server_fn_macro",
-  "server_fn/server_fn_macro_default",
-  "tachys",
+    # core
+    "hydration_context",
+    "leptos",
+    "leptos_dom",
+    "leptos_config",
+    "leptos_hot_reload",
+    "leptos_macro",
+    "leptos_macro/leptos_macro_core",
+    "leptos_server",
+    "reactive_graph",
+    "reactive_stores",
+    "reactive_stores_macro",
+    "server_fn",
+    "server_fn_macro",
+    "server_fn/server_fn_macro_default",
+    "tachys",
 
-  # integrations
-  "integrations/actix",
-  "integrations/axum",
-  "integrations/utils",
+    # integrations
+    "integrations/actix",
+    "integrations/axum",
+    "integrations/utils",
 
-  # libraries
-  "meta",
-  "router",
-  "router_macro",
-  "any_error",
+    # libraries
+    "meta",
+    "router",
+    "router_macro",
+    "any_error",
 ]
 exclude = ["benchmarks", "examples", "projects"]
 
@@ -58,6 +59,7 @@ leptos_dom = { path = "./leptos_dom", version = "0.8.0-rc3" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.0-rc3" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.8.0-rc3" }
 leptos_macro = { path = "./leptos_macro", version = "0.8.0-rc3" }
+leptos_macro_core = { path = "./leptos_macro/leptos_macro_core", version = "0.8.0-rc3" }
 leptos_router = { path = "./router", version = "0.8.0-rc3" }
 leptos_router_macro = { path = "./router_macro", version = "0.8.0-rc3" }
 leptos_server = { path = "./leptos_server", version = "0.8.0-rc3" }
@@ -90,6 +92,6 @@ max_combination_size = 2
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(leptos_debuginfo)',
-  'cfg(erase_components)',
+    'cfg(leptos_debuginfo)',
+    'cfg(erase_components)',
 ] }
