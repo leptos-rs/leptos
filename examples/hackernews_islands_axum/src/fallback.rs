@@ -29,12 +29,14 @@ pub async fn file_and_error_handler(
     let static_result = get_static_file(uri.clone(), accept_encoding).await;
 
     match static_result {
-        Ok(res) => if res.status() == StatusCode::OK {
-            res.into_response()
-         } else {
-            (StatusCode::NOT_FOUND, "Not found.").into_response()
-        },
-        Err(e) => e.into_response()
+        Ok(res) => {
+            if res.status() == StatusCode::OK {
+                res.into_response()
+            } else {
+                (StatusCode::NOT_FOUND, "Not found.").into_response()
+            }
+        }
+        Err(e) => e.into_response(),
     }
 }
 
