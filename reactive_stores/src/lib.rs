@@ -759,7 +759,7 @@ where
 {
     fn from(value: ArcStore<T>) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: value.defined_at,
             inner: ArenaItem::new_with_storage(value),
         }
