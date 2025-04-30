@@ -310,6 +310,26 @@ pub fn ItemEditor(
         <li>
             <input
                 class="item"
+                type="checkbox"
+                prop:value=item.completed()
+                id=move || item.id().read().to_string()
+                on:change:target=move |ev| {
+                    client.update(Message::MarkComplete {
+                        id: item.id().get(),
+                        completed: ev.target().checked()
+                    });
+                }
+            />
+            <label
+                class="item"
+                class:hidden=move || editing.get()
+                class:completed=item.completed()
+                for=move || item.id().read().to_string()
+            >
+                {item.label()}
+            </label>
+            <input
+                class="item"
                 type="text"
                 prop:value=item.label()
                 on:change:target=move |ev| {
@@ -321,12 +341,6 @@ pub fn ItemEditor(
                 }
                 class:hidden=move || !editing.get()
             />
-            <span
-                class="item"
-                class:hidden=move || editing.get()
-            >
-                {item.label()}
-            </span>
             <button
                 class:hidden=move || editing.get()
                 on:click=move |_| editing.set(true)

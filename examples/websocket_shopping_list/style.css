@@ -27,6 +27,10 @@ li {
 	width: 100%;
 }
 
-span.item {
+.item {
 	cursor: pointer;
+}
+
+.completed {
+	text-decoration: line-through;
 }
