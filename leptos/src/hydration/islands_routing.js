@@ -180,6 +180,7 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 	while (oldDocWalker.nextNode() && newDocWalker.nextNode()) {
 		oldNode = oldDocWalker.currentNode;
 		newNode = newDocWalker.currentNode;
+		console.log("in loop", oldNode, newNode);
 
 		if (oldNode == oldEnd || newNode == newEnd) {
 			break;

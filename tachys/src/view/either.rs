@@ -308,7 +308,7 @@ where
     ) {
         match self {
             Either::Left(left) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("0");
                 }
                 left.to_html_with_buf(
@@ -318,12 +318,12 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("0");
                 }
             }
             Either::Right(right) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("1");
                 }
                 right.to_html_with_buf(
@@ -333,7 +333,7 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("1");
                 }
             }
@@ -352,7 +352,7 @@ where
     {
         match self {
             Either::Left(left) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("0");
                 }
                 left.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -362,12 +362,12 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("0");
                 }
             }
             Either::Right(right) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("1");
                 }
                 right.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -377,7 +377,7 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("1");
                 }
             }
@@ -849,11 +849,11 @@ macro_rules! tuples {
                 ) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.open_branch(stringify!($ty));
                             }
                             this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
                             }
                         })*
@@ -872,11 +872,11 @@ macro_rules! tuples {
                 {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.open_branch(stringify!($ty));
                             }
                             this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
                             }
                         })*

@@ -252,12 +252,12 @@ where
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch("for");
         }
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            if mark_branches {
+            if mark_branches && escape {
                 buf.open_branch("item");
             }
             item.to_html_with_buf(
@@ -267,12 +267,12 @@ where
                 mark_branches,
                 extra_attrs.clone(),
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch("item");
             }
             *position = Position::NextChild;
         }
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch("for");
         }
         buf.push_str("<!>");
@@ -286,7 +286,7 @@ where
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch("for");
         }
         for (index, item) in self.items.into_iter().enumerate() {
@@ -296,7 +296,7 @@ where
                 format!("item-{key}")
             });
             let (_, item) = (self.view_fn)(index, item);
-            if mark_branches {
+            if mark_branches && escape {
                 buf.open_branch(branch_name.as_ref().unwrap());
             }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -306,12 +306,12 @@ where
                 mark_branches,
                 extra_attrs.clone(),
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch(branch_name.as_ref().unwrap());
             }
             *position = Position::NextChild;
         }
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch("for");
         }
         buf.push_sync("<!>");
