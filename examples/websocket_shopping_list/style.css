@@ -1,0 +1,32 @@
+.hidden {
+	display: none;
+}
+
+h1 {
+	text-align: center;
+}
+
+form.add {
+	display: flex;
+	justify-content: center;
+}
+
+form.add > * {
+	margin: 1rem;
+}
+
+li {
+	display: flex;
+	justify-content: space-between;
+	list-style-type: none;
+	margin: 1rem;
+	padding: 0;
+}
+
+.item {
+	width: 100%;
+}
+
+span.item {
+	cursor: pointer;
+}
