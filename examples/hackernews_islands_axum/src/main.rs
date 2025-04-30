@@ -1,6 +1,7 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
+    use axum::routing::get;
     pub use axum::Router;
     use hackernews_islands::*;
     pub use leptos::config::get_configuration;
@@ -25,6 +26,7 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
+        .route("/favicon.ico", get(fallback::file_and_error_handler))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

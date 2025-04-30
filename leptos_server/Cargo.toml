@@ -1,8 +1,6 @@
 [package]
 name = "leptos_server"
-# TODO revert to { workspace = true } before 0.8.0 release
-# this is a hack because I missing bumping the hydration_context version number before publishing
-version = "0.8.0-rc2"
+version = { workspace = true }
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"

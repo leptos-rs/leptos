@@ -343,7 +343,7 @@ where
 
         Self {
             spare_keys: Vec::new(),
-            current_key: 0,
+            current_key: keys.len().saturating_sub(1),
             keys,
         }
     }

@@ -1,27 +1,22 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{routing::get, Router};
-    use hackernews_axum::{shell, App};
-    use leptos::config::get_configuration;
+    use axum::Router;
+    use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
+    use websocket::websocket::{shell, App};
 
-    let conf = get_configuration(Some("Cargo.toml")).unwrap();
+    simple_logger::init_with_level(log::Level::Error)
+        .expect("couldn't initialize logging");
+
+    // Setting this to None means we'll be using cargo-leptos and its env vars
+    let conf = get_configuration(None).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
     // build our application with a route
     let app = Router::new()
-        .route(
-            "/favicon.ico",
-            get(|| async {
-                (
-                    [("content-type", "image/x-icon")],
-                    include_bytes!("../public/favicon.ico"),
-                )
-            }),
-        )
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
@@ -31,17 +26,17 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    println!("listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    println!("listening on http://{}", &addr);
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }
 
-// client-only stuff for Trunk
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
-    use hackernews_axum::*;
+    use leptos::mount::mount_to_body;
+    use websocket::websocket::App;
 
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
