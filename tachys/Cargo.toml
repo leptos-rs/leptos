@@ -186,6 +186,7 @@ reactive_graph = ["dep:reactive_graph", "dep:any_spawner"]
 reactive_stores = ["reactive_graph", "dep:reactive_stores"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
+mark_branches = []
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]

@@ -389,14 +389,21 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        match self {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+        let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
+        };
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
         }
+        state
     }
 
     fn into_owned(self) -> Self::Owned {
@@ -888,11 +895,17 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
 
                     Self::State { state }
                 }

@@ -498,13 +498,23 @@ impl RenderHtml for AnyView {
         position: &PositionState,
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
-        if FROM_SERVER {
-            (self.hydrate_from_server)(self.value, cursor, position)
-        } else {
-            panic!(
-                "hydrating AnyView from inside a ViewTemplate is not \
-                 supported."
-            );
+        {
+            if FROM_SERVER {
+                if cfg!(feature = "mark_branches") {
+                    cursor.advance_to_placeholder(position);
+                }
+                let state =
+                    (self.hydrate_from_server)(self.value, cursor, position);
+                if cfg!(feature = "mark_branches") {
+                    cursor.advance_to_placeholder(position);
+                }
+                state
+            } else {
+                panic!(
+                    "hydrating AnyView from inside a ViewTemplate is not \
+                     supported."
+                );
+            }
         }
         #[cfg(not(feature = "hydrate"))]
         {
