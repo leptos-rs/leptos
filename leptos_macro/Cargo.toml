@@ -13,6 +13,8 @@ proc-macro = true
 
 [dependencies]
 leptos_macro_core.workspace = true
+proc-macro-error2 = "2.0.1"
+proc-macro2 = "1.0.95"
 
 [features]
 csr = ["leptos_macro_core/csr"]
