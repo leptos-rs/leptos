@@ -1,15 +1,14 @@
 use convert_case::{Case, Casing};
-use proc_macro::TokenStream;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use proc_macro_error2::abort;
 use quote::quote;
 use syn::{spanned::Spanned, ItemFn};
 
 pub fn lazy_impl(
-    _args: proc_macro::TokenStream,
+    _args: proc_macro2::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    let fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
+    let fun = syn::parse2::<ItemFn>(s).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy` can only be used on a function")
     });
     if fun.sig.asyncness.is_none() {
