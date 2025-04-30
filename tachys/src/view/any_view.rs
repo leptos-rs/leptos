@@ -436,6 +436,12 @@ impl RenderHtml for AnyView {
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
+            let type_id = mark_branches
+                .then(|| format!("{:?}", self.type_id))
+                .unwrap_or_default();
+            if mark_branches {
+                buf.open_branch(&type_id);
+            }
             (self.to_html_async_ooo)(
                 self.value,
                 buf,
@@ -444,6 +450,9 @@ impl RenderHtml for AnyView {
                 mark_branches,
                 extra_attrs,
             );
+            if mark_branches {
+                buf.close_branch(&type_id);
+            }
         } else {
             let type_id = mark_branches
                 .then(|| format!("{:?}", self.type_id))
