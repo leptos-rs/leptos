@@ -7,6 +7,9 @@ use leptos::{
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
 ///
+/// Note that this does *not* work with the `cargo-leptos` `hash-files` feature: if you are using file
+/// hashing, you should use [`HashedStylesheet`](crate::HashedStylesheet).
+///
 /// ```
 /// use leptos::prelude::*;
 /// use leptos_meta::*;
