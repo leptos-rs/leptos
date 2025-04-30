@@ -308,7 +308,7 @@ where
     ) {
         match self {
             Either::Left(left) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("0");
                 }
                 left.to_html_with_buf(
@@ -318,12 +318,12 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("0");
                 }
             }
             Either::Right(right) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("1");
                 }
                 right.to_html_with_buf(
@@ -333,7 +333,7 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("1");
                 }
             }
@@ -352,7 +352,7 @@ where
     {
         match self {
             Either::Left(left) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("0");
                 }
                 left.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -362,12 +362,12 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("0");
                 }
             }
             Either::Right(right) => {
-                if mark_branches {
+                if mark_branches && escape {
                     buf.open_branch("1");
                 }
                 right.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -377,7 +377,7 @@ where
                     mark_branches,
                     extra_attrs,
                 );
-                if mark_branches {
+                if mark_branches && escape {
                     buf.close_branch("1");
                 }
             }
@@ -389,14 +389,21 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        match self {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+        let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
+        };
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
         }
+        state
     }
 
     fn into_owned(self) -> Self::Owned {
@@ -849,11 +856,11 @@ macro_rules! tuples {
                 ) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.open_branch(stringify!($ty));
                             }
                             this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
                             }
                         })*
@@ -872,11 +879,11 @@ macro_rules! tuples {
                 {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.open_branch(stringify!($ty));
                             }
                             this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches {
+                            if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
                             }
                         })*
@@ -888,11 +895,17 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
 
                     Self::State { state }
                 }

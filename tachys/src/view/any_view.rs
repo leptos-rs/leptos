@@ -392,10 +392,12 @@ impl RenderHtml for AnyView {
     ) {
         #[cfg(feature = "ssr")]
         {
-            let type_id = mark_branches
-                .then(|| format!("{:?}", self.type_id))
-                .unwrap_or_default();
-            if mark_branches {
+            let type_id = if mark_branches && escape {
+                format!("{:?}", self.type_id)
+            } else {
+                Default::default()
+            };
+            if mark_branches && escape {
                 buf.open_branch(&type_id);
             }
             (self.to_html)(
@@ -406,7 +408,7 @@ impl RenderHtml for AnyView {
                 mark_branches,
                 extra_attrs,
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch(&type_id);
             }
         }
@@ -436,6 +438,14 @@ impl RenderHtml for AnyView {
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
+            let type_id = if mark_branches && escape {
+                format!("{:?}", self.type_id)
+            } else {
+                Default::default()
+            };
+            if mark_branches && escape {
+                buf.open_branch(&type_id);
+            }
             (self.to_html_async_ooo)(
                 self.value,
                 buf,
@@ -444,11 +454,16 @@ impl RenderHtml for AnyView {
                 mark_branches,
                 extra_attrs,
             );
+            if mark_branches && escape {
+                buf.close_branch(&type_id);
+            }
         } else {
-            let type_id = mark_branches
-                .then(|| format!("{:?}", self.type_id))
-                .unwrap_or_default();
-            if mark_branches {
+            let type_id = if mark_branches && escape {
+                format!("{:?}", self.type_id)
+            } else {
+                Default::default()
+            };
+            if mark_branches && escape {
                 buf.open_branch(&type_id);
             }
             (self.to_html_async)(
@@ -459,7 +474,7 @@ impl RenderHtml for AnyView {
                 mark_branches,
                 extra_attrs,
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch(&type_id);
             }
         }
@@ -483,13 +498,23 @@ impl RenderHtml for AnyView {
         position: &PositionState,
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
-        if FROM_SERVER {
-            (self.hydrate_from_server)(self.value, cursor, position)
-        } else {
-            panic!(
-                "hydrating AnyView from inside a ViewTemplate is not \
-                 supported."
-            );
+        {
+            if FROM_SERVER {
+                if cfg!(feature = "mark_branches") {
+                    cursor.advance_to_placeholder(position);
+                }
+                let state =
+                    (self.hydrate_from_server)(self.value, cursor, position);
+                if cfg!(feature = "mark_branches") {
+                    cursor.advance_to_placeholder(position);
+                }
+                state
+            } else {
+                panic!(
+                    "hydrating AnyView from inside a ViewTemplate is not \
+                     supported."
+                );
+            }
         }
         #[cfg(not(feature = "hydrate"))]
         {

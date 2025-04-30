@@ -107,21 +107,19 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
-    use_context::<IslandsRouterNavigation>().is_none().then(|| {
-        view! {
-            <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
-            <link
-                rel="preload"
-                href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
-                r#as="fetch"
-                r#type="application/wasm"
-                crossorigin=nonce.clone().unwrap_or_default()
-            />
-            <script type="module" nonce=nonce>
-                {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
-            </script>
-        }
-    })
+    view! {
+        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
+        <link
+            rel="preload"
+            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
+            r#as="fetch"
+            r#type="application/wasm"
+            crossorigin=nonce.clone().unwrap_or_default()
+        />
+        <script type="module" nonce=nonce>
+            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
+        </script>
+    }
 }
 
 /// If this is provided via context, it means that you are using the islands router and

@@ -252,12 +252,12 @@ where
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch("for");
         }
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            if mark_branches {
+            if mark_branches && escape {
                 buf.open_branch("item");
             }
             item.to_html_with_buf(
@@ -267,12 +267,12 @@ where
                 mark_branches,
                 extra_attrs.clone(),
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch("item");
             }
             *position = Position::NextChild;
         }
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch("for");
         }
         buf.push_str("<!>");
@@ -286,7 +286,7 @@ where
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch("for");
         }
         for (index, item) in self.items.into_iter().enumerate() {
@@ -296,7 +296,7 @@ where
                 format!("item-{key}")
             });
             let (_, item) = (self.view_fn)(index, item);
-            if mark_branches {
+            if mark_branches && escape {
                 buf.open_branch(branch_name.as_ref().unwrap());
             }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -306,12 +306,12 @@ where
                 mark_branches,
                 extra_attrs.clone(),
             );
-            if mark_branches {
+            if mark_branches && escape {
                 buf.close_branch(branch_name.as_ref().unwrap());
             }
             *position = Position::NextChild;
         }
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch("for");
         }
         buf.push_sync("<!>");
@@ -322,6 +322,10 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
         // get parent and position
         let current = cursor.current();
         let parent = if position.get() == Position::FirstChild {
@@ -342,11 +346,22 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
+
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
         KeyedState {
             parent: Some(parent),
             marker,

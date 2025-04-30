@@ -99,6 +99,7 @@ trace-component-props = [
   "leptos_dom/trace-component-props",
 ]
 delegation = ["tachys/delegation"]
+islands-router = ["tachys/mark_branches"]
 
 [build-dependencies]
 rustc_version = "0.4.1"

@@ -418,7 +418,7 @@ impl RenderHtml for MatchedRoute {
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch(&self.0);
         }
         self.1.to_html_with_buf(
@@ -428,7 +428,7 @@ impl RenderHtml for MatchedRoute {
             mark_branches,
             extra_attrs,
         );
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch(&self.0);
         }
     }
@@ -443,7 +443,7 @@ impl RenderHtml for MatchedRoute {
     ) where
         Self: Sized,
     {
-        if mark_branches {
+        if mark_branches && escape {
             buf.open_branch(&self.0);
         }
         self.1.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -453,7 +453,7 @@ impl RenderHtml for MatchedRoute {
             mark_branches,
             extra_attrs,
         );
-        if mark_branches {
+        if mark_branches && escape {
             buf.close_branch(&self.0);
         }
     }
