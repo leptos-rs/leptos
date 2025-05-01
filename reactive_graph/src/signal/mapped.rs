@@ -26,7 +26,7 @@ use std::{
 /// to more complex data structures. Instead, it allows you to provide a signal-like API for wrapped types
 /// without exposing the original type directly to users.
 pub struct ArcMappedSignal<T> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     #[allow(clippy::type_complexity)]
     try_read_untracked: Arc<
@@ -44,7 +44,7 @@ pub struct ArcMappedSignal<T> {
 impl<T> Clone for ArcMappedSignal<T> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
             try_read_untracked: self.try_read_untracked.clone(),
             try_write: self.try_write.clone(),
@@ -67,7 +67,7 @@ impl<T> ArcMappedSignal<T> {
         U: Send + Sync + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             try_read_untracked: {
                 let this = inner.clone();
@@ -110,7 +110,7 @@ impl<T> ArcMappedSignal<T> {
 impl<T> Debug for ArcMappedSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut partial = f.debug_struct("ArcMappedSignal");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         partial.field("defined_at", &self.defined_at);
         partial.finish()
     }
@@ -118,11 +118,11 @@ impl<T> Debug for ArcMappedSignal<T> {
 
 impl<T> DefinedAt for ArcMappedSignal<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -228,7 +228,7 @@ where
 /// to more complex data structures. Instead, it allows you to provide a signal-like API for wrapped types
 /// without exposing the original type directly to users.
 pub struct MappedSignal<T, S = SyncStorage> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcMappedSignal<T>, S>,
 }
@@ -246,7 +246,7 @@ impl<T> MappedSignal<T> {
         U: Send + Sync + 'static,
     {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: {
                 let this = ArcRwSignal::from(inner);
@@ -269,7 +269,7 @@ impl<T> Clone for MappedSignal<T> {
 impl<T> Debug for MappedSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut partial = f.debug_struct("MappedSignal");
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         partial.field("defined_at", &self.defined_at);
         partial.finish()
     }
@@ -277,11 +277,11 @@ impl<T> Debug for MappedSignal<T> {
 
 impl<T> DefinedAt for MappedSignal<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
             Some(self.defined_at)
         }
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             None
         }
@@ -352,7 +352,7 @@ where
     #[track_caller]
     fn from(value: ArcMappedSignal<T>) -> Self {
         MappedSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: StoredValue::new(value),
         }

@@ -118,7 +118,7 @@ where
     #[track_caller]
     fn from(value: ArcWriteSignal<T>) -> Self {
         WriteSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
@@ -132,7 +132,7 @@ where
     #[track_caller]
     fn from_local(value: ArcWriteSignal<T>) -> Self {
         WriteSignal {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             inner: ArenaItem::new_with_storage(value),
         }
