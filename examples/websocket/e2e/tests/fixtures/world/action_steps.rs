@@ -14,7 +14,7 @@ async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
 #[given(regex = "^I add a text as (.*)$")]
 async fn i_add_a_text(world: &mut AppWorld, text: String) -> Result<()> {
     let client = &world.client;
-    action::add_text(client, text.as_str()).await?;
+    action::fill_input(client, text.as_str()).await?;
 
     Ok(())
 }

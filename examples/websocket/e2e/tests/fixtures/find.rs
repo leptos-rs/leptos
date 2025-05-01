@@ -9,13 +9,3 @@ pub async fn input(client: &Client) -> Element {
 
     textbox
 }
-
-pub async fn label(client: &Client) -> Element {
-    let label = client
-        .wait()
-        .for_element(Locator::Css("p"))
-        .await
-        .expect("");
-
-    label
-}
