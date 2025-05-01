@@ -28,6 +28,8 @@
 					for(const child of node.children) {
 						traverse(child);
 					};
+					// un-set the "most recent children"
+					MOST_RECENT_CHILDREN_CB = undefined;
 				}
 			}
 		}
