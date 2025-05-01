@@ -358,6 +358,7 @@ where
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
+        position.set(Position::NextChild);
 
         if let Some(on_hydrate) = self.on_hydrate {
             use crate::{
