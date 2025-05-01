@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.0-rc3"
+version = "0.2.0"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
