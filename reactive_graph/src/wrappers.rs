@@ -11,7 +11,8 @@ pub mod read {
         },
         signal::{
             guards::{Mapped, Plain, ReadGuard},
-            ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal,
+            ArcMappedSignal, ArcReadSignal, ArcRwSignal, MappedSignal,
+            ReadSignal, RwSignal,
         },
         traits::{
             DefinedAt, Dispose, Get, Read, ReadUntracked, ReadValue, Track,
@@ -807,6 +808,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<MappedSignal<T>> for Signal<T>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MappedSignal<T>) -> Self {
+            Self::derive(move || value.get())
+        }
+    }
+
     impl<T> From<RwSignal<T, LocalStorage>> for Signal<T, LocalStorage>
     where
         T: 'static,
@@ -836,6 +847,16 @@ pub mod read {
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
+        }
+    }
+
+    impl<T> From<ArcMappedSignal<T>> for Signal<T>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcMappedSignal<T>) -> Self {
+            MappedSignal::from(value).into()
         }
     }
 
