@@ -223,10 +223,20 @@ impl StreamBuilder {
                     );
                 }
                 let chunks = subbuilder.finish().take_chunks();
+                let mut flattened_chunks =
+                    VecDeque::with_capacity(chunks.len());
+                for chunk in chunks {
+                    // this will wait for any ErrorBoundary async nodes and flatten them out
+                    if let StreamChunk::Async { chunks } = chunk {
+                        flattened_chunks.extend(chunks.await);
+                    } else {
+                        flattened_chunks.push_back(chunk);
+                    }
+                }
 
                 OooChunk {
                     id,
-                    chunks,
+                    chunks: flattened_chunks,
                     replace,
                     nonce,
                 }
