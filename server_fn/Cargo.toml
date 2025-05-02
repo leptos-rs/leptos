@@ -16,7 +16,7 @@ server_fn_macro_default = { workspace = true }
 const_format = "0.2.33"
 const-str = "0.6.2"
 xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
-rustversion = { workspace = true}
+rustversion = { workspace = true }
 # used across multiple features
 serde = { version = "1.0", features = ["derive"] }
 send_wrapper = { version = "0.6.0", features = ["futures"], optional = true }
@@ -81,6 +81,9 @@ tokio-tungstenite = { version = "0.26.2", optional = true }
 url = "2"
 pin-project-lite = "0.2.15"
 tokio = { version = "1.43.0", features = ["rt"], optional = true }
+
+[build-dependencies]
+rustc_version = "0.4.1"
 
 [dev-dependencies]
 trybuild = { workspace = true }
@@ -238,4 +241,7 @@ skip_feature_sets = [
 max_combination_size = 2
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(leptos_debuginfo)',
+  'cfg(rustc_nightly)',
+] }

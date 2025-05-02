@@ -3,6 +3,7 @@
 // multiple combinations of features are tested. This ensures this file is only
 // run when **only** the browser feature is enabled.
 #![cfg(all(
+    rustc_nightly,
     feature = "browser",
     not(any(
         feature = "postcard",
