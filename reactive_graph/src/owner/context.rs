@@ -236,11 +236,11 @@ pub fn provide_context<T: Send + Sync + 'static>(value: T) {
 ///
 ///     Effect::new(move |_| {
 ///         // each use_context clones the value
-///         let value =
-///             use_context::<String>().expect("could not find String in context");
+///         let value = use_context::<String>()
+///             .expect("could not find String in context");
 ///         assert_eq!(value, "foo");
-///         let value2 =
-///             use_context::<String>().expect("could not find String in context");
+///         let value2 = use_context::<String>()
+///             .expect("could not find String in context");
 ///         assert_eq!(value2, "foo");
 ///     });
 /// });
@@ -284,11 +284,11 @@ pub fn use_context<T: Clone + 'static>() -> Option<T> {
 ///
 ///     Effect::new(move |_| {
 ///         // each use_context clones the value
-///         let value =
-///             use_context::<String>().expect("could not find String in context");
+///         let value = use_context::<String>()
+///             .expect("could not find String in context");
 ///         assert_eq!(value, "foo");
-///         let value2 =
-///             use_context::<String>().expect("could not find String in context");
+///         let value2 = use_context::<String>()
+///             .expect("could not find String in context");
 ///         assert_eq!(value2, "foo");
 ///     });
 /// });
