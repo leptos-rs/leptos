@@ -26,5 +26,5 @@ jobs:
         run: cargo binstall wasm-bindgen-cli --no-confirm
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --locked --no-confirm
-      - name: Confirm counter_isomorphic builds in both hydrate and csr with leptos_debuginfo enabled
+      - name: Confirm counter_isomorphic builds in both hydrate and ssr with leptos_debuginfo enabled
         run: cd examples/counter_isomorphic && cargo leptos build --release --lib-cargo-args=--config='build.rustflags=["--cfg", "leptos_debuginfo"]' --bin-cargo-args=--config='build.rustflags=["--cfg", "leptos_debuginfo"]'
