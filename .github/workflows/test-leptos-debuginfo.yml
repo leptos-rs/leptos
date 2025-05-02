@@ -1,0 +1,30 @@
+name: Test --cfg leptos_debuginfo
+on:
+  workflow_call:
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  DEBIAN_FRONTEND: noninteractive
+jobs:
+  test:
+    name: "Run (${{ matrix.toolchain }})"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, nightly-2025-03-05]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
+      - name: Install binstall
+        uses: cargo-bins/cargo-binstall@main
+      - name: Install wasm-bindgen
+        run: cargo binstall wasm-bindgen-cli --no-confirm
+      - name: Install cargo-leptos
+        run: cargo binstall cargo-leptos --locked --no-confirm
+      - name: Confirm counter_isomorphic builds in both hydrate and csr with leptos_debuginfo enabled
+        run: cd examples/counter_isomorphic && cargo leptos build --release --lib-cargo-args=--config='build.rustflags=["--cfg", "leptos_debuginfo"]' --bin-cargo-args=--config='build.rustflags=["--cfg", "leptos_debuginfo"]'

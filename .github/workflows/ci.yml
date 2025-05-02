@@ -52,6 +52,11 @@ jobs:
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
+  test-leptos-debuginfo:
+    name: Test leptos_debuginfo
+    needs: [get-leptos-changed]
+    if: ${{ success() && needs.get-leptos-changed.outputs.leptos_changed == 'true' }}
+    uses: ./.github/workflows/test-leptos-debuginfo.yml
   semver-check:
     name: SemVer check (stable)
     needs: [get-leptos-changed, test-members, test-examples]

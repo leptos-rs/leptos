@@ -17,6 +17,9 @@ new_key_type! {
     pub struct NodeId;
 }
 
+#[cfg(leptos_debuginfo)]
+compile_error!("Temporary CI check");
+
 pub struct Arena;
 
 pub type ArenaMap = SlotMap<NodeId, Box<dyn Any + Send + Sync>>;
