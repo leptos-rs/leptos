@@ -608,6 +608,14 @@ where
     }
 }
 
+impl<T, S> PartialEq for Store<T, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T, S> Eq for Store<T, S> {}
+
 impl<T> Store<T, LocalStorage>
 where
     T: 'static,
