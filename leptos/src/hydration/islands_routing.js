@@ -198,6 +198,15 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 		else if (oldNode.nodeType === Node.TEXT_NODE) {
 			oldNode.textContent = newNode.textContent;
 		}
+		// islands should not be diffed on the client, because we do not want to overwrite client-side state 
+		// but their children should be diffed still, because they could contain new server content
+		else if (oldNode.nodeType === Node.ELEMENT_NODE && oldNode.tagName === "LEPTOS-ISLAND") {
+			// TODO: diff the leptos-children 
+
+			// skip over leptos-island otherwise
+			oldDocWalker.nextSibling();
+			newDocWalker.nextSibling();
+		}
 		// if it's an element, replace if it's a different tag, or update attributes
 		else if (oldNode.nodeType === Node.ELEMENT_NODE) {
 			diffElement(oldNode, newNode);
