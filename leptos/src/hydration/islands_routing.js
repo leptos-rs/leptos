@@ -17,6 +17,10 @@ window.addEventListener("popstate", async (ev) => {
 });
 
 window.addEventListener("submit", async (ev) => {
+	if (ev.defaultPrevented) {
+		return;
+	}
+		
 	const req = submitToReq(ev);
 	if(!req) {
 		return;
