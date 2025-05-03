@@ -435,7 +435,7 @@ where
     T: Mountable,
 {
     states: Vec<T>,
-    parent: Option<crate::renderer::types::Element>,
+    marker: crate::renderer::types::Placeholder,
 }
 
 impl<T> Mountable for StaticVecState<T>
@@ -443,7 +443,10 @@ where
     T: Mountable,
 {
     fn unmount(&mut self) {
-        self.states.iter_mut().for_each(Mountable::unmount);
+        for state in self.states.iter_mut() {
+            state.unmount();
+        }
+        self.marker.unmount();
     }
 
     fn mount(
@@ -454,7 +457,7 @@ where
         for state in self.states.iter_mut() {
             state.mount(parent, marker);
         }
-        self.parent = Some(parent.clone());
+        self.marker.mount(parent, marker);
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
@@ -463,7 +466,7 @@ where
                 return true;
             }
         }
-        false
+        self.marker.insert_before_this(child)
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {
@@ -481,27 +484,52 @@ where
     type State = StaticVecState<T::State>;
 
     fn build(self) -> Self::State {
+        let marker = Rndr::create_placeholder();
         Self::State {
             states: self.0.into_iter().map(T::build).collect(),
-            parent: None,
+            marker,
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let Self::State { states, .. } = state;
+        let StaticVecState { states, marker } = state;
+        let old = states;
 
-        // StaticVec's in general shouldn't need to be reused, but rebuild() will still trigger e.g. if 2 routes have the same tree,
-        // this can cause problems if differing in lengths. Because we don't use marker nodes in StaticVec, we rebuild the entire vec remounting to the parent.
-
-        for state in states {
-            state.unmount();
+        // reuses the Vec impl
+        if old.is_empty() {
+            let mut new = self.build().states;
+            for item in new.iter_mut() {
+                Rndr::mount_before(item, marker.as_ref());
+            }
+            *old = new;
+        } else if self.0.is_empty() {
+            // TODO fast path for clearing
+            for item in old.iter_mut() {
+                item.unmount();
+            }
+            old.clear();
+        } else {
+            let mut adds = vec![];
+            let mut removes_at_end = 0;
+            for item in self.0.into_iter().zip_longest(old.iter_mut()) {
+                match item {
+                    itertools::EitherOrBoth::Both(new, old) => {
+                        T::rebuild(new, old)
+                    }
+                    itertools::EitherOrBoth::Left(new) => {
+                        let mut new_state = new.build();
+                        Rndr::mount_before(&mut new_state, marker.as_ref());
+                        adds.push(new_state);
+                    }
+                    itertools::EitherOrBoth::Right(old) => {
+                        removes_at_end += 1;
+                        old.unmount()
+                    }
+                }
+            }
+            old.truncate(old.len() - removes_at_end);
+            old.append(&mut adds);
         }
-        let parent = state
-            .parent
-            .take()
-            .expect("parent should always be Some() on a StaticVec rebuild()");
-        *state = self.build();
-        state.mount(&parent, None);
     }
 }
 
@@ -552,7 +580,7 @@ where
     }
 
     fn html_len(&self) -> usize {
-        self.0.iter().map(RenderHtml::html_len).sum::<usize>()
+        self.0.iter().map(RenderHtml::html_len).sum::<usize>() + 3
     }
 
     fn to_html_with_buf(
@@ -571,6 +599,10 @@ where
                 mark_branches,
                 extra_attrs.clone(),
             );
+        }
+        if escape {
+            buf.push_str("<!>");
+            *position = Position::NextChild;
         }
     }
 
@@ -593,6 +625,10 @@ where
                 extra_attrs.clone(),
             );
         }
+        if escape {
+            buf.push_sync("<!>");
+            *position = Position::NextChild;
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -605,8 +641,11 @@ where
             .into_iter()
             .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
-        let parent = cursor.current().parent_element();
-        Self::State { states, parent }
+
+        let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
+
+        Self::State { states, marker }
     }
 
     fn into_owned(self) -> Self::Owned {
