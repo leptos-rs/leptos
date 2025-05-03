@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 actix-http = "3.9"
 actix-files = "0.6"
-actix-web = "4.9"
+actix-web = { version = "4.9", default-features = false }
 futures = "0.3.31"
 any_spawner = { workspace = true, features = ["tokio"] }
 hydration_context = { workspace = true }
