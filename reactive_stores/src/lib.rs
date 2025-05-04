@@ -56,12 +56,12 @@
 //!
 //! # if false { // don't run effect in doctests
 //! Effect::new(move |_| {
-//!     // you can access individual store withs field a getter
+//!     // you can access individual store fields with a getter
 //!     println!("todos: {:?}", &*store.todos().read());
 //! });
 //! # }
 //!
-//! // won't notify the effect that listen to `todos`
+//! // won't notify the effect that listens to `todos`
 //! store.todos().write().push(Todo {
 //!     label: "Test".to_string(),
 //!     completed: false,
@@ -69,7 +69,7 @@
 //! ```
 //! ### Generated traits
 //! The [`Store`](macro@Store) macro generates traits for each `struct` to which it is applied.  When working
-//! within a single file more module, this is not an issue.  However, when working with multiple modules
+//! within a single file or module, this is not an issue.  However, when working with multiple modules
 //! or files, one needs to `use` the generated traits.  The general pattern is that for each `struct`
 //! named `Foo`, the macro generates a trait named `FooStoreFields`.  For example:
 //! ```rust
