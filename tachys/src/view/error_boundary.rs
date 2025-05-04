@@ -33,11 +33,10 @@ where
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
             (Either::Right(_), Err(new)) => {
-                if let Some(old_error) =
-                    state.error.replace(throw_error::throw(new.into()))
-                {
+                if let Some(old_error) = state.error.take() {
                     throw_error::clear(&old_error);
                 }
+                state.error = Some(throw_error::throw(new.into()));
             }
             // both Ok: need to rebuild child
             (Either::Left(old), Ok(new)) => {
