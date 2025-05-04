@@ -3323,6 +3323,7 @@ dependencies = [
  "reqwest",
  "rkyv",
  "rmp-serde",
+ "rustc_version",
  "rustversion",
  "send_wrapper",
  "serde",
