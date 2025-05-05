@@ -8,6 +8,7 @@ use crate::{
 
 /// An island of interactivity in an otherwise-inert HTML document.
 pub struct Island<View> {
+    has_element_representation: bool,
     component: &'static str,
     props_json: String,
     view: View,
@@ -19,6 +20,8 @@ impl<View> Island<View> {
     /// Creates a new island with the given component name.
     pub fn new(component: &'static str, view: View) -> Self {
         Island {
+            has_element_representation:
+                Self::should_have_element_representation(),
             component,
             props_json: String::new(),
             view,
@@ -50,6 +53,21 @@ impl<View> Island<View> {
         buf.push_str("</");
         buf.push_str(ISLAND_TAG);
         buf.push('>');
+    }
+
+    /// Whether this island should be represented by an actual HTML element
+    fn should_have_element_representation() -> bool {
+        #[cfg(feature = "reactive_graph")]
+        {
+            use reactive_graph::owner::{use_context, IsHydrating};
+            let already_hydrating =
+                use_context::<IsHydrating>().map(|h| h.0).unwrap_or(false);
+            !already_hydrating
+        }
+        #[cfg(not(feature = "reactive_graph"))]
+        {
+            true
+        }
     }
 }
 
@@ -83,11 +101,13 @@ where
         Self::Output<NewAttr>: RenderHtml,
     {
         let Island {
+            has_element_representation,
             component,
             props_json,
             view,
         } = self;
         Island {
+            has_element_representation,
             component,
             props_json,
             view: view.add_any_attr(attr),
@@ -114,11 +134,13 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         let Island {
+            has_element_representation,
             component,
             props_json,
             view,
         } = self;
         Island {
+            has_element_representation,
             component,
             props_json,
             view: view.resolve().await,
@@ -133,7 +155,10 @@ where
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        Self::open_tag(self.component, &self.props_json, buf);
+        let has_element = self.has_element_representation;
+        if has_element {
+            Self::open_tag(self.component, &self.props_json, buf);
+        }
         self.view.to_html_with_buf(
             buf,
             position,
@@ -141,7 +166,9 @@ where
             mark_branches,
             extra_attrs,
         );
-        Self::close_tag(buf);
+        if has_element {
+            Self::close_tag(buf);
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -154,9 +181,12 @@ where
     ) where
         Self: Sized,
     {
+        let has_element = self.has_element_representation;
         // insert the opening tag synchronously
         let mut tag = String::new();
-        Self::open_tag(self.component, &self.props_json, &mut tag);
+        if has_element {
+            Self::open_tag(self.component, &self.props_json, &mut tag);
+        }
         buf.push_sync(&tag);
 
         // streaming render for the view
@@ -170,7 +200,9 @@ where
 
         // and insert the closing tag synchronously
         tag.clear();
-        Self::close_tag(&mut tag);
+        if has_element {
+            Self::close_tag(&mut tag);
+        }
         buf.push_sync(&tag);
     }
 
@@ -179,18 +211,21 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if position.get() == Position::FirstChild {
-            cursor.child();
-        } else if position.get() == Position::NextChild {
-            cursor.sibling();
+        if self.has_element_representation {
+            if position.get() == Position::FirstChild {
+                cursor.child();
+            } else if position.get() == Position::NextChild {
+                cursor.sibling();
+            }
+            position.set(Position::FirstChild);
         }
-        position.set(Position::FirstChild);
 
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 
     fn into_owned(self) -> Self::Owned {
         Island {
+            has_element_representation: self.has_element_representation,
             component: self.component,
             props_json: self.props_json,
             view: self.view.into_owned(),
