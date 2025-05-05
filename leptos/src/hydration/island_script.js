@@ -1,5 +1,5 @@
 ((root, pkg_path, output_name, wasm_output_name) => {
-	let MOST_RECENT_CHILDREN_CB;
+	let MOST_RECENT_CHILDREN_CB = [];
 
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
@@ -22,14 +22,18 @@
 						traverse(child, children);
 					}
 				} else {
-					if(tag === 'leptos-children') {
-						MOST_RECENT_CHILDREN_CB = node.$$on_hydrate;
+					if (tag === 'leptos-children') {
+						MOST_RECENT_CHILDREN_CB.push(node.$$on_hydrate);
+						for(const child of node.children) {
+							traverse(child);
+						};
+						// un-set the "most recent children"
+						MOST_RECENT_CHILDREN_CB.pop();
+					} else {
+						for(const child of node.children) {
+							traverse(child);
+						};
 					}
-					for(const child of node.children) {
-						traverse(child);
-					};
-					// un-set the "most recent children"
-					MOST_RECENT_CHILDREN_CB = undefined;
 				}
 			}
 		}
@@ -39,8 +43,9 @@
 	function hydrateIsland(el, id, mod) {
 		const islandFn = mod[id];
 		if (islandFn) {
-			if (MOST_RECENT_CHILDREN_CB) {
-				MOST_RECENT_CHILDREN_CB();
+			const children_cb = MOST_RECENT_CHILDREN_CB[MOST_RECENT_CHILDREN_CB.length-1];
+			if (children_cb) {
+				children_cb();
 			}
 			islandFn(el);
 		} else {
