@@ -300,6 +300,34 @@ impl<T> LocalResource<T> {
     pub fn refetch(&self) {
         self.refetch.try_update(|n| *n += 1);
     }
+
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
+    #[track_caller]
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
+    where
+        T: 'static,
+    {
+        self.data.try_with(|n| n.as_ref().map(f))?
+    }
+}
+
+impl<T, E> LocalResource<Result<T, E>>
+where
+    T: 'static,
+    E: Clone + 'static,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+    }
 }
 
 impl<T> IntoFuture for LocalResource<T>
