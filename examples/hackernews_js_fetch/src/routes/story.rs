@@ -7,7 +7,7 @@ use send_wrapper::SendWrapper;
 #[component]
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
-    let story = Resource::new(
+    let story = Resource::new_blocking(
         move || params.read().get("id").unwrap_or_default(),
         move |id| {
             SendWrapper::new(async move {
