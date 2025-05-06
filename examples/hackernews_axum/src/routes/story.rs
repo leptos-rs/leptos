@@ -6,7 +6,7 @@ use leptos_router::{components::A, hooks::use_params_map};
 #[component]
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
-    let story = Resource::new(
+    let story = Resource::new_blocking(
         move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
