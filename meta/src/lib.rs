@@ -242,23 +242,22 @@ impl ServerMetaContextOutput {
             let head_loc = first_chunk
                 .find("</head>")
                 .expect("you are using leptos_meta without a </head> tag");
-            let marker_loc =
-                first_chunk.find("<!--HEAD-->").unwrap_or_else(|| {
+            let marker_loc = first_chunk
+                .find("<!--HEAD-->")
+                .map(|pos| pos + "<!--HEAD-->".len())
+                .unwrap_or_else(|| {
                     first_chunk.find("</head>").unwrap_or(head_loc)
                 });
             let (before_marker, after_marker) =
                 first_chunk.split_at_mut(marker_loc);
-            let (before_head_close, after_head) =
-                after_marker.split_at_mut(head_loc - marker_loc);
             buf.push_str(before_marker);
+            buf.push_str(&meta_buf);
             if let Some(title) = title {
                 buf.push_str("<title>");
                 buf.push_str(&title);
                 buf.push_str("</title>");
             }
-            buf.push_str(before_head_close);
-            buf.push_str(&meta_buf);
-            buf.push_str(after_head);
+            buf.push_str(after_marker);
             buf
         };
 
