@@ -140,7 +140,7 @@
 //! # use reactive_stores::Store;
 //! // Needed to use at_unkeyed() on Vec
 //! use reactive_stores::StoreFieldIter;
-//! use crate::reactive_stores::StoreFieldIterator;
+//! use reactive_stores::StoreFieldIterator;
 //! use reactive_graph::traits::Read;
 //! use reactive_graph::traits::Get;
 //!
