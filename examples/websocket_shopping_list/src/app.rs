@@ -1,5 +1,6 @@
 use futures::channel::mpsc::UnboundedSender;
 use leptos::{html::Input, prelude::*, task::spawn_local};
+use leptos_meta::HashedStylesheet;
 use reactive_stores::{ArcStore, Field, Store, StoreFieldIterator};
 use serde::{Deserialize, Serialize};
 use server_fn::{codec::JsonEncoding, BoxedStream, ServerFnError, Websocket};
@@ -13,9 +14,9 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <AutoReload options=options.clone() />
+                <HashedStylesheet options=options.clone()/>
                 <HydrationScripts options />
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
-                <link rel="stylesheet" href="/pkg/shopping_list.css" />
             </head>
             <body>
                 <App />
@@ -163,7 +164,22 @@ type MessageWithUser = (Uuid, Message);
 async fn messages(
     input: BoxedStream<MessageWithUser, ServerFnError>,
 ) -> Result<BoxedStream<MessageWithUser, ServerFnError>, ServerFnError> {
-    let mut input = input;
+    let mut input = input; // FIXME :-)
+
+    #[derive(Debug, Clone)]
+    pub struct ServerState(ArcStore<ShoppingList>);
+
+    impl ServerState {
+        fn initial_items(&self) -> Vec<Item> {
+            self.0.clone().items().get_untracked()
+        }
+
+        fn apply_local_update(&self, message: Message) {
+            Owner::new().with(|| {
+                State::from(self.0.clone()).apply_local_update(message)
+            })
+        }
+    }
 
     use futures::{
         channel::mpsc::{channel, Sender},
@@ -174,8 +190,8 @@ async fn messages(
         sync::{LazyLock, Mutex},
     };
 
-    static SHOPPING_LIST: LazyLock<ArcStore<ShoppingList>> =
-        LazyLock::new(|| ArcStore::new(ShoppingList::default()));
+    static SHOPPING_LIST: LazyLock<ServerState> =
+        LazyLock::new(|| ServerState(ArcStore::new(ShoppingList::default())));
     static USER_SENDERS: LazyLock<
         Mutex<HashMap<Uuid, Sender<Result<MessageWithUser, ServerFnError>>>>,
     > = LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -190,14 +206,12 @@ async fn messages(
                 Err(e) => eprintln!("{e}"),
                 Ok((user, msg)) => match msg {
                     Message::Connect => {
+                        println!("\nuser connecting: {user:?}");
                         if let Some(mut tx) = tx.take() {
                             tx.try_send(Ok((
                                 user,
                                 Message::Welcome {
-                                    list: SHOPPING_LIST
-                                        .clone()
-                                        .items()
-                                        .get_untracked(),
+                                    list: SHOPPING_LIST.initial_items(),
                                 },
                             )))
                             .unwrap();
@@ -205,13 +219,13 @@ async fn messages(
                         }
                     }
                     Message::Disconnect => {
+                        println!("\nuser disconnecting: {user:?}");
                         USER_SENDERS.lock().unwrap().remove(&user);
                     }
                     _ => {
-                        let owner = Owner::new();
-                        let state =
-                            owner.with(|| State::from(SHOPPING_LIST.clone()));
-                        state.apply_local_update(msg.clone());
+                        println!("\nmsg from {user:?} {msg:?}");
+
+                        SHOPPING_LIST.apply_local_update(msg.clone());
 
                         let mut senders = USER_SENDERS.lock().unwrap();
                         senders.retain(|tx_user, tx| {
@@ -225,7 +239,7 @@ async fn messages(
                             true
                         });
 
-                        println!("{:#?}", &*SHOPPING_LIST.read_untracked());
+                        println!("\n{:#?}", &*SHOPPING_LIST.0.read_untracked());
                     }
                 },
             }
@@ -275,10 +289,11 @@ pub fn App() -> impl IntoView {
         <h1>"My Shopping List"</h1>
         <form
             class="add"
-            on:submit=move |ev| {
+            on:submit:target=move |ev| {
                 ev.prevent_default();
                 let label = add_item.get().unwrap().value();
                 client.update(Message::Add { id: Uuid::new_v4(), label });
+                ev.target().reset();
             }
         >
             <input type="text" node_ref=add_item autofocus/>
@@ -307,11 +322,11 @@ pub fn ItemEditor(
     let editing = RwSignal::new(false);
 
     view! {
-        <li>
+        <li class:completed=item.completed()>
             <input
                 class="item"
                 type="checkbox"
-                prop:value=item.completed()
+                prop:checked=item.completed()
                 id=move || item.id().read().to_string()
                 on:change:target=move |ev| {
                     client.update(Message::MarkComplete {
@@ -323,7 +338,6 @@ pub fn ItemEditor(
             <label
                 class="item"
                 class:hidden=move || editing.get()
-                class:completed=item.completed()
                 for=move || item.id().read().to_string()
             >
                 {item.label()}
@@ -346,6 +360,12 @@ pub fn ItemEditor(
                 on:click=move |_| editing.set(true)
             >
                 "Edit"
+            </button>
+            <button
+                class:hidden=move || !editing.get()
+                on:click=move |_| editing.set(false)
+            >
+                "Cancel"
             </button>
             <button on:click=move |_| client.update(Message::Remove { id: item.id().get() })>
                 "✕"

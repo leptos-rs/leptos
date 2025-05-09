@@ -10,9 +10,13 @@ crate-type = ["cdylib", "rlib"]
 console_log = "1.0"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.30"
-leptos = { path = "../../leptos", features = ["tracing"] }
-leptos_axum = { path = "../../integrations/axum", optional = true }
-reactive_stores = { path = "../../reactive_stores" }
+#leptos = { path = "../../leptos", features = ["tracing"] }
+#leptos_axum = { path = "../../integrations/axum", optional = true }
+#reactive_stores = { path = "../../reactive_stores" }
+leptos = { version = "0.8", features = ["tracing"] }
+leptos_axum = { version = "0.8", optional = true }
+leptos_meta = { version = "0.8" }
+reactive_stores = { version = "0.2" }
 log = "0.4.22"
 simple_logger = "5.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -75,3 +79,5 @@ lib-features = ["hydrate"]
 #
 # Optional. Defaults to false.
 lib-default-features = false
+
+hash-files = true
