@@ -29,7 +29,7 @@ use std::{
 /// values that depend on it that it has changed.
 ///
 /// This is an arena-allocated type, which is `Copy` and is disposed when its reactive
-/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that livesas
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives as
 /// as long as a reference to it is alive, see [`ArcAsyncDerived`].
 ///
 /// ## Examples

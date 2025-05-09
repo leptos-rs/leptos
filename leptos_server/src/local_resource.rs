@@ -64,7 +64,7 @@ impl<T> ArcLocalResource<T> {
                     pending().await
                 } else {
                     // LocalResources that are immediately available can cause a hydration error,
-                    // because the future *looks* like it is alredy ready (and therefore would
+                    // because the future *looks* like it is already ready (and therefore would
                     // already have been rendered to html on the server), but in fact was ignored
                     // on the server. the simplest way to avoid this is to ensure that we always
                     // wait a tick before resolving any value for a localresource.
@@ -298,7 +298,7 @@ impl<T> LocalResource<T> {
                     pending().await
                 } else {
                     // LocalResources that are immediately available can cause a hydration error,
-                    // because the future *looks* like it is alredy ready (and therefore would
+                    // because the future *looks* like it is already ready (and therefore would
                     // already have been rendered to html on the server), but in fact was ignored
                     // on the server. the simplest way to avoid this is to ensure that we always
                     // wait a tick before resolving any value for a localresource.
