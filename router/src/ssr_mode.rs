@@ -33,10 +33,9 @@ pub enum SsrMode {
     ///     - *Cons*: Requires JS for suspended fragments to appear in correct order. Weaker meta tag support when it depends on data that's under suspense (has already streamed down `<head>`)
     #[default]
     OutOfOrder,
-    /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
-    ///     - *Pros*: Does not require JS for HTML to appear in correct order.
-    ///     - *Cons*: Loads the shell more slowly than out-of-order streaming or synchronous rendering because it needs to pause at every `Suspense`. Cannot begin hydration until the entire page has loaded, so earlier pieces
-    ///       of the page will not be interactive until the suspended chunks have loaded.
+    /// **Partially-blocked out-of-order streaming** (`PartiallyBlocked`): Using `create_blocking_resource` with out-of-order streaming still sends fallbacks and relies on JavaScript to fill them in with the fragments. Partially-blocked streaming does this replacement on the server, making for a slower response but requiring no JavaScript to show blocking resources.
+    ///     - *Pros*: Works better if JS is disabled.
+    ///     - *Cons*: Slower initial response because of additional string manipulation on server.
     PartiallyBlocked,
     /// **In-order streaming** (`InOrder`): Walk through the tree, returning HTML synchronously as in synchronous rendering and out-of-order streaming until you hit a `Suspense`. At that point, wait for all its data to load, then render it, then the rest of the tree.
     ///     - *Pros*: Does not require JS for HTML to appear in correct order.
