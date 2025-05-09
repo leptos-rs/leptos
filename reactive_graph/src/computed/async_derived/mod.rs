@@ -54,7 +54,7 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
     }
 }
 
-/// Utilities used to track whether asynchronous computeds are currently loading.
+/// Utilities used to track whether asynchronous computes are currently loading.
 pub mod suspense {
     use crate::{
         signal::ArcRwSignal,

@@ -47,7 +47,7 @@ type BoxedChildrenFn = Box<dyn Fn() -> AnyView + Send>;
 ///
 /// Different component types take different types for their `children` prop, some of which cannot
 /// be directly constructed. Using `ToChildren` allows the component user to pass children without
-/// explicity constructing the correct type.
+/// explicitly constructing the correct type.
 ///
 /// ## Examples
 ///

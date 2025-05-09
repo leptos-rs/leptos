@@ -22,7 +22,7 @@ use std::{
 ///  allowing you to read or write directly to one of its field.
 ///
 /// Tracking the mapped signal tracks changes to *any* part of the signal, and updating the signal notifies
-/// and notifies *all* depenendencies of the signal. This is not a mechanism for fine-grained reactive updates
+/// and notifies *all* dependencies of the signal. This is not a mechanism for fine-grained reactive updates
 /// to more complex data structures. Instead, it allows you to provide a signal-like API for wrapped types
 /// without exposing the original type directly to users.
 pub struct ArcMappedSignal<T> {
@@ -224,7 +224,7 @@ where
 ///  allowing you to read or write directly to one of its field.
 ///
 /// Tracking the mapped signal tracks changes to *any* part of the signal, and updating the signal notifies
-/// and notifies *all* depenendencies of the signal. This is not a mechanism for fine-grained reactive updates
+/// and notifies *all* dependencies of the signal. This is not a mechanism for fine-grained reactive updates
 /// to more complex data structures. Instead, it allows you to provide a signal-like API for wrapped types
 /// without exposing the original type directly to users.
 pub struct MappedSignal<T, S = SyncStorage> {

@@ -1,4 +1,4 @@
-// The trybuild output has slightly different error message ouptut for
+// The trybuild output has slightly different error message output for
 // different combinations of features. Since tests are run with `test-all-features`
 // multiple combinations of features are tested. This ensures this file is only
 // run when **only** the browser feature is enabled.

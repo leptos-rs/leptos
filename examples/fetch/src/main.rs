@@ -7,7 +7,7 @@ pub fn main() {
 
     fmt()
         .with_writer(
-            // To avoide trace events in the browser from showing their
+            // To avoid trace events in the browser from showing their
             // JS backtrace, which is very annoying, in my opinion
             MakeConsoleWriter::default()
                 .map_trace_level_to(tracing::Level::DEBUG),
