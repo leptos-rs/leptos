@@ -27,7 +27,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// not re-run the calculation when a source signal changes until they are read again.
 ///
 /// This is an arena-allocated type, which is `Copy` and is disposed when its reactive
-/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that livesas
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives as
 /// as long as a reference to it is alive, see [`ArcMemo`].
 ///
 /// ```

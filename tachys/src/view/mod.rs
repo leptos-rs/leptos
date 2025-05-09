@@ -476,7 +476,7 @@ pub enum Position {
     LastChild,
 }
 
-/// Declares that this type can be converted into some other type, which can be renderered.
+/// Declares that this type can be converted into some other type, which can be rendered.
 pub trait IntoRender {
     /// The renderable type into which this type can be converted.
     type Output;

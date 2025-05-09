@@ -255,7 +255,7 @@ where
     ) -> Result<Self, serde_qs::Error>;
 }
 
-/// Errors that can arise when coverting from an HTML event or form into a Rust data type.
+/// Errors that can arise when converting from an HTML event or form into a Rust data type.
 #[derive(Error, Debug)]
 pub enum FromFormDataError {
     /// Could not find a `<form>` connected to the event.

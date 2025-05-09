@@ -15,7 +15,7 @@ pub struct MemoInner<T, S>
 where
     S: Storage<T>,
 {
-    /// Must always be aquired *after* the reactivity lock
+    /// Must always be acquired *after* the reactivity lock
     pub(crate) value: Arc<RwLock<Option<S::Wrapped>>>,
     #[allow(clippy::type_complexity)]
     pub(crate) fun: Arc<dyn Fn(Option<T>) -> (T, bool) + Send + Sync>,
@@ -137,7 +137,7 @@ where
                 })
             });
 
-            // Two locks are aquired, so order matters.
+            // Two locks are acquired, so order matters.
             let reactivity_lock = self.reactivity.write().or_poisoned();
             {
                 // Safety: Can block endlessly if the user is has a ReadGuard on the value

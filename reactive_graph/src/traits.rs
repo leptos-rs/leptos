@@ -643,7 +643,7 @@ pub trait IntoInner {
     /// The type of the value contained in the signal.
     type Value;
 
-    /// Returns the inner value if this is the only reference to to the signal.
+    /// Returns the inner value if this is the only reference to the signal.
     /// Otherwise, returns `None` and drops this reference.
     /// # Panics
     /// Panics if the inner lock is poisoned.
