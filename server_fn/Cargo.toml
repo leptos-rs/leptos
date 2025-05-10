@@ -80,7 +80,7 @@ reqwest = { version = "0.12.9", default-features = false, optional = true, featu
 tokio-tungstenite = { version = "0.26.2", optional = true }
 url = "2"
 pin-project-lite = "0.2.15"
-tokio = { version = "1.43.0", features = ["rt"], optional = true }
+tokio = { version = "1.44", features = ["rt"], optional = true }
 
 [build-dependencies]
 rustc_version = "0.4.1"

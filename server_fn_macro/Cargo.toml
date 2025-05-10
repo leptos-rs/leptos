@@ -16,7 +16,6 @@ xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
 const_format = "0.2.33"
 convert_case = { workspace = true }
 
-
 [build-dependencies]
 rustc_version = "0.4.1"
 
