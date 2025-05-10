@@ -123,6 +123,7 @@ impl<T: Source + ToAnySource + DefinedAt> Track for T {
                 use crate::diagnostics::SpecialNonReactiveZone;
 
                 if !SpecialNonReactiveZone::is_inside() {
+                    let backtrace = wasm_backtrace::backtrace();
                     let called_at = Location::caller();
                     let ty = std::any::type_name::<T>();
                     let defined_at = self
@@ -143,7 +144,8 @@ impl<T: Source + ToAnySource + DefinedAt> Track for T {
                          let y = x.get() * 2\n  ✅ YES let y = move || \
                          x.get() * 2.\n\n3. If you’re *trying* to access the \
                          value without tracking, use `.get_untracked()` or \
-                         `.with_untracked()` instead."
+                         `.with_untracked()` instead.\n\nComplete backtrace \
+                         of the call site:\n{backtrace}"
                     ));
                 }
             }
