@@ -15,8 +15,8 @@ any_spawner = { workspace = true, features = [
   "wasm-bindgen",
   "futures-executor",
 ] }
-base64 = { version = "0.22.1", optional = true }
-cfg-if = "1.0"
+base64 = { optional = true , workspace = true, default-features = true }
+cfg-if = { workspace = true, default-features = true }
 hydration_context = { workspace = true }
 either_of = { workspace = true }
 leptos_dom = { workspace = true }
@@ -27,35 +27,35 @@ leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.2.0", optional = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
-paste = "1.0"
+paste = { workspace = true, default-features = true }
 rand = { version = "0.8.5", optional = true }
 # NOTE: While not used directly, `getrandom`'s `js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error
 getrandom = { version = "0.2", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
-rustc-hash = "2.0"
+rustc-hash = { workspace = true, default-features = true }
 tachys = { workspace = true, features = [
   "reactive_graph",
   "reactive_stores",
   "oco",
 ] }
-thiserror = { workspace = true }
-tracing = { version = "0.1.41", optional = true }
-typed-builder = { workspace = true }
+thiserror = { workspace = true , default-features = true }
+tracing = { optional = true , workspace = true, default-features = true }
+typed-builder = { workspace = true , default-features = true }
 typed-builder-macro = "0.21.0"
-serde = "1.0"
-serde_json = { version = "1.0", optional = true }
+serde = { workspace = true, default-features = true }
+serde_json = { optional = true , workspace = true, default-features = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }
-web-sys = { version = "0.3.72", features = [
+web-sys = { features = [
   "ShadowRoot",
   "ShadowRootInit",
   "ShadowRootMode",
-] }
-wasm-bindgen = { workspace = true }
-serde_qs = "0.14.0"
-slotmap = "1.0"
-futures = "0.3.31"
-send_wrapper = "0.6.0"
+] , workspace = true, default-features = true }
+wasm-bindgen = { workspace = true , default-features = true }
+serde_qs = { workspace = true, default-features = true }
+slotmap = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
 
 [features]
 hydration = [
@@ -102,7 +102,7 @@ delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
 
 [build-dependencies]
-rustc_version = "0.4.1"
+rustc_version = { workspace = true, default-features = true }
 
 # Having an erasure feature rather than normal --cfg erase_components for the proc macro crate is a workaround for this rust issue:
 # https://github.com/rust-lang/cargo/issues/4423

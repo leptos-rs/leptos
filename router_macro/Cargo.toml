@@ -13,10 +13,10 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro-error2 = { version = "2.0", default-features = false }
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
+proc-macro-error2 = { default-features = false , workspace = true }
+proc-macro2 = { workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+syn = { features = ["full"] , workspace = true, default-features = true }
 
 [dev-dependencies]
 leptos_router = { path = "../router" }
