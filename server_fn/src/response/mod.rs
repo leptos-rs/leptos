@@ -1,5 +1,5 @@
 /// Response types for Actix.
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 pub mod actix;
 /// Response types for the browser.
 #[cfg(feature = "browser")]
