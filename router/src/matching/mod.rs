@@ -67,7 +67,7 @@ where
                 };
                 path.strip_prefix(base)?
             }
-        };        
+        };
 
         let (matched, remaining) = self.children.match_nested(path);
         let matched = matched?;
@@ -121,15 +121,15 @@ pub trait MatchNestedRoutes {
     type Match: MatchInterface + MatchParams;
 
     /// Matches nested routes
-    /// 
-    /// # Arguments 
-    /// 
+    ///
+    /// # Arguments
+    ///
     /// * path - A path which is being navigated to
-    /// 
+    ///
     /// # Returns
-    /// 
-    /// Tuple where 
-    /// 
+    ///
+    /// Tuple where
+    ///
     /// * 0 - If match has been found `Some` containing tuple where
     ///     * 0 - [RouteMatchId] identifying the matching route
     ///     * 1 - [Self::Match] matching route

@@ -69,7 +69,7 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
         let mut has_matched =
             self.0.as_path().is_empty() || self.0.as_path() == "/";
 
-        // match an initial / 
+        // match an initial /
         if let Some('/') = test.peek() {
             test.next();
 
@@ -80,8 +80,7 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
             {
                 this.next();
             }
-        }
-        else if !path.is_empty() {
+        } else if !path.is_empty() {
             // Path must start with `/` otherwise we are not certain about being at the beginning of the segment in the path
             return None;
         }
@@ -116,12 +115,12 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
         }
 
         // build the match object
-        let (matched, remaining) = if matched_len == 1 && path.starts_with('/') {
+        let (matched, remaining) = if matched_len == 1 && path.starts_with('/')
+        {
             // If only thing that matched is `/` we can't eat it, otherwise next invocation of the
             // test function will not be able to tell that we are matching from the beginning of the path segment
             ("/", path)
-        }
-        else {
+        } else {
             // the remaining is built from the path in, with the slice moved
             // by the length of this match
             path.split_at(matched_len)
