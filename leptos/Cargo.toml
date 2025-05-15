@@ -15,7 +15,7 @@ any_spawner = { workspace = true, features = [
   "wasm-bindgen",
   "futures-executor",
 ] }
-base64 = { optional = true , workspace = true, default-features = true }
+base64 = { optional = true, workspace = true, default-features = true }
 cfg-if = { workspace = true, default-features = true }
 hydration_context = { workspace = true }
 either_of = { workspace = true }
@@ -28,10 +28,10 @@ leptos-spin-macro = { version = "0.2.0", optional = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = { workspace = true, default-features = true }
-rand = { version = "0.8.5", optional = true }
-# NOTE: While not used directly, `getrandom`'s `js` feature is needed when `rand` is used on WASM to
+rand = { version = "0.9.1", optional = true }
+# NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error
-getrandom = { version = "0.2", optional = true }
+getrandom = { version = "0.3.3", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = { workspace = true, default-features = true }
 tachys = { workspace = true, features = [
@@ -39,19 +39,19 @@ tachys = { workspace = true, features = [
   "reactive_stores",
   "oco",
 ] }
-thiserror = { workspace = true , default-features = true }
-tracing = { optional = true , workspace = true, default-features = true }
-typed-builder = { workspace = true , default-features = true }
+thiserror = { workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
+typed-builder = { workspace = true, default-features = true }
 typed-builder-macro = "0.21.0"
 serde = { workspace = true, default-features = true }
-serde_json = { optional = true , workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }
 web-sys = { features = [
   "ShadowRoot",
   "ShadowRootInit",
   "ShadowRootMode",
-] , workspace = true, default-features = true }
-wasm-bindgen = { workspace = true , default-features = true }
+], workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
 serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
@@ -64,13 +64,13 @@ hydration = [
   "hydration_context/browser",
   "leptos_dom/hydration",
 ]
-csr = ["leptos_macro/csr", "reactive_graph/effects", "getrandom?/js"]
+csr = ["leptos_macro/csr", "reactive_graph/effects", "getrandom?/wasm_js"]
 hydrate = [
   "leptos_macro/hydrate",
   "hydration",
   "tachys/hydrate",
   "reactive_graph/effects",
-  "getrandom?/js",
+  "getrandom?/wasm_js",
 ]
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
