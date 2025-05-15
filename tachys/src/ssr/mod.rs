@@ -213,15 +213,13 @@ impl StreamBuilder {
                     id.push(0);
                 }
                 let replace = view.is_some();
-                if let Some(view) = view {
-                    view.to_html_async_with_buf::<true>(
-                        &mut subbuilder,
-                        &mut position,
-                        true,
-                        mark_branches,
-                        extra_attrs,
-                    );
-                }
+                view.to_html_async_with_buf::<true>(
+                    &mut subbuilder,
+                    &mut position,
+                    true,
+                    mark_branches,
+                    extra_attrs,
+                );
                 let chunks = subbuilder.finish().take_chunks();
                 let mut flattened_chunks =
                     VecDeque::with_capacity(chunks.len());
