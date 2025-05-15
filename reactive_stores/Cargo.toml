@@ -10,19 +10,19 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-guardian = "1.2"
-itertools = { workspace = true }
+guardian = { workspace = true, default-features = true }
+itertools = { workspace = true , default-features = true }
 or_poisoned = { workspace = true }
-paste = "1.0"
+paste = { workspace = true, default-features = true }
 reactive_graph = { workspace = true }
-rustc-hash = "2.0"
+rustc-hash = { workspace = true, default-features = true }
 reactive_stores_macro = { workspace = true }
-dashmap = "6.1"
-send_wrapper = "0.6.0"
+dashmap = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
-tokio-test = { version = "0.4.4" }
+tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_graph = { workspace = true, features = ["effects"] }
 leptos = { path = "../leptos", features = ["csr"] }
