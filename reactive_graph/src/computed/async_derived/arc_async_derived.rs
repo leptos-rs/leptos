@@ -234,7 +234,8 @@ macro_rules! spawn_derived {
             subscribers: SubscriberSet::new(),
             state: AsyncDerivedState::Clean,
             version: 0,
-            suspenses: Vec::new()
+            suspenses: Vec::new(),
+            pending_suspenses: Vec::new()
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -364,7 +365,7 @@ macro_rules! spawn_derived {
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
 
-                                    let (this_version, suspense_ids) = {
+                                    let this_version = {
                                         let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
                                         let version = guard.version;
@@ -372,14 +373,17 @@ macro_rules! spawn_derived {
                                             .into_iter()
                                             .map(|sc| sc.task_id())
                                             .collect::<Vec<_>>();
-                                        (version, suspense_ids)
+                                        guard.pending_suspenses.extend(suspense_ids);
+                                        version
                                     };
 
                                     let new_value = fut.await;
 
-                                    drop(suspense_ids);
-
-                                    let latest_version = inner.read().or_poisoned().version;
+                                    let latest_version = {
+                                        let mut guard = inner.write().or_poisoned();
+                                        drop(mem::take(&mut guard.pending_suspenses));
+                                        guard.version
+                                    };
 
                                     if latest_version == this_version {
                                         Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
@@ -641,6 +645,14 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
     type Value = Option<T>;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        // increment the version, such that a rerun triggered previously does not overwrite this
+        // new value
+        let mut guard = self.inner.write().or_poisoned();
+        guard.version += 1;
+
+        // tell any suspenses to stop waiting for this
+        drop(mem::take(&mut guard.pending_suspenses));
+
         Some(MappedMut::new(
             WriteGuard::new(self.clone(), self.value.blocking_write()),
             |v| v.deref(),
@@ -651,6 +663,14 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
+        // increment the version, such that a rerun triggered previously does not overwrite this
+        // new value
+        let mut guard = self.inner.write().or_poisoned();
+        guard.version += 1;
+
+        // tell any suspenses to stop waiting for this
+        drop(mem::take(&mut guard.pending_suspenses));
+
         Some(MappedMut::new(
             self.value.blocking_write(),
             |v| v.deref(),

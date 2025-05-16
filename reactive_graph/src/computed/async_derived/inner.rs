@@ -1,3 +1,4 @@
+use super::suspense::TaskHandle;
 use crate::{
     channel::Sender,
     computed::suspense::SuspenseContext,
@@ -22,6 +23,7 @@ pub(crate) struct ArcAsyncDerivedInner {
     pub state: AsyncDerivedState,
     pub version: usize,
     pub suspenses: Vec<SuspenseContext>,
+    pub pending_suspenses: Vec<TaskHandle>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
