@@ -14,11 +14,13 @@ use reactive_graph::{
         ArcRwSignal, RwSignal,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Update, With, Write,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Update, With, Write,
     },
 };
 use std::{
     future::{pending, Future, IntoFuture},
+    ops::DerefMut,
     panic::Location,
 };
 
@@ -154,6 +156,32 @@ impl<T> DefinedAt for ArcLocalResource<T> {
         {
             None
         }
+    }
+}
+
+impl<T> Notify for ArcLocalResource<T>
+where
+    T: 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T> Write for ArcLocalResource<T>
+where
+    T: 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 
@@ -361,6 +389,32 @@ impl<T> DefinedAt for LocalResource<T> {
         {
             None
         }
+    }
+}
+
+impl<T> Notify for LocalResource<T>
+where
+    T: 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T> Write for LocalResource<T>
+where
+    T: 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 
