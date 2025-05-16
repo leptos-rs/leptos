@@ -45,7 +45,7 @@ rustc_version = { workspace = true, default-features = true }
 [features]
 csr = []
 hydrate = []
-ssr = ["server_fn_macro/ssr", "leptos/ssr"]
+ssr = ["server_fn_macro/ssr"]
 nightly = ["server_fn_macro/nightly"]
 tracing = ["dep:tracing"]
 islands = []
