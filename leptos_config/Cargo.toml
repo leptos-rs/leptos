@@ -10,19 +10,19 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-config = { version = "0.15.11", default-features = false, features = [
+config = { default-features = false, features = [
   "toml",
   "convert-case",
-] }
-regex = "1.11"
+] , workspace = true }
+regex = { workspace = true, default-features = true }
 serde = { features = ["derive", "rc"] , workspace = true, default-features = true }
 thiserror = { workspace = true , default-features = true }
 typed-builder = { workspace = true , default-features = true }
 
 [dev-dependencies]
 tokio = { features = ["rt", "macros"] , workspace = true, default-features = true }
-tempfile = "3.19"
-temp-env = { version = "0.3.6", features = ["async_closure"] }
+tempfile = { workspace = true, default-features = true }
+temp-env = { features = ["async_closure"] , workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
