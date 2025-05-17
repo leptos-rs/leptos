@@ -104,15 +104,7 @@ pub mod prelude {
 #[allow(unused)]
 #[doc(hidden)]
 pub fn log_warning(text: Arguments) {
-    #[cfg(feature = "tracing")]
-    {
-        tracing::warn!(text);
-    }
-    #[cfg(all(
-        not(feature = "tracing"),
-        target_arch = "wasm32",
-        target_os = "unknown"
-    ))]
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     {
         web_sys::console::warn_1(&text.to_string().into());
     }

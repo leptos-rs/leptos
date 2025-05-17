@@ -9,8 +9,8 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-serde = "1.0"
-thiserror = { workspace = true }
+serde = { workspace = true, default-features = true }
+thiserror = { workspace = true , default-features = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
+serde_json = { workspace = true , default-features = true }

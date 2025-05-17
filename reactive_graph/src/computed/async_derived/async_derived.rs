@@ -14,8 +14,10 @@ use crate::{
     unwrap_signal,
 };
 use core::fmt::Debug;
+use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
+    mem,
     ops::{Deref, DerefMut},
     panic::Location,
 };
@@ -27,7 +29,7 @@ use std::{
 /// values that depend on it that it has changed.
 ///
 /// This is an arena-allocated type, which is `Copy` and is disposed when its reactive
-/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that livesas
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives as
 /// as long as a reference to it is alive, see [`ArcAsyncDerived`].
 ///
 /// ## Examples
@@ -349,6 +351,17 @@ where
         let guard = self
             .inner
             .try_with_value(|n| n.value.blocking_write_arc())?;
+
+        self.inner.try_with_value(|n| {
+            let mut guard = n.inner.write().or_poisoned();
+            // increment the version, such that a rerun triggered previously does not overwrite this
+            // new value
+            guard.version += 1;
+
+            // tell any suspenses to stop waiting for this
+            drop(mem::take(&mut guard.pending_suspenses));
+        });
+
         Some(MappedMut::new(
             WriteGuard::new(*self, guard),
             |v| v.deref(),
@@ -359,6 +372,16 @@ where
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.inner.try_with_value(|n| {
+            let mut guard = n.inner.write().or_poisoned();
+            // increment the version, such that a rerun triggered previously does not overwrite this
+            // new value
+            guard.version += 1;
+
+            // tell any suspenses to stop waiting for this
+            drop(mem::take(&mut guard.pending_suspenses));
+        });
+
         self.inner
             .try_with_value(|n| n.value.blocking_write_arc())
             .map(|inner| {

@@ -1,4 +1,4 @@
-//! The reactive ownership model, which manages effect cancelation, cleanups, and arena allocation.
+//! The reactive ownership model, which manages effect cancellation, cleanups, and arena allocation.
 
 #[cfg(feature = "hydration")]
 use hydration_context::SharedContext;
@@ -32,7 +32,7 @@ pub use storage::*;
 pub use stored_value::{store_value, FromLocal, StoredValue};
 
 /// A reactive owner, which manages
-/// 1) the cancelation of [`Effect`](crate::effect::Effect)s,
+/// 1) the cancellation of [`Effect`](crate::effect::Effect)s,
 /// 2) providing and accessing environment data via [`provide_context`] and [`use_context`],
 /// 3) running cleanup functions defined via [`Owner::on_cleanup`], and
 /// 4) an arena storage system to provide `Copy` handles via [`ArenaItem`], which is what allows

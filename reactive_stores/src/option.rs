@@ -24,7 +24,7 @@ where
     ///
     /// This returns `None` if the subfield is currently `None`,
     /// and a new store subfield with the inner value if it is `Some`. This can be used in some  
-    /// other reactive context, which will cause it to re-run if the field toggles betwen `None`
+    /// other reactive context, which will cause it to re-run if the field toggles between `None`
     /// and `Some(_)`.
     fn map<U>(
         self,

@@ -5,7 +5,7 @@ Stores are a data structure for nested reactivity.
 The [`reactive_graph`](https://crates.io/crates/reactive_graph) crate provides primitives for fine-grained reactivity
 via signals, memos, and effects.
 
-This crate extends that reactivity to support reactive access to nested dested, without the need to create nested signals.
+This crate extends that reactivity to support reactive access to nested structs, without the need to create nested signals.
 
 Using the `#[derive(Store)]` macro on a struct creates a series of getters that allow accessing each field. Individual fields 
 can then be read as if they were signals. Changes to parents will notify their children, but changing one sibling field will  
