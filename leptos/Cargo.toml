@@ -50,12 +50,13 @@ web-sys = { features = [
   "ShadowRoot",
   "ShadowRootInit",
   "ShadowRootMode",
-], workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
-serde_qs = { workspace = true, default-features = true }
-slotmap = { workspace = true, default-features = true }
-futures = { workspace = true, default-features = true }
-send_wrapper = { workspace = true, default-features = true }
+] }
+wasm-bindgen = { workspace = true }
+serde_qs = "0.14.0"
+slotmap = "1.0"
+futures = "0.3.31"
+send_wrapper = "0.6.0"
+wasm_split.workspace = true
 
 [features]
 hydration = [
