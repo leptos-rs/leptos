@@ -72,6 +72,14 @@ jobs:
         run: cargo binstall cargo-nextest --no-confirm
       - name: Install cargo-all-features
         run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+      # Part of direct-minimal-versions check
+      - name: Install cargo-hack
+        if: contains(matrix.toolchain, 'nightly')
+        uses: taiki-e/install-action@cargo-hack
+      # Part of direct-minimal-versions check
+      - name: Install cargo-minimal-versions
+        if: contains(matrix.toolchain, 'nightly')
+        uses: taiki-e/install-action@cargo-minimal-versions
       - name: Install Trunk
         if: contains(inputs.directory, 'examples')
         run: cargo binstall trunk --no-confirm
