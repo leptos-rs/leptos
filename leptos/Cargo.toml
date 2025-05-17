@@ -56,6 +56,7 @@ serde_qs = "0.14.0"
 slotmap = "1.0"
 futures = "0.3.31"
 send_wrapper = "0.6.0"
+wasm_split.workspace = true
 
 [features]
 hydration = [
