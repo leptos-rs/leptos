@@ -25,7 +25,7 @@ tracing = { optional = true , workspace = true, default-features = true }
 once_cell = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 thiserror = { workspace = true , default-features = true }
-percent-encoding = { version = "2.3", optional = true }
+percent-encoding = { optional = true , workspace = true, default-features = true }
 gloo-net = { workspace = true, default-features = true }
 
 [dependencies.web-sys]
