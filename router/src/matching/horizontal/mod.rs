@@ -14,6 +14,22 @@ pub use static_segment::*;
 pub trait PossibleRouteMatch {
     fn optional(&self) -> bool;
 
+    /// Checks if this segment matches beginning of the path
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * path - unmatched reminder of the path.
+    ///
+    /// # Returns
+    ///
+    /// If segment doesn't match a path then returns `None`. In case of a match returns the
+    /// information about which part of the path was matched.
+    ///
+    /// 1. Paths which are empty `""` or just `"/"` should match.
+    /// 2. If you match just a path `"/"`, you should preserve the starting slash
+    ///    in the [remaining](PartialPathMatch::remaining) part, so other segments which will be
+    ///    tested can detect wherever they are matching from the beginning of the given path segment.
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>;
 
     fn generate_path(&self, path: &mut Vec<PathSegment>);

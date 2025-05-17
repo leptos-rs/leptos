@@ -120,6 +120,20 @@ pub trait MatchNestedRoutes {
     type Data;
     type Match: MatchInterface + MatchParams;
 
+    /// Matches nested routes
+    ///
+    /// # Arguments
+    ///
+    /// * path - A path which is being navigated to
+    ///
+    /// # Returns
+    ///
+    /// Tuple where
+    ///
+    /// * 0 - If match has been found `Some` containing tuple where
+    ///     * 0 - [RouteMatchId] identifying the matching route
+    ///     * 1 - [Self::Match] matching route
+    /// * 1 - Remaining path
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
@@ -147,7 +161,7 @@ mod tests {
         matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
         WildcardSegment,
     };
-    use either_of::Either;
+    use either_of::{Either, EitherOf4};
 
     #[test]
     pub fn matches_single_root_route() {
@@ -324,12 +338,38 @@ mod tests {
         let params = matched.to_params();
         assert_eq!(params, vec![("any".into(), "foobar".into())]);
     }
+
+    #[test]
+    pub fn dont_match_smooshed_static_segments() {
+        let routes = RouteDefs::<_>::new((
+            NestedRoute::new(StaticSegment(""), || ()),
+            NestedRoute::new(StaticSegment("users"), || ()),
+            NestedRoute::new(
+                (StaticSegment("users"), StaticSegment("id")),
+                || (),
+            ),
+            NestedRoute::new(WildcardSegment("any"), || ()),
+        ));
+
+        let matched = routes.match_route("/users");
+        assert!(matches!(matched, Some(EitherOf4::B(..))));
+
+        let matched = routes.match_route("/users/id");
+        assert!(matches!(matched, Some(EitherOf4::C(..))));
+
+        let matched = routes.match_route("/usersid");
+        assert!(matches!(matched, Some(EitherOf4::D(..))));
+    }
 }
 
+/// Successful result of [testing](PossibleRouteMatch::test) a single segment in the route path
 #[derive(Debug)]
 pub struct PartialPathMatch<'a> {
+    /// unmatched yet part of the path
     pub(crate) remaining: &'a str,
+    /// value of parameters encoded inside of the path
     pub(crate) params: Vec<(Cow<'static, str>, String)>,
+    /// part of the original path that was matched by segment
     pub(crate) matched: &'a str,
 }
 
