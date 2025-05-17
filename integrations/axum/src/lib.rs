@@ -590,7 +590,7 @@ where
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
-/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
 /// ```
@@ -796,7 +796,7 @@ where
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
-/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
 /// ```
@@ -1022,7 +1022,7 @@ where
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
 /// `async` resources have loaded.
 ///
-/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
 /// ```
@@ -1089,7 +1089,7 @@ where
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
 /// `async` resources have loaded.
 ///
-/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
 /// ```

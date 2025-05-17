@@ -295,7 +295,7 @@ mod tests {
             assert!(!is_active_for("/else/where", "/", f));
             assert!(!is_active_for("/no/where/", "/", f));
 
-            // mismatch either side all cominations of trailing slashes
+            // mismatch either side all combinations of trailing slashes
             assert!(!is_active_for("/level", "/item", f));
             assert!(!is_active_for("/level", "/item/", f));
             assert!(!is_active_for("/level/", "/item", f));
@@ -383,7 +383,7 @@ mod tests {
         //
         // assert!(is_active_for("/", "/item", true));
         //
-        // Perhaps there needs to be a flag such that aria-curently applies only the _same level_, e.g
+        // Perhaps there needs to be a flag such that aria-curent applies only the _same level_, e.g
         // assert!(is_same_level("/", "/"))
         // assert!(is_same_level("/", "/anything"))
         // assert!(!is_same_level("/", "/some/"))

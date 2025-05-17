@@ -31,7 +31,7 @@ pub const fn const_concat(
         let mut i = 0;
 
         // have it iterate over bytes manually, because, again,
-        // no mutable refernces in const fns
+        // no mutable references in const fns
         while i < x.len() {
             buffer[position] = x[i];
             position += 1;
@@ -59,7 +59,7 @@ pub const fn const_concat_with_prefix(
         let mut i = 0;
 
         // have it iterate over bytes manually, because, again,
-        // no mutable refernces in const fns
+        // no mutable references in const fns
         while i < x.len() {
             buffer[position] = x[i];
             position += 1;
@@ -116,7 +116,7 @@ pub const fn const_concat_with_separator(
         let mut i = 0;
 
         // have it iterate over bytes manually, because, again,
-        // no mutable refernces in const fns
+        // no mutable references in const fns
         while i < x.len() {
             buffer[position] = x[i];
             position += 1;
