@@ -9,9 +9,9 @@ description = "Spawn asynchronous tasks in an executor-independent way."
 edition.workspace = true
 
 [dependencies]
-async-executor = { version = "1.13.1", optional = true }
+async-executor = { optional = true , workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
-glib = { version = "0.20.9", optional = true }
+glib = { optional = true , workspace = true, default-features = true }
 thiserror = { workspace = true , default-features = true }
 tokio = { optional = true, default-features = false, features = [
   "rt",
@@ -20,14 +20,14 @@ tracing = { optional = true , workspace = true, default-features = true }
 wasm-bindgen-futures = { optional = true , workspace = true, default-features = true }
 
 [dev-dependencies]
-futures-lite = { version = "2.6.0", default-features = false }
+futures-lite = { default-features = false , workspace = true }
 tokio = { default-features = false, features = [
   "rt",
   "macros",
   "time",
 ] , workspace = true }
-wasm-bindgen-test = { version = "0.3.50" }
-serial_test = "3.2.0"
+wasm-bindgen-test = { workspace = true, default-features = true }
+serial_test = { workspace = true, default-features = true }
 
 [features]
 async-executor = ["dep:async-executor"]
