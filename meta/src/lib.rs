@@ -216,6 +216,13 @@ impl ServerMetaContextOutput {
         self,
         mut stream: impl Stream<Item = String> + Send + Unpin,
     ) -> impl Stream<Item = String> + Send {
+        // if the first chunk consists of a synchronously-available Suspend,
+        // inject_meta_context can accidentally run a tick before it, but the Suspend
+        // when both are available. waiting a tick before awaiting the first chunk
+        // in the Stream ensures that this always runs after that first chunk
+        // see https://github.com/leptos-rs/leptos/issues/3976 for the original issue
+        leptos::task::tick().await;
+
         // wait for the first chunk of the stream, to ensure our components hve run
         let mut first_chunk = stream.next().await.unwrap_or_default();
 
