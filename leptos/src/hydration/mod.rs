@@ -83,6 +83,10 @@ pub fn HydrationScripts(
                     }
                 }
             }
+        } else {
+            leptos::logging::error!(
+                "File hashing is active but no hash file was found"
+            );
         }
     } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_file_name.push_str("_bg");
