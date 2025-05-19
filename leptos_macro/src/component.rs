@@ -634,7 +634,13 @@ impl Parse for DummyModel {
         let mut attrs = input.call(Attribute::parse_outer)?;
         // Drop unknown attributes like #[deprecated]
         drain_filter(&mut attrs, |attr| {
-            !(attr.path().is_ident("doc") || attr.path().is_ident("allow"))
+            let path = attr.path();
+            !(path.is_ident("doc")
+                || path.is_ident("allow")
+                || path.is_ident("expect")
+                || path.is_ident("warn")
+                || path.is_ident("deny")
+                || path.is_ident("forbid"))
         });
 
         let vis: Visibility = input.parse()?;
@@ -923,13 +929,20 @@ impl UnknownAttrs {
         let attrs = attrs
             .iter()
             .filter_map(|attr| {
-                if attr.path().is_ident("doc") {
+                let path = attr.path();
+
+                if path.is_ident("doc") {
                     if let Meta::NameValue(_) = &attr.meta {
                         return None;
                     }
                 }
 
-                if attr.path().is_ident("allow") {
+                if path.is_ident("allow")
+                    || path.is_ident("expect")
+                    || path.is_ident("warn")
+                    || path.is_ident("deny")
+                    || path.is_ident("forbid")
+                {
                     return None;
                 }
 
