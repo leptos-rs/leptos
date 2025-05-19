@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        toolchain: [stable, nightly-2025-03-05]
+        toolchain: [stable, nightly-2025-04-16]
         erased_mode: [true, false]
     steps:
       - name: Free Disk Space
@@ -160,6 +160,12 @@ jobs:
         run: |
           cd '${{ inputs.directory }}'
           cargo make --no-workspace --profile=github-actions ci
+      # Check if the counter_isomorphic can be built with leptos_debuginfo cfg flag in release mode
+      - name: ${{ inputs.cargo_make_task }} with --cfg=leptos_debuginfo
+        if: contains(inputs.directory, 'counter_isomorphic')
+        run: |
+          cd '${{ inputs.directory }}'
+          RUSTFLAGS="$RUSTFLAGS --cfg leptos_debuginfo" cargo leptos build --release
       - name: Clean up ${{ inputs.directory }}
         if: always()
         run: |

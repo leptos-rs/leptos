@@ -216,6 +216,13 @@ impl ServerMetaContextOutput {
         self,
         mut stream: impl Stream<Item = String> + Send + Unpin,
     ) -> impl Stream<Item = String> + Send {
+        // if the first chunk consists of a synchronously-available Suspend,
+        // inject_meta_context can accidentally run a tick before it, but the Suspend
+        // when both are available. waiting a tick before awaiting the first chunk
+        // in the Stream ensures that this always runs after that first chunk
+        // see https://github.com/leptos-rs/leptos/issues/3976 for the original issue
+        leptos::task::tick().await;
+
         // wait for the first chunk of the stream, to ensure our components hve run
         let mut first_chunk = stream.next().await.unwrap_or_default();
 
@@ -242,23 +249,22 @@ impl ServerMetaContextOutput {
             let head_loc = first_chunk
                 .find("</head>")
                 .expect("you are using leptos_meta without a </head> tag");
-            let marker_loc =
-                first_chunk.find("<!--HEAD-->").unwrap_or_else(|| {
+            let marker_loc = first_chunk
+                .find("<!--HEAD-->")
+                .map(|pos| pos + "<!--HEAD-->".len())
+                .unwrap_or_else(|| {
                     first_chunk.find("</head>").unwrap_or(head_loc)
                 });
             let (before_marker, after_marker) =
                 first_chunk.split_at_mut(marker_loc);
-            let (before_head_close, after_head) =
-                after_marker.split_at_mut(head_loc - marker_loc);
             buf.push_str(before_marker);
+            buf.push_str(&meta_buf);
             if let Some(title) = title {
                 buf.push_str("<title>");
                 buf.push_str(&title);
                 buf.push_str("</title>");
             }
-            buf.push_str(before_head_close);
-            buf.push_str(&meta_buf);
-            buf.push_str(after_head);
+            buf.push_str(after_marker);
             buf
         };
 

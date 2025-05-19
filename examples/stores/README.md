@@ -1,6 +1,6 @@
-# Leptos Counter Example
+# Stores Example
 
-This example creates a simple counter in a client side rendered app with Rust and WASM!
+This example shows how to use reactive stores, by building a client-side rendered TODO application.
 
 ## Getting Started
 

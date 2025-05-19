@@ -9,7 +9,7 @@ use std::{
 /// An optional value that can always be sent between threads, even if its inner value
 /// in the `Some(_)` case would not be threadsafe.
 ///
-/// This struct can be derefenced to `Option<T>`.
+/// This struct can be dereferenced to `Option<T>`.
 ///
 /// If it has been given a local (`!Send`) value, that value is wrapped in a [`SendWrapper`], which
 /// allows sending it between threads but will panic if it is accessed or updated from a  

@@ -14,11 +14,13 @@ use reactive_graph::{
         ArcRwSignal, RwSignal,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Update, With, Write,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Update, With, Write,
     },
 };
 use std::{
     future::{pending, Future, IntoFuture},
+    ops::DerefMut,
     panic::Location,
 };
 
@@ -62,7 +64,7 @@ impl<T> ArcLocalResource<T> {
                     pending().await
                 } else {
                     // LocalResources that are immediately available can cause a hydration error,
-                    // because the future *looks* like it is alredy ready (and therefore would
+                    // because the future *looks* like it is already ready (and therefore would
                     // already have been rendered to html on the server), but in fact was ignored
                     // on the server. the simplest way to avoid this is to ensure that we always
                     // wait a tick before resolving any value for a localresource.
@@ -154,6 +156,32 @@ impl<T> DefinedAt for ArcLocalResource<T> {
         {
             None
         }
+    }
+}
+
+impl<T> Notify for ArcLocalResource<T>
+where
+    T: 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T> Write for ArcLocalResource<T>
+where
+    T: 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 
@@ -270,7 +298,7 @@ impl<T> LocalResource<T> {
                     pending().await
                 } else {
                     // LocalResources that are immediately available can cause a hydration error,
-                    // because the future *looks* like it is alredy ready (and therefore would
+                    // because the future *looks* like it is already ready (and therefore would
                     // already have been rendered to html on the server), but in fact was ignored
                     // on the server. the simplest way to avoid this is to ensure that we always
                     // wait a tick before resolving any value for a localresource.
@@ -299,6 +327,34 @@ impl<T> LocalResource<T> {
     /// Re-runs the async function.
     pub fn refetch(&self) {
         self.refetch.try_update(|n| *n += 1);
+    }
+
+    /// Synchronously, reactively reads the current value of the resource and applies the function
+    /// `f` to its value if it is `Some(_)`.
+    #[track_caller]
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
+    where
+        T: 'static,
+    {
+        self.data.try_with(|n| n.as_ref().map(f))?
+    }
+}
+
+impl<T, E> LocalResource<Result<T, E>>
+where
+    T: 'static,
+    E: Clone + 'static,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
     }
 }
 
@@ -333,6 +389,32 @@ impl<T> DefinedAt for LocalResource<T> {
         {
             None
         }
+    }
+}
+
+impl<T> Notify for LocalResource<T>
+where
+    T: 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T> Write for LocalResource<T>
+where
+    T: 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 

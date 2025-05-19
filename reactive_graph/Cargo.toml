@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.0"
+version = "0.2.2"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -12,28 +12,28 @@ edition.workspace = true
 [dependencies]
 any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
-futures = "0.3.31"
+futures = { workspace = true, default-features = true }
 hydration_context = { workspace = true, optional = true }
-pin-project-lite = "0.2.15"
-rustc-hash = "2.0"
-serde = { version = "1.0", features = ["derive"], optional = true }
-slotmap = "1.0"
-thiserror = { workspace = true }
-tracing = { version = "0.1.41", optional = true }
-guardian = "1.2"
+pin-project-lite = { workspace = true, default-features = true }
+rustc-hash = { workspace = true, default-features = true }
+serde = { features = ["derive"], optional = true , workspace = true, default-features = true }
+slotmap = { workspace = true, default-features = true }
+thiserror = { workspace = true , default-features = true }
+tracing = { optional = true , workspace = true, default-features = true }
+guardian = { workspace = true, default-features = true }
 async-lock = "3.4.0"
-send_wrapper = { version = "0.6.0", features = ["futures"] }
+send_wrapper = { features = ["futures"] , workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-web-sys = { version = "0.3.72", features = ["console"] }
+web-sys = { version = "0.3.77", features = ["console"] }
 
 [dev-dependencies]
-tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
-tokio-test = { version = "0.4.4" }
+tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 
 [build-dependencies]
-rustc_version = "0.4.1"
+rustc_version = { workspace = true, default-features = true }
 
 [features]
 nightly = []

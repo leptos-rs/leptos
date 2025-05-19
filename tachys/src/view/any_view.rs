@@ -410,6 +410,9 @@ impl RenderHtml for AnyView {
             );
             if mark_branches && escape {
                 buf.close_branch(&type_id);
+                if *position == Position::NextChildAfterText {
+                    *position = Position::NextChild;
+                }
             }
         }
         #[cfg(not(feature = "ssr"))]
@@ -456,6 +459,9 @@ impl RenderHtml for AnyView {
             );
             if mark_branches && escape {
                 buf.close_branch(&type_id);
+                if *position == Position::NextChildAfterText {
+                    *position = Position::NextChild;
+                }
             }
         } else {
             let type_id = if mark_branches && escape {
@@ -476,6 +482,9 @@ impl RenderHtml for AnyView {
             );
             if mark_branches && escape {
                 buf.close_branch(&type_id);
+                if *position == Position::NextChildAfterText {
+                    *position = Position::NextChild;
+                }
             }
         }
         #[cfg(not(feature = "ssr"))]

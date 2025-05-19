@@ -320,6 +320,9 @@ where
                 );
                 if mark_branches && escape {
                     buf.close_branch("0");
+                    if *position == Position::NextChildAfterText {
+                        *position = Position::NextChild;
+                    }
                 }
             }
             Either::Right(right) => {
@@ -335,6 +338,9 @@ where
                 );
                 if mark_branches && escape {
                     buf.close_branch("1");
+                    if *position == Position::NextChildAfterText {
+                        *position = Position::NextChild;
+                    }
                 }
             }
         }
@@ -364,6 +370,9 @@ where
                 );
                 if mark_branches && escape {
                     buf.close_branch("0");
+                    if *position == Position::NextChildAfterText {
+                        *position = Position::NextChild;
+                    }
                 }
             }
             Either::Right(right) => {
@@ -379,6 +388,9 @@ where
                 );
                 if mark_branches && escape {
                     buf.close_branch("1");
+                    if *position == Position::NextChildAfterText {
+                        *position = Position::NextChild;
+                    }
                 }
             }
         }
@@ -862,6 +874,9 @@ macro_rules! tuples {
                             this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
+                                if *position == Position::NextChildAfterText {
+                                    *position = Position::NextChild;
+                                }
                             }
                         })*
                     }
@@ -885,6 +900,9 @@ macro_rules! tuples {
                             this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
                             if mark_branches && escape {
                                 buf.close_branch(stringify!($ty));
+                                if *position == Position::NextChildAfterText {
+                                    *position = Position::NextChild;
+                                }
                             }
                         })*
                     }

@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.2.0"
+version = "0.2.2"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -18,16 +18,16 @@ next_tuple = { workspace = true }
 or_poisoned = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
 reactive_stores = { workspace = true, optional = true }
-slotmap = { version = "1.0", optional = true }
+slotmap = { optional = true , workspace = true, default-features = true }
 oco_ref = { workspace = true, optional = true }
-async-trait = "0.1.81"
-once_cell = "1.20"
-paste = "1.0"
+async-trait = "0.1.88"
+once_cell = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
 erased = "0.1.2"
-wasm-bindgen = { workspace = true }
-html-escape = "0.2.13"
-js-sys = "0.3.74"
-web-sys = { version = "0.3.72", features = [
+wasm-bindgen = { workspace = true , default-features = true }
+html-escape = { workspace = true, default-features = true }
+js-sys = { workspace = true, default-features = true }
+web-sys = { features = [
   "Window",
   "Document",
   "HtmlElement",
@@ -148,29 +148,29 @@ web-sys = { version = "0.3.72", features = [
   "HtmlSlotElement",
   "HtmlTemplateElement",
   "HtmlOptionElement",
-] }
+] , workspace = true, default-features = true }
 drain_filter_polyfill = "0.1.3"
-indexmap = "2.6"
-rustc-hash = "2.0"
-futures = "0.3.31"
-parking_lot = "0.12.3"
-itertools = { workspace = true }
-send_wrapper = "0.6.0"
+indexmap = { workspace = true, default-features = true }
+rustc-hash = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+itertools = { workspace = true , default-features = true }
+send_wrapper = { workspace = true, default-features = true }
 linear-map = "1.2"
 sledgehammer_bindgen = { version = "0.6.0", features = [
   "web",
 ], optional = true }
 sledgehammer_utils = { version = "0.3.1", optional = true }
-tracing = { version = "0.1.41", optional = true }
-serde = { version = "1", optional = true }
-serde_json = { version = "1", optional = true }
+tracing = { optional = true , workspace = true, default-features = true }
+serde = { optional = true , workspace = true, default-features = true }
+serde_json = { optional = true , workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio-test = "0.4.4"
-tokio = { version = "1.43", features = ["rt", "macros"] }
+tokio-test = { workspace = true, default-features = true }
+tokio = { features = ["rt", "macros"] , workspace = true, default-features = true }
 
 [build-dependencies]
-rustc_version = "0.4.1"
+rustc_version = { workspace = true, default-features = true }
 
 [features]
 default = ["testing"]

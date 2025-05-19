@@ -8,7 +8,7 @@ use std::sync::Arc;
 ///
 /// Useful for inserting modals and tooltips outside of a cropping layout.
 /// If no mount point is given, the portal is inserted in `document.body`;
-/// it is wrapped in a `<div>` unless  `is_svg` is `true` in which case it's wrappend in a `<g>`.
+/// it is wrapped in a `<div>` unless  `is_svg` is `true` in which case it's wrapped in a `<g>`.
 /// Setting `use_shadow` to `true` places the element in a shadow root to isolate styles.
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
@@ -42,11 +42,15 @@ where
         let children = children.into_inner();
 
         Effect::new(move |_| {
-            let tag = if is_svg { "g" } else { "div" };
-
-            let container = document()
-                .create_element(tag)
-                .expect("element creation to work");
+            let container = if is_svg {
+                document()
+                    .create_element_ns(Some("http://www.w3.org/2000/svg"), "g")
+                    .expect("SVG element creation to work")
+            } else {
+                document()
+                    .create_element("div")
+                    .expect("HTML element creation to work")
+            };
 
             let render_root = if use_shadow {
                 container

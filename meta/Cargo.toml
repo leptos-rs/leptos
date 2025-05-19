@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.8.0"
+version = "0.8.2"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -10,17 +10,18 @@ edition.workspace = true
 
 [dependencies]
 leptos = { workspace = true }
-once_cell = "1.20"
+once_cell = { workspace = true, default-features = true }
 or_poisoned = { workspace = true }
-indexmap = "2.6"
-send_wrapper = "0.6.0"
-tracing = { version = "0.1.41", optional = true }
-wasm-bindgen = { workspace = true }
-futures = "0.3.31"
+indexmap = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
+tracing = { optional = true , workspace = true, default-features = true }
+wasm-bindgen = { workspace = true , default-features = true }
+futures = { workspace = true, default-features = true }
 
 [dependencies.web-sys]
-version = "0.3.72"
 features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
+workspace = true
+default-features = true
 
 [features]
 default = []

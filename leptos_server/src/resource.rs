@@ -26,7 +26,7 @@ use reactive_graph::{
 };
 use std::{
     future::{pending, IntoFuture},
-    ops::Deref,
+    ops::{Deref, DerefMut},
     panic::Location,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -159,6 +159,32 @@ where
 {
     fn track(&self) {
         self.data.track();
+    }
+}
+
+impl<T, Ser> Notify for ArcResource<T, Ser>
+where
+    T: 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T, Ser> Write for ArcResource<T, Ser>
+where
+    T: 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 
@@ -839,6 +865,32 @@ where
 {
     fn track(&self) {
         self.data.track();
+    }
+}
+
+impl<T, Ser> Notify for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn notify(&self) {
+        self.data.notify()
+    }
+}
+
+impl<T, Ser> Write for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.data.try_write()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.data.try_write_untracked()
     }
 }
 

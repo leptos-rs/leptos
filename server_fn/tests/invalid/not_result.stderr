@@ -16,11 +16,11 @@ error[E0271]: expected `impl Future<Output = CustomError>` to be a future that r
    |
    = note: expected enum `Result<_, _>`
               found enum `CustomError`
-note: required by a bound in `ServerFn::{synthetic#0}`
+note: required by a bound in `ServerFn::{anon_assoc#0}`
   --> src/lib.rs
    |
    |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
-   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::{synthetic#0}`
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::{anon_assoc#0}`
 
 error[E0277]: CustomError is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
   --> tests/invalid/not_result.rs:25:1

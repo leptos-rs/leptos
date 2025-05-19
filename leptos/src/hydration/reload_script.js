@@ -7,7 +7,7 @@ ws.onmessage = (ev) => {
 		let found = false;
 		document.querySelectorAll("link").forEach((link) => {
 			if (link.getAttribute('href').includes(msg.css)) {
-				let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
+				let newHref = '/' + msg.css + '?version=' + Date.now();
 				link.setAttribute('href', newHref);
 				found = true;
 			}

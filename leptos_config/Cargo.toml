@@ -10,18 +10,18 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-config = { version = "0.15.8", default-features = false, features = [
+config = { version = "0.15.11", default-features = false, features = [
   "toml",
   "convert-case",
 ] }
 regex = "1.11"
-serde = { version = "1.0", features = ["derive", "rc"] }
-thiserror = { workspace = true }
-typed-builder = { workspace = true }
+serde = { features = ["derive", "rc"] , workspace = true, default-features = true }
+thiserror = { workspace = true , default-features = true }
+typed-builder = { workspace = true , default-features = true }
 
 [dev-dependencies]
-tokio = { version = "1.43", features = ["rt", "macros"] }
-tempfile = "3.14"
+tokio = { features = ["rt", "macros"] , workspace = true, default-features = true }
+tempfile = "3.19"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
 
 [package.metadata.docs.rs]

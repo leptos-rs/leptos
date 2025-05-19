@@ -40,44 +40,81 @@ members = [
 exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
-version = "0.8.0"
+version = "0.8.2"
 edition = "2021"
 rust-version = "1.76"
 
 [workspace.dependencies]
-convert_case = "0.8"
+# members
 throw_error = { path = "./any_error/", version = "0.3.0" }
 any_spawner = { path = "./any_spawner/", version = "0.3.0" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
 either_of = { path = "./either_of/", version = "0.1.5" }
 hydration_context = { path = "./hydration_context", version = "0.3.0" }
-itertools = "0.14.0"
-leptos = { path = "./leptos", version = "0.8.0" }
-leptos_config = { path = "./leptos_config", version = "0.8.0" }
-leptos_dom = { path = "./leptos_dom", version = "0.8.0" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.0" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.8.0" }
-leptos_macro = { path = "./leptos_macro", version = "0.8.0" }
-leptos_router = { path = "./router", version = "0.8.0" }
-leptos_router_macro = { path = "./router_macro", version = "0.8.0" }
-leptos_server = { path = "./leptos_server", version = "0.8.0" }
-leptos_meta = { path = "./meta", version = "0.8.0" }
+leptos = { path = "./leptos", version = "0.8.2" }
+leptos_config = { path = "./leptos_config", version = "0.8.2" }
+leptos_dom = { path = "./leptos_dom", version = "0.8.2" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.2" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.8.2" }
+leptos_macro = { path = "./leptos_macro", version = "0.8.2" }
+leptos_router = { path = "./router", version = "0.8.2" }
+leptos_router_macro = { path = "./router_macro", version = "0.8.2" }
+leptos_server = { path = "./leptos_server", version = "0.8.2" }
+leptos_meta = { path = "./meta", version = "0.8.2" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.0" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.2.0" }
 reactive_stores = { path = "./reactive_stores", version = "0.2.0" }
 reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.0" }
-rustversion = "1"
-serde_json = "1.0.0"
-server_fn = { path = "./server_fn", version = "0.8.0" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.8.0" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.0" }
+server_fn = { path = "./server_fn", version = "0.8.2" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.8.2" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.2" }
 tachys = { path = "./tachys", version = "0.2.0" }
-trybuild = "1"
-typed-builder = "0.21.0"
-thiserror = "2.0.12"
-wasm-bindgen = "0.2.100"
+
+# common deps
+itertools = { default-features = false, version = "0.14.0" }
+convert_case = { default-features = false, version = "0.8.0" }
+serde_json = { default-features = false, version = "1.0" }
+trybuild = { default-features = false, version = "1.0" }
+typed-builder = { default-features = false, version = "0.21.0" }
+thiserror = { default-features = false, version = "2.0" }
+wasm-bindgen = { default-features = false, version = "0.2.100" }
+indexmap = { default-features = false, version = "2.9" }
+rstml = { default-features = false, version = "0.12.1" }
+rustc_version = { default-features = false, version = "0.4.1" }
+guardian = { default-features = false, version = "1.3" }
+rustc-hash = { default-features = false, version = "2.1" }
+once_cell = { default-features = false, version = "1.21" }
+actix-web = { default-features = false, version = "4.10" }
+tracing = { default-features = false, version = "0.1.41" }
+slotmap = { default-features = false, version = "1.0" }
+futures = { default-features = false, version = "0.3.31" }
+dashmap = { default-features = false, version = "6.1" }
+pin-project-lite = { default-features = false, version = "0.2.16" }
+send_wrapper = { default-features = false, version = "0.6.0" }
+tokio-test = { default-features = false, version = "0.4.4" }
+html-escape = { default-features = false, version = "0.2.13" }
+proc-macro-error2 = { default-features = false, version = "2.0" }
+const_format = { default-features = false, version = "0.2.34" }
+gloo-net = { default-features = false, version = "0.6.0" }
+url = { default-features = false, version = "2.5" }
+tokio = { default-features = false, version = "1.44" }
+base64 = { default-features = false, version = "0.22.1" }
+cfg-if = { default-features = false, version = "1.0" }
+wasm-bindgen-futures = { default-features = false, version = "0.4.50" }
+tower = { default-features = false, version = "0.5.2" }
+proc-macro2 = { default-features = false, version = "1.0" }
+serde = { default-features = false, version = "1.0" }
+parking_lot = { default-features = false, version = "0.12.3" }
+axum = { default-features = false, version = "0.8.3" }
+serde_qs = { default-features = false, version = "0.15.0" }
+syn = { default-features = false, version = "2.0" }
+xxhash-rust = { default-features = false, version = "0.8.15" }
+paste = { default-features = false, version = "1.0" }
+quote = { default-features = false, version = "1.0" }
+web-sys = { default-features = false, version = "0.3.77" }
+js-sys = { default-features = false, version = "0.3.77" }
 
 [profile.release]
 codegen-units = 1

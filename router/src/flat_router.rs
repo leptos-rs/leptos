@@ -430,6 +430,9 @@ impl RenderHtml for MatchedRoute {
         );
         if mark_branches && escape {
             buf.close_branch(&self.0);
+            if *position == Position::NextChildAfterText {
+                *position = Position::NextChild;
+            }
         }
     }
 
@@ -455,6 +458,9 @@ impl RenderHtml for MatchedRoute {
         );
         if mark_branches && escape {
             buf.close_branch(&self.0);
+            if *position == Position::NextChildAfterText {
+                *position = Position::NextChild;
+            }
         }
     }
 

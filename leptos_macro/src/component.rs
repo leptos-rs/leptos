@@ -357,38 +357,13 @@ impl ToTokens for Model {
 
         // add island wrapper if island
         let component = if is_island {
-            let is_server = cfg!(feature = "ssr");
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
-            if is_server {
-                quote! {
-                    {
-                        // if we're on the server, and inside another island already,
-                        // *don't* add a <leptos-island> (this will hydrate them both separately)
-                        if ::leptos::context::use_context::<::leptos::reactive::owner::IsHydrating>()
-                            .map(|h| h.0)
-                            .unwrap_or(false) {
-                            ::leptos::either::Either::Left(
-                                #component
-                            )
-                        } else {
-                            ::leptos::either::Either::Right(
-                                ::leptos::tachys::html::islands::Island::new(
-                                    stringify!(#hydrate_fn_name),
-                                    #component
-                                )
-                                 #island_serialized_props
-                            )
-                        }
-                    }
-                }
-            } else {
-                quote! {
-                    ::leptos::tachys::html::islands::Island::new(
-                        stringify!(#hydrate_fn_name),
-                        #component
-                    )
-                    #island_serialized_props
-                }
+            quote! {
+                ::leptos::tachys::html::islands::Island::new(
+                    stringify!(#hydrate_fn_name),
+                    #component
+                )
+                #island_serialized_props
             }
         } else {
             component
