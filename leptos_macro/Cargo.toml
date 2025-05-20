@@ -13,11 +13,11 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.10.3", features = ["syn-full"] }
+attribute-derive = { features = ["syn-full"] , workspace = true, default-features = true }
 cfg-if = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
 itertools = { workspace = true , default-features = true }
-prettyplease = "0.2.32"
+prettyplease = { workspace = true, default-features = true }
 proc-macro-error2 = { default-features = false , workspace = true }
 proc-macro2 = { workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
@@ -26,17 +26,17 @@ rstml = { workspace = true, default-features = true }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = { workspace = true , default-features = true }
-uuid = { version = "1.16", features = ["v4"] }
+uuid = { features = ["v4"] , workspace = true, default-features = true }
 tracing = { optional = true , workspace = true, default-features = true }
 
 [dev-dependencies]
-log = "0.4.27"
+log = { workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
 trybuild = { workspace = true , default-features = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
-insta = "1.42"
+insta = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 
 [build-dependencies]
