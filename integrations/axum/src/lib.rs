@@ -879,7 +879,8 @@ where
     }
 }
 
-fn handle_response_inner<IV>(
+/// Made public to be used in conjunction with a custom [file_and_error_handler_with_context]
+pub fn handle_response_inner<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl FnOnce() -> IV + Send + 'static,
     req: Request<Body>,
