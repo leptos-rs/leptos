@@ -409,7 +409,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// generate documentation for the component.
 ///
 /// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
-/// 
+///
 /// ```rust
 /// # use leptos::prelude::*;
 /// use std::time::Duration;
@@ -531,7 +531,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///     #[prop(optional)] optional_value: Option<i32>,
 ///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
 ///     #[prop(default = 7)] optional_default: i32,
-///     #[prop(name = "data")] UserInfo { email, user_id }: UserInfo
+///     #[prop(name = "data")] UserInfo { email, user_id }: UserInfo,
 /// ) -> impl IntoView {
 ///     // whatever UI you need
 /// }
