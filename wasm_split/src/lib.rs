@@ -60,11 +60,8 @@ impl SplitLoader {
         } else {
             None
         }));
-        match self.waker.take() {
-            Some(waker) => {
-                waker.wake();
-            }
-            _ => {}
+        if let Some(waker) = self.waker.take() {
+            waker.wake();
         }
     }
 }
