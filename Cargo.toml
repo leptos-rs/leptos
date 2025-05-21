@@ -64,13 +64,15 @@ leptos_meta = { path = "./meta", version = "0.8.4" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
-reactive_graph = { path = "./reactive_graph", version = "0.2.4" }
-reactive_stores = { path = "./reactive_stores", version = "0.2.4" }
-reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.4" }
-server_fn = { path = "./server_fn", version = "0.8.4" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.8.4" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.4" }
-tachys = { path = "./tachys", version = "0.2.5" }
+reactive_graph = { path = "./reactive_graph", version = "0.2.0" }
+reactive_stores = { path = "./reactive_stores", version = "0.2.0" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.0" }
+server_fn = { path = "./server_fn", version = "0.8.2" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.8.2" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.2" }
+tachys = { path = "./tachys", version = "0.2.0" }
+wasm_split = { path = "./wasm_split", version = "0.1.0" }
+wasm_split_macros = { path = "./wasm_split_macros", version = "0.1.0" }
 
 # members deps
 itertools = { default-features = false, version = "0.14.0" }
