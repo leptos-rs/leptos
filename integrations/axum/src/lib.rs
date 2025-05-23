@@ -879,7 +879,8 @@ where
     }
 }
 
-fn handle_response_inner<IV>(
+/// Can be used in conjunction with a custom [file_and_error_handler_with_context] to process an Axum [Request](axum::extract::Request) into an Axum [Response](axum::response::Response)
+pub fn handle_response_inner<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl FnOnce() -> IV + Send + 'static,
     req: Request<Body>,
