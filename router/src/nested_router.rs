@@ -473,7 +473,7 @@ where
     }
 }
 
-type OutletViewFn = Box<dyn FnMut() -> Suspend<AnyView> + Send>;
+type OutletViewFn = Box<dyn FnMut(Owner) -> Suspend<AnyView> + Send>;
 
 pub(crate) struct RouteContext {
     id: RouteMatchId,
@@ -624,7 +624,7 @@ where
             params,
             owner: owner.clone(),
             matched,
-            view_fn: Arc::new(Mutex::new(Box::new(|| {
+            view_fn: Arc::new(Mutex::new(Box::new(|_owner| {
                 Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
@@ -645,30 +645,33 @@ where
                     provide_context(url);
                     provide_context(matched.clone());
                     view.preload().await;
-                    *view_fn.lock().or_poisoned() = Box::new(move || {
-                        let view = view.clone();
-                        owner.with({
-                            let matched = matched.clone();
-                            move || {
-                                Suspend::new(Box::pin(async move {
-                                    let view = SendWrapper::new(
-                                        ScopedFuture::new(view.choose()),
-                                    );
-                                    let view = view.await;
-                                    let view = MatchedRoute(
-                                        matched.0.get_untracked(),
-                                        view,
-                                    );
-                                    OwnedView::new(view).into_any()
-                                })
-                                    as Pin<
-                                        Box<
-                                            dyn Future<Output = AnyView> + Send,
-                                        >,
-                                    >)
-                            }
-                        })
-                    });
+                    *view_fn.lock().or_poisoned() =
+                        Box::new(move |owner_where_used| {
+                            owner.join_contexts(&owner_where_used);
+                            let view = view.clone();
+                            owner.with({
+                                let matched = matched.clone();
+                                move || {
+                                    Suspend::new(Box::pin(async move {
+                                        let view = SendWrapper::new(
+                                            ScopedFuture::new(view.choose()),
+                                        );
+                                        let view = view.await;
+                                        let view = MatchedRoute(
+                                            matched.0.get_untracked(),
+                                            view,
+                                        );
+                                        OwnedView::new(view).into_any()
+                                    })
+                                        as Pin<
+                                            Box<
+                                                dyn Future<Output = AnyView>
+                                                    + Send,
+                                            >,
+                                        >)
+                                }
+                            })
+                        });
                     trigger
                 }
             })
@@ -799,7 +802,8 @@ where
                                 provide_context(matched);
                                 view.preload().await;
                                 *view_fn.lock().or_poisoned() =
-                                    Box::new(move || {
+                                    Box::new(move |owner_where_used| {
+                                        owner.join_contexts(&owner_where_used);
                                         let owner = owner.clone();
                                         let view = view.clone();
                                         let full_tx =
@@ -921,6 +925,6 @@ where
         } = ctx;
         trigger.track();
         let mut view_fn = view_fn.lock().or_poisoned();
-        view_fn()
+        view_fn(Owner::current().unwrap())
     }
 }
