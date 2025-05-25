@@ -249,7 +249,7 @@ impl LocationProvider for BrowserUrl {
     }
 
     fn redirect(loc: &str) {
-        let navigate = use_navigate::<BrowserUrl>();
+        let navigate = use_navigate();
         let Some(url) = resolve_redirect_url(loc) else {
             return; // resolve_redirect_url() already logs an error
         };

@@ -23,7 +23,11 @@ use reactive_graph::{
     wrappers::write::SignalSetter,
 };
 use std::{
-    borrow::Cow, fmt::{Debug, Display}, marker::PhantomData, mem, sync::Arc, time::Duration
+    borrow::Cow,
+    fmt::{Debug, Display},
+    mem,
+    sync::Arc,
+    time::Duration,
 };
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
@@ -48,7 +52,7 @@ where
 }
 
 #[component(transparent)]
-pub fn Router<Chil, LP: LocationProvider + std::marker::Send + std::marker::Sync>(
+pub fn Router<Chil>(
     /// The base URL for the router. Defaults to `""`.
     #[prop(optional, into)]
     base: Option<Cow<'static, str>>,
@@ -63,8 +67,6 @@ pub fn Router<Chil, LP: LocationProvider + std::marker::Send + std::marker::Sync
     /// any elements, and should include a [`Routes`] component somewhere
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
-    /// The location provider to use.
-    location_provider: PhantomData<LP>,
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -81,7 +83,8 @@ where
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
         let owner = Owner::current();
-        let location = LP::new().expect("could not access location provider");
+        let location =
+            BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();
@@ -101,7 +104,7 @@ where
     // set server function redirect hook
     _ = server_fn::redirect::set_redirect_hook(redirect_hook);
 
-    provide_context(RouterContext::<LP> {
+    provide_context(RouterContext {
         base,
         current_url,
         location,
@@ -116,7 +119,7 @@ where
 }
 
 #[derive(Clone)]
-pub(crate) struct RouterContext<LP: LocationProvider> {
+pub(crate) struct RouterContext {
     pub base: Option<Cow<'static, str>>,
     pub current_url: ArcRwSignal<Url>,
     pub location: Location,
@@ -124,10 +127,10 @@ pub(crate) struct RouterContext<LP: LocationProvider> {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
-    pub location_provider: Option<LP>,
+    pub location_provider: Option<BrowserUrl>,
 }
 
-impl<LP: LocationProvider> RouterContext<LP> {
+impl RouterContext {
     pub fn navigate(&self, path: &str, options: NavigateOptions) {
         let current = self.current_url.read_untracked();
         let resolved_to = if options.resolve {
@@ -206,7 +209,7 @@ impl<LP: LocationProvider> RouterContext<LP> {
     }
 }
 
-impl<LP: LocationProvider> Debug for RouterContext<LP> {
+impl Debug for RouterContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RouterContext")
             .field("base", &self.base)
@@ -217,7 +220,7 @@ impl<LP: LocationProvider> Debug for RouterContext<LP> {
 }
 
 #[component(transparent)]
-pub fn Routes<Defs, FallbackFn, Fallback, LP: LocationProvider>(
+pub fn Routes<Defs, FallbackFn, Fallback>(
     /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
@@ -226,8 +229,6 @@ pub fn Routes<Defs, FallbackFn, Fallback, LP: LocationProvider>(
     /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
     /// components.
     children: RouteChildren<Defs>,
-    /// The location provider to use.
-    location_provider: PhantomData<LP>,
 ) -> impl IntoView
 where
     Defs: MatchNestedRoutes + Clone + Send + 'static,
@@ -235,7 +236,7 @@ where
     Fallback: IntoView + 'static,
 {
     let location = use_context::<BrowserUrl>();
-    let RouterContext::<LP> {
+    let RouterContext {
         current_url,
         base,
         set_is_routing,
@@ -272,7 +273,7 @@ where
 }
 
 #[component(transparent)]
-pub fn FlatRoutes<Defs, FallbackFn, Fallback, LP: LocationProvider>(
+pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
     /// A function that returns the view that should be shown if no route is matched.
     fallback: FallbackFn,
     /// Whether to use the View Transition API during navigation.
@@ -281,8 +282,6 @@ pub fn FlatRoutes<Defs, FallbackFn, Fallback, LP: LocationProvider>(
     /// The route definitions. This should consist of one or more [`ParentRoute`] or [`Route`]
     /// components.
     children: RouteChildren<Defs>,
-    /// The location provider to use.
-    location_provider: PhantomData<LP>,
 ) -> impl IntoView
 where
     Defs: MatchNestedRoutes + Clone + Send + 'static,
@@ -290,7 +289,7 @@ where
     Fallback: IntoView + 'static,
 {
     let location = use_context::<BrowserUrl>();
-    let RouterContext::<LP> {
+    let RouterContext {
         current_url,
         base,
         set_is_routing,
@@ -392,7 +391,7 @@ macro_rules! define_protected_route {
         /// [`<Route/>`], except that if the `condition` function evaluates to `Some(false)`, it
         /// redirects to `redirect_path` instead of displaying its `view`.
         #[component(transparent)]
-        pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P, LP: LocationProvider + Send + Sync>(
+        pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
             /// The path fragment that this route should match. This can be created using the
             /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
             /// [`ParamSegment`](crate::ParamSegment), [`WildcardSegment`](crate::WildcardSegment), and
@@ -413,8 +412,6 @@ macro_rules! define_protected_route {
             /// Defaults to out-of-order streaming.
             #[prop(optional)]
             ssr: SsrMode,
-            /// The location provider to use.
-            location_provider: PhantomData<LP>
         ) -> $ret
         where
             Segments: PossibleRouteMatch + Clone + Send + 'static,
@@ -441,7 +438,7 @@ macro_rules! define_protected_route {
                                 Some(true) => EitherOf3::A(view()),
                                 #[allow(clippy::unit_arg)]
                                 Some(false) => {
-                                    EitherOf3::B(view! { <Redirect path=redirect_path() location_provider /> }.into_inner())
+                                    EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
                                 }
                                 None => EitherOf3::C(fallback()),
                             })
@@ -473,7 +470,6 @@ macro_rules! define_protected_parent_route {
             PathFn,
             P,
             Children,
-            LP: LocationProvider + Send + Sync
         >(
             /// The path fragment that this route should match. This can be created using the
             /// [`path`](crate::path) macro, or path segments ([`StaticSegment`](crate::StaticSegment),
@@ -497,8 +493,6 @@ macro_rules! define_protected_parent_route {
             /// Defaults to out-of-order streaming.
             #[prop(optional)]
             ssr: SsrMode,
-            /// The location provider to use.
-            location_provider: PhantomData<LP>
         ) -> $ret
         where
             Segments: PossibleRouteMatch + Clone + Send + 'static,
@@ -535,7 +529,7 @@ macro_rules! define_protected_parent_route {
                             Some(true) => EitherOf3::A(owner.with(|| view())),
                             #[allow(clippy::unit_arg)]
                             Some(false) => EitherOf3::B(
-                                view! { <Redirect path=redirect_path() location_provider=location_provider /> }
+                                view! { <Redirect path=redirect_path()/> }
                                     .into_inner(),
                             ),
                             None => EitherOf3::C(fallback()),
@@ -571,15 +565,13 @@ define_protected_parent_route!(NestedRoute<Segments, Children, (), impl Fn() -> 
 /// [`leptos_actix`]: <https://docs.rs/leptos_actix/>
 /// [`leptos_axum`]: <https://docs.rs/leptos_axum/>
 #[component(transparent)]
-pub fn Redirect<P, LP: LocationProvider>(
+pub fn Redirect<P>(
     /// The relative path to which the user should be redirected.
     path: P,
     /// Navigation options to be used on the client side.
     #[prop(optional)]
     #[allow(unused)]
     options: Option<NavigateOptions>,
-    /// The location provider to use.
-    location_provider: PhantomData<LP>
 ) where
     P: core::fmt::Display + 'static,
 {
@@ -606,7 +598,7 @@ pub fn Redirect<P, LP: LocationProvider>(
             );
             return;
         }
-        let navigate = use_navigate::<LP>();
+        let navigate = use_navigate();
         navigate(&path, options.unwrap_or_default());
     }
 }
