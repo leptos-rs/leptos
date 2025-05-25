@@ -31,7 +31,6 @@ impl Owner {
     fn take_context<T: 'static>(&self) -> Option<T> {
         let ty = TypeId::of::<T>();
         let mut inner = self.inner.write().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &mut inner.contexts;
         if let Some(context) = contexts.remove(&ty) {
             context.downcast::<T>().ok().map(|n| *n)
@@ -42,6 +41,7 @@ impl Owner {
                 .iter()
                 .map(|owner| Arc::clone(&owner.inner));
             for parent in parent.into_iter().chain(joined) {
+                let mut parent = Some(parent);
                 while let Some(ref this_parent) = parent.clone() {
                     let mut this_parent = this_parent.write().or_poisoned();
                     let contexts = &mut this_parent.contexts;
@@ -106,7 +106,6 @@ impl Owner {
     ) -> Option<R> {
         let ty = TypeId::of::<T>();
         let mut inner = self.inner.write().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &mut inner.contexts;
         let reference = if let Some(context) = contexts.get_mut(&ty) {
             context.downcast_mut::<T>()
@@ -117,6 +116,7 @@ impl Owner {
                 .iter()
                 .map(|owner| Arc::clone(&owner.inner));
             for parent in parent.into_iter().chain(joined) {
+                let mut parent = Some(parent);
                 while let Some(ref this_parent) = parent.clone() {
                     let mut this_parent = this_parent.write().or_poisoned();
                     let contexts = &mut this_parent.contexts;
