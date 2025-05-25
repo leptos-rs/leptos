@@ -28,7 +28,7 @@ pub fn RouterExample() -> impl IntoView {
     let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Router set_is_routing>
+        <Router set_is_routing location_provider={PhantomData::<HashRouter>}>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
                 <RoutingProgress is_routing max_time=Duration::from_millis(250) />
@@ -39,10 +39,10 @@ pub fn RouterExample() -> impl IntoView {
                 // 1) ensuring that relative routing works properly for nested routes
                 // 2) setting the `aria-current` attribute on the current link,
                 // for a11y and styling purposes
-                <A href="/">"Contacts"</A>
-                <A href="/about">"About"</A>
-                <A href="/settings">"Settings"</A>
-                <A href="/redirect-home">"Redirect to Home"</A>
+                <A href="/" location_provider={PhantomData::<HashRouter>}>"Contacts"</A>
+                <A href="/about" location_provider={PhantomData::<HashRouter>}>"About"</A>
+                <A href="/settings" location_provider={PhantomData::<HashRouter>}>"Settings"</A>
+                <A href="/redirect-home" location_provider={PhantomData::<HashRouter>}>"Redirect to Home"</A>
                 <button on:click=move |_| {
                     set_logged_in.update(|n| *n = !*n)
                 }>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>
@@ -104,7 +104,7 @@ pub fn ContactList() -> impl IntoView {
                 .map(|contact| {
                     view! {
                         <li>
-                            <A href=contact.id.to_string()>
+                            <A href=contact.id.to_string() location_provider={PhantomData::<HashRouter>}>
                                 <span>{contact.first_name} " " {contact.last_name}</span>
                             </A>
                         </li>
@@ -194,7 +194,7 @@ pub fn About() -> impl IntoView {
     );
 
     // use_navigate allows you to navigate programmatically by calling a function
-    let navigate = use_navigate();
+    let navigate = use_navigate::<HashRouter>();
 
     // note: this is just an illustration of how to use `use_navigate`
     // <button on:click> to navigate is an *anti-pattern*
@@ -219,7 +219,7 @@ pub fn Settings() -> impl IntoView {
 
     view! {
         <h1>"Settings"</h1>
-        <Form action="">
+        <Form action="" location_provider={PhantomData::<HashRouter>}>
             <fieldset>
                 <legend>"Name"</legend>
                 <input type="text" name="first_name" placeholder="First" />

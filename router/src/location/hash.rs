@@ -20,20 +20,20 @@ use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{Event, UrlSearchParams};
 
 #[derive(Clone)]
-pub struct BrowserUrl {
+pub struct HashRouter {
     url: ArcRwSignal<Url>,
     pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
     pub(crate) path_stack: ArcStoredValue<Vec<Url>>,
     pub(crate) is_back: ArcRwSignal<bool>,
 }
 
-impl fmt::Debug for BrowserUrl {
+impl fmt::Debug for HashRouter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BrowserUrl").finish_non_exhaustive()
+        f.debug_struct("HashRouter").finish_non_exhaustive()
     }
 }
 
-impl BrowserUrl {
+impl HashRouter {
     fn scroll_to_el(loc_scroll: bool) {
         if let Ok(hash) = window().location().hash() {
             if !hash.is_empty() {
@@ -56,7 +56,7 @@ impl BrowserUrl {
     }
 }
 
-impl LocationProvider for BrowserUrl {
+impl LocationProvider for HashRouter {
     type Error = JsValue;
 
     fn new() -> Result<Self, JsValue> {
@@ -249,7 +249,7 @@ impl LocationProvider for BrowserUrl {
     }
 
     fn redirect(loc: &str) {
-        let navigate = use_navigate::<BrowserUrl>();
+        let navigate = use_navigate::<HashRouter>();
         let Some(url) = resolve_redirect_url(loc) else {
             return; // resolve_redirect_url() already logs an error
         };

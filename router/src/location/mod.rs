@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use any_spawner::Executor;
+use hash::HashRouter;
 use core::fmt::Debug;
 use js_sys::Reflect;
 use leptos::server::ServerActionError;
@@ -17,6 +18,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
 mod history;
+mod hash;
 mod server;
 use crate::params::ParamsMap;
 pub use history::*;

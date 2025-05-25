@@ -5,7 +5,7 @@ use crate::{
     NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
-use std::{error::Error, sync::Arc};
+use std::{error::Error, marker::PhantomData, sync::Arc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use web_sys::{FormData, RequestRedirect, Response};
 
@@ -16,7 +16,7 @@ type OnError = Arc<dyn Fn(&gloo_net::Error)>;
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
 #[component]
-pub fn Form<A>(
+pub fn Form<A, LP: LocationProvider + Send + Sync>(
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
     /// is the HTTP method to submit the form with (`get` or `post`).
     #[prop(optional)]
@@ -54,6 +54,8 @@ pub fn Form<A>(
     replace: bool,
     /// Component children; should include the HTML of the form elements.
     children: Children,
+    /// The location provider to use.
+    location_provider: PhantomData<LP>
 ) -> impl IntoView
 where
     A: ToHref + Send + Sync + 'static,
@@ -84,7 +86,7 @@ where
             .await
     }
 
-    fn inner(
+    fn inner<LP: LocationProvider>(
         has_router: bool,
         method: Option<&'static str>,
         action: ArcMemo<Option<String>>,
@@ -99,7 +101,7 @@ where
         replace: bool,
     ) -> impl IntoView {
         let action_version = version;
-        let navigate = has_router.then(use_navigate);
+        let navigate = has_router.then(use_navigate::<LP>);
         let on_submit = {
             move |ev: web_sys::SubmitEvent| {
                 let navigate = navigate.clone();
@@ -307,13 +309,13 @@ where
             .child(children())
     }
 
-    let has_router = has_router();
+    let has_router = has_router::<LP>();
     let action = if has_router {
-        use_resolved_path(move || action.to_href()())
+        use_resolved_path::<LP>(move || action.to_href()())
     } else {
         ArcMemo::new(move |_| Some(action.to_href()()))
     };
-    inner(
+    inner::<LP>(
         has_router,
         method,
         action,

@@ -1,7 +1,7 @@
-use crate::{components::RouterContext, hooks::use_resolved_path};
+use crate::{components::RouterContext, hooks::use_resolved_path, location::LocationProvider};
 use leptos::{children::Children, oco::Oco, prelude::*};
 use reactive_graph::{computed::ArcMemo, owner::use_context};
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, marker::PhantomData, rc::Rc};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
@@ -77,7 +77,7 @@ where
 /// `prop:` syntax, and will be added directly to the DOM. They can work with either `<a>` elements
 /// or the `<A/>` component.
 #[component]
-pub fn A<H>(
+pub fn A<H, LP: LocationProvider + Send + Sync>(
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
     href: H,
@@ -97,11 +97,13 @@ pub fn A<H>(
     scroll: bool,
     /// The nodes or elements to be shown inside the link.
     children: Children,
+    /// The location provider to use.
+    location_provider: PhantomData<LP>
 ) -> impl IntoView
 where
     H: ToHref + Send + Sync + 'static,
 {
-    fn inner(
+    fn inner<LP: LocationProvider>(
         href: ArcMemo<Option<String>>,
         target: Option<Oco<'static, str>>,
         exact: bool,
@@ -109,7 +111,7 @@ where
         strict_trailing_slash: bool,
         scroll: bool,
     ) -> impl IntoView {
-        let RouterContext { current_url, .. } =
+        let RouterContext::<LP> { current_url, .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
         let is_active = {
             let href = href.clone();
@@ -141,8 +143,8 @@ where
         }
     }
 
-    let href = use_resolved_path(move || href.to_href()());
-    inner(href, target, exact, children, strict_trailing_slash, scroll)
+    let href = use_resolved_path::<LP>(move || href.to_href()());
+    inner::<LP>(href, target, exact, children, strict_trailing_slash, scroll)
 }
 
 // Test if `href` is active for `location`.  Assumes _both_ `href` and `location` begin with a `'/'`.

@@ -1,6 +1,6 @@
 use crate::{
     components::RouterContext,
-    location::{Location, Url},
+    location::{Location, LocationProvider, Url},
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
@@ -21,27 +21,27 @@ use std::{
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal` to match Rust naming \
                 conventions."]
-pub fn create_query_signal<T>(
+pub fn create_query_signal<T, LP: LocationProvider + Send + Sync>(
     key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq + Send + Sync,
 {
-    query_signal(key)
+    query_signal::<T, LP>(key)
 }
 
 /// See [`query_signal_with_options`].
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal_with_options` to mtch \
                 Rust naming conventions."]
-pub fn create_query_signal_with_options<T>(
+pub fn create_query_signal_with_options<T, LP: LocationProvider + Send + Sync>(
     key: impl Into<Oco<'static, str>>,
     nav_options: NavigateOptions,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq + Send + Sync,
 {
-    query_signal_with_options(key, nav_options)
+    query_signal_with_options::<T, LP>(key, nav_options)
 }
 
 /// Constructs a signal synchronized with a specific URL query parameter.
@@ -81,20 +81,20 @@ where
 /// }
 /// ```
 #[track_caller]
-pub fn query_signal<T>(
+pub fn query_signal<T, LP: LocationProvider + Send + Sync>(
     key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq + Send + Sync,
 {
-    query_signal_with_options::<T>(key, NavigateOptions::default())
+    query_signal_with_options::<T, LP>(key, NavigateOptions::default())
 }
 
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// This is the same as [`query_signal`], but allows you to specify additional navigation options.
 #[track_caller]
-pub fn query_signal_with_options<T>(
+pub fn query_signal_with_options<T, LP: LocationProvider + Send + Sync>(
     key: impl Into<Oco<'static, str>>,
     nav_options: NavigateOptions,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
@@ -104,10 +104,10 @@ where
     static IS_NAVIGATING: AtomicBool = AtomicBool::new(false);
 
     let mut key: Oco<'static, str> = key.into();
-    let query_map = use_query_map();
-    let navigate = use_navigate();
-    let location = use_location();
-    let RouterContext {
+    let query_map = use_query_map::<LP>();
+    let navigate = use_navigate::<LP>();
+    let location = use_location::<LP>();
+    let RouterContext::<LP> {
         query_mutations, ..
     } = expect_context();
 
@@ -146,8 +146,8 @@ where
 }
 
 #[track_caller]
-pub(crate) fn has_router() -> bool {
-    use_context::<RouterContext>().is_some()
+pub(crate) fn has_router<LP: LocationProvider>() -> bool {
+    use_context::<RouterContext<LP>>().is_some()
 }
 
 /*
@@ -168,8 +168,8 @@ pub(crate) fn use_router() -> RouterContext {
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
-pub fn use_location() -> Location {
-    let RouterContext { location, .. } =
+pub fn use_location<LP: LocationProvider>() -> Location {
+    let RouterContext::<LP> { location, .. } =
         use_context().expect("Tried to access Location outside a <Router>.");
     location
 }
@@ -201,9 +201,9 @@ where
 }
 
 #[track_caller]
-fn use_url_raw() -> ArcRwSignal<Url> {
+fn use_url_raw<LP: LocationProvider>() -> ArcRwSignal<Url> {
     use_context().unwrap_or_else(|| {
-        let RouterContext { current_url, .. } = use_context().expect(
+        let RouterContext::<LP> { current_url, .. } = use_context().expect(
             "Tried to access reactive URL outside a <Router> component.",
         );
         current_url
@@ -212,24 +212,24 @@ fn use_url_raw() -> ArcRwSignal<Url> {
 
 /// Gives reactive access to the current URL.
 #[track_caller]
-pub fn use_url() -> ReadSignal<Url> {
-    use_url_raw().read_only().into()
+pub fn use_url<LP: LocationProvider>() -> ReadSignal<Url> {
+    use_url_raw::<LP>().read_only().into()
 }
 
 /// Returns a raw key-value map of the URL search query.
 #[track_caller]
-pub fn use_query_map() -> Memo<ParamsMap> {
-    let url = use_url_raw();
+pub fn use_query_map<LP: LocationProvider>() -> Memo<ParamsMap> {
+    let url = use_url_raw::<LP>();
     Memo::new(move |_| url.with(|url| url.search_params().clone()))
 }
 
 /// Returns the current URL search query, parsed into the given type, or an error.
 #[track_caller]
-pub fn use_query<T>() -> Memo<Result<T, ParamsError>>
+pub fn use_query<T, LP: LocationProvider>() -> Memo<Result<T, ParamsError>>
 where
     T: Params + PartialEq + Send + Sync + 'static,
 {
-    let url = use_url_raw();
+    let url = use_url_raw::<LP>();
     Memo::new(move |_| url.with(|url| T::from_map(url.search_params())))
 }
 
@@ -238,10 +238,10 @@ pub(crate) struct Matched(pub ArcMemo<String>);
 
 /// Resolves the given path relative to the current route.
 #[track_caller]
-pub(crate) fn use_resolved_path(
+pub(crate) fn use_resolved_path<LP: LocationProvider + Send + Sync>(
     path: impl Fn() -> String + Send + Sync + 'static,
 ) -> ArcMemo<Option<String>> {
-    let router = use_context::<RouterContext>()
+    let router = use_context::<RouterContext<LP>>()
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
     let matched = use_context::<Matched>().map(|n| n.0);
@@ -272,8 +272,8 @@ pub(crate) fn use_resolved_path(
 /// # }
 /// ```
 #[track_caller]
-pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
-    let cx = use_context::<RouterContext>()
+pub fn use_navigate<LP: LocationProvider>() -> impl Fn(&str, NavigateOptions) + Clone {
+    let cx = use_context::<RouterContext<LP>>()
         .expect("You cannot call `use_navigate` outside a <Router>.");
     move |path: &str, options: NavigateOptions| cx.navigate(path, options)
 }
