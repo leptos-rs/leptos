@@ -12,8 +12,6 @@ use leptos_router::{
 use leptos_router_macro::path;
 use std::time::Duration;
 use tracing::info;
-use leptos_router::location::BrowserUrl;
-use leptos_router::location::RoutingProvider;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct ExampleContext(i32);

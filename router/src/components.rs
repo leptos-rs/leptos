@@ -71,8 +71,8 @@ pub fn Router<Chil>(
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
     /// The routing provider to use.
-    #[prop(default = Box::new(BrowserUrl::new().unwrap()))]
-    location: Box<dyn Routing<Error = JsValue>>,
+    #[prop(default = BrowserUrl::new().map(|v| Box::new(v) as Box<dyn Routing<Error = JsValue>>))]
+    location: Result<Box<dyn Routing<Error = JsValue>>, JsValue>,
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -89,6 +89,7 @@ where
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
         let owner = Owner::current();
+        let location = location.expect("could not access browser navigation");
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();

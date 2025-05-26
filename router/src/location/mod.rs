@@ -285,6 +285,7 @@ where
 
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
+    routing: Box<dyn Routing<Error = JsValue>>,
     navigate: NavFn,
 ) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
 where
@@ -335,14 +336,7 @@ where
                 return Ok(());
             }
 
-            let cx = use_context::<RouterContext>().expect("TODO no router");
-
-            let url = cx
-                .location_provider
-                .as_ref()
-                .unwrap()
-                .parse_with_base(href.as_str(), &origin)
-                .unwrap();
+            let url = routing.parse_with_base(href.as_str(), &origin).unwrap();
             let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain

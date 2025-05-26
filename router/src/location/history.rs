@@ -107,7 +107,8 @@ impl Routing for BrowserUrl {
             }
         };
 
-        let handle_anchor_click = handle_anchor_click(base, navigate);
+        let handle_anchor_click =
+            handle_anchor_click(base, Box::new(self.clone()), navigate);
         let closure = Closure::wrap(Box::new(move |ev: Event| {
             if let Err(e) = handle_anchor_click(ev) {
                 #[cfg(feature = "tracing")]
