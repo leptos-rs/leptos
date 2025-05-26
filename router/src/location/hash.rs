@@ -133,7 +133,10 @@ impl Routing for HashRouter {
             let url = self.url.clone();
             let path_stack = self.path_stack.clone();
             let is_back = self.is_back.clone();
-            move || match Self::current() {
+            move || 
+            {
+                web_sys::console::error_1(&JsValue::from_str("called popstate or hashchange"));
+                match Self::current() {
                 Ok(new_url) => {
                     let stack = path_stack.read_value();
                     let is_navigating_back = stack.len() == 1
@@ -151,6 +154,7 @@ impl Routing for HashRouter {
                     web_sys::console::error_1(&e);
                 }
             }
+        }
         };
         let closure =
             Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
@@ -160,6 +164,13 @@ impl Routing for HashRouter {
                 closure.as_ref().unchecked_ref(),
             )
             .expect("couldn't add `popstate` listener to `window`");
+        window
+            .add_event_listener_with_callback(
+                "hashchange",
+                closure.as_ref().unchecked_ref(),
+            )
+            .expect("couldn't add `hashchange` listener to `window`");
+        web_sys::console::error_1(&JsValue::from_str("added hashchange event"));
     }
 
     fn ready_to_complete(&self) {
@@ -213,9 +224,10 @@ impl Routing for HashRouter {
         base: &str,
     ) -> Result<Url, Self::Error> {
         let location = web_sys::Url::new_with_base(url, base)?;
-        Ok(Url {
+        web_sys::console::error_1(&JsValue::from_str("parse_with_base"));
+        let url = Url {
             origin: location.origin(),
-            path: location.pathname(),
+            path: location.hash().trim_start_matches("#").to_owned(),
             search: location
                 .search()
                 .strip_prefix('?')
@@ -224,11 +236,14 @@ impl Routing for HashRouter {
             search_params: search_params_from_web_url(
                 &location.search_params(),
             )?,
-            hash: location.hash(),
-        })
+            hash: String::new(),
+        };
+        web_sys::console::error_1(&JsValue::from_str(&format!("parse_with_base {}", url.to_full_path())));
+        Ok(url)
     }
 
     fn redirect(&self, loc: &str) {
+        web_sys::console::error_1(&JsValue::from_str("redirect"));
         let navigate = use_navigate();
         let Some(url) = resolve_redirect_url(loc) else {
             return; // resolve_redirect_url() already logs an error
