@@ -268,7 +268,7 @@ where
             current_url.read_untracked().provide_server_action_error()
         });
         NestedRoutesView {
-            location: location_provider.clone(),
+            location: None::<Box<dyn Routing<Error=JsValue>>>,
             routes: routes.clone(),
             outer_owner: outer_owner.clone(),
             current_url: current_url.clone(),

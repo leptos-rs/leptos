@@ -245,6 +245,42 @@ pub trait Routing: DynClone + Send + Sync + 'static {
     fn redirect(&self, loc: &str);
 }
 
+impl Routing for Box<dyn Routing<Error=JsValue> + '_> {
+    type Error = JsValue;
+
+    fn as_url(&self) -> &ArcRwSignal<Url> {
+        (**self).as_url()
+    }
+
+    fn init(&self, base: Option<Cow<'static, str>>) {
+        (**self).init(base)
+    }
+
+    fn ready_to_complete(&self) {
+        (**self).ready_to_complete();
+    }
+
+    fn complete_navigation(&self, loc: &LocationChange) {
+        (**self).complete_navigation(loc);
+    }
+
+    fn is_back(&self) -> ReadSignal<bool> {
+        (**self).is_back()
+    }
+
+    fn parse_with_base(
+        &self,
+        url: &str,
+        base: &str,
+    ) -> Result<Url, Self::Error> {
+        (**self).parse_with_base(url, base)
+    }
+
+    fn redirect(&self, loc: &str) {
+        (**self).redirect(loc);
+    }
+}
+
 pub trait RoutingProvider: Routing + Clone {
     fn new() -> Result<Self, Self::Error>;
 

@@ -22,6 +22,7 @@ use reactive_graph::{
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
+use wasm_bindgen::JsValue;
 use std::{
     cell::RefCell,
     fmt::Debug,
@@ -43,7 +44,7 @@ use tachys::{
     },
 };
 
-pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
+pub(crate) struct NestedRoutesView<Loc: Routing<Error = JsValue> + Clone, Defs, FalFn> {
     pub location: Option<Loc>,
     pub routes: RouteDefs<Defs>,
     pub outer_owner: Owner,
@@ -69,7 +70,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> Render for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: Routing + Clone,
+    Loc: Routing<Error = JsValue> + Clone,
     Defs: MatchNestedRoutes,
     FalFn: FnOnce() -> Fal,
     Fal: Render + 'static,
@@ -228,7 +229,7 @@ where
 
 impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: Routing + Clone + Send,
+    Loc: Routing<Error = JsValue> + Clone + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
@@ -249,7 +250,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: Routing + Clone + Send,
+    Loc: Routing<Error = JsValue> + Clone + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
