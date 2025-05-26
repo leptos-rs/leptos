@@ -1,4 +1,6 @@
-use super::{handle_anchor_click, LocationChange, Routing, RoutingProvider, Url};
+use super::{
+    handle_anchor_click, LocationChange, Routing, RoutingProvider, Url,
+};
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
@@ -105,8 +107,7 @@ impl Routing for BrowserUrl {
             }
         };
 
-        let handle_anchor_click =
-            handle_anchor_click(base, navigate);
+        let handle_anchor_click = handle_anchor_click(base, navigate);
         let closure = Closure::wrap(Box::new(move |ev: Event| {
             if let Err(e) = handle_anchor_click(ev) {
                 #[cfg(feature = "tracing")]
@@ -205,7 +206,11 @@ impl Routing for BrowserUrl {
         self.parse_with_base(url, &base)
     }
 
-    fn parse_with_base(&self, url: &str, base: &str) -> Result<Url, Self::Error> {
+    fn parse_with_base(
+        &self,
+        url: &str,
+        base: &str,
+    ) -> Result<Url, Self::Error> {
         let location = web_sys::Url::new_with_base(url, base)?;
         Ok(Url {
             origin: location.origin(),
@@ -236,7 +241,7 @@ impl RoutingProvider for BrowserUrl {
             is_back: Default::default(),
         })
     }
-  
+
     fn current() -> Result<Url, Self::Error> {
         let location = window().location();
         Ok(Url {
@@ -271,8 +276,6 @@ impl RoutingProvider for BrowserUrl {
             leptos::logging::error!("Failed to redirect: {e:#?}");
         }
     }
-
-    
 }
 
 fn search_params_from_web_url(

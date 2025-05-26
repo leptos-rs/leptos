@@ -6,7 +6,8 @@ use crate::{
     flat_router::FlatRoutesView,
     hooks::use_navigate,
     location::{
-        BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State, Url
+        BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State,
+        Url,
     },
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
@@ -22,10 +23,15 @@ use reactive_graph::{
     traits::{GetUntracked, ReadUntracked, Set},
     wrappers::write::SignalSetter,
 };
-use wasm_bindgen::JsValue;
 use std::{
-    borrow::Cow, fmt::{Debug, Display}, mem, rc::Rc, sync::Arc, time::Duration
+    borrow::Cow,
+    fmt::{Debug, Display},
+    mem,
+    rc::Rc,
+    sync::Arc,
+    time::Duration,
 };
+use wasm_bindgen::JsValue;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
@@ -66,7 +72,7 @@ pub fn Router<Chil>(
     children: TypedChildren<Chil>,
     /// The routing provider to use.
     #[prop(default = Box::new(BrowserUrl::new().unwrap()))]
-    location: Box<dyn Routing<Error=JsValue>>
+    location: Box<dyn Routing<Error = JsValue>>,
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -125,7 +131,7 @@ pub(crate) struct RouterContext {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
-    pub location_provider: Option<Box<dyn Routing<Error=JsValue>>>,
+    pub location_provider: Option<Box<dyn Routing<Error = JsValue>>>,
 }
 
 impl RouterContext {
@@ -142,7 +148,9 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
-        let mut url = match resolved_to.map(|to| self.location_provider.as_ref().unwrap().parse(&to)) {
+        let mut url = match resolved_to
+            .map(|to| self.location_provider.as_ref().unwrap().parse(&to))
+        {
             Some(Ok(url)) => url,
             Some(Err(e)) => {
                 leptos::logging::error!("Error parsing URL: {e:?}");

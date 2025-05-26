@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 
 use any_spawner::Executor;
-use dyn_clone::DynClone;
 use core::fmt::Debug;
+use dyn_clone::DynClone;
 use js_sys::Reflect;
 use leptos::{prelude::use_context, server::ServerActionError};
 use reactive_graph::{
@@ -212,7 +212,7 @@ impl Default for LocationChange {
     }
 }
 
-dyn_clone::clone_trait_object!(Routing<Error=JsValue>);
+dyn_clone::clone_trait_object!(Routing<Error = JsValue>);
 
 pub trait Routing: DynClone + Send + Sync + 'static {
     type Error: Debug;
@@ -236,8 +236,11 @@ pub trait Routing: DynClone + Send + Sync + 'static {
         self.parse_with_base(url, BASE)
     }
 
-    fn parse_with_base(&self, url: &str, base: &str) -> Result<Url, Self::Error>;
-
+    fn parse_with_base(
+        &self,
+        url: &str,
+        base: &str,
+    ) -> Result<Url, Self::Error>;
 }
 
 pub trait RoutingProvider: Routing + Clone {
@@ -334,7 +337,12 @@ where
 
             let cx = use_context::<RouterContext>().expect("TODO no router");
 
-            let url = cx.location_provider.as_ref().unwrap().parse_with_base(href.as_str(), &origin).unwrap();
+            let url = cx
+                .location_provider
+                .as_ref()
+                .unwrap()
+                .parse_with_base(href.as_str(), &origin)
+                .unwrap();
             let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain
