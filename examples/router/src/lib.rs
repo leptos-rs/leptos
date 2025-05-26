@@ -30,7 +30,7 @@ pub fn RouterExample() -> impl IntoView {
     let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Router set_is_routing location=Box::new(BrowserUrl::new().unwrap())>
+        <Router set_is_routing>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
                 <RoutingProgress is_routing max_time=Duration::from_millis(250) />

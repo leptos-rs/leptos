@@ -65,6 +65,7 @@ pub fn Router<Chil>(
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
     /// The routing provider to use.
+    #[prop(default = Box::new(BrowserUrl::new().unwrap()))]
     location: Box<dyn Routing<Error=JsValue>>
 ) -> impl IntoView
 where
