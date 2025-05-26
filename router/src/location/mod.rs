@@ -3,7 +3,7 @@
 use any_spawner::Executor;
 use core::fmt::Debug;
 use js_sys::Reflect;
-use leptos::server::ServerActionError;
+use leptos::{prelude::use_context, server::ServerActionError};
 use reactive_graph::{
     computed::Memo,
     owner::provide_context,
@@ -18,7 +18,7 @@ use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
 mod history;
 mod server;
-use crate::params::ParamsMap;
+use crate::{components::RouterContext, params::ParamsMap};
 pub use history::*;
 pub use server::*;
 
@@ -211,7 +211,7 @@ impl Default for LocationChange {
     }
 }
 
-pub trait Routing: Clone + 'static {
+pub trait Routing: 'static {
     type Error: Debug;
 
     fn as_url(&self) -> &ArcRwSignal<Url>;
@@ -228,18 +228,19 @@ pub trait Routing: Clone + 'static {
 
     /// Whether we are currently in a "back" navigation.
     fn is_back(&self) -> ReadSignal<bool>;
+
+    fn parse(&self, url: &str) -> Result<Url, Self::Error> {
+        self.parse_with_base(url, BASE)
+    }
+
+    fn parse_with_base(&self, url: &str, base: &str) -> Result<Url, Self::Error>;
+
 }
 
-pub trait RoutingProvider: Routing {
+pub trait RoutingProvider: Routing + Clone {
     fn new() -> Result<Self, Self::Error>;
 
     fn current() -> Result<Url, Self::Error>;
-
-    fn parse(url: &str) -> Result<Url, Self::Error> {
-        Self::parse_with_base(url, BASE)
-    }
-
-    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 
     fn redirect(loc: &str);
 }
@@ -278,7 +279,6 @@ where
 
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
-    parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,
     navigate: NavFn,
 ) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
 where
@@ -329,7 +329,9 @@ where
                 return Ok(());
             }
 
-            let url = parse_with_base(href.as_str(), &origin).unwrap();
+            let cx = use_context::<RouterContext>().expect("TODO no router");
+
+            let url = cx.location_provider.as_ref().unwrap().parse_with_base(href.as_str(), &origin).unwrap();
             let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain

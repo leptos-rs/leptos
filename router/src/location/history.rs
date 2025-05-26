@@ -106,7 +106,7 @@ impl Routing for BrowserUrl {
         };
 
         let handle_anchor_click =
-            handle_anchor_click(base, Self::parse_with_base, navigate);
+            handle_anchor_click(base, navigate);
         let closure = Closure::wrap(Box::new(move |ev: Event| {
             if let Err(e) = handle_anchor_click(ev) {
                 #[cfg(feature = "tracing")]
@@ -199,6 +199,28 @@ impl Routing for BrowserUrl {
     fn is_back(&self) -> ReadSignal<bool> {
         self.is_back.read_only().into()
     }
+
+    fn parse(&self, url: &str) -> Result<Url, Self::Error> {
+        let base = window().location().origin()?;
+        self.parse_with_base(url, &base)
+    }
+
+    fn parse_with_base(&self, url: &str, base: &str) -> Result<Url, Self::Error> {
+        let location = web_sys::Url::new_with_base(url, base)?;
+        Ok(Url {
+            origin: location.origin(),
+            path: location.pathname(),
+            search: location
+                .search()
+                .strip_prefix('?')
+                .map(String::from)
+                .unwrap_or_default(),
+            search_params: search_params_from_web_url(
+                &location.search_params(),
+            )?,
+            hash: location.hash(),
+        })
+    }
 }
 
 impl RoutingProvider for BrowserUrl {
@@ -229,28 +251,6 @@ impl RoutingProvider for BrowserUrl {
                 &UrlSearchParams::new_with_str(&location.search()?)?,
             )?,
             hash: location.hash()?,
-        })
-    }
-
-    fn parse(url: &str) -> Result<Url, Self::Error> {
-        let base = window().location().origin()?;
-        Self::parse_with_base(url, &base)
-    }
-
-    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
-        let location = web_sys::Url::new_with_base(url, base)?;
-        Ok(Url {
-            origin: location.origin(),
-            path: location.pathname(),
-            search: location
-                .search()
-                .strip_prefix('?')
-                .map(String::from)
-                .unwrap_or_default(),
-            search_params: search_params_from_web_url(
-                &location.search_params(),
-            )?,
-            hash: location.hash(),
         })
     }
 

@@ -6,7 +6,7 @@ use crate::{
     flat_router::FlatRoutesView,
     hooks::use_navigate,
     location::{
-        BrowserUrl, Location, LocationChange, State, Url,
+        BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State, Url
     },
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
@@ -67,6 +67,8 @@ pub fn Router<Chil>(
     /// any elements, and should include a [`Routes`] component somewhere
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
+    /// The routing provider to use.
+    location: Box<dyn Routing<Error=()>>
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -83,8 +85,6 @@ where
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
         let owner = Owner::current();
-        let location =
-            BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();
@@ -118,6 +118,8 @@ where
     children()
 }
 
+trait NewTrait: Routing + Clone {}
+
 #[derive(Clone)]
 pub(crate) struct RouterContext {
     pub base: Option<Cow<'static, str>>,
@@ -127,7 +129,7 @@ pub(crate) struct RouterContext {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
-    pub location_provider: Option<BrowserUrl>,
+    pub location_provider: Option<Box<dyn NewTrait<Error=()>>>,
 }
 
 impl RouterContext {
@@ -144,7 +146,7 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
-        let mut url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
+        let mut url = match resolved_to.map(|to| self.location_provider.as_ref().unwrap().parse(&to)) {
             Some(Ok(url)) => url,
             Some(Err(e)) => {
                 leptos::logging::error!("Error parsing URL: {e:?}");
