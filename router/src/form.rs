@@ -1,7 +1,7 @@
 use crate::{
     components::ToHref,
     hooks::{has_router, use_navigate, use_resolved_path},
-    location::{BrowserUrl, LocationProvider},
+    location::{BrowserUrl},
     NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};

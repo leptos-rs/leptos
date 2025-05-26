@@ -1,6 +1,6 @@
 use crate::{
     hooks::Matched,
-    location::{LocationProvider, Url},
+    location::{Routing, Url},
     matching::{MatchParams, RouteDefs},
     params::ParamsMap,
     view_transition::start_view_transition,
@@ -77,7 +77,7 @@ impl Mountable for FlatRoutesViewState {
 
 impl<Loc, Defs, FalFn, Fal> Render for FlatRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider,
+    Loc: Routing,
     Defs: MatchNestedRoutes + 'static,
     FalFn: FnOnce() -> Fal + Send,
     Fal: IntoAny,
@@ -346,7 +346,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> AddAnyAttr for FlatRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider + Send,
+    Loc: Routing + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
@@ -479,7 +479,7 @@ impl RenderHtml for MatchedRoute {
 
 impl<Loc, Defs, FalFn, Fal> FlatRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider + Send,
+    Loc: Routing + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
@@ -533,7 +533,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> RenderHtml for FlatRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider + Send,
+    Loc: Routing + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,

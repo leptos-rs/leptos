@@ -1,7 +1,7 @@
 use crate::{
     flat_router::MatchedRoute,
     hooks::Matched,
-    location::{LocationProvider, Url},
+    location::{Routing, Url},
     matching::RouteDefs,
     params::ParamsMap,
     view_transition::start_view_transition,
@@ -69,7 +69,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> Render for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider,
+    Loc: Routing,
     Defs: MatchNestedRoutes,
     FalFn: FnOnce() -> Fal,
     Fal: Render + 'static,
@@ -228,7 +228,7 @@ where
 
 impl<Loc, Defs, Fal, FalFn> AddAnyAttr for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider + Send,
+    Loc: Routing + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,
@@ -249,7 +249,7 @@ where
 
 impl<Loc, Defs, FalFn, Fal> RenderHtml for NestedRoutesView<Loc, Defs, FalFn>
 where
-    Loc: LocationProvider + Send,
+    Loc: Routing + Send,
     Defs: MatchNestedRoutes + Send + 'static,
     FalFn: FnOnce() -> Fal + Send + 'static,
     Fal: RenderHtml + 'static,

@@ -1,4 +1,4 @@
-use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
+use super::{handle_anchor_click, LocationChange, Routing, RoutingProvider, Url};
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
@@ -56,63 +56,11 @@ impl BrowserUrl {
     }
 }
 
-impl LocationProvider for BrowserUrl {
+impl Routing for BrowserUrl {
     type Error = JsValue;
-
-    fn new() -> Result<Self, JsValue> {
-        let url = ArcRwSignal::new(Self::current()?);
-        let path_stack = ArcStoredValue::new(
-            Self::current().map(|n| vec![n]).unwrap_or_default(),
-        );
-        Ok(Self {
-            url,
-            pending_navigation: Default::default(),
-            path_stack,
-            is_back: Default::default(),
-        })
-    }
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
         &self.url
-    }
-
-    fn current() -> Result<Url, Self::Error> {
-        let location = window().location();
-        Ok(Url {
-            origin: location.origin()?,
-            path: location.pathname()?,
-            search: location
-                .search()?
-                .strip_prefix('?')
-                .map(String::from)
-                .unwrap_or_default(),
-            search_params: search_params_from_web_url(
-                &UrlSearchParams::new_with_str(&location.search()?)?,
-            )?,
-            hash: location.hash()?,
-        })
-    }
-
-    fn parse(url: &str) -> Result<Url, Self::Error> {
-        let base = window().location().origin()?;
-        Self::parse_with_base(url, &base)
-    }
-
-    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
-        let location = web_sys::Url::new_with_base(url, base)?;
-        Ok(Url {
-            origin: location.origin(),
-            path: location.pathname(),
-            search: location
-                .search()
-                .strip_prefix('?')
-                .map(String::from)
-                .unwrap_or_default(),
-            search_params: search_params_from_web_url(
-                &location.search_params(),
-            )?,
-            hash: location.hash(),
-        })
     }
 
     fn init(&self, base: Option<Cow<'static, str>>) {
@@ -248,6 +196,64 @@ impl LocationProvider for BrowserUrl {
         Self::scroll_to_el(loc.scroll);
     }
 
+    fn is_back(&self) -> ReadSignal<bool> {
+        self.is_back.read_only().into()
+    }
+}
+
+impl RoutingProvider for BrowserUrl {
+    fn new() -> Result<Self, JsValue> {
+        let url = ArcRwSignal::new(Self::current()?);
+        let path_stack = ArcStoredValue::new(
+            Self::current().map(|n| vec![n]).unwrap_or_default(),
+        );
+        Ok(Self {
+            url,
+            pending_navigation: Default::default(),
+            path_stack,
+            is_back: Default::default(),
+        })
+    }
+  
+    fn current() -> Result<Url, Self::Error> {
+        let location = window().location();
+        Ok(Url {
+            origin: location.origin()?,
+            path: location.pathname()?,
+            search: location
+                .search()?
+                .strip_prefix('?')
+                .map(String::from)
+                .unwrap_or_default(),
+            search_params: search_params_from_web_url(
+                &UrlSearchParams::new_with_str(&location.search()?)?,
+            )?,
+            hash: location.hash()?,
+        })
+    }
+
+    fn parse(url: &str) -> Result<Url, Self::Error> {
+        let base = window().location().origin()?;
+        Self::parse_with_base(url, &base)
+    }
+
+    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
+        let location = web_sys::Url::new_with_base(url, base)?;
+        Ok(Url {
+            origin: location.origin(),
+            path: location.pathname(),
+            search: location
+                .search()
+                .strip_prefix('?')
+                .map(String::from)
+                .unwrap_or_default(),
+            search_params: search_params_from_web_url(
+                &location.search_params(),
+            )?,
+            hash: location.hash(),
+        })
+    }
+
     fn redirect(loc: &str) {
         let navigate = use_navigate();
         let Some(url) = resolve_redirect_url(loc) else {
@@ -266,9 +272,7 @@ impl LocationProvider for BrowserUrl {
         }
     }
 
-    fn is_back(&self) -> ReadSignal<bool> {
-        self.is_back.read_only().into()
-    }
+    
 }
 
 fn search_params_from_web_url(

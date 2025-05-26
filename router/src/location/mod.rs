@@ -211,14 +211,10 @@ impl Default for LocationChange {
     }
 }
 
-pub trait LocationProvider: Clone + 'static {
+pub trait Routing: Clone + 'static {
     type Error: Debug;
 
-    fn new() -> Result<Self, Self::Error>;
-
     fn as_url(&self) -> &ArcRwSignal<Url>;
-
-    fn current() -> Result<Url, Self::Error>;
 
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self, base: Option<Cow<'static, str>>);
@@ -230,6 +226,15 @@ pub trait LocationProvider: Clone + 'static {
     /// Update the browser's history to reflect a new location.
     fn complete_navigation(&self, loc: &LocationChange);
 
+    /// Whether we are currently in a "back" navigation.
+    fn is_back(&self) -> ReadSignal<bool>;
+}
+
+pub trait RoutingProvider: Routing {
+    fn new() -> Result<Self, Self::Error>;
+
+    fn current() -> Result<Url, Self::Error>;
+
     fn parse(url: &str) -> Result<Url, Self::Error> {
         Self::parse_with_base(url, BASE)
     }
@@ -237,9 +242,6 @@ pub trait LocationProvider: Clone + 'static {
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 
     fn redirect(loc: &str);
-
-    /// Whether we are currently in a "back" navigation.
-    fn is_back(&self) -> ReadSignal<bool>;
 }
 
 #[derive(Debug, Clone, Default)]
