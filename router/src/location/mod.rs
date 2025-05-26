@@ -18,10 +18,12 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
 mod history;
+mod hash;
 mod server;
 use crate::{components::RouterContext, params::ParamsMap};
 pub use history::*;
 pub use server::*;
+pub use hash::*;
 
 pub(crate) const BASE: &str = "https://leptos.dev";
 
