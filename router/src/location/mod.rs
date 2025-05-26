@@ -241,14 +241,14 @@ pub trait Routing: DynClone + Send + Sync + 'static {
         url: &str,
         base: &str,
     ) -> Result<Url, Self::Error>;
+
+    fn redirect(&self, loc: &str);
 }
 
 pub trait RoutingProvider: Routing + Clone {
     fn new() -> Result<Self, Self::Error>;
 
     fn current() -> Result<Url, Self::Error>;
-
-    fn redirect(loc: &str);
 }
 
 #[derive(Debug, Clone, Default)]

@@ -94,9 +94,10 @@ where
         provide_context(location.clone());
         let current_url = location.as_url().clone();
 
+        let location_clone = location.clone();
         let redirect_hook = Box::new(move |loc: &str| {
             if let Some(owner) = &owner {
-                owner.with(|| BrowserUrl::redirect(loc));
+                owner.with(|| location_clone.redirect(loc));
             }
         });
 
@@ -242,11 +243,11 @@ where
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url,
         base,
         set_is_routing,
+        location_provider,
         ..
     } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
@@ -267,7 +268,7 @@ where
             current_url.read_untracked().provide_server_action_error()
         });
         NestedRoutesView {
-            location: location.clone(),
+            location: location_provider.clone(),
             routes: routes.clone(),
             outer_owner: outer_owner.clone(),
             current_url: current_url.clone(),
@@ -295,11 +296,11 @@ where
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url,
         base,
         set_is_routing,
+        location_provider,
         ..
     } = use_context()
         .expect("<FlatRoutes> should be used inside a <Router> component");
@@ -326,7 +327,7 @@ where
         });
         FlatRoutesView {
             current_url: current_url.clone(),
-            location: location.clone(),
+            location: location_provider.clone(),
             routes: routes.clone(),
             fallback: fallback.clone(),
             outer_owner: outer_owner.clone(),

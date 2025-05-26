@@ -227,6 +227,24 @@ impl Routing for BrowserUrl {
             hash: location.hash(),
         })
     }
+
+    fn redirect(&self, loc: &str) {
+        let navigate = use_navigate();
+        let Some(url) = resolve_redirect_url(loc) else {
+            return; // resolve_redirect_url() already logs an error
+        };
+        let current_origin = location().origin().unwrap();
+        if url.origin() == current_origin {
+            let navigate = navigate.clone();
+            // delay by a tick here, so that the Action updates *before* the redirect
+            request_animation_frame(move || {
+                navigate(&url.href(), Default::default());
+            });
+            // Use set_href() if the conditions for client-side navigation were not satisfied
+        } else if let Err(e) = location().set_href(&url.href()) {
+            leptos::logging::error!("Failed to redirect: {e:#?}");
+        }
+    }
 }
 
 impl RoutingProvider for BrowserUrl {
@@ -260,23 +278,6 @@ impl RoutingProvider for BrowserUrl {
         })
     }
 
-    fn redirect(loc: &str) {
-        let navigate = use_navigate();
-        let Some(url) = resolve_redirect_url(loc) else {
-            return; // resolve_redirect_url() already logs an error
-        };
-        let current_origin = location().origin().unwrap();
-        if url.origin() == current_origin {
-            let navigate = navigate.clone();
-            // delay by a tick here, so that the Action updates *before* the redirect
-            request_animation_frame(move || {
-                navigate(&url.href(), Default::default());
-            });
-            // Use set_href() if the conditions for client-side navigation were not satisfied
-        } else if let Err(e) = location().set_href(&url.href()) {
-            leptos::logging::error!("Failed to redirect: {e:#?}");
-        }
-    }
 }
 
 fn search_params_from_web_url(
