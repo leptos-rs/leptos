@@ -22,12 +22,9 @@ use reactive_graph::{
     traits::{GetUntracked, ReadUntracked, Set},
     wrappers::write::SignalSetter,
 };
+use wasm_bindgen::JsValue;
 use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-    mem,
-    sync::Arc,
-    time::Duration,
+    borrow::Cow, fmt::{Debug, Display}, mem, rc::Rc, sync::Arc, time::Duration
 };
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
@@ -68,7 +65,7 @@ pub fn Router<Chil>(
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
     /// The routing provider to use.
-    location: Box<dyn Routing<Error=()>>
+    location: Box<dyn Routing<Error=JsValue>>
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -118,8 +115,6 @@ where
     children()
 }
 
-trait NewTrait: Routing + Clone {}
-
 #[derive(Clone)]
 pub(crate) struct RouterContext {
     pub base: Option<Cow<'static, str>>,
@@ -129,7 +124,7 @@ pub(crate) struct RouterContext {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
-    pub location_provider: Option<Box<dyn NewTrait<Error=()>>>,
+    pub location_provider: Option<Box<dyn Routing<Error=JsValue>>>,
 }
 
 impl RouterContext {

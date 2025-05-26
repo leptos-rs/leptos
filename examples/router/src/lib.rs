@@ -12,6 +12,8 @@ use leptos_router::{
 use leptos_router_macro::path;
 use std::time::Duration;
 use tracing::info;
+use leptos_router::location::BrowserUrl;
+use leptos_router::location::RoutingProvider;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct ExampleContext(i32);
@@ -28,7 +30,7 @@ pub fn RouterExample() -> impl IntoView {
     let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Router set_is_routing>
+        <Router set_is_routing location=Box::new(BrowserUrl::new().unwrap())>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
                 <RoutingProgress is_routing max_time=Duration::from_millis(250) />

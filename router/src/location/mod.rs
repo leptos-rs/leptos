@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use any_spawner::Executor;
+use dyn_clone::DynClone;
 use core::fmt::Debug;
 use js_sys::Reflect;
 use leptos::{prelude::use_context, server::ServerActionError};
@@ -211,7 +212,9 @@ impl Default for LocationChange {
     }
 }
 
-pub trait Routing: 'static {
+dyn_clone::clone_trait_object!(Routing<Error=JsValue>);
+
+pub trait Routing: DynClone + Send + Sync + 'static {
     type Error: Debug;
 
     fn as_url(&self) -> &ArcRwSignal<Url>;
