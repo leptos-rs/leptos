@@ -292,7 +292,7 @@ impl InnerHtmlValue for Arc<str> {
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        if !Arc::ptr_eq(&self, &state.1) {
+        if self != state.1 {
             Rndr::set_inner_html(&state.0, &self);
             state.1 = self;
         }
