@@ -106,7 +106,7 @@ wasm-bindgen-futures = { default-features = false, version = "0.4.50" }
 tower = { default-features = false, version = "0.5.2" }
 proc-macro2 = { default-features = false, version = "1.0.95" }
 serde = { default-features = false, version = "1.0.219" }
-parking_lot = { default-features = false, version = "0.12.3" }
+parking_lot = { default-features = false, version = "0.12.4" }
 axum = { default-features = false, version = "0.8.4" }
 serde_qs = { default-features = false, version = "0.15.0" }
 syn = { default-features = false, version = "2.0.101" }
@@ -128,7 +128,7 @@ anyhow = { default-features = false, version = "1.0.98" }
 walkdir = { default-features = false, version = "2.5.0" }
 actix-ws = { default-features = false, version = "0.3.0" }
 tower-http = { default-features = false, version = "0.6.4" }
-prettyplease = { default-features = false, version = "0.2.32" }
+prettyplease = { default-features = false, version = "0.2.33" }
 inventory = { default-features = false, version = "0.3.20" }
 config = { default-features = false, version = "0.15.11" }
 camino = { default-features = false, version = "1.1.9" }
@@ -155,7 +155,7 @@ http-body-util = { default-features = false, version = "0.1.3" }
 hyper = { default-features = false, version = "1.6.0" }
 postcard = { default-features = false, version = "1.1.1" }
 rmp-serde = { default-features = false, version = "1.3.0" }
-reqwest = { default-features = false, version = "0.12.16" }
+reqwest = { default-features = false, version = "0.12.18" }
 tower-layer = { default-features = false, version = "0.3.3" }
 attribute-derive = { default-features = false, version = "0.10.3" }
 insta = { default-features = false, version = "1.43.1" }
