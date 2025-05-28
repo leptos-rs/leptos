@@ -162,6 +162,7 @@ where
                                 if resp.redirected() {
                                     let resp_url = &resp.url();
                                     // TODO FIXME also fallback to browser navigation if no router?
+                                    // here
                                     match cx
                                         .location_provider
                                         .as_ref()
@@ -244,6 +245,7 @@ where
                                 if resp.redirected() {
                                     let resp_url = &resp.url();
                                     // TODO FIXME also fall back to browser navigation if no router
+                                    // here
                                     match cx
                                         .location_provider
                                         .as_ref()

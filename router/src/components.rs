@@ -150,6 +150,7 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
+        // here
         let mut url = match resolved_to
             .map(|to| self.location_provider.as_ref().unwrap().parse(&to))
         {
