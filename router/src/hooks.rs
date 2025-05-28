@@ -247,17 +247,23 @@ pub(crate) fn use_resolved_path(
     let matched = use_context::<Matched>().map(|n| n.0);
     // TODO depending on router rewrite here
     ArcMemo::new(move |_| {
-        let path = path();
-        if path.starts_with('/') {
-            Some(path)
-        } else {
-            router
-                .resolve_path(
-                    &path,
-                    matched.as_ref().map(|n| n.get()).as_deref(),
-                )
-                .map(|n| n.to_string())
+        let res = {
+            let path = path();
+            if path.starts_with('/') {
+                path
+            } else {
+                router
+                    .resolve_path(
+                        &path,
+                        matched.as_ref().map(|n| n.get()).as_deref(),
+                    ).to_string()
+            }
+        };
+        // TODO fixme what to do if base is none?
+        if let Some(base) = &router.base {
+            // TODO rewrite href?
         }
+        Some(res) // TODO FIXME
     })
 }
 

@@ -109,7 +109,7 @@ where
         strict_trailing_slash: bool,
         scroll: bool,
     ) -> impl IntoView {
-        let RouterContext { current_url, .. } =
+        let RouterContext { current_url, base,  .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
         let is_active = {
             let href = href.clone();
