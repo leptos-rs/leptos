@@ -72,6 +72,7 @@ impl Routing for HashRouter {
             let pending = Arc::clone(&self.pending_navigation);
             let this = self.clone();
             move |new_url: Url, loc| {
+                // here do the hash conversion?
                 let same_path = {
                     let curr = url.read_untracked();
                     curr.origin() == new_url.origin()
@@ -80,6 +81,7 @@ impl Routing for HashRouter {
 
                 url.set(new_url.clone());
                 if same_path {
+                    // here?
                     this.complete_navigation(&loc);
                 }
                 let pending = Arc::clone(&pending);
