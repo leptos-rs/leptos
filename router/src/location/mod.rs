@@ -380,6 +380,7 @@ where
 
             // let browser handle this event if it leaves our domain
             // or our base path
+            // this probably means we can rely on the assumption that inside our base path we can manipulate urls and outside we can't
             if url.origin != origin
                 || (!router_base.is_empty()
                     && !path_name.is_empty()
@@ -389,6 +390,8 @@ where
             {
                 return Ok(());
             }
+
+            // here we should know whether it is a client side navigation, so copy the part above?
 
             // we've passed all the checks to navigate on the client side, so we prevent the
             // default behavior of the click

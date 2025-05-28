@@ -38,10 +38,10 @@ pub fn RouterExample() -> impl IntoView {
                 // 1) ensuring that relative routing works properly for nested routes
                 // 2) setting the `aria-current` attribute on the current link,
                 // for a11y and styling purposes
-                <A href="/#/">"Contacts"</A>
-                <A href="/#/about">"About"</A>
-                <A href="/#/settings">"Settings"</A>
-                <A href="/#/redirect-home">"Redirect to Home"</A>
+                <A href="/">"Contacts"</A>
+                <A href="/about">"About"</A>
+                <A href="/settings">"Settings"</A>
+                <A href="/redirect-home">"Redirect to Home"</A>
                 <button on:click=move |_| {
                     set_logged_in.update(|n| *n = !*n)
                 }>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>

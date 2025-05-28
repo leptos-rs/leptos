@@ -245,6 +245,7 @@ pub(crate) fn use_resolved_path(
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
     let matched = use_context::<Matched>().map(|n| n.0);
+    // TODO depending on router rewrite here
     ArcMemo::new(move |_| {
         let path = path();
         if path.starts_with('/') {
