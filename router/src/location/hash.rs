@@ -72,7 +72,6 @@ impl Routing for HashRouter {
             let pending = Arc::clone(&self.pending_navigation);
             let this = self.clone();
             move |new_url: Url, loc| {
-                // here do the hash conversion?
                 let same_path = {
                     let curr = url.read_untracked();
                     curr.origin() == new_url.origin()
@@ -81,7 +80,6 @@ impl Routing for HashRouter {
 
                 url.set(new_url.clone());
                 if same_path {
-                    // here?
                     this.complete_navigation(&loc);
                 }
                 let pending = Arc::clone(&pending);
@@ -135,10 +133,7 @@ impl Routing for HashRouter {
             let url = self.url.clone();
             let path_stack = self.path_stack.clone();
             let is_back = self.is_back.clone();
-            move || 
-            {
-                web_sys::console::error_1(&JsValue::from_str("called popstate or hashchange"));
-                match Self::current() {
+            move || match Self::current() {
                 Ok(new_url) => {
                     let stack = path_stack.read_value();
                     let is_navigating_back = stack.len() == 1
@@ -156,7 +151,6 @@ impl Routing for HashRouter {
                     web_sys::console::error_1(&e);
                 }
             }
-        }
         };
         let closure =
             Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
@@ -166,13 +160,6 @@ impl Routing for HashRouter {
                 closure.as_ref().unchecked_ref(),
             )
             .expect("couldn't add `popstate` listener to `window`");
-        window
-            .add_event_listener_with_callback(
-                "hashchange",
-                closure.as_ref().unchecked_ref(),
-            )
-            .expect("couldn't add `hashchange` listener to `window`");
-        web_sys::console::error_1(&JsValue::from_str("added hashchange event"));
     }
 
     fn ready_to_complete(&self) {
@@ -226,10 +213,9 @@ impl Routing for HashRouter {
         base: &str,
     ) -> Result<Url, Self::Error> {
         let location = web_sys::Url::new_with_base(url, base)?;
-        web_sys::console::error_1(&JsValue::from_str("parse_with_base"));
-        let url = Url {
+        Ok(Url {
             origin: location.origin(),
-            path: location.hash().trim_start_matches("#").to_owned(),
+            path: location.pathname(),
             search: location
                 .search()
                 .strip_prefix('?')
@@ -238,14 +224,11 @@ impl Routing for HashRouter {
             search_params: search_params_from_web_url(
                 &location.search_params(),
             )?,
-            hash: String::new(),
-        };
-        web_sys::console::error_1(&JsValue::from_str(&format!("parse_with_base {}", url.to_full_path())));
-        Ok(url)
+            hash: location.hash(),
+        })
     }
 
     fn redirect(&self, loc: &str) {
-        web_sys::console::error_1(&JsValue::from_str("redirect"));
         let navigate = use_navigate();
         let Some(url) = resolve_redirect_url(loc) else {
             return; // resolve_redirect_url() already logs an error
@@ -282,7 +265,7 @@ impl RoutingProvider for HashRouter {
         let location = window().location();
         Ok(Url {
             origin: location.origin()?,
-            path: location.pathname()?,
+            path: location.hash()?.trim_start_matches("#").to_owned(),
             search: location
                 .search()?
                 .strip_prefix('?')
@@ -291,7 +274,7 @@ impl RoutingProvider for HashRouter {
             search_params: search_params_from_web_url(
                 &UrlSearchParams::new_with_str(&location.search()?)?,
             )?,
-            hash: location.hash()?,
+            hash: "".to_owned(),
         })
     }
 
