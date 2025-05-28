@@ -262,8 +262,10 @@ pub(crate) fn use_resolved_path(
         // TODO fixme what to do if base is none?
         if let Some(base) = &router.base {
             // TODO rewrite href?
+            "/#".to_owned() + &res
+        } else {
+            "/#".to_owned() + &res
         }
-        res // TODO FIXME
     })
 }
 
