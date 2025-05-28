@@ -240,7 +240,7 @@ pub(crate) struct Matched(pub ArcMemo<String>);
 #[track_caller]
 pub(crate) fn use_resolved_path(
     path: impl Fn() -> String + Send + Sync + 'static,
-) -> ArcMemo<Option<String>> {
+) -> ArcMemo<String> {
     let router = use_context::<RouterContext>()
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
@@ -263,7 +263,7 @@ pub(crate) fn use_resolved_path(
         if let Some(base) = &router.base {
             // TODO rewrite href?
         }
-        Some(res) // TODO FIXME
+        res // TODO FIXME
     })
 }
 
