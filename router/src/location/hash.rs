@@ -71,12 +71,20 @@ impl Routing for HashRouter {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
             let this = self.clone();
-            move |new_url: Url, loc| {
+            move |mut new_url: Url, loc| {
+                web_sys::console::error_1(&JsValue::from_str(&format!("navigate url: {:?} loc: {:?}", url, loc)));
+
                 let same_path = {
                     let curr = url.read_untracked();
-                    curr.origin() == new_url.origin()
-                        && curr.path() == new_url.path()
+                    let patched_curr = curr;
+                    web_sys::console::error_1(&JsValue::from_str(&format!("same_path patched_curr: {:?} new_url: {:?}", patched_curr.clone(), new_url)));
+                    patched_curr.origin() == new_url.origin()
+                        && patched_curr.path() == new_url.path()
+                        && patched_curr.hash() == new_url.hash()
                 };
+                
+                new_url.path = new_url.hash.trim_start_matches("#").to_owned();
+                new_url.hash = String::new();
 
                 url.set(new_url.clone());
                 if same_path {
