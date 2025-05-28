@@ -167,6 +167,7 @@ impl Owner {
                     .map(|parent| parent.read().or_poisoned().arena.clone())
                     .unwrap_or_default(),
                 paused: false,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -201,6 +202,7 @@ impl Owner {
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: Default::default(),
                 paused: false,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -226,6 +228,7 @@ impl Owner {
                 #[cfg(feature = "sandboxed-arenas")]
                 arena,
                 paused,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
@@ -455,6 +458,7 @@ pub(crate) struct OwnerInner {
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
+    joined_owners: Vec<Owner>,
 }
 
 impl Debug for OwnerInner {

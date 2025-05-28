@@ -3,9 +3,19 @@ use or_poisoned::OrPoisoned;
 use std::{
     any::{Any, TypeId},
     collections::VecDeque,
+    sync::Arc,
 };
 
 impl Owner {
+    #[doc(hidden)]
+    pub fn join_contexts(&self, other: &Owner) {
+        self.inner
+            .write()
+            .or_poisoned()
+            .joined_owners
+            .push(other.clone());
+    }
+
     fn provide_context<T: Send + Sync + 'static>(&self, value: T) {
         self.inner
             .write()
@@ -21,22 +31,31 @@ impl Owner {
     fn take_context<T: 'static>(&self) -> Option<T> {
         let ty = TypeId::of::<T>();
         let mut inner = self.inner.write().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &mut inner.contexts;
         if let Some(context) = contexts.remove(&ty) {
             context.downcast::<T>().ok().map(|n| *n)
         } else {
-            while let Some(ref this_parent) = parent.clone() {
-                let mut this_parent = this_parent.write().or_poisoned();
-                let contexts = &mut this_parent.contexts;
-                let value = contexts.remove(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast::<T>().ok());
-                if let Some(value) = downcast {
-                    return Some(*value);
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
+            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            let joined = inner
+                .joined_owners
+                .iter()
+                .map(|owner| Arc::clone(&owner.inner));
+            for parent in parent.into_iter().chain(joined) {
+                let mut parent = Some(parent);
+                while let Some(ref this_parent) = parent.clone() {
+                    let mut this_parent = this_parent.write().or_poisoned();
+                    let contexts = &mut this_parent.contexts;
+                    let value = contexts.remove(&ty);
+                    let downcast =
+                        value.and_then(|context| context.downcast::<T>().ok());
+                    if let Some(value) = downcast {
+                        return Some(*value);
+                    } else {
+                        parent = this_parent
+                            .parent
+                            .as_ref()
+                            .and_then(|p| p.upgrade());
+                    }
                 }
             }
             None
@@ -49,22 +68,31 @@ impl Owner {
     ) -> Option<R> {
         let ty = TypeId::of::<T>();
         let inner = self.inner.read().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &inner.contexts;
         let reference = if let Some(context) = contexts.get(&ty) {
             context.downcast_ref::<T>()
         } else {
-            while let Some(ref this_parent) = parent.clone() {
-                let this_parent = this_parent.read().or_poisoned();
-                let contexts = &this_parent.contexts;
-                let value = contexts.get(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast_ref::<T>());
-                if let Some(value) = downcast {
-                    return Some(cb(value));
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
+            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            let joined = inner
+                .joined_owners
+                .iter()
+                .map(|owner| Arc::clone(&owner.inner));
+            for parent in parent.into_iter().chain(joined) {
+                let mut parent = Some(parent);
+                while let Some(ref this_parent) = parent.clone() {
+                    let this_parent = this_parent.read().or_poisoned();
+                    let contexts = &this_parent.contexts;
+                    let value = contexts.get(&ty);
+                    let downcast =
+                        value.and_then(|context| context.downcast_ref::<T>());
+                    if let Some(value) = downcast {
+                        return Some(cb(value));
+                    } else {
+                        parent = this_parent
+                            .parent
+                            .as_ref()
+                            .and_then(|p| p.upgrade());
+                    }
                 }
             }
             None
@@ -78,22 +106,31 @@ impl Owner {
     ) -> Option<R> {
         let ty = TypeId::of::<T>();
         let mut inner = self.inner.write().or_poisoned();
-        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &mut inner.contexts;
         let reference = if let Some(context) = contexts.get_mut(&ty) {
             context.downcast_mut::<T>()
         } else {
-            while let Some(ref this_parent) = parent.clone() {
-                let mut this_parent = this_parent.write().or_poisoned();
-                let contexts = &mut this_parent.contexts;
-                let value = contexts.get_mut(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast_mut::<T>());
-                if let Some(value) = downcast {
-                    return Some(cb(value));
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
+            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            let joined = inner
+                .joined_owners
+                .iter()
+                .map(|owner| Arc::clone(&owner.inner));
+            for parent in parent.into_iter().chain(joined) {
+                let mut parent = Some(parent);
+                while let Some(ref this_parent) = parent.clone() {
+                    let mut this_parent = this_parent.write().or_poisoned();
+                    let contexts = &mut this_parent.contexts;
+                    let value = contexts.get_mut(&ty);
+                    let downcast =
+                        value.and_then(|context| context.downcast_mut::<T>());
+                    if let Some(value) = downcast {
+                        return Some(cb(value));
+                    } else {
+                        parent = this_parent
+                            .parent
+                            .as_ref()
+                            .and_then(|p| p.upgrade());
+                    }
                 }
             }
             None
