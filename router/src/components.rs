@@ -105,6 +105,7 @@ where
     };
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
+    // could we make the location the original browser url?
     let location = Location::new(current_url.read_only(), state.read_only());
 
     // set server function redirect hook

@@ -266,7 +266,7 @@ pub(crate) fn use_resolved_path(
                 res
             }
         } else {
-            "/#".to_owned() + &res
+           router.location.pathname.get_untracked() + "/#" + &res
         }
     })
 }
