@@ -58,10 +58,7 @@ where
     fn add_any_attr<NewAttr: Attribute>(
         self,
         _attr: NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml,
-    {
+    ) -> Self::Output<NewAttr> {
         panic!("AddAnyAttr not supported on ViewTemplate");
     }
 }
