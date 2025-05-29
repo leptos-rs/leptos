@@ -259,10 +259,12 @@ pub(crate) fn use_resolved_path(
                     ).to_string()
             }
         };
-        // TODO fixme what to do if base is none?
         if let Some(base) = &router.base {
-            // TODO rewrite href?
-            "/#".to_owned() + &res
+            if res.starts_with(&**base) {
+                "/#".to_owned() + &res
+            } else {
+                res
+            }
         } else {
             "/#".to_owned() + &res
         }
