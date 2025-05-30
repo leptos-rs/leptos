@@ -1,7 +1,7 @@
 use crate::{auth::*, error_template::ErrorTemplate};
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::{components::*, *};
+use leptos_router::{components::*, path};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
