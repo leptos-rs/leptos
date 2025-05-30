@@ -1,7 +1,7 @@
 use crate::{auth::*, error_template::ErrorTemplate};
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::{components::*, *};
+use leptos_router::{components::*, path};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,19 +16,21 @@ pub struct Todo {
 #[cfg(feature = "ssr")]
 pub mod ssr {
     use super::Todo;
-    use crate::auth::{ssr::AuthSession, User};
+    use crate::{
+        auth::{ssr::AuthSession, User},
+        state::AppState,
+    };
     use leptos::prelude::*;
     use sqlx::SqlitePool;
 
     pub fn pool() -> Result<SqlitePool, ServerFnError> {
-        use_context::<SqlitePool>()
+        with_context::<AppState, _>(|state| state.pool.clone())
             .ok_or_else(|| ServerFnError::ServerError("Pool missing.".into()))
     }
 
-    pub fn auth() -> Result<AuthSession, ServerFnError> {
-        use_context::<AuthSession>().ok_or_else(|| {
-            ServerFnError::ServerError("Auth session missing.".into())
-        })
+    pub async fn auth() -> Result<AuthSession, ServerFnError> {
+        let auth = leptos_axum::extract().await?;
+        Ok(auth)
     }
 
     #[derive(sqlx::FromRow, Clone)]
@@ -165,7 +167,7 @@ pub fn TodoApp() -> impl IntoView {
                                         ", "
                                         <A href="/login">"Login"</A>
                                         ", "
-                                        <span>{format!("Login error: {}", e)}</span>
+                                        <span>{format!("Login error: {e}")}</span>
                                     }
                                         .into_any()
                                 }
