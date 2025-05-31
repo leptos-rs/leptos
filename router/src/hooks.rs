@@ -16,6 +16,7 @@ use std::{
     str::FromStr,
     sync::atomic::{AtomicBool, Ordering},
 };
+use tachys::dom::window;
 
 /// See [`query_signal`].
 #[track_caller]
@@ -256,17 +257,18 @@ pub(crate) fn use_resolved_path(
                     .resolve_path(
                         &path,
                         matched.as_ref().map(|n| n.get()).as_deref(),
-                    ).to_string()
+                    )
+                    .to_string()
             }
         };
         if let Some(base) = &router.base {
             if res.starts_with(&**base) {
-                "/#".to_owned() + &res
+                window().location().pathname().unwrap() + "#" + &res
             } else {
                 res
             }
         } else {
-           router.location.pathname.get_untracked() + "/#" + &res
+            window().location().pathname().unwrap() + "#" + &res
         }
     })
 }
