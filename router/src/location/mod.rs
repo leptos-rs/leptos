@@ -4,7 +4,7 @@ use any_spawner::Executor;
 use core::fmt::Debug;
 use dyn_clone::DynClone;
 use js_sys::Reflect;
-use leptos::{prelude::use_context, server::ServerActionError};
+use leptos::{prelude::*, server::ServerActionError};
 use reactive_graph::{
     computed::Memo,
     owner::provide_context,
@@ -12,7 +12,7 @@ use reactive_graph::{
     traits::With,
 };
 use send_wrapper::SendWrapper;
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, future::Future, ops::Deref};
 use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
@@ -29,255 +29,27 @@ pub(crate) const BASE: &str = "https://leptos.dev";
 
 // maybe have two types, router url and browser url. Because I think type safety would be worth it here. Currently it is completely unclear where you handle what (as the are identical)
 
-pub struct MyBrowserUrl(pub url::Url);
-
 /// The url that is shown in the browser address bar
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct BrowserUrl {
-    origin: String,
-    path: String,
-    search: String,
-    search_params: ParamsMap,
-    hash: String,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserUrl(pub url::Url);
 
-impl BrowserUrl {
-    pub fn origin(&self) -> &str {
-        &self.origin
-    }
+impl Deref for BrowserUrl {
+    type Target = url::Url;
 
-    pub fn origin_mut(&mut self) -> &mut String {
-        &mut self.origin
-    }
-
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn path_mut(&mut self) -> &mut str {
-        &mut self.path
-    }
-
-    pub fn search(&self) -> &str {
-        &self.search
-    }
-
-    pub fn search_mut(&mut self) -> &mut String {
-        &mut self.search
-    }
-
-    pub fn search_params(&self) -> &ParamsMap {
-        &self.search_params
-    }
-
-    pub fn search_params_mut(&mut self) -> &mut ParamsMap {
-        &mut self.search_params
-    }
-
-    pub fn hash(&self) -> &str {
-        &self.hash
-    }
-
-    pub fn hash_mut(&mut self) -> &mut String {
-        &mut self.hash
-    }
-
-    pub fn provide_server_action_error(&self) {
-        let search_params = self.search_params();
-        if let (Some(err), Some(path)) = (
-            search_params.get_str("__err"),
-            search_params.get_str("__path"),
-        ) {
-            provide_context(ServerActionError::new(path, err))
-        }
-    }
-
-    pub(crate) fn to_full_path(&self) -> String {
-        let mut path = self.path.to_string();
-        if !self.search.is_empty() {
-            path.push('?');
-            path.push_str(&self.search);
-        }
-        if !self.hash.is_empty() {
-            if !self.hash.starts_with('#') {
-                path.push('#');
-            }
-            path.push_str(&self.hash);
-        }
-        path
-    }
-
-    pub fn escape(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
-        {
-            js_sys::encode_uri_component(s).as_string().unwrap()
-        }
-        #[cfg(feature = "ssr")]
-        {
-            percent_encoding::utf8_percent_encode(
-                s,
-                percent_encoding::NON_ALPHANUMERIC,
-            )
-            .to_string()
-        }
-    }
-
-    pub fn unescape(s: &str) -> String {
-        #[cfg(feature = "ssr")]
-        {
-            percent_encoding::percent_decode_str(s)
-                .decode_utf8()
-                .unwrap()
-                .to_string()
-        }
-
-        #[cfg(not(feature = "ssr"))]
-        {
-            match js_sys::decode_uri_component(s) {
-                Ok(v) => v.into(),
-                Err(_) => s.into(),
-            }
-        }
-    }
-
-    pub fn unescape_minimal(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
-        {
-            match js_sys::decode_uri(s) {
-                Ok(v) => v.into(),
-                Err(_) => s.into(),
-            }
-        }
-
-        #[cfg(feature = "ssr")]
-        {
-            Self::unescape(s)
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
 /// The url that is used for routing
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct RouterUrl {
-    origin: String,
-    path: String,
-    search: String,
-    search_params: ParamsMap,
-    hash: String,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouterUrl(pub url::Url);
 
-impl RouterUrl {
-    pub fn origin(&self) -> &str {
-        &self.origin
-    }
+impl Deref for RouterUrl {
+    type Target = url::Url;
 
-    pub fn origin_mut(&mut self) -> &mut String {
-        &mut self.origin
-    }
-
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn path_mut(&mut self) -> &mut str {
-        &mut self.path
-    }
-
-    pub fn search(&self) -> &str {
-        &self.search
-    }
-
-    pub fn search_mut(&mut self) -> &mut String {
-        &mut self.search
-    }
-
-    pub fn search_params(&self) -> &ParamsMap {
-        &self.search_params
-    }
-
-    pub fn search_params_mut(&mut self) -> &mut ParamsMap {
-        &mut self.search_params
-    }
-
-    pub fn hash(&self) -> &str {
-        &self.hash
-    }
-
-    pub fn hash_mut(&mut self) -> &mut String {
-        &mut self.hash
-    }
-
-    pub fn provide_server_action_error(&self) {
-        let search_params = self.search_params();
-        if let (Some(err), Some(path)) = (
-            search_params.get_str("__err"),
-            search_params.get_str("__path"),
-        ) {
-            provide_context(ServerActionError::new(path, err))
-        }
-    }
-
-    pub(crate) fn to_full_path(&self) -> String {
-        let mut path = self.path.to_string();
-        if !self.search.is_empty() {
-            path.push('?');
-            path.push_str(&self.search);
-        }
-        if !self.hash.is_empty() {
-            if !self.hash.starts_with('#') {
-                path.push('#');
-            }
-            path.push_str(&self.hash);
-        }
-        path
-    }
-
-    pub fn escape(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
-        {
-            js_sys::encode_uri_component(s).as_string().unwrap()
-        }
-        #[cfg(feature = "ssr")]
-        {
-            percent_encoding::utf8_percent_encode(
-                s,
-                percent_encoding::NON_ALPHANUMERIC,
-            )
-            .to_string()
-        }
-    }
-
-    pub fn unescape(s: &str) -> String {
-        #[cfg(feature = "ssr")]
-        {
-            percent_encoding::percent_decode_str(s)
-                .decode_utf8()
-                .unwrap()
-                .to_string()
-        }
-
-        #[cfg(not(feature = "ssr"))]
-        {
-            match js_sys::decode_uri_component(s) {
-                Ok(v) => v.into(),
-                Err(_) => s.into(),
-            }
-        }
-    }
-
-    pub fn unescape_minimal(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
-        {
-            match js_sys::decode_uri(s) {
-                Ok(v) => v.into(),
-                Err(_) => s.into(),
-            }
-        }
-
-        #[cfg(feature = "ssr")]
-        {
-            Self::unescape(s)
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -285,14 +57,7 @@ impl RouterUrl {
 /// the browser's [`Location`](https://developer.mozilla.org/en-US/docs/Web/API/Location).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouterLocation {
-    /// The path of the URL, not containing the query string or hash fragment.
-    pub pathname: Memo<String>,
-    /// The raw query string.
-    pub search: Memo<String>,
-    /// The query string parsed into its key-value pairs.
-    pub query: Memo<ParamsMap>,
-    /// The hash fragment.
-    pub hash: Memo<String>,
+    pub url: Memo<RouterUrl>,
     /// The [`state`](https://developer.mozilla.org/en-US/docs/Web/API/History/state) at the top of the history stack.
     pub state: ReadSignal<State>,
 }
@@ -304,16 +69,8 @@ impl RouterLocation {
     ) -> Self {
         let url = url.into();
         let state = state.into();
-        let pathname = Memo::new(move |_| url.with(|url| url.path.clone()));
-        let search = Memo::new(move |_| url.with(|url| url.search.clone()));
-        let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
-        let query =
-            Memo::new(move |_| url.with(|url| url.search_params.clone()));
         RouterLocation {
-            pathname,
-            search,
-            query,
-            hash,
+            url: Memo::new(move |_| url.get()),
             state,
         }
     }
@@ -323,7 +80,7 @@ impl RouterLocation {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocationChange {
     /// The new URL.
-    pub value: String,
+    pub value: RouterUrl,
     /// If true, the new location will replace the current one in the history stack, i.e.,
     /// clicking the "back" button will not return to the current location.
     pub replace: bool,
@@ -331,17 +88,6 @@ pub struct LocationChange {
     pub scroll: bool,
     /// The [`state`](https://developer.mozilla.org/en-US/docs/Web/API/History/state) that will be added during navigation.
     pub state: State,
-}
-
-impl Default for LocationChange {
-    fn default() -> Self {
-        Self {
-            value: Default::default(),
-            replace: true,
-            scroll: true,
-            state: Default::default(),
-        }
-    }
 }
 
 dyn_clone::clone_trait_object!(Routing<Error = JsValue>);
@@ -506,12 +252,12 @@ where
 
             // here?
             let url = routing.parse_with_base(href.as_str(), &origin).unwrap();
-            let path_name = RouterUrl::unescape_minimal(&url.path);
+            let path_name = url.path();
 
             // let browser handle this event if it leaves our domain
             // or our base path
             // this probably means we can rely on the assumption that inside our base path we can manipulate urls and outside we can't
-            if url.origin != origin
+            if url.origin() != origin
                 || (!router_base.is_empty()
                     && !path_name.is_empty()
                     // NOTE: the two `to_lowercase()` calls here added a total of about 14kb to
