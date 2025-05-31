@@ -17,15 +17,17 @@ use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
-mod history;
 mod hash;
+mod history;
 mod server;
 use crate::{components::RouterContext, params::ParamsMap};
+pub use hash::*;
 pub use history::*;
 pub use server::*;
-pub use hash::*;
 
 pub(crate) const BASE: &str = "https://leptos.dev";
+
+// maybe have two types, router url and browser url. Because I think type safety would be worth it here. Currently it is completely unclear where you handle what (as the are identical)
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Url {
@@ -247,7 +249,7 @@ pub trait Routing: DynClone + Send + Sync + 'static {
     fn redirect(&self, loc: &str);
 }
 
-impl Routing for Box<dyn Routing<Error=JsValue> + '_> {
+impl Routing for Box<dyn Routing<Error = JsValue> + '_> {
     type Error = JsValue;
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
