@@ -1,7 +1,5 @@
-use super::{
-    handle_anchor_click, LocationChange, Routing, RoutingProvider, Url,
-};
-use crate::{hooks::use_navigate, params::ParamsMap};
+use super::{handle_anchor_click, LocationChange, Routing, RoutingProvider};
+use crate::{hooks::use_navigate, location::RouterUrl, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
 use js_sys::{try_iter, Array, JsString};
@@ -23,9 +21,9 @@ use web_sys::{Event, UrlSearchParams};
 
 #[derive(Clone)]
 pub struct BrowserRouter {
-    url: ArcRwSignal<Url>,
+    url: ArcRwSignal<RouterUrl>,
     pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
-    pub(crate) path_stack: ArcStoredValue<Vec<Url>>,
+    pub(crate) path_stack: ArcStoredValue<Vec<RouterUrl>>,
     pub(crate) is_back: ArcRwSignal<bool>,
 }
 
@@ -61,7 +59,7 @@ impl BrowserRouter {
 impl Routing for BrowserRouter {
     type Error = JsValue;
 
-    fn as_url(&self) -> &ArcRwSignal<Url> {
+    fn as_url(&self) -> &ArcRwSignal<RouterUrl> {
         &self.url
     }
 
@@ -71,7 +69,7 @@ impl Routing for BrowserRouter {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
             let this = self.clone();
-            move |new_url: Url, loc| {
+            move |new_url: RouterUrl, loc| {
                 let same_path = {
                     let curr = url.read_untracked();
                     curr.origin() == new_url.origin()
@@ -202,7 +200,7 @@ impl Routing for BrowserRouter {
         self.is_back.read_only().into()
     }
 
-    fn parse(&self, url: &str) -> Result<Url, Self::Error> {
+    fn parse(&self, url: &str) -> Result<RouterUrl, Self::Error> {
         let base = window().location().origin()?;
         self.parse_with_base(url, &base)
     }
@@ -211,9 +209,9 @@ impl Routing for BrowserRouter {
         &self,
         url: &str,
         base: &str,
-    ) -> Result<Url, Self::Error> {
+    ) -> Result<RouterUrl, Self::Error> {
         let location = web_sys::Url::new_with_base(url, base)?;
-        Ok(Url {
+        Ok(RouterUrl {
             origin: location.origin(),
             path: location.pathname(),
             search: location
@@ -261,9 +259,9 @@ impl RoutingProvider for BrowserRouter {
         })
     }
 
-    fn current() -> Result<Url, Self::Error> {
+    fn current() -> Result<RouterUrl, Self::Error> {
         let location = window().location();
-        Ok(Url {
+        Ok(RouterUrl {
             origin: location.origin()?,
             path: location.pathname()?,
             search: location

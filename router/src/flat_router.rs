@@ -1,6 +1,6 @@
 use crate::{
     hooks::Matched,
-    location::{Routing, Url},
+    location::{RouterUrl, Routing},
     matching::{MatchParams, RouteDefs},
     params::ParamsMap,
     view_transition::start_view_transition,
@@ -32,7 +32,7 @@ use tachys::{
 };
 
 pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
-    pub current_url: ArcRwSignal<Url>,
+    pub current_url: ArcRwSignal<RouterUrl>,
     pub location: Option<Loc>,
     pub routes: RouteDefs<Defs>,
     pub fallback: FalFn,
@@ -49,7 +49,7 @@ pub(crate) struct FlatRoutesViewState {
     owner: Owner,
     params: ArcRwSignal<ParamsMap>,
     path: String,
-    url: ArcRwSignal<Url>,
+    url: ArcRwSignal<RouterUrl>,
     matched: ArcRwSignal<String>,
 }
 

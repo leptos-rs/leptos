@@ -1,7 +1,7 @@
 use crate::{
     flat_router::MatchedRoute,
     hooks::Matched,
-    location::{Routing, Url},
+    location::{RouterUrl, Routing},
     matching::RouteDefs,
     params::ParamsMap,
     view_transition::start_view_transition,
@@ -22,7 +22,6 @@ use reactive_graph::{
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
-use wasm_bindgen::JsValue;
 use std::{
     cell::RefCell,
     fmt::Debug,
@@ -43,12 +42,17 @@ use tachys::{
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
+use wasm_bindgen::JsValue;
 
-pub(crate) struct NestedRoutesView<Loc: Routing<Error = JsValue> + Clone, Defs, FalFn> {
+pub(crate) struct NestedRoutesView<
+    Loc: Routing<Error = JsValue> + Clone,
+    Defs,
+    FalFn,
+> {
     pub location: Option<Loc>,
     pub routes: RouteDefs<Defs>,
     pub outer_owner: Owner,
-    pub current_url: ArcRwSignal<Url>,
+    pub current_url: ArcRwSignal<RouterUrl>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
     pub set_is_routing: Option<SignalSetter<bool>>,
@@ -61,7 +65,7 @@ where
     Fal: Render,
 {
     path: String,
-    current_url: ArcRwSignal<Url>,
+    current_url: ArcRwSignal<RouterUrl>,
     outlets: Vec<RouteContext>,
     // TODO loading fallback
     #[allow(clippy::type_complexity)]
@@ -479,7 +483,7 @@ type OutletViewFn = Box<dyn FnMut() -> Suspend<AnyView> + Send>;
 pub(crate) struct RouteContext {
     id: RouteMatchId,
     trigger: ArcTrigger,
-    url: ArcRwSignal<Url>,
+    url: ArcRwSignal<RouterUrl>,
     params: ArcRwSignal<ParamsMap>,
     owner: Owner,
     pub matched: ArcRwSignal<String>,
@@ -525,7 +529,7 @@ impl Clone for RouteContext {
 trait AddNestedRoute {
     fn build_nested_route(
         self,
-        url: &Url,
+        url: &RouterUrl,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
@@ -535,7 +539,7 @@ trait AddNestedRoute {
     #[allow(clippy::too_many_arguments)]
     fn rebuild_nested_route(
         self,
-        url: &Url,
+        url: &RouterUrl,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
@@ -553,7 +557,7 @@ where
 {
     fn build_nested_route(
         self,
-        url: &Url,
+        url: &RouterUrl,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
@@ -691,7 +695,7 @@ where
     #[allow(clippy::too_many_arguments)]
     fn rebuild_nested_route(
         self,
-        url: &Url,
+        url: &RouterUrl,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         preloaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,

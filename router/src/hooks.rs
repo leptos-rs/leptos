@@ -1,6 +1,6 @@
 use crate::{
     components::RouterContext,
-    location::{Location, Url},
+    location::{RouterLocation, RouterUrl},
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
@@ -169,7 +169,7 @@ pub(crate) fn use_router() -> RouterContext {
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
-pub fn use_location() -> Location {
+pub fn use_location() -> RouterLocation {
     let RouterContext { location, .. } =
         use_context().expect("Tried to access Location outside a <Router>.");
     location
@@ -202,7 +202,7 @@ where
 }
 
 #[track_caller]
-fn use_url_raw() -> ArcRwSignal<Url> {
+fn use_url_raw() -> ArcRwSignal<RouterUrl> {
     use_context().unwrap_or_else(|| {
         let RouterContext { current_url, .. } = use_context().expect(
             "Tried to access reactive URL outside a <Router> component.",
@@ -213,7 +213,7 @@ fn use_url_raw() -> ArcRwSignal<Url> {
 
 /// Gives reactive access to the current URL.
 #[track_caller]
-pub fn use_url() -> ReadSignal<Url> {
+pub fn use_url() -> ReadSignal<RouterUrl> {
     use_url_raw().read_only().into()
 }
 

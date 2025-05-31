@@ -6,8 +6,8 @@ use crate::{
     flat_router::FlatRoutesView,
     hooks::{use_navigate, use_resolved_path_internal},
     location::{
-        BrowserRouter, Location, LocationChange, Routing, RoutingProvider,
-        State, Url,
+        BrowserRouter, LocationChange, RouterLocation, RouterUrl, Routing,
+        RoutingProvider, State,
     },
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
@@ -106,7 +106,8 @@ where
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
     // could we make the location the original browser url?
-    let location = Location::new(current_url.read_only(), state.read_only());
+    let location =
+        RouterLocation::new(current_url.read_only(), state.read_only());
 
     // set server function redirect hook
     _ = server_fn::redirect::set_redirect_hook(redirect_hook);
@@ -128,8 +129,8 @@ where
 #[derive(Clone)]
 pub(crate) struct RouterContext {
     pub base: Option<Cow<'static, str>>,
-    pub current_url: ArcRwSignal<Url>,
-    pub location: Location,
+    pub current_url: ArcRwSignal<RouterUrl>,
+    pub location: RouterLocation,
     pub state: ArcRwSignal<State>,
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:

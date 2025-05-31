@@ -29,8 +29,9 @@ pub(crate) const BASE: &str = "https://leptos.dev";
 
 // maybe have two types, router url and browser url. Because I think type safety would be worth it here. Currently it is completely unclear where you handle what (as the are identical)
 
+/// The url that is shown in the browser address bar
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Url {
+pub struct BrowserUrl {
     origin: String,
     path: String,
     search: String,
@@ -38,7 +39,132 @@ pub struct Url {
     hash: String,
 }
 
-impl Url {
+impl BrowserUrl {
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
+
+    pub fn origin_mut(&mut self) -> &mut String {
+        &mut self.origin
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn path_mut(&mut self) -> &mut str {
+        &mut self.path
+    }
+
+    pub fn search(&self) -> &str {
+        &self.search
+    }
+
+    pub fn search_mut(&mut self) -> &mut String {
+        &mut self.search
+    }
+
+    pub fn search_params(&self) -> &ParamsMap {
+        &self.search_params
+    }
+
+    pub fn search_params_mut(&mut self) -> &mut ParamsMap {
+        &mut self.search_params
+    }
+
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
+
+    pub fn hash_mut(&mut self) -> &mut String {
+        &mut self.hash
+    }
+
+    pub fn provide_server_action_error(&self) {
+        let search_params = self.search_params();
+        if let (Some(err), Some(path)) = (
+            search_params.get_str("__err"),
+            search_params.get_str("__path"),
+        ) {
+            provide_context(ServerActionError::new(path, err))
+        }
+    }
+
+    pub(crate) fn to_full_path(&self) -> String {
+        let mut path = self.path.to_string();
+        if !self.search.is_empty() {
+            path.push('?');
+            path.push_str(&self.search);
+        }
+        if !self.hash.is_empty() {
+            if !self.hash.starts_with('#') {
+                path.push('#');
+            }
+            path.push_str(&self.hash);
+        }
+        path
+    }
+
+    pub fn escape(s: &str) -> String {
+        #[cfg(not(feature = "ssr"))]
+        {
+            js_sys::encode_uri_component(s).as_string().unwrap()
+        }
+        #[cfg(feature = "ssr")]
+        {
+            percent_encoding::utf8_percent_encode(
+                s,
+                percent_encoding::NON_ALPHANUMERIC,
+            )
+            .to_string()
+        }
+    }
+
+    pub fn unescape(s: &str) -> String {
+        #[cfg(feature = "ssr")]
+        {
+            percent_encoding::percent_decode_str(s)
+                .decode_utf8()
+                .unwrap()
+                .to_string()
+        }
+
+        #[cfg(not(feature = "ssr"))]
+        {
+            match js_sys::decode_uri_component(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
+        }
+    }
+
+    pub fn unescape_minimal(s: &str) -> String {
+        #[cfg(not(feature = "ssr"))]
+        {
+            match js_sys::decode_uri(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
+        }
+
+        #[cfg(feature = "ssr")]
+        {
+            Self::unescape(s)
+        }
+    }
+}
+
+/// The url that is used for routing
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct RouterUrl {
+    origin: String,
+    path: String,
+    search: String,
+    search_params: ParamsMap,
+    hash: String,
+}
+
+impl RouterUrl {
     pub fn origin(&self) -> &str {
         &self.origin
     }
@@ -156,7 +282,7 @@ impl Url {
 /// A reactive description of the current URL, containing equivalents to the local parts of
 /// the browser's [`Location`](https://developer.mozilla.org/en-US/docs/Web/API/Location).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Location {
+pub struct RouterLocation {
     /// The path of the URL, not containing the query string or hash fragment.
     pub pathname: Memo<String>,
     /// The raw query string.
@@ -169,9 +295,9 @@ pub struct Location {
     pub state: ReadSignal<State>,
 }
 
-impl Location {
+impl RouterLocation {
     pub(crate) fn new(
-        url: impl Into<ReadSignal<Url>>,
+        url: impl Into<ReadSignal<RouterUrl>>,
         state: impl Into<ReadSignal<State>>,
     ) -> Self {
         let url = url.into();
@@ -181,7 +307,7 @@ impl Location {
         let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
         let query =
             Memo::new(move |_| url.with(|url| url.search_params.clone()));
-        Location {
+        RouterLocation {
             pathname,
             search,
             query,
@@ -221,7 +347,7 @@ dyn_clone::clone_trait_object!(Routing<Error = JsValue>);
 pub trait Routing: DynClone + Send + Sync + 'static {
     type Error: Debug;
 
-    fn as_url(&self) -> &ArcRwSignal<Url>;
+    fn as_url(&self) -> &ArcRwSignal<RouterUrl>;
 
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self, base: Option<Cow<'static, str>>);
@@ -236,7 +362,7 @@ pub trait Routing: DynClone + Send + Sync + 'static {
     /// Whether we are currently in a "back" navigation.
     fn is_back(&self) -> ReadSignal<bool>;
 
-    fn parse(&self, url: &str) -> Result<Url, Self::Error> {
+    fn parse(&self, url: &str) -> Result<RouterUrl, Self::Error> {
         self.parse_with_base(url, BASE)
     }
 
@@ -244,7 +370,7 @@ pub trait Routing: DynClone + Send + Sync + 'static {
         &self,
         url: &str,
         base: &str,
-    ) -> Result<Url, Self::Error>;
+    ) -> Result<RouterUrl, Self::Error>;
 
     fn redirect(&self, loc: &str);
 }
@@ -252,7 +378,7 @@ pub trait Routing: DynClone + Send + Sync + 'static {
 impl Routing for Box<dyn Routing<Error = JsValue> + '_> {
     type Error = JsValue;
 
-    fn as_url(&self) -> &ArcRwSignal<Url> {
+    fn as_url(&self) -> &ArcRwSignal<RouterUrl> {
         (**self).as_url()
     }
 
@@ -276,7 +402,7 @@ impl Routing for Box<dyn Routing<Error = JsValue> + '_> {
         &self,
         url: &str,
         base: &str,
-    ) -> Result<Url, Self::Error> {
+    ) -> Result<RouterUrl, Self::Error> {
         (**self).parse_with_base(url, base)
     }
 
@@ -288,7 +414,7 @@ impl Routing for Box<dyn Routing<Error = JsValue> + '_> {
 pub trait RoutingProvider: Routing + Clone {
     fn new() -> Result<Self, Self::Error>;
 
-    fn current() -> Result<Url, Self::Error>;
+    fn current() -> Result<RouterUrl, Self::Error>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -329,7 +455,7 @@ pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     navigate: NavFn,
 ) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
 where
-    NavFn: Fn(Url, LocationChange) -> NavFut + 'static,
+    NavFn: Fn(RouterUrl, LocationChange) -> NavFut + 'static,
     NavFut: Future<Output = ()> + 'static,
 {
     let router_base = router_base.unwrap_or_default();
@@ -378,7 +504,7 @@ where
 
             // here?
             let url = routing.parse_with_base(href.as_str(), &origin).unwrap();
-            let path_name = Url::unescape_minimal(&url.path);
+            let path_name = RouterUrl::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain
             // or our base path
@@ -400,8 +526,8 @@ where
             ev.prevent_default();
             let to = path_name
                 + if url.search.is_empty() { "" } else { "?" }
-                + &Url::unescape(&url.search)
-                + &Url::unescape(&url.hash);
+                + &RouterUrl::unescape(&url.search)
+                + &RouterUrl::unescape(&url.hash);
             let state = Reflect::get(&a, &JsValue::from_str("state"))
                 .ok()
                 .and_then(|value| {

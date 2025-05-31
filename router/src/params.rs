@@ -1,6 +1,7 @@
-use crate::location::Url;
 use std::{borrow::Cow, str::FromStr, sync::Arc};
 use thiserror::Error;
+
+use crate::location::RouterUrl;
 
 type ParamsMapInner = Vec<(Cow<'static, str>, Vec<String>)>;
 
@@ -26,7 +27,7 @@ impl ParamsMap {
     /// If a value with that key already exists, the new value will be added to it.
     /// To replace the value instead, see [`replace`](Self::replace).
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
-        let value = Url::unescape(&value);
+        let value = RouterUrl::unescape(&value);
 
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
@@ -42,7 +43,7 @@ impl ParamsMap {
         key: impl Into<Cow<'static, str>>,
         value: String,
     ) {
-        let value = Url::unescape(&value);
+        let value = RouterUrl::unescape(&value);
 
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
@@ -94,9 +95,9 @@ impl ParamsMap {
             buf.push('?');
             for (k, vs) in &self.0 {
                 for v in vs {
-                    buf.push_str(&Url::escape(k));
+                    buf.push_str(&RouterUrl::escape(k));
                     buf.push('=');
-                    buf.push_str(&Url::escape(v));
+                    buf.push_str(&RouterUrl::escape(v));
                     buf.push('&');
                 }
             }
