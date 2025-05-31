@@ -4,7 +4,7 @@ use crate::location::RequestUrl;
 pub use crate::nested_router::Outlet;
 use crate::{
     flat_router::FlatRoutesView,
-    hooks::use_navigate,
+    hooks::{use_navigate, use_resolved_path_internal},
     location::{
         BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State,
         Url,
@@ -138,21 +138,25 @@ pub(crate) struct RouterContext {
 }
 
 impl RouterContext {
-    pub fn navigate(&self, path: &str, options: NavigateOptions) {
+    pub fn navigate(
+        &self,
+        path: &str,
+        options: NavigateOptions,
+        from: Option<&str>,
+    ) {
         let current = self.current_url.read_untracked();
         let resolved_to = if options.resolve {
-            resolve_path(
-                self.base.as_deref().unwrap_or_default(),
-                path,
-                // TODO this should be relative to the current *Route*, I think...
-                Some(current.path()),
-            )
+            Cow::Owned(use_resolved_path_internal(self, path.to_owned(), from))
         } else {
             resolve_path("", path, None)
         };
 
         // here
-        let mut url = match self.location_provider.as_ref().unwrap().parse(&resolved_to)
+        let mut url = match self
+            .location_provider
+            .as_ref()
+            .unwrap()
+            .parse(&resolved_to)
         {
             Ok(url) => url,
             Err(e) => {

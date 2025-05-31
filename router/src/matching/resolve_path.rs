@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-/// Resolves `path` relative to optional `from` and prefixes `base`,
+/// Resolves `path` relative to optional `from` and prefixes `base`.
 /// `from` is the path to navigate from, `path` is the path to navigate to. `base` is the prefix for all paths.
 pub fn resolve_path<'a>(
     base: &'a str,

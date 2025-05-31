@@ -248,29 +248,36 @@ pub(crate) fn use_resolved_path(
     let matched = use_context::<Matched>().map(|n| n.0);
     // TODO depending on router rewrite here
     ArcMemo::new(move |_| {
-        let res = {
-            let path = path();
-            if path.starts_with('/') {
-                path
-            } else {
-                router
-                    .resolve_path(
-                        &path,
-                        matched.as_ref().map(|n| n.get()).as_deref(),
-                    )
-                    .to_string()
-            }
-        };
-        if let Some(base) = &router.base {
-            if res.starts_with(&**base) {
-                window().location().pathname().unwrap() + "#" + &res
-            } else {
-                res
-            }
-        } else {
-            window().location().pathname().unwrap() + "#" + &res
-        }
+        let path = path();
+        use_resolved_path_internal(
+            &router,
+            path,
+            matched.as_ref().map(|n| n.get()).as_deref(),
+        )
     })
+}
+
+pub(crate) fn use_resolved_path_internal(
+    router: &RouterContext,
+    path: String,
+    from: Option<&str>,
+) -> String {
+    let res = {
+        if path.starts_with('/') {
+            path
+        } else {
+            router.resolve_path(&path, from).to_string()
+        }
+    };
+    if let Some(base) = &router.base {
+        if res.starts_with(&**base) {
+            window().location().pathname().unwrap() + "#" + &res
+        } else {
+            res
+        }
+    } else {
+        window().location().pathname().unwrap() + "#" + &res
+    }
 }
 
 /// Returns a function that can be used to navigate to a new route.
@@ -288,7 +295,10 @@ pub(crate) fn use_resolved_path(
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
     let cx = use_context::<RouterContext>()
         .expect("You cannot call `use_navigate` outside a <Router>.");
-    move |path: &str, options: NavigateOptions| cx.navigate(path, options)
+    let matched = use_context::<Matched>().map(|n| n.0);
+    move |path: &str, options: NavigateOptions| {
+        cx.navigate(path, options, matched.as_ref().map(|n| n.get()).as_deref())
+    }
 }
 
 /// Returns a reactive string that contains the route that was matched for
