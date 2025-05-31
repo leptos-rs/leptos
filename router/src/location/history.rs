@@ -22,20 +22,20 @@ use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{Event, UrlSearchParams};
 
 #[derive(Clone)]
-pub struct BrowserUrl {
+pub struct BrowserRouter {
     url: ArcRwSignal<Url>,
     pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
     pub(crate) path_stack: ArcStoredValue<Vec<Url>>,
     pub(crate) is_back: ArcRwSignal<bool>,
 }
 
-impl fmt::Debug for BrowserUrl {
+impl fmt::Debug for BrowserRouter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BrowserUrl").finish_non_exhaustive()
     }
 }
 
-impl BrowserUrl {
+impl BrowserRouter {
     fn scroll_to_el(loc_scroll: bool) {
         if let Ok(hash) = window().location().hash() {
             if !hash.is_empty() {
@@ -58,7 +58,7 @@ impl BrowserUrl {
     }
 }
 
-impl Routing for BrowserUrl {
+impl Routing for BrowserRouter {
     type Error = JsValue;
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
@@ -247,7 +247,7 @@ impl Routing for BrowserUrl {
     }
 }
 
-impl RoutingProvider for BrowserUrl {
+impl RoutingProvider for BrowserRouter {
     fn new() -> Result<Self, JsValue> {
         let url = ArcRwSignal::new(Self::current()?);
         let path_stack = ArcStoredValue::new(
@@ -277,7 +277,6 @@ impl RoutingProvider for BrowserUrl {
             hash: location.hash()?,
         })
     }
-
 }
 
 fn search_params_from_web_url(

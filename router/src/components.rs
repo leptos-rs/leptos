@@ -6,8 +6,8 @@ use crate::{
     flat_router::FlatRoutesView,
     hooks::{use_navigate, use_resolved_path_internal},
     location::{
-        BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State,
-        Url,
+        BrowserRouter, Location, LocationChange, Routing, RoutingProvider,
+        State, Url,
     },
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
@@ -71,7 +71,7 @@ pub fn Router<Chil>(
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
     /// The routing provider to use.
-    #[prop(default = BrowserUrl::new().map(|v| Box::new(v) as Box<dyn Routing<Error = JsValue>>))]
+    #[prop(default = BrowserRouter::new().map(|v| Box::new(v) as Box<dyn Routing<Error = JsValue>>))]
     location: Result<Box<dyn Routing<Error = JsValue>>, JsValue>,
 ) -> impl IntoView
 where
