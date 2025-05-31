@@ -29,6 +29,8 @@ pub(crate) const BASE: &str = "https://leptos.dev";
 
 // maybe have two types, router url and browser url. Because I think type safety would be worth it here. Currently it is completely unclear where you handle what (as the are identical)
 
+pub struct MyBrowserUrl(pub url::Url);
+
 /// The url that is shown in the browser address bar
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BrowserUrl {

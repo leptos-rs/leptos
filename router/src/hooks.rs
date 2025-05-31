@@ -1,6 +1,6 @@
 use crate::{
     components::RouterContext,
-    location::{RouterLocation, RouterUrl},
+    location::{BrowserUrl, RouterLocation, RouterUrl},
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
@@ -269,7 +269,7 @@ pub(crate) fn use_resolved_path_internal(
             router.resolve_path(&path, from).to_string()
         }
     };
-    if let Some(base) = &router.base {
+    let res = if let Some(base) = &router.base {
         if res.starts_with(&**base) {
             window().location().pathname().unwrap() + "#" + &res
         } else {
@@ -277,7 +277,9 @@ pub(crate) fn use_resolved_path_internal(
         }
     } else {
         window().location().pathname().unwrap() + "#" + &res
-    }
+    };
+    // TODO convert to url type
+    res
 }
 
 /// Returns a function that can be used to navigate to a new route.

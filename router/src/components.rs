@@ -153,6 +153,8 @@ impl RouterContext {
         };
 
         // here
+
+        // here
         let mut url = match self
             .location_provider
             .as_ref()
