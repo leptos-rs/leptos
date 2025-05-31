@@ -2,8 +2,9 @@
 
 use any_spawner::Executor;
 use core::fmt::Debug;
+use dyn_clone::DynClone;
 use js_sys::Reflect;
-use leptos::server::ServerActionError;
+use leptos::{prelude::use_context, server::ServerActionError};
 use reactive_graph::{
     computed::Memo,
     owner::provide_context,
@@ -17,10 +18,12 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
 mod history;
+mod hash;
 mod server;
-use crate::params::ParamsMap;
+use crate::{components::RouterContext, params::ParamsMap};
 pub use history::*;
 pub use server::*;
+pub use hash::*;
 
 pub(crate) const BASE: &str = "https://leptos.dev";
 
@@ -211,14 +214,12 @@ impl Default for LocationChange {
     }
 }
 
-pub trait LocationProvider: Clone + 'static {
+dyn_clone::clone_trait_object!(Routing<Error = JsValue>);
+
+pub trait Routing: DynClone + Send + Sync + 'static {
     type Error: Debug;
 
-    fn new() -> Result<Self, Self::Error>;
-
     fn as_url(&self) -> &ArcRwSignal<Url>;
-
-    fn current() -> Result<Url, Self::Error>;
 
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self, base: Option<Cow<'static, str>>);
@@ -230,16 +231,62 @@ pub trait LocationProvider: Clone + 'static {
     /// Update the browser's history to reflect a new location.
     fn complete_navigation(&self, loc: &LocationChange);
 
-    fn parse(url: &str) -> Result<Url, Self::Error> {
-        Self::parse_with_base(url, BASE)
-    }
-
-    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
-
-    fn redirect(loc: &str);
-
     /// Whether we are currently in a "back" navigation.
     fn is_back(&self) -> ReadSignal<bool>;
+
+    fn parse(&self, url: &str) -> Result<Url, Self::Error> {
+        self.parse_with_base(url, BASE)
+    }
+
+    fn parse_with_base(
+        &self,
+        url: &str,
+        base: &str,
+    ) -> Result<Url, Self::Error>;
+
+    fn redirect(&self, loc: &str);
+}
+
+impl Routing for Box<dyn Routing<Error=JsValue> + '_> {
+    type Error = JsValue;
+
+    fn as_url(&self) -> &ArcRwSignal<Url> {
+        (**self).as_url()
+    }
+
+    fn init(&self, base: Option<Cow<'static, str>>) {
+        (**self).init(base)
+    }
+
+    fn ready_to_complete(&self) {
+        (**self).ready_to_complete();
+    }
+
+    fn complete_navigation(&self, loc: &LocationChange) {
+        (**self).complete_navigation(loc);
+    }
+
+    fn is_back(&self) -> ReadSignal<bool> {
+        (**self).is_back()
+    }
+
+    fn parse_with_base(
+        &self,
+        url: &str,
+        base: &str,
+    ) -> Result<Url, Self::Error> {
+        (**self).parse_with_base(url, base)
+    }
+
+    fn redirect(&self, loc: &str) {
+        (**self).redirect(loc);
+    }
+}
+
+pub trait RoutingProvider: Routing + Clone {
+    fn new() -> Result<Self, Self::Error>;
+
+    fn current() -> Result<Url, Self::Error>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -276,7 +323,7 @@ where
 
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
-    parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,
+    routing: Box<dyn Routing<Error = JsValue>>,
     navigate: NavFn,
 ) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
 where
@@ -327,11 +374,13 @@ where
                 return Ok(());
             }
 
-            let url = parse_with_base(href.as_str(), &origin).unwrap();
+            // here?
+            let url = routing.parse_with_base(href.as_str(), &origin).unwrap();
             let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain
             // or our base path
+            // this probably means we can rely on the assumption that inside our base path we can manipulate urls and outside we can't
             if url.origin != origin
                 || (!router_base.is_empty()
                     && !path_name.is_empty()
@@ -341,6 +390,8 @@ where
             {
                 return Ok(());
             }
+
+            // here we should know whether it is a client side navigation, so copy the part above?
 
             // we've passed all the checks to navigate on the client side, so we prevent the
             // default behavior of the click

@@ -1,7 +1,7 @@
 use crate::{
-    components::ToHref,
+    components::{RouterContext, ToHref},
     hooks::{has_router, use_navigate, use_resolved_path},
-    location::{BrowserUrl, LocationProvider},
+    location::Routing,
     NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
@@ -87,7 +87,7 @@ where
     fn inner(
         has_router: bool,
         method: Option<&'static str>,
-        action: ArcMemo<Option<String>>,
+        action: ArcMemo<String>,
         enctype: Option<String>,
         version: Option<RwSignal<usize>>,
         error: Option<RwSignal<Option<Box<dyn Error + Send + Sync>>>>,
@@ -100,8 +100,10 @@ where
     ) -> impl IntoView {
         let action_version = version;
         let navigate = has_router.then(use_navigate);
+        let cx = use_context::<RouterContext>().expect("no router");
         let on_submit = {
             move |ev: web_sys::SubmitEvent| {
+                let cx = cx.clone();
                 let navigate = navigate.clone();
                 if ev.default_prevented() {
                     return;
@@ -159,7 +161,14 @@ where
                                 // get returned from a server function
                                 if resp.redirected() {
                                     let resp_url = &resp.url();
-                                    match BrowserUrl::parse(resp_url.as_str()) {
+                                    // TODO FIXME also fallback to browser navigation if no router?
+                                    // here
+                                    match cx
+                                        .location_provider
+                                        .as_ref()
+                                        .unwrap()
+                                        .parse(resp_url.as_str())
+                                    {
                                         Ok(url) => {
                                             if url.origin()
                                                 != current_window_origin()
@@ -235,7 +244,14 @@ where
                                 // get returned from a server function
                                 if resp.redirected() {
                                     let resp_url = &resp.url();
-                                    match BrowserUrl::parse(resp_url.as_str()) {
+                                    // TODO FIXME also fall back to browser navigation if no router
+                                    // here
+                                    match cx
+                                        .location_provider
+                                        .as_ref()
+                                        .unwrap()
+                                        .parse(resp_url.as_str())
+                                    {
                                         Ok(url) => {
                                             if url.origin()
                                                 != current_window_origin()
@@ -311,7 +327,7 @@ where
     let action = if has_router {
         use_resolved_path(move || action.to_href()())
     } else {
-        ArcMemo::new(move |_| Some(action.to_href()()))
+        ArcMemo::new(move |_| action.to_href()())
     };
     inner(
         has_router,

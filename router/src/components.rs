@@ -6,7 +6,8 @@ use crate::{
     flat_router::FlatRoutesView,
     hooks::use_navigate,
     location::{
-        BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
+        BrowserUrl, Location, LocationChange, Routing, RoutingProvider, State,
+        Url,
     },
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
@@ -26,9 +27,11 @@ use std::{
     borrow::Cow,
     fmt::{Debug, Display},
     mem,
+    rc::Rc,
     sync::Arc,
     time::Duration,
 };
+use wasm_bindgen::JsValue;
 
 /// A wrapper that allows passing route definitions as children to a component like [`Routes`],
 /// [`FlatRoutes`], [`ParentRoute`], or [`ProtectedParentRoute`].
@@ -67,6 +70,9 @@ pub fn Router<Chil>(
     /// any elements, and should include a [`Routes`] component somewhere
     /// to define and display [`Route`]s.
     children: TypedChildren<Chil>,
+    /// The routing provider to use.
+    #[prop(default = BrowserUrl::new().map(|v| Box::new(v) as Box<dyn Routing<Error = JsValue>>))]
+    location: Result<Box<dyn Routing<Error = JsValue>>, JsValue>,
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -83,15 +89,15 @@ where
     #[cfg(not(feature = "ssr"))]
     let (location_provider, current_url, redirect_hook) = {
         let owner = Owner::current();
-        let location =
-            BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
+        let location = location.expect("could not access browser navigation");
         location.init(base.clone());
         provide_context(location.clone());
         let current_url = location.as_url().clone();
 
+        let location_clone = location.clone();
         let redirect_hook = Box::new(move |loc: &str| {
             if let Some(owner) = &owner {
-                owner.with(|| BrowserUrl::redirect(loc));
+                owner.with(|| location_clone.redirect(loc));
             }
         });
 
@@ -99,6 +105,7 @@ where
     };
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
+    // could we make the location the original browser url?
     let location = Location::new(current_url.read_only(), state.read_only());
 
     // set server function redirect hook
@@ -127,7 +134,7 @@ pub(crate) struct RouterContext {
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
-    pub location_provider: Option<BrowserUrl>,
+    pub location_provider: Option<Box<dyn Routing<Error = JsValue>>>,
 }
 
 impl RouterContext {
@@ -144,14 +151,12 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
-        let mut url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
-            Some(Ok(url)) => url,
-            Some(Err(e)) => {
+        // here
+        let mut url = match self.location_provider.as_ref().unwrap().parse(&resolved_to)
+        {
+            Ok(url) => url,
+            Err(e) => {
                 leptos::logging::error!("Error parsing URL: {e:?}");
-                return;
-            }
-            None => {
-                leptos::logging::error!("Error resolving relative URL.");
                 return;
             }
         };
@@ -203,7 +208,7 @@ impl RouterContext {
         &'a self,
         path: &'a str,
         from: Option<&'a str>,
-    ) -> Option<Cow<'a, str>> {
+    ) -> Cow<'a, str> {
         let base = self.base.as_deref().unwrap_or_default();
         resolve_path(base, path, from)
     }
@@ -235,11 +240,11 @@ where
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url,
         base,
         set_is_routing,
+        location_provider,
         ..
     } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
@@ -260,7 +265,7 @@ where
             current_url.read_untracked().provide_server_action_error()
         });
         NestedRoutesView {
-            location: location.clone(),
+            location: location_provider.clone(),
             routes: routes.clone(),
             outer_owner: outer_owner.clone(),
             current_url: current_url.clone(),
@@ -288,11 +293,11 @@ where
     FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url,
         base,
         set_is_routing,
+        location_provider,
         ..
     } = use_context()
         .expect("<FlatRoutes> should be used inside a <Router> component");
@@ -319,7 +324,7 @@ where
         });
         FlatRoutesView {
             current_url: current_url.clone(),
-            location: location.clone(),
+            location: location_provider.clone(),
             routes: routes.clone(),
             fallback: fallback.clone(),
             outer_owner: outer_owner.clone(),

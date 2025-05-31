@@ -240,22 +240,33 @@ pub(crate) struct Matched(pub ArcMemo<String>);
 #[track_caller]
 pub(crate) fn use_resolved_path(
     path: impl Fn() -> String + Send + Sync + 'static,
-) -> ArcMemo<Option<String>> {
+) -> ArcMemo<String> {
     let router = use_context::<RouterContext>()
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
     let matched = use_context::<Matched>().map(|n| n.0);
+    // TODO depending on router rewrite here
     ArcMemo::new(move |_| {
-        let path = path();
-        if path.starts_with('/') {
-            Some(path)
+        let res = {
+            let path = path();
+            if path.starts_with('/') {
+                path
+            } else {
+                router
+                    .resolve_path(
+                        &path,
+                        matched.as_ref().map(|n| n.get()).as_deref(),
+                    ).to_string()
+            }
+        };
+        if let Some(base) = &router.base {
+            if res.starts_with(&**base) {
+                "/#".to_owned() + &res
+            } else {
+                res
+            }
         } else {
-            router
-                .resolve_path(
-                    &path,
-                    matched.as_ref().map(|n| n.get()).as_deref(),
-                )
-                .map(|n| n.to_string())
+           router.location.pathname.get_untracked() + "/#" + &res
         }
     })
 }
