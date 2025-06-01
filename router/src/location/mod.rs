@@ -41,6 +41,12 @@ impl Deref for BrowserUrl {
     }
 }
 
+impl BrowserUrl {
+    pub fn parse(url: &str) -> Result<Self, url::ParseError> {
+        Ok(Self(url::Url::parse(url)?))
+    }
+}
+
 /// The url that is used for routing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RouterUrl(pub url::Url);
@@ -50,6 +56,12 @@ impl Deref for RouterUrl {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl RouterUrl {
+    pub fn parse(url: &str) -> Result<Self, url::ParseError> {
+        Ok(Self(url::Url::parse(url)?))
     }
 }
 
@@ -210,7 +222,8 @@ where
 
     Box::new(move |ev: Event| {
         let ev = ev.unchecked_into::<MouseEvent>();
-        let origin = window().location().origin()?;
+        let browser_url =
+            BrowserUrl::parse(&window().location().href()?).unwrap();
         if ev.default_prevented()
             || ev.button() != 0
             || ev.meta_key()
@@ -251,13 +264,18 @@ where
             }
 
             // here?
-            let url = routing.parse_with_base(href.as_str(), &origin).unwrap();
+            let url = routing
+                .parse_with_base(
+                    href.as_str(),
+                    &browser_url.origin().unicode_serialization(),
+                )
+                .unwrap();
             let path_name = url.path();
 
             // let browser handle this event if it leaves our domain
             // or our base path
             // this probably means we can rely on the assumption that inside our base path we can manipulate urls and outside we can't
-            if url.origin() != origin
+            if url.origin() != browser_url.origin()
                 || (!router_base.is_empty()
                     && !path_name.is_empty()
                     // NOTE: the two `to_lowercase()` calls here added a total of about 14kb to
@@ -273,9 +291,9 @@ where
             // default behavior of the click
             ev.prevent_default();
             let to = path_name
-                + if url.search.is_empty() { "" } else { "?" }
-                + &RouterUrl::unescape(&url.search)
-                + &RouterUrl::unescape(&url.hash);
+                + if url.query().is_none() { "" } else { "?" }
+                + &url.query().unwrap_or_default()
+                + &url.fragment().unwrap_or_default();
             let state = Reflect::get(&a, &JsValue::from_str("state"))
                 .ok()
                 .and_then(|value| {
