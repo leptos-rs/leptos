@@ -185,7 +185,7 @@ pub async fn foo() -> Result<String, ServerFnError> {
 pub async fn get_user() -> Result<Option<User>, ServerFnError> {
     use crate::todo::ssr::auth;
 
-    let auth = auth()?;
+    let auth = auth().await?;
 
     Ok(auth.current_user)
 }
@@ -199,7 +199,7 @@ pub async fn login(
     use self::ssr::*;
 
     let pool = pool()?;
-    let auth = auth()?;
+    let auth = auth().await?;
 
     let (user, UserPasshash(expected_passhash)) =
         User::get_from_username_with_passhash(username, &pool)
@@ -229,7 +229,7 @@ pub async fn signup(
     use self::ssr::*;
 
     let pool = pool()?;
-    let auth = auth()?;
+    let auth = auth().await?;
 
     if password != password_confirmation {
         return Err(ServerFnError::ServerError(
@@ -264,7 +264,7 @@ pub async fn signup(
 pub async fn logout() -> Result<(), ServerFnError> {
     use self::ssr::*;
 
-    let auth = auth()?;
+    let auth = auth().await?;
 
     auth.logout_user();
     leptos_axum::redirect("/");
