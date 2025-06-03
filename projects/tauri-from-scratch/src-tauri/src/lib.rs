@@ -6,7 +6,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
             {
-                let window = app.get_window("main").unwrap();
+                let window = app.get_webview_window("main").unwrap();
                 window.open_devtools();
             }
             Ok(())
