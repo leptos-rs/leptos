@@ -14,7 +14,7 @@ pub struct SpecialNonReactiveZone;
 
 /// Exits the "special non-reactive zone" when dropped.
 #[derive(Debug)]
-pub struct SpecialNonReactiveZoneGuard;
+pub struct SpecialNonReactiveZoneGuard(bool);
 
 use pin_project_lite::pin_project;
 use std::{
@@ -31,8 +31,8 @@ thread_local! {
 impl SpecialNonReactiveZone {
     /// Suppresses warnings about non-reactive accesses until the guard is dropped.
     pub fn enter() -> SpecialNonReactiveZoneGuard {
-        IS_SPECIAL_ZONE.set(true);
-        SpecialNonReactiveZoneGuard
+        let prev = IS_SPECIAL_ZONE.replace(true);
+        SpecialNonReactiveZoneGuard(prev)
     }
 
     #[cfg(all(debug_assertions, feature = "effects"))]
@@ -48,7 +48,7 @@ impl SpecialNonReactiveZone {
 
 impl Drop for SpecialNonReactiveZoneGuard {
     fn drop(&mut self) {
-        IS_SPECIAL_ZONE.set(false);
+        IS_SPECIAL_ZONE.set(self.0);
     }
 }
 
