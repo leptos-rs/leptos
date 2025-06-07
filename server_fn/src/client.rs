@@ -313,9 +313,7 @@ pub mod reqwest {
                         tokio_tungstenite::tungstenite::Message,
                         tokio_tungstenite::tungstenite::Error,
                     >(
-                        tokio_tungstenite::tungstenite::Message::Binary(
-                            msg,
-                        ),
+                        tokio_tungstenite::tungstenite::Message::Binary(msg)
                     )
                 }),
             ))
