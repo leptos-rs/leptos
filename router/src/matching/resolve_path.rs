@@ -4,9 +4,9 @@ pub fn resolve_path<'a>(
     base: &'a str,
     path: &'a str,
     from: Option<&'a str>,
-) -> Option<Cow<'a, str>> {
+) -> Cow<'a, str> {
     if has_scheme(path) {
-        Some(path.into())
+        path.into()
     } else {
         let base_path = normalize(base, false);
         let from_path = from.map(|from| normalize(from, false));
@@ -25,7 +25,7 @@ pub fn resolve_path<'a>(
         let result_empty = result.is_empty();
         let prefix = if result_empty { "/".into() } else { result };
 
-        Some(prefix + normalize(path, result_empty))
+        prefix + normalize(path, result_empty)
     }
 }
 

@@ -300,7 +300,7 @@ fn inert_element_to_tokens(
     node: &Node<impl CustomNode>,
     escape_text: bool,
     global_class: Option<&TokenTree>,
-) -> Option<TokenStream> {
+) -> TokenStream {
     let mut html = InertElementBuilder::new(global_class);
     let mut nodes = VecDeque::from([Item::Node(node, escape_text)]);
 
@@ -396,9 +396,9 @@ fn inert_element_to_tokens(
 
     html.finish();
 
-    Some(quote! {
+    quote! {
         ::leptos::tachys::html::InertElement::new(#html)
-    })
+    }
 }
 
 fn element_children_to_tokens(
@@ -593,7 +593,7 @@ fn node_to_tokens(
                 let escape = el_name != "script"
                     && el_name != "style"
                     && el_name != "textarea";
-                inert_element_to_tokens(node, escape, global_class)
+                Some(inert_element_to_tokens(node, escape, global_class))
             } else {
                 element_to_tokens(
                     el_node,
