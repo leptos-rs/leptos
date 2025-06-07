@@ -645,7 +645,7 @@ impl ServerFnCall {
             quote! {
                 vec![
                     #(
-                        std::sync::Arc::new(#middlewares),
+                        std::sync::Arc::new(#middlewares)
                     ),*
                 ]
             }
