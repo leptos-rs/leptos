@@ -308,13 +308,7 @@ pub mod reqwest {
         }
 
         fn spawn(future: impl Future<Output = ()> + Send + 'static) {
-            #[cfg(feature = "reqwest")]
             tokio::spawn(future);
-            #[cfg(not(feature = "reqwest"))]
-            panic!(
-                "Spawning is not supported for reqwest when the `reqwest` \
-                 feature is not enabled on the `server_fn` crate."
-            );
         }
     }
 }
