@@ -213,7 +213,7 @@ pub mod browser {
     }
 }
 
-#[cfg(feature = "reqwest")]
+#[cfg(any(feature = "reqwest", feature = "reqwest-no-ws"))]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
     use super::{get_server_url, Client};
@@ -256,46 +256,65 @@ pub mod reqwest {
             ),
             Error,
         > {
-            let mut websocket_server_url = get_server_url().to_string();
-            if let Some(postfix) = websocket_server_url.strip_prefix("http://")
+            #[cfg(feature = "reqwest")]
             {
-                websocket_server_url = format!("ws://{postfix}");
-            } else if let Some(postfix) =
-                websocket_server_url.strip_prefix("https://")
-            {
-                websocket_server_url = format!("wss://{postfix}");
+                let mut websocket_server_url = get_server_url().to_string();
+                if let Some(postfix) =
+                    websocket_server_url.strip_prefix("http://")
+                {
+                    websocket_server_url = format!("ws://{postfix}");
+                } else if let Some(postfix) =
+                    websocket_server_url.strip_prefix("https://")
+                {
+                    websocket_server_url = format!("wss://{postfix}");
+                }
+                let url = format!("{websocket_server_url}{path}");
+                let (ws_stream, _) = tokio_tungstenite::connect_async(url)
+                    .await
+                    .map_err(|e| {
+                        Error::from_server_fn_error(ServerFnErrorErr::Request(
+                            e.to_string(),
+                        ))
+                    })?;
+
+                let (write, read) = ws_stream.split();
+
+                Ok((
+                    read.map(|msg| match msg {
+                        Ok(msg) => Ok(msg.into_data()),
+                        Err(e) => Err(OutputStreamError::from_server_fn_error(
+                            ServerFnErrorErr::Request(e.to_string()),
+                        )
+                        .ser()),
+                    }),
+                    write.with(|msg: Bytes| async move {
+                        Ok::<
+                            tokio_tungstenite::tungstenite::Message,
+                            tokio_tungstenite::tungstenite::Error,
+                        >(
+                            tokio_tungstenite::tungstenite::Message::Binary(
+                                msg,
+                            ),
+                        )
+                    }),
+                ))
             }
-            let url = format!("{websocket_server_url}{path}");
-            let (ws_stream, _) =
-                tokio_tungstenite::connect_async(url).await.map_err(|e| {
-                    Error::from_server_fn_error(ServerFnErrorErr::Request(
-                        e.to_string(),
-                    ))
-                })?;
-
-            let (write, read) = ws_stream.split();
-
-            Ok((
-                read.map(|msg| match msg {
-                    Ok(msg) => Ok(msg.into_data()),
-                    Err(e) => Err(OutputStreamError::from_server_fn_error(
-                        ServerFnErrorErr::Request(e.to_string()),
-                    )
-                    .ser()),
-                }),
-                write.with(|msg: Bytes| async move {
-                    Ok::<
-                        tokio_tungstenite::tungstenite::Message,
-                        tokio_tungstenite::tungstenite::Error,
-                    >(
-                        tokio_tungstenite::tungstenite::Message::Binary(msg)
-                    )
-                }),
-            ))
+            #[cfg(not(feature = "reqwest"))]
+            Err(Error::from_server_fn_error(ServerFnErrorErr::Request(
+                "Websocket connections not supported for reqwest when the \
+                 `reqwest` feature is not enabled on the `server_fn` crate."
+                    .to_string(),
+            )))
         }
 
         fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            #[cfg(feature = "reqwest")]
             tokio::spawn(future);
+            #[cfg(not(feature = "reqwest"))]
+            panic!(
+                "Spawning is not supported for reqwest when the `reqwest` \
+                 feature is not enabled on the `server_fn` crate."
+            );
         }
     }
 }

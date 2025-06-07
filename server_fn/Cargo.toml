@@ -125,6 +125,7 @@ postcard = ["dep:postcard"]
 default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
+reqwest-no-ws = ["dep:reqwest"]
 ssr = ["inventory"]
 generic = []
 
