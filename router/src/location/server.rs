@@ -1,5 +1,5 @@
-use super::{Url, BASE};
-use crate::params::ParamsMap;
+use super::BASE;
+use crate::{location::RouterUrl, params::ParamsMap};
 use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,11 +25,14 @@ impl Default for RequestUrl {
 }
 
 impl RequestUrl {
-    pub fn parse(&self) -> Result<Url, url::ParseError> {
+    pub fn parse(&self) -> Result<RouterUrl, url::ParseError> {
         self.parse_with_base(BASE)
     }
 
-    pub fn parse_with_base(&self, base: &str) -> Result<Url, url::ParseError> {
+    pub fn parse_with_base(
+        &self,
+        base: &str,
+    ) -> Result<RouterUrl, url::ParseError> {
         let base = url::Url::parse(base)?;
         let url = url::Url::options().base_url(Some(&base)).parse(&self.0)?;
 
@@ -38,7 +41,7 @@ impl RequestUrl {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect::<ParamsMap>();
 
-        Ok(Url {
+        Ok(RouterUrl {
             origin: url.origin().unicode_serialization(),
             path: url.path().to_string(),
             search: url.query().unwrap_or_default().to_string(),

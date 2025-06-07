@@ -1,6 +1,6 @@
 use crate::{
     components::RouterContext,
-    location::{Location, Url},
+    location::{BrowserUrl, RouterLocation, RouterUrl},
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
@@ -16,6 +16,7 @@ use std::{
     str::FromStr,
     sync::atomic::{AtomicBool, Ordering},
 };
+use tachys::dom::window;
 
 /// See [`query_signal`].
 #[track_caller]
@@ -168,7 +169,7 @@ pub(crate) fn use_router() -> RouterContext {
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
-pub fn use_location() -> Location {
+pub fn use_location() -> RouterLocation {
     let RouterContext { location, .. } =
         use_context().expect("Tried to access Location outside a <Router>.");
     location
@@ -201,7 +202,7 @@ where
 }
 
 #[track_caller]
-fn use_url_raw() -> ArcRwSignal<Url> {
+fn use_url_raw() -> ArcRwSignal<RouterUrl> {
     use_context().unwrap_or_else(|| {
         let RouterContext { current_url, .. } = use_context().expect(
             "Tried to access reactive URL outside a <Router> component.",
@@ -212,7 +213,7 @@ fn use_url_raw() -> ArcRwSignal<Url> {
 
 /// Gives reactive access to the current URL.
 #[track_caller]
-pub fn use_url() -> ReadSignal<Url> {
+pub fn use_url() -> ReadSignal<RouterUrl> {
     use_url_raw().read_only().into()
 }
 
@@ -240,24 +241,45 @@ pub(crate) struct Matched(pub ArcMemo<String>);
 #[track_caller]
 pub(crate) fn use_resolved_path(
     path: impl Fn() -> String + Send + Sync + 'static,
-) -> ArcMemo<Option<String>> {
+) -> ArcMemo<String> {
     let router = use_context::<RouterContext>()
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
     let matched = use_context::<Matched>().map(|n| n.0);
+    // TODO depending on router rewrite here
     ArcMemo::new(move |_| {
         let path = path();
-        if path.starts_with('/') {
-            Some(path)
-        } else {
-            router
-                .resolve_path(
-                    &path,
-                    matched.as_ref().map(|n| n.get()).as_deref(),
-                )
-                .map(|n| n.to_string())
-        }
+        use_resolved_path_internal(
+            &router,
+            path,
+            matched.as_ref().map(|n| n.get()).as_deref(),
+        )
     })
+}
+
+pub(crate) fn use_resolved_path_internal(
+    router: &RouterContext,
+    path: String,
+    from: Option<&str>,
+) -> String {
+    let res = {
+        if path.starts_with('/') {
+            path
+        } else {
+            router.resolve_path(&path, from).to_string()
+        }
+    };
+    let res = if let Some(base) = &router.base {
+        if res.starts_with(&**base) {
+            window().location().pathname().unwrap() + "#" + &res
+        } else {
+            res
+        }
+    } else {
+        window().location().pathname().unwrap() + "#" + &res
+    };
+    // TODO convert to url type
+    res
 }
 
 /// Returns a function that can be used to navigate to a new route.
@@ -275,7 +297,10 @@ pub(crate) fn use_resolved_path(
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
     let cx = use_context::<RouterContext>()
         .expect("You cannot call `use_navigate` outside a <Router>.");
-    move |path: &str, options: NavigateOptions| cx.navigate(path, options)
+    let matched = use_context::<Matched>().map(|n| n.0);
+    move |path: &str, options: NavigateOptions| {
+        cx.navigate(path, options, matched.as_ref().map(|n| n.get()).as_deref())
+    }
 }
 
 /// Returns a reactive string that contains the route that was matched for

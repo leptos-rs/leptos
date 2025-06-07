@@ -102,35 +102,34 @@ where
     H: ToHref + Send + Sync + 'static,
 {
     fn inner(
-        href: ArcMemo<Option<String>>,
+        href: ArcMemo<String>,
         target: Option<Oco<'static, str>>,
         exact: bool,
         children: Children,
         strict_trailing_slash: bool,
         scroll: bool,
     ) -> impl IntoView {
-        let RouterContext { current_url, .. } =
+        let RouterContext { current_url, base,  .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
         let is_active = {
             let href = href.clone();
             move || {
-                href.read().as_deref().is_some_and(|to| {
-                    let path = to.split(['?', '#']).next().unwrap_or_default();
-                    current_url.with(|loc| {
-                        let loc = loc.path();
-                        if exact {
-                            loc == path
-                        } else {
-                            is_active_for(path, loc, strict_trailing_slash)
-                        }
-                    })
+                let href = href.read();
+                let path = href.split(['?', '#']).next().unwrap_or_default();
+                current_url.with(|loc| {
+                    let loc = loc.path();
+                    if exact {
+                        loc == path
+                    } else {
+                        is_active_for(path, loc, strict_trailing_slash)
+                    }
                 })
             }
         };
 
         view! {
             <a
-                href=move || href.get().unwrap_or_default()
+                href=move || href.get()
                 target=target
                 aria-current=move || if is_active() { Some("page") } else { None }
                 data-noscroll=!scroll
