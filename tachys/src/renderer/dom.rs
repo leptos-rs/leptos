@@ -93,6 +93,15 @@ impl Dom {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
+    pub fn try_insert_node(
+        parent: &Element,
+        new_child: &Node,
+        anchor: Option<&Node>,
+    ) -> bool {
+        parent.insert_before(new_child, anchor).is_ok()
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn remove_node(parent: &Element, child: &Node) -> Option<Node> {
         ok_or_debug!(parent.remove_child(child), parent, "removeNode")
     }
@@ -496,6 +505,10 @@ impl Mountable for Node {
         Dom::insert_node(parent, self, marker);
     }
 
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent = Dom::get_parent(self).and_then(Element::cast_from);
         if let Some(parent) = parent {
@@ -517,6 +530,10 @@ impl Mountable for Text {
 
     fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
         Dom::insert_node(parent, self, marker);
+    }
+
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
@@ -541,6 +558,10 @@ impl Mountable for Comment {
 
     fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
         Dom::insert_node(parent, self, marker);
+    }
+
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {

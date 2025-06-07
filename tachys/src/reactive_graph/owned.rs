@@ -189,6 +189,14 @@ where
         self.state.mount(parent, marker);
     }
 
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        self.state.try_mount(parent, marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
     }
