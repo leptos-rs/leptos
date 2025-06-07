@@ -632,12 +632,21 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         Rndr::remove(self.el.as_ref());
     }
 
+    #[track_caller]
     fn mount(
         &mut self,
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
         Rndr::insert_node(parent, self.el.as_ref(), marker);
+    }
+
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        Rndr::try_insert_node(parent, self.el.as_ref(), marker)
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
