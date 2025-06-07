@@ -33,7 +33,7 @@ once_cell = { workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = true }
+actix-web = { optional = true, workspace = true, default-features = false }
 actix-ws = { version = "0.3.0", optional = true }
 
 # axum
@@ -105,7 +105,8 @@ axum-no-default = [
   "dep:tower-layer",
 ]
 form-redirects = []
-actix = ["ssr", "dep:actix-web", "dep:actix-ws", "dep:send_wrapper"]
+actix-no-default = ["ssr", "dep:actix-web", "dep:actix-ws", "dep:send_wrapper"]
+actix = ["actix-web/default", "actix-no-default"]
 axum = ["axum/default", "axum-no-default", "axum/ws", "dep:tokio"]
 browser = [
   "dep:gloo-net",
