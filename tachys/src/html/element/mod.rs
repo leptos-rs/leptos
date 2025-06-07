@@ -632,7 +632,6 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         Rndr::remove(self.el.as_ref());
     }
 
-    #[track_caller]
     fn mount(
         &mut self,
         parent: &crate::renderer::types::Element,
