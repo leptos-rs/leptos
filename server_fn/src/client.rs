@@ -213,16 +213,16 @@ pub mod browser {
     }
 }
 
-#[cfg(any(feature = "reqwest", feature = "reqwest-no-ws"))]
+#[cfg(feature = "reqwest-no-ws")]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
-    use super::{get_server_url, Client};
+    use super::Client;
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::reqwest::CLIENT,
     };
     use bytes::Bytes;
-    use futures::{SinkExt, StreamExt, TryFutureExt};
+    use futures::TryFutureExt;
     use reqwest::{Request, Response};
     use std::future::Future;
 
@@ -258,6 +258,8 @@ pub mod reqwest {
         > {
             #[cfg(feature = "reqwest")]
             {
+                use super::get_server_url;
+                use futures::{SinkExt, StreamExt};
                 let mut websocket_server_url = get_server_url().to_string();
                 if let Some(postfix) =
                     websocket_server_url.strip_prefix("http://")
@@ -300,11 +302,30 @@ pub mod reqwest {
                 ))
             }
             #[cfg(not(feature = "reqwest"))]
-            Err(Error::from_server_fn_error(ServerFnErrorErr::Request(
-                "Websocket connections not supported for reqwest when the \
-                 `reqwest` feature is not enabled on the `server_fn` crate."
-                    .to_string(),
-            )))
+            Err::<
+                (
+                    Box<
+                        dyn futures::Stream<Item = Result<Bytes, Bytes>>
+                            + Unpin
+                            + Send
+                            + 'static,
+                    >,
+                    Box<
+                        dyn futures::Sink<Bytes, Error = ()>
+                            + Unpin
+                            + Send
+                            + 'static,
+                    >,
+                ),
+                Error,
+            >(Error::from_server_fn_error(
+                ServerFnErrorErr::Request(
+                    "Websocket connections not supported for reqwest when the \
+                     `reqwest` feature is not enabled on the `server_fn` \
+                     crate."
+                        .to_string(),
+                ),
+            ))
         }
 
         fn spawn(future: impl Future<Output = ()> + Send + 'static) {
