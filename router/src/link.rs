@@ -133,15 +133,45 @@ where
         let is_active = {
             let href = href.clone();
             move || {
-                let to = href.read();
-                let path = to.split(['?', '#']).next().unwrap_or_default();
-                current_url.with(|loc| {
-                    let loc = loc.path();
-                    if exact {
-                        loc == path
-                    } else {
-                        is_active_for(path, loc, strict_trailing_slash)
+                href.read().as_deref().is_some_and(|to| {
+                    let mut del = 0;
+                    let path = to
+                        .split(['?', '#'])
+                        .next()
+                        .unwrap_or_default()
+                        .split(['/'])
+                        .rev()
+                        .filter(|v| {
+                            if *v == ".." {
+                                del += 1;
+                                false
+                            } else if del > 0 {
+                                del -= 1;
+                                false
+                            } else {
+                                true
+                            }
+                        })
+                        // We cannot reverse before the fold again bc the filter
+                        // would be forwards again.
+                        .fold(String::new(), |mut p, v| {
+                            p.reserve(v.len() + 1);
+                            p.insert_str(0, "/");
+                            p.insert_str(0, v);
+                            p
+                        });
+                    if del > 0 {
+                        return false;
                     }
+                    let path = path.strip_suffix('/').unwrap_or_default();
+                    current_url.with(|loc| {
+                        let loc = loc.path();
+                        if exact {
+                            loc == path
+                        } else {
+                            is_active_for(&path, loc, strict_trailing_slash)
+                        }
+                    })
                 })
             }
         };
