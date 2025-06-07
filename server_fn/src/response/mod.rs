@@ -10,7 +10,7 @@ pub mod generic;
 #[cfg(feature = "axum-no-default")]
 pub mod http;
 /// Response types for [`reqwest`].
-#[cfg(feature = "reqwest")]
+#[cfg(feature = "reqwest-no-ws")]
 pub mod reqwest;
 
 use bytes::Bytes;
