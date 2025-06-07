@@ -222,8 +222,7 @@ pub mod reqwest {
         request::reqwest::CLIENT,
     };
     use bytes::Bytes;
-    use futures::TryFutureExt;
-    use reqwest::{Request, Response};
+    use reqwest::Request;
     use std::future::Future;
 
     /// Implements [`Client`] for a request made by [`reqwest`].
@@ -236,17 +235,41 @@ pub mod reqwest {
         > Client<Error, InputStreamError, OutputStreamError> for ReqwestClient
     {
         type Request = Request;
-        type Response = Response;
+        #[cfg(target_arch = "wasm32")]
+        type Response = crate::response::reqwest::WasmResponse;
+        #[cfg(not(target_arch = "wasm32"))]
+        type Response = reqwest::Response;
 
+        #[cfg(target_arch = "wasm32")]
         fn send(
             req: Self::Request,
         ) -> impl Future<Output = Result<Self::Response, Error>> + Send
         {
+            use send_wrapper::SendWrapper;
+            SendWrapper::new(async move {
+                CLIENT
+                    .execute(req)
+                    .await
+                    .map(|response| response.into())
+                    .map_err(|e| {
+                        ServerFnErrorErr::Request(e.to_string())
+                            .into_app_error()
+                    })
+            })
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        fn send(
+            req: Self::Request,
+        ) -> impl Future<Output = Result<Self::Response, Error>> + Send
+        {
+            use futures::TryFutureExt;
             CLIENT.execute(req).map_err(|e| {
                 ServerFnErrorErr::Request(e.to_string()).into_app_error()
             })
         }
 
+        #[cfg(feature = "reqwest")]
         async fn open_websocket(
             path: &str,
         ) -> Result<
@@ -256,52 +279,58 @@ pub mod reqwest {
             ),
             Error,
         > {
-            #[cfg(feature = "reqwest")]
+            use super::get_server_url;
+            use futures::{SinkExt, StreamExt};
+            let mut websocket_server_url = get_server_url().to_string();
+            if let Some(postfix) = websocket_server_url.strip_prefix("http://")
             {
-                use super::get_server_url;
-                use futures::{SinkExt, StreamExt};
-                let mut websocket_server_url = get_server_url().to_string();
-                if let Some(postfix) =
-                    websocket_server_url.strip_prefix("http://")
-                {
-                    websocket_server_url = format!("ws://{postfix}");
-                } else if let Some(postfix) =
-                    websocket_server_url.strip_prefix("https://")
-                {
-                    websocket_server_url = format!("wss://{postfix}");
-                }
-                let url = format!("{websocket_server_url}{path}");
-                let (ws_stream, _) = tokio_tungstenite::connect_async(url)
-                    .await
-                    .map_err(|e| {
-                        Error::from_server_fn_error(ServerFnErrorErr::Request(
-                            e.to_string(),
-                        ))
-                    })?;
-
-                let (write, read) = ws_stream.split();
-
-                Ok((
-                    read.map(|msg| match msg {
-                        Ok(msg) => Ok(msg.into_data()),
-                        Err(e) => Err(OutputStreamError::from_server_fn_error(
-                            ServerFnErrorErr::Request(e.to_string()),
-                        )
-                        .ser()),
-                    }),
-                    write.with(|msg: Bytes| async move {
-                        Ok::<
-                            tokio_tungstenite::tungstenite::Message,
-                            tokio_tungstenite::tungstenite::Error,
-                        >(
-                            tokio_tungstenite::tungstenite::Message::Binary(
-                                msg,
-                            ),
-                        )
-                    }),
-                ))
+                websocket_server_url = format!("ws://{postfix}");
+            } else if let Some(postfix) =
+                websocket_server_url.strip_prefix("https://")
+            {
+                websocket_server_url = format!("wss://{postfix}");
             }
-            #[cfg(not(feature = "reqwest"))]
+            let url = format!("{websocket_server_url}{path}");
+            let (ws_stream, _) =
+                tokio_tungstenite::connect_async(url).await.map_err(|e| {
+                    Error::from_server_fn_error(ServerFnErrorErr::Request(
+                        e.to_string(),
+                    ))
+                })?;
+
+            let (write, read) = ws_stream.split();
+
+            Ok((
+                read.map(|msg| match msg {
+                    Ok(msg) => Ok(msg.into_data()),
+                    Err(e) => Err(OutputStreamError::from_server_fn_error(
+                        ServerFnErrorErr::Request(e.to_string()),
+                    )
+                    .ser()),
+                }),
+                write.with(|msg: Bytes| async move {
+                    Ok::<
+                        tokio_tungstenite::tungstenite::Message,
+                        tokio_tungstenite::tungstenite::Error,
+                    >(
+                        tokio_tungstenite::tungstenite::Message::Binary(
+                            msg.into(),
+                        ),
+                    )
+                }),
+            ))
+        }
+
+        #[cfg(not(feature = "reqwest"))]
+        async fn open_websocket(
+            _path: &str,
+        ) -> Result<
+            (
+                impl futures::Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+                impl futures::Sink<Bytes> + Send + 'static,
+            ),
+            Error,
+        > {
             Err::<
                 (
                     Box<
