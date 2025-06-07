@@ -137,7 +137,7 @@ where
                         // would be forwards again.
                         .fold(String::new(), |mut p, v| {
                             p.reserve(v.len() + 1);
-                            p.insert_str(0, "/");
+                            p.insert(0, '/');
                             p.insert_str(0, v);
                             p
                         });
@@ -150,7 +150,7 @@ where
                         if exact {
                             loc == path
                         } else {
-                            is_active_for(&path, loc, strict_trailing_slash)
+                            is_active_for(path, loc, strict_trailing_slash)
                         }
                     })
                 })
