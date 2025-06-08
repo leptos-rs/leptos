@@ -64,7 +64,7 @@ pub trait StoreField: Sized {
 
         // build a list of triggers, starting with the full path to this node and ending with the root
         // this will mean that the root is the final item, and this path is first
-        let mut triggers = Vec::with_capacity(full_path.len());
+        let mut triggers = Vec::with_capacity(full_path.len() + 2);
         triggers.push(trigger.this.clone());
         triggers.push(trigger.children.clone());
         loop {
