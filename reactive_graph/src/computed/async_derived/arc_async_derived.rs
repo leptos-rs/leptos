@@ -518,7 +518,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { SendOption::new(Some(fut.await)) }
+            ScopedFuture::new_untracked(async move {
+                SendOption::new(Some(fut.await))
+            })
         };
         let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
