@@ -5,7 +5,7 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
    | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
    |
    = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
-   = note: required for `BrowserClient` to implement `server_fn::client::Client<InvalidError>`
+   = note: required for `BrowserClient` to implement `Client<InvalidError>`
 note: required by a bound in `server_fn::ServerFn::Client`
   --> src/lib.rs
    |
@@ -25,7 +25,7 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
    | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
    |
    = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
-   = note: required for `BrowserClient` to implement `server_fn::client::Client<InvalidError>`
+   = note: required for `BrowserClient` to implement `Client<InvalidError>`
    = note: required for `Http<PostUrl, Post<JsonEncoding>>` to implement `Protocol<PartAliasResult, std::string::String, BrowserClient, BrowserMockServer, InvalidError>`
 note: required by a bound in `server_fn::ServerFn::Protocol`
   --> src/lib.rs
