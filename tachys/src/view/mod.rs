@@ -319,6 +319,16 @@ pub trait Mountable {
         marker: Option<&crate::renderer::types::Node>,
     );
 
+    /// Mounts a node to the interface. Returns `false` if it could not be mounted.
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        self.mount(parent, marker);
+        true
+    }
+
     /// Inserts another `Mountable` type before this one. Returns `false` if
     /// this does not actually exist in the UI (for example, `()`).
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool;
