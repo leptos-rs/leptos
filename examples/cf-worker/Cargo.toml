@@ -23,7 +23,7 @@ leptos_axum = { path = "../../integrations/axum", default-features = false, feat
 	"wasm",
 ] }
 server_fn = { path = "../../server_fn", default-features = false, features = [
-	"reqwest-no-ws",
+	"browser",
 	"serde-lite",
 	"rkyv",
 	"multipart",

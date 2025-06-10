@@ -15,7 +15,7 @@ pub mod browser;
 #[cfg(feature = "generic")]
 pub mod generic;
 /// Request types for [`reqwest`].
-#[cfg(feature = "reqwest-no-ws")]
+#[cfg(feature = "reqwest")]
 pub mod reqwest;
 
 /// Represents a request as made by the client.

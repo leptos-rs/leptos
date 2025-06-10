@@ -213,16 +213,17 @@ pub mod browser {
     }
 }
 
-#[cfg(feature = "reqwest-no-ws")]
+#[cfg(feature = "reqwest")]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
-    use super::Client;
+    use super::{get_server_url, Client};
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::reqwest::CLIENT,
     };
     use bytes::Bytes;
-    use reqwest::Request;
+    use futures::{SinkExt, StreamExt, TryFutureExt};
+    use reqwest::{Request, Response};
     use std::future::Future;
 
     /// Implements [`Client`] for a request made by [`reqwest`].
@@ -235,41 +236,17 @@ pub mod reqwest {
         > Client<Error, InputStreamError, OutputStreamError> for ReqwestClient
     {
         type Request = Request;
-        #[cfg(target_arch = "wasm32")]
-        type Response = crate::response::reqwest::WasmResponse;
-        #[cfg(not(target_arch = "wasm32"))]
-        type Response = reqwest::Response;
+        type Response = Response;
 
-        #[cfg(target_arch = "wasm32")]
         fn send(
             req: Self::Request,
         ) -> impl Future<Output = Result<Self::Response, Error>> + Send
         {
-            use send_wrapper::SendWrapper;
-            SendWrapper::new(async move {
-                CLIENT
-                    .execute(req)
-                    .await
-                    .map(|response| response.into())
-                    .map_err(|e| {
-                        ServerFnErrorErr::Request(e.to_string())
-                            .into_app_error()
-                    })
-            })
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        fn send(
-            req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, Error>> + Send
-        {
-            use futures::TryFutureExt;
             CLIENT.execute(req).map_err(|e| {
                 ServerFnErrorErr::Request(e.to_string()).into_app_error()
             })
         }
 
-        #[cfg(feature = "reqwest")]
         async fn open_websocket(
             path: &str,
         ) -> Result<
@@ -279,8 +256,6 @@ pub mod reqwest {
             ),
             Error,
         > {
-            use super::get_server_url;
-            use futures::{SinkExt, StreamExt};
             let mut websocket_server_url = get_server_url().to_string();
             if let Some(postfix) = websocket_server_url.strip_prefix("http://")
             {
@@ -316,42 +291,6 @@ pub mod reqwest {
                         tokio_tungstenite::tungstenite::Message::Binary(msg)
                     )
                 }),
-            ))
-        }
-
-        #[cfg(not(feature = "reqwest"))]
-        async fn open_websocket(
-            _path: &str,
-        ) -> Result<
-            (
-                impl futures::Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
-                impl futures::Sink<Bytes> + Send + 'static,
-            ),
-            Error,
-        > {
-            Err::<
-                (
-                    Box<
-                        dyn futures::Stream<Item = Result<Bytes, Bytes>>
-                            + Unpin
-                            + Send
-                            + 'static,
-                    >,
-                    Box<
-                        dyn futures::Sink<Bytes, Error = ()>
-                            + Unpin
-                            + Send
-                            + 'static,
-                    >,
-                ),
-                Error,
-            >(Error::from_server_fn_error(
-                ServerFnErrorErr::Request(
-                    "Websocket connections not supported for reqwest when the \
-                     `reqwest` feature is not enabled on the `server_fn` \
-                     crate."
-                        .to_string(),
-                ),
             ))
         }
 

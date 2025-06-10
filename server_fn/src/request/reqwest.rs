@@ -4,9 +4,12 @@ use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
 };
 use bytes::Bytes;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use once_cell::sync::Lazy;
-use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use reqwest::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Body,
+};
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
 
 pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
@@ -147,7 +150,6 @@ where
         .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn try_new_req_streaming(
         path: &str,
         accepts: &str,
@@ -155,9 +157,6 @@ where
         body: impl Stream<Item = Bytes> + Send + 'static,
         method: Method,
     ) -> Result<Self, E> {
-        use futures::StreamExt;
-        use reqwest::Body;
-
         let url = format!("{}{}", get_server_url(), path);
         let body = Body::wrap_stream(
             body.map(|chunk| Ok(chunk) as Result<Bytes, ServerFnErrorErr>),
@@ -177,20 +176,5 @@ where
         .body(body)
         .build()
         .map_err(|e| ServerFnErrorErr::Request(e.to_string()).into_app_error())
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn try_new_req_streaming(
-        _path: &str,
-        _accepts: &str,
-        _content_type: &str,
-        _body: impl Stream<Item = Bytes> + Send + 'static,
-        _method: Method,
-    ) -> Result<Self, E> {
-        // For WASM, streaming requests are not supported
-        Err(E::from_server_fn_error(ServerFnErrorErr::Request(
-            "Streaming requests are not currently supported on WASM targets"
-                .to_string(),
-        )))
     }
 }

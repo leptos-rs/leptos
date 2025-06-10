@@ -10,8 +10,7 @@
         feature = "multipart",
         feature = "serde-lite",
         feature = "cbor",
-        feature = "msgpack",
-        feature = "reqwest-no-ws",
+        feature = "msgpack"
     ))
 ))]
 
