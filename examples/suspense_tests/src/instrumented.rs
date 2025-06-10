@@ -474,7 +474,13 @@ fn ItemInspect() -> impl IntoView {
     let params = use_params::<ItemInspectParams>();
     let res_overview = expect_context::<Resource<Option<GetItemResult>>>();
     let res_inspect = Resource::new_blocking(
-        move || params.get().map(|p| p.path),
+        move || {
+            // To be "safe", track `res_overview` here as it's used here
+            // reactively, even though both this and that are coupled to
+            // some sort of `Params`.
+            res_overview.track();
+            params.get().map(|p| p.path)
+        },
         move |p| async move {
             // leptos::logging::log!("res_inspect: res_overview.await");
             let overview = res_overview.await;
