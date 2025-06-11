@@ -20,20 +20,20 @@ use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{Event, UrlSearchParams};
 
 #[derive(Clone)]
-pub struct BrowserRouter {
+pub struct HashRouter {
     url: ArcRwSignal<RouterUrl>,
     pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
     pub(crate) path_stack: ArcStoredValue<Vec<RouterUrl>>,
     pub(crate) is_back: ArcRwSignal<bool>,
 }
 
-impl fmt::Debug for BrowserRouter {
+impl fmt::Debug for HashRouter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BrowserUrl").finish_non_exhaustive()
+        f.debug_struct("HashRouter").finish_non_exhaustive()
     }
 }
 
-impl BrowserRouter {
+impl HashRouter {
     fn scroll_to_el(loc_scroll: bool) {
         if let Ok(hash) = window().location().hash() {
             if !hash.is_empty() {
@@ -56,7 +56,7 @@ impl BrowserRouter {
     }
 }
 
-impl Routing for BrowserRouter {
+impl Routing for HashRouter {
     type Error = JsValue;
 
     fn as_url(&self) -> &ArcRwSignal<RouterUrl> {
@@ -69,15 +69,31 @@ impl Routing for BrowserRouter {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
             let this = self.clone();
-            move |new_url: RouterUrl, loc| {
+            move |mut new_url: RouterUrl, loc| {
+                web_sys::console::error_1(&JsValue::from_str(&format!(
+                    "navigate url: {:?} loc: {:?}",
+                    url.get_untracked(),
+                    loc
+                )));
+
                 let same_path = {
                     let curr = url.read_untracked();
+                    web_sys::console::error_1(&JsValue::from_str(&format!(
+                        "same_path curr: {:?} new_url: {:?}",
+                        curr.clone(),
+                        new_url
+                    )));
                     curr.origin() == new_url.origin()
                         && curr.path() == new_url.path()
+                        && curr.hash() == new_url.hash()
                 };
+
+                new_url.path = new_url.hash.trim_start_matches("#").to_owned();
+                new_url.hash = String::new();
 
                 url.set(new_url.clone());
                 if same_path {
+                    // do we need to fix loc?
                     this.complete_navigation(&loc);
                 }
                 let pending = Arc::clone(&pending);
@@ -96,6 +112,13 @@ impl Routing for BrowserRouter {
                             // if we've navigated to another page in the meantime, don't update the
                             // browser URL
                             let curr = url.read_untracked();
+                            web_sys::console::error_1(&JsValue::from_str(
+                                &format!(
+                                    "should_update curr: {:?} new_url: {:?}",
+                                    curr.clone(),
+                                    new_url
+                                ),
+                            ));
                             if curr == new_url {
                                 this.complete_navigation(&loc);
                             }
@@ -245,7 +268,7 @@ impl Routing for BrowserRouter {
     }
 }
 
-impl RoutingProvider for BrowserRouter {
+impl RoutingProvider for HashRouter {
     fn new() -> Result<Self, JsValue> {
         let url = ArcRwSignal::new(Self::current()?);
         let path_stack = ArcStoredValue::new(
@@ -263,7 +286,7 @@ impl RoutingProvider for BrowserRouter {
         let location = window().location();
         Ok(RouterUrl {
             origin: location.origin()?,
-            path: location.pathname()?,
+            path: location.hash()?.trim_start_matches("#").to_owned(),
             search: location
                 .search()?
                 .strip_prefix('?')
@@ -272,7 +295,7 @@ impl RoutingProvider for BrowserRouter {
             search_params: search_params_from_web_url(
                 &UrlSearchParams::new_with_str(&location.search()?)?,
             )?,
-            hash: location.hash()?,
+            hash: "".to_owned(),
         })
     }
 }
