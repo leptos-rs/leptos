@@ -458,7 +458,7 @@ pub(crate) struct OwnerInner {
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
-    joined_owners: Vec<Owner>,
+    joined_owners: Vec<WeakOwner>,
 }
 
 impl Debug for OwnerInner {
