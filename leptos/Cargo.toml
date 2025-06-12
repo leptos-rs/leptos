@@ -101,6 +101,11 @@ trace-component-props = [
 delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
 
+[dev-dependencies]
+tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio-test = { workspace = true, default-features = true }
+any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
+
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
 
