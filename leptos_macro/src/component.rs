@@ -531,7 +531,7 @@ impl ToTokens for Model {
 
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
-                #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::__reexports::wasm_bindgen)]
+                #[::leptos::__reexports::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::__reexports::wasm_bindgen)]
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::__reexports::web_sys::HtmlElement) {
                     #deserialize_island_props
