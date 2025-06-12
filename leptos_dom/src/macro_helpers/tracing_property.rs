@@ -4,8 +4,8 @@ use wasm_bindgen::UnwrapThrowExt;
 /// Use for tracing property
 macro_rules! tracing_props {
     () => {
-        ::leptos::tracing::span!(
-            ::leptos::tracing::Level::TRACE,
+        ::leptos::__reexports::tracing::span!(
+            ::leptos::__reexports::tracing::Level::TRACE,
             "leptos_dom::tracing_props",
             props = String::from("[]")
         );
@@ -23,8 +23,8 @@ macro_rules! tracing_props {
             )*
             props.pop();
             props.push(']');
-            ::leptos::tracing::span!(
-                ::leptos::tracing::Level::TRACE,
+            ::leptos::__reexports::tracing::span!(
+                ::leptos::__reexports::tracing::Level::TRACE,
                 "leptos_dom::tracing_props",
                 props
             );

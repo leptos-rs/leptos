@@ -196,7 +196,7 @@ impl ToTokens for Model {
         let props_serializer = if is_island_with_other_props {
             let fields = prop_serializer_fields(vis, props);
             quote! {
-                #[derive(::leptos::serde::Deserialize)]
+                #[derive(::leptos::__reexports::serde::Deserialize)]
                 #vis struct #props_serialized_name {
                     #fields
                 }
@@ -241,7 +241,7 @@ impl ToTokens for Model {
                  *
                  * However, until https://github.com/tokio-rs/tracing/pull/1819 is merged
                  * (?), you can't provide an alternate path for `tracing` (for example,
-                 * ::leptos::tracing), which means that if you're going to use the macro
+                 * ::leptos::__reexports::tracing), which means that if you're going to use the macro
                  * you *must* have `tracing` in your Cargo.toml.
                  *
                  * Including the feature-check here causes cargo warnings on
@@ -255,7 +255,7 @@ impl ToTokens for Model {
                 let instrument = cfg!(feature = "trace-components").then(|| quote! {
                     #[cfg_attr(
                         feature = "tracing",
-                        ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
+                        ::leptos::__reexports::tracing::instrument(level = "info", name = #trace_name, skip_all)
                     )]
                 });
 
@@ -265,7 +265,7 @@ impl ToTokens for Model {
                         #instrument
                     },
                     quote! {
-                        let __span = ::leptos::tracing::Span::current();
+                        let __span = ::leptos::__reexports::tracing::Span::current();
                     },
                     quote! {
                         #[cfg(debug_assertions)]
@@ -299,7 +299,7 @@ impl ToTokens for Model {
 
         let island_serialize_props = if is_island_with_other_props {
             quote! {
-                let _leptos_ser_props = ::leptos::serde_json::to_string(&props).expect("couldn't serialize island props");
+                let _leptos_ser_props = ::leptos::__reexports::serde_json::to_string(&props).expect("couldn't serialize island props");
             }
         } else {
             quote! {}
@@ -521,8 +521,8 @@ impl ToTokens for Model {
             };
             let deserialize_island_props = if is_island_with_other_props {
                 quote! {
-                    let props = el.dataset().get(::leptos::wasm_bindgen::intern("props"))
-                        .and_then(|data| ::leptos::serde_json::from_str::<#props_serialized_name>(&data).ok())
+                    let props = el.dataset().get(::leptos::__reexports::wasm_bindgen::intern("props"))
+                        .and_then(|data| ::leptos::__reexports::serde_json::from_str::<#props_serialized_name>(&data).ok())
                         .expect("could not deserialize props");
                 }
             } else {
@@ -531,9 +531,9 @@ impl ToTokens for Model {
 
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
-                #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
+                #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::__reexports::wasm_bindgen)]
                 #[allow(non_snake_case)]
-                pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                pub fn #hydrate_fn_name(el: ::leptos::__reexports::web_sys::HtmlElement) {
                     #deserialize_island_props
                     let island = #name(#island_props);
                     let state = island.hydrate_from_position::<true>(&el, ::leptos::tachys::view::Position::Current);
@@ -546,7 +546,7 @@ impl ToTokens for Model {
         };
 
         let props_derive_serialize = if is_island_with_other_props {
-            quote! { , ::leptos::serde::Serialize }
+            quote! { , ::leptos::__reexports::serde::Serialize }
         } else {
             quote! {}
         };
