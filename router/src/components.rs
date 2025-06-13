@@ -590,9 +590,8 @@ pub fn Redirect<P>(
                     #[cfg(not(feature = "tracing"))]
                     eprintln!("Error resolving relative URL.");
                 }
-                return;
             }
-        };
+        }
     }
     // redirect on the client
     else {
