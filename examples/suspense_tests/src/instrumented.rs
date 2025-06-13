@@ -477,6 +477,8 @@ fn ItemInspect() -> impl IntoView {
         move || params.get().map(|p| p.path),
         move |p| async move {
             // leptos::logging::log!("res_inspect: res_overview.await");
+            // Note: this resource is untracked here, though `params` changing
+            // will nonetheless results in the "expected" tracked updates.
             let overview = res_overview.await;
             // leptos::logging::log!("res_inspect: resolved res_overview.await");
             // let result =

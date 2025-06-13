@@ -672,7 +672,7 @@ fn apply_diff<T, VFS, V>(
                     Some(marker.as_ref()),
                 )
             } else {
-                each_item.mount(parent, Some(marker.as_ref()));
+                each_item.try_mount(parent, Some(marker.as_ref()));
             }
         }
 
@@ -697,11 +697,11 @@ fn apply_diff<T, VFS, V>(
                             Some(marker.as_ref()),
                         )
                     } else {
-                        item.mount(parent, Some(marker.as_ref()));
+                        item.try_mount(parent, Some(marker.as_ref()));
                     }
                 }
                 DiffOpAddMode::Append => {
-                    item.mount(parent, Some(marker.as_ref()));
+                    item.try_mount(parent, Some(marker.as_ref()));
                 }
             }
         }
