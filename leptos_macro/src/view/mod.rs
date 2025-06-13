@@ -431,7 +431,9 @@ fn element_children_to_tokens(
     } else if cfg!(feature = "__internal_erase_components") {
         Some(quote! {
             .child(
-                leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+                ::leptos::tachys::view::iterators::StaticVec::from(vec![#(
+                    ::leptos::prelude::IntoMaybeErased::into_maybe_erased(#children)
+                ),*])
             )
         })
     } else if children.len() > 16 {
@@ -481,7 +483,9 @@ fn fragment_to_tokens(
         children.into_iter().next()
     } else if cfg!(feature = "__internal_erase_components") {
         Some(quote! {
-            leptos::tachys::view::iterators::StaticVec::from(vec![#(#children.into_maybe_erased()),*])
+            ::leptos::tachys::view::iterators::StaticVec::from(vec![#(
+                ::leptos::prelude::IntoMaybeErased::into_maybe_erased(#children)
+            ),*])
         })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
