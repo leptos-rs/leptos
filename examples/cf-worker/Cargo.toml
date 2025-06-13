@@ -1,0 +1,40 @@
+[package]
+name = "cf-worker"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ryo Hirayama <ryo12redstone@gmail.com>"]
+
+[package.metadata.release]
+release = false
+
+# Optimize for WASM processing
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+leptos = { path = "../../leptos", default-features = false }
+leptos_axum = { path = "../../integrations/axum", default-features = false, features = [
+	"wasm",
+] }
+server_fn = { path = "../../server_fn", default-features = false, features = [
+	"browser",
+	"serde-lite",
+	"rkyv",
+	"multipart",
+	"postcard",
+] }
+getrandom = { version = "0.3.3", default-features = false, features = [
+	"wasm_js",
+] }
+
+worker = { version = "0.5.0", features = ["http", "axum"] }
+worker-macros = { version = "0.5.0", features = ["http"] }
+axum = { version = "0.8", default-features = false }
+tower-service = "0.3.2"
+console_error_panic_hook = { version = "0.1.1" }
