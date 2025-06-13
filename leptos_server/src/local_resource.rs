@@ -20,7 +20,7 @@ use reactive_graph::{
 };
 use std::{
     future::{pending, Future, IntoFuture},
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     panic::Location,
 };
 
@@ -40,6 +40,14 @@ impl<T> Clone for ArcLocalResource<T> {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: self.defined_at,
         }
+    }
+}
+
+impl<T> Deref for ArcLocalResource<T> {
+    type Target = ArcAsyncDerived<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
@@ -267,6 +275,14 @@ pub struct LocalResource<T> {
     refetch: RwSignal<usize>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
+}
+
+impl<T> Deref for LocalResource<T> {
+    type Target = AsyncDerived<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
 }
 
 impl<T> Clone for LocalResource<T> {
