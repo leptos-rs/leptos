@@ -14,8 +14,8 @@ throw_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = { workspace = true, default-features = true }
-const-str = "0.6.2"
-rustversion = "1.0"
+const-str = { workspace = true, default-features = true }
+rustversion = { workspace = true, default-features = true }
 xxhash-rust = { features = [
   "const_xxh64",
 ], workspace = true, default-features = true }
@@ -27,39 +27,43 @@ send_wrapper = { features = [
 thiserror = { workspace = true, default-features = true }
 
 # registration system
-inventory = { version = "0.3.20", optional = true }
+inventory = { optional = true, workspace = true, default-features = true }
 dashmap = { workspace = true, default-features = true }
 once_cell = { workspace = true, default-features = true }
 
 ## servers
 # actix
 actix-web = { optional = true, workspace = true, default-features = false }
-actix-ws = { version = "0.3.0", optional = true }
+actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum
 axum = { optional = true, default-features = false, features = [
   "multipart",
 ], workspace = true }
 tower = { optional = true, workspace = true, default-features = true }
-tower-layer = { version = "0.3.3", optional = true }
+tower-layer = { optional = true, workspace = true, default-features = true }
 
 ## input encodings
 serde_qs = { workspace = true, default-features = true }
-multer = { version = "3.1", optional = true }
+multer = { optional = true, workspace = true, default-features = true }
 
 ## output encodings
 # serde
 serde_json = { workspace = true, default-features = true }
-serde-lite = { version = "0.5.0", features = ["derive"], optional = true }
+serde-lite = { features = [
+  "derive",
+], optional = true, workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
-http = { version = "1.3" }
-ciborium = { version = "0.2.2", optional = true }
-postcard = { version = "1", features = ["alloc"], optional = true }
-hyper = { version = "1.6", optional = true }
-bytes = "1.10"
-http-body-util = { version = "0.1.3", optional = true }
-rkyv = { version = "0.8.9", optional = true }
-rmp-serde = { version = "1.3.0", optional = true }
+http = { workspace = true, default-features = true }
+ciborium = { optional = true, workspace = true, default-features = true }
+postcard = { features = [
+  "alloc",
+], optional = true, workspace = true, default-features = true }
+hyper = { optional = true, workspace = true, default-features = true }
+bytes = { workspace = true, default-features = true }
+http-body-util = { optional = true, workspace = true, default-features = true }
+rkyv = { optional = true, workspace = true, default-features = true }
+rmp-serde = { optional = true, workspace = true, default-features = true }
 base64 = { workspace = true, default-features = true }
 
 # client
@@ -67,7 +71,7 @@ gloo-net = { optional = true, workspace = true, default-features = true }
 js-sys = { optional = true, workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, optional = true, default-features = true }
 wasm-bindgen-futures = { optional = true, workspace = true, default-features = true }
-wasm-streams = { version = "0.4.2", optional = true }
+wasm-streams = { optional = true, workspace = true, default-features = true }
 web-sys = { optional = true, features = [
   "console",
   "ReadableStream",
@@ -77,11 +81,11 @@ web-sys = { optional = true, features = [
 ], workspace = true, default-features = true }
 
 # reqwest client
-reqwest = { version = "0.12.15", default-features = false, optional = true, features = [
+reqwest = { default-features = false, optional = true, features = [
   "multipart",
   "stream",
-] }
-tokio-tungstenite = { version = "0.26.2", optional = true }
+], workspace = true }
+tokio-tungstenite = { optional = true, workspace = true, default-features = true }
 url = { workspace = true, default-features = true }
 pin-project-lite = { workspace = true, default-features = true }
 tokio = { features = [

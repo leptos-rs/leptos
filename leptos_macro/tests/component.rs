@@ -119,3 +119,45 @@ fn returns_static_lifetime() {
         WithLifetime(WithLifetimeProps::builder().data(&val).build())
     }
 }
+
+// an attempt to catch unhygienic macros regression
+mod macro_hygiene {
+    // To ensure no relative module path to leptos inside macros.
+    mod leptos {}
+
+    // doing this separately to below due to this being the smallest
+    // unit with the lowest import surface.
+    #[test]
+    fn view() {
+        use ::leptos::IntoView;
+        use ::leptos_macro::{component, view};
+
+        #[component]
+        fn Component() -> impl IntoView {
+            view! {
+                {()}
+                {()}
+            }
+        }
+    }
+
+    // may extend this test with other items as necessary.
+    #[test]
+    fn view_into_any() {
+        use ::leptos::{
+            prelude::{ElementChild, IntoAny},
+            IntoView,
+        };
+        use ::leptos_macro::{component, view};
+
+        #[component]
+        fn Component() -> impl IntoView {
+            view! {
+                <div>
+                    {().into_any()}
+                    {()}
+                </div>
+            }
+        }
+    }
+}

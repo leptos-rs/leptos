@@ -167,6 +167,7 @@ impl Owner {
                     .map(|parent| parent.read().or_poisoned().arena.clone())
                     .unwrap_or_default(),
                 paused: false,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -201,6 +202,7 @@ impl Owner {
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: Default::default(),
                 paused: false,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -226,6 +228,7 @@ impl Owner {
                 #[cfg(feature = "sandboxed-arenas")]
                 arena,
                 paused,
+                joined_owners: Vec::new(),
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
@@ -288,12 +291,18 @@ impl Owner {
     /// fill the same need as an "on unmount" function in other UI approaches, etc.
     pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
         if let Some(owner) = Owner::current() {
-            owner
-                .inner
-                .write()
-                .or_poisoned()
-                .cleanups
-                .push(Box::new(fun));
+            let mut inner = owner.inner.write().or_poisoned();
+
+            #[cfg(feature = "sandboxed-arenas")]
+            let fun = {
+                let arena = Arc::clone(&inner.arena);
+                move || {
+                    Arena::set(&arena);
+                    fun()
+                }
+            };
+
+            inner.cleanups.push(Box::new(fun));
         }
     }
 
@@ -455,6 +464,7 @@ pub(crate) struct OwnerInner {
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
+    joined_owners: Vec<WeakOwner>,
 }
 
 impl Debug for OwnerInner {

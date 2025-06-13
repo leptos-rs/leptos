@@ -42,6 +42,18 @@ impl<Fut> ScopedFuture<Fut> {
             fut,
         }
     }
+
+    /// Wraps the given `Future` by taking the current [`Owner`] re-setting it as the
+    /// active owner every time the inner `Future` is polled. Always untracks, i.e., clears
+    /// the active [`Observer`] when polled.
+    pub fn new_untracked(fut: Fut) -> Self {
+        let owner = Owner::current().unwrap_or_default();
+        Self {
+            owner,
+            observer: None,
+            fut,
+        }
+    }
 }
 
 impl<Fut: Future> Future for ScopedFuture<Fut> {

@@ -9,8 +9,8 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-actix-http = "3.10"
-actix-files = "0.6"
+actix-http = { workspace = true, default-features = true }
+actix-files = { workspace = true, default-features = true }
 actix-web = { workspace = true, default-features = false }
 futures = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["tokio"] }

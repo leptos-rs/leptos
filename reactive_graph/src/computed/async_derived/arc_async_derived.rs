@@ -484,7 +484,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { SendOption::new(Some(fut.await)) }
+            let fut = async move { SendOption::new(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
         };
         let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
@@ -518,7 +521,12 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { SendOption::new(Some(fut.await)) }
+            let fut = ScopedFuture::new_untracked(async move {
+                SendOption::new(Some(fut.await))
+            });
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
         };
         let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
@@ -560,7 +568,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            async move { SendOption::new_local(Some(fut.await)) }
+            let fut = async move { SendOption::new_local(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
         };
         let initial_value = SendOption::new_local(initial_value);
         let (this, _) = spawn_derived!(
@@ -596,7 +607,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
         let initial = SendOption::new_local(None::<T>);
         let fun = move || {
             let fut = fun();
-            async move { SendOption::new_local(Some(fut.await)) }
+            let fut = async move { SendOption::new_local(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
         };
         let (this, _) = spawn_derived!(
             crate::spawn_local,

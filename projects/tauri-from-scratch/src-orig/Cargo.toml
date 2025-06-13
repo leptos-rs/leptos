@@ -3,7 +3,6 @@ name = "leptos_tauri_from_scratch"
 version = "0.1.0"
 edition = "2021"
 
-
 [lib]
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -12,43 +11,35 @@ name = "leptos_tauri_from_scratch_bin"
 path = "./src/main.rs"
 
 [dependencies]
-axum = { version = "0.7.5", optional = true }
-axum-macros = { version = "0.4.1", optional = true }
-cfg-if = "1.0"
-console_error_panic_hook = "0.1.7"
-console_log = "1.0"
-leptos = { git = "https://github.com/leptos-rs/leptos.git", branch = "leptos_v0.6" }
-leptos-use = "0.11.3"
-leptos_axum = { git = "https://github.com/leptos-rs/leptos.git", branch = "leptos_v0.6", optional = true }
-leptos_meta = { git = "https://github.com/leptos-rs/leptos.git", branch = "leptos_v0.6" }
-leptos_router = { git = "https://github.com/leptos-rs/leptos.git", branch = "leptos_v0.6" }
-log = "0.4.22"
-sqlx = { version = "0.8.0", optional = true, features = [
-  "sqlite",
-  "runtime-tokio",
-] }
-serde = "1.0"
-serde_json = "1.0"
-server_fn = { git = "https://github.com/leptos-rs/leptos.git", branch = "leptos_v0.6" }
-tokio = { version = "1.39", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.5.2", optional = true, features = ["fs", "cors"] }
-wasm-bindgen = "0.2.92"
+axum = { version = "0.8.4", optional = true }
+axum-macros = { version = "0.5.0", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+leptos = { git = "https://github.com/leptos-rs/leptos.git", rev = "v0.8.2" }
+leptos_axum = { git = "https://github.com/leptos-rs/leptos.git", rev = "v0.8.2", optional = true }
+leptos_meta = { git = "https://github.com/leptos-rs/leptos.git", rev = "v0.8.2", optional = true }
+server_fn = { git = "https://github.com/leptos-rs/leptos.git", rev = "v0.8.2", optional = true }
+tokio = { version = "1.45.1", features = ["rt-multi-thread"], optional = true }
+tower = { version = "0.5.2", optional = true }
+tower-http = { version = "0.5.2", features = ["fs", "cors"], optional = true }
+wasm-bindgen = { version = "=0.2.100", optional = true }
 
 [features]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+csr = ["leptos/csr", "dep:server_fn"]
+hydrate = [
+  "leptos/hydrate",
+  "dep:leptos_meta",
+  "dep:console_error_panic_hook",
+  "dep:wasm-bindgen"
+]
 ssr = [
   "dep:axum",
   "dep:axum-macros",
   "leptos/ssr",
-  "leptos-use/ssr",
   "dep:leptos_axum",
+  "dep:leptos_meta",
   "leptos_meta/ssr",
-  "leptos_router/ssr",
   "dep:tower-http",
   "dep:tower",
-  "dep:sqlx",
   "dep:tokio",
 ]
 
@@ -67,4 +58,3 @@ bin-features = ["ssr"]
 bin-default-features = false
 lib-features = ["hydrate"]
 lib-default-features = false
-
