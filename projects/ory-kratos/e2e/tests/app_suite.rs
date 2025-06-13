@@ -92,8 +92,8 @@ impl RequestPair {
 #[tokio::main]
 async fn main() -> Result<()> {
     // create a thread and store a
-    //  tokio-tungstenite client that connectsto http://127.0.0.1:1080/ws
-    // and then stores the recieved messages in a once_cell::Lazy<RwLock<Vec<MailCrabMsg>>>
+    //  tokio-tungstenite client that connects to http://127.0.0.1:1080/ws
+    // and then stores the received messages in a once_cell::Lazy<RwLock<Vec<MailCrabMsg>>>
     // or a custom struct that matches the body or has specific impls for verify codes, links etc.
     let _ = tokio::spawn(async move {
         let (mut socket, _) = connect_async(
