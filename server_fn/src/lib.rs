@@ -821,7 +821,7 @@ pub trait FormatType {
         match Self::FORMAT_TYPE {
             Format::Binary => STANDARD_NO_PAD.encode(bytes),
             Format::Text => String::from_utf8(bytes.into())
-                .expect("Valid text format type with utf-8 comptabile string"),
+                .expect("Valid text format type with utf-8 compatible string"),
         }
     }
 

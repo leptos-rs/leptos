@@ -144,7 +144,7 @@ Let's look at
 When we `cargo tauri build` this will run before hand. Trunk will run it's build process, using the index.html file in the src-orig that we specified in `Trunk.toml` <br>
 We'll build a binary using only the CSR feature. This is important. <br>
 We are going to build an SSR app, and serve it over the internet but we are also going to build a tauri client for desktop and mobile using CSR.<br>
-It's going to make network requests to our server that is servering our app to browsers using SSR.<br>
+It's going to make network requests to our server that is serving our app to browsers using SSR.<br>
  This is the best of both worlds, we get the SEO of SSR and other advantages while being able to use CSR to build our app for other platforms.
 ```
     "devPath": "http://127.0.0.1:3000",
@@ -280,7 +280,7 @@ We've added the override to our cargo leptos metadata.
 [package.metadata.leptos]
 bin-exe-name="leptos_tauri_from_scratch_bin"
 ```
-Our tauri app is going to send server function calls to this address, this is aksi where we'll serve our hydratable SSR client from.
+Our tauri app is going to send server function calls to this address, this is where we'll serve our hydratable SSR client from.
 ```
 site-addr = "0.0.0.0:3000"
 ```
