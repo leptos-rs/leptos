@@ -24,14 +24,14 @@ leptos_hot_reload = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_server = { workspace = true, features = ["tachys"] }
 leptos_config = { workspace = true }
-leptos-spin-macro = { version = "0.2.0", optional = true }
+leptos-spin-macro = { optional = true , workspace = true, default-features = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = { workspace = true, default-features = true }
-rand = { version = "0.9.1", optional = true }
+rand = { optional = true , workspace = true, default-features = true }
 # NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error
-getrandom = { version = "0.3.3", optional = true }
+getrandom = { optional = true , workspace = true, default-features = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = { workspace = true, default-features = true }
 tachys = { workspace = true, features = [
@@ -42,7 +42,7 @@ tachys = { workspace = true, features = [
 thiserror = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
-typed-builder-macro = "0.21.0"
+typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }
