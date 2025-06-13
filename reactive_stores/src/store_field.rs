@@ -60,20 +60,16 @@ pub trait StoreField: Sized {
     fn triggers_for_path(&self, path: StorePath) -> Vec<ArcTrigger> {
         let trigger = self.get_trigger(path.clone());
         let mut full_path = path;
-        full_path.pop();
 
         // build a list of triggers, starting with the full path to this node and ending with the root
         // this will mean that the root is the final item, and this path is first
-        let mut triggers = Vec::with_capacity(full_path.len());
+        let mut triggers = Vec::with_capacity(full_path.len() + 2);
         triggers.push(trigger.this.clone());
         triggers.push(trigger.children.clone());
-        loop {
+        while !full_path.is_empty() {
+            full_path.pop();
             let inner = self.get_trigger(full_path.clone());
             triggers.push(inner.children.clone());
-            if full_path.is_empty() {
-                break;
-            }
-            full_path.pop();
         }
 
         // when the WriteGuard is dropped, each trigger will be notified, in order
