@@ -3,7 +3,6 @@ use or_poisoned::OrPoisoned;
 use std::{
     any::{Any, TypeId},
     collections::VecDeque,
-    sync::Arc,
 };
 
 impl Owner {
@@ -13,7 +12,7 @@ impl Owner {
             .write()
             .or_poisoned()
             .joined_owners
-            .push(other.clone());
+            .push(other.downgrade());
     }
 
     fn provide_context<T: Send + Sync + 'static>(&self, value: T) {
@@ -39,7 +38,7 @@ impl Owner {
             let joined = inner
                 .joined_owners
                 .iter()
-                .map(|owner| Arc::clone(&owner.inner));
+                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
             for parent in parent.into_iter().chain(joined) {
                 let mut parent = Some(parent);
                 while let Some(ref this_parent) = parent.clone() {
@@ -76,7 +75,7 @@ impl Owner {
             let joined = inner
                 .joined_owners
                 .iter()
-                .map(|owner| Arc::clone(&owner.inner));
+                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
             for parent in parent.into_iter().chain(joined) {
                 let mut parent = Some(parent);
                 while let Some(ref this_parent) = parent.clone() {
@@ -114,7 +113,7 @@ impl Owner {
             let joined = inner
                 .joined_owners
                 .iter()
-                .map(|owner| Arc::clone(&owner.inner));
+                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
             for parent in parent.into_iter().chain(joined) {
                 let mut parent = Some(parent);
                 while let Some(ref this_parent) = parent.clone() {

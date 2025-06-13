@@ -291,12 +291,18 @@ impl Owner {
     /// fill the same need as an "on unmount" function in other UI approaches, etc.
     pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
         if let Some(owner) = Owner::current() {
-            owner
-                .inner
-                .write()
-                .or_poisoned()
-                .cleanups
-                .push(Box::new(fun));
+            let mut inner = owner.inner.write().or_poisoned();
+
+            #[cfg(feature = "sandboxed-arenas")]
+            let fun = {
+                let arena = Arc::clone(&inner.arena);
+                move || {
+                    Arena::set(&arena);
+                    fun()
+                }
+            };
+
+            inner.cleanups.push(Box::new(fun));
         }
     }
 
@@ -458,7 +464,7 @@ pub(crate) struct OwnerInner {
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
-    joined_owners: Vec<Owner>,
+    joined_owners: Vec<WeakOwner>,
 }
 
 impl Debug for OwnerInner {
