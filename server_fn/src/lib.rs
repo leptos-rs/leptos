@@ -151,7 +151,6 @@ use error::{FromServerFnError, ServerFnErrorErr};
 use futures::{pin_mut, SinkExt, Stream, StreamExt};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
-use std::sync::LazyLock;
 use redirect::call_redirect_hook;
 use request::Req;
 use response::{ClientRes, Res, TryRes};
@@ -170,6 +169,7 @@ use std::{
     ops::{Deref, DerefMut},
     pin::Pin,
     sync::Arc,
+    sync::LazyLock,
 };
 #[doc(hidden)]
 pub use xxhash_rust;

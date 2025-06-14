@@ -38,7 +38,6 @@ use leptos_router::{
     static_routes::{RegenerationFn, ResolvedStaticPath},
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
-use std::sync::LazyLock;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -52,6 +51,7 @@ use std::{
     ops::{Deref, DerefMut},
     path::Path,
     sync::Arc,
+    sync::LazyLock,
 };
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function

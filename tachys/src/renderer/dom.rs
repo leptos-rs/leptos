@@ -9,9 +9,8 @@ use crate::{
     view::{Mountable, ToTemplate},
 };
 use linear_map::LinearMap;
-use std::cell::LazyCell;
 use rustc_hash::FxHashSet;
-use std::{any::TypeId, borrow::Cow, cell::RefCell};
+use std::{any::TypeId, borrow::Cow, cell::LazyCell, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 

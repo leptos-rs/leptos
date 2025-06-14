@@ -5,12 +5,12 @@ use crate::{
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use std::sync::LazyLock;
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     Body,
 };
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
+use std::sync::LazyLock;
 
 pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
 

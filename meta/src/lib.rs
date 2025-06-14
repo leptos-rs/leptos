@@ -63,13 +63,12 @@ use leptos::{
     },
     IntoView,
 };
-use std::sync::LazyLock;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc,
+        Arc, LazyLock,
     },
 };
 use wasm_bindgen::JsCast;
