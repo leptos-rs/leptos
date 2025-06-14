@@ -151,7 +151,7 @@ use error::{FromServerFnError, ServerFnErrorErr};
 use futures::{pin_mut, SinkExt, Stream, StreamExt};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use redirect::call_redirect_hook;
 use request::Req;
 use response::{ClientRes, Res, TryRes};
@@ -862,7 +862,7 @@ pub use inventory;
 #[macro_export]
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
-        once_cell::sync::Lazy::new(|| {
+        std::sync::LazyLock::new(|| {
             $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
                 .into_iter()
                 .map(|obj| {
@@ -981,7 +981,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
-    Lazy<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
+    LazyLock<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect

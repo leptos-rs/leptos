@@ -38,7 +38,7 @@ use leptos_router::{
     static_routes::{RegenerationFn, ResolvedStaticPath},
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -1210,8 +1210,8 @@ impl StaticRouteGenerator {
     }
 }
 
-static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
-    Lazy::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
+    LazyLock::new(DashMap::new);
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());

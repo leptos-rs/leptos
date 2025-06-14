@@ -7,7 +7,7 @@ use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use core::fmt::Debug;
 use js_sys::Array;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::{
     fmt::Display,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -79,8 +79,8 @@ pub struct HydrateSharedContext {
     id: AtomicUsize,
     is_hydrating: AtomicBool,
     during_hydration: AtomicBool,
-    errors: Lazy<Vec<(SerializedDataId, ErrorId, Error)>>,
-    incomplete: Lazy<Vec<SerializedDataId>>,
+    errors: LazyLock<Vec<(SerializedDataId, ErrorId, Error)>>,
+    incomplete: LazyLock<Vec<SerializedDataId>>,
 }
 
 impl HydrateSharedContext {
@@ -90,8 +90,8 @@ impl HydrateSharedContext {
             id: AtomicUsize::new(0),
             is_hydrating: AtomicBool::new(true),
             during_hydration: AtomicBool::new(true),
-            errors: Lazy::new(serialized_errors),
-            incomplete: Lazy::new(incomplete_chunks),
+            errors: LazyLock::new(serialized_errors),
+            incomplete: LazyLock::new(incomplete_chunks),
         }
     }
 
@@ -104,8 +104,8 @@ impl HydrateSharedContext {
             id: AtomicUsize::new(0),
             is_hydrating: AtomicBool::new(false),
             during_hydration: AtomicBool::new(true),
-            errors: Lazy::new(serialized_errors),
-            incomplete: Lazy::new(incomplete_chunks),
+            errors: LazyLock::new(serialized_errors),
+            incomplete: LazyLock::new(incomplete_chunks),
         }
     }
 }

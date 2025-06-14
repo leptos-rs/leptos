@@ -63,7 +63,7 @@ use leptos::{
     },
     IntoView,
 };
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
@@ -101,7 +101,7 @@ pub struct MetaContext {
     /// Metadata associated with the `<title>` element.
     pub(crate) title: TitleContext,
     /// The hydration cursor for the location in the `<head>` for arbitrary tags will be rendered.
-    pub(crate) cursor: Arc<Lazy<SendWrapper<Cursor>>>,
+    pub(crate) cursor: Arc<LazyLock<SendWrapper<Cursor>>>,
 }
 
 impl MetaContext {
@@ -143,7 +143,7 @@ impl Default for MetaContext {
             ))
         };
 
-        let cursor = Arc::new(Lazy::new(build_cursor));
+        let cursor = Arc::new(LazyLock::new(build_cursor));
         Self {
             title: Default::default(),
             cursor,

@@ -5,7 +5,7 @@ use crate::{
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     Body,
