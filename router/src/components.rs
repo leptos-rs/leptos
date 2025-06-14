@@ -144,14 +144,10 @@ impl RouterContext {
             resolve_path("", path, None)
         };
 
-        let mut url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
-            Some(Ok(url)) => url,
-            Some(Err(e)) => {
+        let mut url = match BrowserUrl::parse(&resolved_to) {
+            Ok(url) => url,
+            Err(e) => {
                 leptos::logging::error!("Error parsing URL: {e:?}");
-                return;
-            }
-            None => {
-                leptos::logging::error!("Error resolving relative URL.");
                 return;
             }
         };
@@ -203,7 +199,7 @@ impl RouterContext {
         &'a self,
         path: &'a str,
         from: Option<&'a str>,
-    ) -> Option<Cow<'a, str>> {
+    ) -> Cow<'a, str> {
         let base = self.base.as_deref().unwrap_or_default();
         resolve_path(base, path, from)
     }
