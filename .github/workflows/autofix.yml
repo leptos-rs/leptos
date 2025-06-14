@@ -34,7 +34,7 @@ jobs:
         run: cargo fmt --all
       - name: Clippy the workspace
         run: cargo all-features clippy --allow-dirty --fix --lib --no-deps
-      - uses: autofix-ci/action@v1.3.1
+      - uses: autofix-ci/action@v1.3.2
         if: ${{ always() }}
         with:
           fail-fast: false
