@@ -7,10 +7,12 @@ use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use core::fmt::Debug;
 use js_sys::Array;
-use std::sync::LazyLock;
 use std::{
     fmt::Display,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        LazyLock,
+    },
 };
 use throw_error::{Error, ErrorId};
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast};

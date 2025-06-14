@@ -12,7 +12,7 @@ use reqwest::{
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
 use std::sync::LazyLock;
 
-pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
+pub(crate) static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 impl<E> ClientReq<E> for Request
 where
