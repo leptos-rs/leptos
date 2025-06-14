@@ -168,8 +168,7 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::Arc,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
 };
 #[doc(hidden)]
 pub use xxhash_rust;
