@@ -281,9 +281,10 @@ impl Dom {
             let cb = send_wrapper::SendWrapper::new(cb);
             move |el: &Element| {
                 or_debug!(
-                    el.remove_event_listener_with_callback(
+                    el.remove_event_listener_with_callback_and_bool(
                         intern(&name),
-                        cb.as_ref().unchecked_ref()
+                        cb.as_ref().unchecked_ref(),
+                        true
                     ),
                     el,
                     "removeEventListener"
