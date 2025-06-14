@@ -709,7 +709,7 @@ where
 
             buf.push('<');
             buf.push_str(E::TAG);
-            <At as ToTemplate>::to_template(
+            <At as ToTemplate>::to_template_attribute(
                 buf,
                 &mut class,
                 &mut style,

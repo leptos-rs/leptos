@@ -103,6 +103,15 @@ impl ToTemplate for () {
     ) {
         buf.push_str("<!>");
     }
+
+    fn to_template_attribute(
+        _buf: &mut String,
+        _class: &mut String,
+        _style: &mut String,
+        _inner_html: &mut String,
+        _position: &mut Position,
+    ) {
+    }
 }
 
 impl<A: Render> Render for (A,) {
