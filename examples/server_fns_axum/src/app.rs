@@ -421,7 +421,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     /// distinguishes between files by filename, not by user.
     #[cfg(feature = "ssr")]
     mod progress {
-        use srd::sync::LazyLock;
+        use std::sync::LazyLock;
         use async_broadcast::{broadcast, Receiver, Sender};
         use dashmap::DashMap;
         use futures::Stream;
