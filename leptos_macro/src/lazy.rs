@@ -24,9 +24,14 @@ pub fn lazy_impl(
         fun.sig.ident.span(),
     );
 
-    quote! {
-        #[cfg_attr(feature = "split", wasm_split::wasm_split(#converted_name))]
-        #fun
+    let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
+    if is_wasm {
+        quote! {
+            #[::leptos::wasm_split::wasm_split(#converted_name)]
+            #fun
+        }
+    } else {
+        quote! { #fun }
     }
     .into()
 }
