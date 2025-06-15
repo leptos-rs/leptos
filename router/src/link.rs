@@ -134,42 +134,15 @@ where
             let href = href.clone();
             move || {
                 href.read().as_deref().is_some_and(|to| {
-                    let mut del = 0;
-                    let path = to
-                        .split(['?', '#'])
-                        .next()
-                        .unwrap_or_default()
-                        .split(['/'])
-                        .rev()
-                        .filter(|v| {
-                            if *v == ".." {
-                                del += 1;
-                                false
-                            } else if del > 0 {
-                                del -= 1;
-                                false
-                            } else {
-                                true
-                            }
-                        })
-                        // We cannot reverse before the fold again bc the filter
-                        // would be forwards again.
-                        .fold(String::new(), |mut p, v| {
-                            p.reserve(v.len() + 1);
-                            p.insert(0, '/');
-                            p.insert_str(0, v);
-                            p
-                        });
-                    if del > 0 {
+                    let Some(path) = normalize_path(to) else {
                         return false;
-                    }
-                    let path = path.strip_suffix('/').unwrap_or_default();
+                    };
                     current_url.with(|loc| {
                         let loc = loc.path();
                         if exact {
                             loc == path
                         } else {
-                            is_active_for(path, loc, strict_trailing_slash)
+                            is_active_for(&path, loc, strict_trailing_slash)
                         }
                     })
                 })
@@ -220,9 +193,53 @@ fn is_active_for(
         }
 }
 
+// Resolve `".."` segments in the path. Assume path is either empty or starts with a `'/'``.
+fn normalize_path(path: &str) -> Option<String> {
+    // Return only on the only condition where leading slash
+    // is allowed to be missing.
+    if path.is_empty() {
+        return Some(String::new());
+    }
+    let mut del = 0;
+    let mut path = path
+        .split(['?', '#'])
+        .next()
+        .unwrap_or_default()
+        .split(['/'])
+        .rev()
+        .filter(|v| {
+            if *v == ".." {
+                del += 1;
+                false
+            } else if del > 0 {
+                del -= 1;
+                false
+            } else {
+                true
+            }
+        })
+        // We cannot reverse before the fold again bc the filter
+        // would be forwards again.
+        .fold(String::new(), |mut p, v| {
+            p.reserve(v.len() + 1);
+            p.insert(0, '/');
+            p.insert_str(0, v);
+            p
+        });
+    path.truncate(path.len().saturating_sub(1));
+
+    // Path starts with '/' giving it an extra empty segment after the split
+    // Which should not be removed.
+    if !path.starts_with('/') {
+        None
+    } else {
+        Some(path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::is_active_for;
+    use super::{is_active_for, normalize_path};
 
     #[test]
     fn is_active_for_matched() {
@@ -440,5 +457,36 @@ mod tests {
         // assert!(is_same_level("/some/", "/some/level"))
         // assert!(!is_same_level("/some/", "/some/level/"))
         // assert!(!is_same_level("/some/", "/some/level/deeper"))
+    }
+
+    #[test]
+    fn normalize_path_some() {
+        // Make sure it doesn't touch already normalized urls.
+        assert!(normalize_path("") == Some("".into()));
+        assert!(normalize_path("/") == Some("/".into()));
+        assert!(normalize_path("/some") == Some("/some".into()));
+        assert!(normalize_path("/some/") == Some("/some/".into()));
+
+        // Correctly removes ".." segments.
+        assert!(normalize_path("/some/../another") == Some("/another".into()));
+        assert!(
+            normalize_path("/one/two/../three/../../four")
+                == Some("/four".into())
+        );
+
+        // Correctly sets trailing slash if last segement is "..".
+        assert!(normalize_path("/one/two/..") == Some("/one".into()));
+        assert!(normalize_path("/one/two/../") == Some("/one/".into()));
+    }
+
+    #[test]
+    fn normalize_path_none() {
+        // Level outside of the url.
+        assert!(normalize_path("/..") == None);
+        assert!(normalize_path("/../") == None);
+
+        // Going into negative levels and coming back into the positives.
+        assert!(normalize_path("/one/../../two/three") == None);
+        assert!(normalize_path("/one/../../two/three/") == None);
     }
 }
