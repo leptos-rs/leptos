@@ -24,8 +24,8 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tokio_tungstenite::connect_async;
 use uuid::Uuid;
-static EMAIL_ID_MAP: Lazy<RwLock<HashMap<String, String>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static EMAIL_ID_MAP: LazyLock<RwLock<HashMap<String, String>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RequestPair {

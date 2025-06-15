@@ -432,7 +432,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             rx: Receiver<usize>,
         }
 
-        static FILES: LazyLock<DashMap<String, File>> = LazyLock::new(DashMap::new);
+        static FILES: LazyLock<DashMap<String, File>> =
+            LazyLock::new(DashMap::new);
 
         pub async fn add_chunk(filename: &str, len: usize) {
             println!("[{filename}]\tadding {len}");
