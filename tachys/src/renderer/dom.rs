@@ -10,7 +10,12 @@ use crate::{
 };
 use linear_map::LinearMap;
 use rustc_hash::FxHashSet;
-use std::{any::TypeId, borrow::Cow, cell::LazyCell, cell::RefCell};
+use std::{
+    any::TypeId,
+    borrow::Cow,
+    cell::LazyCell,
+    cell::RefCell
+};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
