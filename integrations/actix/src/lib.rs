@@ -50,8 +50,7 @@ use std::{
     future::Future,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::Arc,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
 };
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
