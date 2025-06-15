@@ -42,7 +42,7 @@ exclude = ["benchmarks", "examples", "projects"]
 [workspace.package]
 version = "0.8.2"
 edition = "2021"
-rust-version = "1.76"
+rust-version = "1.80"
 
 [workspace.dependencies]
 # members
@@ -85,7 +85,6 @@ rstml = { default-features = false, version = "0.12.1" }
 rustc_version = { default-features = false, version = "0.4.1" }
 guardian = { default-features = false, version = "1.3.0" }
 rustc-hash = { default-features = false, version = "2.1.1" }
-once_cell = { default-features = false, version = "1.21.3" }
 actix-web = { default-features = false, version = "4.11.0" }
 tracing = { default-features = false, version = "0.1.41" }
 slotmap = { default-features = false, version = "1.0.7" }

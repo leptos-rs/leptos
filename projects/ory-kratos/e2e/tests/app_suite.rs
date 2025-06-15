@@ -18,14 +18,14 @@ use chromiumoxide::{
 use cucumber::World;
 use futures::channel::mpsc::Sender;
 use futures_util::stream::StreamExt;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tokio_tungstenite::connect_async;
 use uuid::Uuid;
-static EMAIL_ID_MAP: Lazy<RwLock<HashMap<String, String>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static EMAIL_ID_MAP: LazyLock<RwLock<HashMap<String, String>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RequestPair {
@@ -93,7 +93,7 @@ impl RequestPair {
 async fn main() -> Result<()> {
     // create a thread and store a
     //  tokio-tungstenite client that connectsto http://127.0.0.1:1080/ws
-    // and then stores the recieved messages in a once_cell::Lazy<RwLock<Vec<MailCrabMsg>>>
+    // and then stores the recieved messages in a std::sync::LazyLock<RwLock<Vec<MailCrabMsg>>>
     // or a custom struct that matches the body or has specific impls for verify codes, links etc.
     let _ = tokio::spawn(async move {
         let (mut socket, _) = connect_async(
@@ -152,7 +152,7 @@ async fn main() -> Result<()> {
 
                 tokio::task::spawn(async move {
                     while let Some(event) = log_events.next().await {
-                        if let Some(EventEntryAdded { entry }) = 
+                        if let Some(EventEntryAdded { entry }) =
                         Arc::<EventEntryAdded>::into_inner(event) {
                             console_logs.write().await.push(format!(" {entry:#?} "));
                         } else {
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
                         } else {
                             tracing::error!("tried to into inner but none")
                         }
-                       
+
                     }
                 });
 
@@ -208,7 +208,7 @@ async fn main() -> Result<()> {
                                         thing.cookies_before_request = cookies;
 
                                     }
-                                    
+
                                 }
                                 CookieEnum::AfterResp(req_id) => {
                                     let cookies = page
@@ -293,8 +293,8 @@ async fn main() -> Result<()> {
                         } else {
                             tracing::error!(" uhh err here")
                         }
-                     
-                        
+
+
                     }
                 });
                 // We don't need to join on our join handles, they will run detached and clean up whenever.

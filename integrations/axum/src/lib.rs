@@ -69,12 +69,12 @@ use leptos_router::{
     static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
     RouteListing, SsrMode,
 };
-#[cfg(feature = "default")]
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
 use std::path::Path;
+#[cfg(feature = "default")]
+use std::sync::LazyLock;
 use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
@@ -1522,8 +1522,8 @@ impl StaticRouteGenerator {
 }
 
 #[cfg(feature = "default")]
-static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
-    Lazy::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
+    LazyLock::new(DashMap::new);
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {

@@ -22,7 +22,6 @@ url = { workspace = true, default-features = true }
 js-sys = { workspace = true, default-features = true }
 wasm-bindgen = { workspace = true , default-features = true }
 tracing = { optional = true , workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 thiserror = { workspace = true , default-features = true }
 percent-encoding = { optional = true , workspace = true, default-features = true }

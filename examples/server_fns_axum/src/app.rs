@@ -424,7 +424,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         use async_broadcast::{broadcast, Receiver, Sender};
         use dashmap::DashMap;
         use futures::Stream;
-        use once_cell::sync::Lazy;
+        use std::sync::LazyLock;
 
         struct File {
             total: usize,
@@ -432,7 +432,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             rx: Receiver<usize>,
         }
 
-        static FILES: Lazy<DashMap<String, File>> = Lazy::new(DashMap::new);
+        static FILES: LazyLock<DashMap<String, File>> =
+            LazyLock::new(DashMap::new);
 
         pub async fn add_chunk(filename: &str, len: usize) {
             println!("[{filename}]\tadding {len}");
