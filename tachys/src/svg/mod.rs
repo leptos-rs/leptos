@@ -1,7 +1,6 @@
-use crate::html::attribute::any_attribute::AnyAttribute;
 use crate::{
     html::{
-        attribute::Attribute,
+        attribute::{any_attribute::AnyAttribute, Attribute},
         element::{ElementType, ElementWithChildren, HtmlElement},
     },
     hydration::Cursor,
