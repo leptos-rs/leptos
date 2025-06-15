@@ -134,9 +134,7 @@ where
             let href = href.clone();
             move || {
                 href.read().as_deref().is_some_and(|to| {
-                    let Some(path) = normalize_path(to) else {
-                        return false;
-                    };
+                    let path = normalize_path(to);
                     current_url.with(|loc| {
                         let loc = loc.path();
                         if exact {
@@ -194,22 +192,32 @@ fn is_active_for(
 }
 
 // Resolve `".."` segments in the path. Assume path is either empty or starts with a `'/'``.
-fn normalize_path(path: &str) -> Option<String> {
+fn normalize_path(path: &str) -> String {
     // Return only on the only condition where leading slash
     // is allowed to be missing.
     if path.is_empty() {
-        return Some(String::new());
+        return String::new();
     }
     let mut del = 0;
-    let mut path = path
+    let mut it = path
         .split(['?', '#'])
         .next()
         .unwrap_or_default()
         .split(['/'])
         .rev()
+        .peekable();
+
+    let init = if it.peek() == Some(&"..") {
+        String::from("/")
+    } else {
+        String::new()
+    };
+    let mut path = it
         .filter(|v| {
             if *v == ".." {
                 del += 1;
+                false
+            } else if *v == "." {
                 false
             } else if del > 0 {
                 del -= 1;
@@ -220,7 +228,7 @@ fn normalize_path(path: &str) -> Option<String> {
         })
         // We cannot reverse before the fold again bc the filter
         // would be forwards again.
-        .fold(String::new(), |mut p, v| {
+        .fold(init, |mut p, v| {
             p.reserve(v.len() + 1);
             p.insert(0, '/');
             p.insert_str(0, v);
@@ -231,10 +239,9 @@ fn normalize_path(path: &str) -> Option<String> {
     // Path starts with '/' giving it an extra empty segment after the split
     // Which should not be removed.
     if !path.starts_with('/') {
-        None
-    } else {
-        Some(path)
+        path.insert(0, '/');
     }
+    path
 }
 
 #[cfg(test)]
@@ -460,33 +467,35 @@ mod tests {
     }
 
     #[test]
-    fn normalize_path_some() {
+    fn normalize_path_test() {
         // Make sure it doesn't touch already normalized urls.
-        assert!(normalize_path("") == Some("".into()));
-        assert!(normalize_path("/") == Some("/".into()));
-        assert!(normalize_path("/some") == Some("/some".into()));
-        assert!(normalize_path("/some/") == Some("/some/".into()));
+        assert!(normalize_path("") == "".to_string());
+        assert!(normalize_path("/") == "/".to_string());
+        assert!(normalize_path("/some") == "/some".to_string());
+        assert!(normalize_path("/some/") == "/some/".to_string());
 
         // Correctly removes ".." segments.
-        assert!(normalize_path("/some/../another") == Some("/another".into()));
+        assert!(normalize_path("/some/../another") == "/another".to_string());
         assert!(
             normalize_path("/one/two/../three/../../four")
-                == Some("/four".into())
+                == "/four".to_string()
         );
 
         // Correctly sets trailing slash if last segement is "..".
-        assert!(normalize_path("/one/two/..") == Some("/one".into()));
-        assert!(normalize_path("/one/two/../") == Some("/one/".into()));
-    }
+        assert!(normalize_path("/one/two/..") == "/one/".to_string());
+        assert!(normalize_path("/one/two/../") == "/one/".to_string());
 
-    #[test]
-    fn normalize_path_none() {
         // Level outside of the url.
-        assert!(normalize_path("/..") == None);
-        assert!(normalize_path("/../") == None);
+        assert!(normalize_path("/..") == "/".to_string());
+        assert!(normalize_path("/../") == "/".to_string());
 
         // Going into negative levels and coming back into the positives.
-        assert!(normalize_path("/one/../../two/three") == None);
-        assert!(normalize_path("/one/../../two/three/") == None);
+        assert!(
+            normalize_path("/one/../../two/three") == "/two/three".to_string()
+        );
+        assert!(
+            normalize_path("/one/../../two/three/")
+                == "/two/three/".to_string()
+        );
     }
 }
