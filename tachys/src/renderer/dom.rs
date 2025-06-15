@@ -13,8 +13,7 @@ use rustc_hash::FxHashSet;
 use std::{
     any::TypeId,
     borrow::Cow,
-    cell::LazyCell,
-    cell::RefCell
+    cell::{LazyCell, RefCell},
 };
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
