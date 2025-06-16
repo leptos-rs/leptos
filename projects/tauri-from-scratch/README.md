@@ -180,7 +180,7 @@ We'll build a binary using only the CSR feature. This is important.
 
 We are going to build an SSR app, and serve it over the internet but we are also going to build a tauri client for desktop and mobile using CSR.
 
-It's going to make network requests to our server that is servering our app to browsers using SSR.
+It's going to make network requests to our server that is serving our app to browsers using SSR.
 
 This is the best of both worlds, we get the SEO of SSR and other advantages while being able to use CSR to build our app for other platforms.
 

@@ -92,7 +92,7 @@ pub fn App() -> impl IntoView {
         if let Some(prev_handle) = handle.flatten() {
             prev_handle.clear();
         };
-        // if expires_in isn't 0, then set a timeout that rerfresh a minute short of the refresh.
+        // if expires_in isn't 0, then set a timeout that refresh a minute short of the refresh.
         let expires_in = rw_expires_in.get();
         if expires_in != 0 && email.get_untracked().is_some() {
             let handle = set_timeout_with_handle(

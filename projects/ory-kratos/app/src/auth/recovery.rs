@@ -15,7 +15,7 @@ use ory_kratos_client::models::{
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ViewableRecoveryFlow(RecoveryFlow);
-// Implment IntoView, not because we want to use IntoView - but, just so we can use ErrorBoundary on the error.
+// Implements IntoView, not because we want to use IntoView - but, just so we can use ErrorBoundary on the error.
 impl IntoView for ViewableRecoveryFlow {
     fn into_view(self) -> View {
         format!("{:?}", self).into_view()
