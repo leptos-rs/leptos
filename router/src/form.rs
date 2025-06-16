@@ -87,7 +87,7 @@ where
     fn inner(
         has_router: bool,
         method: Option<&'static str>,
-        action: ArcMemo<Option<String>>,
+        action: ArcMemo<String>,
         enctype: Option<String>,
         version: Option<RwSignal<usize>>,
         error: Option<RwSignal<Option<Box<dyn Error + Send + Sync>>>>,
@@ -311,7 +311,7 @@ where
     let action = if has_router {
         use_resolved_path(move || action.to_href()())
     } else {
-        ArcMemo::new(move |_| Some(action.to_href()()))
+        ArcMemo::new(move |_| action.to_href()())
     };
     inner(
         has_router,
