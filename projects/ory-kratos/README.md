@@ -64,7 +64,7 @@ When I go to the login page, it's rendered based on the same method as the regis
 I use my password and email on the login page to login.
 </li>
 <li>
-Again, Our leptos server acts as the in between between the client and the Ory Kratos service. There were some peculiarities between the CSRF token being set in the headers (which Ory Kratos updates with every step in the flow), SSR, and having the client communicate directly with Ory Kratos which lead me to use this approach where our server is the intermediary between the client and Ory Kratos.
+Again, Our leptos server acts as the an intermediary between the client and the Ory Kratos service. There were some peculiarities between the CSRF token being set in the headers (which Ory Kratos updates with every step in the flow), SSR, and having the client communicate directly with Ory Kratos which lead me to use this approach where our server is the intermediary between the client and Ory Kratos.
 </li>
 <li>
 Ory Kratos is session based, so after it receives valid login credentials it creates a session and returns the session token. The session token is passed via cookies with every future request. All this does is establish the identity of the caller, to perform authentication we need a way to establish permissions given an individuals identity and how that relates to the content on the website. In this example I just use tables in the database but this example could be extended to use Ory Ketos, with is to Authorization a Ory Kratos is to Identification.
