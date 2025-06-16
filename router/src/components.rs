@@ -576,18 +576,11 @@ pub fn Redirect<P>(
 
     // redirect on the server
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>() {
-        match resolve_path("", &path, Some(&use_matched().get_untracked())) {
-            Some(path) => (redirect_fn.f)(&path),
-            None => {
-                if cfg!(feature = "ssr") {
-                    #[cfg(feature = "tracing")]
-                    tracing::warn!("Error resolving relative URL.");
-
-                    #[cfg(not(feature = "tracing"))]
-                    eprintln!("Error resolving relative URL.");
-                }
-            }
-        }
+        (redirect_fn.f)(&resolve_path(
+            "",
+            &path,
+            Some(&use_matched().get_untracked()),
+        ));
     }
     // redirect on the client
     else {
