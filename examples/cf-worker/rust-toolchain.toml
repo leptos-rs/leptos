@@ -1,0 +1,3 @@
+[toolchain]
+# 1.85 is not working with wasm-bindgen, see https://github.com/rustwasm/wasm-bindgen/issues/4446
+channel = "1.84"
