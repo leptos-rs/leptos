@@ -109,7 +109,8 @@ where
                     &outer_owner,
                 );
                 drop(url);
-                outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
+
+                EitherOf3::C(top_level_outlet(&mut outlets, &outer_owner))
             }
         };
 
@@ -212,16 +213,13 @@ where
 
                 // if it was on the fallback, show the view instead
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
-                    self.outer_owner.with(|| {
-                        EitherOf3::<(), Fal, AnyView>::C(Outlet().into_any())
-                            .rebuild(&mut *state.view.borrow_mut());
-                    })
+                    EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
+                        &mut state.outlets,
+                        &self.outer_owner,
+                    ))
+                    .rebuild(&mut *state.view.borrow_mut());
                 }
             }
-        }
-
-        if let Some(outlet) = state.outlets.first() {
-            self.outer_owner.with(|| outlet.provide_contexts());
         }
     }
 }
@@ -348,7 +346,7 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    outer_owner.with(|| Either::Right(Outlet().into_any()))
+                    Either::Right(top_level_outlet(&mut outlets, &outer_owner))
                 }
             };
             view.to_html_with_buf(
@@ -402,7 +400,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                outer_owner.with(|| Either::Right(Outlet().into_any()))
+                Either::Right(top_level_outlet(&mut outlets, &outer_owner))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -454,7 +452,7 @@ where
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
                         .expect("async routes not supported in SSR");
-                    outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
+                    EitherOf3::C(top_level_outlet(&mut outlets, &outer_owner))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -498,12 +496,6 @@ impl Debug for RouteContext {
             .field("matched", &self.matched)
             .field("base", &self.base)
             .finish_non_exhaustive()
-    }
-}
-
-impl RouteContext {
-    fn provide_contexts(&self) {
-        provide_context(self.clone());
     }
 }
 
@@ -693,11 +685,6 @@ where
                 }
             })
         })));
-
-        // and share the outlet with the parent via context
-        // we share it with the *parent* because the <Outlet/> is rendered in or below the parent
-        // wherever it appears, <Outlet/> will look for the closest RouteContext
-        parent.with(|| outlet.provide_contexts());
 
         // recursively continue building the tree
         // this is important because to build the view, we need access to the outlet
@@ -926,6 +913,27 @@ where
     fn elements(&self) -> Vec<tachys::renderer::types::Element> {
         self.view.elements()
     }
+}
+
+fn top_level_outlet(
+    outlets: &mut Vec<RouteContext>,
+    outer_owner: &Owner,
+) -> AnyView {
+    let outlet = outlets.first().unwrap();
+    let view_fn = outlet.view_fn.clone();
+    let trigger = outlet.trigger.clone();
+    let owner = outlets.first().unwrap().owner.clone();
+    outer_owner.with(|| {
+        if let Some(first) = outlets.get(1) {
+            provide_context(first.clone());
+        }
+        (move || {
+            trigger.track();
+            let mut view_fn = view_fn.lock().or_poisoned();
+            view_fn(owner.clone())
+        })
+        .into_any()
+    })
 }
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
