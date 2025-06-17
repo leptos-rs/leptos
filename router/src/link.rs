@@ -133,16 +133,14 @@ where
         let is_active = {
             let href = href.clone();
             move || {
-                href.read().as_deref().is_some_and(|to| {
-                    let path = normalize_path(to);
-                    current_url.with(|loc| {
-                        let loc = loc.path();
-                        if exact {
-                            loc == path
-                        } else {
-                            is_active_for(&path, loc, strict_trailing_slash)
-                        }
-                    })
+                let path = normalize_path(&href.read());
+                current_url.with(|loc| {
+                    let loc = loc.path();
+                    if exact {
+                        loc == path
+                    } else {
+                        is_active_for(&path, loc, strict_trailing_slash)
+                    }
                 })
             }
         };
