@@ -484,6 +484,7 @@ pub(crate) struct RouteContext {
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
+    child: Arc<Mutex<Option<RouteContext>>>,
 }
 
 impl Debug for RouteContext {
@@ -517,6 +518,7 @@ impl Clone for RouteContext {
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
+            child: Arc::clone(&self.child),
         }
     }
 }
@@ -628,7 +630,13 @@ where
                 Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
+            child: Arc::new(Mutex::new(None)),
         };
+        if !outlets.is_empty() {
+            let prev_index = outlets.len().saturating_sub(1);
+            *outlets[prev_index].child.lock().or_poisoned() =
+                Some(outlet.clone());
+        }
         outlets.push(outlet.clone());
 
         // send the initial view through the channel, and recurse through the children
@@ -636,22 +644,24 @@ where
 
         loaders.push(Box::pin(owner.with(|| {
             ScopedFuture::new({
-                let owner = outlet.owner.clone();
                 let url = outlet.url.clone();
                 let matched = Matched(matched_including_parents);
                 let view_fn = Arc::clone(&outlet.view_fn);
+                let outlet = outlet.clone();
                 async move {
                     provide_context(params_including_parents);
                     provide_context(url);
                     provide_context(matched.clone());
                     view.preload().await;
+                    let outlet = outlet.clone();
                     *view_fn.lock().or_poisoned() =
                         Box::new(move |owner_where_used| {
-                            owner.join_contexts(&owner_where_used);
                             let view = view.clone();
-                            owner.with({
+                            let outlet = outlet.clone();
+                            owner_where_used.with({
                                 let matched = matched.clone();
                                 move || {
+                                    let outlet = outlet.clone();
                                     Suspend::new(Box::pin(async move {
                                         let view = SendWrapper::new(
                                             ScopedFuture::new(view.choose()),
@@ -661,6 +671,13 @@ where
                                             matched.0.get_untracked(),
                                             view,
                                         );
+
+                                        if let Some(ref child) =
+                                            &*outlet.child.lock().or_poisoned()
+                                        {
+                                            provide_context(child.clone())
+                                        }
+
                                         OwnedView::new(view).into_any()
                                     })
                                         as Pin<
@@ -917,14 +934,15 @@ where
 pub fn Outlet() -> impl RenderHtml
 where
 {
+    let ctx = use_context::<RouteContext>()
+        .expect("<Outlet/> used without RouteContext being provided.");
+    let RouteContext {
+        trigger, view_fn, ..
+    } = ctx;
+    let owner = Owner::current().unwrap();
     move || {
-        let ctx = use_context::<RouteContext>()
-            .expect("<Outlet/> used without RouteContext being provided.");
-        let RouteContext {
-            trigger, view_fn, ..
-        } = ctx;
         trigger.track();
         let mut view_fn = view_fn.lock().or_poisoned();
-        view_fn(Owner::current().unwrap())
+        view_fn(owner.clone())
     }
 }
