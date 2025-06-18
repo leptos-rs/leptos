@@ -655,6 +655,7 @@ where
                                 move || {
                                     let outlet = outlet.clone();
                                     Suspend::new(Box::pin(async move {
+                                        provide_context(outlet.clone());
                                         let view = SendWrapper::new(
                                             ScopedFuture::new(view.choose()),
                                         );
@@ -663,12 +664,6 @@ where
                                             matched.0.get_untracked(),
                                             view,
                                         );
-
-                                        if let Some(ref child) =
-                                            &*outlet.child.lock().or_poisoned()
-                                        {
-                                            provide_context(child.clone())
-                                        }
 
                                         OwnedView::new(view).into_any()
                                     })
@@ -922,7 +917,7 @@ fn top_level_outlet(
     let outlet = outlets.first().unwrap();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
-    let owner = outlets.first().unwrap().owner.clone();
+    let owner = outlet.owner.clone();
     outer_owner.with(|| {
         if let Some(first) = outlets.get(1) {
             provide_context(first.clone());
@@ -944,13 +939,20 @@ where
 {
     let ctx = use_context::<RouteContext>()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext {
-        trigger, view_fn, ..
-    } = ctx;
+    let RouteContext { child, .. } = ctx;
     let owner = Owner::current().unwrap();
-    move || {
+    let child = child.lock().or_poisoned().clone();
+    child.map(|child| {
+        move || {
+            child.trigger.track();
+            let mut view_fn = child.view_fn.lock().or_poisoned();
+            provide_context(child.clone());
+            view_fn(owner.clone())
+        }
+    })
+    /* move || {
         trigger.track();
         let mut view_fn = view_fn.lock().or_poisoned();
         view_fn(owner.clone())
-    }
+    } */
 }
