@@ -919,9 +919,7 @@ fn top_level_outlet(
     let trigger = outlet.trigger.clone();
     let owner = outlet.owner.clone();
     outer_owner.with(|| {
-        if let Some(first) = outlets.get(1) {
-            provide_context(first.clone());
-        }
+        provide_context(outlet.clone());
         (move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
