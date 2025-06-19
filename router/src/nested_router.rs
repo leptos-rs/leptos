@@ -938,19 +938,13 @@ where
     let ctx = use_context::<RouteContext>()
         .expect("<Outlet/> used without RouteContext being provided.");
     let RouteContext { child, .. } = ctx;
-    let owner = Owner::current().unwrap();
+    let owner = Owner::new();
     let child = child.lock().or_poisoned().clone();
     child.map(|child| {
         move || {
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
-            provide_context(child.clone());
             view_fn(owner.clone())
         }
     })
-    /* move || {
-        trigger.track();
-        let mut view_fn = view_fn.lock().or_poisoned();
-        view_fn(owner.clone())
-    } */
 }
