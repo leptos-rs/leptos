@@ -810,7 +810,7 @@ where
                                         let old_owner = old_owner.take();
                                         Suspend::new(Box::pin(async move {
                                             let view = SendWrapper::new(
-                                                owner.with(|| {
+                                                owner_where_used.with(|| {
                                                     ScopedFuture::new(
                                                         async move {
                                                             if set_is_routing {
@@ -942,6 +942,7 @@ where
     let child = child.lock().or_poisoned().clone();
     child.map(|child| {
         move || {
+            leptos::logging::log!("Outlet inner loop");
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
             view_fn(owner.clone())
