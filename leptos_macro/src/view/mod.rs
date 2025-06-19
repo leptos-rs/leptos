@@ -705,7 +705,11 @@ fn node_to_tokens(
 
                 let el_name = el_node.name().to_string();
                 if is_svg_element(&el_name) {
-                    Some(inert_svg_element_to_tokens(node, escape, global_class))
+                    Some(inert_svg_element_to_tokens(
+                        node,
+                        escape,
+                        global_class,
+                    ))
                 } else {
                     Some(inert_element_to_tokens(node, escape, global_class))
                 }
