@@ -66,6 +66,25 @@ where
 ///    This is helpful for accessibility and for styling. For example, maybe you want to set the link a
 ///    different color if it’s a link to the page you’re currently on.
 ///
+/// ### Additional Attributes
+///
+/// You can add additional HTML attributes to the `<a>` element created by this component using the attribute
+/// spreading syntax for components. For example, to add a class, you can use `attr:class="my-link"`.
+/// Alternately, you can add any number of HTML attributes (include `class`) after a `{..}` marker.
+///
+/// ```rust
+/// # use leptos::prelude::*; use leptos_router::components::A;
+/// # fn spread_example() -> impl IntoView {
+/// view! {
+///   <A href="/about" attr:class="my-link" {..} id="foo">"Some link"</A>
+///   <A href="/about" {..} class="my-link" id="bar">"Another link"</A>
+///   <A href="/about" {..} class:my-link=true id="baz">"One more"</A>
+/// }
+/// # }
+/// ```
+///
+/// For more information on this attribute spreading syntax, [see here](https://book.leptos.dev/view/03_components.html#spreading-attributes-onto-components).
+///
 /// ### DOM Properties
 ///
 /// `<a>` elements can take several additional DOM properties with special meanings.
@@ -102,7 +121,7 @@ where
     H: ToHref + Send + Sync + 'static,
 {
     fn inner(
-        href: ArcMemo<Option<String>>,
+        href: ArcMemo<String>,
         target: Option<Oco<'static, str>>,
         exact: bool,
         children: Children,
@@ -114,23 +133,22 @@ where
         let is_active = {
             let href = href.clone();
             move || {
-                href.read().as_deref().is_some_and(|to| {
-                    let path = to.split(['?', '#']).next().unwrap_or_default();
-                    current_url.with(|loc| {
-                        let loc = loc.path();
-                        if exact {
-                            loc == path
-                        } else {
-                            is_active_for(path, loc, strict_trailing_slash)
-                        }
-                    })
+                let to = href.read();
+                let path = to.split(['?', '#']).next().unwrap_or_default();
+                current_url.with(|loc| {
+                    let loc = loc.path();
+                    if exact {
+                        loc == path
+                    } else {
+                        is_active_for(path, loc, strict_trailing_slash)
+                    }
                 })
             }
         };
 
         view! {
             <a
-                href=move || href.get().unwrap_or_default()
+                href=move || href.get()
                 target=target
                 aria-current=move || if is_active() { Some("page") } else { None }
                 data-noscroll=!scroll

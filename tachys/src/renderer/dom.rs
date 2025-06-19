@@ -9,9 +9,12 @@ use crate::{
     view::{Mountable, ToTemplate},
 };
 use linear_map::LinearMap;
-use once_cell::unsync::Lazy;
 use rustc_hash::FxHashSet;
-use std::{any::TypeId, borrow::Cow, cell::RefCell};
+use std::{
+    any::TypeId,
+    borrow::Cow,
+    cell::{LazyCell, RefCell},
+};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
@@ -57,7 +60,7 @@ impl Dom {
 
     pub fn create_placeholder() -> Placeholder {
         thread_local! {
-            static COMMENT: Lazy<Comment> = Lazy::new(|| {
+            static COMMENT: LazyCell<Comment> = LazyCell::new(|| {
                 document().create_comment("")
             });
         }
@@ -281,9 +284,10 @@ impl Dom {
             let cb = send_wrapper::SendWrapper::new(cb);
             move |el: &Element| {
                 or_debug!(
-                    el.remove_event_listener_with_callback(
+                    el.remove_event_listener_with_callback_and_bool(
                         intern(&name),
-                        cb.as_ref().unchecked_ref()
+                        cb.as_ref().unchecked_ref(),
+                        true
                     ),
                     el,
                     "removeEventListener"
@@ -451,8 +455,8 @@ impl Dom {
         V: ToTemplate + 'static,
     {
         thread_local! {
-            static TEMPLATE_ELEMENT: Lazy<HtmlTemplateElement> =
-                Lazy::new(|| document().create_element("template").unwrap().unchecked_into());
+            static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
+                LazyCell::new(|| document().create_element("template").unwrap().unchecked_into());
             static TEMPLATES: RefCell<LinearMap<TypeId, HtmlTemplateElement>> = Default::default();
         }
 

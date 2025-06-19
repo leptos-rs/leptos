@@ -21,7 +21,6 @@ reactive_stores = { workspace = true, optional = true }
 slotmap = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true, optional = true }
 async-trait = { workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
 erased = { workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, default-features = true }

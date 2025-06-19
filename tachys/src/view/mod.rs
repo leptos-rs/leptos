@@ -437,6 +437,17 @@ pub trait ToTemplate {
         inner_html: &mut String,
         position: &mut Position,
     );
+
+    /// Renders a view type to a template in attribute position.
+    fn to_template_attribute(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        Self::to_template(buf, class, style, inner_html, position);
+    }
 }
 
 /// Keeps track of what position the item currently being hydrated is in, relative to its siblings
