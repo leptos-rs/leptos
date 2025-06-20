@@ -110,7 +110,7 @@ where
                 );
                 drop(url);
 
-                EitherOf3::C(top_level_outlet(&mut outlets, &outer_owner))
+                EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
             }
         };
 
@@ -214,7 +214,7 @@ where
                 // if it was on the fallback, show the view instead
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
                     EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
-                        &mut state.outlets,
+                        &state.outlets,
                         &self.outer_owner,
                     ))
                     .rebuild(&mut *state.view.borrow_mut());
@@ -346,7 +346,7 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    Either::Right(top_level_outlet(&mut outlets, &outer_owner))
+                    Either::Right(top_level_outlet(&outlets, &outer_owner))
                 }
             };
             view.to_html_with_buf(
@@ -400,7 +400,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                Either::Right(top_level_outlet(&mut outlets, &outer_owner))
+                Either::Right(top_level_outlet(&outlets, &outer_owner))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -452,7 +452,7 @@ where
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
                         .expect("async routes not supported in SSR");
-                    EitherOf3::C(top_level_outlet(&mut outlets, &outer_owner))
+                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -910,10 +910,7 @@ where
     }
 }
 
-fn top_level_outlet(
-    outlets: &mut Vec<RouteContext>,
-    outer_owner: &Owner,
-) -> AnyView {
+fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let outlet = outlets.first().unwrap();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
