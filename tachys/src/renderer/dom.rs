@@ -24,6 +24,7 @@ pub struct Dom;
 
 thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
+    pub static TEMPLATE_CACHE: RefCell<Vec<(Cow<'static, str>, web_sys::Element)>> = Default::default();
 }
 
 pub type Node = web_sys::Node;
@@ -491,11 +492,22 @@ impl Dom {
             .unchecked_into()
     }
 
-    pub fn create_element_from_html(html: &str) -> Element {
-        // TODO can be optimized to cache HTML strings or cache <template>?
-        let tpl = document().create_element("template").unwrap();
-        tpl.set_inner_html(html);
-        let tpl = Self::clone_template(tpl.unchecked_ref());
+    pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
+        let tpl = TEMPLATE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(tpl) = cache.iter().find_map(|(key, tpl)| {
+                (html == *key)
+                    .then_some(Self::clone_template(tpl.unchecked_ref()))
+            }) {
+                tpl
+            } else {
+                let tpl = document().create_element("template").unwrap();
+                tpl.set_inner_html(&html);
+                let tpl2 = Self::clone_template(tpl.unchecked_ref());
+                cache.push((html, tpl));
+                tpl2
+            }
+        });
         tpl.first_element_child().unwrap_or(tpl)
     }
 }
