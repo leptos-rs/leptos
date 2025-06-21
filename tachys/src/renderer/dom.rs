@@ -5,6 +5,7 @@
 use super::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},
+    html::element::Template,
     ok_or_debug, or_debug,
     view::{Mountable, ToTemplate},
 };
@@ -457,7 +458,7 @@ impl Dom {
     {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
-                LazyCell::new(|| document().create_element("template").unwrap().unchecked_into());
+                LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
             static TEMPLATES: RefCell<LinearMap<TypeId, HtmlTemplateElement>> = Default::default();
         }
 
@@ -495,20 +496,56 @@ impl Dom {
     pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
-            if let Some(tpl) = cache.iter().find_map(|(key, tpl)| {
+            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
                 (html == *key)
                     .then_some(Self::clone_template(tpl.unchecked_ref()))
             }) {
-                tpl
+                tpl_content
             } else {
-                let tpl = document().create_element("template").unwrap();
+                let tpl = document()
+                    .create_element(Self::intern("template"))
+                    .unwrap();
                 tpl.set_inner_html(&html);
-                let tpl2 = Self::clone_template(tpl.unchecked_ref());
+                let tpl_content = Self::clone_template(tpl.unchecked_ref());
                 cache.push((html, tpl));
-                tpl2
+                tpl_content
             }
         });
         tpl.first_element_child().unwrap_or(tpl)
+    }
+
+    pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
+        let tpl = TEMPLATE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
+                (html == *key)
+                    .then_some(Self::clone_template(tpl.unchecked_ref()))
+            }) {
+                tpl_content
+            } else {
+                let tpl = document()
+                    .create_element(Self::intern("template"))
+                    .unwrap();
+                let svg = document()
+                    .create_element_ns(
+                        Some(Self::intern("http://www.w3.org/2000/svg")),
+                        Self::intern("svg"),
+                    )
+                    .unwrap();
+                svg.set_inner_html(&html);
+
+                tpl.unchecked_ref::<TemplateElement>()
+                    .content()
+                    .append_child(&svg)
+                    .unwrap();
+                let tpl_content = Self::clone_template(tpl.unchecked_ref());
+                cache.push((html, tpl));
+                tpl_content
+            }
+        });
+
+        let svg = tpl.first_element_child().unwrap();
+        svg.first_element_child().unwrap_or(svg)
     }
 }
 
