@@ -109,7 +109,8 @@ where
                     &outer_owner,
                 );
                 drop(url);
-                outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
+
+                EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
             }
         };
 
@@ -212,16 +213,13 @@ where
 
                 // if it was on the fallback, show the view instead
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
-                    self.outer_owner.with(|| {
-                        EitherOf3::<(), Fal, AnyView>::C(Outlet().into_any())
-                            .rebuild(&mut *state.view.borrow_mut());
-                    })
+                    EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
+                        &state.outlets,
+                        &self.outer_owner,
+                    ))
+                    .rebuild(&mut *state.view.borrow_mut());
                 }
             }
-        }
-
-        if let Some(outlet) = state.outlets.first() {
-            self.outer_owner.with(|| outlet.provide_contexts());
         }
     }
 }
@@ -348,7 +346,7 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    outer_owner.with(|| Either::Right(Outlet().into_any()))
+                    Either::Right(top_level_outlet(&outlets, &outer_owner))
                 }
             };
             view.to_html_with_buf(
@@ -402,7 +400,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                outer_owner.with(|| Either::Right(Outlet().into_any()))
+                Either::Right(top_level_outlet(&outlets, &outer_owner))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -454,7 +452,7 @@ where
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
                         .expect("async routes not supported in SSR");
-                    outer_owner.with(|| EitherOf3::C(Outlet().into_any()))
+                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -484,6 +482,7 @@ pub(crate) struct RouteContext {
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
+    child: Arc<Mutex<Option<RouteContext>>>,
 }
 
 impl Debug for RouteContext {
@@ -500,12 +499,6 @@ impl Debug for RouteContext {
     }
 }
 
-impl RouteContext {
-    fn provide_contexts(&self) {
-        provide_context(self.clone());
-    }
-}
-
 impl Clone for RouteContext {
     fn clone(&self) -> Self {
         Self {
@@ -517,6 +510,7 @@ impl Clone for RouteContext {
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
+            child: Arc::clone(&self.child),
         }
     }
 }
@@ -628,7 +622,13 @@ where
                 Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
+            child: Arc::new(Mutex::new(None)),
         };
+        if !outlets.is_empty() {
+            let prev_index = outlets.len().saturating_sub(1);
+            *outlets[prev_index].child.lock().or_poisoned() =
+                Some(outlet.clone());
+        }
         outlets.push(outlet.clone());
 
         // send the initial view through the channel, and recurse through the children
@@ -636,23 +636,26 @@ where
 
         loaders.push(Box::pin(owner.with(|| {
             ScopedFuture::new({
-                let owner = outlet.owner.clone();
                 let url = outlet.url.clone();
                 let matched = Matched(matched_including_parents);
                 let view_fn = Arc::clone(&outlet.view_fn);
+                let outlet = outlet.clone();
                 async move {
                     provide_context(params_including_parents);
                     provide_context(url);
                     provide_context(matched.clone());
                     view.preload().await;
+                    let outlet = outlet.clone();
                     *view_fn.lock().or_poisoned() =
                         Box::new(move |owner_where_used| {
-                            owner.join_contexts(&owner_where_used);
                             let view = view.clone();
-                            owner.with({
+                            let outlet = outlet.clone();
+                            owner_where_used.with({
                                 let matched = matched.clone();
                                 move || {
+                                    let outlet = outlet.clone();
                                     Suspend::new(Box::pin(async move {
+                                        provide_context(outlet.clone());
                                         let view = SendWrapper::new(
                                             ScopedFuture::new(view.choose()),
                                         );
@@ -661,6 +664,7 @@ where
                                             matched.0.get_untracked(),
                                             view,
                                         );
+
                                         OwnedView::new(view).into_any()
                                     })
                                         as Pin<
@@ -676,11 +680,6 @@ where
                 }
             })
         })));
-
-        // and share the outlet with the parent via context
-        // we share it with the *parent* because the <Outlet/> is rendered in or below the parent
-        // wherever it appears, <Outlet/> will look for the closest RouteContext
-        parent.with(|| outlet.provide_contexts());
 
         // recursively continue building the tree
         // this is important because to build the view, we need access to the outlet
@@ -811,7 +810,7 @@ where
                                         let old_owner = old_owner.take();
                                         Suspend::new(Box::pin(async move {
                                             let view = SendWrapper::new(
-                                                owner.with(|| {
+                                                owner_where_used.with(|| {
                                                     ScopedFuture::new(
                                                         async move {
                                                             if set_is_routing {
@@ -911,20 +910,39 @@ where
     }
 }
 
+fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
+    let outlet = outlets.first().unwrap();
+    let view_fn = outlet.view_fn.clone();
+    let trigger = outlet.trigger.clone();
+    let owner = outlet.owner.clone();
+    outer_owner.with(|| {
+        provide_context(outlet.clone());
+        (move || {
+            trigger.track();
+            let mut view_fn = view_fn.lock().or_poisoned();
+            view_fn(owner.clone())
+        })
+        .into_any()
+    })
+}
+
 /// Displays the child route nested in a parent route, allowing you to control exactly where
 /// that child route is displayed. Renders nothing if there is no nested child.
 #[component]
 pub fn Outlet() -> impl RenderHtml
 where
 {
-    move || {
-        let ctx = use_context::<RouteContext>()
-            .expect("<Outlet/> used without RouteContext being provided.");
-        let RouteContext {
-            trigger, view_fn, ..
-        } = ctx;
-        trigger.track();
-        let mut view_fn = view_fn.lock().or_poisoned();
-        view_fn(Owner::current().unwrap())
-    }
+    let ctx = use_context::<RouteContext>()
+        .expect("<Outlet/> used without RouteContext being provided.");
+    let RouteContext { child, .. } = ctx;
+    let owner = Owner::new();
+    let child = child.lock().or_poisoned().clone();
+    child.map(|child| {
+        move || {
+            leptos::logging::log!("Outlet inner loop");
+            child.trigger.track();
+            let mut view_fn = child.view_fn.lock().or_poisoned();
+            view_fn(owner.clone())
+        }
+    })
 }
