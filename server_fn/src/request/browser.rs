@@ -75,6 +75,13 @@ impl DerefMut for BrowserRequest {
 #[derive(Debug)]
 pub struct BrowserFormData(pub(crate) SendWrapper<FormData>);
 
+impl BrowserFormData {
+    /// Returns the raw `web_sys::FormData` struct.
+    pub fn take(self) -> FormData {
+        self.0.take()
+    }
+}
+
 impl From<FormData> for BrowserFormData {
     fn from(value: FormData) -> Self {
         Self(SendWrapper::new(value))
