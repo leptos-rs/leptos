@@ -532,8 +532,14 @@ impl Dom {
                         Self::intern("svg"),
                     )
                     .unwrap();
-                svg.set_inner_html(&html);
-
+                let g = document()
+                    .create_element_ns(
+                        Some(Self::intern("http://www.w3.org/2000/svg")),
+                        Self::intern("g"),
+                    )
+                    .unwrap();
+                g.set_inner_html(&html);
+                svg.append_child(&g).unwrap();
                 tpl.unchecked_ref::<TemplateElement>()
                     .content()
                     .append_child(&svg)
