@@ -5,7 +5,6 @@
 use super::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},
-    html::element::Template,
     ok_or_debug, or_debug,
     view::{Mountable, ToTemplate},
 };
