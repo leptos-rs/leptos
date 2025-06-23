@@ -707,7 +707,7 @@ fn node_to_tokens(
                     && el_name != "textarea";
 
                 let el_name = el_node.name().to_string();
-                if is_svg_element(&el_name) && el_name!= "svg" {
+                if is_svg_element(&el_name) && el_name != "svg" {
                     Some(inert_svg_element_to_tokens(
                         node,
                         escape,
