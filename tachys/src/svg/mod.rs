@@ -229,14 +229,15 @@ impl Render for InertElement {
     type State = InertElementState;
 
     fn build(self) -> Self::State {
-        let el = Rndr::create_element_from_html(&self.html);
+        let el = Rndr::create_svg_element_from_html(self.html.clone());
         InertElementState(self.html, el)
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let InertElementState(prev, el) = state;
         if &self.html != prev {
-            let mut new_el = Rndr::create_element_from_html(&self.html);
+            let mut new_el =
+                Rndr::create_svg_element_from_html(self.html.clone());
             el.insert_before_this(&mut new_el);
             el.unmount();
             *el = new_el;
