@@ -110,7 +110,7 @@ where
                 );
                 drop(url);
 
-                EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                EitherOf3::C(top_level_outlet(&outlets))
             }
         };
 
@@ -215,7 +215,6 @@ where
                 if matches!(state.view.borrow().state, EitherOf3::B(_)) {
                     EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
                         &state.outlets,
-                        &self.outer_owner,
                     ))
                     .rebuild(&mut *state.view.borrow_mut());
                 }
@@ -346,7 +345,7 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    Either::Right(top_level_outlet(&outlets, &outer_owner))
+                    Either::Right(top_level_outlet(&outlets))
                 }
             };
             view.to_html_with_buf(
@@ -400,7 +399,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                Either::Right(top_level_outlet(&outlets, &outer_owner))
+                Either::Right(top_level_outlet(&outlets))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -452,7 +451,7 @@ where
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
                         .expect("async routes not supported in SSR");
-                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                    EitherOf3::C(top_level_outlet(&outlets))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -634,51 +633,54 @@ where
         // send the initial view through the channel, and recurse through the children
         let (view, child) = self.into_view_and_child();
 
-        loaders.push(Box::pin(owner.with(|| {
-            ScopedFuture::new({
-                let url = outlet.url.clone();
-                let matched = Matched(matched_including_parents);
-                let view_fn = Arc::clone(&outlet.view_fn);
+        loaders.push(Box::pin(ScopedFuture::new({
+            let url = outlet.url.clone();
+            let matched = Matched(matched_including_parents);
+            let view_fn = Arc::clone(&outlet.view_fn);
+            let outlet = outlet.clone();
+            let params = params_including_parents.clone();
+            let url = url.clone();
+            let matched = matched.clone();
+            async move {
+                view.preload().await;
                 let outlet = outlet.clone();
-                async move {
-                    provide_context(params_including_parents);
-                    provide_context(url);
-                    provide_context(matched.clone());
-                    view.preload().await;
-                    let outlet = outlet.clone();
-                    *view_fn.lock().or_poisoned() =
-                        Box::new(move |owner_where_used| {
-                            let view = view.clone();
-                            let outlet = outlet.clone();
-                            owner_where_used.with({
-                                let matched = matched.clone();
-                                move || {
-                                    let outlet = outlet.clone();
-                                    Suspend::new(Box::pin(async move {
-                                        provide_context(outlet.clone());
-                                        let view = SendWrapper::new(
-                                            ScopedFuture::new(view.choose()),
-                                        );
-                                        let view = view.await;
-                                        let view = MatchedRoute(
-                                            matched.0.get_untracked(),
-                                            view,
-                                        );
+                *view_fn.lock().or_poisoned() =
+                    Box::new(move |owner_where_used| {
+                        let view = view.clone();
+                        let outlet = outlet.clone();
+                        let params = params.clone();
+                        let url = url.clone();
+                        let matched = matched.clone();
+                        owner_where_used.with({
+                            let matched = matched.clone();
+                            move || {
+                                let outlet = outlet.clone();
+                                Suspend::new(Box::pin(async move {
+                                    provide_context(outlet.clone());
+                                    provide_context(params.clone());
+                                    provide_context(url.clone());
+                                    provide_context(matched.clone());
+                                    let view = SendWrapper::new(
+                                        ScopedFuture::new(view.choose()),
+                                    );
+                                    let view = view.await;
+                                    let view = MatchedRoute(
+                                        matched.0.get_untracked(),
+                                        view,
+                                    );
 
-                                        OwnedView::new(view).into_any()
-                                    })
-                                        as Pin<
-                                            Box<
-                                                dyn Future<Output = AnyView>
-                                                    + Send,
-                                            >,
-                                        >)
-                                }
-                            })
-                        });
-                    trigger
-                }
-            })
+                                    OwnedView::new(view).into_any()
+                                })
+                                    as Pin<
+                                        Box<
+                                            dyn Future<Output = AnyView> + Send,
+                                        >,
+                                    >)
+                            }
+                        })
+                    });
+                trigger
+            }
         })));
 
         // recursively continue building the tree
@@ -784,64 +786,71 @@ where
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
                     full_loaders.push(full_rx);
+                    let outlet = current.clone();
 
                     // send the new view, with the new owner, through the channel to the Outlet,
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
-                    preloaders.push(Box::pin(owner.with(|| {
-                        ScopedFuture::new({
-                            let owner = owner.clone();
-                            let trigger = current.trigger.clone();
-                            let url = current.url.clone();
-                            let matched = Matched(matched_including_parents);
-                            let view_fn = Arc::clone(&current.view_fn);
-                            async move {
-                                provide_context(params_including_parents);
-                                provide_context(url);
-                                provide_context(matched);
-                                view.preload().await;
-                                *view_fn.lock().or_poisoned() =
-                                    Box::new(move |owner_where_used| {
-                                        owner.join_contexts(&owner_where_used);
-                                        let owner = owner.clone();
-                                        let view = view.clone();
-                                        let full_tx =
-                                            full_tx.lock().or_poisoned().take();
-                                        let old_owner = old_owner.take();
-                                        Suspend::new(Box::pin(async move {
-                                            let view = SendWrapper::new(
-                                                owner_where_used.with(|| {
-                                                    ScopedFuture::new(
-                                                        async move {
-                                                            if set_is_routing {
-                                                                AsyncTransition::run(|| view.choose()).await
-                                                            } else {
-                                                                view.choose().await
-                                                            }
-                                                        }
-                                                    )
-                                                }),
-                                            );
-                                            let view = view.await;
-                                            if let Some(old_owner) = old_owner {
-                                                old_owner.cleanup();
-                                            }
+                    preloaders.push(Box::pin(ScopedFuture::new({
+                        let owner = owner.clone();
+                        let trigger = current.trigger.clone();
+                        let url = current.url.clone();
+                        let matched = Matched(matched_including_parents);
+                        let view_fn = Arc::clone(&current.view_fn);
+                        let outlet = outlet.clone();
+                        async move {
+                            view.preload().await;
+                            let outlet = outlet.clone();
+                            *view_fn.lock().or_poisoned() =
+                                Box::new(move |owner_where_used| {
+                                    let owner = owner.clone();
+                                    let view = view.clone();
+                                    let full_tx =
+                                        full_tx.lock().or_poisoned().take();
+                                    let old_owner = old_owner.take();
+                                    let outlet = outlet.clone();
+                                    let params =
+                                        params_including_parents.clone();
+                                    let url = url.clone();
+                                    let matched = matched.clone();
+                                    Suspend::new(Box::pin(async move {
+                                        let view = SendWrapper::new(
+                                            owner_where_used.with(|| {
+                                                provide_context(outlet.clone());
+                                                provide_context(params);
+                                                provide_context(url);
+                                                provide_context(matched);
+                                                ScopedFuture::new(async move {
+                                                    if set_is_routing {
+                                                        AsyncTransition::run(
+                                                            || view.choose(),
+                                                        )
+                                                        .await
+                                                    } else {
+                                                        view.choose().await
+                                                    }
+                                                })
+                                            }),
+                                        );
+                                        let view = view.await;
+                                        if let Some(old_owner) = old_owner {
+                                            old_owner.cleanup();
+                                        }
 
-                                            if let Some(tx) = full_tx {
-                                                _ = tx.send(());
-                                            }
-                                            owner.with(|| {
-                                                OwnedView::new(view).into_any()
-                                            })
-                                        }))
-                                    });
+                                        if let Some(tx) = full_tx {
+                                            _ = tx.send(());
+                                        }
+                                        owner.with(|| {
+                                            OwnedView::new(view).into_any()
+                                        })
+                                    }))
+                                });
 
-                                drop(old_params);
-                                drop(old_url);
-                                drop(old_matched);
-                                trigger
-                            }
-                        })
+                            drop(old_params);
+                            drop(old_url);
+                            drop(old_matched);
+                            trigger
+                        }
                     })));
 
                     // remove all the items lower in the tree
@@ -910,12 +919,12 @@ where
     }
 }
 
-fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
+fn top_level_outlet(outlets: &[RouteContext]) -> AnyView {
     let outlet = outlets.first().unwrap();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
     let owner = outlet.owner.clone();
-    outer_owner.with(|| {
+    owner.clone().with(|| {
         provide_context(outlet.clone());
         (move || {
             trigger.track();
@@ -939,7 +948,6 @@ where
     let child = child.lock().or_poisoned().clone();
     child.map(|child| {
         move || {
-            leptos::logging::log!("Outlet inner loop");
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
             view_fn(owner.clone())
