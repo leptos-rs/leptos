@@ -487,8 +487,11 @@ pub(crate) struct RouteContext {
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
-    child: Arc<Mutex<Option<RouteContext>>>,
+    child: ChildRoute,
 }
+
+#[derive(Clone)]
+pub(crate) struct ChildRoute(Arc<Mutex<Option<RouteContext>>>);
 
 impl Debug for RouteContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -515,7 +518,7 @@ impl Clone for RouteContext {
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
-            child: Arc::clone(&self.child),
+            child: self.child.clone(),
         }
     }
 }
@@ -627,11 +630,11 @@ where
                 Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
-            child: Arc::new(Mutex::new(None)),
+            child: ChildRoute(Arc::new(Mutex::new(None))),
         };
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
-            *outlets[prev_index].child.lock().or_poisoned() =
+            *outlets[prev_index].child.0.lock().or_poisoned() =
                 Some(outlet.clone());
         }
         outlets.push(outlet.clone());
@@ -649,20 +652,20 @@ where
             let matched = matched.clone();
             async move {
                 view.preload().await;
-                let outlet = outlet.clone();
+                let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
                     Box::new(move |owner_where_used| {
                         let view = view.clone();
-                        let outlet = outlet.clone();
+                        let child = child.clone();
                         let params = params.clone();
                         let url = url.clone();
                         let matched = matched.clone();
                         owner_where_used.with({
                             let matched = matched.clone();
                             move || {
-                                let outlet = outlet.clone();
+                                let child = child.clone();
                                 Suspend::new(Box::pin(async move {
-                                    provide_context(outlet.clone());
+                                    provide_context(child.clone());
                                     provide_context(params.clone());
                                     provide_context(url.clone());
                                     provide_context(matched.clone());
@@ -803,10 +806,10 @@ where
                         let url = current.url.clone();
                         let matched = Matched(matched_including_parents);
                         let view_fn = Arc::clone(&current.view_fn);
-                        let outlet = outlet.clone();
+                        let child = outlet.child.clone();
                         async move {
                             view.preload().await;
-                            let outlet = outlet.clone();
+                            let child = child.clone();
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let owner = owner.clone();
@@ -814,7 +817,7 @@ where
                                     let full_tx =
                                         full_tx.lock().or_poisoned().take();
                                     let old_owner = old_owner.take();
-                                    let outlet = outlet.clone();
+                                    let child = child.clone();
                                     let params =
                                         params_including_parents.clone();
                                     let url = url.clone();
@@ -822,7 +825,7 @@ where
                                     Suspend::new(Box::pin(async move {
                                         let view = SendWrapper::new(
                                             owner_where_used.with(|| {
-                                                provide_context(outlet.clone());
+                                                provide_context(child.clone());
                                                 provide_context(params);
                                                 provide_context(url);
                                                 provide_context(matched);
@@ -927,11 +930,12 @@ where
 
 fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let outlet = outlets.first().unwrap();
+    let child = outlet.child.clone();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
     let owner = outer_owner.child();
     outer_owner.clone().with(|| {
-        provide_context(outlet.clone());
+        provide_context(child.clone());
         (move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
@@ -947,9 +951,8 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
 pub fn Outlet() -> impl RenderHtml
 where
 {
-    let ctx = use_context::<RouteContext>()
+    let ChildRoute(child) = use_context()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext { child, .. } = ctx;
     let owner = Owner::new();
     let child = child.lock().or_poisoned().clone();
     child.map(|child| {
