@@ -1,3 +1,4 @@
+use crate::pr_4091::Routes4091;
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
 use leptos_router::{
@@ -33,6 +34,7 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes fallback>
                     <Route path=path!("") view=HomePage/>
+                    <Routes4091/>
                 </Routes>
             </main>
         </Router>
@@ -50,5 +52,10 @@ fn HomePage() -> impl IntoView {
     view! {
         <Title text="Regression Tests"/>
         <h1>"Listing of regression tests"</h1>
+        <nav>
+            <ul>
+                <li><a href="/4091/">"4091"</a></li>
+            </ul>
+        </nav>
     }
 }
