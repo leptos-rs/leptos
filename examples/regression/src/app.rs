@@ -1,4 +1,4 @@
-use crate::pr_4091::Routes4091;
+use crate::{pr_4015::Routes4015, pr_4091::Routes4091};
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
 use leptos_router::{
@@ -35,6 +35,7 @@ pub fn App() -> impl IntoView {
                 <Routes fallback>
                     <Route path=path!("") view=HomePage/>
                     <Routes4091/>
+                    <Routes4015/>
                 </Routes>
             </main>
         </Router>
@@ -55,6 +56,7 @@ fn HomePage() -> impl IntoView {
         <nav>
             <ul>
                 <li><a href="/4091/">"4091"</a></li>
+                <li><a href="/4015/">"4015"</a></li>
             </ul>
         </nav>
     }
