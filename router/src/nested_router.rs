@@ -818,6 +818,15 @@ where
                                             }),
                                         );
 
+                                        // a single owner is created per Outlet
+                                        // this code only runs if the old Route has been left for the new Route
+                                        // cleaning up the reactivity is therefore safe here
+                                        //
+                                        // note: with lazy loading enabled, this might run *before* the new page is
+                                        // actually shown; a TODO would be to give an "after loaded, before running"
+                                        // callback to .choose() to avoid canceling until it's actually ready
+                                        owner_where_used.cleanup();
+
                                         let view = view.await;
 
                                         if let Some(tx) = full_tx {
