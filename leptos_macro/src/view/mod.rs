@@ -44,6 +44,8 @@ pub fn render_view(
     view_marker: Option<String>,
     disable_inert_html: bool,
 ) -> Option<TokenStream> {
+    let disable_inert_html = disable_inert_html || global_class.is_some();
+
     let (base, should_add_view) = match nodes.len() {
         0 => {
             let span = Span::call_site();
