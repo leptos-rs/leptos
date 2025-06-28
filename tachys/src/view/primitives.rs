@@ -20,7 +20,7 @@ use std::{
 macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
-		paste::paste! {
+		pastey::paste! {
 			pub struct [<$child_type:camel State>](crate::renderer::types::Text, $child_type);
 
 			impl Mountable for [<$child_type:camel State>] {
