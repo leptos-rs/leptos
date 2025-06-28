@@ -50,7 +50,7 @@ impl From<()> for Amount {
 }
 
 pub fn add_dot(el: Element, amount: Amount) {
-    use leptos::wasm_bindgen::JsCast;
+    use wasm_bindgen::JsCast;
     let el = el.unchecked_into::<web_sys::HtmlElement>();
 
     let handle = el.clone().on(click, move |_| {
