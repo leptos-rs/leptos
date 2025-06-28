@@ -853,6 +853,8 @@ where
                     if let Some(child) = child {
                         child
                             .build_nested_route(url, base, preloaders, outlets);
+                    } else {
+                        *outlets[*items].child.0.lock().or_poisoned() = None;
                     }
 
                     return level;
@@ -876,6 +878,7 @@ where
                         level + 1,
                     )
                 } else {
+                    *current.child.0.lock().or_poisoned() = None;
                     level
                 }
             }
