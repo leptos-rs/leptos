@@ -1,4 +1,5 @@
 pub mod app;
+mod issue_4088;
 mod pr_4015;
 mod pr_4091;
 
