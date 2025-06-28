@@ -119,7 +119,7 @@ serde-lite = { default-features = false, version = "0.5.0" }
 tokio-tungstenite = { default-features = false, version = "0.27.0" }
 serial_test = { default-features = false, version = "3.2.0" }
 erased = { default-features = false, version = "0.1.2" }
-glib = { default-features = false, version = "0.20.10" }
+glib = { default-features = false, version = "0.20.12" }
 async-trait = { default-features = false, version = "0.1.88" }
 typed-builder-macro = { default-features = false, version = "0.21.0" }
 linear-map = { default-features = false, version = "1.2.0" }
@@ -127,7 +127,7 @@ anyhow = { default-features = false, version = "1.0.98" }
 walkdir = { default-features = false, version = "2.5.0" }
 actix-ws = { default-features = false, version = "0.3.0" }
 tower-http = { default-features = false, version = "0.6.4" }
-prettyplease = { default-features = false, version = "0.2.33" }
+prettyplease = { default-features = false, version = "0.2.35" }
 inventory = { default-features = false, version = "0.3.20" }
 config = { default-features = false, version = "0.15.11" }
 camino = { default-features = false, version = "1.1.9" }
