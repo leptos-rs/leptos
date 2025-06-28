@@ -511,7 +511,7 @@ macro_rules! generate_event_types {
     $( #[$does_not_bubble:ident] )?
     $( $event:ident )+ : $web_event:ident
   ),* $(,)?} => {
-    ::paste::paste! {
+    ::pastey::paste! {
       $(
         #[doc = "The `" [< $($event)+ >] "` event, which receives [" $web_event "](web_sys::" $web_event ") as its argument."]
         #[derive(Copy, Clone, Debug)]

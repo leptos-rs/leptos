@@ -110,7 +110,7 @@ axum = { default-features = false, version = "0.8.4" }
 serde_qs = { default-features = false, version = "0.15.0" }
 syn = { default-features = false, version = "2.0.101" }
 xxhash-rust = { default-features = false, version = "0.8.15" }
-paste = { default-features = false, version = "1.0.15" }
+pastey = { default-features = false, version = "0.1.0" }
 quote = { default-features = false, version = "1.0.40" }
 web-sys = { default-features = false, version = "0.3.77" }
 js-sys = { default-features = false, version = "0.3.77" }

@@ -9,7 +9,7 @@ pub trait AttributeKey: Clone + Send + 'static {
 
 macro_rules! attributes {
 	($(#[$meta:meta] $key:ident $html:literal),* $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             $(
                 #[$meta]
                 #[track_caller]
