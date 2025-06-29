@@ -700,6 +700,12 @@ where
             .take(*items)
             .map(|route| (route.params.clone(), route.matched.clone()))
             .unzip();
+
+        if outlets.get(*items).is_some() && *items > 0 {
+            *outlets[*items - 1].child.0.lock().or_poisoned() =
+                Some(outlets[*items].clone());
+        }
+
         let current = outlets.get_mut(*items);
         match current {
             // if there's nothing currently in the routes at this point, build from here
