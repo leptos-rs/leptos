@@ -19,6 +19,5 @@ pub async fn link_with_text(client: &Client, text: &str) -> Result<Element> {
 }
 
 pub async fn element_by_id(client: &Client, id: &str) -> Result<Element> {
-    let element = client.wait().for_element(Locator::Id(id)).await?;
-    Ok(element)
+    Ok(client.wait().for_element(Locator::Id(id)).await?)
 }
