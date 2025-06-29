@@ -3,9 +3,7 @@ use anyhow::{Ok, Result};
 use cucumber::then;
 
 #[then(regex = r"^I see the result is empty$")]
-async fn i_see_the_result_is_empty(
-    world: &mut AppWorld,
-) -> Result<()> {
+async fn i_see_the_result_is_empty(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;
     check::result_text_is(client, "").await?;
     Ok(())
@@ -18,5 +16,12 @@ async fn i_see_the_result_is_the_string(
 ) -> Result<()> {
     let client = &world.client;
     check::result_text_is(client, &text).await?;
+    Ok(())
+}
+
+#[then(regex = r"^I see the navbar$")]
+async fn i_see_the_navbar(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    check::element_exists(client, "nav").await?;
     Ok(())
 }

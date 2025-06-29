@@ -24,3 +24,16 @@ Feature: Regression from pull request 4091
             | test1     |
             | 4091 Home |
         Then I see the result is empty
+
+    Scenario: I can see the navbar
+        Given I see the app
+        And I can access regression test 4091
+        Then I see the navbar
+
+    Scenario: If I navigate to home and back, I can still see the navbar
+        Given I see the app
+        And I can access regression test 4091
+        When I select the following links
+            | Home |
+            | 4091 |
+        Then I see the navbar
