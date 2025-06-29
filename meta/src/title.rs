@@ -322,6 +322,7 @@ impl RenderHtml for TitleView {
     type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
+    const EXISTS: bool = false;
 
     fn dry_resolve(&mut self) {}
 

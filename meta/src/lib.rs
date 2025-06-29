@@ -413,6 +413,7 @@ where
     type Owned = RegisteredMetaTag<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = 0;
+    const EXISTS: bool = false;
 
     fn dry_resolve(&mut self) {
         self.el.dry_resolve()
