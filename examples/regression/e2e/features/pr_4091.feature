@@ -43,5 +43,6 @@ Feature: Regression from pull request 4091
         And I can access regression test 4091
         When I select the following links
             | test1 |
-            | home  |
+            | Home  |
+            | 4091  |
         Then I see the navbar
