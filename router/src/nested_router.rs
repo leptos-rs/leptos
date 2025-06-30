@@ -945,7 +945,7 @@ where
     let ChildRoute(child) = use_context()
         .expect("<Outlet/> used without RouteContext being provided.");
     let child = child.lock().or_poisoned().clone();
-    let outer_owner = Owner::new();
+    let outer_owner = Owner::current().unwrap();
     child.map(|child| {
         move || {
             child.trigger.track();
