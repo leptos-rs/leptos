@@ -930,10 +930,11 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let trigger = outlet.trigger.clone();
     outer_owner.clone().with(|| {
         provide_context(child.clone());
+        let outer_owner = outer_owner.clone();
         (move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
-            view_fn(Owner::new())
+            view_fn(outer_owner.child())
         })
         .into_any()
     })
@@ -948,11 +949,12 @@ where
     let ChildRoute(child) = use_context()
         .expect("<Outlet/> used without RouteContext being provided.");
     let child = child.lock().or_poisoned().clone();
+    let outer_owner = Owner::new();
     child.map(|child| {
         move || {
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
-            view_fn(Owner::new())
+            view_fn(outer_owner.child())
         }
     })
 }
