@@ -37,3 +37,11 @@ Feature: Regression from pull request 4091
             | Home |
             | 4091 |
         Then I see the navbar
+
+    Scenario: The signal is not disposed too early
+        Given I see the app
+        And I can access regression test 4091
+        When I select the following links
+            | test1 |
+            | home  |
+        Then I see the navbar
