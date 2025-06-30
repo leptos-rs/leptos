@@ -481,6 +481,7 @@ pub(crate) struct RouteContext {
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
+    owner: Arc<Mutex<Option<Owner>>>,
     child: ChildRoute,
 }
 
@@ -510,6 +511,7 @@ impl Clone for RouteContext {
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
+            owner: Arc::clone(&self.owner),
             child: self.child.clone(),
         }
     }
@@ -614,6 +616,7 @@ where
             }))),
             base: base.clone(),
             child: ChildRoute(Arc::new(Mutex::new(None))),
+            owner: Arc::new(Mutex::new(None)),
         };
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
@@ -629,6 +632,7 @@ where
             let url = outlet.url.clone();
             let matched = Matched(matched_including_parents);
             let view_fn = Arc::clone(&outlet.view_fn);
+            let route_owner = Arc::clone(&outlet.owner);
             let outlet = outlet.clone();
             let params = params_including_parents.clone();
             let url = url.clone();
@@ -638,6 +642,8 @@ where
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
                     Box::new(move |owner_where_used| {
+                        *route_owner.lock().or_poisoned() =
+                            Some(owner_where_used.clone());
                         let view = view.clone();
                         let child = child.clone();
                         let params = params.clone();
@@ -790,12 +796,17 @@ where
                         let url = current.url.clone();
                         let matched = Matched(matched_including_parents);
                         let view_fn = Arc::clone(&current.view_fn);
+                        let route_owner = Arc::clone(&current.owner);
                         let child = outlet.child.clone();
                         async move {
                             view.preload().await;
                             let child = child.clone();
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
+                                    let prev_owner = route_owner
+                                        .lock()
+                                        .or_poisoned()
+                                        .replace(owner_where_used.clone());
                                     let view = view.clone();
                                     let full_tx =
                                         full_tx.lock().or_poisoned().take();
@@ -824,16 +835,11 @@ where
                                             }),
                                         );
 
-                                        // a single owner is created per Outlet
-                                        // this code only runs if the old Route has been left for the new Route
-                                        // cleaning up the reactivity is therefore safe here
-                                        //
-                                        // note: with lazy loading enabled, this might run *before* the new page is
-                                        // actually shown; a TODO would be to give an "after loaded, before running"
-                                        // callback to .choose() to avoid canceling until it's actually ready
-                                        owner_where_used.cleanup();
-
                                         let view = view.await;
+
+                                        if let Some(prev_owner) = prev_owner {
+                                            prev_owner.cleanup();
+                                        }
 
                                         if let Some(tx) = full_tx {
                                             _ = tx.send(());
@@ -928,7 +934,7 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
         (move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
-            view_fn(owner.clone())
+            view_fn(Owner::new())
         })
         .into_any()
     })
@@ -942,13 +948,12 @@ where
 {
     let ChildRoute(child) = use_context()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let owner = Owner::new();
     let child = child.lock().or_poisoned().clone();
     child.map(|child| {
         move || {
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
-            view_fn(owner.clone())
+            view_fn(Owner::new())
         }
     })
 }
