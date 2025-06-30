@@ -533,7 +533,7 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        full_loaders: &mut Vec<oneshot::Receiver<()>>,
+        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -696,7 +696,7 @@ where
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         preloaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        full_loaders: &mut Vec<oneshot::Receiver<()>>,
+        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -837,12 +837,8 @@ where
 
                                         let view = view.await;
 
-                                        if let Some(prev_owner) = prev_owner {
-                                            prev_owner.cleanup();
-                                        }
-
                                         if let Some(tx) = full_tx {
-                                            _ = tx.send(());
+                                            _ = tx.send(prev_owner);
                                         }
                                         owner_where_used.with(|| {
                                             OwnedView::new(view).into_any()
