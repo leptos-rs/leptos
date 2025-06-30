@@ -928,7 +928,6 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let child = outlet.child.clone();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
-    let owner = outer_owner.child();
     outer_owner.clone().with(|| {
         provide_context(child.clone());
         (move || {
