@@ -11,7 +11,7 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
-use paste::paste;
+use pastey::paste;
 use pin_project_lite::pin_project;
 #[cfg(not(feature = "no_std"))]
 use std::error::Error; // TODO: replace with core::error::Error once MSRV is >= 1.81.0

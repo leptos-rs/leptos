@@ -13,7 +13,7 @@ edition.workspace = true
 guardian = { workspace = true, default-features = true }
 itertools = { workspace = true , default-features = true }
 or_poisoned = { workspace = true }
-paste = { workspace = true, default-features = true }
+pastey = { workspace = true, default-features = true }
 reactive_graph = { workspace = true }
 rustc-hash = { workspace = true, default-features = true }
 reactive_stores_macro = { workspace = true }

@@ -312,7 +312,7 @@ macro_rules! impl_attr_for_tuples {
             }
 
             fn rebuild(self, state: &mut Self::State) {
-                paste::paste! {
+                pastey::paste! {
                     let ([<$first:lower>], $([<$ty:lower>],)*) = self;
                     let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
                     [<$first:lower>].rebuild([<view_ $first:lower>]);
@@ -421,7 +421,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
 
             fn rebuild(self, state: &mut Self::State) {
-                paste::paste! {
+                pastey::paste! {
                     let ([<$first:lower>], $([<$ty:lower>],)*) = self;
                     let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
                     [<$first:lower>].rebuild([<view_ $first:lower>]);

@@ -16,7 +16,7 @@ macro_rules! html_element_inner {
         [$($attr:ty),*]
         $escape:literal
     ) => {
-        paste::paste! {
+        pastey::paste! {
             #[$meta]
             #[track_caller]
             pub fn $tag() -> HtmlElement<$struct_name, (), ()>
@@ -102,7 +102,7 @@ macro_rules! html_elements {
       ),*
       $(,)?
     ) => {
-        paste::paste! {
+        pastey::paste! {
             $(html_element_inner! {
                 #[$meta]
                 $tag
@@ -122,7 +122,7 @@ macro_rules! html_self_closing_elements {
       ),*
       $(,)?
     ) => {
-        paste::paste! {
+        pastey::paste! {
             $(
                 #[$meta]
                 #[track_caller]

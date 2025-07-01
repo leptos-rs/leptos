@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 pin-project-lite = { workspace = true, default-features = true }
-paste = { workspace = true, default-features = true }
+pastey = { workspace = true, default-features = true }
 
 [features]
 default = ["no_std"]
