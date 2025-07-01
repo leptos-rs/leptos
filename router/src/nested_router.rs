@@ -109,7 +109,6 @@ where
                     base,
                     &mut loaders,
                     &mut outlets,
-                    &outer_owner,
                 );
                 drop(url);
 
@@ -180,7 +179,6 @@ where
                     &mut preloaders,
                     &mut full_loaders,
                     &mut state.outlets,
-                    &self.outer_owner,
                     self.set_is_routing.is_some(),
                     0,
                 );
@@ -340,7 +338,6 @@ where
                         base,
                         &mut loaders,
                         &mut outlets,
-                        &outer_owner,
                     );
 
                     // outlets will not send their views if the loaders are never polled
@@ -394,7 +391,6 @@ where
                     base,
                     &mut loaders,
                     &mut outlets,
-                    &outer_owner,
                 );
 
                 // outlets will not send their views if the loaders are never polled
@@ -448,7 +444,6 @@ where
                         base,
                         &mut loaders,
                         &mut outlets,
-                        &outer_owner,
                     );
                     drop(url);
 
@@ -483,10 +478,10 @@ pub(crate) struct RouteContext {
     trigger: ArcTrigger,
     url: ArcRwSignal<Url>,
     params: ArcRwSignal<ParamsMap>,
-    owner: Owner,
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
+    owner: Arc<Mutex<Option<Owner>>>,
     child: ChildRoute,
 }
 
@@ -500,7 +495,6 @@ impl Debug for RouteContext {
             .field("trigger", &self.trigger)
             .field("url", &self.url)
             .field("params", &self.params)
-            .field("owner", &self.owner.debug_id())
             .field("matched", &self.matched)
             .field("base", &self.base)
             .finish_non_exhaustive()
@@ -514,10 +508,10 @@ impl Clone for RouteContext {
             id: self.id,
             trigger: self.trigger.clone(),
             params: self.params.clone(),
-            owner: self.owner.clone(),
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
+            owner: Arc::clone(&self.owner),
             child: self.child.clone(),
         }
     }
@@ -530,7 +524,6 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
-        parent: &Owner,
     );
 
     #[allow(clippy::too_many_arguments)]
@@ -540,9 +533,8 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        full_loaders: &mut Vec<oneshot::Receiver<()>>,
+        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
-        parent: &Owner,
         set_is_routing: bool,
         level: u8,
     ) -> u8;
@@ -558,14 +550,8 @@ where
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
-        parent: &Owner,
     ) {
         let orig_url = url;
-
-        // each Outlet gets its own owner, so it can inherit context from its parent route,
-        // a new owner will be constructed if a different route replaces this one in the outlet,
-        // so that any signals it creates or context it provides will be cleaned up
-        let owner = parent.child();
 
         // the params signal can be updated to allow the same outlet to update to changes in the
         // params, even if there's not a route match change
@@ -624,13 +610,13 @@ where
             url,
             trigger: trigger.clone(),
             params,
-            owner: owner.clone(),
             matched,
             view_fn: Arc::new(Mutex::new(Box::new(|_owner| {
                 Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
             child: ChildRoute(Arc::new(Mutex::new(None))),
+            owner: Arc::new(Mutex::new(None)),
         };
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
@@ -646,6 +632,7 @@ where
             let url = outlet.url.clone();
             let matched = Matched(matched_including_parents);
             let view_fn = Arc::clone(&outlet.view_fn);
+            let route_owner = Arc::clone(&outlet.owner);
             let outlet = outlet.clone();
             let params = params_including_parents.clone();
             let url = url.clone();
@@ -655,6 +642,8 @@ where
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
                     Box::new(move |owner_where_used| {
+                        *route_owner.lock().or_poisoned() =
+                            Some(owner_where_used.clone());
                         let view = view.clone();
                         let child = child.clone();
                         let params = params.clone();
@@ -696,7 +685,7 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(orig_url, base, loaders, outlets, &owner);
+            child.build_nested_route(orig_url, base, loaders, outlets);
         }
     }
 
@@ -707,9 +696,8 @@ where
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         preloaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
-        full_loaders: &mut Vec<oneshot::Receiver<()>>,
+        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
-        parent: &Owner,
         set_is_routing: bool,
         level: u8,
     ) -> u8 {
@@ -718,11 +706,17 @@ where
             .take(*items)
             .map(|route| (route.params.clone(), route.matched.clone()))
             .unzip();
+
+        if outlets.get(*items).is_some() && *items > 0 {
+            *outlets[*items - 1].child.0.lock().or_poisoned() =
+                Some(outlets[*items].clone());
+        }
+
         let current = outlets.get_mut(*items);
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(url, base, preloaders, outlets, parent);
+                self.build_nested_route(url, base, preloaders, outlets);
                 level
             }
             Some(current) => {
@@ -789,9 +783,6 @@ where
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
-                    let mut old_owner =
-                        Some(mem::replace(&mut current.owner, parent.child()));
-                    let owner = current.owner.clone();
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
                     full_loaders.push(full_rx);
@@ -801,22 +792,24 @@ where
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
                     preloaders.push(Box::pin(ScopedFuture::new({
-                        let owner = owner.clone();
                         let trigger = current.trigger.clone();
                         let url = current.url.clone();
                         let matched = Matched(matched_including_parents);
                         let view_fn = Arc::clone(&current.view_fn);
+                        let route_owner = Arc::clone(&current.owner);
                         let child = outlet.child.clone();
                         async move {
                             view.preload().await;
                             let child = child.clone();
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
-                                    let owner = owner.clone();
+                                    let prev_owner = route_owner
+                                        .lock()
+                                        .or_poisoned()
+                                        .replace(owner_where_used.clone());
                                     let view = view.clone();
                                     let full_tx =
                                         full_tx.lock().or_poisoned().take();
-                                    let old_owner = old_owner.take();
                                     let child = child.clone();
                                     let params =
                                         params_including_parents.clone();
@@ -841,15 +834,13 @@ where
                                                 })
                                             }),
                                         );
+
                                         let view = view.await;
-                                        if let Some(old_owner) = old_owner {
-                                            old_owner.cleanup();
-                                        }
 
                                         if let Some(tx) = full_tx {
-                                            _ = tx.send(());
+                                            _ = tx.send(prev_owner);
                                         }
-                                        owner.with(|| {
+                                        owner_where_used.with(|| {
                                             OwnedView::new(view).into_any()
                                         })
                                     }))
@@ -868,9 +859,10 @@ where
 
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
-                        child.build_nested_route(
-                            url, base, preloaders, outlets, &owner,
-                        );
+                        child
+                            .build_nested_route(url, base, preloaders, outlets);
+                    } else {
+                        *outlets[*items].child.0.lock().or_poisoned() = None;
                     }
 
                     return level;
@@ -882,7 +874,6 @@ where
                 current.params.set(new_params);
                 current.url.set(url.to_owned());
                 if let Some(child) = child {
-                    let owner = current.owner.clone();
                     *items += 1;
                     child.rebuild_nested_route(
                         url,
@@ -891,11 +882,11 @@ where
                         preloaders,
                         full_loaders,
                         outlets,
-                        &owner,
                         set_is_routing,
                         level + 1,
                     )
                 } else {
+                    *current.child.0.lock().or_poisoned() = None;
                     level
                 }
             }
@@ -933,13 +924,13 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let child = outlet.child.clone();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
-    let owner = outer_owner.child();
     outer_owner.clone().with(|| {
         provide_context(child.clone());
+        let outer_owner = outer_owner.clone();
         (move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
-            view_fn(owner.clone())
+            view_fn(outer_owner.child())
         })
         .into_any()
     })
@@ -953,13 +944,13 @@ where
 {
     let ChildRoute(child) = use_context()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let owner = Owner::new();
     let child = child.lock().or_poisoned().clone();
+    let outer_owner = Owner::current().unwrap();
     child.map(|child| {
         move || {
             child.trigger.track();
             let mut view_fn = child.view_fn.lock().or_poisoned();
-            view_fn(owner.clone())
+            view_fn(outer_owner.child())
         }
     })
 }

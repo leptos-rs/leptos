@@ -134,6 +134,7 @@ where
     type Owned = (A::Owned,);
 
     const MIN_LENGTH: usize = A::MIN_LENGTH;
+    const EXISTS: bool = A::EXISTS;
 
     fn html_len(&self) -> usize {
         self.0.html_len()
@@ -239,7 +240,6 @@ macro_rules! impl_view_for_tuples {
 		{
 			type State = ($first::State, $($ty::State,)*);
 
-
 			fn build(self) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
@@ -267,7 +267,7 @@ macro_rules! impl_view_for_tuples {
 		{
             type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
             type Owned = ($first::Owned, $($ty::Owned,)*);
-
+            const EXISTS: bool = $first::EXISTS || $($ty::EXISTS || )* false;
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
             #[inline(always)]

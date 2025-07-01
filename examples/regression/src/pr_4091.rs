@@ -28,8 +28,9 @@ fn Container() -> impl IntoView {
     provide_context(rw_signal);
 
     view! {
-        <nav>
+        <nav id="nav">
             <ul>
+                <li><A href="/">"Home"</A></li>
                 <li><A href="./">"4091 Home"</A></li>
                 <li><A href="test1">"test1"</A></li>
             </ul>
