@@ -20,11 +20,11 @@ axum = { version = "0.8.1", optional = true }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
-sqlx = { version = "0.8.0", features = [
+sqlx = { version = "0.8.6", features = [
   "runtime-tokio-rustls",
   "sqlite",
 ], optional = true }
-thiserror = "1.0"
+thiserror = "2.0.12"
 wasm-bindgen = "0.2.93"
 
 [features]
