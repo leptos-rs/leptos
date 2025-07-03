@@ -29,9 +29,6 @@ oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = { workspace = true, default-features = true }
 rand = { optional = true , workspace = true, default-features = true }
-# NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
-#       avoid a compilation error
-getrandom = { optional = true , workspace = true, default-features = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = { workspace = true, default-features = true }
 tachys = { workspace = true, features = [
@@ -154,3 +151,11 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(rustc_nightly)',
 ] }
+
+# NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
+#       avoid a compilation error
+[target.'cfg(target_arch="wasm32")'.dependencies]
+getrandom = { optional = true , workspace = true, features=["wasm_js"] }
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+getrandom = { optional = true , workspace = true, default-features = true }
