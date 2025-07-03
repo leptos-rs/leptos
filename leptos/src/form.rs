@@ -18,7 +18,7 @@ use tachys::{
     reactive_graph::node_ref::NodeRef,
 };
 use thiserror::Error;
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{intern, JsCast, JsValue, UnwrapThrowExt};
 use web_sys::{
     Event, FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
     SubmitEvent,
@@ -135,17 +135,33 @@ where
             }
         }
     };
+    // Add this event handler after the component is constructed
+    // this means that this `submit` handler will run *after* any other `submit` handlers
+    // that have been added by the user. this is useful because it means that the user can
+    // add an `on:submit` handler and call `ev.prevent_default()` to prevent the form submission
+    //
+    // without this delay, this handler will always run before the user's handler (which was added
+    // later), which means the user can't prevent the form submission in the same way
+    //
+    // see https://github.com/leptos-rs/leptos/issues/3872
+    let node_ref = node_ref.unwrap_or_default();
+    Effect::new(move || {
+        if let Some(node) = node_ref.get() {
+            let handler =
+                Box::new(on_submit) as Box<dyn FnMut(web_sys::SubmitEvent)>;
+            let cb =
+                wasm_bindgen::closure::Closure::wrap(handler).into_js_value();
+            let name = intern("submit");
+            node.add_event_listener_with_callback(name, cb.unchecked_ref())
+                .unwrap();
+        }
+    });
 
     let action_form = form()
         .action(ServFn::url())
         .method("post")
-        .on(submit, on_submit)
         .child(children());
-    if let Some(node_ref) = node_ref {
-        Either::Left(action_form.node_ref(node_ref))
-    } else {
-        Either::Right(action_form)
-    }
+    action_form.node_ref(node_ref)
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
