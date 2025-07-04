@@ -1,0 +1,8 @@
+# For crates within the workspace this cfg flag
+# is added automatically (see the build.rs file)
+#
+# examples/cf-worker is not a workspace item
+# and so this needs to be specified here.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
