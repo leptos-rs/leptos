@@ -27,7 +27,7 @@ leptos_config = { workspace = true }
 leptos-spin-macro = { optional = true , workspace = true, default-features = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
-paste = { workspace = true, default-features = true }
+pastey = { workspace = true, default-features = true }
 rand = { optional = true , workspace = true, default-features = true }
 # NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error

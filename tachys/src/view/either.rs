@@ -720,7 +720,7 @@ where
 
 macro_rules! tuples {
     ($num:literal => $($ty:ident),*) => {
-        paste::paste! {
+        pastey::paste! {
             #[doc = concat!("Retained view state for ", stringify!([<EitherOf $num>]), ".")]
             pub struct [<EitherOf $num State>]<$($ty,)*>
             where

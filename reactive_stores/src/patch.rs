@@ -211,7 +211,7 @@ macro_rules! patch_tuple {
                 let mut new_path = path.to_owned();
                 new_path.push(0);
 
-                paste::paste! {
+                pastey::paste! {
                     #[allow(non_snake_case)]
                     let ($($ty,)*) = self;
                     let ($([<new_ $ty:lower>],)*) = new;
