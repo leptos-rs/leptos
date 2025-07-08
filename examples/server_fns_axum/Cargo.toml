@@ -29,7 +29,7 @@ tower-http = { version = "0.6.2", features = [
   "trace",
 ], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 wasm-bindgen = "0.2.93"
 serde_toml = "0.0.1"
 toml = "0.8.19"
