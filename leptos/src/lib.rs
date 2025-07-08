@@ -331,17 +331,20 @@ pub mod task {
     };
 }
 
-// these reexports are used in islands
-#[cfg(feature = "islands")]
+// Re-exports used in macros. Don't use these directly in your code.
 #[doc(hidden)]
-pub use serde;
-#[cfg(feature = "islands")]
-#[doc(hidden)]
-pub use serde_json;
-#[cfg(feature = "tracing")]
-#[doc(hidden)]
-pub use tracing;
-#[doc(hidden)]
-pub use wasm_bindgen;
-#[doc(hidden)]
-pub use web_sys;
+pub mod __reexports {
+    #[cfg(feature = "islands")]
+    #[doc(hidden)]
+    pub use serde;
+    #[cfg(feature = "islands")]
+    #[doc(hidden)]
+    pub use serde_json;
+    #[cfg(feature = "tracing")]
+    #[doc(hidden)]
+    pub use tracing;
+    #[doc(hidden)]
+    pub use wasm_bindgen;
+    #[doc(hidden)]
+    pub use web_sys;
+}
