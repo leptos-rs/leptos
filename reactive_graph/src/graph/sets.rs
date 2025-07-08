@@ -68,8 +68,8 @@ impl SubscriberSet {
     }
 
     pub fn subscribe(&mut self, subscriber: AnySubscriber) {
-        if !self.0.contains(&subscriber) {
-            self.0.push(subscriber);
+        if let Err(idx) = self.0.binary_search_by_key(&subscriber.0, |s| s.0) {
+            self.0.insert(idx, subscriber)
         }
     }
 
