@@ -1,2 +1,0 @@
-[tasks.ci]
-script = ["cargo install -q worker-build", "worker-build"]
