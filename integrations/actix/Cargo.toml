@@ -9,8 +9,8 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-actix-http = "3.10"
-actix-files = "0.6"
+actix-http = { workspace = true, default-features = true }
+actix-files = { workspace = true, default-features = true }
 actix-web = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["tokio"] }
@@ -28,7 +28,6 @@ tracing = { optional = true , workspace = true, default-features = true }
 tokio = { features = ["rt", "fs"] , workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 dashmap = { workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

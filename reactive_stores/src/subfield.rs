@@ -114,21 +114,19 @@ where
     #[track_caller]
     fn track_field(&self) {
         let mut full_path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.track();
+        trigger.children.track();
+
         // tracks `this` for all ancestors: i.e., it will track any change that is made
         // directly to one of its ancestors, but not a change made to a *child* of an ancestor
         // (which would end up with every subfield tracking its own siblings, because they are
         // children of its parent)
-        loop {
+        while !full_path.is_empty() {
+            full_path.pop();
             let inner = self.get_trigger(full_path.clone());
             inner.this.track();
-            if full_path.is_empty() {
-                break;
-            }
-            full_path.pop();
         }
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
     }
 }
 

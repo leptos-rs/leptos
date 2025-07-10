@@ -52,7 +52,7 @@ Feature: Using instrumented counters to test regression from #3502.
             | list_items         | 1 |
             | get_item           | 1 |
             | inspect_item_root  | 0 |
-            | inspect_item_field | 4 |
+            | inspect_item_field | 3 |
 
     Scenario: Follow paths ordinarily down to a target
         Given I select the following links

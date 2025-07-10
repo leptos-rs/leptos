@@ -1,42 +1,37 @@
 {
+    "identifier": "leptos.chat.app",
+    "productName": "leptos_tauri_from_scratch",
+    "version": "0.1.0",
     "build": {
       "beforeDevCommand": "",
       "beforeBuildCommand": "trunk build --no-default-features -v --features \"csr\"",
-      "devPath": "http://127.0.0.1:3000",
-      "distDir": "../src-orig/dist"
+      "devUrl": "http://127.0.0.1:3000",
+      "frontendDist": "../dist"
     },
-    "package": {
-      "productName": "leptos_tauri_from_scratch",
-      "version": "0.1.0"
-    },
-    "tauri": {
-      "bundle": {
-        "active": true,
-        "category": "DeveloperTool",
-        "copyright": "",
-        "deb": {
-          "depends": []
-        },
-        "externalBin": [],
-        "icon": [],
-        "identifier": "leptos.chat.app",
-        "longDescription": "",
-        "macOS": {
-          "entitlements": null,
-          "exceptionDomain": "",
-          "frameworks": [],
-          "providerShortName": null,
-          "signingIdentity": null
-        },
-        "resources": [],
-        "shortDescription": "",
-        "targets": "all",
-        "windows": {
-          "certificateThumbprint": null,
-          "digestAlgorithm": "sha256",
-          "timestampUrl": ""
-        }
+    "bundle": {
+      "active": true,
+      "category": "DeveloperTool",
+      "copyright": "",
+      "externalBin": [],
+      "icon": ["icons/icon.png"],
+      "longDescription": "",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null
       },
+      "resources": [],
+      "shortDescription": "",
+      "targets": "all",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "app": {
       "security": {
         "csp": null
       },

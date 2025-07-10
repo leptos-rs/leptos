@@ -319,6 +319,16 @@ pub trait Mountable {
         marker: Option<&crate::renderer::types::Node>,
     );
 
+    /// Mounts a node to the interface. Returns `false` if it could not be mounted.
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        self.mount(parent, marker);
+        true
+    }
+
     /// Inserts another `Mountable` type before this one. Returns `false` if
     /// this does not actually exist in the UI (for example, `()`).
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool;
@@ -427,6 +437,17 @@ pub trait ToTemplate {
         inner_html: &mut String,
         position: &mut Position,
     );
+
+    /// Renders a view type to a template in attribute position.
+    fn to_template_attribute(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        Self::to_template(buf, class, style, inner_html, position);
+    }
 }
 
 /// Keeps track of what position the item currently being hydrated is in, relative to its siblings

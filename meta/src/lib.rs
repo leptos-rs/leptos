@@ -63,13 +63,12 @@ use leptos::{
     },
     IntoView,
 };
-use once_cell::sync::Lazy;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc,
+        Arc, LazyLock,
     },
 };
 use wasm_bindgen::JsCast;
@@ -101,7 +100,7 @@ pub struct MetaContext {
     /// Metadata associated with the `<title>` element.
     pub(crate) title: TitleContext,
     /// The hydration cursor for the location in the `<head>` for arbitrary tags will be rendered.
-    pub(crate) cursor: Arc<Lazy<SendWrapper<Cursor>>>,
+    pub(crate) cursor: Arc<LazyLock<SendWrapper<Cursor>>>,
 }
 
 impl MetaContext {
@@ -143,7 +142,7 @@ impl Default for MetaContext {
             ))
         };
 
-        let cursor = Arc::new(Lazy::new(build_cursor));
+        let cursor = Arc::new(LazyLock::new(build_cursor));
         Self {
             title: Default::default(),
             cursor,
@@ -414,6 +413,7 @@ where
     type Owned = RegisteredMetaTag<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = 0;
+    const EXISTS: bool = false;
 
     fn dry_resolve(&mut self) {
         self.el.dry_resolve()

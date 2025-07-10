@@ -329,7 +329,6 @@ where
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
-        let attrs = self.attributes.build(&el);
         let children = if E::SELF_CLOSING {
             None
         } else {
@@ -337,6 +336,9 @@ where
             children.mount(&el, None);
             Some(children)
         };
+
+        let attrs = self.attributes.build(&el);
+
         ElementState {
             el,
             attrs,
@@ -638,6 +640,14 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         Rndr::insert_node(parent, self.el.as_ref(), marker);
     }
 
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        Rndr::try_insert_node(parent, self.el.as_ref(), marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if let Some(parent) = Rndr::get_parent(self.el.as_ref()) {
             if let Some(element) =
@@ -699,7 +709,7 @@ where
 
             buf.push('<');
             buf.push_str(E::TAG);
-            <At as ToTemplate>::to_template(
+            <At as ToTemplate>::to_template_attribute(
                 buf,
                 &mut class,
                 &mut style,

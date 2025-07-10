@@ -118,7 +118,7 @@ The `nightly` feature enables the function call syntax for accessing and setting
 
 ```bash
 cargo install cargo-leptos
-cargo leptos new --git https://github.com/leptos-rs/start
+cargo leptos new --git https://github.com/leptos-rs/start-axum
 cd [your project name]
 cargo leptos watch
 ```

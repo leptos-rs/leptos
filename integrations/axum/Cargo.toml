@@ -23,11 +23,10 @@ leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 tachys = { workspace = true }
-once_cell = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 tokio = { default-features = false , workspace = true }
 tower = { features = ["util"] , workspace = true, default-features = true }
-tower-http = "0.6.2"
+tower-http = { workspace = true, default-features = true }
 tracing = { optional = true , workspace = true, default-features = true }
 
 [dev-dependencies]

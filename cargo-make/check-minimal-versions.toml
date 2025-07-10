@@ -1,0 +1,14 @@
+[tasks.check-minimal-versions]
+condition = { channels = ["nightly"] }
+command = "cargo"
+args = [
+  "all-features",
+  "minimal-versions",
+  "check",
+  "--ignore-private",
+  "--detach-path-deps",
+  "--direct",
+]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''

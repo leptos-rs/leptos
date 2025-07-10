@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -18,13 +18,12 @@ next_tuple = { workspace = true }
 or_poisoned = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
 reactive_stores = { workspace = true, optional = true }
-slotmap = { optional = true , workspace = true, default-features = true }
+slotmap = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true, optional = true }
-async-trait = "0.1.88"
-once_cell = { workspace = true, default-features = true }
+async-trait = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
-erased = "0.1.2"
-wasm-bindgen = { workspace = true , default-features = true }
+erased = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
 js-sys = { workspace = true, default-features = true }
 web-sys = { features = [
@@ -148,26 +147,29 @@ web-sys = { features = [
   "HtmlSlotElement",
   "HtmlTemplateElement",
   "HtmlOptionElement",
-] , workspace = true, default-features = true }
-drain_filter_polyfill = "0.1.3"
+], workspace = true, default-features = true }
+drain_filter_polyfill = { workspace = true, default-features = true }
 indexmap = { workspace = true, default-features = true }
 rustc-hash = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-itertools = { workspace = true , default-features = true }
+itertools = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-linear-map = "1.2"
-sledgehammer_bindgen = { version = "0.6.0", features = [
+linear-map = { workspace = true, default-features = true }
+sledgehammer_bindgen = { features = [
   "web",
-], optional = true }
-sledgehammer_utils = { version = "0.3.1", optional = true }
-tracing = { optional = true , workspace = true, default-features = true }
-serde = { optional = true , workspace = true, default-features = true }
-serde_json = { optional = true , workspace = true, default-features = true }
+], optional = true, workspace = true, default-features = true }
+sledgehammer_utils = { optional = true, workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true, default-features = true }
-tokio = { features = ["rt", "macros"] , workspace = true, default-features = true }
+tokio = { features = [
+  "rt",
+  "macros",
+], workspace = true, default-features = true }
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }

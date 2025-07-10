@@ -1,4 +1,8 @@
-extend = [{ path = "./lint.toml" }, { path = "./test.toml" }]
+extend = [
+  { path = "./lint.toml" },
+  { path = "./test.toml" },
+  { path = "./check-minimal-versions.toml" },
+]
 
 [env]
 RUSTFLAGS = ""

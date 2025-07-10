@@ -90,6 +90,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
     type Owned = View<T::Owned>;
 
     const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
+    const EXISTS: bool = <T as RenderHtml>::EXISTS;
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.inner.resolve().await

@@ -409,6 +409,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// generate documentation for the component.
 ///
 /// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
+///
 /// ```rust
 /// # use leptos::prelude::*;
 /// use std::time::Duration;
@@ -446,6 +447,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Here are some important details about how Leptos components work within the framework:
+///
 /// * **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
@@ -458,7 +460,6 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use leptos::prelude::*;
-///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
 /// fn MyComponent() -> impl IntoView {}
@@ -500,8 +501,10 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// ## Customizing Properties
+///
 /// You can use the `#[prop]` attribute on individual component properties (function arguments) to
 /// customize the types that component property can receive. You can use the following attributes:
+///
 /// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
 ///   you could apply `#[prop(into)]` to a prop that takes
 ///   [Signal](https://docs.rs/leptos/latest/leptos/struct.Signal.html), which would
@@ -514,6 +517,11 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// * `#[prop(optional_no_strip)]`: The same as `optional`, but requires values to be passed as `None` or
 ///   `Some(T)` explicitly. This means that the optional property can be omitted (and be `None`), or explicitly
 ///   specified as either `None` or `Some(T)`.
+/// * `#[prop(default = <expr>)]`: Optional property that specifies a default value, which is used when the
+///   property is not specified.
+/// * `#[prop(name = "new_name")]`: Specifiy a different name for the property. Can be used to destructure
+///   fields in component function parameters (see example below).
+///
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -522,6 +530,8 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///     #[prop(into)] name: String,
 ///     #[prop(optional)] optional_value: Option<i32>,
 ///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
+///     #[prop(default = 7)] optional_default: i32,
+///     #[prop(name = "data")] UserInfo { email, user_id }: UserInfo,
 /// ) -> impl IntoView {
 ///     // whatever UI you need
 /// }
@@ -530,15 +540,23 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// pub fn App() -> impl IntoView {
 ///     view! {
 ///       <MyComponent
-///         name="Greg" // automatically converted to String with `.into()`
-///         optional_value=42 // received as `Some(42)`
-///         optional_no_strip=Some(42) // received as `Some(42)`
+///         name="Greg"  // automatically converted to String with `.into()`
+///         optional_value=42  // received as `Some(42)`
+///         optional_no_strip=Some(42)  // received as `Some(42)`
+///         optional_default=42  // received as `42`
+///         data=UserInfo {email: "foo", user_id: "bar" }
 ///       />
 ///       <MyComponent
 ///         name="Bob" // automatically converted to String with `.into()`
-///         // optional values can both be omitted, and received as `None`
+///         data=UserInfo {email: "foo", user_id: "bar" }
+///         // optional values can be omitted
 ///       />
 ///     }
+/// }
+///
+/// pub struct UserInfo {
+///     pub email: &'static str,
+///     pub user_id: &'static str,
 /// }
 /// ```
 #[proc_macro_error2::proc_macro_error]
