@@ -4297,7 +4297,7 @@ dependencies = [
  "digest",
  "quote",
  "sha2",
- "syn 2.0.101",
+ "syn 2.0.104",
  "wasm-bindgen",
 ]
 
