@@ -148,7 +148,7 @@ pub mod static_routes;
 
 pub use generate_route_list::*;
 #[doc(inline)]
-pub use leptos_router_macro::path;
+pub use leptos_router_macro::{lazy_route, path};
 pub use matching::*;
 pub use method::*;
 pub use navigate::*;
