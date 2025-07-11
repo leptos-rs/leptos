@@ -6,8 +6,11 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, ItemFn};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let name =
-        (!args.is_empty()).then(|| parse_macro_input!(args as syn::Ident));
+    let name = if !args.is_empty() {
+        Some(parse_macro_input!(args as syn::Ident))
+    } else {
+        None
+    };
 
     let fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy` can only be used on a function")
