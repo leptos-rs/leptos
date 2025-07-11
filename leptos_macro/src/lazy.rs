@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use proc_macro_error2::abort;
 use quote::quote;
-use syn::{spanned::Spanned, ItemFn};
+use syn::{parse_macro_input, spanned::Spanned, ItemFn};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let name =
