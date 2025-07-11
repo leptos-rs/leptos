@@ -249,7 +249,7 @@ fn lazy_route_impl(
         Some(fun) => {
             let body = fun.block.clone();
             let new_block = quote! {{
-                    #[cfg_attr(feature = "split", wasm_split::wasm_split(#lazy_view_ident))]
+                    #[::leptos::lazy(#lazy_view_ident)]
                     async fn view(this: #self_ty) -> ::leptos::prelude::AnyView {
                         #body
                     }
