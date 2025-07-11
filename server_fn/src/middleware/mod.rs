@@ -123,7 +123,7 @@ mod axum {
     }
 }
 
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 mod actix {
     use crate::{
         error::ServerFnErrorErr,

@@ -120,7 +120,7 @@ pub mod request;
 /// Types and traits for HTTP responses.
 pub mod response;
 
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
 #[cfg(feature = "axum-no-default")]
@@ -1118,7 +1118,7 @@ pub mod axum {
 }
 
 /// Actix integration.
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
         error::FromServerFnError, middleware::BoxedService,
