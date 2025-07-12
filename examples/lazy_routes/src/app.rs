@@ -1,9 +1,9 @@
-use leptos::{prelude::*, task::spawn_local};
+use leptos::prelude::*;
 use leptos_router::{
-    components::{FlatRoutes, Route, Router, Routes},
+    components::{Route, Router, Routes},
     lazy_route, Lazy, LazyRoute, StaticSegment,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -112,9 +112,19 @@ pub fn ViewB() -> impl IntoView {
     view! {
         <p id="page">"View B"</p>
         <Suspense fallback=|| view! { <p id="loading">"Loading..."</p> }>
-            <pre>{move || Suspend::new(async move {
-                format!("{:#?}", data.await)
-            })}</pre>
+            <ul>
+            {move || Suspend::new(async move {
+                let items = data.await;
+                items.into_iter()
+                    .map(|comment| view! {
+                        <li id=format!("{}-{}", comment.post_id, comment.id)>
+                            <strong>{comment.name}</strong>  " (by " {comment.email} ")"<br/>
+                            {comment.body}
+                        </li>
+                    })
+                    .collect_view()
+            })}
+            </ul>
         </Suspense>
     }
     .into_any()
@@ -178,7 +188,9 @@ impl LazyRoute for ViewC {
                     .into_iter()
                     .map(|album| {
                         view! {
-                            <li>{album.title}</li>
+                            <li id=format!("{}-{}", album.user_id, album.id)>
+                                {album.title}
+                            </li>
                         }
                     })
                     .collect::<Vec<_>>()
