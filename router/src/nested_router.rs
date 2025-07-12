@@ -447,14 +447,65 @@ where
                     );
                     drop(url);
 
-                    // TODO support for lazy hydration
-                    join_all(mem::take(&mut loaders))
-                        .now_or_never()
-                        .expect("async routes not supported in SSR");
+                    join_all(mem::take(&mut loaders)).now_or_never().expect(
+                        "lazy routes not supported with hydrate_body(); use \
+                         hydrate_lazy() instead",
+                    );
                     EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
+        ));
+
+        NestedRouteViewState {
+            path,
+            current_url,
+            outlets,
+            view,
+            outer_owner,
+        }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let NestedRoutesView {
+            routes,
+            outer_owner,
+            current_url,
+            fallback,
+            base,
+            ..
+        } = self;
+
+        let mut loaders = Vec::new();
+        let mut outlets = Vec::new();
+        let url = current_url.read_untracked();
+        let path = url.path().to_string();
+
+        // match the route
+        let new_match = routes.match_route(url.path());
+
+        // start with an empty view because we'll be loading routes async
+        let view = Rc::new(RefCell::new(
+            match new_match {
+                None => EitherOf3::B(fallback()),
+                Some(route) => {
+                    route.build_nested_route(
+                        &url,
+                        base,
+                        &mut loaders,
+                        &mut outlets,
+                    );
+                    drop(url);
+
+                    join_all(mem::take(&mut loaders)).await;
+                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                }
+            }
+            .hydrate::<true>(cursor, position),
         ));
 
         NestedRouteViewState {

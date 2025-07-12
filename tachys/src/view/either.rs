@@ -418,6 +418,28 @@ where
         state
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+        let state = match self {
+            Either::Left(left) => {
+                Either::Left(left.hydrate_async(cursor, position).await)
+            }
+            Either::Right(right) => {
+                Either::Right(right.hydrate_async(cursor, position).await)
+            }
+        };
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+        state
+    }
+
     fn into_owned(self) -> Self::Owned {
         match self {
             Either::Left(left) => Either::Left(left.into_owned()),
@@ -645,6 +667,34 @@ where
                 b.build()
             }
         });
+
+        EitherKeepAliveState { showing_b, a, b }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let showing_b = self.show_b;
+        let a = if let Some(a) = self.a {
+            Some(if showing_b {
+                a.build()
+            } else {
+                a.hydrate_async(cursor, position).await
+            })
+        } else {
+            None
+        };
+        let b = if let Some(b) = self.b {
+            Some(if showing_b {
+                b.hydrate_async(cursor, position).await
+            } else {
+                b.build()
+            })
+        } else {
+            None
+        };
 
         EitherKeepAliveState { showing_b, a, b }
     }
@@ -919,6 +969,26 @@ macro_rules! tuples {
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
+                        })*
+                    };
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
+
+                    Self::State { state }
+                }
+
+                async fn hydrate_async(
+                    self,
+                    cursor: &Cursor,
+                    position: &PositionState,
+                ) -> Self::State {
+                    if cfg!(feature = "mark_branches") {
+                        cursor.advance_to_placeholder(position);
+                    }
+                    let state = match self {
+                        $([<EitherOf $num>]::$ty(this) => {
+                            [<EitherOf $num>]::$ty(this.hydrate_async(cursor, position).await)
                         })*
                     };
                     if cfg!(feature = "mark_branches") {

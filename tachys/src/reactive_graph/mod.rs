@@ -231,6 +231,58 @@ where
         .into()
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        /// codegen optimisation:
+        fn prep(
+            cursor: &Cursor,
+            position: &PositionState,
+        ) -> (
+            Cursor,
+            PositionState,
+            Option<Arc<dyn throw_error::ErrorHook>>,
+        ) {
+            let cursor = cursor.clone();
+            let position = position.clone();
+            let hook = throw_error::get_error_hook();
+            (cursor, position, hook)
+        }
+        let (cursor, position, hook) = prep(cursor, position);
+
+        let mut fun = self.into_shared();
+
+        RenderEffect::new_with_async_value(
+            {
+                let mut fun = fun.clone();
+                move |prev| {
+                    /// codegen optimisation:
+                    fn get_guard(
+                        hook: &Option<Arc<dyn throw_error::ErrorHook>>,
+                    ) -> Option<throw_error::ResetErrorHookOnDrop>
+                    {
+                        hook.as_ref()
+                            .map(|h| throw_error::set_error_hook(Arc::clone(h)))
+                    }
+                    let _guard = get_guard(&hook);
+
+                    let value = fun.invoke();
+                    if let Some(mut state) = prev {
+                        value.rebuild(&mut state);
+                        state
+                    } else {
+                        unreachable!()
+                    }
+                }
+            },
+            async move { fun.invoke().hydrate_async(&cursor, &position).await },
+        )
+        .await
+        .into()
+    }
+
     fn into_owned(self) -> Self::Owned {
         self
     }
