@@ -17,7 +17,7 @@ use crate::{
 };
 use futures::future::{join, join_all};
 use std::{any::TypeId, fmt::Debug};
-#[cfg(feature = "ssr")]
+#[cfg(any(feature = "ssr", feature = "hydrate"))]
 use std::{future::Future, pin::Pin};
 
 /// A type-erased view. This can be used if control flow requires that multiple different types of
@@ -70,6 +70,13 @@ pub struct AnyView {
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_server: fn(Erased, &Cursor, &PositionState) -> AnyViewState,
+    #[cfg(feature = "hydrate")]
+    #[allow(clippy::type_complexity)]
+    hydrate_async: fn(
+        Erased,
+        &Cursor,
+        &PositionState,
+    ) -> Pin<Box<dyn Future<Output = AnyViewState>>>,
 }
 
 impl Debug for AnyView {
@@ -299,6 +306,35 @@ where
             }
         }
 
+        #[cfg(feature = "hydrate")]
+        fn hydrate_async<T: RenderHtml + 'static>(
+            value: Erased,
+            cursor: &Cursor,
+            position: &PositionState,
+        ) -> Pin<Box<dyn Future<Output = AnyViewState>>> {
+            let cursor = cursor.clone();
+            let position = position.clone();
+            Box::pin(async move {
+                let state = ErasedLocal::new(
+                    value
+                        .into_inner::<T>()
+                        .hydrate_async(&cursor, &position)
+                        .await,
+                );
+                let placeholder =
+                    (!T::EXISTS).then(|| cursor.next_placeholder(&position));
+                AnyViewState {
+                    type_id: TypeId::of::<T>(),
+                    state,
+                    mount: mount_any::<T>,
+                    unmount: unmount_any::<T>,
+                    insert_before_this: insert_before_this::<T>,
+                    elements: elements::<T>,
+                    placeholder,
+                }
+            })
+        }
+
         fn rebuild<T: RenderHtml + 'static>(
             value: Erased,
             state: &mut AnyViewState,
@@ -326,6 +362,8 @@ where
             to_html_async_ooo: to_html_async_ooo::<T::Owned>,
             #[cfg(feature = "hydrate")]
             hydrate_from_server: hydrate_from_server::<T::Owned>,
+            #[cfg(feature = "hydrate")]
+            hydrate_async: hydrate_async::<T::Owned>,
             value: Erased::new(value),
         }
     }
@@ -557,6 +595,34 @@ impl RenderHtml for AnyView {
         }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        #[cfg(feature = "hydrate")]
+        {
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            let state =
+                (self.hydrate_async)(self.value, cursor, position).await;
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            state
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            _ = cursor;
+            _ = position;
+            panic!(
+                "You are trying to hydrate AnyView without the `hydrate` \
+                 feature enabled."
+            );
+        }
+    }
+
     fn html_len(&self) -> usize {
         #[cfg(feature = "ssr")]
         {
@@ -708,6 +774,22 @@ impl RenderHtml for AnyViewWithAttrs {
         for attr in self.attrs {
             for el in &elements {
                 attrs.push(attr.clone().hydrate::<FROM_SERVER>(el));
+            }
+        }
+        AnyViewWithAttrsState { view, attrs }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let view = self.view.hydrate_async(cursor, position).await;
+        let elements = view.elements();
+        let mut attrs = Vec::with_capacity(elements.len() * self.attrs.len());
+        for attr in self.attrs {
+            for el in &elements {
+                attrs.push(attr.clone().hydrate::<true>(el));
             }
         }
         AnyViewWithAttrsState { view, attrs }
