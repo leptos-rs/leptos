@@ -1,6 +1,6 @@
 extend = [
     { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/cargo-leptos-webdriver-test.toml" },
+    { path = "../cargo-make/cargo-leptos-split-webdriver-test.toml" },
 ]
 
 [env]
