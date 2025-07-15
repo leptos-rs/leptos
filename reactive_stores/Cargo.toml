@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 guardian = { workspace = true, default-features = true }
-itertools = { workspace = true , default-features = true }
+itertools = { workspace = true, default-features = true }
 or_poisoned = { workspace = true }
 paste = { workspace = true, default-features = true }
 reactive_graph = { workspace = true }
@@ -21,7 +21,10 @@ dashmap = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio = { features = [
+	"rt-multi-thread",
+	"macros",
+], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_graph = { workspace = true, features = ["effects"] }

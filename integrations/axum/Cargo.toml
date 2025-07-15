@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
-version = "0.8.2"
+version = "0.8.3"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -13,7 +13,7 @@ any_spawner = { workspace = true, features = ["tokio"] }
 hydration_context = { workspace = true }
 axum = { default-features = false, features = [
   "matched-path",
-] , workspace = true }
+], workspace = true }
 dashmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 leptos = { workspace = true, features = ["nonce", "ssr"] }
@@ -24,14 +24,17 @@ leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 tachys = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-tokio = { default-features = false , workspace = true }
-tower = { features = ["util"] , workspace = true, default-features = true }
+tokio = { default-features = false, workspace = true }
+tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }
-tracing = { optional = true , workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
 axum = { workspace = true, default-features = true }
-tokio = { features = ["net", "rt-multi-thread"] , workspace = true, default-features = true }
+tokio = { features = [
+  "net",
+  "rt-multi-thread",
+], workspace = true, default-features = true }
 
 [features]
 wasm = []
