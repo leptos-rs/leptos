@@ -339,15 +339,13 @@ function patch(json) {
           node: walker.currentNode,
         });
       } else if (walker.currentNode.nodeType == Node.COMMENT_NODE) {
-        if (walker.currentNode.textContent.trim().startsWith("hot-reload")) {
-          if (
-            walker.currentNode.textContent.trim().endsWith("-children|open")
-          ) {
+        if (walker.currentNode.textContent.trim().startsWith("hot-reload|")) {
+          if (walker.currentNode.textContent.trim().endsWith("|open")) {
             const startingName = walker.currentNode.textContent.trim();
             const componentName = startingName
-              .replace("-children|open")
-              .replace("hot-reload|");
-            const endingName = `hot-reload|${componentName}-children|close`;
+              .replace("|open", "")
+              .replace("hot-reload|", "");
+            const endingName = `hot-reload|${componentName}|close`;
             let start = walker.currentNode;
             let depth = 1;
 
