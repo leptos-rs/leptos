@@ -107,7 +107,7 @@ pub fn ViewB() -> impl IntoView {
             "#
         })
         .await;
-        deserialize_comments(&data).await
+        deserialize_comments(data).await
     });
     view! {
         <p id="page">"View B"</p>
