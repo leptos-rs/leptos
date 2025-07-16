@@ -3,6 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use proc_macro_error2::abort;
 use quote::quote;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use syn::{parse_macro_input, spanned::Spanned, ItemFn};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
@@ -29,10 +30,22 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         )
     });
 
+    let unique_name = {
+        let span = proc_macro::Span::call_site();
+        let location =
+            (span.start().line(), span.start().column(), span.file());
+
+        let mut hasher = DefaultHasher::new();
+        location.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Ident::new(&format!("{converted_name}_{hash}"), converted_name.span())
+    };
+
     let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
     if is_wasm {
         quote! {
-            #[::leptos::wasm_split::wasm_split(#converted_name)]
+            #[::leptos::wasm_split::wasm_split(#unique_name)]
             #fun
         }
     } else {
