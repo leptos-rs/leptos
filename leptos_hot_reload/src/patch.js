@@ -1,4 +1,4 @@
-console.log("[HOT RELOADING] Connected to server.\n\nNote: `cargo-leptos watch --hot-reload` only works with the `nightly` feature enabled on Leptos.");
+console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
   try {
     const views = JSON.parse(json);
