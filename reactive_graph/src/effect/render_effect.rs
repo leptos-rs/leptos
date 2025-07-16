@@ -164,7 +164,7 @@ where
 
         #[cfg(not(feature = "effects"))]
         {
-            let _ = initial_value;
+            drop(initial_value);
             let _ = owner;
             let _ = &mut rx;
             let _ = &mut fun;
