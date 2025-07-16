@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        toolchain: [stable, nightly-2025-04-16]
+        toolchain: [stable, nightly-2025-07-16]
         erased_mode: [true, false]
     steps:
       - name: Free Disk Space
