@@ -16,6 +16,13 @@ async fn i_see_the_page_is(world: &mut AppWorld, text: String) -> Result<()> {
     Ok(())
 }
 
+#[then(regex = r"^I see the result is (.*)$")]
+async fn i_see_the_result_is(world: &mut AppWorld, text: String) -> Result<()> {
+    let client = &world.client;
+    check::result_is(client, &text).await?;
+    Ok(())
+}
+
 #[then(regex = r"^I see the navbar$")]
 async fn i_see_the_navbar(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;

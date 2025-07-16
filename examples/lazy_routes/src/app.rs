@@ -1,9 +1,9 @@
-use leptos::prelude::*;
+use leptos::{prelude::*, task::spawn_local};
 use leptos_router::{
     components::{Route, Router, Routes},
     lazy_route, Lazy, LazyRoute, StaticSegment,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -54,7 +54,25 @@ pub fn App() -> impl IntoView {
 #[component]
 pub fn ViewA() -> impl IntoView {
     leptos::logging::log!("View A");
-    view! { <p id="page">"View A"</p> }
+    let result = RwSignal::new("Click a button to see the result".to_string());
+
+    view! {
+        <p id="page">"View A"</p>
+        <pre id="result">{result}</pre>
+        <button id="First" on:click=move |_| spawn_local(async move { result.set(first_value().await); })>"First"</button>
+        <button id="Second" on:click=move |_| spawn_local(async move { result.set(second_value().await); })>"Second"</button>
+        // test to make sure duplicate names in different scopes can be used
+        <button id="Third" on:click=move |_| {
+            #[lazy]
+            pub async fn second_value() -> String {
+                "Third value.".to_string()
+            }
+
+            spawn_local(async move {
+                result.set(second_value().await);
+            });
+        }>"Third"</button>
+    }
 }
 
 // View B: lazy-loaded route with lazy-loaded data
@@ -205,4 +223,38 @@ impl LazyRoute for ViewC {
         }
         .into_any()
     }
+}
+
+// When two functions have shared code, that shared code will be split out automatically
+// into an additional file. For example, the shared serde code here will be split into a single file,
+// and then loaded lazily once when the first of the two functions is called
+
+#[lazy]
+pub async fn first_value() -> String {
+    #[derive(Serialize)]
+    struct FirstValue {
+        a: String,
+        b: i32,
+    }
+
+    serde_json::to_string(&FirstValue {
+        a: "First Value".into(),
+        b: 1,
+    })
+    .unwrap()
+}
+
+#[lazy]
+pub async fn second_value() -> String {
+    #[derive(Serialize)]
+    struct SecondValue {
+        a: String,
+        b: i32,
+    }
+
+    serde_json::to_string(&SecondValue {
+        a: "Second Value".into(),
+        b: 2,
+    })
+    .unwrap()
 }

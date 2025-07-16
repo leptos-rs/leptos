@@ -27,6 +27,14 @@ async fn i_select_the_link(world: &mut AppWorld, text: String) -> Result<()> {
     Ok(())
 }
 
+#[when(regex = "^I click the button (.*)$")]
+async fn i_click_the_button(world: &mut AppWorld, id: String) -> Result<()> {
+    let client = &world.client;
+    action::click_button(client, &id).await?;
+
+    Ok(())
+}
+
 #[when(expr = "I select the following links")]
 async fn i_select_the_following_links(
     world: &mut AppWorld,
