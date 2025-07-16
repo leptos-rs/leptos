@@ -534,14 +534,12 @@ where
                 let (children, fallback) = if errors_empty.get() {
                     (children.hydrate_async(&cursor, &position).await, None)
                 } else {
-                    (
-                        children.build(),
-                        Some(
-                            (fallback_fn.lock().or_poisoned())(errors.clone())
-                                .hydrate_async(&cursor, &position)
-                                .await,
-                        ),
-                    )
+                    let children = children.build();
+                    let fallback =
+                        (fallback_fn.lock().or_poisoned())(errors.clone());
+                    let fallback =
+                        fallback.hydrate_async(&cursor, &position).await;
+                    (children, Some(fallback))
                 };
 
                 ErrorBoundaryViewState { children, fallback }
