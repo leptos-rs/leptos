@@ -1106,6 +1106,7 @@ mod tests {
     }
 
     #[derive(Debug, Store)]
+    #[allow(dead_code)]
     pub struct StructWithOption {
         opt_field: Option<Todo>,
     }
