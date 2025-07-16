@@ -1105,6 +1105,12 @@ mod tests {
         assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
+    #[derive(Debug, Store)]
+    #[allow(dead_code)]
+    pub struct StructWithOption {
+        opt_field: Option<Todo>,
+    }
+
     // regression test for https://github.com/leptos-rs/leptos/issues/3523
     #[tokio::test]
     async fn notifying_all_descendants() {
