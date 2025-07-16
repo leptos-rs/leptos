@@ -9,6 +9,12 @@ pub async fn page_name_is(client: &Client, expected_text: &str) -> Result<()> {
     Ok(())
 }
 
+pub async fn result_is(client: &Client, expected_text: &str) -> Result<()> {
+    let actual = find::text_at_id(client, "result").await?;
+    assert_eq!(&actual, expected_text);
+    Ok(())
+}
+
 pub async fn navigating_appears(client: &Client) -> Result<()> {
     let actual = find::text_at_id(client, "navigating").await?;
     assert_eq!(&actual, "Navigating...");
