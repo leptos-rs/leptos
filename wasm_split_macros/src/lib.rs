@@ -64,7 +64,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
     quote! {
         #wrapper_sig {
             thread_local! {
-                static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = unsafe { ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident) };
+                static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident);
             }
 
             #[link(wasm_import_module = "/pkg/__wasm_split.js")]

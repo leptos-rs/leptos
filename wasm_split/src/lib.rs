@@ -19,7 +19,7 @@ pub struct LazySplitLoader {
 }
 
 impl LazySplitLoader {
-    pub unsafe fn new(load: LoadFn) -> Self {
+    pub fn new(load: LoadFn) -> Self {
         Self {
             lazy: Rc::pin(Lazy::new(SplitLoaderFuture::new(SplitLoader::new(
                 load,
