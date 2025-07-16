@@ -55,7 +55,7 @@ pub fn console_log(s: &str) {
 }
 
 /// Log a warning to the console (in the browser)
-/// or via `println!()` (if not in the browser).
+/// or via `eprintln!()` (if not in the browser).
 pub fn console_warn(s: &str) {
     if log_to_stdout() {
         eprintln!("{s}");
@@ -65,7 +65,7 @@ pub fn console_warn(s: &str) {
 }
 
 /// Log an error to the console (in the browser)
-/// or via `println!()` (if not in the browser).
+/// or via `eprintln!()` (if not in the browser).
 #[inline(always)]
 pub fn console_error(s: &str) {
     if log_to_stdout() {
