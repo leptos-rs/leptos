@@ -1,3 +1,4 @@
+console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
   try {
     const views = JSON.parse(json);
