@@ -32,8 +32,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
     let unique_name = {
         let span = proc_macro::Span::call_site();
-        let location =
-            (span.start().line(), span.start().column(), span.file());
+        let location = (span.line(), span.start().column(), span.file());
 
         let mut hasher = DefaultHasher::new();
         location.hash(&mut hasher);
