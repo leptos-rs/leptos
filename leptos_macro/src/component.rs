@@ -552,10 +552,13 @@ impl ToTokens for Model {
                         #hydrate_fn_inner
                     }
 
-                    #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
+                    #[::leptos::wasm_bindgen::prelude::wasm_bindgen(
+                        wasm_bindgen = ::leptos::wasm_bindgen,
+                        wasm_bindgen_futures = ::leptos::__reexports::wasm_bindgen_futures
+                    )]
                     #[allow(non_snake_case)]
-                    pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
-                        ::leptos::task::spawn_local(#outer_name(el))
+                    pub async fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                        #outer_name(el).await
                     }
                 }
             } else {

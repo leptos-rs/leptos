@@ -346,3 +346,8 @@ pub use wasm_bindgen;
 pub use wasm_split;
 #[doc(hidden)]
 pub use web_sys;
+
+#[doc(hidden)]
+pub mod __reexports {
+    pub use wasm_bindgen_futures;
+}

@@ -24,14 +24,14 @@ leptos_hot_reload = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_server = { workspace = true, features = ["tachys"] }
 leptos_config = { workspace = true }
-leptos-spin-macro = { optional = true , workspace = true, default-features = true }
+leptos-spin-macro = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = { workspace = true, default-features = true }
-rand = { optional = true , workspace = true, default-features = true }
+rand = { optional = true, workspace = true, default-features = true }
 # NOTE: While not used directly, `getrandom`'s `wasm_js` feature is needed when `rand` is used on WASM to
 #       avoid a compilation error
-getrandom = { optional = true , workspace = true, default-features = true }
+getrandom = { optional = true, workspace = true, default-features = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = { workspace = true, default-features = true }
 tachys = { workspace = true, features = [
@@ -52,6 +52,7 @@ web-sys = { features = [
   "ShadowRootMode",
 ], workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, default-features = true }
+wasm-bindgen-futures = { workspace = true, default-features = true }
 serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
@@ -103,7 +104,10 @@ delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
 
 [dev-dependencies]
-tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio = { features = [
+  "rt-multi-thread",
+  "macros",
+], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 
