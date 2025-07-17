@@ -19,7 +19,8 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
     );
 
     let load_module_ident = format_ident!("__wasm_split_load_{module_ident}");
-    let split_loader_ident = format_ident!("__wasm_split_loader_{unique_identifier}");
+    let split_loader_ident =
+        format_ident!("__wasm_split_loader_{unique_identifier}");
     let impl_import_ident = format_ident!(
         "__wasm_split_00{module_ident}00_import_{unique_identifier}_{name}"
     );
@@ -93,7 +94,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
             unsafe { #impl_import_ident( #(#args),* ) }
         }
 
-        #[doc(hidden)] 
+        #[doc(hidden)]
         #[allow(non_snake_case)]
         pub async fn #preload_name() {
             ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
