@@ -67,7 +67,7 @@ impl Url {
     }
 
     pub fn hash(&self) -> &str {
-        #[cfg(feature = "ssr")]
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
         {
             #[cfg(feature = "tracing")]
             tracing::warn!(
@@ -82,7 +82,7 @@ impl Url {
     }
 
     pub fn hash_mut(&mut self) -> &mut String {
-        #[cfg(feature = "ssr")]
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
         {
             #[cfg(feature = "tracing")]
             tracing::warn!(
