@@ -108,9 +108,8 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        let vm = if cfg!(debug_assertions)
-            && option_env!("LEPTOS_WATCH").is_some()
-        {
+        #[cfg(debug_assertions)]
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
             self.view_marker.to_owned()
         } else {
             None
@@ -145,9 +144,8 @@ impl<T: RenderHtml> RenderHtml for View<T> {
     ) where
         Self: Sized,
     {
-        let vm = if cfg!(debug_assertions)
-            && option_env!("LEPTOS_WATCH").is_some()
-        {
+        #[cfg(debug_assertions)]
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
             self.view_marker.to_owned()
         } else {
             None
