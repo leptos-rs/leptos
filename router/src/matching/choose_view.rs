@@ -32,7 +32,7 @@ where
     }
 
     async fn preload(&self) {
-        T::data().view().await;
+        T::preload().await;
     }
 }
 
@@ -40,6 +40,10 @@ pub trait LazyRoute: Send + 'static {
     fn data() -> Self;
 
     fn view(self) -> impl Future<Output = AnyView>;
+
+    fn preload() -> impl Future<Output = ()> {
+        async {}
+    }
 }
 
 #[derive(Debug)]
