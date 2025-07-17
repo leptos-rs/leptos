@@ -564,6 +564,77 @@ where
         }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        // codegen optimisation:
+        fn inner_1(
+            cursor: &Cursor,
+            position: &PositionState,
+            tag_name: &str,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: &'static std::panic::Location<'static>,
+        ) -> crate::renderer::types::Element {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            {
+                set_currently_hydrating(Some(defined_at));
+            }
+
+            let curr_position = position.get();
+            if curr_position == Position::FirstChild {
+                cursor.child();
+            } else if curr_position != Position::Current {
+                cursor.sibling();
+            }
+            crate::renderer::types::Element::cast_from(cursor.current())
+                .unwrap_or_else(|| {
+                    failed_to_cast_element(tag_name, cursor.current())
+                })
+        }
+        let el = inner_1(
+            cursor,
+            position,
+            E::TAG,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            self.defined_at,
+        );
+
+        let attrs = self.attributes.hydrate::<true>(&el);
+
+        // hydrate children
+        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+            None
+        } else {
+            position.set(Position::FirstChild);
+            Some(self.children.hydrate_async(cursor, position).await)
+        };
+
+        // codegen optimisation:
+        fn inner_2(
+            cursor: &Cursor,
+            position: &PositionState,
+            el: &crate::renderer::types::Element,
+        ) {
+            // go to next sibling
+            cursor.set(
+                <crate::renderer::types::Element as AsRef<
+                    crate::renderer::types::Node,
+                >>::as_ref(el)
+                .clone(),
+            );
+            position.set(Position::NextChild);
+        }
+        inner_2(cursor, position, &el);
+
+        ElementState {
+            el,
+            attrs,
+            children,
+        }
+    }
+
     fn into_owned(self) -> Self::Owned {
         HtmlElement {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
