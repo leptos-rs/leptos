@@ -10,13 +10,16 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let name = &item_fn.sig.ident;
 
+    let preload_name =
+        Ident::new(&format!("__preload_{}", item_fn.sig.ident), name.span());
+
     let unique_identifier = base16::encode_lower(
         &sha2::Sha256::digest(format!("{name} {span:?}", span = name.span()))
             [..16],
     );
 
     let load_module_ident = format_ident!("__wasm_split_load_{module_ident}");
-    let split_loader_ident = format_ident!("__wasm_split_loader");
+    let split_loader_ident = format_ident!("__wasm_split_loader_{unique_identifier}");
     let impl_import_ident = format_ident!(
         "__wasm_split_00{module_ident}00_import_{unique_identifier}_{name}"
     );
@@ -62,23 +65,26 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
     let stmts = &item_fn.block.stmts;
 
     quote! {
+        thread_local! {
+            static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident);
+        }
+
+        #[link(wasm_import_module = "/pkg/__wasm_split.js")]
+        extern "C" {
+            #[no_mangle]
+            fn #load_module_ident (callback: unsafe extern "C" fn(*const ::std::ffi::c_void, bool), data: *const ::std::ffi::c_void) -> ();
+
+            #[allow(improper_ctypes)]
+            #[allow(non_snake_case)]
+            #[no_mangle]
+            #import_sig;
+        }
+
+        #[allow(non_snake_case)]
         #wrapper_sig {
-            thread_local! {
-                static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident);
-            }
-
-            #[link(wasm_import_module = "/pkg/__wasm_split.js")]
-            extern "C" {
-                #[no_mangle]
-                fn #load_module_ident (callback: unsafe extern "C" fn(*const ::std::ffi::c_void, bool), data: *const ::std::ffi::c_void) -> ();
-
-                #[allow(improper_ctypes)]
-                #[no_mangle]
-                #import_sig;
-            }
-
             #(#attrs)*
             #[allow(improper_ctypes_definitions)]
+            #[allow(non_snake_case)]
             #[no_mangle]
             pub extern "C" #export_sig {
                 #(#stmts)*
@@ -86,6 +92,12 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
 
             ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
             unsafe { #impl_import_ident( #(#args),* ) }
+        }
+
+        #[doc(hidden)] 
+        #[allow(non_snake_case)]
+        pub async fn #preload_name() {
+            ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
         }
     }
     .into()
