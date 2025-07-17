@@ -141,15 +141,14 @@ where
                 }
 
                 let mut view = Box::pin(owner.with(|| {
-                    ScopedFuture::new({
-                        let url = url.clone();
-                        let matched = matched.clone();
-                        async move {
-                            provide_context(params_memo);
-                            provide_context(url);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            OwnedView::new(view.choose().await)
-                        }
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    let data = view.data();
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose(data).await)
                     })
                 }));
 
@@ -292,24 +291,26 @@ where
                     .map(|nav| nav.is_back().get_untracked())
                     .unwrap_or(false);
                 Executor::spawn_local(owner.with(|| {
+                    provide_context(url);
+                    provide_context(params_memo);
+                    provide_context(Matched(ArcMemo::from(new_matched)));
+
                     ScopedFuture::new({
                         let state = Rc::clone(state);
                         async move {
-                            provide_context(url);
-                            provide_context(params_memo);
-                            provide_context(Matched(ArcMemo::from(
-                                new_matched,
-                            )));
                             let view = OwnedView::new(
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
-                                    let value =
-                                        AsyncTransition::run(|| view.choose())
-                                            .await;
+                                    let value = AsyncTransition::run(|| {
+                                        let data = view.data();
+                                        view.choose(data)
+                                    })
+                                    .await;
                                     set_is_routing.set(false);
                                     value
                                 } else {
-                                    view.choose().await
+                                    let data = view.data();
+                                    view.choose(data).await
                                 },
                             );
 
@@ -472,6 +473,14 @@ impl RenderHtml for MatchedRoute {
         self.1.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.1.hydrate_async(cursor, position).await
+    }
+
     fn into_owned(self) -> Self::Owned {
         self
     }
@@ -513,12 +522,15 @@ where
                 let (view, _) = new_match.into_view_and_child();
                 let view = owner
                     .with(|| {
-                        ScopedFuture::new(async move {
-                            provide_context(url);
-                            provide_context(params_memo);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            view.choose().await
-                        })
+                        provide_context(url);
+                        provide_context(params_memo);
+                        provide_context(Matched(ArcMemo::from(matched)));
+
+                        let data = view.data();
+
+                        ScopedFuture::new(
+                            async move { view.choose(data).await },
+                        )
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
@@ -696,15 +708,14 @@ where
                 }
 
                 let mut view = Box::pin(owner.with(|| {
-                    ScopedFuture::new({
-                        let url = url.clone();
-                        let matched = matched.clone();
-                        async move {
-                            provide_context(params_memo);
-                            provide_context(url);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            OwnedView::new(view.choose().await)
-                        }
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    let data = view.data();
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose(data).await)
                     })
                 }));
 
@@ -795,15 +806,14 @@ where
                 }
 
                 let view = Box::pin(owner.with(|| {
-                    ScopedFuture::new({
-                        let url = url.clone();
-                        let matched = matched.clone();
-                        async move {
-                            provide_context(params_memo);
-                            provide_context(url);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            OwnedView::new(view.choose().await)
-                        }
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    let data = view.data();
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose(data).await)
                     })
                 }));
 

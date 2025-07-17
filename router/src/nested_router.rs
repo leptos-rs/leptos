@@ -689,6 +689,10 @@ where
             let url = url.clone();
             let matched = matched.clone();
             async move {
+                provide_context(params.clone());
+                provide_context(url.clone());
+                provide_context(matched.clone());
+                let mut data = Some(view.data());
                 view.preload().await;
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
@@ -702,7 +706,9 @@ where
                         let matched = matched.clone();
                         owner_where_used.with({
                             let matched = matched.clone();
-                            move || {
+                            || {
+                                let data =
+                                    data.take().unwrap_or_else(|| view.data());
                                 let child = child.clone();
                                 Suspend::new(Box::pin(async move {
                                     provide_context(child.clone());
@@ -710,7 +716,7 @@ where
                                     provide_context(url.clone());
                                     provide_context(matched.clone());
                                     let view = SendWrapper::new(
-                                        ScopedFuture::new(view.choose()),
+                                        ScopedFuture::new(view.choose(data)),
                                     );
                                     let view = view.await;
                                     let view = MatchedRoute(
@@ -832,8 +838,6 @@ where
                         })
                     };
 
-                    // assign a new owner, so that contexts and signals owned by the previous route
-                    // in this outlet can be dropped
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
                     full_loaders.push(full_rx);
@@ -850,7 +854,6 @@ where
                         let route_owner = Arc::clone(&current.owner);
                         let child = outlet.child.clone();
                         async move {
-                            view.preload().await;
                             let child = child.clone();
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
@@ -876,11 +879,18 @@ where
                                                 ScopedFuture::new(async move {
                                                     if set_is_routing {
                                                         AsyncTransition::run(
-                                                            || view.choose(),
+                                                            || {
+                                                                let data =
+                                                                    view.data();
+                                                                view.choose(
+                                                                    data,
+                                                                )
+                                                            },
                                                         )
                                                         .await
                                                     } else {
-                                                        view.choose().await
+                                                        let data = view.data();
+                                                        view.choose(data).await
                                                     }
                                                 })
                                             }),
