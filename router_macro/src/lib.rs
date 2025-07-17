@@ -8,7 +8,9 @@ use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
 use proc_macro_error2::{abort, proc_macro_error};
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, Ident, ImplItem, ItemImpl, Path, Type, TypePath};
+use syn::{
+    spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
+};
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
 const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
@@ -268,12 +270,22 @@ fn lazy_route_impl(
     match item {
         None => abort!(im.span(), "must contain a fn called `view`"),
         Some(fun) => {
+            let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
+                abort!(fun.sig.span(), "must have an argument")
+            });
+            let FnArg::Typed(first_arg) = first_arg else {
+                abort!(
+                    first_arg.span(),
+                    "this must be a typed argument like `this: Self`"
+                )
+            };
+            let first_arg_pat = &*first_arg.pat;
             let body = std::mem::replace(
                 &mut fun.block,
                 syn::parse(
                     quote! {
                         {
-                            #lazy_view_ident(self).await
+                            #lazy_view_ident(#first_arg_pat).await
                         }
                     }
                     .into(),
@@ -283,7 +295,7 @@ fn lazy_route_impl(
 
             return quote! {
                 #[::leptos::lazy]
-                async fn #lazy_view_ident(this: #self_ty) -> ::leptos::prelude::AnyView {
+                async fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
                 }
 

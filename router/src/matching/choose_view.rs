@@ -6,9 +6,13 @@ pub trait ChooseView
 where
     Self: Send + Clone + 'static,
 {
-    fn choose(self) -> impl Future<Output = AnyView>;
+    type Data: Send + 'static;
+
+    fn choose(self, data: Self::Data) -> impl Future<Output = AnyView>;
 
     fn preload(&self) -> impl Future<Output = ()>;
+
+    fn data(&self) -> Self::Data;
 }
 
 impl<F, View> ChooseView for F
@@ -16,30 +20,40 @@ where
     F: Fn() -> View + Send + Clone + 'static,
     View: IntoAny,
 {
-    async fn choose(self) -> AnyView {
+    type Data = ();
+
+    async fn choose(self, _data: ()) -> AnyView {
         self().into_any()
     }
 
     async fn preload(&self) {}
+
+    fn data(&self) -> Self::Data {}
 }
 
 impl<T> ChooseView for Lazy<T>
 where
     T: LazyRoute,
 {
-    async fn choose(self) -> AnyView {
-        T::data().view().await.into_any()
+    type Data = T;
+
+    async fn choose(self, data: T) -> AnyView {
+        T::view(data).await
     }
 
     async fn preload(&self) {
         T::preload().await;
+    }
+
+    fn data(&self) -> Self::Data {
+        T::data()
     }
 }
 
 pub trait LazyRoute: Send + 'static {
     fn data() -> Self;
 
-    fn view(self) -> impl Future<Output = AnyView>;
+    fn view(this: Self) -> impl Future<Output = AnyView>;
 
     fn preload() -> impl Future<Output = ()> {
         async {}
@@ -72,11 +86,15 @@ impl<T> Default for Lazy<T> {
 }
 
 impl ChooseView for () {
-    async fn choose(self) -> AnyView {
+    type Data = ();
+
+    async fn choose(self, _data: ()) -> AnyView {
         ().into_any()
     }
 
     async fn preload(&self) {}
+
+    fn data(&self) -> Self::Data {}
 }
 
 impl<A, B> ChooseView for Either<A, B>
@@ -84,10 +102,15 @@ where
     A: ChooseView,
     B: ChooseView,
 {
-    async fn choose(self) -> AnyView {
-        match self {
-            Either::Left(f) => f.choose().await.into_any(),
-            Either::Right(f) => f.choose().await.into_any(),
+    type Data = Either<A::Data, B::Data>;
+
+    async fn choose(self, data: Self::Data) -> AnyView {
+        match (self, data) {
+            (Either::Left(f), Either::Left(d)) => f.choose(d).await.into_any(),
+            (Either::Right(f), Either::Right(d)) => {
+                f.choose(d).await.into_any()
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -95,6 +118,13 @@ where
         match self {
             Either::Left(f) => f.preload().await,
             Either::Right(f) => f.preload().await,
+        }
+    }
+
+    fn data(&self) -> Self::Data {
+        match self {
+            Either::Left(f) => Either::Left(f.data()),
+            Either::Right(f) => Either::Right(f.data()),
         }
     }
 }
@@ -105,15 +135,26 @@ macro_rules! tuples {
         where
             $($ty: ChooseView,)*
         {
-            async fn choose(self ) -> AnyView {
-                match self {
-                    $($either::$ty(f) => f.choose().await.into_any(),)*
+            type Data = $either<$($ty::Data),*>;
+
+            async fn choose(self, data: Self::Data) -> AnyView {
+                match (self, data) {
+                    $(
+                        ($either::$ty(f), $either::$ty(d)) => f.choose(d).await.into_any(),
+                    )*
+                    _ => unreachable!()
                 }
             }
 
             async fn preload(&self) {
                 match self {
                     $($either::$ty(f) => f.preload().await,)*
+                }
+            }
+
+            fn data(&self) -> Self::Data {
+                match self {
+                    $($either::$ty(f) => $either::$ty(f.data()),)*
                 }
             }
         }

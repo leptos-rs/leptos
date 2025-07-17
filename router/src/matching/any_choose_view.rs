@@ -7,7 +7,8 @@ use tachys::{erased::Erased, view::any_view::AnyView};
 pub struct AnyChooseView {
     value: Erased,
     clone: fn(&Erased) -> AnyChooseView,
-    choose: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView>>>,
+    choose: fn(Erased, Erased) -> Pin<Box<dyn Future<Output = AnyView>>>,
+    data: fn(&Erased) -> Erased,
     preload: for<'a> fn(&'a Erased) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
 }
 
@@ -25,8 +26,12 @@ impl AnyChooseView {
 
         fn choose<T: ChooseView>(
             value: Erased,
+            data: Erased,
         ) -> Pin<Box<dyn Future<Output = AnyView>>> {
-            value.into_inner::<T>().choose().boxed_local()
+            value
+                .into_inner::<T>()
+                .choose(data.into_inner::<T::Data>())
+                .boxed_local()
         }
 
         fn preload<'a, T: ChooseView>(
@@ -35,21 +40,32 @@ impl AnyChooseView {
             value.get_ref::<T>().preload().boxed_local()
         }
 
+        fn data<'a, T: ChooseView>(value: &'a Erased) -> Erased {
+            Erased::new(value.get_ref::<T>().data())
+        }
+
         Self {
             value: Erased::new(value),
             clone: clone::<T>,
             choose: choose::<T>,
+            data: data::<T>,
             preload: preload::<T>,
         }
     }
 }
 
 impl ChooseView for AnyChooseView {
-    async fn choose(self) -> AnyView {
-        (self.choose)(self.value).await
+    type Data = Erased;
+
+    async fn choose(self, data: Self::Data) -> AnyView {
+        (self.choose)(self.value, data).await
     }
 
     async fn preload(&self) {
         (self.preload)(&self.value).await;
+    }
+
+    fn data(&self) -> Self::Data {
+        (self.data)(&self.value)
     }
 }
