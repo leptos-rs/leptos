@@ -198,7 +198,7 @@ impl LazyRoute for ViewC {
         }
     }
 
-    async fn view(self) -> AnyView {
+    async fn view(this: Self) -> AnyView {
         let albums = move || {
             Suspend::new(async move {
                 this.data
