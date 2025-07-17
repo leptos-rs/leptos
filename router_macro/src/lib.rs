@@ -293,14 +293,14 @@ fn lazy_route_impl(
                 .unwrap(),
             );
 
-            return quote! {
+            quote! {
                 #[::leptos::lazy]
                 async fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
                 }
 
                 #im
-            }.into();
+            }.into()
         }
     }
 }
