@@ -294,6 +294,7 @@ fn lazy_route_impl(
             );
 
             quote! {
+                #[allow(non_snake_case)]
                 #[::leptos::lazy]
                 async fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
