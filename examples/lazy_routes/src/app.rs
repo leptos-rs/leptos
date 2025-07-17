@@ -1,6 +1,6 @@
 use leptos::{prelude::*, task::spawn_local};
 use leptos_router::{
-    components::{Route, Router, Routes},
+    components::{Outlet, ParentRoute, Route, Router, Routes},
     lazy_route, Lazy, LazyRoute, StaticSegment,
 };
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,8 @@ pub fn App() -> impl IntoView {
         <nav id="nav" style="width: 100%">
             <a href="/">"A"</a> " | "
             <a href="/b">"B"</a> " | "
-            <a href="/c">"C"</a>
+            <a href="/c">"C"</a> " | "
+            <a href="/d">"D"</a>
             <span style="float: right" id="navigating">
                 {move || is_routing.get().then_some("Navigating...")}
             </span>
@@ -42,6 +43,10 @@ pub fn App() -> impl IntoView {
                 <Route path=StaticSegment("") view=ViewA/>
                 <Route path=StaticSegment("b") view=ViewB/>
                 <Route path=StaticSegment("c") view={Lazy::<ViewC>::new()}/>
+                // you can nest lazy routes, and there data and views will all load concurrently
+                <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
+                    <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
+                </ParentRoute>
             </Routes>
         </Router>
     }
@@ -257,4 +262,85 @@ pub async fn second_value() -> String {
         b: 2,
     })
     .unwrap()
+}
+
+struct ViewD {
+    data: Resource<Result<Vec<i32>, ServerFnError>>,
+}
+
+#[lazy_route]
+impl LazyRoute for ViewD {
+    fn data() -> Self {
+        Self {
+            data: Resource::new(|| (), |_| d_data()),
+        }
+    }
+
+    async fn view(this: Self) -> AnyView {
+        let items = move || {
+            Suspend::new(async move {
+                this.data
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|item| view! { <li>{item}</li> })
+                    .collect::<Vec<_>>()
+            })
+        };
+        view! {
+            <p id="page">"View D"</p>
+            <hr/>
+            <Suspense fallback=|| view! { <p id="loading">"Loading..."</p> }>
+                <ul>{items}</ul>
+            </Suspense>
+            <Outlet/>
+        }
+        .into_any()
+    }
+}
+
+#[server]
+async fn d_data() -> Result<Vec<i32>, ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(vec![1, 1, 2, 3, 5, 8, 13])
+}
+
+struct ViewE {
+    data: Resource<Result<Vec<String>, ServerFnError>>,
+}
+
+#[lazy_route]
+impl LazyRoute for ViewE {
+    fn data() -> Self {
+        Self {
+            data: Resource::new(|| (), |_| e_data()),
+        }
+    }
+
+    async fn view(this: Self) -> AnyView {
+        let items = move || {
+            Suspend::new(async move {
+                this.data
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|item| view! { <li>{item}</li> })
+                    .collect::<Vec<_>>()
+            })
+        };
+        view! {
+            <p id="page">"View E"</p>
+            <hr/>
+            <Suspense fallback=|| view! { <p id="loading">"Loading..."</p> }>
+                <ul>{items}</ul>
+            </Suspense>
+        }
+        .into_any()
+    }
+}
+
+#[server]
+async fn e_data() -> Result<Vec<String>, ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(vec!["foo".into(), "bar".into(), "baz".into()])
 }
