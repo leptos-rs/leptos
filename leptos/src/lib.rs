@@ -335,7 +335,6 @@ pub mod task {
 #[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde;
-#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde_json;
 #[cfg(feature = "tracing")]
@@ -351,3 +350,30 @@ pub use web_sys;
 pub mod __reexports {
     pub use wasm_bindgen_futures;
 }
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Default)]
+pub struct PrefetchLazyFn(
+    pub  reactive_graph::owner::ArcStoredValue<
+        std::collections::HashSet<&'static str>,
+    >,
+);
+
+#[doc(hidden)]
+pub fn prefetch_lazy_fn_on_server(id: &'static str) {
+    use crate::context::use_context;
+    use reactive_graph::traits::WriteValue;
+
+    if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
+        prefetches.0.write_value().insert(id);
+    }
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Default)]
+pub struct WasmSplitManifest(
+    pub  reactive_graph::owner::ArcStoredValue<(
+        String,
+        std::collections::HashMap<String, Vec<String>>,
+    )>,
+);
