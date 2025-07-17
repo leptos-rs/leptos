@@ -2,8 +2,6 @@
 name = "counter_isomorphic"
 version = "0.1.0"
 edition = "2021"
-# std::sync::LazyLock is stabilized in Rust version 1.80.0
-rust-version = "1.80.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
