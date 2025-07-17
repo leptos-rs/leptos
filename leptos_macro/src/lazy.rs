@@ -3,7 +3,10 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use proc_macro_error2::abort;
 use quote::quote;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    mem,
+};
 use syn::{parse_macro_input, spanned::Spanned, ItemFn};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
@@ -13,7 +16,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         None
     };
 
-    let fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
+    let mut fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy` can only be used on a function")
     });
     if fun.sig.asyncness.is_none() {
@@ -30,7 +33,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         )
     });
 
-    let unique_name = {
+    let (unique_name, unique_name_str) = {
         let span = proc_macro::Span::call_site();
         let location = (span.line(), span.start().column(), span.file());
 
@@ -38,7 +41,12 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         location.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ident::new(&format!("{converted_name}_{hash}"), converted_name.span())
+        let unique_name_str = format!("{converted_name}_{hash}");
+
+        (
+            Ident::new(&unique_name_str, converted_name.span()),
+            unique_name_str,
+        )
     };
 
     let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
@@ -48,6 +56,18 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             #fun
         }
     } else {
+        let statements = &mut fun.block.stmts;
+        let old_statements = mem::take(statements);
+        statements.push(
+            syn::parse(
+                quote! {
+                    ::leptos::prefetch_lazy_fn_on_server(#unique_name_str);
+                }
+                .into(),
+            )
+            .unwrap(),
+        );
+        statements.extend(old_statements);
         quote! { #fun }
     }
     .into()

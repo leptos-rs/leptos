@@ -44,7 +44,7 @@ tracing = { optional = true, workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
 typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
-serde_json = { optional = true, workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }
 web-sys = { features = [
   "ShadowRoot",
@@ -95,7 +95,7 @@ tracing = [
 ]
 nonce = ["base64", "rand", "dep:getrandom"]
 spin = ["leptos-spin-macro"]
-islands = ["leptos_macro/islands", "dep:serde_json"]
+islands = ["leptos_macro/islands"]
 trace-component-props = [
   "leptos_macro/trace-component-props",
   "leptos_dom/trace-component-props",
