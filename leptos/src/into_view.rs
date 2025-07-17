@@ -108,9 +108,14 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
-        let vm = self.view_marker.to_owned();
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
+        #[cfg(debug_assertions)]
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
+            self.view_marker.to_owned()
+        } else {
+            None
+        };
+
+        #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
@@ -123,7 +128,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             extra_attrs,
         );
 
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
+        #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_str(&format!("<!--hot-reload|{vm}|close-->"));
         }
@@ -139,9 +144,14 @@ impl<T: RenderHtml> RenderHtml for View<T> {
     ) where
         Self: Sized,
     {
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
-        let vm = self.view_marker.to_owned();
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
+        #[cfg(debug_assertions)]
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
+            self.view_marker.to_owned()
+        } else {
+            None
+        };
+
+        #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_sync(&format!("<!--hot-reload|{vm}|open-->"));
         }
@@ -154,7 +164,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             extra_attrs,
         );
 
-        #[cfg(all(debug_assertions, feature = "nightly", rustc_nightly))]
+        #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_sync(&format!("<!--hot-reload|{vm}|close-->"));
         }
