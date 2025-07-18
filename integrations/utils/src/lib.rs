@@ -1,9 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use futures::{
-    stream::{self, once},
-    Stream, StreamExt,
-};
+use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
     context::provide_context,
@@ -13,7 +10,7 @@ use leptos::{
     IntoView, PrefetchLazyFn, WasmSplitManifest,
 };
 use leptos_config::LeptosOptions;
-use leptos_meta::ServerMetaContextOutput;
+use leptos_meta::{Link, ServerMetaContextOutput};
 use std::{future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -65,12 +62,11 @@ pub trait ExtendResponse: Sized {
                 pending.await;
             }
 
-            let preloads = if prefetches.0.read_value().is_empty() {
-                String::new()
-            } else {
+            if !prefetches.0.read_value().is_empty() {
                 use leptos::prelude::*;
 
-                let nonce = use_nonce();
+                let nonce =
+                    use_nonce().map(|n| n.to_string()).unwrap_or_default();
                 if let Some(manifest) = use_context::<WasmSplitManifest>() {
                     let (pkg_path, manifest) = &*manifest.0.read_value();
                     let prefetches = prefetches.0.read_value();
@@ -79,40 +75,26 @@ pub trait ExtendResponse: Sized {
                         manifest.get(*key).into_iter().flatten()
                     });
 
-                    let mut buf = all_prefetches
-                        .map(|module| {
-                            view! {
-                                <link
-                                    rel="preload"
-                                    href=format!("{pkg_path}/{module}.wasm")
-                                    r#as="fetch"
-                                    type="application/wasm"
-                                    crossorigin=nonce.clone()
-                                />
-                            }
-                            .into_inner()
-                        })
-                        .collect::<Vec<_>>()
+                    for module in all_prefetches {
+                        // to_html() on leptos_meta components registers them with the meta context,
+                        // rather than returning HTML directly
+                        _ = view! {
+                            <Link
+                                rel="preload"
+                                href=format!("{pkg_path}/{module}.wasm")
+                                as_="fetch"
+                                type_="application/wasm"
+                                crossorigin=nonce.clone()
+                            />
+                        }
                         .to_html();
-                    view! {
-                        <link rel="modulepreload" href=format!("{pkg_path}/__wasm_split.js") nonce=nonce.clone()/>
                     }
-                    .into_inner()
-                    .to_html_with_buf(
-                        &mut buf,
-                        &mut Default::default(),
-                        false,
-                        false,
-                        vec![],
-                    );
-                    buf
-                } else {
-                    String::new()
+                    _ = view! {
+                        <Link rel="modulepreload" href=format!("{pkg_path}/__wasm_split.js") crossorigin=nonce/>
+                    }
+                    .to_html();
                 }
-            };
-
-            let stream =
-                Box::pin(stream::once(async move { preloads }).chain(stream));
+            }
 
             let mut stream = Box::pin(
                 meta_context.inject_meta_context(stream).await.then({
