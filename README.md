@@ -147,7 +147,7 @@ Yes, I’m sure there are. You can see from the state of our issue tracker over 
 
 This may be the big one: “production ready” implies a certain orientation to a library: that you can basically use it, without any special knowledge of its internals or ability to contribute. Everyone has this at some level in their stack: for example I (@gbj) don’t have the capacity or knowledge to contribute to something like `wasm-bindgen` at this point: I simply rely on it to work.
 
-There are several people in the community using Leptos right now for many websites at work, who have also become significant contributors. There may be missing features that you need, and you may end up building them! But, if you're willing to contribute a few missing pieces along the way, the framework is most definitely usable for production applications, especially given the ecosystem of libraries that have sprung up around it
+There are several people in the community using Leptos right now for many websites at work, who have also become significant contributors. There may be missing features that you need, and you may end up building them! But, if you're willing to contribute a few missing pieces along the way, the framework is most definitely usable for production applications, especially given the ecosystem of libraries that have sprung up around it.
 
 ### Can I use this for native GUI?
 
