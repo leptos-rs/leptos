@@ -927,7 +927,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 name = "either_of"
 version = "0.1.6"
 dependencies = [
- "paste",
+ "pastey",
  "pin-project-lite",
 ]
 
@@ -1793,7 +1793,7 @@ dependencies = [
  "leptos_server",
  "oco_ref",
  "or_poisoned",
- "paste",
+ "pastey",
  "rand",
  "reactive_graph",
  "rustc-hash 2.1.1",
@@ -2395,6 +2395,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "pastey"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3a8cb46bdc156b1c90460339ae6bfd45ba0394e5effbaa640badb4987fdc261"
+
+[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2762,7 +2768,7 @@ dependencies = [
  "itertools",
  "leptos",
  "or_poisoned",
- "paste",
+ "pastey",
  "reactive_graph",
  "reactive_stores_macro",
  "rustc-hash 2.1.1",
@@ -3554,7 +3560,7 @@ dependencies = [
  "oco_ref",
  "or_poisoned",
  "parking_lot",
- "paste",
+ "pastey",
  "reactive_graph",
  "reactive_stores",
  "rustc-hash 2.1.1",
