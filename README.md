@@ -90,28 +90,6 @@ Here are some resources for learning more about Leptos:
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
 - [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 
-## `nightly` Note
-
-Most of the examples assume you’re using `nightly` version of Rust and the `nightly` feature of Leptos. To use `nightly` Rust, you can either set your toolchain globally or on per-project basis.
-
-To set `nightly` as a default toolchain for all projects (and add the ability to compile Rust to WebAssembly, if you haven’t already):
-
-```
-rustup toolchain install nightly
-rustup default nightly
-rustup target add wasm32-unknown-unknown
-```
-
-If you'd like to use `nightly` only in your Leptos project however, add [`rust-toolchain.toml`](https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file) file with the following content:
-
-```toml
-[toolchain]
-channel = "nightly"
-targets = ["wasm32-unknown-unknown"]
-```
-
-The `nightly` feature enables the function call syntax for accessing and setting signals, as opposed to `.get()` and `.set()`. This leads to a consistent mental model in which accessing a reactive value of any kind (a signal, memo, or derived signal) is always represented as a function call. This is only possible with nightly Rust and the `nightly` feature.
-
 ## `cargo-leptos`
 
 [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
