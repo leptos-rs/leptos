@@ -41,7 +41,7 @@ impl AnyChooseView {
             value.get_ref::<T>().preload().boxed_local()
         }
 
-        fn data<'a, T: ChooseView>(value: &'a Erased) -> Erased {
+        fn data<T: ChooseView>(value: &Erased) -> Erased {
             Erased::new(value.get_ref::<T>().data())
         }
 
