@@ -136,7 +136,7 @@ pub fn HydrationScripts(
 
     let root = root.unwrap_or_default();
     view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
+        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link
             rel="preload"
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
