@@ -1,24 +1,38 @@
-use crate::api;
+use crate::api::{self, Story};
 use leptos::{either::Either, prelude::*};
 use leptos_meta::Meta;
-use leptos_router::{components::A, hooks::use_params_map};
+use leptos_router::{
+    components::A, hooks::use_params_map, lazy_route, LazyRoute,
+};
 
-#[component]
-pub fn Story() -> impl IntoView {
-    let params = use_params_map();
-    let story = Resource::new_blocking(
-        move || params.read().get("id").unwrap_or_default(),
-        move |id| async move {
-            if id.is_empty() {
-                None
-            } else {
-                api::fetch_api::<api::Story>(&api::story(&format!("item/{id}")))
+#[derive(Debug)]
+pub struct StoryRoute {
+    story: Resource<Option<Story>>,
+}
+
+#[lazy_route]
+impl LazyRoute for StoryRoute {
+    fn data() -> Self {
+        let params = use_params_map();
+        let story = Resource::new_blocking(
+            move || params.read().get("id").unwrap_or_default(),
+            move |id| async move {
+                if id.is_empty() {
+                    None
+                } else {
+                    api::fetch_api::<api::Story>(&api::story(&format!(
+                        "item/{id}"
+                    )))
                     .await
-            }
-        },
-    );
+                }
+            },
+        );
+        Self { story }
+    }
 
-    Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend::new(async move {
+    fn view(this: Self) -> AnyView {
+        let StoryRoute { story } = this;
+        Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend::new(async move {
         match story.await.clone() {
             None => Either::Left("Story not found."),
             Some(story) => {
@@ -61,7 +75,8 @@ pub fn Story() -> impl IntoView {
                 })
             }
         }
-    }))).build())
+    }))).build()).into_any()
+    }
 }
 
 #[component]
