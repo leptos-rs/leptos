@@ -270,6 +270,11 @@ fn lazy_route_impl(
     match item {
         None => abort!(im.span(), "must contain a fn called `view`"),
         Some(fun) => {
+            if let Some(a) = fun.sig.asyncness {
+                abort!(a.span(), "`view` method should not be async")
+            }
+            fun.sig.asyncness = Some(Default::default());
+
             let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
                 abort!(fun.sig.span(), "must have an argument")
             });
@@ -296,7 +301,7 @@ fn lazy_route_impl(
             quote! {
                 #[allow(non_snake_case)]
                 #[::leptos::lazy]
-                async fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
+                fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
                 }
 

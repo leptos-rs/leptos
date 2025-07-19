@@ -1,7 +1,7 @@
 use digest::Digest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Ident, ItemFn, Signature};
+use syn::{parse_macro_input, Ident, ItemFn, ReturnType, Signature};
 
 #[proc_macro_attribute]
 pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -28,16 +28,33 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
         "__wasm_split_00{module_ident}00_export_{unique_identifier}_{name}"
     );
 
-    let import_sig = Signature {
+    let mut import_sig = Signature {
         ident: impl_import_ident.clone(),
         asyncness: None,
         ..item_fn.sig.clone()
     };
-    let export_sig = Signature {
+    let mut export_sig = Signature {
         ident: impl_export_ident.clone(),
         asyncness: None,
         ..item_fn.sig.clone()
     };
+
+    let was_async = item_fn.sig.asyncness.is_some();
+    if was_async {
+        let ty = match &item_fn.sig.output {
+            ReturnType::Default => quote! { () },
+            ReturnType::Type(_, ty) => quote! { #ty },
+        };
+        let async_output = syn::parse::<ReturnType>(
+            quote! {
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = #ty>>>
+            }
+            .into(),
+        )
+        .unwrap();
+        export_sig.output = async_output.clone();
+        import_sig.output = async_output;
+    }
 
     let mut wrapper_sig = item_fn.sig;
     wrapper_sig.asyncness = Some(Default::default());
@@ -65,6 +82,18 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let stmts = &item_fn.block.stmts;
 
+    let body = if was_async {
+        quote! {
+            Box::pin(async move {
+                #(#stmts)*
+            })
+        }
+    } else {
+        quote! { #(#stmts)* }
+    };
+
+    let await_result = was_async.then(|| quote! { .await });
+
     quote! {
         thread_local! {
             static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident);
@@ -87,11 +116,11 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
             #[allow(non_snake_case)]
             #[no_mangle]
             pub extern "C" #export_sig {
-                #(#stmts)*
+                #body
             }
 
             ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
-            unsafe { #impl_import_ident( #(#args),* ) }
+            unsafe { #impl_import_ident( #(#args),* ) } #await_result
         }
 
         #[doc(hidden)]
