@@ -852,7 +852,11 @@ where
                         let child = outlet.child.clone();
                         async move {
                             let child = child.clone();
-                            view.preload().await;
+                            if set_is_routing {
+                                AsyncTransition::run(|| view.preload()).await;
+                            } else {
+                                view.preload().await;
+                            }
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let prev_owner = route_owner
