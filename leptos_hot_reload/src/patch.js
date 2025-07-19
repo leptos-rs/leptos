@@ -23,12 +23,12 @@ function patch(json) {
       }
 
       for (const [start, end] of instances) {
-        const actualChildren = childrenFromRange(
-          start.parentElement,
-          start,
-          end,
-        );
         for (const patch of patches) {
+          const actualChildren = childrenFromRange(
+            start.parentElement,
+            start,
+            end,
+          );
           const child = childAtPath(
             actualChildren.length > 1
               ? { children: actualChildren }
