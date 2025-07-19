@@ -59,11 +59,17 @@ function patch(json) {
             if (child.node) {
               child.node.replaceWith(replacement);
             } else {
-              const range = new Range();
-              range.setStartAfter(child.start);
-              range.setEndAfter(child.end);
-              range.deleteContents();
-              child.start.replaceWith(replacement);
+              if (child.children) {
+                child.children[0].node.parentElement.insertBefore(
+                  replacement,
+                  child.children[0].node,
+                );
+                for (const existingChild of child.children) {
+                  existingChild.node.parentElement.removeChild(
+                    existingChild.node,
+                  );
+                }
+              }
             }
           } else if (action.ChangeTagName) {
             const oldNode = child.node;
