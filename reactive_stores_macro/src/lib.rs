@@ -667,7 +667,7 @@ impl ToTokens for PatchModel {
 
         // read access
         tokens.extend(quote! {
-            impl #library_path::PatchField for #name #generics
+            impl #generics #library_path::PatchField for #name #generics
             {
                 fn patch_field(
                     &mut self,
