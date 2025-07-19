@@ -99,11 +99,10 @@ function patch(json) {
               child.node,
               action.AppendChildren,
             );
-            const newChildren = fromReplacementNode(
-              action.AppendChildren,
-              actualChildren,
+            const newChildren = action.AppendChildren.map((x) =>
+              fromReplacementNode(x, actualChildren),
             );
-            child.node.append(newChildren);
+            child.node.append(...newChildren);
           } else if (action.RemoveChild) {
             console.log(
               "[HOT RELOAD] > RemoveChild",
