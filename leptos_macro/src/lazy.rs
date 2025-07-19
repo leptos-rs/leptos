@@ -7,7 +7,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     mem,
 };
-use syn::{parse_macro_input, spanned::Spanned, ItemFn};
+use syn::{parse_macro_input, ItemFn};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let name = if !args.is_empty() {
@@ -19,12 +19,8 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let mut fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy` can only be used on a function")
     });
-    if fun.sig.asyncness.is_none() {
-        abort!(
-            fun.sig.asyncness.span(),
-            "`lazy` can only be used on an async function"
-        )
-    }
+
+    let was_async = fun.sig.asyncness.is_some();
 
     let converted_name = name.unwrap_or_else(|| {
         Ident::new(
@@ -56,6 +52,10 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             #fun
         }
     } else {
+        if !was_async {
+            fun.sig.asyncness = Some(Default::default());
+        }
+
         let statements = &mut fun.block.stmts;
         let old_statements = mem::take(statements);
         statements.push(

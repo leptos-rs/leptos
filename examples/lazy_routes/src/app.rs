@@ -69,7 +69,7 @@ pub fn ViewA() -> impl IntoView {
         // test to make sure duplicate names in different scopes can be used
         <button id="Third" on:click=move |_| {
             #[lazy]
-            pub async fn second_value() -> String {
+            pub fn second_value() -> String {
                 "Third value.".to_string()
             }
 
@@ -92,7 +92,7 @@ pub struct Comment {
 }
 
 #[lazy]
-async fn deserialize_comments(data: &str) -> Vec<Comment> {
+fn deserialize_comments(data: &str) -> Vec<Comment> {
     serde_json::from_str(data).unwrap()
 }
 
@@ -179,31 +179,37 @@ pub struct ViewC {
 #[lazy_route]
 impl LazyRoute for ViewC {
     fn data() -> Self {
+        // the data method itself is synchronous: it typically creates things like Resources,
+        // which are created synchronously but spawn an async data-loading task
+        // if you want further code-splitting, however, you can create a lazy function to load the data!
+        #[lazy]
+        async fn lazy_data() -> Vec<Album> {
+            gloo_timers::future::TimeoutFuture::new(250).await;
+            vec![
+                Album {
+                    user_id: 1,
+                    id: 1,
+                    title: "quidem molestiae enim".into(),
+                },
+                Album {
+                    user_id: 1,
+                    id: 2,
+                    title: "sunt qui excepturi placeat culpa".into(),
+                },
+                Album {
+                    user_id: 1,
+                    id: 3,
+                    title: "omnis laborum odio".into(),
+                },
+            ]
+        }
+
         Self {
-            data: LocalResource::new(|| async {
-                gloo_timers::future::TimeoutFuture::new(250).await;
-                vec![
-                    Album {
-                        user_id: 1,
-                        id: 1,
-                        title: "quidem molestiae enim".into(),
-                    },
-                    Album {
-                        user_id: 1,
-                        id: 2,
-                        title: "sunt qui excepturi placeat culpa".into(),
-                    },
-                    Album {
-                        user_id: 1,
-                        id: 3,
-                        title: "omnis laborum odio".into(),
-                    },
-                ]
-            }),
+            data: LocalResource::new(lazy_data),
         }
     }
 
-    async fn view(this: Self) -> AnyView {
+    fn view(this: Self) -> AnyView {
         let albums = move || {
             Suspend::new(async move {
                 this.data
@@ -235,7 +241,7 @@ impl LazyRoute for ViewC {
 // and then loaded lazily once when the first of the two functions is called
 
 #[lazy]
-pub async fn first_value() -> String {
+pub fn first_value() -> String {
     #[derive(Serialize)]
     struct FirstValue {
         a: String,
@@ -250,7 +256,7 @@ pub async fn first_value() -> String {
 }
 
 #[lazy]
-pub async fn second_value() -> String {
+pub fn second_value() -> String {
     #[derive(Serialize)]
     struct SecondValue {
         a: String,
@@ -276,7 +282,7 @@ impl LazyRoute for ViewD {
         }
     }
 
-    async fn view(this: Self) -> AnyView {
+    fn view(this: Self) -> AnyView {
         let items = move || {
             Suspend::new(async move {
                 this.data
@@ -317,7 +323,7 @@ impl LazyRoute for ViewE {
         }
     }
 
-    async fn view(this: Self) -> AnyView {
+    fn view(this: Self) -> AnyView {
         let items = move || {
             Suspend::new(async move {
                 this.data
