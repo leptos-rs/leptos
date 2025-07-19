@@ -305,7 +305,7 @@ impl LNode {
                             action: PatchAction::InsertChild {
                                 before: i,
                                 child: new[j - 1]
-                                    .to_replacement_node(&old_children),
+                                    .to_replacement_node(old_children),
                             },
                         });
                         j -= 1;
