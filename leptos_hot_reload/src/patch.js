@@ -138,24 +138,24 @@ function patch(json) {
             } else {
               console.warn("InsertChildAfter could not build children.");
             }
-            const before = children[action.InsertChild.before];
+            const beforeNode = children[action.InsertChild.before];
             console.log(
               "[HOT RELOAD] > InsertChild",
               child,
               child.node,
               action.InsertChild,
               " before ",
-              before,
+              beforeNode,
             );
-            if (!before) {
-              if (children.length) {
-                children[children.length - 1].node.after(newChild);
-              } else {
-                child.node.appendChild(newChild);
-              }
-            } else {
-              let node = before.node || before.start;
+            if (beforeNode) {
+              let node = beforeNode.node || beforeNode.start.previousSibling;
               node.parentElement.insertBefore(newChild, node);
+            } else if (child.node) {
+              child.node.appendChild(newChild);
+            } else if (children) {
+              let lastNode = children[children.length - 1];
+              let afterNode = lastNode.node || lastNode.end.nextSibling;
+              afterNode.after(newChild);
             }
           } else if (action.InsertChildAfter) {
             const newChild = fromReplacementNode(
