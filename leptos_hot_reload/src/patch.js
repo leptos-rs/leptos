@@ -147,14 +147,15 @@ function patch(json) {
               " before ",
               before,
             );
-            if (!before && child.node) {
-              child.node.appendChild(newChild);
+            if (!before) {
+              if (children.length) {
+                children[children.length - 1].node.after(newChild);
+              } else {
+                child.node.appendChild(newChild);
+              }
             } else {
-              let node = child.node || child.end.parentElement;
-              const reference = before
-                ? before.node || before.start
-                : child.end;
-              node.insertBefore(newChild, reference);
+              let node = before.node || before.start;
+              node.parentElement.insertBefore(newChild, node);
             }
           } else if (action.InsertChildAfter) {
             const newChild = fromReplacementNode(
