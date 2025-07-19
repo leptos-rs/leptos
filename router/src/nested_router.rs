@@ -692,7 +692,6 @@ where
                 provide_context(params.clone());
                 provide_context(url.clone());
                 provide_context(matched.clone());
-                let mut data = Some(view.data());
                 view.preload().await;
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
@@ -707,8 +706,6 @@ where
                         owner_where_used.with({
                             let matched = matched.clone();
                             || {
-                                let data =
-                                    data.take().unwrap_or_else(|| view.data());
                                 let child = child.clone();
                                 Suspend::new(Box::pin(async move {
                                     provide_context(child.clone());
@@ -716,7 +713,7 @@ where
                                     provide_context(url.clone());
                                     provide_context(matched.clone());
                                     let view = SendWrapper::new(
-                                        ScopedFuture::new(view.choose(data)),
+                                        ScopedFuture::new(view.choose()),
                                     );
                                     let view = view.await;
                                     let view = MatchedRoute(
@@ -855,6 +852,7 @@ where
                         let child = outlet.child.clone();
                         async move {
                             let child = child.clone();
+                            view.preload().await;
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let prev_owner = route_owner
@@ -879,18 +877,11 @@ where
                                                 ScopedFuture::new(async move {
                                                     if set_is_routing {
                                                         AsyncTransition::run(
-                                                            || {
-                                                                let data =
-                                                                    view.data();
-                                                                view.choose(
-                                                                    data,
-                                                                )
-                                                            },
+                                                            || view.choose(),
                                                         )
                                                         .await
                                                     } else {
-                                                        let data = view.data();
-                                                        view.choose(data).await
+                                                        view.choose().await
                                                     }
                                                 })
                                             }),

@@ -145,10 +145,8 @@ where
                     provide_context(url.clone());
                     provide_context(Matched(ArcMemo::from(matched.clone())));
 
-                    let data = view.data();
-
                     ScopedFuture::new(async move {
-                        OwnedView::new(view.choose(data).await)
+                        OwnedView::new(view.choose().await)
                     })
                 }));
 
@@ -301,16 +299,13 @@ where
                             let view = OwnedView::new(
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
-                                    let value = AsyncTransition::run(|| {
-                                        let data = view.data();
-                                        view.choose(data)
-                                    })
-                                    .await;
+                                    let value =
+                                        AsyncTransition::run(|| view.choose())
+                                            .await;
                                     set_is_routing.set(false);
                                     value
                                 } else {
-                                    let data = view.data();
-                                    view.choose(data).await
+                                    view.choose().await
                                 },
                             );
 
@@ -526,11 +521,7 @@ where
                         provide_context(params_memo);
                         provide_context(Matched(ArcMemo::from(matched)));
 
-                        let data = view.data();
-
-                        ScopedFuture::new(
-                            async move { view.choose(data).await },
-                        )
+                        ScopedFuture::new(async move { view.choose().await })
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
@@ -712,10 +703,8 @@ where
                     provide_context(url.clone());
                     provide_context(Matched(ArcMemo::from(matched.clone())));
 
-                    let data = view.data();
-
                     ScopedFuture::new(async move {
-                        OwnedView::new(view.choose(data).await)
+                        OwnedView::new(view.choose().await)
                     })
                 }));
 
@@ -810,10 +799,8 @@ where
                     provide_context(url.clone());
                     provide_context(Matched(ArcMemo::from(matched.clone())));
 
-                    let data = view.data();
-
                     ScopedFuture::new(async move {
-                        OwnedView::new(view.choose(data).await)
+                        OwnedView::new(view.choose().await)
                     })
                 }));
 
