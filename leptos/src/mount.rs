@@ -29,6 +29,25 @@ where
     owner.forget();
 }
 
+#[cfg(feature = "hydrate")]
+/// Hydrates the app described by the provided function, starting at `<body>`, with support
+/// for lazy-loaded routes and components.
+pub fn hydrate_lazy<F, N>(f: F)
+where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    // use wasm-bindgen-futures to drive the reactive system
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
+
+    crate::task::spawn_local(async move {
+        let owner = hydrate_from_async(body(), f).await;
+        owner.forget();
+    })
+}
+
 #[cfg(debug_assertions)]
 thread_local! {
     static FIRST_CALL: Cell<bool> = const { Cell::new(true) };
@@ -73,6 +92,65 @@ where
             &PositionState::default(),
         )
     });
+
+    if let Some(sc) = Owner::current_shared_context() {
+        sc.hydration_complete();
+    }
+
+    // returns a handle that owns the owner
+    // when this is dropped, it will clean up the reactive system and unmount the view
+    UnmountHandle { owner, mountable }
+}
+
+#[cfg(feature = "hydrate")]
+/// Runs the provided closure and mounts the result to the provided element.
+pub async fn hydrate_from_async<F, N>(
+    parent: HtmlElement,
+    f: F,
+) -> UnmountHandle<N::State>
+where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    use hydration_context::HydrateSharedContext;
+    use std::sync::Arc;
+
+    // use wasm-bindgen-futures to drive the reactive system
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
+
+    #[cfg(debug_assertions)]
+    {
+        if !cfg!(feature = "hydrate") && FIRST_CALL.get() {
+            logging::warn!(
+                "It seems like you're trying to use Leptos in hydration mode, \
+                 but the `hydrate` feature is not enabled on the `leptos` \
+                 crate. Add `features = [\"hydrate\"]` to your Cargo.toml for \
+                 the crate to work properly.\n\nNote that hydration and \
+                 client-side rendering now use separate functions from \
+                 leptos::mount: you are calling a hydration function."
+            );
+        }
+        FIRST_CALL.set(false);
+    }
+
+    // create a new reactive owner and use it as the root node to run the app
+    let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
+    let mountable = owner
+        .with(move || {
+            use reactive_graph::computed::ScopedFuture;
+
+            ScopedFuture::new(async move {
+                let view = f().into_view();
+                view.hydrate_async(
+                    &Cursor::new(parent.unchecked_into()),
+                    &PositionState::default(),
+                )
+                .await
+            })
+        })
+        .await;
 
     if let Some(sc) = Owner::current_shared_context() {
         sc.hydration_complete();

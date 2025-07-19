@@ -233,6 +233,26 @@ where
         ResultState { state, error, hook }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let hook = throw_error::get_error_hook();
+        let (state, error) = match self {
+            Ok(view) => (
+                Either::Left(view.hydrate_async(cursor, position).await),
+                None,
+            ),
+            Err(e) => {
+                let state =
+                    RenderHtml::hydrate_async((), cursor, position).await;
+                (Either::Right(state), Some(throw_error::throw(e.into())))
+            }
+        };
+        ResultState { state, error, hook }
+    }
+
     fn into_owned(self) -> Self::Owned {
         match self {
             Ok(view) => Ok(view.into_owned()),

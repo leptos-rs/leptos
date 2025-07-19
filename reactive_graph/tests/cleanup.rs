@@ -44,7 +44,7 @@ fn cleanup_on_dispose() {
             drop(on_drop)
         });
     });
-    println!("Memo 1: {:?}", memo);
+    println!("Memo 1: {memo:?}");
     memo.get_untracked(); // First cleanup registered.
 
     memo.dispose(); // Cleanup not run here.
@@ -55,7 +55,7 @@ fn cleanup_on_dispose() {
         // New cleanup registered. It'll panic here.
         on_cleanup(move || println!("Test passed."));
     });
-    println!("Memo 2: {:?}", memo);
+    println!("Memo 2: {memo:?}");
     println!("^ Note how the memos have the same key (different versions).");
     memo.get_untracked(); // First cleanup registered.
 

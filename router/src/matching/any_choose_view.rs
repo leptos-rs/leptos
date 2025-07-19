@@ -7,6 +7,7 @@ use tachys::{erased::Erased, view::any_view::AnyView};
 pub struct AnyChooseView {
     value: Erased,
     clone: fn(&Erased) -> AnyChooseView,
+    #[allow(clippy::type_complexity)]
     choose: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView>>>,
     preload: for<'a> fn(&'a Erased) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
 }

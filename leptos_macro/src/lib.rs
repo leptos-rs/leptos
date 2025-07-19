@@ -576,7 +576,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    component_macro(s, is_transparent, None)
+    component_macro(s, is_transparent, false, None)
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -653,36 +653,37 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
+    let (is_transparent, is_lazy) = if !args.is_empty() {
+        let arg = parse_macro_input!(args as syn::Ident);
 
-        if transparent != "transparent" {
+        if arg != "transparent" && arg != "lazy" {
             abort!(
-                transparent,
-                "only `transparent` is supported";
-                help = "try `#[island(transparent)]` or `#[island]`"
+                arg,
+                "only `transparent` or `lazy` are supported";
+                help = "try `#[island(transparent)]`, `#[island(lazy)]`, or `#[island]`"
             );
         }
 
-        true
+        (arg == "transparent", arg == "lazy")
     } else {
-        false
+        (false, false)
     };
 
     let island_src = s.to_string();
-    component_macro(s, is_transparent, Some(island_src))
+    component_macro(s, is_transparent, is_lazy, Some(island_src))
 }
 
 fn component_macro(
     s: TokenStream,
     is_transparent: bool,
+    is_lazy: bool,
     island: Option<String>,
 ) -> TokenStream {
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_transparent(is_transparent).with_island(island).into_token_stream();
+        let expanded = model.is_transparent(is_transparent).is_lazy(is_lazy).with_island(island).into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -690,6 +691,7 @@ fn component_macro(
         }
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+
         quote! {
             #expanded
 

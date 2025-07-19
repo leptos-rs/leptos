@@ -141,6 +141,19 @@ where
         .hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
+        }
+        .hydrate_async(cursor, position)
+        .await
+    }
+
     fn into_owned(self) -> Self::Owned {
         self.map(RenderHtml::into_owned)
     }
@@ -378,6 +391,22 @@ where
             .into_iter()
             .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
+
+        let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
+
+        VecState { states, marker }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let mut states = Vec::with_capacity(self.len());
+        for child in self {
+            states.push(child.hydrate_async(cursor, position).await);
+        }
 
         let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
@@ -648,6 +677,22 @@ where
         Self::State { states, marker }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let mut states = Vec::with_capacity(self.0.len());
+        for child in self.0 {
+            states.push(child.hydrate_async(cursor, position).await);
+        }
+
+        let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
+
+        Self::State { states, marker }
+    }
+
     fn into_owned(self) -> Self::Owned {
         self.0
             .into_iter()
@@ -815,6 +860,21 @@ where
     ) -> Self::State {
         let states =
             self.map(|child| child.hydrate::<FROM_SERVER>(cursor, position));
+        ArrayState { states }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let mut states = Vec::with_capacity(self.len());
+        for child in self {
+            states.push(child.hydrate_async(cursor, position).await);
+        }
+        let Ok(states) = <[<T as Render>::State; N]>::try_from(states) else {
+            unreachable!()
+        };
         ArrayState { states }
     }
 

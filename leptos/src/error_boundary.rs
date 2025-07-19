@@ -2,6 +2,7 @@ use crate::{children::TypedChildren, IntoView};
 use futures::{channel::oneshot, future::join_all};
 use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
@@ -10,7 +11,12 @@ use reactive_graph::{
     traits::{Get, Update, With, WithUntracked, WriteValue},
 };
 use rustc_hash::FxHashMap;
-use std::{collections::VecDeque, fmt::Debug, mem, sync::Arc};
+use std::{
+    collections::VecDeque,
+    fmt::Debug,
+    mem,
+    sync::{Arc, Mutex},
+};
 use tachys::{
     html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
@@ -506,6 +512,79 @@ where
                 }
             },
         )
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let mut children = Some(self.children);
+        let hook = Arc::clone(&self.hook);
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
+
+        let fallback_fn = Arc::new(Mutex::new(self.fallback));
+        let initial = {
+            let errors_empty = self.errors_empty.clone();
+            let errors = self.errors.clone();
+            let fallback_fn = Arc::clone(&fallback_fn);
+            async move {
+                let children = children.take().unwrap();
+                let (children, fallback) = if errors_empty.get() {
+                    (children.hydrate_async(&cursor, &position).await, None)
+                } else {
+                    let children = children.build();
+                    let fallback =
+                        (fallback_fn.lock().or_poisoned())(errors.clone());
+                    let fallback =
+                        fallback.hydrate_async(&cursor, &position).await;
+                    (children, Some(fallback))
+                };
+
+                ErrorBoundaryViewState { children, fallback }
+            }
+        };
+
+        RenderEffect::new_with_async_value(
+            move |prev: Option<
+                ErrorBoundaryViewState<Chil::State, Fal::State>,
+            >| {
+                let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+                if let Some(mut state) = prev {
+                    match (self.errors_empty.get(), &mut state.fallback) {
+                        // no errors, and was showing fallback
+                        (true, Some(fallback)) => {
+                            fallback.insert_before_this(&mut state.children);
+                            state.fallback.unmount();
+                            state.fallback = None;
+                        }
+                        // yes errors, and was showing children
+                        (false, None) => {
+                            state.fallback = Some(
+                                (fallback_fn.lock().or_poisoned())(
+                                    self.errors.clone(),
+                                )
+                                .build(),
+                            );
+                            state
+                                .children
+                                .insert_before_this(&mut state.fallback);
+                            state.children.unmount();
+                        }
+                        // either there were no errors, and we were already showing the children
+                        // or there are errors, but we were already showing the fallback
+                        // in either case, rebuilding doesn't require us to do anything
+                        _ => {}
+                    }
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            initial,
+        )
+        .await
     }
 
     fn into_owned(self) -> Self::Owned {

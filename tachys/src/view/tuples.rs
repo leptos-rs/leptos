@@ -184,6 +184,14 @@ where
         self.0.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.0.hydrate_async(cursor, position).await
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         (self.0.resolve().await,)
     }
@@ -313,6 +321,15 @@ macro_rules! impl_view_for_tuples {
 					(
 						$first.hydrate::<FROM_SERVER>(cursor, position),
 						$($ty.hydrate::<FROM_SERVER>(cursor, position)),*
+					)
+			}
+
+            async fn hydrate_async(self, cursor: &Cursor, position: &PositionState) -> Self::State {
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)* ) = self;
+					(
+						$first.hydrate_async(cursor, position).await,
+						$($ty.hydrate_async(cursor, position).await),*
 					)
 			}
 

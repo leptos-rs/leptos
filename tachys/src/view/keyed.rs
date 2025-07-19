@@ -370,6 +370,59 @@ where
         }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
+        // get parent and position
+        let current = cursor.current();
+        let parent = if position.get() == Position::FirstChild {
+            current
+        } else {
+            Rndr::get_parent(&current)
+                .expect("first child of keyed list has no parent")
+        };
+        let parent = crate::renderer::types::Element::cast_from(parent)
+            .expect("parent of keyed list should be an element");
+
+        // build list
+        let items = self.items.into_iter();
+        let (capacity, _) = items.size_hint();
+        let mut hashed_items =
+            FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
+        let mut rendered_items = Vec::new();
+        for (index, item) in items.enumerate() {
+            hashed_items.insert((self.key_fn)(&item));
+            let (set_index, view) = (self.view_fn)(index, item);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            let item = view.hydrate_async(cursor, position).await;
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            rendered_items.push(Some((set_index, item)));
+        }
+        let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
+
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
+        KeyedState {
+            parent: Some(parent),
+            marker,
+            hashed_items,
+            rendered_items,
+        }
+    }
+
     fn into_owned(self) -> Self::Owned {
         self
     }

@@ -1,0 +1,95 @@
+[package]
+name = "lazy_routes"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+axum = { version = "0.8.1", optional = true }
+console_error_panic_hook = "0.1.7"
+console_log = "1.0"
+leptos = { path = "../../leptos", features = ["tracing"] }
+leptos_meta = { path = "../../meta" }
+leptos_axum = { path = "../../integrations/axum", optional = true }
+leptos_router = { path = "../../router" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+tokio = { version = "1.39", features = [
+  "rt-multi-thread",
+  "macros",
+  "time",
+], optional = true }
+wasm-bindgen = "0.2.92"
+futures = "0.3.31"
+serde_json = "1.0.140"
+gloo-timers = { version = "0.3", features = ["futures"] }
+
+[features]
+hydrate = ["leptos/hydrate"]
+ssr = [
+  "dep:axum",
+  "dep:tokio",
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "dep:leptos_axum",
+  "leptos_router/ssr",
+]
+
+[profile.release]
+panic = "abort"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.cargo-all-features]
+denylist = ["axum", "tower", "tower-http", "tokio", "sqlx", "leptos_axum"]
+skip_feature_sets = [["ssr", "hydrate"]]
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
+output-name = "regression"
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "target/site"
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg
+site-pkg-dir = "pkg"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site-addr = "127.0.0.1:3000"
+# The port to use for automatic reload monitoring
+reload-port = 3001
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+#   [Windows] for non-WSL use "npx.cmd playwright test"
+#   This binary name can be checked in Powershell with Get-Command npx
+end2end-cmd = "cargo make test-ui"
+end2end-dir = "e2e"
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults"
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
+watch = false
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = ["ssr"]
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = ["hydrate"]
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false

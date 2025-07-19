@@ -1,0 +1,15 @@
+[package]
+name = "wasm_split_macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+base16 = { workspace = true, default-features = true }
+digest = { workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+sha2 = { workspace = true, default-features = true }
+syn = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+
+[lib]
+proc-macro = true
