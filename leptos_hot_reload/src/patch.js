@@ -38,7 +38,14 @@ function patch(json) {
           const action = patch.action;
           if (action == "ClearChildren") {
             console.log("[HOT RELOAD] > ClearChildren", child.node);
-            child.node.textContent = "";
+            if (child.node) {
+              child.node.textContent = "";
+            } else {
+              for (const existingChild of child.children) {
+                let parent = existingChild.node.parentElement;
+                parent.removeChild(existingChild.node);
+              }
+            }
           } else if (action.ReplaceWith) {
             console.log(
               "[HOT RELOAD] > ReplaceWith",
