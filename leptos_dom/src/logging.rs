@@ -105,18 +105,8 @@ pub fn console_error(s: &str) {
 /// or via `println!()` (if not in the browser), but only in a debug build.
 #[inline(always)]
 pub fn console_debug_log(s: &str) {
-    #[cfg(debug_assertions)]
-    {
-        if log_to_stdout() {
-            println!("{s}");
-        } else {
-            web_sys::console::log_1(&JsValue::from_str(s));
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = s;
+    if cfg!(debug_assertions) {
+        console_log(s)
     }
 }
 
@@ -124,18 +114,8 @@ pub fn console_debug_log(s: &str) {
 /// or via `eprintln!()` (if not in the browser), but only in a debug build.
 #[inline(always)]
 pub fn console_debug_warn(s: &str) {
-    #[cfg(debug_assertions)]
-    {
-        if log_to_stdout() {
-            eprintln!("{s}");
-        } else {
-            web_sys::console::warn_1(&JsValue::from_str(s));
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = s;
+    if cfg!(debug_assertions) {
+        console_warn(s)
     }
 }
 
@@ -143,17 +123,7 @@ pub fn console_debug_warn(s: &str) {
 /// or via `eprintln!()` (if not in the browser), but only in a debug build.
 #[inline(always)]
 pub fn console_debug_error(s: &str) {
-    #[cfg(debug_assertions)]
-    {
-        if log_to_stdout() {
-            eprintln!("{s}");
-        } else {
-            web_sys::console::error_1(&JsValue::from_str(s));
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = s;
+    if cfg!(debug_assertions) {
+        console_error(s)
     }
 }
