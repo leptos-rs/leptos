@@ -62,7 +62,7 @@ leptos_router_macro = { path = "./router_macro", version = "0.8.4" }
 leptos_server = { path = "./leptos_server", version = "0.8.4" }
 leptos_meta = { path = "./meta", version = "0.8.4" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
-oco_ref = { path = "./oco", version = "0.2.0" }
+oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.2.4" }
 reactive_stores = { path = "./reactive_stores", version = "0.2.4" }
