@@ -224,7 +224,7 @@ where
                 extra_attrs,
             );
             if !T::EXISTS {
-                buf.push_str("<!>");
+                buf.push_str("<!--<() />-->");
             }
         }
 
@@ -245,7 +245,7 @@ where
                 extra_attrs,
             );
             if !T::EXISTS {
-                buf.push_sync("<!>");
+                buf.push_sync("<!--<() />-->");
             }
         }
 
@@ -266,7 +266,7 @@ where
                 extra_attrs,
             );
             if !T::EXISTS {
-                buf.push_sync("<!>");
+                buf.push_sync("<!--<() />-->");
             }
         }
 

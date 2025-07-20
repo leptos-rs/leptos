@@ -66,6 +66,9 @@ impl LNode {
                     LNode::parse_node(child, views)?;
                 }
             }
+            Node::RawText(text) => {
+                views.push(LNode::Text(text.to_string_best()));
+            }
             Node::Text(text) => {
                 views.push(LNode::Text(text.value_string()));
             }

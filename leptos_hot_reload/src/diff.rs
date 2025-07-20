@@ -251,93 +251,67 @@ impl LNode {
                 action: PatchAction::ClearChildren,
             }]
         } else {
-            let mut a = 0;
-            let mut b = std::cmp::max(old.len(), new.len()) - 1; // min is 0, have checked both have items
+            let width = old.len() + 1;
+            let height = new.len() + 1;
+            let mut mat = vec![0; width * height];
+            #[allow(clippy::needless_range_loop)]
+            for i in 1..width {
+                mat[i] = i;
+            }
+            for i in 1..height {
+                mat[i * width] = i;
+            }
+            for j in 1..height {
+                for i in 1..width {
+                    if old[i - 1] == new[j - 1] {
+                        mat[j * width + i] = mat[(j - 1) * width + (i - 1)];
+                    } else {
+                        mat[j * width + i] = (mat[(j - 1) * width + i] + 1)
+                            .min(mat[j * width + (i - 1)] + 1)
+                            .min(mat[(j - 1) * width + (i - 1)] + 1)
+                    }
+                }
+            }
+            let (mut i, mut j) = (old.len(), new.len());
             let mut patches = vec![];
-            // common prefix
-            while a < b {
-                let old = old.get(a);
-                let new = new.get(a);
-
-                match (old, new) {
-                    (None, Some(new)) => patches.push(Patch {
-                        path: path.to_owned(),
-                        action: PatchAction::InsertChild {
-                            before: a,
-                            child: new.to_replacement_node(old_children),
-                        },
-                    }),
-                    (Some(_), None) => patches.push(Patch {
-                        path: path.to_owned(),
-                        action: PatchAction::RemoveChild { at: a },
-                    }),
-                    (Some(old), Some(new)) if old != new => {
-                        break;
-                    }
-                    _ => {}
-                }
-
-                a += 1;
-            }
-
-            // common suffix
-            while b >= a {
-                let old = old.get(b);
-                let new = new.get(b);
-
-                match (old, new) {
-                    (None, Some(new)) => patches.push(Patch {
-                        path: path.to_owned(),
-                        action: PatchAction::InsertChildAfter {
-                            after: b - 1,
-                            child: new.to_replacement_node(old_children),
-                        },
-                    }),
-                    (Some(_), None) => patches.push(Patch {
-                        path: path.to_owned(),
-                        action: PatchAction::RemoveChild { at: b },
-                    }),
-                    (Some(old), Some(new)) if old != new => {
-                        break;
-                    }
-                    _ => {}
-                }
-
-                if b == 0 {
-                    break;
-                }
-                b -= 1;
-            }
-
-            // diffing in middle
-            if b >= a {
-                let old_slice_end =
-                    if b >= old.len() { old.len() - 1 } else { b };
-                let new_slice_end =
-                    if b >= new.len() { new.len() - 1 } else { b };
-                let old = &old[a..=old_slice_end];
-                let new = &new[a..=new_slice_end];
-
-                for (new_idx, new_node) in new.iter().enumerate() {
-                    match old.get(new_idx) {
-                        Some(old_node) => {
-                            let mut new_path = path.to_vec();
-                            new_path.push(new_idx + a);
-                            let diffs = old_node.diff_at(
-                                new_node,
-                                &new_path,
-                                old_children,
-                            );
-                            patches.extend(&mut diffs.into_iter());
-                        }
-                        None => patches.push(Patch {
+            while i > 0 || j > 0 {
+                if i > 0 && j > 0 && old[i - 1] == new[j - 1] {
+                    i -= 1;
+                    j -= 1;
+                } else {
+                    let current = mat[j * width + i];
+                    if i > 0
+                        && j > 0
+                        && mat[(j - 1) * width + i - 1] + 1 == current
+                    {
+                        let mut new_path = path.to_owned();
+                        new_path.push(i - 1);
+                        let diffs = old[i - 1].diff_at(
+                            &new[j - 1],
+                            &new_path,
+                            old_children,
+                        );
+                        patches.extend(&mut diffs.into_iter());
+                        i -= 1;
+                        j -= 1;
+                    } else if i > 0 && mat[j * width + i - 1] + 1 == current {
+                        patches.push(Patch {
+                            path: path.to_owned(),
+                            action: PatchAction::RemoveChild { at: i - 1 },
+                        });
+                        i -= 1;
+                    } else if j > 0 && mat[(j - 1) * width + i] + 1 == current {
+                        patches.push(Patch {
                             path: path.to_owned(),
                             action: PatchAction::InsertChild {
-                                before: new_idx,
-                                child: new_node
+                                before: i,
+                                child: new[j - 1]
                                     .to_replacement_node(old_children),
                             },
-                        }),
+                        });
+                        j -= 1;
+                    } else {
+                        unreachable!();
                     }
                 }
             }
@@ -514,23 +488,17 @@ mod tests {
         let delta = a.diff(&b);
         assert_eq!(
             delta,
-            vec![
-                Patch {
-                    path: vec![],
-                    action: PatchAction::InsertChildAfter {
-                        after: 0,
-                        child: ReplacementNode::Element {
-                            name: "button".into(),
-                            attrs: vec![],
-                            children: vec![ReplacementNode::Html("bar".into())]
-                        }
+            vec![Patch {
+                path: vec![],
+                action: PatchAction::InsertChild {
+                    before: 0,
+                    child: ReplacementNode::Element {
+                        name: "button".into(),
+                        attrs: vec![],
+                        children: vec![ReplacementNode::Html("foo".into())]
                     }
-                },
-                Patch {
-                    path: vec![0, 0],
-                    action: PatchAction::SetText("foo".into())
                 }
-            ]
+            }]
         );
     }
 

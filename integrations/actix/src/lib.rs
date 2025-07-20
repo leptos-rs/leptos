@@ -282,6 +282,7 @@ pub fn redirect(path: &str) {
 ///   // call ServerFn::register() for each of the server functions you've defined
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     // make sure you actually register your server functions
@@ -297,6 +298,8 @@ pub fn redirect(path: &str) {
 ///     .run()
 ///     .await
 /// }
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() {}
 /// ```
 ///
 /// ## Provided Context Types
@@ -442,6 +445,7 @@ pub fn handle_server_fns_with_context(
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -461,6 +465,8 @@ pub fn handle_server_fns_with_context(
 ///     .run()
 ///     .await
 /// }
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() {}
 /// ```
 ///
 /// ## Provided Context Types
@@ -499,6 +505,7 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -521,6 +528,9 @@ where
 ///     .run()
 ///     .await
 /// }
+///
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() {}
 /// ```
 ///
 /// ## Provided Context Types
@@ -557,6 +567,7 @@ where
 ///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
@@ -576,6 +587,8 @@ where
 ///     .run()
 ///     .await
 /// }
+/// # #[cfg(not(feature = "default"))]
+/// # fn main() {}
 /// ```
 ///
 /// ## Provided Context Types

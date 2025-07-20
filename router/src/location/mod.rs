@@ -67,10 +67,32 @@ impl Url {
     }
 
     pub fn hash(&self) -> &str {
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
+        {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+        }
         &self.hash
     }
 
     pub fn hash_mut(&mut self) -> &mut String {
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
+        {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+        }
         &mut self.hash
     }
 
@@ -173,7 +195,7 @@ impl Location {
         let state = state.into();
         let pathname = Memo::new(move |_| url.with(|url| url.path.clone()));
         let search = Memo::new(move |_| url.with(|url| url.search.clone()));
-        let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
+        let hash = Memo::new(move |_| url.with(|url| url.hash().to_string()));
         let query =
             Memo::new(move |_| url.with(|url| url.search_params.clone()));
         Location {
