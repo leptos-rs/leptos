@@ -1,5 +1,5 @@
 [package]
-name = "wasm_split"
+name = "wasm_split_helpers"
 version = "0.1.0"
 authors = ["Greg Johnston"]
 license = "MIT"

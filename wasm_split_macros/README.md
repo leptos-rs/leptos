@@ -1,6 +1,6 @@
-# `wasm_split`
+# `wasm_split_macros`
 
-This crate provides functions that are used by the `wasm_split_macros` crate, which allows you to indicate that certain functions are appropriate split points for lazy-loaded code.
+This crate provides macros that are used along with the `wasm_split_helpers` crate, which allows you to indicate that certain functions are appropriate split points for lazy-loaded code.
 
 A build tool that supports this approach (like `cargo-leptos`) can then split a WebAssembly (WASM) binary into multiple chunks, which will be lazy-loaded when a split function is called.
 

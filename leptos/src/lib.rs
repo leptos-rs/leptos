@@ -342,7 +342,7 @@ pub use serde_json;
 pub use tracing;
 #[doc(hidden)]
 pub use wasm_bindgen;
-pub use wasm_split;
+pub use wasm_split_helpers;
 #[doc(hidden)]
 pub use web_sys;
 
