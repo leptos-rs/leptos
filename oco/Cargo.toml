@@ -1,6 +1,6 @@
 [package]
 name = "oco_ref"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Danik Vitek", "Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -10,7 +10,7 @@ edition.workspace = true
 
 [dependencies]
 serde = { workspace = true, default-features = true }
-thiserror = { workspace = true , default-features = true }
+thiserror = { workspace = true, default-features = true }
 
 [dev-dependencies]
-serde_json = { workspace = true , default-features = true }
+serde_json = { workspace = true, default-features = true }
