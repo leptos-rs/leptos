@@ -234,7 +234,8 @@ fn lazy_route_impl(
         }) => segments.last().unwrap().ident.to_string(),
         _ => abort!(self_ty.span(), "only path types are supported"),
     };
-    let lazy_view_ident = Ident::new(&ty_name_to_snake, im.self_ty.span());
+    let lazy_view_ident =
+        Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
     let preload_lazy_view_ident = Ident::new(
         &format!("__preload_{lazy_view_ident}"),
         lazy_view_ident.span(),
