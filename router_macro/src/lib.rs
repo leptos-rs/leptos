@@ -6,7 +6,7 @@
 
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
-use proc_macro_error2::{abort, proc_macro_error};
+use proc_macro_error2::{abort, proc_macro_error, set_dummy};
 use quote::{quote, ToTokens};
 use syn::{
     spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
@@ -213,7 +213,9 @@ fn lazy_route_impl(
     _args: proc_macro::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    let mut im = syn::parse::<ItemImpl>(s).unwrap_or_else(|e| {
+    set_dummy(s.clone().into());
+
+    let mut im = syn::parse::<ItemImpl>(s.clone()).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy_route` can only be used on an `impl` block")
     });
     if im.trait_.is_none() {
@@ -268,7 +270,7 @@ fn lazy_route_impl(
     });
 
     match item {
-        None => abort!(im.span(), "must contain a fn called `view`"),
+        None => s,
         Some(fun) => {
             if let Some(a) = fun.sig.asyncness {
                 abort!(a.span(), "`view` method should not be async")
