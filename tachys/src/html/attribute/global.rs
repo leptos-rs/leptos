@@ -352,7 +352,7 @@ where
 
 macro_rules! on_definitions {
 	($(#[$meta:meta] $key:ident $html:literal),* $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             $(
                 #[doc = concat!("Adds the HTML `", $html, "` attribute to the element.\n\n**Note**: This is the HTML attribute, which takes a JavaScript string, not an `on:` listener that takes application logic written in Rust.")]
                 #[track_caller]
