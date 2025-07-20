@@ -20,7 +20,7 @@ tokio = { version = "1.39", features = [
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = ["fs"], optional = true }
 wasm-bindgen = "0.2.93"
-thiserror = "1.0"
+thiserror = "2.0.12"
 tracing = { version = "0.1.40", optional = true }
 http = "1.1"
 

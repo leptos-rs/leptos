@@ -4,7 +4,7 @@ use http::Method;
 use std::{borrow::Cow, future::Future};
 
 /// Request types for Actix.
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 pub mod actix;
 /// Request types for Axum.
 #[cfg(feature = "axum-no-default")]

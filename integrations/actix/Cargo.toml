@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 actix-http = { workspace = true, default-features = true }
 actix-files = { workspace = true, default-features = true }
-actix-web = { workspace = true, default-features = true }
+actix-web = { workspace = true, default-features = false }
 futures = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["tokio"] }
 hydration_context = { workspace = true }
@@ -20,7 +20,7 @@ leptos_integration_utils = { workspace = true }
 leptos_macro = { workspace = true, features = ["actix"] }
 leptos_meta = { workspace = true, features = ["nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
-server_fn = { workspace = true, features = ["actix"] }
+server_fn = { workspace = true, features = ["actix-no-default"] }
 tachys = { workspace = true }
 serde_json = { workspace = true , default-features = true }
 parking_lot = { workspace = true, default-features = true }
@@ -33,6 +33,8 @@ dashmap = { workspace = true, default-features = true }
 rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
+default = ["actix-default"]
+actix-default = ["actix-web/default"]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
