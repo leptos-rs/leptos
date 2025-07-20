@@ -254,6 +254,7 @@ impl LNode {
             let width = old.len() + 1;
             let height = new.len() + 1;
             let mut mat = vec![0; width * height];
+            #[allow(clippy::needless_range_loop)]
             for i in 1..width {
                 mat[i] = i;
             }
