@@ -1,4 +1,4 @@
-# `wasm_split`
+# `wasm_split_helpers`
 
 This crate provides functions that are used by the `wasm_split_macros` crate, which allows you to indicate that certain functions are appropriate split points for lazy-loaded code.
 

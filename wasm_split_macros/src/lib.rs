@@ -96,7 +96,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
 
     quote! {
         thread_local! {
-            static #split_loader_ident: ::leptos::wasm_split::LazySplitLoader = ::leptos::wasm_split::LazySplitLoader::new(#load_module_ident);
+            static #split_loader_ident: ::leptos::wasm_split_helpers::LazySplitLoader = ::leptos::wasm_split_helpers::LazySplitLoader::new(#load_module_ident);
         }
 
         #[link(wasm_import_module = "/pkg/__wasm_split.js")]
@@ -119,14 +119,14 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
                 #body
             }
 
-            ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
+            ::leptos::wasm_split_helpers::ensure_loaded(&#split_loader_ident).await.unwrap();
             unsafe { #impl_import_ident( #(#args),* ) } #await_result
         }
 
         #[doc(hidden)]
         #[allow(non_snake_case)]
         pub async fn #preload_name() {
-            ::leptos::wasm_split::ensure_loaded(&#split_loader_ident).await.unwrap();
+            ::leptos::wasm_split_helpers::ensure_loaded(&#split_loader_ident).await.unwrap();
         }
     }
     .into()

@@ -71,7 +71,7 @@ server_fn = { path = "./server_fn", version = "0.8.3" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.3" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.3" }
 tachys = { path = "./tachys", version = "0.2.4" }
-wasm_split = { path = "./wasm_split", version = "0.1.0" }
+wasm_split_helpers = { path = "./wasm_split", version = "0.1.0" }
 wasm_split_macros = { path = "./wasm_split_macros", version = "0.1.0" }
 
 # members deps

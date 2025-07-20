@@ -48,7 +48,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
     if is_wasm {
         quote! {
-            #[::leptos::wasm_split::wasm_split(#unique_name)]
+            #[::leptos::wasm_split_helpers::wasm_split(#unique_name)]
             #fun
         }
     } else {
