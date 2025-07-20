@@ -17,7 +17,7 @@ simple_logger = "5.0"
 serde = { version = "1.0", features = ["derive"] }
 axum = { version = "0.8.1", optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
-thiserror = "2.0"
+thiserror = "2.0.12"
 wasm-bindgen = "0.2.100"
 
 [features]
