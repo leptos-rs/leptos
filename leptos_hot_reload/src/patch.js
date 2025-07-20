@@ -38,7 +38,14 @@ function patch(json) {
           const action = patch.action;
           if (action == "ClearChildren") {
             console.log("[HOT RELOAD] > ClearChildren", child.node);
-            child.node.textContent = "";
+            if (child.node) {
+              child.node.textContent = "";
+            } else {
+              for (const existingChild of child.children) {
+                let parent = existingChild.node.parentElement;
+                parent.removeChild(existingChild.node);
+              }
+            }
           } else if (action.ReplaceWith) {
             console.log(
               "[HOT RELOAD] > ReplaceWith",
@@ -52,11 +59,17 @@ function patch(json) {
             if (child.node) {
               child.node.replaceWith(replacement);
             } else {
-              const range = new Range();
-              range.setStartAfter(child.start);
-              range.setEndAfter(child.end);
-              range.deleteContents();
-              child.start.replaceWith(replacement);
+              if (child.children) {
+                child.children[0].node.parentElement.insertBefore(
+                  replacement,
+                  child.children[0].node,
+                );
+                for (const existingChild of child.children) {
+                  existingChild.node.parentElement.removeChild(
+                    existingChild.node,
+                  );
+                }
+              }
             }
           } else if (action.ChangeTagName) {
             const oldNode = child.node;
@@ -99,11 +112,10 @@ function patch(json) {
               child.node,
               action.AppendChildren,
             );
-            const newChildren = fromReplacementNode(
-              action.AppendChildren,
-              actualChildren,
+            const newChildren = action.AppendChildren.map((x) =>
+              fromReplacementNode(x, actualChildren),
             );
-            child.node.append(newChildren);
+            child.node.append(...newChildren);
           } else if (action.RemoveChild) {
             console.log(
               "[HOT RELOAD] > RemoveChild",
