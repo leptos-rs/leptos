@@ -16,7 +16,6 @@ futures = { workspace = true, default-features = true }
 serde = { features = ["derive"] , workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, optional = true , default-features = true }
 js-sys = { optional = true , workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
 pin-project-lite = { workspace = true, default-features = true }
 
 [features]

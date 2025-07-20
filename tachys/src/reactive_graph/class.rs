@@ -209,6 +209,15 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         let (name, mut f) = self;
+
+        let prev_name = state.name;
+        let prev_state = state.effect.take_value();
+        if let Some((list, prev_include)) = &prev_state {
+            if prev_name != name && *prev_include {
+                Rndr::remove_class(list, prev_name);
+            }
+        }
+
         // Name might've updated:
         state.name = name;
         let mut first_run = true;
@@ -232,7 +241,7 @@ where
                     }
                 }
             },
-            state.effect.take_value(),
+            prev_state,
         );
     }
 

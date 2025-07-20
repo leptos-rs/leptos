@@ -28,7 +28,6 @@ tracing = { optional = true , workspace = true, default-features = true }
 tokio = { features = ["rt", "fs"] , workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 dashmap = { workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

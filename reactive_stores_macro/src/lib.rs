@@ -111,10 +111,8 @@ impl ToTokens for Model {
         } = &self;
         let any_store_field = Ident::new("AnyStoreField", Span::call_site());
         let trait_name = Ident::new(&format!("{name}StoreFields"), name.span());
-        let generics_with_orig = {
-            let params = &generics.params;
-            quote! { <#any_store_field, #params> }
-        };
+        let params = &generics.params;
+        let generics_with_orig = quote! { <#any_store_field, #params> };
         let where_with_orig = {
             generics
                 .where_clause
@@ -140,13 +138,13 @@ impl ToTokens for Model {
 
         // read access
         tokens.extend(quote! {
-            #vis trait #trait_name <AnyStoreField>
+            #vis trait #trait_name <AnyStoreField, #params>
             #where_with_orig
             {
                 #(#trait_fields)*
             }
 
-            impl #generics_with_orig #trait_name <AnyStoreField> for AnyStoreField
+            impl #generics_with_orig #trait_name <AnyStoreField, #params> for AnyStoreField
             #where_with_orig
             {
                #(#read_fields)*

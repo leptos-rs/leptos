@@ -6,15 +6,6 @@ use std::{
 };
 
 impl Owner {
-    #[doc(hidden)]
-    pub fn join_contexts(&self, other: &Owner) {
-        self.inner
-            .write()
-            .or_poisoned()
-            .joined_owners
-            .push(other.downgrade());
-    }
-
     fn provide_context<T: Send + Sync + 'static>(&self, value: T) {
         self.inner
             .write()
@@ -34,27 +25,18 @@ impl Owner {
         if let Some(context) = contexts.remove(&ty) {
             context.downcast::<T>().ok().map(|n| *n)
         } else {
-            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            let joined = inner
-                .joined_owners
-                .iter()
-                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
-            for parent in parent.into_iter().chain(joined) {
-                let mut parent = Some(parent);
-                while let Some(ref this_parent) = parent.clone() {
-                    let mut this_parent = this_parent.write().or_poisoned();
-                    let contexts = &mut this_parent.contexts;
-                    let value = contexts.remove(&ty);
-                    let downcast =
-                        value.and_then(|context| context.downcast::<T>().ok());
-                    if let Some(value) = downcast {
-                        return Some(*value);
-                    } else {
-                        parent = this_parent
-                            .parent
-                            .as_ref()
-                            .and_then(|p| p.upgrade());
-                    }
+            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            while let Some(ref this_parent) = parent.clone() {
+                let mut this_parent = this_parent.write().or_poisoned();
+                let contexts = &mut this_parent.contexts;
+                let value = contexts.remove(&ty);
+                let downcast =
+                    value.and_then(|context| context.downcast::<T>().ok());
+                if let Some(value) = downcast {
+                    return Some(*value);
+                } else {
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
                 }
             }
             None
@@ -71,29 +53,21 @@ impl Owner {
         let reference = if let Some(context) = contexts.get(&ty) {
             context.downcast_ref::<T>()
         } else {
-            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            let joined = inner
-                .joined_owners
-                .iter()
-                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
-            for parent in parent.into_iter().chain(joined) {
-                let mut parent = Some(parent);
-                while let Some(ref this_parent) = parent.clone() {
-                    let this_parent = this_parent.read().or_poisoned();
-                    let contexts = &this_parent.contexts;
-                    let value = contexts.get(&ty);
-                    let downcast =
-                        value.and_then(|context| context.downcast_ref::<T>());
-                    if let Some(value) = downcast {
-                        return Some(cb(value));
-                    } else {
-                        parent = this_parent
-                            .parent
-                            .as_ref()
-                            .and_then(|p| p.upgrade());
-                    }
+            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            while let Some(ref this_parent) = parent.clone() {
+                let this_parent = this_parent.read().or_poisoned();
+                let contexts = &this_parent.contexts;
+                let value = contexts.get(&ty);
+                let downcast =
+                    value.and_then(|context| context.downcast_ref::<T>());
+                if let Some(value) = downcast {
+                    return Some(cb(value));
+                } else {
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
                 }
             }
+
             None
         };
         reference.map(cb)
@@ -109,27 +83,18 @@ impl Owner {
         let reference = if let Some(context) = contexts.get_mut(&ty) {
             context.downcast_mut::<T>()
         } else {
-            let parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            let joined = inner
-                .joined_owners
-                .iter()
-                .flat_map(|owner| owner.upgrade().map(|owner| owner.inner));
-            for parent in parent.into_iter().chain(joined) {
-                let mut parent = Some(parent);
-                while let Some(ref this_parent) = parent.clone() {
-                    let mut this_parent = this_parent.write().or_poisoned();
-                    let contexts = &mut this_parent.contexts;
-                    let value = contexts.get_mut(&ty);
-                    let downcast =
-                        value.and_then(|context| context.downcast_mut::<T>());
-                    if let Some(value) = downcast {
-                        return Some(cb(value));
-                    } else {
-                        parent = this_parent
-                            .parent
-                            .as_ref()
-                            .and_then(|p| p.upgrade());
-                    }
+            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
+            while let Some(ref this_parent) = parent.clone() {
+                let mut this_parent = this_parent.write().or_poisoned();
+                let contexts = &mut this_parent.contexts;
+                let value = contexts.get_mut(&ty);
+                let downcast =
+                    value.and_then(|context| context.downcast_mut::<T>());
+                if let Some(value) = downcast {
+                    return Some(cb(value));
+                } else {
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
                 }
             }
             None

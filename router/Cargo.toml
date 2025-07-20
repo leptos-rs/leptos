@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.8.2"
+version = "0.8.3"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -20,12 +20,11 @@ tachys = { workspace = true, features = ["reactive_graph"] }
 futures = { workspace = true, default-features = true }
 url = { workspace = true, default-features = true }
 js-sys = { workspace = true, default-features = true }
-wasm-bindgen = { workspace = true , default-features = true }
-tracing = { optional = true , workspace = true, default-features = true }
-once_cell = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-thiserror = { workspace = true , default-features = true }
-percent-encoding = { optional = true , workspace = true, default-features = true }
+thiserror = { workspace = true, default-features = true }
+percent-encoding = { optional = true, workspace = true, default-features = true }
 gloo-net = { workspace = true, default-features = true }
 
 [dependencies.web-sys]

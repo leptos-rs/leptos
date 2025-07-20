@@ -53,6 +53,12 @@ where
     }
 }
 
+impl IntoFragment for AnyView {
+    fn into_fragment(self) -> Fragment {
+        Fragment::new(vec![self])
+    }
+}
+
 impl<T> IntoFragment for Vec<T>
 where
     T: IntoAny,

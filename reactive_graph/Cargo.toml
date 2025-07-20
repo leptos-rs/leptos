@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -16,19 +16,26 @@ futures = { workspace = true, default-features = true }
 hydration_context = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, default-features = true }
 rustc-hash = { workspace = true, default-features = true }
-serde = { features = ["derive"], optional = true , workspace = true, default-features = true }
+serde = { features = [
+  "derive",
+], optional = true, workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
-thiserror = { workspace = true , default-features = true }
-tracing = { optional = true , workspace = true, default-features = true }
+thiserror = { workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 guardian = { workspace = true, default-features = true }
 async-lock = { workspace = true, default-features = true }
-send_wrapper = { features = ["futures"] , workspace = true, default-features = true }
+send_wrapper = { features = [
+  "futures",
+], workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 web-sys = { version = "0.3.77", features = ["console"] }
 
 [dev-dependencies]
-tokio = { features = ["rt-multi-thread", "macros"] , workspace = true, default-features = true }
+tokio = { features = [
+  "rt-multi-thread",
+  "macros",
+], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 

@@ -21,7 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: {toolchain: "nightly-2025-04-16", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
+        with:
+          {
+            toolchain: "nightly-2025-07-16",
+            components: "rustfmt, clippy",
+            target: "wasm32-unknown-unknown",
+            rustflags: "",
+          }
       - name: Install Glib
         run: |
           sudo apt-get update
@@ -34,7 +40,7 @@ jobs:
         run: cargo fmt --all
       - name: Clippy the workspace
         run: cargo all-features clippy --allow-dirty --fix --lib --no-deps
-      - uses: autofix-ci/action@v1.3.1
+      - uses: autofix-ci/action@v1.3.2
         if: ${{ always() }}
         with:
           fail-fast: false

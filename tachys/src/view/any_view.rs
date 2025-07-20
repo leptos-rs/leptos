@@ -12,6 +12,7 @@ use crate::{
         Attribute,
     },
     hydration::Cursor,
+    renderer::Rndr,
     ssr::StreamBuilder,
 };
 use futures::future::{join, join_all};
@@ -90,6 +91,7 @@ pub struct AnyViewState {
     ),
     insert_before_this: fn(&ErasedLocal, child: &mut dyn Mountable) -> bool,
     elements: fn(&ErasedLocal) -> Vec<crate::renderer::types::Element>,
+    placeholder: Option<crate::renderer::types::Placeholder>,
 }
 
 impl Debug for AnyViewState {
@@ -214,6 +216,9 @@ where
                 mark_branches,
                 extra_attrs,
             );
+            if !T::EXISTS {
+                buf.push_str("<!--<() />-->");
+            }
         }
 
         #[cfg(feature = "ssr")]
@@ -232,6 +237,9 @@ where
                 mark_branches,
                 extra_attrs,
             );
+            if !T::EXISTS {
+                buf.push_sync("<!--<() />-->");
+            }
         }
 
         #[cfg(feature = "ssr")]
@@ -250,10 +258,14 @@ where
                 mark_branches,
                 extra_attrs,
             );
+            if !T::EXISTS {
+                buf.push_sync("<!--<() />-->");
+            }
         }
 
         fn build<T: RenderHtml + 'static>(value: Erased) -> AnyViewState {
             let state = ErasedLocal::new(value.into_inner::<T>().build());
+            let placeholder = (!T::EXISTS).then(Rndr::create_placeholder);
             AnyViewState {
                 type_id: TypeId::of::<T>(),
                 state,
@@ -261,6 +273,7 @@ where
                 unmount: unmount_any::<T>,
                 insert_before_this: insert_before_this::<T>,
                 elements: elements::<T>,
+                placeholder,
             }
         }
 
@@ -273,6 +286,8 @@ where
             let state = ErasedLocal::new(
                 value.into_inner::<T>().hydrate::<true>(cursor, position),
             );
+            let placeholder =
+                (!T::EXISTS).then(|| cursor.next_placeholder(position));
             AnyViewState {
                 type_id: TypeId::of::<T>(),
                 state,
@@ -280,6 +295,7 @@ where
                 unmount: unmount_any::<T>,
                 insert_before_this: insert_before_this::<T>,
                 elements: elements::<T>,
+                placeholder,
             }
         }
 
@@ -327,7 +343,12 @@ impl Render for AnyView {
             (self.rebuild)(self.value, state)
         } else {
             let mut new = self.build();
-            state.insert_before_this(&mut new);
+            if let Some(placeholder) = &mut state.placeholder {
+                placeholder.insert_before_this(&mut new);
+                placeholder.unmount();
+            } else {
+                state.insert_before_this(&mut new);
+            }
             state.unmount();
             *state = new;
         }
@@ -554,7 +575,10 @@ impl RenderHtml for AnyView {
 
 impl Mountable for AnyViewState {
     fn unmount(&mut self) {
-        (self.unmount)(&mut self.state)
+        (self.unmount)(&mut self.state);
+        if let Some(placeholder) = &mut self.placeholder {
+            placeholder.unmount();
+        }
     }
 
     fn mount(
@@ -562,11 +586,23 @@ impl Mountable for AnyViewState {
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        (self.mount)(&mut self.state, parent, marker)
+        (self.mount)(&mut self.state, parent, marker);
+        if let Some(placeholder) = &mut self.placeholder {
+            placeholder.mount(parent, marker);
+        }
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
-        (self.insert_before_this)(&self.state, child)
+        let before_view = (self.insert_before_this)(&self.state, child);
+        if before_view {
+            return true;
+        }
+
+        if let Some(placeholder) = &self.placeholder {
+            placeholder.insert_before_this(child)
+        } else {
+            false
+        }
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {

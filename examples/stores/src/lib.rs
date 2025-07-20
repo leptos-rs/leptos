@@ -159,7 +159,7 @@ fn TodoRow(
 
     view! {
         <li style:text-decoration=move || {
-            status.done().then_some("line-through").unwrap_or_default()
+          if status.done() { "line-through" } else { Default::default() }
         }>
 
             <p

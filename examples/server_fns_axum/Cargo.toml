@@ -29,7 +29,7 @@ tower-http = { version = "0.6.2", features = [
   "trace",
 ], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 wasm-bindgen = "0.2.93"
 serde_toml = "0.0.1"
 toml = "0.8.19"
@@ -38,7 +38,6 @@ strum = { version = "0.27.1", features = ["strum_macros", "derive"] }
 notify = { version = "8.0", optional = true }
 pin-project-lite = "0.2.14"
 dashmap = { version = "6.0", optional = true }
-once_cell = { version = "1.19", optional = true }
 async-broadcast = { version = "0.7.1", optional = true }
 bytecheck = "0.8.0"
 rkyv = { version = "0.8.8" }
@@ -54,7 +53,6 @@ ssr = [
   "dep:leptos_axum",
   "dep:notify",
   "dep:dashmap",
-  "dep:once_cell",
   "dep:async-broadcast",
 ]
 
