@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores_macro"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
