@@ -3,7 +3,11 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_error2::{abort, abort_call_site, proc_macro_error, OptionExt};
 use quote::{quote, ToTokens};
 use syn::{
-    parse::{Parse, ParseStream, Parser}, punctuated::Punctuated, token::Comma, ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility, WhereClause
+    parse::{Parse, ParseStream, Parser},
+    punctuated::Punctuated,
+    token::Comma,
+    ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta,
+    Result, Token, Type, TypeParam, Variant, Visibility, WhereClause,
 };
 
 #[proc_macro_error]
@@ -23,25 +27,31 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 /// Removes all constraints from generics arguments list.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust,no_run
-/// struct Data<'a, T1: ToString + PatchField, T2: PatchField, T3: 'static + PatchField, T4>
-/// where 
-///    T3: ToString,
-///    T4: ToString + PatchField
+/// struct Data<
+///     'a,
+///     T1: ToString + PatchField,
+///     T2: PatchField,
+///     T3: 'static + PatchField,
+///     T4,
+/// >
+/// where
+///     T3: ToString,
+///     T4: ToString + PatchField,
 /// {
-///    data1: &'a T1,
-///    data2: T2,
-///    data3: T3,
-///    data4: T4,
+///     data1: &'a T1,
+///     data2: T2,
+///     data3: T3,
+///     data4: T4,
 /// }
 /// ```
-/// 
-/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics] 
+///
+/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
 /// which will conceptually look like this
-/// 
+///
 /// ```text
 /// Generics:
 ///     params:
@@ -58,9 +68,9 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///            T4: ToString + PatchField,
 ///        ]
 /// ```
-/// 
+///
 /// This method would return a new instance of [syn::Generics] which will conceptually look like this
-/// 
+///
 /// ```text
 /// Generics:
 ///     params:
@@ -74,9 +84,8 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///      where_clause:
 ///       []
 /// ```
-/// 
+///
 /// This is useful when you want to use a generic arguments list for `impl` sections for type definitions.
-/// 
 fn remove_constraint_from_generics(generics: &Generics) -> Generics {
     let mut new_generics = generics.clone();
 
@@ -88,25 +97,23 @@ fn remove_constraint_from_generics(generics: &Generics) -> Generics {
             GenericParam::Lifetime(lifetime) => {
                 lifetime.bounds.clear(); // remove bounds
                 lifetime.colon_token = None;
-            },
+            }
             GenericParam::Type(type_param) => {
                 type_param.bounds.clear(); // remove bounds
                 type_param.colon_token = None;
                 type_param.eq_token = None;
                 type_param.default = None;
-            },
+            }
             GenericParam::Const(const_param) => {
                 // replaces const generic with type param without bounds which is basically an `ident` token
-                *param = GenericParam::Type(
-                    TypeParam{
-                       attrs: const_param.attrs.clone(),
-                       ident: const_param.ident.clone(),
-                       colon_token: None,
-                       bounds: Punctuated::new(),
-                       eq_token: None,
-                       default: None
-                    }
-                );
+                *param = GenericParam::Type(TypeParam {
+                    attrs: const_param.attrs.clone(),
+                    ident: const_param.ident.clone(),
+                    colon_token: None,
+                    bounds: Punctuated::new(),
+                    eq_token: None,
+                    default: None,
+                });
             }
         }
     }
@@ -225,8 +232,13 @@ impl ToTokens for Model {
 
         // define an extension trait that matches this struct
         // and implement that trait for all StoreFields
-        let (trait_fields, read_fields): (Vec<_>, Vec<_>) =
-            ty.to_field_data(&library_path, generics, &clear_generics, &any_store_field, name);
+        let (trait_fields, read_fields): (Vec<_>, Vec<_>) = ty.to_field_data(
+            &library_path,
+            generics,
+            &clear_generics,
+            &any_store_field,
+            name,
+        );
 
         // read access
         tokens.extend(quote! {
@@ -679,7 +691,7 @@ impl Parse for PatchModel {
             _ => {
                 abort_call_site!(
                     "only structs and enums can be used with `Store`"
-                );  
+                );
             }
         };
 
@@ -764,7 +776,7 @@ impl ToTokens for PatchModel {
             }
         };
 
-        let clear_generics  = remove_constraint_from_generics(generics);
+        let clear_generics = remove_constraint_from_generics(generics);
         let params = clear_generics.params;
         let where_clause = &generics.where_clause;
 
