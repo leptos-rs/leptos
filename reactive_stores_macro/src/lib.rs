@@ -3,11 +3,7 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_error2::{abort, abort_call_site, proc_macro_error, OptionExt};
 use quote::{quote, ToTokens};
 use syn::{
-    parse::{Parse, ParseStream, Parser},
-    punctuated::Punctuated,
-    token::Comma,
-    ExprClosure, Field, Fields, Generics, Ident, Index, Meta, Result, Token,
-    Type, Variant, Visibility, WhereClause,
+    parse::{Parse, ParseStream, Parser}, punctuated::Punctuated, token::Comma, ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility, WhereClause
 };
 
 #[proc_macro_error]
@@ -24,6 +20,97 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     syn::parse_macro_input!(input as PatchModel)
         .into_token_stream()
         .into()
+}
+
+/// Removes all constraints from generics arguments list.
+/// 
+/// ```rust,no_run
+/// struct Data<'a, T1: ToString + PatchField, T2: PatchField, T3: 'static + PatchField, T4>
+/// where 
+///    T3: ToString,
+///    T4: ToString + PatchField
+/// {
+///    data1: &'a T1,
+///    data2: T2,
+///    data3: T3,
+///    data4: T4,
+/// }
+/// ```
+/// 
+/// The `syn` crate will return the instance of [syn::Generics] which will conceptually look like this
+/// 
+/// ```text
+/// Generics:
+///     params:
+///        [
+///           'a,
+///            T1: ToString + PatchField,
+///            T2: PatchField,
+///            T3: 'static + PatchField,
+///            T4,
+///        ]
+///      where_clause:
+///        [
+///            T3: ToString,
+///            T4: ToString + PatchField,
+///        ]
+/// ```
+/// 
+/// This method would return a new instance of [syn::Generics] which will conceptually look like this
+/// 
+/// ```text
+/// Generics:
+///     params:
+///       [
+///           'a,
+///           T1,
+///           T2,
+///           T3,
+///           T4,
+///       ]
+///      where_clause:
+///       []
+/// ```
+/// 
+/// This is useful when you want to use a generic arguments list for `impl` sections for type definitions.
+/// 
+fn remove_constraint_from_generics(generics: &Generics) -> Generics {
+    let mut new_generics = generics.clone();
+
+    // remove contraints directly placed in the generic arguments list
+    //
+    // For generics for `struct A<T: MyTrait>` the `T: MyTrait` becomes `T`
+    for param in new_generics.params.iter_mut() {
+        match param {
+            GenericParam::Lifetime(lifetime) => {
+                lifetime.bounds.clear(); // remove bounds
+                lifetime.colon_token = None;
+            },
+            GenericParam::Type(type_param) => {
+                type_param.bounds.clear(); // remove bounds
+                type_param.colon_token = None;
+                type_param.eq_token = None;
+                type_param.default = None;
+            },
+            GenericParam::Const(const_param) => {
+                // replaces const generic with type param without bounds which is basically an `ident` token
+                *param = GenericParam::Type(
+                    TypeParam{
+                       attrs: const_param.attrs.clone(),
+                       ident: const_param.ident.clone(),
+                       colon_token: None,
+                       bounds: Punctuated::new(),
+                       eq_token: None,
+                       default: None
+                    }
+                );
+            }
+        }
+    }
+
+    new_generics.where_clause = None; // remove where clause
+
+    new_generics
 }
 
 struct Model {
@@ -580,7 +667,7 @@ impl Parse for PatchModel {
             _ => {
                 abort_call_site!(
                     "only structs and enums can be used with `Store`"
-                );
+                );  
             }
         };
 
@@ -665,9 +752,14 @@ impl ToTokens for PatchModel {
             }
         };
 
+        let clear_generics  = remove_constraint_from_generics(generics);
+        let params = clear_generics.params;
+        let where_clause = &generics.where_clause;
+
         // read access
         tokens.extend(quote! {
-            impl #generics #library_path::PatchField for #name #generics
+            impl #generics #library_path::PatchField for #name <#params>
+               #where_clause
             {
                 fn patch_field(
                     &mut self,
