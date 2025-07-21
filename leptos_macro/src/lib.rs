@@ -1030,14 +1030,41 @@ pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
 }
 
-/// The `#[lazy]` macro marks an `async` function as a function that can be lazy-loaded from a
-/// separate (WebAssembly) binary.
+/// The `#[lazy]` macro indicates that a function can be lazy-loaded from a separate WebAssembly (WASM) binary.
 ///
 /// The first time the function is called, calling the function will first load that other binary,
-/// then call the function. On subsequent call it will be called immediately, but still return
+/// then call the function. On subsequent calls it will be called immediately, but still return
 /// asynchronously to maintain the same API.
 ///
-/// All parameters and output types should be concrete types, with no generics.
+/// `#[lazy]` can be used to annotate synchronous or `async` functions. In both cases, the final function will be
+/// `async` and must be called as such.
+///
+/// All parameters and output types should be concrete types, with no generics or `impl Trait` types.
+///
+/// This should be used in tandem with a suitable build process, such as `cargo leptos --split`.
+///
+/// ```rust
+/// # use leptos_macro::lazy;
+///
+/// #[lazy]
+/// fn lazy_synchronous_function() -> String {
+///     "Hello, lazy world!".to_string()
+/// }
+///
+/// #[lazy]
+/// async fn lazy_async_function() -> String {
+///     /* do something that requires async work */
+///     "Hello, lazy async world!".to_string()
+/// }
+///
+/// async fn use_lazy_functions() {
+///     // synchronous function has been converted to async
+///     let value1 = lazy_synchronous_function().await;
+///
+///     // async function is still async
+///     let value1 = lazy_async_function().await;
+/// }
+/// ```
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {

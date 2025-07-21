@@ -198,6 +198,37 @@ impl ToTokens for Segments {
 /// add a [`lazy`] annotation to the `view` method, which will cause the code for the view
 /// to lazy-load concurrently with the `data` being loaded for the route.
 ///
+/// ```rust
+/// use leptos::prelude::*;
+/// use leptos_router::{lazy_route, LazyRoute};
+///
+/// // the route definition
+/// #[derive(Debug)]
+/// struct BlogListingRoute {
+///     titles: Resource<Vec<String>>
+/// }
+///
+/// #[lazy_route]
+/// impl LazyRoute for BlogListingRoute {
+///     fn data() -> Self {
+///         Self {
+///             titles: Resource::new(|| (), |_| async {
+///                 vec![/* todo: load blog posts */]
+///             })
+///         }
+///     }
+///
+///     // this function will be lazy-loaded, concurrently with data()
+///     fn view(this: Self) -> AnyView {
+///         let BlogListingRoute { titles } = this;
+///
+///         // ... now you can use the `posts` resource with Suspense, etc.,
+///         // and return AnyView by calling .into_any() on a view
+///         # ().into_any()
+///     }
+/// }
+/// ```
+///
 /// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
 /// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/macro.lazy.html
 #[proc_macro_attribute]
