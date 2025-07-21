@@ -24,6 +24,8 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 /// Removes all constraints from generics arguments list.
 /// 
+/// # Example
+/// 
 /// ```rust,no_run
 /// struct Data<'a, T1: ToString + PatchField, T2: PatchField, T3: 'static + PatchField, T4>
 /// where 
@@ -37,7 +39,8 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 /// 
-/// The `syn` crate will return the instance of [syn::Generics] which will conceptually look like this
+/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics] 
+/// which will conceptually look like this
 /// 
 /// ```text
 /// Generics:
@@ -198,7 +201,9 @@ impl ToTokens for Model {
         } = &self;
         let any_store_field = Ident::new("AnyStoreField", Span::call_site());
         let trait_name = Ident::new(&format!("{name}StoreFields"), name.span());
+        let clear_generics = remove_constraint_from_generics(generics);
         let params = &generics.params;
+        let clear_params = &clear_generics.params;
         let generics_with_orig = quote! { <#any_store_field, #params> };
         let where_with_orig = {
             generics
@@ -211,17 +216,17 @@ impl ToTokens for Model {
                     } = &w;
                     quote! {
                         #where_token
-                            #any_store_field: #library_path::StoreField<Value = #name #generics>,
+                            #any_store_field: #library_path::StoreField<Value = #name < #clear_params > >,
                             #predicates
                     }
                 })
-                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<Value = #name #generics> })
+                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<Value = #name < #clear_params > > })
         };
 
         // define an extension trait that matches this struct
         // and implement that trait for all StoreFields
         let (trait_fields, read_fields): (Vec<_>, Vec<_>) =
-            ty.to_field_data(&library_path, generics, &any_store_field, name);
+            ty.to_field_data(&library_path, generics, &clear_generics, &any_store_field, name);
 
         // read access
         tokens.extend(quote! {
@@ -231,7 +236,7 @@ impl ToTokens for Model {
                 #(#trait_fields)*
             }
 
-            impl #generics_with_orig #trait_name <AnyStoreField, #params> for AnyStoreField
+            impl #generics_with_orig #trait_name <AnyStoreField, #clear_params> for AnyStoreField
             #where_with_orig
             {
                #(#read_fields)*
@@ -245,6 +250,7 @@ impl ModelTy {
         &self,
         library_path: &TokenStream,
         generics: &Generics,
+        clear_generics: &Generics,
         any_store_field: &Ident,
         name: &Ident,
     ) -> (Vec<TokenStream>, Vec<TokenStream>) {
@@ -291,6 +297,7 @@ impl ModelTy {
                             library_path,
                             ident.as_ref(),
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             ty,
@@ -302,6 +309,7 @@ impl ModelTy {
                             library_path,
                             ident.as_ref(),
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             ty,
@@ -320,6 +328,7 @@ impl ModelTy {
                             library_path,
                             ident,
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             fields,
@@ -329,6 +338,7 @@ impl ModelTy {
                             library_path,
                             ident,
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             fields,
@@ -347,7 +357,8 @@ fn field_to_tokens(
     modes: Option<&[SubfieldMode]>,
     library_path: &proc_macro2::TokenStream,
     orig_ident: Option<&Ident>,
-    generics: &Generics,
+    _generics: &Generics,
+    clear_generics: &Generics,
     any_store_field: &Ident,
     name: &Ident,
     ty: &Type,
@@ -372,7 +383,7 @@ fn field_to_tokens(
                 SubfieldMode::Keyed(keyed_by, key_ty) => {
                     let signature = quote! {
                         #[track_caller]
-                        fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
+                        fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #clear_generics, #key_ty, #ty>
                     };
                     return if include_body {
                         quote! {
@@ -405,7 +416,7 @@ fn field_to_tokens(
     // default subfield
     if include_body {
         quote! {
-            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #generics, #ty> {
+            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty> {
                 #library_path::Subfield::new(
                     self,
                     #idx.into(),
@@ -416,7 +427,7 @@ fn field_to_tokens(
         }
     } else {
         quote! {
-            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #generics, #ty>;
+            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty>;
         }
     }
 }
@@ -427,6 +438,7 @@ fn variant_to_tokens(
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
     generics: &Generics,
+    clear_generics: &Generics,
     any_store_field: &Ident,
     name: &Ident,
     fields: &Fields,
@@ -495,7 +507,7 @@ fn variant_to_tokens(
                     // default subfield
                     if include_body {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>> {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>> {
                                 #library_path::StoreField::track_field(&self);
                                 let reader = #library_path::StoreField::reader(&self);
                                 let matches = reader
@@ -527,7 +539,7 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>;
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>>;
                         }
                     }
                 }));
