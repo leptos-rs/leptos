@@ -278,6 +278,19 @@ where
         position: &PositionState,
     ) -> Self::State;
 
+    /// Asynchronously makes a set of DOM nodes rendered from HTML interactive.
+    ///
+    /// Async hydration is useful for types that may need to wait before being hydrated:
+    /// for example, lazily-loaded routes need async hydration, because the client code
+    /// may be loading asynchronously, while the server HTML was already rendered.
+    fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> impl Future<Output = Self::State> {
+        async { self.hydrate::<true>(cursor, position) }
+    }
+
     /// Hydrates using [`RenderHtml::hydrate`], beginning at the given element.
     fn hydrate_from<const FROM_SERVER: bool>(
         self,

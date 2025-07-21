@@ -1,0 +1,8 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/cargo-leptos-split-webdriver-test.toml" },
+]
+
+[env]
+
+CLIENT_PROCESS_NAME = "regression"

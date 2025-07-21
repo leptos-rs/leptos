@@ -19,6 +19,7 @@ use syn::{
 
 pub struct Model {
     is_transparent: bool,
+    is_lazy: bool,
     island: Option<String>,
     docs: Docs,
     unknown_attrs: UnknownAttrs,
@@ -66,6 +67,7 @@ impl Parse for Model {
 
         Ok(Self {
             is_transparent: false,
+            is_lazy: false,
             island: None,
             docs,
             unknown_attrs,
@@ -140,6 +142,7 @@ impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
             is_transparent,
+            is_lazy,
             island,
             docs,
             unknown_attrs,
@@ -530,15 +533,41 @@ impl ToTokens for Model {
             };
 
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
-            quote! {
-                #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
-                #[allow(non_snake_case)]
-                pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
-                    #deserialize_island_props
-                    let island = #name(#island_props);
-                    let state = island.hydrate_from_position::<true>(&el, ::leptos::tachys::view::Position::Current);
-                    // TODO better cleanup
-                    std::mem::forget(state);
+
+            let hydrate_fn_inner = quote! {
+                #deserialize_island_props
+                let island = #name(#island_props);
+                let state = island.hydrate_from_position::<true>(&el, ::leptos::tachys::view::Position::Current);
+                // TODO better cleanup
+                std::mem::forget(state);
+            };
+            if *is_lazy {
+                let outer_name =
+                    Ident::new(&format!("{name}_loader"), name.span());
+
+                quote! {
+                    #[::leptos::prelude::lazy]
+                    #[allow(non_snake_case)]
+                    async fn #outer_name (el: ::leptos::web_sys::HtmlElement) {
+                        #hydrate_fn_inner
+                    }
+
+                    #[::leptos::wasm_bindgen::prelude::wasm_bindgen(
+                        wasm_bindgen = ::leptos::wasm_bindgen,
+                        wasm_bindgen_futures = ::leptos::__reexports::wasm_bindgen_futures
+                    )]
+                    #[allow(non_snake_case)]
+                    pub async fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                        #outer_name(el).await
+                    }
+                }
+            } else {
+                quote! {
+                    #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
+                    #[allow(non_snake_case)]
+                    pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                        #hydrate_fn_inner
+                    }
                 }
             }
         } else {
@@ -606,6 +635,13 @@ impl Model {
     #[allow(clippy::wrong_self_convention)]
     pub fn is_transparent(mut self, is_transparent: bool) -> Self {
         self.is_transparent = is_transparent;
+
+        self
+    }
+
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_lazy(mut self, is_lazy: bool) -> Self {
+        self.is_lazy = is_lazy;
 
         self
     }

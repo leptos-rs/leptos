@@ -447,14 +447,65 @@ where
                     );
                     drop(url);
 
-                    // TODO support for lazy hydration
-                    join_all(mem::take(&mut loaders))
-                        .now_or_never()
-                        .expect("async routes not supported in SSR");
+                    join_all(mem::take(&mut loaders)).now_or_never().expect(
+                        "lazy routes not supported with hydrate_body(); use \
+                         hydrate_lazy() instead",
+                    );
                     EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
+        ));
+
+        NestedRouteViewState {
+            path,
+            current_url,
+            outlets,
+            view,
+            outer_owner,
+        }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let NestedRoutesView {
+            routes,
+            outer_owner,
+            current_url,
+            fallback,
+            base,
+            ..
+        } = self;
+
+        let mut loaders = Vec::new();
+        let mut outlets = Vec::new();
+        let url = current_url.read_untracked();
+        let path = url.path().to_string();
+
+        // match the route
+        let new_match = routes.match_route(url.path());
+
+        // start with an empty view because we'll be loading routes async
+        let view = Rc::new(RefCell::new(
+            match new_match {
+                None => EitherOf3::B(fallback()),
+                Some(route) => {
+                    route.build_nested_route(
+                        &url,
+                        base,
+                        &mut loaders,
+                        &mut outlets,
+                    );
+                    drop(url);
+
+                    join_all(mem::take(&mut loaders)).await;
+                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                }
+            }
+            .hydrate::<true>(cursor, position),
         ));
 
         NestedRouteViewState {
@@ -638,6 +689,9 @@ where
             let url = url.clone();
             let matched = matched.clone();
             async move {
+                provide_context(params.clone());
+                provide_context(url.clone());
+                provide_context(matched.clone());
                 view.preload().await;
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
@@ -651,7 +705,7 @@ where
                         let matched = matched.clone();
                         owner_where_used.with({
                             let matched = matched.clone();
-                            move || {
+                            || {
                                 let child = child.clone();
                                 Suspend::new(Box::pin(async move {
                                     provide_context(child.clone());
@@ -781,8 +835,6 @@ where
                         })
                     };
 
-                    // assign a new owner, so that contexts and signals owned by the previous route
-                    // in this outlet can be dropped
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
                     full_loaders.push(full_rx);
@@ -799,8 +851,12 @@ where
                         let route_owner = Arc::clone(&current.owner);
                         let child = outlet.child.clone();
                         async move {
-                            view.preload().await;
                             let child = child.clone();
+                            if set_is_routing {
+                                AsyncTransition::run(|| view.preload()).await;
+                            } else {
+                                view.preload().await;
+                            }
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let prev_owner = route_owner

@@ -1,4 +1,5 @@
 use either_of::*;
+use leptos::prelude::{ArcStoredValue, WriteValue};
 use std::{future::Future, marker::PhantomData};
 use tachys::view::any_view::{AnyView, IntoAny};
 
@@ -25,31 +26,41 @@ where
 
 impl<T> ChooseView for Lazy<T>
 where
-    T: LazyRoute,
+    T: Send + Sync + LazyRoute,
 {
     async fn choose(self) -> AnyView {
-        T::data().view().await.into_any()
+        let data = self.data.write_value().take().unwrap_or_else(T::data);
+        T::view(data).await
     }
 
     async fn preload(&self) {
-        T::data().view().await;
+        *self.data.write_value() = Some(T::data());
+        T::preload().await;
     }
 }
 
 pub trait LazyRoute: Send + 'static {
     fn data() -> Self;
 
-    fn view(self) -> impl Future<Output = AnyView>;
+    fn view(this: Self) -> impl Future<Output = AnyView>;
+
+    fn preload() -> impl Future<Output = ()> {
+        async {}
+    }
 }
 
 #[derive(Debug)]
 pub struct Lazy<T> {
     ty: PhantomData<T>,
+    data: ArcStoredValue<Option<T>>,
 }
 
 impl<T> Clone for Lazy<T> {
     fn clone(&self) -> Self {
-        Self { ty: self.ty }
+        Self {
+            ty: self.ty,
+            data: self.data.clone(),
+        }
     }
 }
 
@@ -63,6 +74,7 @@ impl<T> Default for Lazy<T> {
     fn default() -> Self {
         Self {
             ty: Default::default(),
+            data: ArcStoredValue::new(None),
         }
     }
 }
@@ -101,9 +113,11 @@ macro_rules! tuples {
         where
             $($ty: ChooseView,)*
         {
-            async fn choose(self ) -> AnyView {
+            async fn choose(self) -> AnyView {
                 match self {
-                    $($either::$ty(f) => f.choose().await.into_any(),)*
+                    $(
+                        $either::$ty(f) => f.choose().await.into_any(),
+                    )*
                 }
             }
 

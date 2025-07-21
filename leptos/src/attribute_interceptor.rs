@@ -157,6 +157,14 @@ impl<T: IntoView + 'static, A: Attribute> RenderHtml
         self.children.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &leptos::tachys::hydration::Cursor,
+        position: &leptos::tachys::view::PositionState,
+    ) -> Self::State {
+        self.children.hydrate_async(cursor, position).await
+    }
+
     fn into_owned(self) -> Self::Owned {
         AttributeInterceptorInner {
             children_builder: self.children_builder,

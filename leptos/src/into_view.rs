@@ -178,6 +178,14 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.inner.hydrate_async(cursor, position).await
+    }
+
     fn into_owned(self) -> Self::Owned {
         View {
             inner: self.inner.into_owned(),

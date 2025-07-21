@@ -11,6 +11,10 @@ args = ["--locked"]
 command = "cargo"
 args = ["leptos", "end-to-end"]
 
+[tasks.cargo-leptos-e2e-split]
+command = "cargo"
+args = ["leptos", "end-to-end", "--split"]
+
 [tasks.build]
 clear = true
 command = "cargo"

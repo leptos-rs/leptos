@@ -71,8 +71,11 @@ server_fn = { path = "./server_fn", version = "0.8.4" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.4" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.4" }
 tachys = { path = "./tachys", version = "0.2.5" }
+wasm_split_helpers = { path = "./wasm_split", version = "0.1.0" }
+wasm_split_macros = { path = "./wasm_split_macros", version = "0.1.0" }
 
 # members deps
+async-once-cell = { default-features = false, version = "0.5.3" }
 itertools = { default-features = false, version = "0.14.0" }
 convert_case = { default-features = false, version = "0.8.0" }
 serde_json = { default-features = false, version = "1.0.140" }
@@ -165,6 +168,9 @@ rustversion = { default-features = false, version = "1.0.21" }
 getrandom = { default-features = false, version = "0.3.3" }
 actix-files = { default-features = false, version = "0.6.6" }
 async-lock = { default-features = false, version = "3.4.0" }
+base16 = { default-features = false, version = "0.2.1" }
+digest = { default-features = false, version = "0.10.7" }
+sha2 = { default-features = false, version = "0.10.8" }
 
 [profile.release]
 codegen-units = 1

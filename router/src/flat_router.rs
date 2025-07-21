@@ -141,15 +141,12 @@ where
                 }
 
                 let mut view = Box::pin(owner.with(|| {
-                    ScopedFuture::new({
-                        let url = url.clone();
-                        let matched = matched.clone();
-                        async move {
-                            provide_context(params_memo);
-                            provide_context(url);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            OwnedView::new(view.choose().await)
-                        }
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose().await)
                     })
                 }));
 
@@ -292,14 +289,13 @@ where
                     .map(|nav| nav.is_back().get_untracked())
                     .unwrap_or(false);
                 Executor::spawn_local(owner.with(|| {
+                    provide_context(url);
+                    provide_context(params_memo);
+                    provide_context(Matched(ArcMemo::from(new_matched)));
+
                     ScopedFuture::new({
                         let state = Rc::clone(state);
                         async move {
-                            provide_context(url);
-                            provide_context(params_memo);
-                            provide_context(Matched(ArcMemo::from(
-                                new_matched,
-                            )));
                             let view = OwnedView::new(
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
@@ -472,6 +468,14 @@ impl RenderHtml for MatchedRoute {
         self.1.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.1.hydrate_async(cursor, position).await
+    }
+
     fn into_owned(self) -> Self::Owned {
         self
     }
@@ -513,12 +517,11 @@ where
                 let (view, _) = new_match.into_view_and_child();
                 let view = owner
                     .with(|| {
-                        ScopedFuture::new(async move {
-                            provide_context(url);
-                            provide_context(params_memo);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            view.choose().await
-                        })
+                        provide_context(url);
+                        provide_context(params_memo);
+                        provide_context(Matched(ArcMemo::from(matched)));
+
+                        ScopedFuture::new(async move { view.choose().await })
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
@@ -632,17 +635,12 @@ where
         )
     }
 
+    #[track_caller]
     fn hydrate<const FROM_SERVER: bool>(
         self,
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        // this can be mostly the same as the build() implementation, but with hydrate()
-        //
-        // however, the big TODO is that we need to support lazy hydration in the case that the
-        // route is lazy-loaded on the client -- in this case, we actually can't initially hydrate
-        // at all, but need to skip, because the HTML will contain the route even though the
-        // client-side route component code is not yet loaded
         let FlatRoutesView {
             current_url,
             routes,
@@ -701,15 +699,12 @@ where
                 }
 
                 let mut view = Box::pin(owner.with(|| {
-                    ScopedFuture::new({
-                        let url = url.clone();
-                        let matched = matched.clone();
-                        async move {
-                            provide_context(params_memo);
-                            provide_context(url);
-                            provide_context(Matched(ArcMemo::from(matched)));
-                            OwnedView::new(view.choose().await)
-                        }
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose().await)
                     })
                 }));
 
@@ -726,10 +721,100 @@ where
                         matched,
                     })),
                     None => {
-                        // see comment at the top of this function
-                        todo!()
+                        panic!(
+                            "lazy routes should not be used with \
+                             hydrate_body(); use hydrate_lazy() instead"
+                        );
                     }
                 }
+            }
+        }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let FlatRoutesView {
+            current_url,
+            routes,
+            fallback,
+            outer_owner,
+            ..
+        } = self;
+        let current_url = current_url.read_untracked();
+
+        // we always need to match the new route
+        let new_match = routes.match_route(current_url.path());
+        let id = new_match.as_ref().map(|n| n.as_id());
+        let matched = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.as_matched().to_owned())
+                .unwrap_or_default(),
+        );
+
+        // create default starting points for owner, url, path, and params
+        // these will be held in state so that future navigations can update or replace them
+        let owner = outer_owner.child();
+        let url = ArcRwSignal::new(current_url.to_owned());
+        let path = current_url.path().to_string();
+        let params = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.to_params().into_iter().collect())
+                .unwrap_or_default(),
+        );
+        let params_memo = ArcMemo::from(params.clone());
+
+        // release URL lock
+        drop(current_url);
+
+        match new_match {
+            None => Rc::new(RefCell::new(FlatRoutesViewState {
+                view: fallback()
+                    .into_any()
+                    .hydrate_async(cursor, position)
+                    .await,
+                id,
+                owner,
+                params,
+                path,
+                url,
+                matched,
+            })),
+            Some(new_match) => {
+                let (view, child) = new_match.into_view_and_child();
+
+                #[cfg(debug_assertions)]
+                if child.is_some() {
+                    panic!(
+                        "<FlatRoutes> should not be used with nested routes."
+                    );
+                }
+
+                let view = Box::pin(owner.with(|| {
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+
+                    ScopedFuture::new(async move {
+                        OwnedView::new(view.choose().await)
+                    })
+                }));
+
+                let view = view.await;
+
+                Rc::new(RefCell::new(FlatRoutesViewState {
+                    view: view.into_any().hydrate_async(cursor, position).await,
+                    id,
+                    owner,
+                    params,
+                    path,
+                    url,
+                    matched,
+                }))
             }
         }
     }
