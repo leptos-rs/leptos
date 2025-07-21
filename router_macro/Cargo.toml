@@ -19,6 +19,7 @@ quote = { workspace = true, default-features = true }
 syn = { features = ["full"], workspace = true, default-features = true }
 
 [dev-dependencies]
+leptos = { path = "../leptos" }
 leptos_router = { path = "../router" }
 leptos_macro = { path = "../leptos_macro" }
 
