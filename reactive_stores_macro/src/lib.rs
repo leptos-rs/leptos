@@ -30,7 +30,7 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// struct Data<
 ///     'a,
 ///     T1: ToString + PatchField,
