@@ -5,16 +5,22 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = { workspace = true }
+version = "0.8.5"
 edition.workspace = true
 
 [dependencies]
 quote = { workspace = true, default-features = true }
-syn = { features = ["full", "parsing", "extra-traits"] , workspace = true, default-features = true }
+syn = { features = [
+  "full",
+  "parsing",
+  "extra-traits",
+], workspace = true, default-features = true }
 proc-macro2 = { workspace = true, default-features = true }
-xxhash-rust = { features = ["const_xxh64"] , workspace = true, default-features = true }
+xxhash-rust = { features = [
+  "const_xxh64",
+], workspace = true, default-features = true }
 const_format = { workspace = true, default-features = true }
-convert_case = { workspace = true , default-features = true }
+convert_case = { workspace = true, default-features = true }
 
 
 [build-dependencies]

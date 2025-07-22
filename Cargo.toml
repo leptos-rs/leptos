@@ -40,7 +40,6 @@ members = [
 exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
-version = "0.8.5"
 edition = "2021"
 rust-version = "1.88"
 

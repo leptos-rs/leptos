@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version = { workspace = true }
+version = "0.8.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -11,11 +11,11 @@ edition.workspace = true
 
 [dependencies]
 base64 = { workspace = true, default-features = true }
-codee = { features = ["json_serde"] , workspace = true, default-features = true }
+codee = { features = ["json_serde"], workspace = true, default-features = true }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
 server_fn = { workspace = true }
-tracing = { optional = true , workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 
 any_spawner = { workspace = true }
@@ -25,9 +25,9 @@ send_wrapper = { workspace = true, default-features = true }
 
 # serialization formats
 serde = { workspace = true, default-features = true }
-js-sys = { optional = true , workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, optional = true , default-features = true }
-serde_json = { workspace = true , default-features = true }
+js-sys = { optional = true, workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, optional = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 
 [features]
 ssr = []
