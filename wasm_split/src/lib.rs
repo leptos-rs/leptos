@@ -1,9 +1,8 @@
 use std::{
-    cell::Cell,
     ffi::c_void,
     future::Future,
     pin::Pin,
-    rc::Rc,
+    sync::{Arc, Mutex},
     task::{Context, Poll, Waker},
 };
 
@@ -12,18 +11,19 @@ pub type LoadFn = unsafe extern "C" fn(LoadCallbackFn, *const c_void) -> ();
 
 type Lazy = async_once_cell::Lazy<Option<()>, SplitLoaderFuture>;
 
+use or_poisoned::OrPoisoned;
 pub use wasm_split_macros::wasm_split;
 
 pub struct LazySplitLoader {
-    lazy: Pin<Rc<Lazy>>,
+    lazy: Pin<Arc<Lazy>>,
 }
 
 impl LazySplitLoader {
     pub fn new(load: LoadFn) -> Self {
         Self {
-            lazy: Rc::pin(Lazy::new(SplitLoaderFuture::new(SplitLoader::new(
-                load,
-            )))),
+            lazy: Arc::pin(Lazy::new(SplitLoaderFuture::new(
+                SplitLoader::new(load),
+            ))),
         }
     }
 }
@@ -42,36 +42,33 @@ enum SplitLoaderState {
 }
 
 struct SplitLoader {
-    state: Cell<SplitLoaderState>,
-    waker: Cell<Option<Waker>>,
+    state: Mutex<SplitLoaderState>,
+    waker: Mutex<Option<Waker>>,
 }
 
 impl SplitLoader {
-    fn new(load: LoadFn) -> Rc<Self> {
-        Rc::new(SplitLoader {
-            state: Cell::new(SplitLoaderState::Deferred(load)),
-            waker: Cell::new(None),
+    fn new(load: LoadFn) -> Arc<Self> {
+        Arc::new(SplitLoader {
+            state: Mutex::new(SplitLoaderState::Deferred(load)),
+            waker: Mutex::new(None),
         })
     }
 
     fn complete(&self, value: bool) {
-        self.state.set(SplitLoaderState::Completed(if value {
-            Some(())
-        } else {
-            None
-        }));
-        if let Some(waker) = self.waker.take() {
+        *self.state.lock().or_poisoned() =
+            SplitLoaderState::Completed(if value { Some(()) } else { None });
+        if let Some(waker) = self.waker.lock().or_poisoned().take() {
             waker.wake();
         }
     }
 }
 
 struct SplitLoaderFuture {
-    loader: Rc<SplitLoader>,
+    loader: Arc<SplitLoader>,
 }
 
 impl SplitLoaderFuture {
-    fn new(loader: Rc<SplitLoader>) -> Self {
+    fn new(loader: Arc<SplitLoader>) -> Self {
         SplitLoaderFuture { loader }
     }
 }
@@ -80,21 +77,24 @@ impl Future for SplitLoaderFuture {
     type Output = Option<()>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        match self.loader.state.get() {
+        let mut loader = self.loader.state.lock().or_poisoned();
+        match *loader {
             SplitLoaderState::Deferred(load) => {
-                self.loader.state.set(SplitLoaderState::Pending);
-                self.loader.waker.set(Some(cx.waker().clone()));
+                *loader = SplitLoaderState::Pending;
+                *self.loader.waker.lock().or_poisoned() =
+                    Some(cx.waker().clone());
                 unsafe {
                     load(
                         load_callback,
-                        Rc::<SplitLoader>::into_raw(self.loader.clone())
+                        Arc::<SplitLoader>::into_raw(self.loader.clone())
                             as *const c_void,
                     )
                 };
                 Poll::Pending
             }
             SplitLoaderState::Pending => {
-                self.loader.waker.set(Some(cx.waker().clone()));
+                *self.loader.waker.lock().or_poisoned() =
+                    Some(cx.waker().clone());
                 Poll::Pending
             }
             SplitLoaderState::Completed(value) => Poll::Ready(value),
@@ -103,5 +103,5 @@ impl Future for SplitLoaderFuture {
 }
 
 unsafe extern "C" fn load_callback(loader: *const c_void, success: bool) {
-    unsafe { Rc::from_raw(loader as *const SplitLoader) }.complete(success);
+    unsafe { Arc::from_raw(loader as *const SplitLoader) }.complete(success);
 }

@@ -305,7 +305,10 @@ impl LazyRoute for ViewD {
     }
 }
 
+// Server functions can be made lazy by combining the two macros,
+// with `#[server]` coming first, then `#[lazy]`
 #[server]
+#[lazy]
 async fn d_data() -> Result<Vec<i32>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     Ok(vec![1, 1, 2, 3, 5, 8, 13])

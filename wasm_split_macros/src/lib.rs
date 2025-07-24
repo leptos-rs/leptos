@@ -1,11 +1,40 @@
 use digest::Digest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Ident, ItemFn, ReturnType, Signature};
+use syn::{
+    parse,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    token::Comma,
+    Ident, ItemFn, Path, Result, ReturnType, Signature,
+};
+
+struct WasmSplitArgs {
+    module_ident: Ident,
+    _comma: Option<Comma>,
+    send_wrapper_path: Option<Path>,
+}
+
+impl Parse for WasmSplitArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let module_ident = input.parse()?;
+        let _comma = input.parse().ok();
+        let send_wrapper_path = input.parse().ok();
+        Ok(Self {
+            module_ident,
+            _comma,
+            send_wrapper_path,
+        })
+    }
+}
 
 #[proc_macro_attribute]
 pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
-    let module_ident = parse_macro_input!(args as Ident);
+    let WasmSplitArgs {
+        module_ident,
+        send_wrapper_path,
+        ..
+    } = parse_macro_input!(args);
     let item_fn = parse_macro_input!(input as ItemFn);
 
     let name = &item_fn.sig.ident;
@@ -45,9 +74,9 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
             ReturnType::Default => quote! { () },
             ReturnType::Type(_, ty) => quote! { #ty },
         };
-        let async_output = syn::parse::<ReturnType>(
+        let async_output = parse::<ReturnType>(
             quote! {
-                -> std::pin::Pin<Box<dyn std::future::Future<Output = #ty>>>
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = #ty> + Send + Sync>>
             }
             .into(),
         )
@@ -83,10 +112,18 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
     let stmts = &item_fn.block.stmts;
 
     let body = if was_async {
-        quote! {
-            Box::pin(async move {
-                #(#stmts)*
-            })
+        if let Some(send_wrapper_path) = send_wrapper_path {
+            quote! {
+                Box::pin(#send_wrapper_path::SendWrapper::new(async move {
+                    #(#stmts)*
+                }))
+            }
+        } else {
+            quote! {
+                Box::pin(async move {
+                    #(#stmts)*
+                })
+            }
         }
     } else {
         quote! { #(#stmts)* }

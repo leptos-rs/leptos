@@ -14,3 +14,4 @@ async-once-cell = { default-features = true, workspace = true, features = [
 	"std",
 ] }
 wasm_split_macros.workspace = true
+or_poisoned.workspace = true

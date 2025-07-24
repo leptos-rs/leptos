@@ -348,6 +348,7 @@ pub use web_sys;
 
 #[doc(hidden)]
 pub mod __reexports {
+    pub use send_wrapper;
     pub use wasm_bindgen_futures;
 }
 
