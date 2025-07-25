@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "The default implementation of the server_fn macro without a context"
-version = { workspace = true }
+version = "0.8.5"
 edition.workspace = true
 
 [lib]
