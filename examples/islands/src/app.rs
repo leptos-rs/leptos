@@ -49,7 +49,7 @@ pub fn OuterIsland(children: Children) -> impl IntoView {
     }
 }
 
-#[island]
+#[island(lazy)]
 pub fn InnerIsland() -> impl IntoView {
     let val = use_context::<i32>();
     view! {

@@ -86,3 +86,5 @@ lib-features = ["hydrate"]
 lib-default-features = false
 
 lib-profile-release = "wasm-release"
+
+hash-files = true
