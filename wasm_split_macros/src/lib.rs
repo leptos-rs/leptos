@@ -136,7 +136,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
             static #split_loader_ident: ::leptos::wasm_split_helpers::LazySplitLoader = ::leptos::wasm_split_helpers::LazySplitLoader::new(#load_module_ident);
         }
 
-        #[link(wasm_import_module = "/pkg/__wasm_split.js")]
+        #[link(wasm_import_module = "/pkg/__wasm_split.______________________.js")]
         extern "C" {
             #[no_mangle]
             fn #load_module_ident (callback: unsafe extern "C" fn(*const ::std::ffi::c_void, bool), data: *const ::std::ffi::c_void) -> ();
