@@ -548,7 +548,7 @@ impl ToTokens for Model {
                 quote! {
                     #[::leptos::prelude::lazy]
                     #[allow(non_snake_case)]
-                    async fn #outer_name (el: ::leptos::web_sys::HtmlElement) {
+                    fn #outer_name (el: ::leptos::web_sys::HtmlElement) {
                         #hydrate_fn_inner
                     }
 
