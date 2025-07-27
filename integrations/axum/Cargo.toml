@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
-version = { workspace = true }
+version = "0.8.5"
 rust-version.workspace = true
 edition.workspace = true
 

@@ -1,6 +1,6 @@
 [package]
 name = "leptos_hot_reload"
-version = { workspace = true }
+version = "0.8.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -11,17 +11,20 @@ edition.workspace = true
 
 [dependencies]
 anyhow = { workspace = true, default-features = true }
-serde = { features = ["derive"] , workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
 syn = { features = [
   "full",
   "parsing",
   "extra-traits",
   "visit",
   "printing",
-] , workspace = true, default-features = true }
+], workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
 rstml = { workspace = true, default-features = true }
-proc-macro2 = { features = ["span-locations", "nightly"] , workspace = true, default-features = true }
+proc-macro2 = { features = [
+  "span-locations",
+  "nightly",
+], workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 walkdir = { workspace = true, default-features = true }
 camino = { workspace = true, default-features = true }
