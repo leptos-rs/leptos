@@ -1788,7 +1788,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "any_spawner",
  "base64",
@@ -1952,7 +1952,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -1972,7 +1972,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "server_fn",
- "server_fn_macro 0.8.5",
+ "server_fn_macro 0.8.6",
  "syn 2.0.104",
  "tracing",
  "trybuild",
@@ -3345,7 +3345,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "const_format",
  "convert_case 0.8.0",
@@ -3360,7 +3360,7 @@ dependencies = [
 name = "server_fn_macro_default"
 version = "0.8.5"
 dependencies = [
- "server_fn_macro 0.8.5",
+ "server_fn_macro 0.8.6",
  "syn 2.0.104",
 ]
 
