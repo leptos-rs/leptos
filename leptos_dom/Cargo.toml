@@ -18,6 +18,7 @@ tracing = { optional = true, workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
 serde = { optional = true, workspace = true, default-features = true }
+subsecond.workspace = true
 
 [dev-dependencies]
 leptos = { path = "../leptos" }

@@ -55,6 +55,11 @@ where
 {
     /// Creates a new render effect, which immediately runs `fun`.
     pub fn new(fun: impl FnMut(Option<T>) -> T + 'static) -> Self {
+        #[cfg(feature = "subsecond")]
+        let mut fun = subsecond::HotFn::current(fun);
+        #[cfg(feature = "subsecond")]
+        let fun = move |prev| fun.call((prev,));
+
         Self::new_with_value_erased(Box::new(fun), None)
     }
 
@@ -63,6 +68,11 @@ where
         fun: impl FnMut(Option<T>) -> T + 'static,
         initial_value: Option<T>,
     ) -> Self {
+        #[cfg(feature = "subsecond")]
+        let mut fun = subsecond::HotFn::current(fun);
+        #[cfg(feature = "subsecond")]
+        let fun = move |prev| fun.call((prev,));
+
         Self::new_with_value_erased(Box::new(fun), initial_value)
     }
 
@@ -71,6 +81,11 @@ where
         fun: impl FnMut(Option<T>) -> T + 'static,
         value: impl IntoFuture<Output = T> + 'static,
     ) -> Self {
+        #[cfg(feature = "subsecond")]
+        let mut fun = subsecond::HotFn::current(fun);
+        #[cfg(feature = "subsecond")]
+        let fun = move |prev| fun.call((prev,));
+
         Self::new_with_async_value_erased(
             Box::new(fun),
             Box::pin(value.into_future()),
@@ -79,7 +94,7 @@ where
     }
 
     fn new_with_value_erased(
-        mut fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
+        fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
         initial_value: Option<T>,
     ) -> Self {
         // codegen optimisation:
@@ -104,12 +119,42 @@ where
             let _ = initial_value;
             let _ = owner;
             let _ = &mut rx;
-            let _ = &mut fun;
+            let _ = fun;
         }
 
         #[cfg(feature = "effects")]
         {
             let subscriber = inner.to_any_subscriber();
+
+            #[cfg(all(feature = "subsecond", debug_assertions))]
+            let mut fun = {
+                use crate::graph::ReactiveNode;
+                use rustc_hash::FxHashMap;
+                use std::sync::{Arc, LazyLock, Mutex};
+                use subsecond::HotFnPtr;
+
+                static HOT_RELOAD_SUBSCRIBERS: LazyLock<
+                    Mutex<FxHashMap<HotFnPtr, AnySubscriber>>,
+                > = LazyLock::new(|| {
+                    subsecond::register_handler(Arc::new(|| {
+                        for (_ptr, sub) in
+                            &*HOT_RELOAD_SUBSCRIBERS.lock().or_poisoned()
+                        {
+                            sub.mark_dirty();
+                        }
+                    }));
+                    Default::default()
+                });
+
+                let mut fun = subsecond::HotFn::current(fun);
+                HOT_RELOAD_SUBSCRIBERS
+                    .lock()
+                    .or_poisoned()
+                    .insert(fun.ptr_address(), subscriber.clone());
+                let fun = move |prev| fun.call((prev,));
+                fun
+            };
+
             *value.write().or_poisoned() = Some(
                 owner.with(|| subscriber.with_observer(|| fun(initial_value))),
             );
@@ -230,6 +275,11 @@ where
     pub fn new_isomorphic(
         fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
     ) -> Self {
+        #[cfg(feature = "subsecond")]
+        let mut fun = subsecond::HotFn::current(fun);
+        #[cfg(feature = "subsecond")]
+        let fun = move |prev| fun.call((prev,));
+
         fn erased<T: Send + Sync + 'static>(
             mut fun: Box<dyn FnMut(Option<T>) -> T + Send + Sync + 'static>,
         ) -> RenderEffect<T> {

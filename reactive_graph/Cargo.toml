@@ -27,6 +27,7 @@ async-lock = { workspace = true, default-features = true }
 send_wrapper = { features = [
   "futures",
 ], workspace = true, default-features = true }
+subsecond = { workspace = true, default-features = true, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 web-sys = { version = "0.3.77", features = ["console"] }
@@ -50,6 +51,7 @@ hydration = ["dep:hydration_context"]
 effects = [
 ] # whether to run effects: should be disabled for something like server rendering
 sandboxed-arenas = []
+subsecond = ["dep:subsecond"]
 
 [package.metadata.docs.rs]
 all-features = true

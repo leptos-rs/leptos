@@ -182,6 +182,13 @@ where
 
         let mut cb = self.cb.expect("callback removed before attaching").take();
 
+        #[cfg(all(feature = "subsecond", debug_assertions))]
+        let cb = move |ev| {
+            cb.invoke(ev);
+        };
+        #[cfg(all(feature = "subsecond", debug_assertions))]
+        let mut cb = subsecond::HotFn::current(cb);
+
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
 
@@ -193,7 +200,7 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
-            cb.invoke(ev);
+            cb.call((ev,));
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
         attach_inner(
