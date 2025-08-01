@@ -9,6 +9,8 @@ use crate::{
 };
 use futures::StreamExt;
 use or_poisoned::OrPoisoned;
+#[cfg(feature = "subsecond")]
+use std::sync::Mutex;
 use std::{
     fmt::Debug,
     future::{Future, IntoFuture},
@@ -49,6 +51,9 @@ impl<T> Debug for RenderEffect<T> {
     }
 }
 
+#[cfg(feature = "subsecond")]
+type CurrentHotPtr = Box<dyn Fn() -> Option<subsecond::HotFnPtr> + Send + Sync>;
+
 impl<T> RenderEffect<T>
 where
     T: 'static,
@@ -56,11 +61,29 @@ where
     /// Creates a new render effect, which immediately runs `fun`.
     pub fn new(fun: impl FnMut(Option<T>) -> T + 'static) -> Self {
         #[cfg(feature = "subsecond")]
-        let mut fun = subsecond::HotFn::current(fun);
-        #[cfg(feature = "subsecond")]
-        let fun = move |prev| fun.call((prev,));
+        let (hot_fn_ptr, fun) = {
+            let fun = Arc::new(Mutex::new(subsecond::HotFn::current(fun)));
+            (
+                {
+                    let fun = Arc::downgrade(&fun);
+                    let wrapped = send_wrapper::SendWrapper::new(move || {
+                        fun.upgrade()
+                            .map(|n| n.lock().or_poisoned().ptr_address())
+                    });
+                    // it's not redundant, it's due to the SendWrapper deref
+                    #[allow(clippy::redundant_closure)]
+                    Box::new(move || wrapped())
+                },
+                move |prev| fun.lock().or_poisoned().call((prev,)),
+            )
+        };
 
-        Self::new_with_value_erased(Box::new(fun), None)
+        Self::new_with_value_erased(
+            Box::new(fun),
+            None,
+            #[cfg(feature = "subsecond")]
+            hot_fn_ptr,
+        )
     }
 
     /// Creates a new render effect with an initial value.
@@ -69,11 +92,29 @@ where
         initial_value: Option<T>,
     ) -> Self {
         #[cfg(feature = "subsecond")]
-        let mut fun = subsecond::HotFn::current(fun);
-        #[cfg(feature = "subsecond")]
-        let fun = move |prev| fun.call((prev,));
+        let (hot_fn_ptr, fun) = {
+            let fun = Arc::new(Mutex::new(subsecond::HotFn::current(fun)));
+            (
+                {
+                    let fun = Arc::downgrade(&fun);
+                    let wrapped = send_wrapper::SendWrapper::new(move || {
+                        fun.upgrade()
+                            .map(|n| n.lock().or_poisoned().ptr_address())
+                    });
+                    // it's not redundant, it's due to the SendWrapper deref
+                    #[allow(clippy::redundant_closure)]
+                    Box::new(move || wrapped())
+                },
+                move |prev| fun.lock().or_poisoned().call((prev,)),
+            )
+        };
 
-        Self::new_with_value_erased(Box::new(fun), initial_value)
+        Self::new_with_value_erased(
+            Box::new(fun),
+            initial_value,
+            #[cfg(feature = "subsecond")]
+            hot_fn_ptr,
+        )
     }
 
     /// Creates a new render effect, which immediately runs `fun`.
@@ -94,8 +135,9 @@ where
     }
 
     fn new_with_value_erased(
-        fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
+        #[allow(unused_mut)] mut fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
         initial_value: Option<T>,
+        #[cfg(feature = "subsecond")] hot_fn_ptr: CurrentHotPtr,
     ) -> Self {
         // codegen optimisation:
         fn prep() -> (Owner, Arc<RwLock<EffectInner>>, crate::channel::Receiver)
@@ -134,25 +176,39 @@ where
                 use subsecond::HotFnPtr;
 
                 static HOT_RELOAD_SUBSCRIBERS: LazyLock<
-                    Mutex<FxHashMap<HotFnPtr, AnySubscriber>>,
+                    Mutex<FxHashMap<AnySubscriber, (HotFnPtr, CurrentHotPtr)>>,
                 > = LazyLock::new(|| {
                     subsecond::register_handler(Arc::new(|| {
-                        for (_ptr, sub) in
-                            &*HOT_RELOAD_SUBSCRIBERS.lock().or_poisoned()
-                        {
-                            sub.mark_dirty();
-                        }
+                        HOT_RELOAD_SUBSCRIBERS.lock().or_poisoned().retain(
+                            |subscriber, (prev_ptr, hot_fn_ptr)| {
+                                match hot_fn_ptr() {
+                                    None => false,
+                                    Some(curr_hot_ptr) => {
+                                        if curr_hot_ptr != *prev_ptr {
+                                            crate::log_warning(format_args!(
+                                                "{prev_ptr:?} <> \
+                                                 {curr_hot_ptr:?}",
+                                            ));
+                                            *prev_ptr = curr_hot_ptr;
+
+                                            subscriber.mark_dirty();
+                                        }
+                                        true
+                                    }
+                                }
+                            },
+                        );
                     }));
                     Default::default()
                 });
 
                 let mut fun = subsecond::HotFn::current(fun);
+                let initial_ptr = hot_fn_ptr().unwrap();
                 HOT_RELOAD_SUBSCRIBERS
                     .lock()
                     .or_poisoned()
-                    .insert(fun.ptr_address(), subscriber.clone());
-                let fun = move |prev| fun.call((prev,));
-                fun
+                    .insert(subscriber.clone(), (initial_ptr, hot_fn_ptr));
+                move |prev| fun.call((prev,))
             };
 
             *value.write().or_poisoned() = Some(
