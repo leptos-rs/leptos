@@ -6,11 +6,14 @@
 //! a linear search is not significantly more expensive than a hash and lookup.
 
 use super::{AnySource, AnySubscriber, Source};
-use core::slice;
-use std::{mem, vec::IntoIter};
+use indexmap::IndexSet;
+use rustc_hash::FxHasher;
+use std::{hash::BuildHasherDefault, mem};
+
+type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 
 #[derive(Default, Clone, Debug)]
-pub struct SourceSet(Vec<AnySource>);
+pub struct SourceSet(FxIndexSet<AnySource>);
 
 impl SourceSet {
     pub fn new() -> Self {
@@ -18,16 +21,14 @@ impl SourceSet {
     }
 
     pub fn insert(&mut self, source: AnySource) {
-        self.0.push(source);
+        self.0.insert(source);
     }
 
     pub fn remove(&mut self, source: &AnySource) {
-        if let Some(pos) = self.0.iter().position(|s| s == source) {
-            self.0.remove(pos);
-        }
+        self.0.shift_remove(source);
     }
 
-    pub fn take(&mut self) -> Vec<AnySource> {
+    pub fn take(&mut self) -> FxIndexSet<AnySource> {
         mem::take(&mut self.0)
     }
 
@@ -44,7 +45,7 @@ impl SourceSet {
 
 impl IntoIterator for SourceSet {
     type Item = AnySource;
-    type IntoIter = IntoIter<AnySource>;
+    type IntoIter = <FxIndexSet<AnySource> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -53,40 +54,36 @@ impl IntoIterator for SourceSet {
 
 impl<'a> IntoIterator for &'a SourceSet {
     type Item = &'a AnySource;
-    type IntoIter = slice::Iter<'a, AnySource>;
+    type IntoIter = <&'a FxIndexSet<AnySource> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
 #[derive(Debug, Default, Clone)]
-pub struct SubscriberSet(Vec<AnySubscriber>);
+pub struct SubscriberSet(FxIndexSet<AnySubscriber>);
 
 impl SubscriberSet {
     pub fn new() -> Self {
-        Self(Vec::with_capacity(2))
+        Self(FxIndexSet::with_capacity_and_hasher(2, Default::default()))
     }
 
     pub fn subscribe(&mut self, subscriber: AnySubscriber) {
-        if !self.0.contains(&subscriber) {
-            self.0.push(subscriber);
-        }
+        self.0.insert(subscriber);
     }
 
     pub fn unsubscribe(&mut self, subscriber: &AnySubscriber) {
-        if let Some(pos) = self.0.iter().position(|s| s == subscriber) {
-            // note: do not use `.swap_remove()` here.
-            // using `.remove()` is slower because it shifts other items
-            // but it maintains the order of the subscribers, which is important
-            // to correctness when you're using this to drive something like a UI,
-            // which can have nested effects, where the inner one assumes the outer
-            // has already run (for example, an outer effect that checks .is_some(),
-            // and an inner effect that unwraps)
-            self.0.remove(pos);
-        }
+        // note: do not use `.swap_remove()` here.
+        // using `.remove()` is slower because it shifts other items
+        // but it maintains the order of the subscribers, which is important
+        // to correctness when you're using this to drive something like a UI,
+        // which can have nested effects, where the inner one assumes the outer
+        // has already run (for example, an outer effect that checks .is_some(),
+        // and an inner effect that unwraps)
+        self.0.shift_remove(subscriber);
     }
 
-    pub fn take(&mut self) -> Vec<AnySubscriber> {
+    pub fn take(&mut self) -> FxIndexSet<AnySubscriber> {
         mem::take(&mut self.0)
     }
 
@@ -97,7 +94,7 @@ impl SubscriberSet {
 
 impl IntoIterator for SubscriberSet {
     type Item = AnySubscriber;
-    type IntoIter = IntoIter<AnySubscriber>;
+    type IntoIter = <FxIndexSet<AnySubscriber> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -106,7 +103,7 @@ impl IntoIterator for SubscriberSet {
 
 impl<'a> IntoIterator for &'a SubscriberSet {
     type Item = &'a AnySubscriber;
-    type IntoIter = slice::Iter<'a, AnySubscriber>;
+    type IntoIter = <&'a FxIndexSet<AnySubscriber> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
