@@ -7,7 +7,7 @@
 
 use super::{AnySource, AnySubscriber, Source};
 use indexmap::IndexSet;
-use rustc_hash::{FxBuildHasher, FxHasher};
+use rustc_hash::FxHasher;
 use std::{hash::BuildHasherDefault, mem};
 
 type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
