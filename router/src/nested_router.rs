@@ -10,8 +10,17 @@ use crate::{
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
-use futures::{channel::oneshot, future::join_all, FutureExt};
-use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
+use futures::{
+    channel::oneshot,
+    future::{join_all, AbortHandle, Abortable},
+    FutureExt,
+};
+use leptos::{
+    attr::any_attribute::AnyAttribute,
+    component,
+    oco::Oco,
+    prelude::{ArcStoredValue, WriteValue},
+};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -68,6 +77,7 @@ where
     // held to keep the Owner alive until the router is dropped
     #[allow(unused)]
     outer_owner: Owner,
+    abort_navigation: ArcStoredValue<Option<AbortHandle>>,
 }
 
 impl<Loc, Defs, FalFn, Fal> Render for NestedRoutesView<Loc, Defs, FalFn>
@@ -134,6 +144,7 @@ where
             outlets,
             view,
             outer_owner,
+            abort_navigation: Default::default(),
         }
     }
 
@@ -183,28 +194,48 @@ where
                     0,
                 );
 
+                let (abort_handle, abort_registration) =
+                    AbortHandle::new_pair();
+
+                if let Some(prev_handle) =
+                    state.abort_navigation.write_value().replace(abort_handle)
+                {
+                    prev_handle.abort();
+                }
+
                 let location = self.location.clone();
                 let is_back = location
                     .as_ref()
                     .map(|nav| nav.is_back().get_untracked())
                     .unwrap_or(false);
                 Executor::spawn_local(async move {
-                    let triggers = join_all(preloaders).await;
-                    // tell each one of the outlet triggers that it's ready
-                    let notify = move || {
-                        for trigger in triggers {
-                            trigger.notify();
+                    let triggers = Abortable::new(
+                        join_all(preloaders),
+                        abort_registration,
+                    );
+                    if let Ok(triggers) = triggers.await {
+                        // tell each one of the outlet triggers that it's ready
+                        let notify = move || {
+                            for trigger in triggers {
+                                trigger.notify();
+                            }
+                        };
+                        if self.transition {
+                            start_view_transition(
+                                different_level,
+                                is_back,
+                                notify,
+                            );
+                        } else {
+                            notify();
                         }
-                    };
-                    if self.transition {
-                        start_view_transition(different_level, is_back, notify);
-                    } else {
-                        notify();
                     }
                 });
 
+                let abort_navigation = state.abort_navigation.clone();
                 Executor::spawn_local(async move {
                     join_all(full_loaders).await;
+                    _ = abort_navigation.write_value().take();
                     if let Some(set_is_routing) = self.set_is_routing {
                         set_is_routing.set(false);
                     }
@@ -463,6 +494,7 @@ where
             outlets,
             view,
             outer_owner,
+            abort_navigation: Default::default(),
         }
     }
 
@@ -514,6 +546,7 @@ where
             outlets,
             view,
             outer_owner,
+            abort_navigation: Default::default(),
         }
     }
 
