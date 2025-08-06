@@ -5,14 +5,13 @@ use crate::error::{
 use actix_web::{
     http::{
         header,
-        header::{HeaderValue, LOCATION},
+        header::{HeaderValue, CONTENT_TYPE, LOCATION},
         StatusCode,
     },
     HttpResponse,
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use http::header::CONTENT_TYPE;
 use send_wrapper::SendWrapper;
 
 /// A wrapped Actix response.
