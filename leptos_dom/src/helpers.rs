@@ -593,7 +593,8 @@ impl WindowListenerHandle {
     }
 }
 
-fn is_server() -> bool {
+/// Returns `true` if the current environment is a server.
+pub fn is_server() -> bool {
     #[cfg(feature = "hydration")]
     {
         Owner::current_shared_context()
@@ -604,4 +605,9 @@ fn is_server() -> bool {
     {
         false
     }
+}
+
+/// Returns `true` if the current environment is a browser.
+pub fn is_browser() -> bool {
+    !is_server()
 }
