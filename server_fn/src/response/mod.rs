@@ -39,7 +39,7 @@ where
 pub trait Res {
     /// Converts an error into a response, with a `500` status code and the error text as its body.
     fn error_response(path: &str, err: Bytes) -> Self;
-    /// Set the content type header for the response.
+    /// Set the content-type header for the response.
     fn content_type(&mut self, #[allow(unused_variables)] content_type: &str) {}
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);
