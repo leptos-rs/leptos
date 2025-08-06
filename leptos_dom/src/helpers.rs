@@ -329,7 +329,8 @@ pub fn set_timeout_with_handle(
         window()
             .set_timeout_with_callback_and_timeout_and_arguments_0(
                 cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
+                // u128 -> i32
+                duration.as_millis().try_into().unwrap_or(i32::MAX),
             )
             .map(TimeoutHandle)
     }
@@ -479,7 +480,8 @@ pub fn set_interval_with_handle(
         window()
             .set_interval_with_callback_and_timeout_and_arguments_0(
                 cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
+                // u128 -> i32
+                duration.as_millis().try_into().unwrap_or(i32::MAX),
             )
             .map(IntervalHandle)
     }
