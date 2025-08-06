@@ -12,6 +12,7 @@ use actix_web::{
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
+use http::header::CONTENT_TYPE;
 use send_wrapper::SendWrapper;
 
 /// A wrapped Actix response.
@@ -78,6 +79,12 @@ impl Res for ActixResponse {
                 .append_header((SERVER_FN_ERROR_HEADER, path))
                 .body(err),
         ))
+    }
+
+    fn content_type(&mut self, content_type: &str) {
+        if let Ok(content_type) = HeaderValue::from_str(content_type) {
+            self.0.headers_mut().insert(CONTENT_TYPE, content_type);
+        }
     }
 
     fn redirect(&mut self, path: &str) {
