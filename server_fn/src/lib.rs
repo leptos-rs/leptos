@@ -885,7 +885,8 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
-    ser: fn(ServerFnErrorErr) -> Bytes,
+    err_ser: fn(ServerFnErrorErr) -> Bytes,
+    err_content_type: &'static str,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
@@ -913,12 +914,15 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
             + 'static,
         Res: crate::TryRes<S::Error> + Send + 'static,
     {
+        let err_content_type =
+            <S::Error as FromServerFnError>::Encoder::CONTENT_TYPE;
         Self {
             path: S::PATH,
             method: S::Protocol::METHOD,
             handler,
             middleware: S::middlewares,
-            ser: |e| S::Error::from_server_fn_error(e).ser(),
+            err_ser: |e| S::Error::from_server_fn_error(e).ser(),
+            err_content_type,
         }
     }
 
@@ -949,7 +953,9 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
         Req: 'static,
         Res: 'static,
     {
-        BoxedService::new(self.ser, self)
+        let config = middleware::ServiceRunConfig::new(self.err_ser)
+            .err_content_type(self.err_content_type);
+        BoxedService::new(config, self)
     }
 }
 
@@ -961,7 +967,7 @@ where
     fn run(
         &mut self,
         req: Req,
-        _ser: fn(ServerFnErrorErr) -> Bytes,
+        _service_run_config: middleware::ServiceRunConfig,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })
@@ -975,7 +981,8 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
             method: self.method.clone(),
             handler: self.handler,
             middleware: self.middleware,
-            ser: self.ser,
+            err_ser: self.err_ser,
+            err_content_type: self.err_content_type,
         }
     }
 }
