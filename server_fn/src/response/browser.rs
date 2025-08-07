@@ -69,7 +69,8 @@ impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
                     Err(E::from_server_fn_error(ServerFnErrorErr::Request(
                         format!("{e:?}"),
                     ))
-                    .ser())
+                    .ser()
+                    .body)
                 }
                 Ok(data) => {
                     let data = data.unchecked_into::<Uint8Array>();

@@ -70,6 +70,7 @@ where
                     e.to_string(),
                 ))
                 .ser()
+                .body
             })
         }))
     }
@@ -124,7 +125,7 @@ where
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
             move |err: axum::Error| {
-                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser()));
+                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser().body));
             }
         })
         .on_upgrade(|mut session| async move {
@@ -135,7 +136,7 @@ where
                             break;
                         };
                         if let Err(err) = session.send(Message::Binary(incoming)).await {
-                            _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
+                            _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body));
                         }
                     },
                         outgoing = session.recv().fuse() => {
@@ -159,7 +160,7 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
+                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body));
                             }
                         }
                     }

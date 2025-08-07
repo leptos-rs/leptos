@@ -141,7 +141,8 @@ pub mod browser {
                         Err(OutputStreamError::from_server_fn_error(
                             ServerFnErrorErr::Request(err.to_string()),
                         )
-                        .ser())
+                        .ser()
+                        .body)
                     }
                 });
                 let stream = SendWrapper::new(stream);
