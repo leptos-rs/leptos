@@ -163,9 +163,9 @@ mod axum {
 
 #[cfg(feature = "actix-no-default")]
 mod actix {
-    use crate::middleware::ServiceRunConfig;
     use crate::{
         error::ServerFnErrorErr,
+        middleware::ServiceRunConfig,
         request::actix::ActixRequest,
         response::{actix::ActixResponse, Res},
     };
