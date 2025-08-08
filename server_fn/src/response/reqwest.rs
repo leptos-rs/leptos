@@ -24,6 +24,7 @@ impl<E: FromServerFnError> ClientRes<E> for Response {
         Ok(self.bytes_stream().map_err(|e| {
             E::from_server_fn_error(ServerFnErrorErr::Response(e.to_string()))
                 .ser()
+                .body
         }))
     }
 
