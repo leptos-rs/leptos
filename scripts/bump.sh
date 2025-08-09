@@ -12,8 +12,16 @@ for PKG in $PACKAGES; do
     MANIFEST_PATH="${PKG##*:::}"
     DIR=$(dirname "$MANIFEST_PATH")
 
-    # Check if any file in the package directory changed since the last tag
-    if git diff --quiet "$LAST_TAG"..HEAD -- "$DIR"; then
+    # Look for release commit for this member up to the last tag
+    RELEASE_COMMIT=$(git log --oneline --grep="^$NAME-v" --format="%H" "$LAST_TAG"..HEAD | head -n1)
+
+    if [[ -z "$RELEASE_COMMIT" ]]; then
+        # No release commit found, use the latest release tag commit
+        RELEASE_COMMIT=$(git rev-list -n 1 "$LAST_TAG")
+    fi
+
+    # Check if any file in the package directory changed since the member's release commit or latest tag release
+    if git diff --quiet "$RELEASE_COMMIT"..HEAD -- "$DIR"; then
         continue
     fi
 
