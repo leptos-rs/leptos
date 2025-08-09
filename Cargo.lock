@@ -2753,6 +2753,7 @@ dependencies = [
  "futures",
  "guardian",
  "hydration_context",
+ "indexmap",
  "or_poisoned",
  "pin-project-lite",
  "rustc-hash 2.1.1",
