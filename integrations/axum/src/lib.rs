@@ -2061,10 +2061,12 @@ where
                         req,
                         |app, chunks, _supports_ooo| {
                             Box::pin(async move {
-                                let app = app
-                                    .to_html_stream_in_order()
-                                    .collect::<String>()
-                                    .await;
+                                let app = if cfg!(feature = "islands-router") {
+                                    app.to_html_stream_in_order_branching()
+                                } else {
+                                    app.to_html_stream_in_order()
+                                };
+                                let app = app.collect::<String>().await;
                                 let chunks = chunks();
                                 Box::pin(once(async move { app }).chain(chunks))
                                     as PinnedStream<String>
