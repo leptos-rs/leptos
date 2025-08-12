@@ -153,6 +153,20 @@ where
         OwnedViewState::new(state, self.owner)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let state = self
+            .owner
+            .with(|| {
+                ScopedFuture::new(self.view.hydrate_async(cursor, position))
+            })
+            .await;
+        OwnedViewState::new(state, self.owner)
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         let OwnedView { owner, view } = self;
         let view = owner
