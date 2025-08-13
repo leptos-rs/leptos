@@ -153,7 +153,7 @@ impl LeptosOptions {
                 None => None,
             },
             reload_ws_protocol: ws_from_str(
-                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "auto")?.as_str(),
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?
                 .into(),
@@ -281,24 +281,26 @@ impl TryFrom<String> for Env {
 /// Defaults to `ws`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ReloadWSProtocol {
+    Auto,
     WS,
     WSS,
 }
 
 impl Default for ReloadWSProtocol {
     fn default() -> Self {
-        Self::WS
+        Self::Auto
     }
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
+        "auto" => Ok(ReloadWSProtocol::Auto),
         "ws" | "WS" => Ok(ReloadWSProtocol::WS),
         "wss" | "WSS" => Ok(ReloadWSProtocol::WSS),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported websocket protocol. Use only `ws` or \
-             `wss`.",
+            "{input} is not a supported websocket protocol. Use only `auto`, \
+             `ws` or `wss`.",
         ))),
     }
 }
