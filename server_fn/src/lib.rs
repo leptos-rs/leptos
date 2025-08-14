@@ -667,8 +667,9 @@ where
                         ServerFnErrorErr::Serialization(e.to_string()),
                     )
                     .ser()
+                    .body
                 }),
-                Err(err) => Err(err.ser()),
+                Err(err) => Err(err.ser().body),
             };
             serialize_result(result)
         });
@@ -711,9 +712,10 @@ where
                                     ),
                                 )
                                 .ser()
+                                .body
                             })
                         }
-                        Err(err) => Err(err.ser()),
+                        Err(err) => Err(err.ser().body),
                     };
                     let result = serialize_result(result);
                     if sink.send(result).await.is_err() {
@@ -781,7 +783,8 @@ fn deserialize_result<E: FromServerFnError>(
         return Err(E::from_server_fn_error(
             ServerFnErrorErr::Deserialization("Data is empty".into()),
         )
-        .ser());
+        .ser()
+        .body);
     }
 
     let tag = bytes[0];
@@ -793,7 +796,8 @@ fn deserialize_result<E: FromServerFnError>(
         _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
             "Invalid data tag".into(),
         ))
-        .ser()), // Invalid tag
+        .ser()
+        .body), // Invalid tag
     }
 }
 
@@ -883,7 +887,7 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
-    ser: fn(ServerFnErrorErr) -> Bytes,
+    ser: middleware::ServerFnErrorSerializer,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
@@ -959,7 +963,7 @@ where
     fn run(
         &mut self,
         req: Req,
-        _ser: fn(ServerFnErrorErr) -> Bytes,
+        _err_ser: middleware::ServerFnErrorSerializer,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })

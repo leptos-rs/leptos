@@ -13,6 +13,7 @@ pub mod http;
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
 
+use crate::error::ServerFnErrorResponseParts;
 use bytes::Bytes;
 use futures::Stream;
 use std::future::Future;
@@ -38,8 +39,7 @@ where
 /// Represents the response as created by the server;
 pub trait Res {
     /// Converts an error into a response, with a `500` status code and the error text as its body.
-    fn error_response(path: &str, err: Bytes) -> Self;
-
+    fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self;
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);
 }
@@ -99,7 +99,7 @@ impl<E> TryRes<E> for BrowserMockRes {
 }
 
 impl Res for BrowserMockRes {
-    fn error_response(_path: &str, _err: Bytes) -> Self {
+    fn error_response(_path: &str, _err: ServerFnErrorResponseParts) -> Self {
         unreachable!()
     }
 
