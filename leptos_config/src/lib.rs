@@ -281,9 +281,9 @@ impl TryFrom<String> for Env {
 /// Defaults to `ws`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ReloadWSProtocol {
-    Auto,
     WS,
     WSS,
+    Auto,
 }
 
 impl Default for ReloadWSProtocol {
