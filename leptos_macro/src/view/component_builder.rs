@@ -1,15 +1,19 @@
 use super::{
     fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
 };
-use crate::view::{attribute_absolute, utils::filter_prefixed_attrs};
+use crate::view::{
+    attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
+};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
-    CustomNode, KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement,
-    NodeName,
+    CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
+    NodeElement, NodeName,
 };
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
+use syn::{
+    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
+};
 
 pub(crate) fn component_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
@@ -170,8 +174,14 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let spreads = (!(spreads.is_empty())).then(|| {
-        quote! {
-            .add_any_attr((#(#spreads,)*).into_attr())
+        if cfg!(feature = "__internal_erase_components") {
+            quote! {
+                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
+            }
+        } else {
+            quote! {
+                .add_any_attr((#(#spreads,)*))
+            }
         }
     });
 
@@ -191,6 +201,12 @@ pub(crate) fn component_to_tokens(
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
+    } else if let Some(children) = maybe_optimised_component_children(
+        &node.children,
+        &items_to_bind,
+        &items_to_clone,
+    ) {
+        children
     } else {
         let children = fragment_to_tokens(
             &mut node.children,
@@ -219,10 +235,7 @@ pub(crate) fn component_to_tokens(
             let bindables =
                 items_to_bind.iter().map(|ident| quote! { #ident, });
 
-            let clonables = items_to_clone.iter().map(|ident| {
-                let ident_ref = quote_spanned!(ident.span()=> &#ident);
-                quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
-            });
+            let clonables = items_to_clone_to_tokens(&items_to_clone);
 
             if bindables.len() > 0 {
                 quote_spanned! {children.span()=>
@@ -312,4 +325,112 @@ fn is_attr_let(key: &NodeName) -> bool {
     } else {
         false
     }
+}
+
+pub fn items_to_clone_to_tokens(
+    items_to_clone: &[Ident],
+) -> impl Iterator<Item = TokenStream> + '_ {
+    items_to_clone.iter().map(|ident| {
+        let ident_ref = quote_spanned!(ident.span()=> &#ident);
+        quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
+    })
+}
+
+/// By default all children are placed in an outer closure || #children.
+/// This is to work with all the variants of the leptos::children::ToChildren::to_children trait.
+/// Strings are optimised to be passed without the wrapping closure, providing significant compile time and binary size improvements.
+pub fn maybe_optimised_component_children(
+    children: &[Node<impl CustomNode>],
+    items_to_bind: &[TokenStream],
+    items_to_clone: &[Ident],
+) -> Option<TokenStream> {
+    // If there are bindables will have to be in a closure:
+    if !items_to_bind.is_empty() {
+        return None;
+    }
+
+    // Filter out comments:
+    let mut children_iter = children
+        .iter()
+        .filter(|child| !matches!(child, Node::Comment(_)));
+
+    let children = if let Some(child) = children_iter.next() {
+        // If more than one child after filtering out comments, don't think we can optimise:
+        if children_iter.next().is_some() {
+            return None;
+        }
+        match child {
+            Node::Text(text) => text_to_tokens(&text.value),
+            Node::RawText(raw) => {
+                let text = raw.to_string_best();
+                let text = syn::LitStr::new(&text, raw.span());
+                text_to_tokens(&text)
+            }
+            // Specifically allow std macros that produce strings:
+            Node::Block(NodeBlock::ValidBlock(block)) => {
+                fn is_supported(mac: &syn::Macro) -> bool {
+                    for string_macro in ["format", "include_str"] {
+                        if mac.path.is_ident(string_macro) {
+                            return true;
+                        }
+                    }
+                    false
+                }
+                if block.stmts.len() > 1 {
+                    return None;
+                } else if let Some(stmt) = block.stmts.first() {
+                    match stmt {
+                        Stmt::Macro(mac) => {
+                            // eprintln!("Macro: {:?}", mac.mac.path);
+                            if is_supported(&mac.mac) {
+                                quote! { #block }
+                            } else {
+                                return None;
+                            }
+                        }
+                        Stmt::Item(Item::Macro(mac)) => {
+                            // eprintln!("Item Macro: {:?}", mac.mac.path);
+                            if is_supported(&mac.mac) {
+                                quote! { #block }
+                            } else {
+                                return None;
+                            }
+                        }
+                        Stmt::Expr(Expr::Macro(mac), _) => {
+                            // eprintln!("Expr Macro: {:?}", mac.mac.path);
+                            if is_supported(&mac.mac) {
+                                quote! { #block }
+                            } else {
+                                return None;
+                            }
+                        }
+                        _ => return None,
+                    }
+                } else {
+                    return Some(quote! {});
+                }
+            }
+            _ => return None,
+        }
+    } else {
+        return None;
+    };
+
+    // // Debug check to see how many use this optimisation:
+    // static COUNT: std::sync::atomic::AtomicUsize =
+    //     std::sync::atomic::AtomicUsize::new(0);
+    // COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // eprintln!(
+    //     "Optimised children: {}",
+    //     COUNT.load(std::sync::atomic::Ordering::Relaxed)
+    // );
+
+    let clonables = items_to_clone_to_tokens(items_to_clone);
+    Some(quote_spanned! {children.span()=>
+        .children({
+            #(#clonables)*
+
+            ::leptos::children::ToChildren::to_children(::leptos::children::ChildrenOptContainer(#children))
+        })
+    })
 }

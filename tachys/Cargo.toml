@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.1.7"
+version = "0.2.6"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -18,16 +18,15 @@ next_tuple = { workspace = true }
 or_poisoned = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
 reactive_stores = { workspace = true, optional = true }
-slotmap = { version = "1.0", optional = true }
+slotmap = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true, optional = true }
-async-trait = "0.1.81"
-dyn-clone = "1.0.17"
-once_cell = "1.20"
-paste = "1.0"
-wasm-bindgen = { workspace = true }
-html-escape = "0.2.13"
-js-sys = "0.3.74"
-web-sys = { version = "0.3.72", features = [
+async-trait = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
+erased = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+html-escape = { workspace = true, default-features = true }
+js-sys = { workspace = true, default-features = true }
+web-sys = { features = [
   "Window",
   "Document",
   "HtmlElement",
@@ -148,31 +147,39 @@ web-sys = { version = "0.3.72", features = [
   "HtmlSlotElement",
   "HtmlTemplateElement",
   "HtmlOptionElement",
-] }
-drain_filter_polyfill = "0.1.3"
-indexmap = "2.6"
-rustc-hash = "2.0"
-futures = "0.3.31"
-parking_lot = "0.12.3"
-itertools = { workspace = true }
-send_wrapper = "0.6.0"
-linear-map = "1.2"
-sledgehammer_bindgen = { version = "0.6.0", features = [
+], workspace = true, default-features = true }
+drain_filter_polyfill = { workspace = true, default-features = true }
+indexmap = { workspace = true, default-features = true }
+rustc-hash = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+itertools = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
+linear-map = { workspace = true, default-features = true }
+sledgehammer_bindgen = { features = [
   "web",
-], optional = true }
-sledgehammer_utils = { version = "0.3.1", optional = true }
-tracing = { version = "0.1.41", optional = true }
+], optional = true, workspace = true, default-features = true }
+sledgehammer_utils = { optional = true, workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio-test = "0.4.4"
-tokio = { version = "1.43", features = ["rt", "macros"] }
+tokio-test = { workspace = true, default-features = true }
+tokio = { features = [
+  "rt",
+  "macros",
+], workspace = true, default-features = true }
+
+[build-dependencies]
+rustc_version = { workspace = true, default-features = true }
 
 [features]
 default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
 hydrate = []
-islands = []
+islands = ["dep:serde", "dep:serde_json"]
 ssr = []
 oco = ["dep:oco_ref"]
 nightly = ["reactive_graph/nightly"]
@@ -181,6 +188,7 @@ reactive_graph = ["dep:reactive_graph", "dep:any_spawner"]
 reactive_stores = ["reactive_graph", "dep:reactive_stores"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
+mark_branches = []
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]
@@ -197,10 +205,15 @@ skip_feature_sets = [
     "ssr",
     "delegation",
   ],
+  [
+    "nightly",
+  ],
 ]
+max_combination_size = 2
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
+  'cfg(rustc_nightly)',
 ] }

@@ -1,6 +1,6 @@
 use crate::fixtures::{check, world::AppWorld};
 use anyhow::{Ok, Result};
-use cucumber::{then, gherkin::Step};
+use cucumber::{gherkin::Step, then};
 
 #[then(regex = r"^I see the page title is (.*)$")]
 async fn i_see_the_page_title_is(
@@ -141,7 +141,8 @@ async fn i_see_the_following_counters_under_section(
     // FIXME ideally check the mode; for now leave it because effort
     let client = &world.client;
     if let Some(table) = step.table.as_ref() {
-        let expected = table.rows
+        let expected = table
+            .rows
             .iter()
             .skip(1)
             .map(|row| (row[0].as_str(), row[1].parse::<u32>().unwrap()))

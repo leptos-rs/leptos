@@ -23,6 +23,19 @@ macro_rules! error {
     ($($t:tt)*) => ($crate::logging::console_error(&format_args!($($t)*).to_string()))
 }
 
+/// Uses `println!()`-style formatting to log something to the console (in the browser)
+/// or via `println!()` (if not in the browser), but only if it's a debug build.
+#[macro_export]
+macro_rules! debug_log {
+    ($($x:tt)*) => {
+        {
+            if cfg!(debug_assertions) {
+                $crate::log!($($x)*)
+            }
+        }
+    }
+}
+
 /// Uses `println!()`-style formatting to log warnings to the console (in the browser)
 /// or via `eprintln!()` (if not in the browser), but only if it's a debug build.
 #[macro_export]
@@ -31,6 +44,19 @@ macro_rules! debug_warn {
         {
             if cfg!(debug_assertions) {
                 $crate::warn!($($x)*)
+            }
+        }
+    }
+}
+
+/// Uses `println!()`-style formatting to log errors to the console (in the browser)
+/// or via `eprintln!()` (if not in the browser), but only if it's a debug build.
+#[macro_export]
+macro_rules! debug_error {
+    ($($x:tt)*) => {
+        {
+            if cfg!(debug_assertions) {
+                $crate::error!($($x)*)
             }
         }
     }
@@ -55,7 +81,7 @@ pub fn console_log(s: &str) {
 }
 
 /// Log a warning to the console (in the browser)
-/// or via `println!()` (if not in the browser).
+/// or via `eprintln!()` (if not in the browser).
 pub fn console_warn(s: &str) {
     if log_to_stdout() {
         eprintln!("{s}");
@@ -65,7 +91,7 @@ pub fn console_warn(s: &str) {
 }
 
 /// Log an error to the console (in the browser)
-/// or via `println!()` (if not in the browser).
+/// or via `eprintln!()` (if not in the browser).
 #[inline(always)]
 pub fn console_error(s: &str) {
     if log_to_stdout() {
@@ -75,21 +101,29 @@ pub fn console_error(s: &str) {
     }
 }
 
-/// Log an error to the console (in the browser)
+/// Log a string to the console (in the browser)
 /// or via `println!()` (if not in the browser), but only in a debug build.
 #[inline(always)]
-pub fn console_debug_warn(s: &str) {
-    #[cfg(debug_assertions)]
-    {
-        if log_to_stdout() {
-            eprintln!("{s}");
-        } else {
-            web_sys::console::warn_1(&JsValue::from_str(s));
-        }
+pub fn console_debug_log(s: &str) {
+    if cfg!(debug_assertions) {
+        console_log(s)
     }
+}
 
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = s;
+/// Log a warning to the console (in the browser)
+/// or via `eprintln!()` (if not in the browser), but only in a debug build.
+#[inline(always)]
+pub fn console_debug_warn(s: &str) {
+    if cfg!(debug_assertions) {
+        console_warn(s)
+    }
+}
+
+/// Log an error to the console (in the browser)
+/// or via `eprintln!()` (if not in the browser), but only in a debug build.
+#[inline(always)]
+pub fn console_debug_error(s: &str) {
+    if cfg!(debug_assertions) {
+        console_error(s)
     }
 }

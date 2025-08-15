@@ -1,0 +1,7 @@
+[tasks.post-test]
+dependencies = ["test-wasm"]
+
+[tasks.test-wasm]
+env = { CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome --features=wasm-bindgen" }
+command = "cargo"
+args = ["make", "wasm-pack-test"]

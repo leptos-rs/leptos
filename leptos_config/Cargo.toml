@@ -5,24 +5,32 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Configuration for the Leptos web framework."
 readme = "../README.md"
-version = { workspace = true }
+version = "0.8.5"
 rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-config = { version = "0.15.8", default-features = false, features = [
+config = { default-features = false, features = [
   "toml",
   "convert-case",
-] }
-regex = "1.11"
-serde = { version = "1.0", features = ["derive", "rc"] }
-thiserror = "2.0"
-typed-builder = "0.20.0"
+], workspace = true }
+regex = { workspace = true, default-features = true }
+serde = { features = [
+  "derive",
+  "rc",
+], workspace = true, default-features = true }
+thiserror = { workspace = true, default-features = true }
+typed-builder = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio = { version = "1.43", features = ["rt", "macros"] }
-tempfile = "3.14"
-temp-env = { version = "0.3.6", features = ["async_closure"] }
+tokio = { features = [
+  "rt",
+  "macros",
+], workspace = true, default-features = true }
+tempfile = { workspace = true, default-features = true }
+temp-env = { features = [
+  "async_closure",
+], workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

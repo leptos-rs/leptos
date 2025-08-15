@@ -19,9 +19,7 @@ mod cbor;
 #[cfg(feature = "cbor")]
 pub use cbor::*;
 
-#[cfg(feature = "json")]
 mod json;
-#[cfg(feature = "json")]
 pub use json::*;
 
 #[cfg(feature = "serde-lite")]
@@ -34,9 +32,7 @@ mod rkyv;
 #[cfg(feature = "rkyv")]
 pub use rkyv::*;
 
-#[cfg(feature = "url")]
 mod url;
-#[cfg(feature = "url")]
 pub use url::*;
 
 #[cfg(feature = "multipart")]
@@ -54,8 +50,14 @@ mod postcard;
 #[cfg(feature = "postcard")]
 pub use postcard::*;
 
+mod patch;
+pub use patch::*;
+mod post;
+pub use post::*;
+mod put;
+pub use put::*;
 mod stream;
-use crate::error::ServerFnError;
+use crate::ContentType;
 use futures::Future;
 use http::Method;
 pub use stream::*;
@@ -71,31 +73,27 @@ pub use stream::*;
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust,ignore
-/// impl<CustErr, T, Request> IntoReq<Json, Request, CustErr> for T
+/// impl<E, T, Request> IntoReq<Json, Request, E> for T
 /// where
-///     Request: ClientReq<CustErr>,
+///     Request: ClientReq<E>,
 ///     T: Serialize + Send,
 /// {
 ///     fn into_req(
 ///         self,
 ///         path: &str,
 ///         accepts: &str,
-///     ) -> Result<Request, ServerFnError<CustErr>> {
+///     ) -> Result<Request, E> {
 ///         // try to serialize the data
 ///         let data = serde_json::to_string(&self)
-///             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+///             .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()).into_app_error())?;
 ///         // and use it as the body of a POST request
 ///         Request::try_new_post(path, accepts, Json::CONTENT_TYPE, data)
 ///     }
 /// }
 /// ```
-pub trait IntoReq<Encoding, Request, CustErr> {
+pub trait IntoReq<Encoding, Request, E> {
     /// Attempts to serialize the arguments into an HTTP request.
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>>;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E>;
 }
 
 /// Deserializes an HTTP request into the data type, on the server.
@@ -109,32 +107,31 @@ pub trait IntoReq<Encoding, Request, CustErr> {
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust,ignore
-/// impl<CustErr, T, Request> FromReq<Json, Request, CustErr> for T
+/// impl<E, T, Request> FromReq<Json, Request, E> for T
 /// where
 ///     // require the Request implement `Req`
-///     Request: Req<CustErr> + Send + 'static,
+///     Request: Req<E> + Send + 'static,
 ///     // require that the type can be deserialized with `serde`
 ///     T: DeserializeOwned,
+///     E: FromServerFnError,
 /// {
 ///     async fn from_req(
 ///         req: Request,
-///     ) -> Result<Self, ServerFnError<CustErr>> {
+///     ) -> Result<Self, E> {
 ///         // try to convert the body of the request into a `String`
 ///         let string_data = req.try_into_string().await?;
 ///         // deserialize the data
-///         serde_json::from_str::<Self>(&string_data)
-///             .map_err(|e| ServerFnError::Args(e.to_string()))
+///         serde_json::from_str(&string_data)
+///             .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
 ///     }
 /// }
 /// ```
-pub trait FromReq<Encoding, Request, CustErr>
+pub trait FromReq<Encoding, Request, E>
 where
     Self: Sized,
 {
     /// Attempts to deserialize the arguments from a request.
-    fn from_req(
-        req: Request,
-    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
+    fn from_req(req: Request) -> impl Future<Output = Result<Self, E>> + Send;
 }
 
 /// Serializes the data type into an HTTP response.
@@ -148,25 +145,24 @@ where
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust,ignore
-/// impl<CustErr, T, Response> IntoRes<Json, Response, CustErr> for T
+/// impl<E, T, Response> IntoRes<Json, Response, E> for T
 /// where
-///     Response: Res<CustErr>,
+///     Response: Res<E>,
 ///     T: Serialize + Send,
+///     E: FromServerFnError,
 /// {
-///     async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
+///     async fn into_res(self) -> Result<Response, E> {
 ///         // try to serialize the data
 ///         let data = serde_json::to_string(&self)
-///             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+///             .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()).into())?;
 ///         // and use it as the body of a response
 ///         Response::try_from_string(Json::CONTENT_TYPE, data)
 ///     }
 /// }
 /// ```
-pub trait IntoRes<Encoding, Response, CustErr> {
+pub trait IntoRes<Encoding, Response, E> {
     /// Attempts to serialize the output into an HTTP response.
-    fn into_res(
-        self,
-    ) -> impl Future<Output = Result<Response, ServerFnError<CustErr>>> + Send;
+    fn into_res(self) -> impl Future<Output = Result<Response, E>> + Send;
 }
 
 /// Deserializes the data type from an HTTP response.
@@ -181,37 +177,33 @@ pub trait IntoRes<Encoding, Response, CustErr> {
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust,ignore
-/// impl<CustErr, T, Response> FromRes<Json, Response, CustErr> for T
+/// impl<E, T, Response> FromRes<Json, Response, E> for T
 /// where
-///     Response: ClientRes<CustErr> + Send,
+///     Response: ClientRes<E> + Send,
 ///     T: DeserializeOwned + Send,
+///     E: FromServerFnError,
 /// {
 ///     async fn from_res(
 ///         res: Response,
-///     ) -> Result<Self, ServerFnError<CustErr>> {
+///     ) -> Result<Self, E> {
 ///         // extracts the request body
 ///         let data = res.try_into_string().await?;
 ///         // and tries to deserialize it as JSON
 ///         serde_json::from_str(&data)
-///             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+///             .map_err(|e| ServerFnErrorErr::Deserialization(e.to_string()).into_app_error())
 ///     }
 /// }
 /// ```
-pub trait FromRes<Encoding, Response, CustErr>
+pub trait FromRes<Encoding, Response, E>
 where
     Self: Sized,
 {
     /// Attempts to deserialize the outputs from a response.
-    fn from_res(
-        res: Response,
-    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
+    fn from_res(res: Response) -> impl Future<Output = Result<Self, E>> + Send;
 }
 
 /// Defines a particular encoding format, which can be used for serializing or deserializing data.
-pub trait Encoding {
-    /// The MIME type of the data.
-    const CONTENT_TYPE: &'static str;
-
+pub trait Encoding: ContentType {
     /// The HTTP method used for requests.
     ///
     /// This should be `POST` in most cases.

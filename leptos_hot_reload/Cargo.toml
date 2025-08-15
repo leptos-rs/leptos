@@ -1,6 +1,6 @@
 [package]
 name = "leptos_hot_reload"
-version = { workspace = true }
+version = "0.8.5"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -10,19 +10,22 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-syn = { version = "2.0", features = [
+anyhow = { workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
+syn = { features = [
   "full",
   "parsing",
   "extra-traits",
   "visit",
   "printing",
-] }
-quote = "1.0"
-rstml = "0.12.0"
-proc-macro2 = { version = "1.0", features = ["span-locations", "nightly"] }
-parking_lot = "0.12.3"
-walkdir = "2.5"
-camino = "1.1"
-indexmap = "2.6"
+], workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+rstml = { workspace = true, default-features = true }
+proc-macro2 = { features = [
+  "span-locations",
+  "nightly",
+], workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+walkdir = { workspace = true, default-features = true }
+camino = { workspace = true, default-features = true }
+indexmap = { workspace = true, default-features = true }

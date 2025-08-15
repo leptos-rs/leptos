@@ -1,14 +1,12 @@
 use crate::api;
-use leptos::either::Either;
-use leptos::prelude::*;
+use leptos::{either::Either, prelude::*};
 use leptos_meta::Meta;
-use leptos_router::components::A;
-use leptos_router::hooks::use_params_map;
+use leptos_router::{components::A, hooks::use_params_map};
 
 #[component]
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
-    let story = Resource::new(
+    let story = Resource::new_blocking(
         move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {

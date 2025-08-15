@@ -44,6 +44,8 @@ pub fn render_view(
     view_marker: Option<String>,
     disable_inert_html: bool,
 ) -> Option<TokenStream> {
+    let disable_inert_html = disable_inert_html || global_class.is_some();
+
     let (base, should_add_view) = match nodes.len() {
         0 => {
             let span = Span::call_site();
@@ -112,9 +114,9 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
                 return false;
             }
 
-            // also doesn't work if the top-level element is an SVG/MathML element
+            // also doesn't work if the top-level element is a MathML element
             let el_name = el.name().to_string();
-            if is_svg_element(&el_name) || is_math_ml_element(&el_name) {
+            if is_math_ml_element(&el_name) {
                 return false;
             }
         }
@@ -300,7 +302,7 @@ fn inert_element_to_tokens(
     node: &Node<impl CustomNode>,
     escape_text: bool,
     global_class: Option<&TokenTree>,
-) -> Option<TokenStream> {
+) -> TokenStream {
     let mut html = InertElementBuilder::new(global_class);
     let mut nodes = VecDeque::from([Item::Node(node, escape_text)]);
 
@@ -396,9 +398,117 @@ fn inert_element_to_tokens(
 
     html.finish();
 
-    Some(quote! {
+    quote! {
         ::leptos::tachys::html::InertElement::new(#html)
-    })
+    }
+}
+
+/// # Note
+/// Should not be used on top level `<svg>` elements.
+/// Use [`inert_element_to_tokens`] instead.
+fn inert_svg_element_to_tokens(
+    node: &Node<impl CustomNode>,
+    escape_text: bool,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    let mut html = InertElementBuilder::new(global_class);
+    let mut nodes = VecDeque::from([Item::Node(node, escape_text)]);
+
+    while let Some(current) = nodes.pop_front() {
+        match current {
+            Item::ClosingTag(tag) => {
+                // closing tag
+                html.push_str("</");
+                html.push_str(&tag);
+                html.push('>');
+            }
+            Item::Node(current, escape) => {
+                match current {
+                    Node::RawText(raw) => {
+                        let text = raw.to_string_best();
+                        let text = if escape {
+                            html_escape::encode_text(&text)
+                        } else {
+                            text.into()
+                        };
+                        html.push_str(&text);
+                    }
+                    Node::Text(text) => {
+                        let text = text.value_string();
+                        let text = if escape {
+                            html_escape::encode_text(&text)
+                        } else {
+                            text.into()
+                        };
+                        html.push_str(&text);
+                    }
+                    Node::Element(node) => {
+                        let self_closing = is_self_closing(node);
+                        let el_name = node.name().to_string();
+                        let escape = el_name != "script"
+                            && el_name != "style"
+                            && el_name != "textarea";
+
+                        // opening tag
+                        html.push('<');
+                        html.push_str(&el_name);
+
+                        for attr in node.attributes() {
+                            if let NodeAttribute::Attribute(attr) = attr {
+                                let attr_name = attr.key.to_string();
+                                // trim r# from raw identifiers like r#as
+                                let attr_name =
+                                    attr_name.trim_start_matches("r#");
+                                if attr_name != "class" {
+                                    html.push(' ');
+                                    html.push_str(attr_name);
+                                }
+
+                                if let Some(value) =
+                                    attr.possible_value.to_value()
+                                {
+                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                        lit,
+                                    )) = &value.value
+                                    {
+                                        if let Lit::Str(txt) = &lit.lit {
+                                            let value = txt.value();
+                                            let value = html_escape::encode_double_quoted_attribute(&value);
+                                            if attr_name == "class" {
+                                                html.push_class(&value);
+                                            } else {
+                                                html.push_str("=\"");
+                                                html.push_str(&value);
+                                                html.push('"');
+                                            }
+                                        }
+                                    }
+                                };
+                            }
+                        }
+
+                        html.push('>');
+
+                        // render all children
+                        if !self_closing {
+                            nodes.push_front(Item::ClosingTag(el_name));
+                            let children = node.children.iter().rev();
+                            for child in children {
+                                nodes.push_front(Item::Node(child, escape));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    html.finish();
+
+    quote! {
+        ::leptos::tachys::svg::InertElement::new(#html)
+    }
 }
 
 fn element_children_to_tokens(
@@ -426,6 +536,14 @@ fn element_children_to_tokens(
             .child(
                 #[allow(unused_braces)]
                 { #child }
+            )
+        })
+    } else if cfg!(feature = "__internal_erase_components") {
+        Some(quote! {
+            .child(
+                ::leptos::tachys::view::iterators::StaticVec::from(vec![#(
+                    ::leptos::prelude::IntoMaybeErased::into_maybe_erased(#children)
+                ),*])
             )
         })
     } else if children.len() > 16 {
@@ -473,6 +591,12 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
+    } else if cfg!(feature = "__internal_erase_components") {
+        Some(quote! {
+            ::leptos::tachys::view::iterators::StaticVec::from(vec![#(
+                ::leptos::prelude::IntoMaybeErased::into_maybe_erased(#children)
+            ),*])
+        })
     } else if children.len() > 16 {
         // implementations of various traits used in routing and rendering are implemented for
         // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
@@ -583,7 +707,17 @@ fn node_to_tokens(
                 let escape = el_name != "script"
                     && el_name != "style"
                     && el_name != "textarea";
-                inert_element_to_tokens(node, escape, global_class)
+
+                let el_name = el_node.name().to_string();
+                if is_svg_element(&el_name) && el_name != "svg" {
+                    Some(inert_svg_element_to_tokens(
+                        node,
+                        escape,
+                        global_class,
+                    ))
+                } else {
+                    Some(inert_element_to_tokens(node, escape, global_class))
+                }
             } else {
                 element_to_tokens(
                     el_node,
@@ -601,7 +735,7 @@ fn node_to_tokens(
 
 fn text_to_tokens(text: &LitStr) -> TokenStream {
     // on nightly, can use static string optimization
-    if cfg!(feature = "nightly") {
+    if cfg!(all(feature = "nightly", rustc_nightly)) {
         quote! {
             ::leptos::tachys::view::static_types::Static::<#text>
         }
@@ -681,6 +815,13 @@ pub(crate) fn element_to_tokens(
 
     // check for duplicate attribute names and emit an error for all subsequent ones
     let mut names = HashSet::new();
+
+    // allow multiple class=(...) or style=(...) attributes
+    fn allow_multiples(name: &str, attr: &KeyedAttribute) -> bool {
+        (name == "class" || name == "style")
+            && matches!(attr.value(), Some(Expr::Tuple(..)))
+    }
+
     for attr in node.attributes() {
         if let NodeAttribute::Attribute(attr) = attr {
             let mut name = attr.key.to_string();
@@ -697,7 +838,7 @@ pub(crate) fn element_to_tokens(
                     }
                 }
             }
-            if names.contains(&name) {
+            if names.contains(&name) && !allow_multiples(&name, attr) {
                 proc_macro_error2::emit_error!(
                     attr.span(),
                     format!("This element already has a `{name}` attribute.")
@@ -757,10 +898,18 @@ pub(crate) fn element_to_tokens(
                 }
             }
         }
-        Some(quote! {
-            (#(#attributes,)*)
-            #(.add_any_attr(#additions))*
-        })
+
+        if cfg!(feature = "__internal_erase_components") {
+            Some(quote! {
+                vec![#(#attributes.into_any_attr(),)*]
+                #(.add_any_attr(#additions))*
+            })
+        } else {
+            Some(quote! {
+                (#(#attributes,)*)
+                #(.add_any_attr(#additions))*
+            })
+        }
     } else {
         let tag = name.to_string();
         // collect close_tag name to emit semantic information for IDE.
@@ -1157,8 +1306,14 @@ pub(crate) fn two_way_binding_to_tokens(
     let ident =
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
 
-    quote! {
-        .bind(::leptos::attr::#ident, #value)
+    if name == "group" {
+        quote! {
+            .bind(leptos::tachys::reactive_graph::bind::#ident, #value)
+        }
+    } else {
+        quote! {
+            .bind(::leptos::attr::#ident, #value)
+        }
     }
 }
 
@@ -1488,7 +1643,7 @@ fn attribute_value(
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
                 if let Expr::Lit(lit) = expr {
-                    if cfg!(feature = "nightly") {
+                    if cfg!(all(feature = "nightly", rustc_nightly)) {
                         if let Lit::Str(str) = &lit.lit {
                             return quote! {
                                 ::leptos::tachys::view::static_types::Static::<#str>

@@ -1,2 +1,2 @@
 [toolchain]
-channel = "stable" # test change
+targets = ["wasm32-unknown-unknown"]

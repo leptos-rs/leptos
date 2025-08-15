@@ -1,6 +1,6 @@
 [package]
 name = "any_spawner"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -9,15 +9,25 @@ description = "Spawn asynchronous tasks in an executor-independent way."
 edition.workspace = true
 
 [dependencies]
-async-executor = { version = "1.13.1", optional = true }
-futures = "0.3.31"
-glib = { version = "0.20.6", optional = true }
-thiserror = "2.0"
-tokio = { version = "1.41", optional = true, default-features = false, features = [
+async-executor = { optional = true , workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+glib = { optional = true , workspace = true, default-features = true }
+thiserror = { workspace = true , default-features = true }
+tokio = { optional = true, default-features = false, features = [
   "rt",
-] }
-tracing = { version = "0.1.41", optional = true }
-wasm-bindgen-futures = { version = "0.4.50", optional = true }
+] , workspace = true }
+tracing = { optional = true , workspace = true, default-features = true }
+wasm-bindgen-futures = { optional = true , workspace = true, default-features = true }
+
+[dev-dependencies]
+futures-lite = { default-features = false , workspace = true }
+tokio = { default-features = false, features = [
+  "rt",
+  "macros",
+  "time",
+] , workspace = true }
+wasm-bindgen-test = { workspace = true, default-features = true }
+serial_test = { workspace = true, default-features = true }
 
 [features]
 async-executor = ["dep:async-executor"]
@@ -34,3 +44,4 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+max_combination_size = 2

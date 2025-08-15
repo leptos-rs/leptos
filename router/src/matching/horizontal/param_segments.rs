@@ -35,6 +35,10 @@ use std::borrow::Cow;
 pub struct ParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for ParamSegment {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
@@ -58,7 +62,7 @@ impl PossibleRouteMatch for ParamSegment {
             }
         }
 
-        if matched_len == 0 {
+        if matched_len == 0 || (matched_len == 1 && path.starts_with('/')) {
             return None;
         }
 
@@ -121,6 +125,10 @@ impl PossibleRouteMatch for ParamSegment {
 pub struct WildcardSegment(pub &'static str);
 
 impl PossibleRouteMatch for WildcardSegment {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
@@ -158,7 +166,9 @@ impl PossibleRouteMatch for WildcardSegment {
 pub struct OptionalParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for OptionalParamSegment {
-    const OPTIONAL: bool = true;
+    fn optional(&self) -> bool {
+        true
+    }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
@@ -316,6 +326,28 @@ mod tests {
         assert_eq!(matched.remaining(), "");
         let params = matched.params();
         assert!(params.is_empty());
+    }
+
+    #[test]
+    fn static_before_param() {
+        let path = "/foo/bar";
+        let def = (StaticSegment("foo"), ParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("b".into(), "bar".into()));
+    }
+
+    #[test]
+    fn static_before_optional_param() {
+        let path = "/foo/bar";
+        let def = (StaticSegment("foo"), OptionalParamSegment("b"));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("b".into(), "bar".into()));
     }
 
     #[test]

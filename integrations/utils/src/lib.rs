@@ -1,12 +1,16 @@
+#![allow(clippy::type_complexity)]
+
 use futures::{stream::once, Stream, StreamExt};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
+    context::provide_context,
     nonce::use_nonce,
+    prelude::ReadValue,
     reactive::owner::{Owner, Sandboxed},
-    IntoView,
+    IntoView, PrefetchLazyFn, WasmSplitManifest,
 };
 use leptos_config::LeptosOptions;
-use leptos_meta::ServerMetaContextOutput;
+use leptos_meta::{Link, ServerMetaContextOutput};
 use std::{future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -31,14 +35,24 @@ pub trait ExtendResponse: Sized {
         stream_builder: fn(
             IV,
             BoxedFnOnce<PinnedStream<String>>,
+            bool,
         ) -> PinnedFuture<PinnedStream<String>>,
+        supports_ooo: bool,
     ) -> impl Future<Output = Self> + Send
     where
         IV: IntoView + 'static,
     {
         async move {
-            let (owner, stream) =
-                build_response(app_fn, additional_context, stream_builder);
+            let prefetches = PrefetchLazyFn::default();
+
+            let (owner, stream) = build_response(
+                app_fn,
+                additional_context,
+                stream_builder,
+                supports_ooo,
+            );
+
+            owner.with(|| provide_context(prefetches.clone()));
 
             let sc = owner.shared_context().unwrap();
 
@@ -46,6 +60,40 @@ pub trait ExtendResponse: Sized {
 
             while let Some(pending) = sc.await_deferred() {
                 pending.await;
+            }
+
+            if !prefetches.0.read_value().is_empty() {
+                use leptos::prelude::*;
+
+                let nonce =
+                    use_nonce().map(|n| n.to_string()).unwrap_or_default();
+                if let Some(manifest) = use_context::<WasmSplitManifest>() {
+                    let (pkg_path, manifest) = &*manifest.0.read_value();
+                    let prefetches = prefetches.0.read_value();
+
+                    let all_prefetches = prefetches.iter().flat_map(|key| {
+                        manifest.get(*key).into_iter().flatten()
+                    });
+
+                    for module in all_prefetches {
+                        // to_html() on leptos_meta components registers them with the meta context,
+                        // rather than returning HTML directly
+                        _ = view! {
+                            <Link
+                                rel="preload"
+                                href=format!("{pkg_path}/{module}.wasm")
+                                as_="fetch"
+                                type_="application/wasm"
+                                crossorigin=nonce.clone()
+                            />
+                        }
+                        .to_html();
+                    }
+                    _ = view! {
+                        <Link rel="modulepreload" href=format!("{pkg_path}/__wasm_split.js") crossorigin=nonce/>
+                    }
+                    .to_html();
+                }
             }
 
             let mut stream = Box::pin(
@@ -94,7 +142,11 @@ pub fn build_response<IV>(
     stream_builder: fn(
         IV,
         BoxedFnOnce<PinnedStream<String>>,
+        // this argument indicates whether a request wants to support out-of-order streaming
+        // responses
+        bool,
     ) -> PinnedFuture<PinnedStream<String>>,
+    is_islands_router_navigation: bool,
 ) -> (Owner, PinnedFuture<PinnedStream<String>>)
 where
     IV: IntoView + 'static,
@@ -138,7 +190,7 @@ where
                 //
                 // we also don't actually start hydrating until after the whole stream is complete,
                 // so it's not useful to send those scripts down earlier.
-                stream_builder(app, chunks)
+                stream_builder(app, chunks, is_islands_router_navigation)
             });
 
             stream.await

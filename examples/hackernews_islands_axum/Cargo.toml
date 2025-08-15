@@ -20,7 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1.40"
 gloo-net = { version = "0.6.0", features = ["http"] }
 reqwest = { version = "0.12.5", features = ["json"] }
-axum = { version = "0.7.5", optional = true, features = ["http2"] }
+axum = { version = "0.8.1", optional = true, features = ["http2"] }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.5.2", features = [
   "fs",
@@ -57,7 +57,8 @@ ssr = [
 
 [package.metadata.cargo-all-features]
 denylist = ["axum", "tower", "tower-http", "tokio", "http", "leptos_axum"]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"], []]
+max_combination_size = 2
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name

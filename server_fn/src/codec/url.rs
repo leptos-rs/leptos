@@ -1,7 +1,8 @@
 use super::{Encoding, FromReq, IntoReq};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
+    ContentType,
 };
 use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
@@ -12,134 +13,212 @@ pub struct GetUrl;
 /// Pass arguments as the URL-encoded body of a `POST` request.
 pub struct PostUrl;
 
-impl Encoding for GetUrl {
+/// Pass arguments as the URL-encoded body of a `DELETE` request.
+/// **Note**: Browser support for `DELETE` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub struct DeleteUrl;
+
+/// Pass arguments as the URL-encoded body of a `PATCH` request.
+/// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub struct PatchUrl;
+
+/// Pass arguments as the URL-encoded body of a `PUT` request.
+/// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub struct PutUrl;
+
+impl ContentType for GetUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for GetUrl {
     const METHOD: Method = Method::GET;
 }
 
-impl<CustErr, T, Request> IntoReq<GetUrl, Request, CustErr> for T
+impl<E, T, Request> IntoReq<GetUrl, Request, E> for T
 where
-    Request: ClientReq<CustErr>,
+    Request: ClientReq<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
-        let data = serde_qs::to_string(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = serde_qs::to_string(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_get(path, accepts, GetUrl::CONTENT_TYPE, &data)
     }
 }
 
-impl<CustErr, T, Request> FromReq<GetUrl, Request, CustErr> for T
+impl<E, T, Request> FromReq<GetUrl, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: DeserializeOwned,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.as_query().unwrap_or_default();
         let args = serde_qs::Config::new(5, false)
             .deserialize_str::<Self>(string_data)
-            .map_err(|e| ServerFnError::Args(e.to_string()))?;
+            .map_err(|e| {
+                ServerFnErrorErr::Args(e.to_string()).into_app_error()
+            })?;
         Ok(args)
     }
 }
 
-impl Encoding for PostUrl {
+impl ContentType for PostUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for PostUrl {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<PostUrl, Request, CustErr> for T
+impl<E, T, Request> IntoReq<PostUrl, Request, E> for T
 where
-    Request: ClientReq<CustErr>,
+    Request: ClientReq<E>,
     T: Serialize + Send,
+    E: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
-        let qs = serde_qs::to_string(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let qs = serde_qs::to_string(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post(path, accepts, PostUrl::CONTENT_TYPE, qs)
     }
 }
 
-impl<CustErr, T, Request> FromReq<PostUrl, Request, CustErr> for T
+impl<E, T, Request> FromReq<PostUrl, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: DeserializeOwned,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new(5, false)
             .deserialize_str::<Self>(&string_data)
-            .map_err(|e| ServerFnError::Args(e.to_string()))?;
+            .map_err(|e| {
+                ServerFnErrorErr::Args(e.to_string()).into_app_error()
+            })?;
         Ok(args)
     }
 }
 
-/* #[async_trait]
-impl<T, Request, Response> Codec<Request, Response, GetUrlJson> for T
+impl ContentType for DeleteUrl {
+    const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for DeleteUrl {
+    const METHOD: Method = Method::DELETE;
+}
+
+impl<E, T, Request> IntoReq<DeleteUrl, Request, E> for T
 where
-    T: DeserializeOwned + Serialize + Send,
-    Request: Req<CustErr> + Send,
-    Response: Res<CustErr> + Send,
+    Request: ClientReq<E>,
+    T: Serialize + Send,
+    E: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
-        let string_data = req.try_into_string()?;
-
-        let args = serde_json::from_str::<Self>(&string_data)
-            .map_err(|e| ServerFnError::Args(e.to_string()))?;
-        Ok(args)
-    }
-
-    async fn into_req(self) -> Result<Request, ServerFnError<CustErr>> {
-        /* let qs = serde_qs::to_string(&self)?;
-        let req = http::Request::builder()
-            .method("GET")
-            .header(
-                http::header::CONTENT_TYPE,
-                <GetUrlJson as Encoding>::REQUEST_CONTENT_TYPE,
-            )
-            .body(Body::from(qs))?;
-        Ok(req) */
-        todo!()
-    }
-
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
-        todo!()
-        /* let (_parts, body) = res.into_parts();
-
-        let body_bytes = body
-            .collect()
-            .await
-            .map(|c| c.to_bytes())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-        let string_data = String::from_utf8(body_bytes.to_vec())?;
-        serde_json::from_str(&string_data)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string())) */
-    }
-
-    async fn into_res(self) -> Response {
-        // Need to catch and err or here, or handle Errors at a higher level
-        let data = match serde_json::to_string(&self) {
-            Ok(d) => d,
-            Err(e) => return e.into_err_res(),
-        };
-        let builder = http::Response::builder();
-        let res = builder
-            .status(200)
-            .header(
-                http::header::CONTENT_TYPE,
-                <GetUrlJson as Encoding>::RESPONSE_CONTENT_TYPE,
-            )
-            .body(Body::from(data))
-            .unwrap();
-        res
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = serde_qs::to_string(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
+        Request::try_new_delete(path, accepts, GetUrl::CONTENT_TYPE, &data)
     }
 }
- */
+
+impl<E, T, Request> FromReq<DeleteUrl, Request, E> for T
+where
+    Request: Req<E> + Send + 'static,
+    T: DeserializeOwned,
+    E: FromServerFnError,
+{
+    async fn from_req(req: Request) -> Result<Self, E> {
+        let string_data = req.as_query().unwrap_or_default();
+        let args = serde_qs::Config::new(5, false)
+            .deserialize_str::<Self>(string_data)
+            .map_err(|e| {
+                ServerFnErrorErr::Args(e.to_string()).into_app_error()
+            })?;
+        Ok(args)
+    }
+}
+
+impl ContentType for PatchUrl {
+    const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for PatchUrl {
+    const METHOD: Method = Method::PATCH;
+}
+
+impl<E, T, Request> IntoReq<PatchUrl, Request, E> for T
+where
+    Request: ClientReq<E>,
+    T: Serialize + Send,
+    E: FromServerFnError,
+{
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = serde_qs::to_string(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
+        Request::try_new_patch(path, accepts, GetUrl::CONTENT_TYPE, data)
+    }
+}
+
+impl<E, T, Request> FromReq<PatchUrl, Request, E> for T
+where
+    Request: Req<E> + Send + 'static,
+    T: DeserializeOwned,
+    E: FromServerFnError,
+{
+    async fn from_req(req: Request) -> Result<Self, E> {
+        let string_data = req.as_query().unwrap_or_default();
+        let args = serde_qs::Config::new(5, false)
+            .deserialize_str::<Self>(string_data)
+            .map_err(|e| {
+                ServerFnErrorErr::Args(e.to_string()).into_app_error()
+            })?;
+        Ok(args)
+    }
+}
+
+impl ContentType for PutUrl {
+    const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+}
+
+impl Encoding for PutUrl {
+    const METHOD: Method = Method::PUT;
+}
+
+impl<E, T, Request> IntoReq<PutUrl, Request, E> for T
+where
+    Request: ClientReq<E>,
+    T: Serialize + Send,
+    E: FromServerFnError,
+{
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
+        let data = serde_qs::to_string(&self).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
+        Request::try_new_put(path, accepts, GetUrl::CONTENT_TYPE, data)
+    }
+}
+
+impl<E, T, Request> FromReq<PutUrl, Request, E> for T
+where
+    Request: Req<E> + Send + 'static,
+    T: DeserializeOwned,
+    E: FromServerFnError,
+{
+    async fn from_req(req: Request) -> Result<Self, E> {
+        let string_data = req.as_query().unwrap_or_default();
+        let args = serde_qs::Config::new(5, false)
+            .deserialize_str::<Self>(string_data)
+            .map_err(|e| {
+                ServerFnErrorErr::Args(e.to_string()).into_app_error()
+            })?;
+        Ok(args)
+    }
+}

@@ -3,10 +3,10 @@ extend = { path = "../cargo-make/main.toml" }
 [tasks.check]
 clear = true
 dependencies = [
-	"check-all",
-	"check-wasm",
-	"check-release",
-	"check-wasm-release",
+  "clippy-each-feature",
+  "check-wasm",
+  "check-release",
+  "check-wasm-release",
 ]
 
 [tasks.check-wasm]
@@ -20,39 +20,39 @@ dependencies = ["check-hydrate-release", "check-csr-release"]
 [tasks.check-hydrate]
 command = "cargo"
 args = [
-	"check",
-	"--no-default-features",
-	"--features=hydrate",
-	"--target=wasm32-unknown-unknown",
+  "check",
+  "--no-default-features",
+  "--features=hydrate",
+  "--target=wasm32-unknown-unknown",
 ]
 
 [tasks.check-csr]
 command = "cargo"
 args = [
-	"check",
-	"--no-default-features",
-	"--features=csr",
-	"--target=wasm32-unknown-unknown",
+  "check",
+  "--no-default-features",
+  "--features=csr",
+  "--target=wasm32-unknown-unknown",
 ]
 
 [tasks.check-hydrate-release]
 command = "cargo"
 args = [
-	"check",
-	"--release",
-	"--no-default-features",
-	"--features=hydrate",
-	"--target=wasm32-unknown-unknown",
+  "check",
+  "--release",
+  "--no-default-features",
+  "--features=hydrate",
+  "--target=wasm32-unknown-unknown",
 ]
 
 [tasks.check-csr-release]
 command = "cargo"
 args = [
-	"check",
-	"--release",
-	"--no-default-features",
-	"--features=csr",
-	"--target=wasm32-unknown-unknown",
+  "check",
+  "--release",
+  "--no-default-features",
+  "--features=csr",
+  "--target=wasm32-unknown-unknown",
 ]
 
 [tasks.check-release]

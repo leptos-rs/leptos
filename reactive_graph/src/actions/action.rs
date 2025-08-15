@@ -1,18 +1,22 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{
-        ArcStoredValue, ArenaItem, FromLocal, LocalStorage, Storage,
-        SyncStorage,
-    },
-    signal::{ArcRwSignal, RwSignal},
-    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Set, Update},
+    owner::{ArcStoredValue, ArenaItem},
+    send_wrapper_ext::SendOption,
+    signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
+    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
     unwrap_signal,
 };
 use any_spawner::Executor;
 use futures::{channel::oneshot, select, FutureExt};
 use send_wrapper::SendWrapper;
-use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
+use std::{
+    future::Future,
+    ops::{Deref, DerefMut},
+    panic::Location,
+    pin::Pin,
+    sync::Arc,
+};
 
 /// An action runs some asynchronous code when you dispatch a new value to it, and gives you
 /// reactive access to the result.
@@ -93,8 +97,8 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// ```
 pub struct ArcAction<I, O> {
     in_flight: ArcRwSignal<usize>,
-    input: ArcRwSignal<Option<I>>,
-    value: ArcRwSignal<Option<O>>,
+    input: ArcRwSignal<SendOption<I>>,
+    value: ArcRwSignal<SendOption<O>>,
     version: ArcRwSignal<usize>,
     dispatched: ArcStoredValue<usize>,
     #[allow(clippy::complexity)]
@@ -170,6 +174,8 @@ where
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
         Fu: Future<Output = O> + Send + 'static,
+        I: Send + Sync,
+        O: Send + Sync,
     {
         Self::new_with_value(None, action_fn)
     }
@@ -190,11 +196,13 @@ where
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
         Fu: Future<Output = O> + Send + 'static,
+        I: Send + Sync,
+        O: Send + Sync,
     {
         ArcAction {
             in_flight: ArcRwSignal::new(0),
-            input: Default::default(),
-            value: ArcRwSignal::new(value),
+            input: ArcRwSignal::new(SendOption::new(None)),
+            value: ArcRwSignal::new(SendOption::new(value)),
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
@@ -209,7 +217,9 @@ where
     /// input, etc.
     #[track_caller]
     pub fn clear(&self) {
-        self.value.set(None);
+        if let Some(mut guard) = self.value.try_write() {
+            **guard = None;
+        }
     }
 }
 
@@ -246,7 +256,7 @@ where
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
             let current_version = self.dispatched.get_value();
-            self.input.try_update(|inp| *inp = Some(input));
+            self.input.try_update(|inp| **inp = Some(input));
 
             // Spawn the task
             crate::spawn({
@@ -267,12 +277,12 @@ where
                             let is_latest = dispatched.get_value() <= current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
-                                value.update(|n| *n = Some(result));
+                                value.update(|n| **n = Some(result));
                             }
                         }
                     }
                     if in_flight.get_untracked() == 0 {
-                        input.update(|inp| *inp = None);
+                        input.update(|inp| **inp = None);
                     }
                 }
             });
@@ -298,7 +308,7 @@ where
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
             let current_version = self.dispatched.get_value();
-            self.input.try_update(|inp| *inp = Some(input));
+            self.input.try_update(|inp| **inp = Some(input));
 
             // Spawn the task
             Executor::spawn_local({
@@ -319,12 +329,12 @@ where
                             let is_latest = dispatched.get_value() <= current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
-                                value.update(|n| *n = Some(result));
+                                value.update(|n| **n = Some(result));
                             }
                         }
                     }
                     if in_flight.get_untracked() == 0 {
-                        input.update(|inp| *inp = None);
+                        input.update(|inp| **inp = None);
                     }
                 }
             });
@@ -363,8 +373,8 @@ where
         let action_fn = SendWrapper::new(action_fn);
         ArcAction {
             in_flight: ArcRwSignal::new(0),
-            input: Default::default(),
-            value: ArcRwSignal::new(value),
+            input: ArcRwSignal::new(SendOption::new_local(None)),
+            value: ArcRwSignal::new(SendOption::new_local(value)),
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
@@ -376,7 +386,11 @@ where
     }
 }
 
-impl<I, O> ArcAction<I, O> {
+impl<I, O> ArcAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
     /// The number of times the action has successfully completed.
     ///
     /// ```rust
@@ -429,8 +443,12 @@ impl<I, O> ArcAction<I, O> {
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> ArcRwSignal<Option<I>> {
-        self.input.clone()
+    pub fn input(&self) -> ArcMappedSignal<Option<I>> {
+        ArcMappedSignal::new(
+            self.input.clone(),
+            |n| n.deref(),
+            |n| n.deref_mut(),
+        )
     }
 
     /// The most recent return value of the `async` function. This will be `None` before
@@ -462,8 +480,12 @@ impl<I, O> ArcAction<I, O> {
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> ArcRwSignal<Option<O>> {
-        self.value.clone()
+    pub fn value(&self) -> ArcMappedSignal<Option<O>> {
+        ArcMappedSignal::new(
+            self.value.clone(),
+            |n| n.deref(),
+            |n| n.deref_mut(),
+        )
     }
 
     /// Whether the action has been dispatched and is currently waiting to resolve.
@@ -590,13 +612,13 @@ where
 /// // if there are multiple arguments, use a tuple
 /// let action3 = Action::new(|input: &(usize, String)| async { todo!() });
 /// ```
-pub struct Action<I, O, S = SyncStorage> {
-    inner: ArenaItem<ArcAction<I, O>, S>,
+pub struct Action<I, O> {
+    inner: ArenaItem<ArcAction<I, O>>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
 }
 
-impl<I, O, S> Dispose for Action<I, O, S> {
+impl<I, O> Dispose for Action<I, O> {
     fn dispose(self) {
         self.inner.dispose()
     }
@@ -687,11 +709,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: 'static,
     O: 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// Clears the value of the action, setting its current value to `None`.
     ///
@@ -699,11 +720,11 @@ where
     /// input, etc.
     #[track_caller]
     pub fn clear(&self) {
-        self.inner.try_with_value(|inner| inner.value.set(None));
+        self.inner.try_with_value(|inner| inner.clear());
     }
 }
 
-impl<I, O> Action<I, O, LocalStorage>
+impl<I, O> Action<I, O>
 where
     I: 'static,
     O: 'static,
@@ -718,7 +739,7 @@ where
         Fu: Future<Output = O> + 'static,
     {
         Self {
-            inner: ArenaItem::new_local(ArcAction::new_unsync(action_fn)),
+            inner: ArenaItem::new(ArcAction::new_unsync(action_fn)),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
@@ -734,7 +755,7 @@ where
         Fu: Future<Output = O> + Send + 'static,
     {
         Self {
-            inner: ArenaItem::new_local(ArcAction::new_unsync_with_value(
+            inner: ArenaItem::new(ArcAction::new_unsync_with_value(
                 value, action_fn,
             )),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -743,9 +764,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
-    S: Storage<ArcAction<I, O>>,
+    I: 'static,
+    O: 'static,
 {
     /// The number of times the action has successfully completed.
     ///
@@ -811,10 +833,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: 'static,
-    S: Storage<ArcAction<I, O>>,
+    O: 'static,
 {
     /// The current argument that was dispatched to the async function. This value will
     /// be `Some` while we are waiting for it to resolve, and `None` after it has resolved.
@@ -825,7 +847,7 @@ where
     /// # tokio_test::block_on(async move {
     /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
     /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
-    /// let act = ArcAction::new(|n: &u8| {
+    /// let act = Action::new(|n: &u8| {
     ///     let n = n.to_owned();
     ///     async move { n * 2 }
     /// });
@@ -841,15 +863,11 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> RwSignal<Option<I>>
-    where
-        I: Send + Sync,
-    {
-        let inner = self
-            .inner
+    pub fn input(&self) -> MappedSignal<Option<I>> {
+        self.inner
             .try_with_value(|inner| inner.input())
-            .unwrap_or_else(unwrap_signal!(self));
-        inner.into()
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 
     /// The current argument that was dispatched to the async function. This value will
@@ -857,19 +875,20 @@ where
     ///
     /// Returns a thread-local signal using [`LocalStorage`].
     #[track_caller]
-    pub fn input_local(&self) -> RwSignal<Option<I>, LocalStorage> {
-        let inner = self
-            .inner
+    #[deprecated = "You can now use .input() for any value, whether it's \
+                    thread-safe or not."]
+    pub fn input_local(&self) -> MappedSignal<Option<I>> {
+        self.inner
             .try_with_value(|inner| inner.input())
-            .unwrap_or_else(unwrap_signal!(self));
-        RwSignal::from_local(inner)
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
+    I: 'static,
     O: 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// The most recent return value of the `async` function. This will be `None` before
     /// the action has ever run successfully, and subsequently will always be `Some(_)`,
@@ -900,15 +919,11 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> RwSignal<Option<O>>
-    where
-        O: Send + Sync,
-    {
-        let inner = self
-            .inner
+    pub fn value(&self) -> MappedSignal<Option<O>> {
+        self.inner
             .try_with_value(|inner| inner.value())
-            .unwrap_or_else(unwrap_signal!(self));
-        inner.into()
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 
     /// The most recent return value of the `async` function. This will be `None` before
@@ -916,24 +931,24 @@ where
     /// holding the old value until a new value has been received.
     ///
     /// Returns a thread-local signal using [`LocalStorage`].
+    #[deprecated = "You can now use .value() for any value, whether it's \
+                    thread-safe or not."]
     #[track_caller]
-    pub fn value_local(&self) -> RwSignal<Option<O>, LocalStorage>
+    pub fn value_local(&self) -> MappedSignal<Option<O>>
     where
         O: Send + Sync,
     {
-        let inner = self
-            .inner
+        self.inner
             .try_with_value(|inner| inner.value())
-            .unwrap_or_else(unwrap_signal!(self));
-        RwSignal::from_local(inner)
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
@@ -945,11 +960,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: 'static,
     O: 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
@@ -961,11 +975,10 @@ where
     }
 }
 
-impl<I, O, S> Action<I, O, S>
+impl<I, O> Action<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
-    S: Storage<ArcAction<I, O>>,
 {
     /// Creates a new action, which does not require the action itself to be `Send`, but will run
     /// it on the same thread it was created on.
@@ -1006,7 +1019,57 @@ where
     }
 }
 
-impl<I, O, S> DefinedAt for Action<I, O, S> {
+impl<I, O> Action<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Creates a new action, which neither requires the action itself nor the
+    /// value it returns to be `Send`. If this action is accessed from outside the
+    /// thread on which it was created, it panics.
+    ///
+    /// This combines the features of [`Action::new_local`] and [`Action::new_unsync`].
+    #[track_caller]
+    pub fn new_unsync_local<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: ArenaItem::new_with_storage(ArcAction::new_unsync(
+                action_fn,
+            )),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+        }
+    }
+
+    /// Creates a new action, which neither requires the action itself nor the
+    /// value it returns to be `Send`, and provides it with an initial value.
+    /// If this action is accessed from outside the thread on which it was created, it panics.
+    ///
+    /// This combines the features of [`Action::new_local_with_value`] and
+    /// [`Action::new_unsync_with_value`].
+    #[track_caller]
+    pub fn new_unsync_local_with_value<F, Fu>(
+        value: Option<O>,
+        action_fn: F,
+    ) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: ArenaItem::new_with_storage(
+                ArcAction::new_unsync_with_value(value, action_fn),
+            ),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
+impl<I, O> DefinedAt for Action<I, O> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(any(debug_assertions, leptos_debuginfo))]
         {
@@ -1019,13 +1082,13 @@ impl<I, O, S> DefinedAt for Action<I, O, S> {
     }
 }
 
-impl<I, O, S> Clone for Action<I, O, S> {
+impl<I, O> Clone for Action<I, O> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<I, O, S> Copy for Action<I, O, S> {}
+impl<I, O> Copy for Action<I, O> {}
 
 /// Creates a new action. This is lazy: it does not run the action function until some value
 /// is dispatched.
@@ -1045,7 +1108,7 @@ impl<I, O, S> Copy for Action<I, O, S> {}
 /// # tokio_test::block_on(async move {
 /// # any_spawner::Executor::init_tokio(); let owner = reactive_graph::owner::Owner::new(); owner.set();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
-/// let act = create_action(|n: &u8| {
+/// let act = Action::new(|n: &u8| {
 ///     let n = n.to_owned();
 ///     async move { n * 2 }
 /// });

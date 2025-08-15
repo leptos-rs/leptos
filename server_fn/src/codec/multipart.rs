@@ -1,8 +1,8 @@
 use super::{Encoding, FromReq};
 use crate::{
-    error::ServerFnError,
+    error::{FromServerFnError, ServerFnErrorWrapper},
     request::{browser::BrowserFormData, ClientReq, Req},
-    IntoReq,
+    ContentType, IntoReq,
 };
 use futures::StreamExt;
 use http::Method;
@@ -14,8 +14,11 @@ use web_sys::FormData;
 /// You should primarily use this if you are trying to handle file uploads.
 pub struct MultipartFormData;
 
-impl Encoding for MultipartFormData {
+impl ContentType for MultipartFormData {
     const CONTENT_TYPE: &'static str = "multipart/form-data";
+}
+
+impl Encoding for MultipartFormData {
     const METHOD: Method = Method::POST;
 }
 
@@ -56,18 +59,15 @@ impl From<FormData> for MultipartData {
     }
 }
 
-impl<CustErr, T, Request> IntoReq<MultipartFormData, Request, CustErr> for T
+impl<E: FromServerFnError, T, Request> IntoReq<MultipartFormData, Request, E>
+    for T
 where
-    Request: ClientReq<CustErr, FormData = BrowserFormData>,
+    Request: ClientReq<E, FormData = BrowserFormData>,
     T: Into<MultipartData>,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, E> {
         let multi = self.into();
-        Request::try_new_multipart(
+        Request::try_new_post_multipart(
             path,
             accepts,
             multi.into_client_data().unwrap(),
@@ -75,20 +75,20 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<MultipartFormData, Request, CustErr> for T
+impl<E, T, Request> FromReq<MultipartFormData, Request, E> for T
 where
-    Request: Req<CustErr> + Send + 'static,
+    Request: Req<E> + Send + 'static,
     T: From<MultipartData>,
-    CustErr: 'static,
+    E: FromServerFnError + Send + Sync,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    async fn from_req(req: Request) -> Result<Self, E> {
         let boundary = req
             .to_content_type()
             .and_then(|ct| multer::parse_boundary(ct).ok())
             .expect("couldn't parse boundary");
         let stream = req.try_into_stream()?;
         let data = multer::Multipart::new(
-            stream.map(|data| data.map_err(|e| e.to_string())),
+            stream.map(|data| data.map_err(|e| ServerFnErrorWrapper(E::de(e)))),
             boundary,
         );
         Ok(MultipartData::Server(data).into())

@@ -1,3 +1,8 @@
+[tasks.cargo-all-features]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''
+
 [tasks.install-cargo-leptos]
 install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
 args = ["--locked"]
@@ -5,6 +10,10 @@ args = ["--locked"]
 [tasks.cargo-leptos-e2e]
 command = "cargo"
 args = ["leptos", "end-to-end"]
+
+[tasks.cargo-leptos-e2e-split]
+command = "cargo"
+args = ["leptos", "end-to-end", "--split"]
 
 [tasks.build]
 clear = true
@@ -16,16 +25,14 @@ clear = true
 dependencies = ["check-debug", "check-release"]
 
 [tasks.check-debug]
-toolchain = "stable"
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features"]
-install_crate = "cargo-all-features"
+args = ["all-features", "clippy"]
 
 [tasks.check-release]
-toolchain = "stable"
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features", "--release"]
-install_crate = "cargo-all-features"
+args = ["all-features", "clippy", "--release"]
 
 [tasks.start-client]
 dependencies = ["install-cargo-leptos"]

@@ -202,7 +202,72 @@ impl<'a> AttributeValue for &'a str {
     }
 }
 
-#[cfg(feature = "nightly")]
+impl<'a> AttributeValue for Cow<'a, str> {
+    type State = (crate::renderer::types::Element, Self);
+    type AsyncOutput = Self;
+    type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
+    fn to_html(self, key: &str, buf: &mut String) {
+        buf.push(' ');
+        buf.push_str(key);
+        buf.push_str("=\"");
+        buf.push_str(&escape_attr(&self));
+        buf.push('"');
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        // if we're actually hydrating from SSRed HTML, we don't need to set the attribute
+        // if we're hydrating from a CSR-cloned <template>, we do need to set non-StaticAttr attributes
+        if !FROM_SERVER {
+            Rndr::set_attribute(el, key, &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        Rndr::set_attribute(el, key, &self);
+        (el.to_owned(), self)
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        let (el, prev_value) = state;
+        if self != *prev_value {
+            Rndr::set_attribute(el, key, &self);
+        }
+        *prev_value = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+}
+
+#[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const V: &'static str> AttributeValue
     for crate::view::static_types::Static<V>
 {

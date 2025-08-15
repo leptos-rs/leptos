@@ -83,13 +83,12 @@ pub async fn init_recovery_flow() -> Result<ViewableRecoveryFlow, ServerFnError>
 #[tracing::instrument(ret)]
 #[server]
 pub async fn process_recovery(
-    body: HashMap<String, String>,
+    mut body: HashMap<String, String>,
 ) -> Result<ViewableRecoveryFlow, ServerFnError> {
     use ory_kratos_client::models::error_browser_location_change_required::ErrorBrowserLocationChangeRequired;
     use ory_kratos_client::models::generic_error::GenericError;
     use reqwest::StatusCode;
 
-    let mut body = body;
     let action = body
         .remove("action")
         .ok_or(ServerFnError::new("Can't find action on body."))?;

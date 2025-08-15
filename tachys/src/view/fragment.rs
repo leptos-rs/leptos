@@ -1,9 +1,13 @@
-use super::any_view::{AnyView, IntoAny};
+use super::{
+    any_view::{AnyView, IntoAny},
+    iterators::StaticVec,
+};
+use crate::html::element::HtmlElement;
 
 /// A typed-erased collection of different views.
 pub struct Fragment {
     /// The nodes contained in the fragment.
-    pub nodes: Vec<AnyView>,
+    pub nodes: StaticVec<AnyView>,
 }
 
 /// Converts some view into a type-erased collection of views.
@@ -34,11 +38,37 @@ impl Fragment {
     /// Creates a new [`Fragment`].
     #[inline(always)]
     pub fn new(nodes: Vec<AnyView>) -> Self {
-        Self { nodes }
+        Self {
+            nodes: nodes.into(),
+        }
+    }
+}
+
+impl<E, At, Ch> IntoFragment for HtmlElement<E, At, Ch>
+where
+    HtmlElement<E, At, Ch>: IntoAny,
+{
+    fn into_fragment(self) -> Fragment {
+        Fragment::new(vec![self.into_any()])
+    }
+}
+
+impl IntoFragment for AnyView {
+    fn into_fragment(self) -> Fragment {
+        Fragment::new(vec![self])
     }
 }
 
 impl<T> IntoFragment for Vec<T>
+where
+    T: IntoAny,
+{
+    fn into_fragment(self) -> Fragment {
+        Fragment::new(self.into_iter().map(IntoAny::into_any).collect())
+    }
+}
+
+impl<T> IntoFragment for StaticVec<T>
 where
     T: IntoAny,
 {

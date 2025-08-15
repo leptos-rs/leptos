@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = { workspace = true }
+version = "0.8.6"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -13,36 +13,41 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.10.3", features = ["syn-full"] }
-cfg-if = "1.0"
-html-escape = "0.2.13"
-itertools = { workspace = true }
-prettyplease = "0.2.25"
-proc-macro-error2 = { version = "2.0", default-features = false }
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
-rstml = "0.12.0"
+attribute-derive = { features = [
+  "syn-full",
+], workspace = true, default-features = true }
+cfg-if = { workspace = true, default-features = true }
+html-escape = { workspace = true, default-features = true }
+itertools = { workspace = true, default-features = true }
+prettyplease = { workspace = true, default-features = true }
+proc-macro-error2 = { default-features = false, workspace = true }
+proc-macro2 = { workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+syn = { features = ["full"], workspace = true, default-features = true }
+rstml = { workspace = true, default-features = true }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
-convert_case = "0.7"
-uuid = { version = "1.11", features = ["v4"] }
-tracing = { version = "0.1.41", optional = true }
+convert_case = { workspace = true, default-features = true }
+uuid = { features = ["v4"], workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-log = "0.4.22"
-typed-builder = "0.20.0"
-trybuild = "1.0"
+log = { workspace = true, default-features = true }
+typed-builder = { workspace = true, default-features = true }
+trybuild = { workspace = true, default-features = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
-insta = "1.41"
-serde = "1.0"
+insta = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
+
+[build-dependencies]
+rustc_version = { workspace = true, default-features = true }
 
 [features]
 csr = []
 hydrate = []
-ssr = ["server_fn_macro/ssr", "leptos/ssr"]
+ssr = ["server_fn_macro/ssr"]
 nightly = ["server_fn_macro/nightly"]
 tracing = ["dep:tracing"]
 islands = []
@@ -51,9 +56,16 @@ trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
 generic = ["server_fn_macro/generic"]
+# Having an erasure feature rather than normal --cfg erase_components for the proc macro crate is a workaround for this rust issue:
+# https://github.com/rust-lang/cargo/issues/4423
+# TLDR proc macros will ignore RUSTFLAGS when --target is specified on the cargo command.
+# This works around the issue by the non proc-macro crate which does see RUSTFLAGS enabling the replacement feature on the proc-macro crate, which wouldn't.
+# This is automatic as long as the leptos crate is depended upon,
+# downstream usage should never manually enable this feature.
+__internal_erase_components = []
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly", "tracing", "trace-component-props"]
+denylist = ["tracing", "trace-component-props", "trace-components"]
 skip_feature_sets = [
   [
     "csr",
@@ -79,13 +91,14 @@ skip_feature_sets = [
     "generic",
     "axum",
   ],
+  [
+    "nightly",
+  ],
 ]
+max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(leptos_debuginfo)',
-  'cfg(erase_components)',
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rustc_nightly)'] }

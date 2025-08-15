@@ -90,35 +90,13 @@ Here are some resources for learning more about Leptos:
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
 - [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 
-## `nightly` Note
-
-Most of the examples assume you’re using `nightly` version of Rust and the `nightly` feature of Leptos. To use `nightly` Rust, you can either set your toolchain globally or on per-project basis.
-
-To set `nightly` as a default toolchain for all projects (and add the ability to compile Rust to WebAssembly, if you haven’t already):
-
-```
-rustup toolchain install nightly
-rustup default nightly
-rustup target add wasm32-unknown-unknown
-```
-
-If you'd like to use `nightly` only in your Leptos project however, add [`rust-toolchain.toml`](https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file) file with the following content:
-
-```toml
-[toolchain]
-channel = "nightly"
-targets = ["wasm32-unknown-unknown"]
-```
-
-The `nightly` feature enables the function call syntax for accessing and setting signals, as opposed to `.get()` and `.set()`. This leads to a consistent mental model in which accessing a reactive value of any kind (a signal, memo, or derived signal) is always represented as a function call. This is only possible with nightly Rust and the `nightly` feature.
-
 ## `cargo-leptos`
 
 [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
 
 ```bash
 cargo install cargo-leptos
-cargo leptos new --git https://github.com/leptos-rs/start
+cargo leptos new --git https://github.com/leptos-rs/start-axum
 cd [your project name]
 cargo leptos watch
 ```
@@ -147,7 +125,7 @@ Yes, I’m sure there are. You can see from the state of our issue tracker over 
 
 This may be the big one: “production ready” implies a certain orientation to a library: that you can basically use it, without any special knowledge of its internals or ability to contribute. Everyone has this at some level in their stack: for example I (@gbj) don’t have the capacity or knowledge to contribute to something like `wasm-bindgen` at this point: I simply rely on it to work.
 
-There are several people in the community using Leptos right now for internal apps at work, who have also become significant contributors. I think this is the right level of production use for now. There may be missing features that you need, and you may end up building them! But for internal apps, if you’re willing to build and contribute missing pieces along the way, the framework is definitely usable right now.
+There are several people in the community using Leptos right now for many websites at work, who have also become significant contributors. There may be missing features that you need, and you may end up building them! But, if you're willing to contribute a few missing pieces along the way, the framework is most definitely usable for production applications, especially given the ecosystem of libraries that have sprung up around it.
 
 ### Can I use this for native GUI?
 

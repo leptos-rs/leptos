@@ -31,6 +31,19 @@ where
     inner: ArenaItem<ArcField<T>, S>,
 }
 
+impl<T, S> Debug for Field<T, S>
+where
+    T: 'static,
+    S: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("Field");
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        let f = f.field("defined_at", &self.defined_at);
+        f.field("inner", &self.inner).finish()
+    }
+}
+
 impl<T, S> StoreField for Field<T, S>
 where
     S: Storage<ArcField<T>>,

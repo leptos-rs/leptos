@@ -1,8 +1,9 @@
 #![allow(clippy::needless_lifetimes)]
 
-use crate::prelude::*;
+use crate::{prelude::*, WasmSplitManifest};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
+use std::{path::PathBuf, sync::OnceLock};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.
 ///
@@ -50,10 +51,37 @@ pub fn HydrationScripts(
     /// Should be `true` to hydrate in `islands` mode.
     #[prop(optional)]
     islands: bool,
+    /// Should be `true` to add the “islands router,” which enables limited client-side routing
+    /// when running in islands mode.
+    #[prop(optional)]
+    islands_router: bool,
     /// A base url, not including a trailing slash
     #[prop(optional, into)]
     root: Option<String>,
 ) -> impl IntoView {
+    static SPLIT_MANIFEST: OnceLock<Option<WasmSplitManifest>> =
+        OnceLock::new();
+
+    if let Some(splits) = SPLIT_MANIFEST.get_or_init(|| {
+        let root = root.clone().unwrap_or_default();
+
+        let site_dir = &options.site_root;
+        let pkg_dir = &options.site_pkg_dir;
+        let path = PathBuf::from(site_dir.to_string());
+        let path = path
+            .join(pkg_dir.to_string())
+            .join("__wasm_split_manifest.json");
+        let file = std::fs::read_to_string(path).ok()?;
+        let manifest = WasmSplitManifest(ArcStoredValue::new((
+            format!("{root}/{pkg_dir}"),
+            serde_json::from_str(&file).expect("could not read manifest file"),
+        )));
+
+        Some(manifest)
+    }) {
+        provide_context(splits.clone());
+    }
+
     let mut js_file_name = options.output_name.to_string();
     let mut wasm_file_name = options.output_name.to_string();
     if options.hash_files {
@@ -79,6 +107,10 @@ pub fn HydrationScripts(
                     }
                 }
             }
+        } else {
+            leptos::logging::error!(
+                "File hashing is active but no hash file was found"
+            );
         }
     } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_file_name.push_str("_bg");
@@ -98,9 +130,13 @@ pub fn HydrationScripts(
         include_str!("./hydration_script.js")
     };
 
+    let islands_router = islands_router
+        .then_some(include_str!("./islands_routing.js"))
+        .unwrap_or_default();
+
     let root = root.unwrap_or_default();
     view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
+        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link
             rel="preload"
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
@@ -109,7 +145,19 @@ pub fn HydrationScripts(
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
+            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
         </script>
     }
 }
+
+/// If this is provided via context, it means that you are using the islands router and
+/// this is a subsequent navigation, made from the client.
+///
+/// This should be provided automatically by a server integration if it detects that the
+/// header `Islands-Router` is present in the request.
+///
+/// This is used to determine how much of the hydration script to include in the page.
+/// If it is present, then the contents of the `<HydrationScripts>` component will not be
+/// included, as they only need to be sent to the client once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IslandsRouterNavigation;

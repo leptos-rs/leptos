@@ -13,8 +13,9 @@ use crate::{
         SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
     owner::{use_context, Owner},
+    send_wrapper_ext::SendOption,
     signal::{
-        guards::{AsyncPlain, ReadGuard, WriteGuard},
+        guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
         ArcTrigger,
     },
     traits::{
@@ -23,16 +24,14 @@ use crate::{
     },
     transition::AsyncTransition,
 };
-use any_spawner::Executor;
 use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
-use send_wrapper::SendWrapper;
 use std::{
     future::Future,
     mem,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     panic::Location,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -110,7 +109,7 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<AsyncRwLock<Option<T>>>,
+    pub(crate) value: Arc<AsyncRwLock<SendOption<T>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
@@ -235,7 +234,8 @@ macro_rules! spawn_derived {
             subscribers: SubscriberSet::new(),
             state: AsyncDerivedState::Clean,
             version: 0,
-            suspenses: Vec::new()
+            suspenses: Vec::new(),
+            pending_suspenses: Vec::new()
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -280,7 +280,7 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.state = AsyncDerivedState::Clean;
-                        *value.blocking_write() = Some(orig_value);
+                        *value.blocking_write() = orig_value;
                         this.loading.store(false, Ordering::Relaxed);
                         (true, None)
                     }
@@ -365,7 +365,7 @@ macro_rules! spawn_derived {
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
 
-                                    let (this_version, suspense_ids) = {
+                                    let this_version = {
                                         let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
                                         let version = guard.version;
@@ -373,14 +373,17 @@ macro_rules! spawn_derived {
                                             .into_iter()
                                             .map(|sc| sc.task_id())
                                             .collect::<Vec<_>>();
-                                        (version, suspense_ids)
+                                        guard.pending_suspenses.extend(suspense_ids);
+                                        version
                                     };
 
                                     let new_value = fut.await;
 
-                                    drop(suspense_ids);
-
-                                    let latest_version = inner.read().or_poisoned().version;
+                                    let latest_version = {
+                                        let mut guard = inner.write().or_poisoned();
+                                        drop(mem::take(&mut guard.pending_suspenses));
+                                        guard.version
+                                    };
 
                                     if latest_version == this_version {
                                         Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
@@ -405,14 +408,14 @@ macro_rules! spawn_derived {
 
 impl<T: 'static> ArcAsyncDerived<T> {
     async fn set_inner_value(
-        new_value: T,
-        value: Arc<AsyncRwLock<Option<T>>>,
+        new_value: SendOption<T>,
+        value: Arc<AsyncRwLock<SendOption<T>>>,
         wakers: Arc<RwLock<Vec<Waker>>>,
         inner: Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        *value.write().await = Some(new_value);
+        *value.write().await.deref_mut() = new_value;
         Self::notify_subs(&wakers, &inner, &loading, ready_tx);
     }
 
@@ -479,8 +482,16 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
+        let fun = move || {
+            let fut = fun();
+            let fut = async move { SendOption::new(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
+        };
+        let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn,
+            crate::spawn,
             initial_value,
             fun,
             true,
@@ -508,8 +519,18 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Fut: Future<Output = T> + Send + 'static,
         S: Track,
     {
+        let fun = move || {
+            let fut = fun();
+            let fut = ScopedFuture::new_untracked(async move {
+                SendOption::new(Some(fut.await))
+            });
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
+        };
+        let initial_value = SendOption::new(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn,
+            crate::spawn,
             initial_value,
             fun,
             true,
@@ -545,8 +566,16 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
+        let fun = move || {
+            let fut = fun();
+            let fut = async move { SendOption::new_local(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
+        };
+        let initial_value = SendOption::new_local(initial_value);
         let (this, _) = spawn_derived!(
-            Executor::spawn_local,
+            crate::spawn_local,
             initial_value,
             fun,
             true,
@@ -567,7 +596,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
+impl<T: 'static> ArcAsyncDerived<T> {
     #[doc(hidden)]
     #[track_caller]
     pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
@@ -575,16 +604,16 @@ impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        let initial = None::<SendWrapper<T>>;
+        let initial = SendOption::new_local(None::<T>);
         let fun = move || {
             let fut = fun();
-            async move {
-                let value = fut.await;
-                SendWrapper::new(value)
-            }
+            let fut = async move { SendOption::new_local(Some(fut.await)) };
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+            fut
         };
         let (this, _) = spawn_derived!(
-            Executor::spawn_local,
+            crate::spawn_local,
             initial,
             fun,
             false,
@@ -597,7 +626,8 @@ impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
 }
 
 impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
-    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
+    type Value =
+        ReadGuard<Option<T>, Mapped<AsyncPlain<SendOption<T>>, Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
@@ -613,7 +643,9 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
                 .suspenses
                 .push(suspense_context);
         }
-        AsyncPlain::try_new(&self.value).map(ReadGuard::new)
+        AsyncPlain::try_new(&self.value).map(|plain| {
+            ReadGuard::new(Mapped::new_with_guard(plain, |v| v.deref()))
+        })
     }
 }
 
@@ -627,13 +659,37 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
     type Value = Option<T>;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
-        Some(WriteGuard::new(self.clone(), self.value.blocking_write()))
+        // increment the version, such that a rerun triggered previously does not overwrite this
+        // new value
+        let mut guard = self.inner.write().or_poisoned();
+        guard.version += 1;
+
+        // tell any suspenses to stop waiting for this
+        drop(mem::take(&mut guard.pending_suspenses));
+
+        Some(MappedMut::new(
+            WriteGuard::new(self.clone(), self.value.blocking_write()),
+            |v| v.deref(),
+            |v| v.deref_mut(),
+        ))
     }
 
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        Some(self.value.blocking_write())
+        // increment the version, such that a rerun triggered previously does not overwrite this
+        // new value
+        let mut guard = self.inner.write().or_poisoned();
+        guard.version += 1;
+
+        // tell any suspenses to stop waiting for this
+        drop(mem::take(&mut guard.pending_suspenses));
+
+        Some(MappedMut::new(
+            self.value.blocking_write(),
+            |v| v.deref(),
+            |v| v.deref_mut(),
+        ))
     }
 }
 

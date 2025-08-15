@@ -121,8 +121,8 @@
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
-#![cfg_attr(feature = "nightly", feature(auto_traits))]
-#![cfg_attr(feature = "nightly", feature(negative_impls))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(auto_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(negative_impls))]
 
 /// Components for route definition and for enhanced links and forms.
 pub mod components;
@@ -148,7 +148,7 @@ pub mod static_routes;
 
 pub use generate_route_list::*;
 #[doc(inline)]
-pub use leptos_router_macro::path;
+pub use leptos_router_macro::{lazy_route, path};
 pub use matching::*;
 pub use method::*;
 pub use navigate::*;

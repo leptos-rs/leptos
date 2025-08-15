@@ -1,5 +1,6 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    error::ErrorBoundarySuspendedChildren,
     suspense_component::SuspenseBoundary,
     IntoView,
 };
@@ -7,7 +8,7 @@ use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo},
     effect::Effect,
-    owner::{provide_context, Owner},
+    owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
     traits::{Get, Set, Track, With},
     wrappers::write::SignalSetter,
@@ -85,6 +86,8 @@ pub fn Transition<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
+    let error_boundary_parent = use_context::<ErrorBoundarySuspendedChildren>();
+
     let owner = Owner::new();
     owner.with(|| {
         let (starts_local, id) = {
@@ -123,6 +126,7 @@ where
             none_pending,
             fallback,
             children,
+            error_boundary_parent,
         })
     })
 }

@@ -6,8 +6,8 @@ use syn::{
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    ExprClosure, Field, Fields, Generics, Ident, Index, Meta, Result, Token,
-    Type, Variant, Visibility, WhereClause,
+    ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta,
+    Result, Token, Type, TypeParam, Variant, Visibility, WhereClause,
 };
 
 #[proc_macro_error]
@@ -24,6 +24,103 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     syn::parse_macro_input!(input as PatchModel)
         .into_token_stream()
         .into()
+}
+
+/// Removes all constraints from generics arguments list.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// struct Data<
+///     'a,
+///     T1: ToString + PatchField,
+///     T2: PatchField,
+///     T3: 'static + PatchField,
+///     T4,
+/// >
+/// where
+///     T3: ToString,
+///     T4: ToString + PatchField,
+/// {
+///     data1: &'a T1,
+///     data2: T2,
+///     data3: T3,
+///     data4: T4,
+/// }
+/// ```
+///
+/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
+/// which will conceptually look like this
+///
+/// ```text
+/// Generics:
+///     params:
+///        [
+///           'a,
+///            T1: ToString + PatchField,
+///            T2: PatchField,
+///            T3: 'static + PatchField,
+///            T4,
+///        ]
+///      where_clause:
+///        [
+///            T3: ToString,
+///            T4: ToString + PatchField,
+///        ]
+/// ```
+///
+/// This method would return a new instance of [syn::Generics] which will conceptually look like this
+///
+/// ```text
+/// Generics:
+///     params:
+///       [
+///           'a,
+///           T1,
+///           T2,
+///           T3,
+///           T4,
+///       ]
+///      where_clause:
+///       []
+/// ```
+///
+/// This is useful when you want to use a generic arguments list for `impl` sections for type definitions.
+fn remove_constraint_from_generics(generics: &Generics) -> Generics {
+    let mut new_generics = generics.clone();
+
+    // remove contraints directly placed in the generic arguments list
+    //
+    // For generics for `struct A<T: MyTrait>` the `T: MyTrait` becomes `T`
+    for param in new_generics.params.iter_mut() {
+        match param {
+            GenericParam::Lifetime(lifetime) => {
+                lifetime.bounds.clear(); // remove bounds
+                lifetime.colon_token = None;
+            }
+            GenericParam::Type(type_param) => {
+                type_param.bounds.clear(); // remove bounds
+                type_param.colon_token = None;
+                type_param.eq_token = None;
+                type_param.default = None;
+            }
+            GenericParam::Const(const_param) => {
+                // replaces const generic with type param without bounds which is basically an `ident` token
+                *param = GenericParam::Type(TypeParam {
+                    attrs: const_param.attrs.clone(),
+                    ident: const_param.ident.clone(),
+                    colon_token: None,
+                    bounds: Punctuated::new(),
+                    eq_token: None,
+                    default: None,
+                });
+            }
+        }
+    }
+
+    new_generics.where_clause = None; // remove where clause
+
+    new_generics
 }
 
 struct Model {
@@ -79,7 +176,7 @@ impl Parse for Model {
 
 #[derive(Clone)]
 enum SubfieldMode {
-    Keyed(ExprClosure, Type),
+    Keyed(Box<ExprClosure>, Box<Type>),
     Skip,
 }
 
@@ -91,7 +188,7 @@ impl Parse for SubfieldMode {
             let ty: Type = input.parse()?;
             let _eq: Token![=] = input.parse()?;
             let closure: ExprClosure = input.parse()?;
-            Ok(SubfieldMode::Keyed(closure, ty))
+            Ok(SubfieldMode::Keyed(Box::new(closure), Box::new(ty)))
         } else if mode == "skip" {
             Ok(SubfieldMode::Skip)
         } else {
@@ -111,10 +208,10 @@ impl ToTokens for Model {
         } = &self;
         let any_store_field = Ident::new("AnyStoreField", Span::call_site());
         let trait_name = Ident::new(&format!("{name}StoreFields"), name.span());
-        let generics_with_orig = {
-            let params = &generics.params;
-            quote! { <#any_store_field, #params> }
-        };
+        let clear_generics = remove_constraint_from_generics(generics);
+        let params = &generics.params;
+        let clear_params = &clear_generics.params;
+        let generics_with_orig = quote! { <#any_store_field, #params> };
         let where_with_orig = {
             generics
                 .where_clause
@@ -126,27 +223,32 @@ impl ToTokens for Model {
                     } = &w;
                     quote! {
                         #where_token
-                            #any_store_field: #library_path::StoreField<Value = #name #generics>,
+                            #any_store_field: #library_path::StoreField<Value = #name < #clear_params > >,
                             #predicates
                     }
                 })
-                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<Value = #name #generics> })
+                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<Value = #name < #clear_params > > })
         };
 
         // define an extension trait that matches this struct
         // and implement that trait for all StoreFields
-        let (trait_fields, read_fields): (Vec<_>, Vec<_>) =
-            ty.to_field_data(&library_path, generics, &any_store_field, name);
+        let (trait_fields, read_fields): (Vec<_>, Vec<_>) = ty.to_field_data(
+            &library_path,
+            generics,
+            &clear_generics,
+            &any_store_field,
+            name,
+        );
 
         // read access
         tokens.extend(quote! {
-            #vis trait #trait_name <AnyStoreField>
+            #vis trait #trait_name <AnyStoreField, #params>
             #where_with_orig
             {
                 #(#trait_fields)*
             }
 
-            impl #generics_with_orig #trait_name <AnyStoreField> for AnyStoreField
+            impl #generics_with_orig #trait_name <AnyStoreField, #clear_params> for AnyStoreField
             #where_with_orig
             {
                #(#read_fields)*
@@ -160,6 +262,7 @@ impl ModelTy {
         &self,
         library_path: &TokenStream,
         generics: &Generics,
+        clear_generics: &Generics,
         any_store_field: &Ident,
         name: &Ident,
     ) -> (Vec<TokenStream>, Vec<TokenStream>) {
@@ -206,6 +309,7 @@ impl ModelTy {
                             library_path,
                             ident.as_ref(),
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             ty,
@@ -217,6 +321,7 @@ impl ModelTy {
                             library_path,
                             ident.as_ref(),
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             ty,
@@ -235,6 +340,7 @@ impl ModelTy {
                             library_path,
                             ident,
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             fields,
@@ -244,6 +350,7 @@ impl ModelTy {
                             library_path,
                             ident,
                             generics,
+                            clear_generics,
                             any_store_field,
                             name,
                             fields,
@@ -262,7 +369,8 @@ fn field_to_tokens(
     modes: Option<&[SubfieldMode]>,
     library_path: &proc_macro2::TokenStream,
     orig_ident: Option<&Ident>,
-    generics: &Generics,
+    _generics: &Generics,
+    clear_generics: &Generics,
     any_store_field: &Ident,
     name: &Ident,
     ty: &Type,
@@ -286,7 +394,8 @@ fn field_to_tokens(
             match mode {
                 SubfieldMode::Keyed(keyed_by, key_ty) => {
                     let signature = quote! {
-                        fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
+                        #[track_caller]
+                        fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #clear_generics, #key_ty, #ty>
                     };
                     return if include_body {
                         quote! {
@@ -319,7 +428,7 @@ fn field_to_tokens(
     // default subfield
     if include_body {
         quote! {
-            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #generics, #ty> {
+            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty> {
                 #library_path::Subfield::new(
                     self,
                     #idx.into(),
@@ -330,7 +439,7 @@ fn field_to_tokens(
         }
     } else {
         quote! {
-            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #generics, #ty>;
+            fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty>;
         }
     }
 }
@@ -340,7 +449,8 @@ fn variant_to_tokens(
     include_body: bool,
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
-    generics: &Generics,
+    _generics: &Generics,
+    clear_generics: &Generics,
     any_store_field: &Ident,
     name: &Ident,
     fields: &Fields,
@@ -402,14 +512,14 @@ fn variant_to_tokens(
                     let field_ident = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
-                        &format!("{}_{}", ident, field_ident),
+                        &format!("{ident}_{field_ident}"),
                         field_ident.span(),
                     );
 
                     // default subfield
                     if include_body {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>> {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>> {
                                 #library_path::StoreField::track_field(&self);
                                 let reader = #library_path::StoreField::reader(&self);
                                 let matches = reader
@@ -441,7 +551,7 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>;
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>>;
                         }
                     }
                 }));
@@ -480,7 +590,7 @@ fn variant_to_tokens(
                     let field_ident = idx;
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
-                        &format!("{}_{}", ident, field_ident),
+                        &format!("{ident}_{field_ident}"),
                         ident.span(),
                     );
 
@@ -492,7 +602,7 @@ fn variant_to_tokens(
                     // default subfield
                     if include_body {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>> {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>> {
                                 #library_path::StoreField::track_field(&self);
                                 let reader = #library_path::StoreField::reader(&self);
                                 let matches = reader
@@ -524,7 +634,7 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>;
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>>;
                         }
                     }
                 }));
@@ -604,9 +714,9 @@ impl ToTokens for PatchModel {
                     let Field {
                         attrs, ident, ..
                     } = &field;
-                    let field_name = match &ident {
-                        Some(ident) => quote! { #ident },
-                        None => quote! { #idx },
+                    let locator = match &ident {
+                        Some(ident) => Either::Left(ident),
+                        None => Either::Right(Index::from(idx)),
                     };
                     let closure = attrs
                         .iter()
@@ -639,9 +749,9 @@ impl ToTokens for PatchModel {
                         let params = closure.inputs;
                         let body = closure.body;
                         quote! {
-                            if new.#field_name != self.#field_name {
+                            if new.#locator != self.#locator {
                                 _ = {
-                                    let (#params) = (&mut self.#field_name, new.#field_name);
+                                    let (#params) = (&mut self.#locator, new.#locator);
                                     #body
                                 };
                                 notify(&new_path);
@@ -651,8 +761,8 @@ impl ToTokens for PatchModel {
                     } else {
                         quote! {
                             #library_path::PatchField::patch_field(
-                                &mut self.#field_name,
-                                new.#field_name,
+                                &mut self.#locator,
+                                new.#locator,
                                 &new_path,
                                 notify
                             );
@@ -666,9 +776,14 @@ impl ToTokens for PatchModel {
             }
         };
 
+        let clear_generics = remove_constraint_from_generics(generics);
+        let params = clear_generics.params;
+        let where_clause = &generics.where_clause;
+
         // read access
         tokens.extend(quote! {
-            impl #library_path::PatchField for #name #generics
+            impl #generics #library_path::PatchField for #name <#params>
+               #where_clause
             {
                 fn patch_field(
                     &mut self,
@@ -682,5 +797,19 @@ impl ToTokens for PatchModel {
                 }
             }
         });
+    }
+}
+
+enum Either<A, B> {
+    Left(A),
+    Right(B),
+}
+
+impl<A: ToTokens, B: ToTokens> ToTokens for Either<A, B> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Either::Left(a) => a.to_tokens(tokens),
+            Either::Right(b) => b.to_tokens(tokens),
+        }
     }
 }

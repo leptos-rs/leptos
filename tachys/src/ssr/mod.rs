@@ -1,4 +1,7 @@
-use crate::view::{Position, RenderHtml};
+use crate::{
+    html::attribute::any_attribute::AnyAttribute,
+    view::{Position, RenderHtml},
+};
 use futures::Stream;
 use std::{
     collections::VecDeque,
@@ -79,6 +82,10 @@ impl StreamBuilder {
 
     /// Appends another stream to this one.
     pub fn append(&mut self, mut other: StreamBuilder) {
+        if !self.sync_buf.is_empty() {
+            self.chunks
+                .push_back(StreamChunk::Sync(mem::take(&mut self.sync_buf)));
+        }
         self.chunks.append(&mut other.chunks);
         self.sync_buf.push_str(&other.sync_buf);
     }
@@ -103,6 +110,7 @@ impl StreamBuilder {
         fallback: View,
         position: &mut Position,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -112,6 +120,7 @@ impl StreamBuilder {
             position,
             true,
             mark_branches,
+            extra_attrs,
         );
         self.write_chunk_marker(false);
         *position = Position::NextChild;
@@ -144,7 +153,7 @@ impl StreamBuilder {
             self.sync_buf.reserve(11 + (id.len() * 2));
             self.sync_buf.push_str("<!--s-");
             for piece in id {
-                write!(&mut self.sync_buf, "{}-", piece).unwrap();
+                write!(&mut self.sync_buf, "{piece}-").unwrap();
             }
             if opening {
                 self.sync_buf.push_str("o-->");
@@ -160,6 +169,7 @@ impl StreamBuilder {
         view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -168,6 +178,7 @@ impl StreamBuilder {
             position,
             mark_branches,
             None,
+            extra_attrs,
         );
     }
 
@@ -178,6 +189,7 @@ impl StreamBuilder {
         position: &mut Position,
         mark_branches: bool,
         nonce: Option<Arc<str>>,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         View: RenderHtml,
     {
@@ -194,26 +206,35 @@ impl StreamBuilder {
                 let mut id = String::new();
                 if let Some(ids) = &subbuilder.id {
                     for piece in ids {
-                        write!(&mut id, "{}-", piece).unwrap();
+                        write!(&mut id, "{piece}-").unwrap();
                     }
                 }
                 if let Some(id) = subbuilder.id.as_mut() {
                     id.push(0);
                 }
                 let replace = view.is_some();
-                if let Some(view) = view {
-                    view.to_html_async_with_buf::<true>(
-                        &mut subbuilder,
-                        &mut position,
-                        true,
-                        mark_branches,
-                    );
-                }
+                view.to_html_async_with_buf::<true>(
+                    &mut subbuilder,
+                    &mut position,
+                    true,
+                    mark_branches,
+                    extra_attrs,
+                );
                 let chunks = subbuilder.finish().take_chunks();
+                let mut flattened_chunks =
+                    VecDeque::with_capacity(chunks.len());
+                for chunk in chunks {
+                    // this will wait for any ErrorBoundary async nodes and flatten them out
+                    if let StreamChunk::Async { chunks } = chunk {
+                        flattened_chunks.extend(chunks.await);
+                    } else {
+                        flattened_chunks.push_back(chunk);
+                    }
+                }
 
                 OooChunk {
                     id,
-                    chunks,
+                    chunks: flattened_chunks,
                     replace,
                     nonce,
                 }
@@ -309,6 +330,11 @@ impl OooChunk {
             buf.push_str("close.remove();open.remove();");
         }
         buf.push_str("})()</script>");
+    }
+
+    /// Consumes this structure and returns its inner chunks of the stream.
+    pub fn take_chunks(self) -> VecDeque<StreamChunk> {
+        self.chunks
     }
 }
 

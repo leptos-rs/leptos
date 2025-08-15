@@ -3,6 +3,7 @@ use crate::{ChooseView, GeneratedRouteData, MatchParams};
 use core::iter;
 use either_of::*;
 use std::borrow::Cow;
+use tachys::view::iterators::StaticVec;
 
 impl MatchParams for () {
     fn to_params(&self) -> Vec<(Cow<'static, str>, String)> {
@@ -29,6 +30,10 @@ impl MatchInterface for () {
 impl MatchNestedRoutes for () {
     type Data = ();
     type Match = ();
+
+    fn optional(&self) -> bool {
+        false
+    }
 
     fn match_nested<'a>(
         &self,
@@ -93,6 +98,10 @@ where
         &self,
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         self.0.generate_routes()
+    }
+
+    fn optional(&self) -> bool {
+        self.0.optional()
     }
 }
 
@@ -179,6 +188,40 @@ where
 
         A.chain(B)
     }
+
+    fn optional(&self) -> bool {
+        self.0.optional() && self.1.optional()
+    }
+}
+
+impl<T> MatchNestedRoutes for StaticVec<T>
+where
+    T: MatchNestedRoutes,
+{
+    type Data = Vec<T::Data>;
+    type Match = T::Match;
+
+    fn match_nested<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
+        for item in self.iter() {
+            if let (Some((id, matched)), remaining) = item.match_nested(path) {
+                return (Some((id, matched)), remaining);
+            }
+        }
+        (None, path)
+    }
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
+        self.iter().flat_map(T::generate_routes)
+    }
+
+    fn optional(&self) -> bool {
+        self.iter().all(|n| n.optional())
+    }
 }
 
 macro_rules! chain_generated {
@@ -245,6 +288,13 @@ macro_rules! tuples {
         {
             type Data = ($($ty::Data,)*);
             type Match = $either<$($ty::Match,)*>;
+
+            fn optional(&self) -> bool {
+                #[allow(non_snake_case)]
+                let ($($ty,)*) = &self;
+                $($ty.optional() &&)*
+                true
+            }
 
             fn match_nested<'a>(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
                 #[allow(non_snake_case)]

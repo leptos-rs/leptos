@@ -1,8 +1,5 @@
-use std::sync::LazyLock;
-
 use leptos::prelude::*;
-use leptos_meta::MetaTags;
-use leptos_meta::*;
+use leptos_meta::{MetaTags, *};
 use leptos_router::{
     components::{FlatRoutes, ProtectedRoute, Route, Router},
     hooks::use_params,
@@ -12,6 +9,7 @@ use leptos_router::{
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {

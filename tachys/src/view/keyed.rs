@@ -1,9 +1,9 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
@@ -50,6 +50,39 @@ where
     view_fn: VF,
 }
 
+/// By default, keys used in for keyed iteration do not need to be serializable.
+///
+/// However, for some scenarios (like the “islands routing” mode that mixes server-side
+/// rendering with client-side navigation) it is useful to have serializable keys.
+///
+/// When the `islands` feature is not enabled, this trait is implemented by all types.
+///
+/// When the `islands` features is enabled, this is automatically implemented for all types
+/// that implement [`Serialize`](serde::Serialize), and can be manually implemented otherwise.
+pub trait SerializableKey {
+    /// Serializes the key to a unique string.
+    ///
+    /// The string can have any value, as long as it is idempotent (i.e., serializing the same key
+    /// multiple times will give the same value).
+    fn ser_key(&self) -> String;
+}
+
+#[cfg(not(feature = "islands"))]
+impl<T> SerializableKey for T {
+    fn ser_key(&self) -> String {
+        panic!(
+            "SerializableKey called without the `islands` feature enabled. \
+             Something has gone wrong."
+        );
+    }
+}
+#[cfg(feature = "islands")]
+impl<T: serde::Serialize> SerializableKey for T {
+    fn ser_key(&self) -> String {
+        serde_json::to_string(self).expect("failed to serialize key")
+    }
+}
+
 /// Retained view state for a keyed list.
 pub struct KeyedState<K, VFS, V>
 where
@@ -66,7 +99,7 @@ where
 impl<T, I, K, KF, VF, VFS, V> Render for Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T>,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     KF: Fn(&T) -> K,
     V: Render,
     VF: Fn(usize, T) -> (VFS, V),
@@ -115,9 +148,7 @@ where
         let cmds = diff(hashed_items, &new_hashed_items);
 
         apply_diff(
-            parent
-                .as_ref()
-                .expect("Keyed list rebuilt before being mounted."),
+            parent.as_ref(),
             marker,
             cmds,
             rendered_items,
@@ -131,9 +162,9 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> AddAnyAttr for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
-    K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml,
     V: 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
@@ -184,15 +215,16 @@ where
 
 impl<T, I, K, KF, VF, VFS, V> RenderHtml for Keyed<T, I, K, KF, VF, VFS, V>
 where
-    I: IntoIterator<Item = T> + Send,
-    K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
+    KF: Fn(&T) -> K + Send + 'static,
     V: RenderHtml + 'static,
     VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
     VFS: Fn(usize) + 'static,
     T: 'static,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO
+    type Owned = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -218,11 +250,30 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
+        if mark_branches && escape {
+            buf.open_branch("for");
+        }
         for (index, item) in self.items.into_iter().enumerate() {
             let (_, item) = (self.view_fn)(index, item);
-            item.to_html_with_buf(buf, position, escape, mark_branches);
+            if mark_branches && escape {
+                buf.open_branch("item");
+            }
+            item.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs.clone(),
+            );
+            if mark_branches && escape {
+                buf.close_branch("item");
+            }
             *position = Position::NextChild;
+        }
+        if mark_branches && escape {
+            buf.close_branch("for");
         }
         buf.push_str("<!>");
     }
@@ -233,16 +284,35 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
+        if mark_branches && escape {
+            buf.open_branch("for");
+        }
         for (index, item) in self.items.into_iter().enumerate() {
+            let branch_name = mark_branches.then(|| {
+                let key = (self.key_fn)(&item);
+                let key = key.ser_key();
+                format!("item-{key}")
+            });
             let (_, item) = (self.view_fn)(index, item);
+            if mark_branches && escape {
+                buf.open_branch(branch_name.as_ref().unwrap());
+            }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
                 escape,
                 mark_branches,
+                extra_attrs.clone(),
             );
+            if mark_branches && escape {
+                buf.close_branch(branch_name.as_ref().unwrap());
+            }
             *position = Position::NextChild;
+        }
+        if mark_branches && escape {
+            buf.close_branch("for");
         }
         buf.push_sync("<!>");
     }
@@ -252,6 +322,10 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
         // get parent and position
         let current = cursor.current();
         let parent = if position.get() == Position::FirstChild {
@@ -272,17 +346,85 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
+
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
         KeyedState {
             parent: Some(parent),
             marker,
             hashed_items,
             rendered_items,
         }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
+        // get parent and position
+        let current = cursor.current();
+        let parent = if position.get() == Position::FirstChild {
+            current
+        } else {
+            Rndr::get_parent(&current)
+                .expect("first child of keyed list has no parent")
+        };
+        let parent = crate::renderer::types::Element::cast_from(parent)
+            .expect("parent of keyed list should be an element");
+
+        // build list
+        let items = self.items.into_iter();
+        let (capacity, _) = items.size_hint();
+        let mut hashed_items =
+            FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
+        let mut rendered_items = Vec::new();
+        for (index, item) in items.enumerate() {
+            hashed_items.insert((self.key_fn)(&item));
+            let (set_index, view) = (self.view_fn)(index, item);
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            let item = view.hydrate_async(cursor, position).await;
+            if cfg!(feature = "mark_branches") {
+                cursor.advance_to_placeholder(position);
+            }
+            rendered_items.push(Some((set_index, item)));
+        }
+        let marker = cursor.next_placeholder(position);
+        position.set(Position::NextChild);
+
+        if cfg!(feature = "mark_branches") {
+            cursor.advance_to_placeholder(position);
+        }
+
+        KeyedState {
+            parent: Some(parent),
+            marker,
+            hashed_items,
+            rendered_items,
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -322,6 +464,14 @@ where
                 }
             })
             .unwrap_or_else(|| self.marker.insert_before_this(child))
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.rendered_items
+            .iter()
+            .flatten()
+            .flat_map(|item| item.1.elements())
+            .collect()
     }
 }
 
@@ -505,7 +655,7 @@ impl Default for DiffOpAddMode {
 }
 
 fn apply_diff<T, VFS, V>(
-    parent: &crate::renderer::types::Element,
+    parent: Option<&crate::renderer::types::Element>,
     marker: &crate::renderer::types::Placeholder,
     diff: Diff,
     children: &mut Vec<Option<(VFS, V::State)>>,
@@ -565,16 +715,18 @@ fn apply_diff<T, VFS, V>(
     {
         let (set_index, mut each_item) = moved_children[i].take().unwrap();
 
-        if let Some(Some((_, state))) =
-            children.get_next_closest_mounted_sibling(to)
-        {
-            state.insert_before_this_or_marker(
-                parent,
-                &mut each_item,
-                Some(marker.as_ref()),
-            )
-        } else {
-            each_item.mount(parent, Some(marker.as_ref()));
+        if let Some(parent) = parent {
+            if let Some(Some((_, state))) =
+                children.get_next_closest_mounted_sibling(to)
+            {
+                state.insert_before_this_or_marker(
+                    parent,
+                    &mut each_item,
+                    Some(marker.as_ref()),
+                )
+            } else {
+                each_item.try_mount(parent, Some(marker.as_ref()));
+            }
         }
 
         set_index(to);
@@ -586,22 +738,24 @@ fn apply_diff<T, VFS, V>(
         let (set_index, item) = view_fn(at, item);
         let mut item = item.build();
 
-        match mode {
-            DiffOpAddMode::Normal => {
-                if let Some(Some((_, state))) =
-                    children.get_next_closest_mounted_sibling(at)
-                {
-                    state.insert_before_this_or_marker(
-                        parent,
-                        &mut item,
-                        Some(marker.as_ref()),
-                    )
-                } else {
-                    item.mount(parent, Some(marker.as_ref()));
+        if let Some(parent) = parent {
+            match mode {
+                DiffOpAddMode::Normal => {
+                    if let Some(Some((_, state))) =
+                        children.get_next_closest_mounted_sibling(at)
+                    {
+                        state.insert_before_this_or_marker(
+                            parent,
+                            &mut item,
+                            Some(marker.as_ref()),
+                        )
+                    } else {
+                        item.try_mount(parent, Some(marker.as_ref()));
+                    }
                 }
-            }
-            DiffOpAddMode::Append => {
-                item.mount(parent, Some(marker.as_ref()));
+                DiffOpAddMode::Append => {
+                    item.try_mount(parent, Some(marker.as_ref()));
+                }
             }
         }
 

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use tachys::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
@@ -87,8 +87,10 @@ impl<T: Render> Render for View<T> {
 
 impl<T: RenderHtml> RenderHtml for View<T> {
     type AsyncOutput = T::AsyncOutput;
+    type Owned = View<T::Owned>;
 
     const MIN_LENGTH: usize = <T as RenderHtml>::MIN_LENGTH;
+    const EXISTS: bool = <T as RenderHtml>::EXISTS;
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.inner.resolve().await
@@ -104,16 +106,27 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(debug_assertions)]
-        let vm = self.view_marker.to_owned();
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
+            self.view_marker.to_owned()
+        } else {
+            None
+        };
+
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
 
-        self.inner
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.inner.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
 
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
@@ -127,11 +140,17 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         #[cfg(debug_assertions)]
-        let vm = self.view_marker.to_owned();
+        let vm = if option_env!("LEPTOS_WATCH").is_some() {
+            self.view_marker.to_owned()
+        } else {
+            None
+        };
+
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
             buf.push_sync(&format!("<!--hot-reload|{vm}|open-->"));
@@ -142,6 +161,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
 
         #[cfg(debug_assertions)]
@@ -156,6 +176,22 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         position: &PositionState,
     ) -> Self::State {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.inner.hydrate_async(cursor, position).await
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        View {
+            inner: self.inner.into_owned(),
+            #[cfg(debug_assertions)]
+            view_marker: self.view_marker,
+        }
     }
 }
 

@@ -3,6 +3,9 @@ name = "router"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+panic = "abort"
+
 [profile.release]
 opt-level = 'z'
 lto = true
@@ -22,4 +25,4 @@ tracing-subscriber-wasm = "0.1.0"
 tracing = "0.1.40"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.42"
+wasm-bindgen-test = "0.3.50"

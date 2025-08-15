@@ -56,12 +56,12 @@
 //!
 //! # if false { // don't run effect in doctests
 //! Effect::new(move |_| {
-//!     // you can access individual store withs field a getter
+//!     // you can access individual store fields with a getter
 //!     println!("todos: {:?}", &*store.todos().read());
 //! });
 //! # }
 //!
-//! // won't notify the effect that listen to `todos`
+//! // won't notify the effect that listens to `todos`
 //! store.todos().write().push(Todo {
 //!     label: "Test".to_string(),
 //!     completed: false,
@@ -69,7 +69,7 @@
 //! ```
 //! ### Generated traits
 //! The [`Store`](macro@Store) macro generates traits for each `struct` to which it is applied.  When working
-//! within a single file more module, this is not an issue.  However, when working with multiple modules
+//! within a single file or module, this is not an issue.  However, when working with multiple modules
 //! or files, one needs to `use` the generated traits.  The general pattern is that for each `struct`
 //! named `Foo`, the macro generates a trait named `FooStoreFields`.  For example:
 //! ```rust
@@ -98,7 +98,6 @@
 //! # fn main() {
 //! # }
 //! ```
-//! 
 //! ### Additional field types
 //!
 //! Most of the time, your structs will have fields as in the example above: the struct is comprised
@@ -141,7 +140,7 @@
 //! # use reactive_stores::Store;
 //! // Needed to use at_unkeyed() on Vec
 //! use reactive_stores::StoreFieldIter;
-//! use crate::reactive_stores::StoreFieldIterator;
+//! use reactive_stores::StoreFieldIterator;
 //! use reactive_graph::traits::Read;
 //! use reactive_graph::traits::Get;
 //!
@@ -240,7 +239,6 @@
 //! field in the signal inner `Arc<RwLock<_>>`, and tracks the trigger that corresponds with its
 //! path; calling `.write()` returns a writeable guard, and notifies that same trigger.
 
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
@@ -256,7 +254,6 @@ pub use reactive_stores_macro::{Patch, Store};
 use rustc_hash::FxHashMap;
 use std::{
     any::Any,
-    collections::HashMap,
     fmt::Debug,
     hash::Hash,
     ops::DerefMut,
@@ -269,6 +266,7 @@ mod deref;
 mod field;
 mod iter;
 mod keyed;
+mod len;
 mod option;
 mod patch;
 mod path;
@@ -280,6 +278,7 @@ pub use deref::*;
 pub use field::Field;
 pub use iter::*;
 pub use keyed::*;
+pub use len::Len;
 pub use option::*;
 pub use patch::*;
 pub use path::{StorePath, StorePathSegment};
@@ -344,7 +343,7 @@ where
 
         Self {
             spare_keys: Vec::new(),
-            current_key: 0,
+            current_key: keys.len().saturating_sub(1),
             keys,
         }
     }
@@ -407,9 +406,25 @@ impl<K> Default for FieldKeys<K> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+type HashMap<K, V> = Arc<dashmap::DashMap<K, V>>;
+#[cfg(target_arch = "wasm32")]
+type HashMap<K, V> = send_wrapper::SendWrapper<
+    std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>,
+>;
+
 /// A map of the keys for a keyed subfield.
-#[derive(Default, Clone)]
-pub struct KeyMap(Arc<RwLock<HashMap<StorePath, Box<dyn Any + Send + Sync>>>>);
+#[derive(Clone)]
+pub struct KeyMap(HashMap<StorePath, Box<dyn Any + Send + Sync>>);
+
+impl Default for KeyMap {
+    fn default() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        return Self(Default::default());
+        #[cfg(target_arch = "wasm32")]
+        return Self(send_wrapper::SendWrapper::new(Default::default()));
+    }
+}
 
 impl KeyMap {
     fn with_field_keys<K, T>(
@@ -421,26 +436,25 @@ impl KeyMap {
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
-        // this incredibly defensive mechanism takes the guard twice
-        // on initialization. unfortunately, this is because `initialize`, on
-        // a nested keyed field can, when being initialized), can in fact try
-        // to take the lock again, as we try to insert the keys of the parent
-        // while inserting the keys on this child.
-        //
-        // see here https://github.com/leptos-rs/leptos/issues/3086
-        let mut guard = self.0.write().or_poisoned();
-        if guard.contains_key(&path) {
-            let entry = guard.get_mut(&path)?;
-            let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-            Some(fun(entry))
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut entry = self
+            .0
+            .entry(path)
+            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+
+        #[cfg(target_arch = "wasm32")]
+        let entry = if !self.0.borrow().contains_key(&path) {
+            Some(Box::new(FieldKeys::new(initialize())))
         } else {
-            drop(guard);
-            let keys = Box::new(FieldKeys::new(initialize()));
-            let mut guard = self.0.write().or_poisoned();
-            let entry = guard.entry(path).or_insert(keys);
-            let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-            Some(fun(entry))
-        }
+            None
+        };
+        #[cfg(target_arch = "wasm32")]
+        let mut map = self.0.borrow_mut();
+        #[cfg(target_arch = "wasm32")]
+        let entry = map.entry(path).or_insert_with(|| entry.unwrap());
+
+        let entry = entry.downcast_mut::<FieldKeys<K>>()?;
+        Some(fun(entry))
     }
 }
 
@@ -594,6 +608,14 @@ where
     }
 }
 
+impl<T, S> PartialEq for Store<T, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T, S> Eq for Store<T, S> {}
+
 impl<T> Store<T, LocalStorage>
 where
     T: 'static,
@@ -745,7 +767,7 @@ where
 {
     fn from(value: ArcStore<T>) -> Self {
         Self {
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: value.defined_at,
             inner: ArenaItem::new_with_storage(value),
         }
@@ -863,7 +885,6 @@ mod tests {
                 combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
-        tick().await;
         tick().await;
         store.user().set("Greg".into());
         tick().await;
@@ -1024,6 +1045,8 @@ mod tests {
 
     #[tokio::test]
     async fn patching_only_notifies_changed_field_with_custom_patch() {
+        _ = any_spawner::Executor::init_tokio();
+
         #[derive(Debug, Store, Patch, Default)]
         struct CustomTodos {
             #[patch(|this, new| *this = new)]
@@ -1036,8 +1059,6 @@ mod tests {
             label: String,
             completed: bool,
         }
-
-        _ = any_spawner::Executor::init_tokio();
 
         let combined_count = Arc::new(AtomicUsize::new(0));
 
@@ -1084,15 +1105,11 @@ mod tests {
         assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
-    #[derive(Debug, Store)]
-    pub struct StructWithOption {
-        opt_field: Option<Todo>,
-    }
-
     // regression test for https://github.com/leptos-rs/leptos/issues/3523
     #[tokio::test]
     async fn notifying_all_descendants() {
         use reactive_graph::traits::*;
+
         _ = any_spawner::Executor::init_tokio();
 
         #[derive(Debug, Clone, Store, Patch, Default)]

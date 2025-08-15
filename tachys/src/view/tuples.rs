@@ -2,7 +2,7 @@ use super::{
     Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     renderer::Rndr,
     view::{add_attr::AddAnyAttr, StreamBuilder},
@@ -23,6 +23,7 @@ impl Render for () {
 
 impl RenderHtml for () {
     type AsyncOutput = ();
+    type Owned = ();
 
     const MIN_LENGTH: usize = 3;
     const EXISTS: bool = false;
@@ -33,6 +34,7 @@ impl RenderHtml for () {
         position: &mut Position,
         escape: bool,
         _mark_branches: bool,
+        _extra_attrs: Vec<AnyAttribute>,
     ) {
         if escape {
             buf.push_str("<!>");
@@ -53,6 +55,8 @@ impl RenderHtml for () {
     async fn resolve(self) -> Self::AsyncOutput {}
 
     fn dry_resolve(&mut self) {}
+
+    fn into_owned(self) -> Self::Owned {}
 }
 
 impl AddAnyAttr for () {
@@ -81,6 +85,10 @@ impl Mountable for () {
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
+    }
 }
 
 impl ToTemplate for () {
@@ -94,6 +102,15 @@ impl ToTemplate for () {
         _position: &mut Position,
     ) {
         buf.push_str("<!>");
+    }
+
+    fn to_template_attribute(
+        _buf: &mut String,
+        _class: &mut String,
+        _style: &mut String,
+        _inner_html: &mut String,
+        _position: &mut Position,
+    ) {
     }
 }
 
@@ -114,8 +131,10 @@ where
     A: RenderHtml,
 {
     type AsyncOutput = (A::AsyncOutput,);
+    type Owned = (A::Owned,);
 
     const MIN_LENGTH: usize = A::MIN_LENGTH;
+    const EXISTS: bool = A::EXISTS;
 
     fn html_len(&self) -> usize {
         self.0.html_len()
@@ -127,9 +146,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.0
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.0.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -138,6 +163,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -146,6 +172,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -157,12 +184,24 @@ where
         self.0.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        self.0.hydrate_async(cursor, position).await
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         (self.0.resolve().await,)
     }
 
     fn dry_resolve(&mut self) {
         self.0.dry_resolve();
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        (self.0.into_owned(),)
     }
 }
 
@@ -209,7 +248,6 @@ macro_rules! impl_view_for_tuples {
 		{
 			type State = ($first::State, $($ty::State,)*);
 
-
 			fn build(self) -> Self::State {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
@@ -236,7 +274,8 @@ macro_rules! impl_view_for_tuples {
 
 		{
             type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
-
+            type Owned = ($first::Owned, $($ty::Owned,)*);
+            const EXISTS: bool = $first::EXISTS || $($ty::EXISTS || )* false;
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
             #[inline(always)]
@@ -246,22 +285,34 @@ macro_rules! impl_view_for_tuples {
                 $($ty.html_len() +)* $first.html_len()
             }
 
-			fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
+			fn to_html_with_buf(
+                self,
+                buf: &mut String,
+                position: &mut Position,
+                escape: bool,
+                mark_branches: bool,
+                extra_attrs: Vec<AnyAttribute>
+            ) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_with_buf(buf, position, escape, mark_branches);
-                $($ty.to_html_with_buf(buf, position, escape, mark_branches));*
+                $first.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone());
+                $($ty.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone()));*
 			}
 
 			fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
 				self,
-				buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
+				buf: &mut StreamBuilder,
+                position: &mut Position,
+                escape: bool,
+                mark_branches: bool,
+                extra_attrs: Vec<AnyAttribute>
+            ) where
 				Self: Sized,
 			{
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
-                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches));*
+                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone());
+                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone()));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor, position: &PositionState) -> Self::State {
@@ -270,6 +321,15 @@ macro_rules! impl_view_for_tuples {
 					(
 						$first.hydrate::<FROM_SERVER>(cursor, position),
 						$($ty.hydrate::<FROM_SERVER>(cursor, position)),*
+					)
+			}
+
+            async fn hydrate_async(self, cursor: &Cursor, position: &PositionState) -> Self::State {
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)* ) = self;
+					(
+						$first.hydrate_async(cursor, position).await,
+						$($ty.hydrate_async(cursor, position).await),*
 					)
 			}
 
@@ -287,6 +347,15 @@ macro_rules! impl_view_for_tuples {
                 let ($first, $($ty,)*) = self;
                 $first.dry_resolve();
                 $($ty.dry_resolve());*
+            }
+
+            fn into_owned(self) -> Self::Owned {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_owned(),
+                    $($ty.into_owned()),*
+                )
             }
 		}
 
@@ -342,6 +411,14 @@ macro_rules! impl_view_for_tuples {
                 $first.insert_before_this(child)
                 $(|| $ty.insert_before_this(child))*
 			}
+
+            fn elements(&self) -> Vec<crate::renderer::types::Element> {
+                #[allow(non_snake_case)] // better macro performance
+                let ($first, $($ty,)*) = self;
+                $first.elements().into_iter()
+                $(.chain($ty.elements()))*
+                    .collect()
+            }
 		}
 
         impl<$first, $($ty,)*> AddAnyAttr for ($first, $($ty,)*)

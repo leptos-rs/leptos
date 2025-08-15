@@ -7,6 +7,9 @@ use leptos::{
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
 ///
+/// Note that this does *not* work with the `cargo-leptos` `hash-files` feature: if you are using file
+/// hashing, you should use [`HashedStylesheet`](crate::HashedStylesheet).
+///
 /// ```
 /// use leptos::prelude::*;
 /// use leptos_meta::*;
@@ -36,6 +39,10 @@ pub fn Stylesheet(
 }
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document head that loads a `cargo-leptos`-hashed stylesheet.
+///
+/// This should only be used in the application’s server-side `shell` function, as
+/// [`LeptosOptions`] is not available in the browser. Unlike other `leptos_meta` components, it
+/// will render the `<link>` it creates exactly where it is called.
 #[component]
 pub fn HashedStylesheet(
     /// Leptos options
@@ -74,11 +81,9 @@ pub fn HashedStylesheet(
     css_file_name.push_str(".css");
     let pkg_path = &options.site_pkg_dir;
     let root = root.unwrap_or_default();
-    // TODO additional attributes
-    register(
-        link()
-            .id(id)
-            .rel("stylesheet")
-            .href(format!("{root}/{pkg_path}/{css_file_name}")),
-    )
+
+    link()
+        .id(id)
+        .rel("stylesheet")
+        .href(format!("{root}/{pkg_path}/{css_file_name}"))
 }

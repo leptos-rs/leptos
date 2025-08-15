@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.7.7"
+version = "0.8.5"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -13,12 +13,13 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro-error2 = { version = "2.0", default-features = false }
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
+proc-macro-error2 = { default-features = false, workspace = true }
+proc-macro2 = { workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+syn = { features = ["full"], workspace = true, default-features = true }
 
 [dev-dependencies]
+leptos = { path = "../leptos" }
 leptos_router = { path = "../router" }
 leptos_macro = { path = "../leptos_macro" }
 

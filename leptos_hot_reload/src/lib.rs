@@ -121,6 +121,10 @@ impl ViewMacros {
                     }
                     diffs
                 } else {
+                    // TODO: instead of simply returning no patches, when number of views differs,
+                    // we can compare views content to determine which views were shifted
+                    // or come up with another idea that will allow to send patches when views were shifted/removed/added
+                    lock.insert(path.clone(), new_views);
                     return Ok(None);
                 }
             }

@@ -1,6 +1,6 @@
 use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
 use crate::{
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{iterators::OptionState, Mountable, Render},
@@ -33,7 +33,10 @@ where
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
             (Either::Right(_), Err(new)) => {
-                state.error = Some(throw_error::throw(new.into()))
+                if let Some(old_error) = state.error.take() {
+                    throw_error::clear(&old_error);
+                }
+                state.error = Some(throw_error::throw(new.into()));
             }
             // both Ok: need to rebuild child
             (Either::Left(old), Ok(new)) => {
@@ -104,6 +107,10 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.state.insert_before_this(child)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.state.elements()
+    }
 }
 
 impl<T, E> AddAnyAttr for Result<T, E>
@@ -132,6 +139,7 @@ where
     E: Into<AnyError> + Send + 'static,
 {
     type AsyncOutput = Result<T::AsyncOutput, E>;
+    type Owned = Result<T::Owned, E>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -161,10 +169,17 @@ where
         position: &mut super::Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Ok(inner) => {
-                inner.to_html_with_buf(buf, position, escape, mark_branches)
+                inner.to_html_with_buf(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                    extra_attrs,
+                );
             }
             Err(e) => {
                 buf.push_str("<!>");
@@ -179,6 +194,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -188,6 +204,7 @@ where
                 position,
                 escape,
                 mark_branches,
+                extra_attrs,
             ),
             Err(e) => {
                 buf.push_sync("<!>");
@@ -214,5 +231,32 @@ where
             }
         };
         ResultState { state, error, hook }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let hook = throw_error::get_error_hook();
+        let (state, error) = match self {
+            Ok(view) => (
+                Either::Left(view.hydrate_async(cursor, position).await),
+                None,
+            ),
+            Err(e) => {
+                let state =
+                    RenderHtml::hydrate_async((), cursor, position).await;
+                (Either::Right(state), Some(throw_error::throw(e.into())))
+            }
+        };
+        ResultState { state, error, hook }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        match self {
+            Ok(view) => Ok(view.into_owned()),
+            Err(e) => Err(e),
+        }
     }
 }

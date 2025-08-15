@@ -82,8 +82,11 @@
 //! Server functions are designed to allow a flexible combination of input and output encodings, the set
 //! of which can be found in the [`codec`] module.
 //!
-//! The serialization/deserialization process for server functions consists of a series of steps,
-//! each of which is represented by a different trait:
+//! Calling and handling server functions is done through the [`Protocol`] trait, which is implemented
+//! for the [`Http`] and [`Websocket`] protocols. Most server functions will use the [`Http`] protocol.
+//!
+//! When using the [`Http`] protocol, the serialization/deserialization process for server functions
+//! consists of a series of steps, each of which is represented by a different trait:
 //! 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
 //! 2. The [`Client`] sends the request to the server.
 //! 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
@@ -98,6 +101,9 @@
 
 /// Implementations of the client side of the server function call.
 pub mod client;
+
+/// Implementations of the server side of the server function call.
+pub mod server;
 
 /// Encodings for arguments and results.
 pub mod codec;
@@ -114,7 +120,7 @@ pub mod request;
 /// Types and traits for HTTP responses.
 pub mod response;
 
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
 #[cfg(feature = "axum-no-default")]
@@ -126,21 +132,28 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
+use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+// re-exported to make it possible to implement a custom Client without adding a separate
+// dependency on `bytes`
+pub use bytes::Bytes;
+use bytes::{BufMut, BytesMut};
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 #[doc(hidden)]
 pub use const_format;
+#[doc(hidden)]
+pub use const_str;
 use dashmap::DashMap;
 pub use error::ServerFnError;
-use error::ServerFnErrorSerde;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
+use error::{FromServerFnError, ServerFnErrorErr};
+use futures::{pin_mut, SinkExt, Stream, StreamExt};
 use http::Method;
-use middleware::{Layer, Service};
-use once_cell::sync::Lazy;
-use redirect::RedirectHook;
+use middleware::{BoxedService, Layer, Service};
+use redirect::call_redirect_hook;
 use request::Req;
-use response::{ClientRes, Res};
+use response::{ClientRes, Res, TryRes};
 #[cfg(feature = "rkyv")]
 pub use rkyv;
 #[doc(hidden)]
@@ -148,9 +161,28 @@ pub use serde;
 #[doc(hidden)]
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
-use std::{fmt::Display, future::Future, pin::Pin, str::FromStr, sync::Arc};
+use server::Server;
+use std::{
+    fmt::{Debug, Display},
+    future::Future,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    sync::{Arc, LazyLock},
+};
 #[doc(hidden)]
 pub use xxhash_rust;
+
+type ServerFnServerRequest<Fn> = <<Fn as ServerFn>::Server as crate::Server<
+    <Fn as ServerFn>::Error,
+    <Fn as ServerFn>::InputStreamError,
+    <Fn as ServerFn>::OutputStreamError,
+>>::Request;
+type ServerFnServerResponse<Fn> = <<Fn as ServerFn>::Server as crate::Server<
+    <Fn as ServerFn>::Error,
+    <Fn as ServerFn>::InputStreamError,
+    <Fn as ServerFn>::OutputStreamError,
+>>::Response;
 
 /// Defines a function that runs only on the server, but can be called from the server or the client.
 ///
@@ -181,50 +213,54 @@ pub use xxhash_rust;
 ///     // etc.
 /// }
 /// ```
-pub trait ServerFn
-where
-    Self: Send
-        + FromReq<Self::InputEncoding, Self::ServerRequest, Self::Error>
-        + IntoReq<
-            Self::InputEncoding,
-            <Self::Client as Client<Self::Error>>::Request,
-            Self::Error,
-        >,
-{
+pub trait ServerFn: Send + Sized {
     /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
     const PATH: &'static str;
 
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
-    type Client: Client<Self::Error>;
+    type Client: Client<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
-    /// The type of the HTTP request when received by the server function on the server side.
-    type ServerRequest: Req<Self::Error> + Send;
+    /// The type of the HTTP server that will send the response from the server side.
+    ///
+    /// For example, this might be `axum` or `actix-web`.
+    type Server: Server<
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
-    /// The type of the HTTP response returned by the server function on the server side.
-    type ServerResponse: Res<Self::Error> + Send;
+    /// The protocol the server function uses to communicate with the client.
+    type Protocol: Protocol<
+        Self,
+        Self::Output,
+        Self::Client,
+        Self::Server,
+        Self::Error,
+        Self::InputStreamError,
+        Self::OutputStreamError,
+    >;
 
     /// The return type of the server function.
     ///
     /// This needs to be converted into `ServerResponse` on the server side, and converted
     /// *from* `ClientResponse` when received by the client.
-    type Output: IntoRes<Self::OutputEncoding, Self::ServerResponse, Self::Error>
-        + FromRes<
-            Self::OutputEncoding,
-            <Self::Client as Client<Self::Error>>::Response,
-            Self::Error,
-        > + Send;
+    type Output: Send;
 
-    /// The [`Encoding`] used in the request for arguments into the server function.
-    type InputEncoding: Encoding;
-
-    /// The [`Encoding`] used in the response for the result of the server function.
-    type OutputEncoding: Encoding;
-
-    /// The type of the custom error on [`ServerFnError`], if any. (If there is no
-    /// custom error type, this can be `NoCustomError` by default.)
-    type Error: FromStr + Display;
+    /// The type of error in the server function return.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type Error: FromServerFnError + Send + Sync;
+    /// The type of error in the server function for stream items sent from the client to the server.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type InputStreamError: FromServerFnError + Send + Sync;
+    /// The type of error in the server function for stream items sent from the server to the client.
+    /// Typically [`ServerFnError`], but allowed to be any type that implements [`FromServerFnError`].
+    type OutputStreamError: FromServerFnError + Send + Sync;
 
     /// Returns [`Self::PATH`].
     fn url() -> &'static str {
@@ -232,20 +268,26 @@ where
     }
 
     /// Middleware that should be applied to this server function.
-    fn middlewares(
-    ) -> Vec<Arc<dyn Layer<Self::ServerRequest, Self::ServerResponse>>> {
+    fn middlewares() -> Vec<
+        Arc<
+            dyn Layer<
+                ServerFnServerRequest<Self>,
+                ServerFnServerResponse<Self>,
+            >,
+        >,
+    > {
         Vec::new()
     }
 
     /// The body of the server function. This will only run on the server.
     fn run_body(
         self,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send;
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
 
     #[doc(hidden)]
     fn run_on_server(
-        req: Self::ServerRequest,
-    ) -> impl Future<Output = Self::ServerResponse> + Send {
+        req: ServerFnServerRequest<Self>,
+    ) -> impl Future<Output = ServerFnServerResponse<Self>> + Send {
         // Server functions can either be called by a real Client,
         // or directly by an HTML <form>. If they're accessed by a <form>, default to
         // redirecting back to the Referer.
@@ -260,15 +302,22 @@ where
         async move {
             #[allow(unused_variables, unused_mut)]
             // used in form redirects feature
-            let (mut res, err) = Self::execute_on_server(req)
-                .await
-                .map(|res| (res, None))
-                .unwrap_or_else(|e| {
-                    (
-                        Self::ServerResponse::error_response(Self::PATH, &e),
-                        Some(e),
-                    )
-                });
+            let (mut res, err) =
+                Self::Protocol::run_server(req, Self::run_body)
+                    .await
+                    .map(|res| (res, None))
+                    .unwrap_or_else(|e| {
+                        (
+                            <<Self as ServerFn>::Server as crate::Server<
+                                Self::Error,
+                                Self::InputStreamError,
+                                Self::OutputStreamError,
+                            >>::Response::error_response(
+                                Self::PATH, e.ser()
+                            ),
+                            Some(e),
+                        )
+                    });
 
             // if it accepts HTML, we'll redirect to the Referer
             #[cfg(feature = "form-redirects")]
@@ -298,63 +347,510 @@ where
     #[doc(hidden)]
     fn run_on_client(
         self,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
+        async move { Self::Protocol::run_client(Self::PATH, self).await }
+    }
+}
+
+/// The protocol that a server function uses to communicate with the client. This trait handles
+/// the server and client side of running a server function. It is implemented for the [`Http`] and
+/// [`Websocket`] protocols and can be used to implement custom protocols.
+pub trait Protocol<
+    Input,
+    Output,
+    Client,
+    Server,
+    Error,
+    InputStreamError = Error,
+    OutputStreamError = Error,
+> where
+    Server: crate::Server<Error, InputStreamError, OutputStreamError>,
+    Client: crate::Client<Error, InputStreamError, OutputStreamError>,
+{
+    /// The HTTP method used for requests.
+    const METHOD: Method;
+
+    /// Run the server function on the server. The implementation should handle deserializing the
+    /// input, running the server function, and serializing the output.
+    fn run_server<F, Fut>(
+        request: Server::Request,
+        server_fn: F,
+    ) -> impl Future<Output = Result<Server::Response, Error>> + Send
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<Output = Result<Output, Error>> + Send;
+
+    /// Run the server function on the client. The implementation should handle serializing the
+    /// input, sending the request, and deserializing the output.
+    fn run_client(
+        path: &str,
+        input: Input,
+    ) -> impl Future<Output = Result<Output, Error>> + Send;
+}
+
+/// The http protocol with specific input and output encodings for the request and response. This is
+/// the default protocol server functions use if no override is set in the server function macro
+///
+/// The http protocol accepts two generic argument that define how the input and output for a server
+/// function are turned into HTTP requests and responses. For example, [`Http<GetUrl, Json>`] will
+/// accept a Url encoded Get request and return a JSON post response.
+///
+/// # Example
+///
+/// ```rust, no_run
+/// # use server_fn_macro_default::server;
+/// use serde::{Serialize, Deserialize};
+/// use server_fn::{Http, ServerFnError, codec::{Json, GetUrl}};
+///
+/// #[derive(Debug, Clone, Serialize, Deserialize)]
+/// pub struct Message {
+///     user: String,
+///     message: String,
+/// }
+///
+/// // The http protocol can be used on any server function that accepts and returns arguments that implement
+/// // the [`IntoReq`] and [`FromRes`] traits.
+/// //
+/// // In this case, the input and output encodings are [`GetUrl`] and [`Json`], respectively which requires
+/// // the items to implement [`IntoReq<GetUrl, ...>`] and [`FromRes<Json, ...>`]. Both of those implementations
+/// // require the items to implement [`Serialize`] and [`Deserialize`].
+/// # #[cfg(feature = "browser")] {
+/// #[server(protocol = Http<GetUrl, Json>)]
+/// async fn echo_http(
+///     input: Message,
+/// ) -> Result<Message, ServerFnError> {
+///     Ok(input)
+/// }
+/// # }
+/// ```
+pub struct Http<InputProtocol, OutputProtocol>(
+    PhantomData<(InputProtocol, OutputProtocol)>,
+);
+
+impl<InputProtocol, OutputProtocol, Input, Output, Client, Server, E>
+    Protocol<Input, Output, Client, Server, E>
+    for Http<InputProtocol, OutputProtocol>
+where
+    Input: IntoReq<InputProtocol, Client::Request, E>
+        + FromReq<InputProtocol, Server::Request, E>
+        + Send,
+    Output: IntoRes<OutputProtocol, Server::Response, E>
+        + FromRes<OutputProtocol, Client::Response, E>
+        + Send,
+    E: FromServerFnError,
+    InputProtocol: Encoding,
+    OutputProtocol: Encoding,
+    Client: crate::Client<E>,
+    Server: crate::Server<E>,
+{
+    const METHOD: Method = InputProtocol::METHOD;
+
+    async fn run_server<F, Fut>(
+        request: Server::Request,
+        server_fn: F,
+    ) -> Result<Server::Response, E>
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<Output = Result<Output, E>> + Send,
     {
-        async move {
-            // create and send request on client
-            let req =
-                self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
-            Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
-                .await
-        }
+        let input = Input::from_req(request).await?;
+
+        let output = server_fn(input).await?;
+
+        let response = Output::into_res(output).await?;
+
+        Ok(response)
     }
 
-    #[doc(hidden)]
-    fn run_on_client_with_req(
-        req: <Self::Client as Client<Self::Error>>::Request,
-        redirect_hook: Option<&RedirectHook>,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
+    async fn run_client(path: &str, input: Input) -> Result<Output, E>
+    where
+        Client: crate::Client<E>,
     {
-        async move {
-            let res = Self::Client::send(req).await?;
+        // create and send request on client
+        let req = input.into_req(path, OutputProtocol::CONTENT_TYPE)?;
+        let res = Client::send(req).await?;
 
-            let status = res.status();
-            let location = res.location();
-            let has_redirect_header = res.has_redirect();
+        let status = res.status();
+        let location = res.location();
+        let has_redirect_header = res.has_redirect();
 
-            // if it returns an error status, deserialize the error using FromStr
-            let res = if (400..=599).contains(&status) {
-                let text = res.try_into_string().await?;
-                Err(ServerFnError::<Self::Error>::de(&text))
-            } else {
-                // otherwise, deserialize the body as is
-                Ok(Self::Output::from_res(res).await)
-            }?;
+        // if it returns an error status, deserialize the error using the error's decoder.
+        let res = if (400..=599).contains(&status) {
+            Err(E::de(res.try_into_bytes().await?))
+        } else {
+            // otherwise, deserialize the body as is
+            let output = Output::from_res(res).await?;
+            Ok(output)
+        }?;
 
-            // if redirected, call the redirect hook (if that's been set)
-            if let Some(redirect_hook) = redirect_hook {
-                if (300..=399).contains(&status) || has_redirect_header {
-                    redirect_hook(&location);
+        // if redirected, call the redirect hook (if that's been set)
+        if (300..=399).contains(&status) || has_redirect_header {
+            call_redirect_hook(&location);
+        }
+        Ok(res)
+    }
+}
+
+/// The websocket protocol that encodes the input and output streams using a websocket connection.
+///
+/// The websocket protocol accepts two generic argument that define the input and output serialization
+/// formats. For example, [`Websocket<CborEncoding, JsonEncoding>`] would accept a stream of Cbor-encoded messages
+/// and return a stream of JSON-encoded messages.
+///
+/// # Example
+///
+/// ```rust, no_run
+/// # use server_fn_macro_default::server;
+/// # #[cfg(feature = "browser")] {
+/// use server_fn::{ServerFnError, BoxedStream, Websocket, codec::JsonEncoding};
+/// use serde::{Serialize, Deserialize};
+///
+/// #[derive(Clone, Serialize, Deserialize)]
+/// pub struct Message {
+///     user: String,
+///     message: String,
+/// }
+/// // The websocket protocol can be used on any server function that accepts and returns a [`BoxedStream`]
+/// // with items that can be encoded by the input and output encoding generics.
+/// //
+/// // In this case, the input and output encodings are [`Json`] and [`Json`], respectively which requires
+/// // the items to implement [`Serialize`] and [`Deserialize`].
+/// #[server(protocol = Websocket<JsonEncoding, JsonEncoding>)]
+/// async fn echo_websocket(
+///     input: BoxedStream<Message, ServerFnError>,
+/// ) -> Result<BoxedStream<Message, ServerFnError>, ServerFnError> {
+///     Ok(input.into())
+/// }
+/// # }
+/// ```
+pub struct Websocket<InputEncoding, OutputEncoding>(
+    PhantomData<(InputEncoding, OutputEncoding)>,
+);
+
+/// A boxed stream type that can be used with the websocket protocol.
+///
+/// You can easily convert any static type that implement [`futures::Stream`] into a [`BoxedStream`]
+/// with the [`From`] trait.
+///
+/// # Example
+///
+/// ```rust, no_run
+/// use futures::StreamExt;
+/// use server_fn::{BoxedStream, ServerFnError};
+///
+/// let stream: BoxedStream<_, ServerFnError> =
+///     futures::stream::iter(0..10).map(Result::Ok).into();
+/// ```
+pub struct BoxedStream<T, E> {
+    stream: Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>,
+}
+
+impl<T, E> From<BoxedStream<T, E>>
+    for Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>
+{
+    fn from(val: BoxedStream<T, E>) -> Self {
+        val.stream
+    }
+}
+
+impl<T, E> Deref for BoxedStream<T, E> {
+    type Target = Pin<Box<dyn Stream<Item = Result<T, E>> + Send>>;
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
+
+impl<T, E> DerefMut for BoxedStream<T, E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stream
+    }
+}
+
+impl<T, E> Debug for BoxedStream<T, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BoxedStream").finish()
+    }
+}
+
+impl<T, E, S> From<S> for BoxedStream<T, E>
+where
+    S: Stream<Item = Result<T, E>> + Send + 'static,
+{
+    fn from(stream: S) -> Self {
+        BoxedStream {
+            stream: Box::pin(stream),
+        }
+    }
+}
+
+impl<
+        Input,
+        InputItem,
+        OutputItem,
+        InputEncoding,
+        OutputEncoding,
+        Client,
+        Server,
+        Error,
+        InputStreamError,
+        OutputStreamError,
+    >
+    Protocol<
+        Input,
+        BoxedStream<OutputItem, OutputStreamError>,
+        Client,
+        Server,
+        Error,
+        InputStreamError,
+        OutputStreamError,
+    > for Websocket<InputEncoding, OutputEncoding>
+where
+    Input: Deref<Target = BoxedStream<InputItem, InputStreamError>>
+        + Into<BoxedStream<InputItem, InputStreamError>>
+        + From<BoxedStream<InputItem, InputStreamError>>,
+    InputEncoding: Encodes<InputItem> + Decodes<InputItem>,
+    OutputEncoding: Encodes<OutputItem> + Decodes<OutputItem>,
+    InputStreamError: FromServerFnError + Send,
+    OutputStreamError: FromServerFnError + Send,
+    Error: FromServerFnError + Send,
+    Server: crate::Server<Error, InputStreamError, OutputStreamError>,
+    Client: crate::Client<Error, InputStreamError, OutputStreamError>,
+    OutputItem: Send + 'static,
+    InputItem: Send + 'static,
+{
+    const METHOD: Method = Method::GET;
+
+    async fn run_server<F, Fut>(
+        request: Server::Request,
+        server_fn: F,
+    ) -> Result<Server::Response, Error>
+    where
+        F: Fn(Input) -> Fut + Send,
+        Fut: Future<
+                Output = Result<
+                    BoxedStream<OutputItem, OutputStreamError>,
+                    Error,
+                >,
+            > + Send,
+    {
+        let (request_bytes, response_stream, response) =
+            request.try_into_websocket().await?;
+        let input = request_bytes.map(|request_bytes| {
+            let request_bytes = request_bytes
+                .map(|bytes| deserialize_result::<InputStreamError>(bytes))
+                .unwrap_or_else(Err);
+            match request_bytes {
+                Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                    .map_err(|e| {
+                        InputStreamError::from_server_fn_error(
+                            ServerFnErrorErr::Deserialization(e.to_string()),
+                        )
+                    }),
+                Err(err) => Err(InputStreamError::de(err)),
+            }
+        });
+        let boxed = Box::pin(input)
+            as Pin<
+                Box<
+                    dyn Stream<Item = Result<InputItem, InputStreamError>>
+                        + Send,
+                >,
+            >;
+        let input = BoxedStream { stream: boxed };
+
+        let output = server_fn(input.into()).await?;
+
+        let output = output.stream.map(|output| {
+            let result = match output {
+                Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
+                    OutputStreamError::from_server_fn_error(
+                        ServerFnErrorErr::Serialization(e.to_string()),
+                    )
+                    .ser()
+                }),
+                Err(err) => Err(err.ser()),
+            };
+            serialize_result(result)
+        });
+
+        Server::spawn(async move {
+            pin_mut!(response_stream);
+            pin_mut!(output);
+            while let Some(output) = output.next().await {
+                if response_stream.send(output).await.is_err() {
+                    break;
                 }
             }
-            res
+        })?;
+
+        Ok(response)
+    }
+
+    fn run_client(
+        path: &str,
+        input: Input,
+    ) -> impl Future<
+        Output = Result<BoxedStream<OutputItem, OutputStreamError>, Error>,
+    > + Send {
+        let input = input.into();
+
+        async move {
+            let (stream, sink) = Client::open_websocket(path).await?;
+
+            // Forward the input stream to the websocket
+            Client::spawn(async move {
+                pin_mut!(input);
+                pin_mut!(sink);
+                while let Some(input) = input.stream.next().await {
+                    let result = match input {
+                        Ok(input) => {
+                            InputEncoding::encode(&input).map_err(|e| {
+                                InputStreamError::from_server_fn_error(
+                                    ServerFnErrorErr::Serialization(
+                                        e.to_string(),
+                                    ),
+                                )
+                                .ser()
+                            })
+                        }
+                        Err(err) => Err(err.ser()),
+                    };
+                    let result = serialize_result(result);
+                    if sink.send(result).await.is_err() {
+                        break;
+                    }
+                }
+            });
+
+            // Return the output stream
+            let stream = stream.map(|request_bytes| {
+                let request_bytes = request_bytes
+                    .map(|bytes| deserialize_result::<OutputStreamError>(bytes))
+                    .unwrap_or_else(Err);
+                match request_bytes {
+                    Ok(request_bytes) => OutputEncoding::decode(request_bytes)
+                        .map_err(|e| {
+                            OutputStreamError::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        }),
+                    Err(err) => Err(OutputStreamError::de(err)),
+                }
+            });
+            let boxed = Box::pin(stream)
+                as Pin<
+                    Box<
+                        dyn Stream<Item = Result<OutputItem, OutputStreamError>>
+                            + Send,
+                    >,
+                >;
+            let output = BoxedStream { stream: boxed };
+            Ok(output)
+        }
+    }
+}
+
+// Serializes a Result<Bytes, Bytes> into a single Bytes instance.
+// Format: [tag: u8][content: Bytes]
+// - Tag 0: Ok variant
+// - Tag 1: Err variant
+fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
+    match result {
+        Ok(bytes) => {
+            let mut buf = BytesMut::with_capacity(1 + bytes.len());
+            buf.put_u8(0); // Tag for Ok variant
+            buf.extend_from_slice(&bytes);
+            buf.freeze()
+        }
+        Err(bytes) => {
+            let mut buf = BytesMut::with_capacity(1 + bytes.len());
+            buf.put_u8(1); // Tag for Err variant
+            buf.extend_from_slice(&bytes);
+            buf.freeze()
+        }
+    }
+}
+
+// Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
+fn deserialize_result<E: FromServerFnError>(
+    bytes: Bytes,
+) -> Result<Bytes, Bytes> {
+    if bytes.is_empty() {
+        return Err(E::from_server_fn_error(
+            ServerFnErrorErr::Deserialization("Data is empty".into()),
+        )
+        .ser());
+    }
+
+    let tag = bytes[0];
+    let content = bytes.slice(1..);
+
+    match tag {
+        0 => Ok(content),
+        1 => Err(content),
+        _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
+            "Invalid data tag".into(),
+        ))
+        .ser()), // Invalid tag
+    }
+}
+
+/// Encode format type
+pub enum Format {
+    /// Binary representation
+    Binary,
+    /// utf-8 compatible text representation
+    Text,
+}
+/// A trait for types with an associated content type.
+pub trait ContentType {
+    /// The MIME type of the data.
+    const CONTENT_TYPE: &'static str;
+}
+
+/// Data format representation
+pub trait FormatType {
+    /// The representation type
+    const FORMAT_TYPE: Format;
+
+    /// Encodes data into a string.
+    fn into_encoded_string(bytes: Bytes) -> String {
+        match Self::FORMAT_TYPE {
+            Format::Binary => STANDARD_NO_PAD.encode(bytes),
+            Format::Text => String::from_utf8(bytes.into())
+                .expect("Valid text format type with utf-8 comptabile string"),
         }
     }
 
-    /// Runs the server function (on the server), bubbling up an `Err(_)` after any stage.
-    #[doc(hidden)]
-    fn execute_on_server(
-        req: Self::ServerRequest,
-    ) -> impl Future<
-        Output = Result<Self::ServerResponse, ServerFnError<Self::Error>>,
-    > + Send {
-        async {
-            let this = Self::from_req(req).await?;
-            let output = this.run_body().await?;
-            let res = output.into_res().await?;
-            Ok(res)
+    /// Decodes string to bytes
+    fn from_encoded_string(data: &str) -> Result<Bytes, DecodeError> {
+        match Self::FORMAT_TYPE {
+            Format::Binary => {
+                STANDARD_NO_PAD.decode(data).map(|data| data.into())
+            }
+            Format::Text => Ok(Bytes::copy_from_slice(data.as_bytes())),
         }
     }
+}
+
+/// A trait for types that can be encoded into a bytes for a request body.
+pub trait Encodes<T>: ContentType + FormatType {
+    /// The error type that can be returned if the encoding fails.
+    type Error: Display + Debug;
+
+    /// Encodes the given value into a bytes.
+    fn encode(output: &T) -> Result<Bytes, Self::Error>;
+}
+
+/// A trait for types that can be decoded from a bytes for a response body.
+pub trait Decodes<T> {
+    /// The error type that can be returned if the decoding fails.
+    type Error: Display;
+
+    /// Decodes the given bytes into a value.
+    fn decode(bytes: Bytes) -> Result<T, Self::Error>;
 }
 
 #[cfg(feature = "ssr")]
@@ -365,7 +861,7 @@ pub use inventory;
 #[macro_export]
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
-        once_cell::sync::Lazy::new(|| {
+        std::sync::LazyLock::new(|| {
             $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
                 .into_iter()
                 .map(|obj| {
@@ -387,21 +883,40 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
+    ser: fn(ServerFnErrorErr) -> Bytes,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
     /// Converts the relevant parts of a server function into a trait object.
-    pub const fn new(
-        path: &'static str,
-        method: Method,
+    pub const fn new<
+        S: ServerFn<
+            Server: crate::Server<
+                S::Error,
+                S::InputStreamError,
+                S::OutputStreamError,
+                Request = Req,
+                Response = Res,
+            >,
+        >,
+    >(
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
-        middleware: fn() -> MiddlewareSet<Req, Res>,
-    ) -> Self {
+    ) -> Self
+    where
+        Req: crate::Req<
+                S::Error,
+                S::InputStreamError,
+                S::OutputStreamError,
+                WebsocketResponse = Res,
+            > + Send
+            + 'static,
+        Res: crate::TryRes<S::Error> + Send + 'static,
+    {
         Self {
-            path,
-            method,
+            path: S::PATH,
+            method: S::Protocol::METHOD,
             handler,
-            middleware,
+            middleware: S::middlewares,
+            ser: |e| S::Error::from_server_fn_error(e).ser(),
         }
     }
 
@@ -424,6 +939,16 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
     pub fn middleware(&self) -> MiddlewareSet<Req, Res> {
         (self.middleware)()
     }
+
+    /// Converts the server function into a boxed service.
+    pub fn boxed(self) -> BoxedService<Req, Res>
+    where
+        Self: Service<Req, Res>,
+        Req: 'static,
+        Res: 'static,
+    {
+        BoxedService::new(self.ser, self)
+    }
 }
 
 impl<Req, Res> Service<Req, Res> for ServerFnTraitObj<Req, Res>
@@ -431,7 +956,11 @@ where
     Req: Send + 'static,
     Res: 'static,
 {
-    fn run(&mut self, req: Req) -> Pin<Box<dyn Future<Output = Res> + Send>> {
+    fn run(
+        &mut self,
+        req: Req,
+        _ser: fn(ServerFnErrorErr) -> Bytes,
+    ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })
     }
@@ -444,13 +973,14 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
             method: self.method.clone(),
             handler: self.handler,
             middleware: self.middleware,
+            ser: self.ser,
         }
     }
 }
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
-    Lazy<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
+    LazyLock<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -467,16 +997,55 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        middleware::{BoxedService, Service},
-        Encoding, LazyServerFnMap, ServerFn, ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService, LazyServerFnMap,
+        Protocol, Server, ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
+    use std::future::Future;
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         Request<Body>,
         Response<Body>,
     > = initialize_server_fn_map!(Request<Body>, Response<Body>);
+
+    /// The axum server function backend
+    pub struct AxumServerFnBackend;
+
+    impl<Error, InputStreamError, OutputStreamError>
+        Server<Error, InputStreamError, OutputStreamError>
+        for AxumServerFnBackend
+    where
+        Error: FromServerFnError + Send + Sync,
+        InputStreamError: FromServerFnError + Send + Sync,
+        OutputStreamError: FromServerFnError + Send + Sync,
+    {
+        type Request = Request<Body>;
+        type Response = Response<Body>;
+
+        #[allow(unused_variables)]
+        fn spawn(
+            future: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), Error> {
+            #[cfg(feature = "axum")]
+            {
+                tokio::spawn(future);
+                Ok(())
+            }
+            #[cfg(not(feature = "axum"))]
+            {
+                Err(Error::from_server_fn_error(
+                    crate::error::ServerFnErrorErr::Request(
+                        "No async runtime available. You need to either \
+                         enable the full axum feature to pull in tokio, or \
+                         implement the `Server` trait for your async runtime \
+                         manually."
+                            .into(),
+                    ),
+                ))
+            }
+        }
+    }
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
@@ -484,18 +1053,18 @@ pub mod axum {
     pub fn register_explicit<T>()
     where
         T: ServerFn<
-                ServerRequest = Request<Body>,
-                ServerResponse = Response<Body>,
+                Server: crate::Server<
+                    T::Error,
+                    T::InputStreamError,
+                    T::OutputStreamError,
+                    Request = Request<Body>,
+                    Response = Response<Body>,
+                >,
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
-            ServerFnTraitObj::new(
-                T::PATH,
-                T::InputEncoding::METHOD,
-                |req| Box::pin(T::run_on_server(req)),
-                T::middlewares,
-            ),
+            (T::PATH.into(), T::Protocol::METHOD),
+            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }
 
@@ -539,7 +1108,7 @@ pub mod axum {
         let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS.get(&key).map(|server_fn| {
             let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(server_fn.clone());
+            let mut service = server_fn.clone().boxed();
             for middleware in middleware {
                 service = middleware.layer(service);
             }
@@ -549,22 +1118,45 @@ pub mod axum {
 }
 
 /// Actix integration.
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
-        middleware::BoxedService, request::actix::ActixRequest,
-        response::actix::ActixResponse, Encoding, LazyServerFnMap, ServerFn,
-        ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService,
+        request::actix::ActixRequest, response::actix::ActixResponse,
+        server::Server, LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
     };
     use actix_web::{web::Payload, HttpRequest, HttpResponse};
     use http::Method;
     #[doc(hidden)]
     pub use send_wrapper::SendWrapper;
+    use std::future::Future;
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         ActixRequest,
         ActixResponse,
     > = initialize_server_fn_map!(ActixRequest, ActixResponse);
+
+    /// The actix server function backend
+    pub struct ActixServerFnBackend;
+
+    impl<Error, InputStreamError, OutputStreamError>
+        Server<Error, InputStreamError, OutputStreamError>
+        for ActixServerFnBackend
+    where
+        Error: FromServerFnError + Send + Sync,
+        InputStreamError: FromServerFnError + Send + Sync,
+        OutputStreamError: FromServerFnError + Send + Sync,
+    {
+        type Request = ActixRequest;
+        type Response = ActixResponse;
+
+        fn spawn(
+            future: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), Error> {
+            actix_web::rt::spawn(future);
+            Ok(())
+        }
+    }
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
@@ -572,18 +1164,18 @@ pub mod actix {
     pub fn register_explicit<T>()
     where
         T: ServerFn<
-                ServerRequest = ActixRequest,
-                ServerResponse = ActixResponse,
+                Server: crate::Server<
+                    T::Error,
+                    T::InputStreamError,
+                    T::OutputStreamError,
+                    Request = ActixRequest,
+                    Response = ActixResponse,
+                >,
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            (T::PATH.into(), T::InputEncoding::METHOD),
-            ServerFnTraitObj::new(
-                T::PATH,
-                T::InputEncoding::METHOD,
-                |req| Box::pin(T::run_on_server(req)),
-                T::middlewares,
-            ),
+            (T::PATH.into(), T::Protocol::METHOD),
+            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
     }
 
@@ -603,7 +1195,6 @@ pub mod actix {
         let method = req.method();
         if let Some(mut service) = get_server_fn_service(path, method) {
             service
-                .0
                 .run(ActixRequest::from((req, payload)))
                 .await
                 .0
@@ -644,12 +1235,85 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS.get(&(path.into(), method)).map(
             |server_fn| {
                 let middleware = (server_fn.middleware)();
-                let mut service = BoxedService::new(server_fn.clone());
+                let mut service = server_fn.clone().boxed();
                 for middleware in middleware {
                     service = middleware.layer(service);
                 }
                 service
             },
         )
+    }
+}
+
+/// Mocks for the server function backend types when compiling for the client.
+pub mod mock {
+    use std::future::Future;
+
+    /// A mocked server type that can be used in place of the actual server,
+    /// when compiling for the browser.
+    ///
+    /// ## Panics
+    /// This always panics if its methods are called. It is used solely to stub out the
+    /// server type when compiling for the client.
+    pub struct BrowserMockServer;
+
+    impl<Error, InputStreamError, OutputStreamError>
+        crate::server::Server<Error, InputStreamError, OutputStreamError>
+        for BrowserMockServer
+    where
+        Error: Send + 'static,
+        InputStreamError: Send + 'static,
+        OutputStreamError: Send + 'static,
+    {
+        type Request = crate::request::BrowserMockReq;
+        type Response = crate::response::BrowserMockRes;
+
+        fn spawn(
+            _: impl Future<Output = ()> + Send + 'static,
+        ) -> Result<(), Error> {
+            unreachable!()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::codec::JsonEncoding;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize)]
+    enum TestError {
+        ServerFnError(ServerFnErrorErr),
+    }
+
+    impl FromServerFnError for TestError {
+        type Encoder = JsonEncoding;
+
+        fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+            Self::ServerFnError(value)
+        }
+    }
+    #[test]
+    fn test_result_serialization() {
+        // Test Ok variant
+        let ok_result: Result<Bytes, Bytes> =
+            Ok(Bytes::from_static(b"success data"));
+        let serialized = serialize_result(ok_result);
+        let deserialized = deserialize_result::<TestError>(serialized);
+        assert!(deserialized.is_ok());
+        assert_eq!(deserialized.unwrap(), Bytes::from_static(b"success data"));
+
+        // Test Err variant
+        let err_result: Result<Bytes, Bytes> =
+            Err(Bytes::from_static(b"error details"));
+        let serialized = serialize_result(err_result);
+        let deserialized = deserialize_result::<TestError>(serialized);
+        assert!(deserialized.is_err());
+        assert_eq!(
+            deserialized.unwrap_err(),
+            Bytes::from_static(b"error details")
+        );
     }
 }

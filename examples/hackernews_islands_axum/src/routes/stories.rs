@@ -47,7 +47,7 @@ pub fn Stories() -> impl IntoView {
     let stories = Resource::new(
         move || (page(), story_type()),
         move |(page, story_type)| async move {
-            fetch_stories(category(&story_type), page).await.ok()
+            fetch_stories(story_type, page).await.ok()
         },
     );
     let (pending, set_pending) = signal(false);

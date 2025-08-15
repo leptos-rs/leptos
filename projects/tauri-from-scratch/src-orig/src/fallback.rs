@@ -4,7 +4,7 @@ use axum::{
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::{view, LeptosOptions};
+use leptos::{prelude::LeptosOptions, view};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
@@ -19,12 +19,15 @@ pub async fn file_and_error_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let handler = leptos_axum::render_app_to_stream(options.to_owned(), move || view! {404});
+        let handler = leptos_axum::render_app_to_stream(move || view! {404});
         handler(req).await.into_response()
     }
 }
 
-async fn get_static_file(uri: Uri, root: &str) -> Result<Response<Body>, (StatusCode, String)> {
+async fn get_static_file(
+    uri: Uri,
+    root: &str,
+) -> Result<Response<Body>, (StatusCode, String)> {
     let req = Request::builder()
         .uri(uri.clone())
         .body(Body::empty())

@@ -8,14 +8,20 @@ macro_rules! tuples {
             $first: PossibleRouteMatch,
 			$($ty: PossibleRouteMatch),*,
         {
-            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-                // on the first run, include all optionals
-                let mut include_optionals = {
-                    [$first::OPTIONAL, $($ty::OPTIONAL),*].into_iter().filter(|n| *n).count()
-                };
-
+            fn optional(&self) -> bool {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = &self;
+                [$first.optional(), $($ty.optional()),*].into_iter().any(|n| n)
+            }
+
+            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = &self;
+
+                // on the first run, include all optionals
+                let mut include_optionals = {
+                    [$first.optional(), $($ty.optional()),*].into_iter().filter(|n| *n).count()
+                };
 
                 loop {
                     let mut nth_field = 0;
@@ -25,7 +31,10 @@ macro_rules! tuples {
                     let mut p = Vec::new();
                     let mut m = String::new();
 
-                    if !$first::OPTIONAL || nth_field < include_optionals {
+                    if $first.optional() {
+                        nth_field += 1;
+                    }
+                    if !$first.optional() || nth_field <= include_optionals {
                         match $first.test(r) {
                             None => {
                                 return None;
@@ -40,16 +49,16 @@ macro_rules! tuples {
 
                     matched_len += m.len();
                     $(
-                        if $ty::OPTIONAL {
+                        if $ty.optional() {
                             nth_field += 1;
                         }
-                        if !$ty::OPTIONAL || nth_field < include_optionals {
+                        if !$ty.optional() || nth_field <= include_optionals {
                             let PartialPathMatch {
                                 remaining,
                                 matched,
                                 params
                             } = match $ty.test(r) {
-                                None => if $ty::OPTIONAL {
+                                None => if $ty.optional() {
                                     return None;
                                 } else {
                                     if include_optionals == 0 {
@@ -90,6 +99,10 @@ where
     Self: core::fmt::Debug,
     A: PossibleRouteMatch,
 {
+    fn optional(&self) -> bool {
+        self.0.optional()
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let remaining = path;
         let PartialPathMatch {

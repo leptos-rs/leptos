@@ -1,5 +1,7 @@
 #[cfg(any(debug_assertions, leptos_debuginfo))]
 use crate::hydration::set_currently_hydrating;
+#[cfg(erase_components)]
+use crate::view::any_view::AnyView;
 use crate::{
     html::attribute::Attribute,
     hydration::{failed_to_cast_element, Cursor},
@@ -14,14 +16,15 @@ use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
 use futures::future::join;
-use next_tuple::NextTuple;
 use std::ops::Deref;
 
 mod custom;
 mod element_ext;
 mod elements;
 mod inner_html;
-use super::attribute::{escape_attr, NextAttribute};
+use super::attribute::{
+    any_attribute::AnyAttribute, escape_attr, NextAttribute,
+};
 pub use custom::*;
 pub use element_ext::*;
 pub use elements::*;
@@ -68,34 +71,164 @@ where
     }
 }*/
 
+#[cfg(not(erase_components))]
 impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
 where
     E: ElementWithChildren,
-    Ch: Render + NextTuple,
-    <Ch as NextTuple>::Output<NewChild::Output>: Render,
+    Ch: RenderHtml + next_tuple::NextTuple,
+    <Ch as next_tuple::NextTuple>::Output<NewChild::Output>: Render,
 
     NewChild: IntoRender,
-    NewChild::Output: Render,
+    NewChild::Output: RenderHtml,
 {
-    type Output =
-        HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild::Output>>;
+    type Output = HtmlElement<
+        E,
+        At,
+        <Ch as next_tuple::NextTuple>::Output<NewChild::Output>,
+    >;
 
     fn child(self, child: NewChild) -> Self::Output {
-        let HtmlElement {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at,
-            tag,
-            attributes,
-            children,
-        } = self;
         HtmlElement {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at,
-            tag,
-            attributes,
-            children: children.next_tuple(child.into_render()),
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes,
+            children: self.children.next_tuple(child.into_render()),
         }
     }
+}
+
+#[cfg(erase_components)]
+impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
+where
+    E: ElementWithChildren,
+    Ch: RenderHtml + NextChildren,
+
+    NewChild: IntoRender,
+    NewChild::Output: RenderHtml,
+{
+    type Output =
+        HtmlElement<E, At, crate::view::iterators::StaticVec<AnyView>>;
+
+    fn child(self, child: NewChild) -> Self::Output {
+        use crate::view::any_view::IntoAny;
+
+        HtmlElement {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes,
+            children: self
+                .children
+                .next_children(child.into_render().into_any()),
+        }
+    }
+}
+
+#[cfg(erase_components)]
+trait NextChildren {
+    fn next_children(
+        self,
+        child: AnyView,
+    ) -> crate::view::iterators::StaticVec<AnyView>;
+}
+
+#[cfg(erase_components)]
+mod erased_tuples {
+    use super::*;
+    use crate::view::{any_view::IntoAny, iterators::StaticVec};
+
+    impl NextChildren for StaticVec<AnyView> {
+        fn next_children(mut self, child: AnyView) -> StaticVec<AnyView> {
+            self.0.push(child);
+            self
+        }
+    }
+
+    impl NextChildren for () {
+        fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
+            vec![child].into()
+        }
+    }
+
+    impl<T: RenderHtml> NextChildren for (T,) {
+        fn next_children(self, child: AnyView) -> StaticVec<AnyView> {
+            vec![self.0.into_owned().into_any(), child].into()
+        }
+    }
+
+    macro_rules! impl_next_children_tuples {
+        ($($ty:ident),*) => {
+            impl<$($ty: RenderHtml),*> NextChildren for ($($ty,)*)
+             {
+                fn next_children(
+                    self, child: AnyView,
+                ) -> StaticVec<AnyView> {
+                    #[allow(non_snake_case)]
+                    let ($($ty,)*) = self;
+                    vec![$($ty.into_owned().into_any(),)* child].into()
+                }
+            }
+        };
+    }
+
+    impl_next_children_tuples!(AA, BB);
+    impl_next_children_tuples!(AA, BB, CC);
+    impl_next_children_tuples!(AA, BB, CC, DD);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK);
+    impl_next_children_tuples!(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL);
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW, XX
+    );
+    impl_next_children_tuples!(
+        AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, NN, OO, PP, QQ, RR,
+        SS, TT, UU, VV, WW, XX, YY
+    );
 }
 
 impl<E, At, Ch> AddAnyAttr for HtmlElement<E, At, Ch>
@@ -196,7 +329,6 @@ where
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
-        let attrs = self.attributes.build(&el);
         let children = if E::SELF_CLOSING {
             None
         } else {
@@ -204,6 +336,9 @@ where
             children.mount(&el, None);
             Some(children)
         };
+
+        let attrs = self.attributes.build(&el);
+
         ElementState {
             el,
             attrs,
@@ -219,6 +354,7 @@ where
     Ch: RenderHtml + Send,
 {
     type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput>;
+    type Owned = HtmlElement<E, At::CloneableOwned, Ch::Owned>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -271,12 +407,14 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
+        extra_attributes: Vec<AnyAttribute>,
     ) {
         // opening tag
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, buf);
+        let inner_html =
+            attributes_to_html((self.attributes, extra_attributes), buf);
 
         buf.push('>');
 
@@ -291,6 +429,7 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
+                    vec![],
                 );
             }
 
@@ -308,6 +447,7 @@ where
         position: &mut Position,
         _escape: bool,
         mark_branches: bool,
+        extra_attributes: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -316,7 +456,8 @@ where
         buf.push('<');
         buf.push_str(self.tag.tag());
 
-        let inner_html = attributes_to_html(self.attributes, &mut buf);
+        let inner_html =
+            attributes_to_html((self.attributes, extra_attributes), &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -332,6 +473,7 @@ where
                     position,
                     E::ESCAPE_CHILDREN,
                     mark_branches,
+                    vec![],
                 );
             }
 
@@ -350,27 +492,43 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(any(debug_assertions, leptos_debuginfo))]
-        {
-            set_currently_hydrating(Some(self.defined_at));
-        }
-
         // non-Static custom elements need special support in templates
         // because they haven't been inserted type-wise
         if E::TAG.is_empty() && !FROM_SERVER {
             panic!("Custom elements are not supported in ViewTemplate.");
         }
 
-        let curr_position = position.get();
-        if curr_position == Position::FirstChild {
-            cursor.child();
-        } else if curr_position != Position::Current {
-            cursor.sibling();
+        // codegen optimisation:
+        fn inner_1(
+            cursor: &Cursor,
+            position: &PositionState,
+            tag_name: &str,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: &'static std::panic::Location<'static>,
+        ) -> crate::renderer::types::Element {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            {
+                set_currently_hydrating(Some(defined_at));
+            }
+
+            let curr_position = position.get();
+            if curr_position == Position::FirstChild {
+                cursor.child();
+            } else if curr_position != Position::Current {
+                cursor.sibling();
+            }
+            crate::renderer::types::Element::cast_from(cursor.current())
+                .unwrap_or_else(|| {
+                    failed_to_cast_element(tag_name, cursor.current())
+                })
         }
-        let el = crate::renderer::types::Element::cast_from(cursor.current())
-            .unwrap_or_else(|| {
-                failed_to_cast_element(E::TAG, cursor.current())
-            });
+        let el = inner_1(
+            cursor,
+            position,
+            E::TAG,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            self.defined_at,
+        );
 
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
@@ -382,19 +540,108 @@ where
             Some(self.children.hydrate::<FROM_SERVER>(cursor, position))
         };
 
-        // go to next sibling
-        cursor.set(
-            <crate::renderer::types::Element as AsRef<
-                crate::renderer::types::Node,
-            >>::as_ref(&el)
-            .clone(),
-        );
-        position.set(Position::NextChild);
+        // codegen optimisation:
+        fn inner_2(
+            cursor: &Cursor,
+            position: &PositionState,
+            el: &crate::renderer::types::Element,
+        ) {
+            // go to next sibling
+            cursor.set(
+                <crate::renderer::types::Element as AsRef<
+                    crate::renderer::types::Node,
+                >>::as_ref(el)
+                .clone(),
+            );
+            position.set(Position::NextChild);
+        }
+        inner_2(cursor, position, &el);
 
         ElementState {
             el,
             attrs,
             children,
+        }
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        // codegen optimisation:
+        fn inner_1(
+            cursor: &Cursor,
+            position: &PositionState,
+            tag_name: &str,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: &'static std::panic::Location<'static>,
+        ) -> crate::renderer::types::Element {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            {
+                set_currently_hydrating(Some(defined_at));
+            }
+
+            let curr_position = position.get();
+            if curr_position == Position::FirstChild {
+                cursor.child();
+            } else if curr_position != Position::Current {
+                cursor.sibling();
+            }
+            crate::renderer::types::Element::cast_from(cursor.current())
+                .unwrap_or_else(|| {
+                    failed_to_cast_element(tag_name, cursor.current())
+                })
+        }
+        let el = inner_1(
+            cursor,
+            position,
+            E::TAG,
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            self.defined_at,
+        );
+
+        let attrs = self.attributes.hydrate::<true>(&el);
+
+        // hydrate children
+        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+            None
+        } else {
+            position.set(Position::FirstChild);
+            Some(self.children.hydrate_async(cursor, position).await)
+        };
+
+        // codegen optimisation:
+        fn inner_2(
+            cursor: &Cursor,
+            position: &PositionState,
+            el: &crate::renderer::types::Element,
+        ) {
+            // go to next sibling
+            cursor.set(
+                <crate::renderer::types::Element as AsRef<
+                    crate::renderer::types::Node,
+                >>::as_ref(el)
+                .clone(),
+            );
+            position.set(Position::NextChild);
+        }
+        inner_2(cursor, position, &el);
+
+        ElementState {
+            el,
+            attrs,
+            children,
+        }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        HtmlElement {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: self.defined_at,
+            tag: self.tag,
+            attributes: self.attributes.into_cloneable_owned(),
+            children: self.children.into_owned(),
         }
     }
 }
@@ -464,6 +711,14 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         Rndr::insert_node(parent, self.el.as_ref(), marker);
     }
 
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        Rndr::try_insert_node(parent, self.el.as_ref(), marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if let Some(parent) = Rndr::get_parent(self.el.as_ref()) {
             if let Some(element) =
@@ -474,6 +729,10 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
             }
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.el.clone()]
     }
 }
 
@@ -521,7 +780,7 @@ where
 
             buf.push('<');
             buf.push_str(E::TAG);
-            <At as ToTemplate>::to_template(
+            <At as ToTemplate>::to_template_attribute(
                 buf,
                 &mut class,
                 &mut style,
@@ -567,7 +826,7 @@ where
 /*
 #[cfg(all(test, feature = "testing"))]
 mod tests {
-    #[cfg(feature = "nightly")]
+    #[cfg(all(feature = "nightly", rustc_nightly))]
     use super::RenderHtml;
     use super::{main, p, HtmlElement};
     use crate::{
@@ -604,7 +863,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "nightly")]
+    #[cfg(all(feature = "nightly", rustc_nightly))]
     #[test]
     fn html_render_allocates_appropriate_buffer() {
         use crate::view::static_types::Static;

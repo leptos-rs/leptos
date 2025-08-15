@@ -67,10 +67,32 @@ impl Url {
     }
 
     pub fn hash(&self) -> &str {
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
+        {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+        }
         &self.hash
     }
 
     pub fn hash_mut(&mut self) -> &mut String {
+        #[cfg(all(feature = "ssr", any(debug_assertions, leptos_debuginfo)))]
+        {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Reading hash on the server can lead to hydration errors."
+            );
+        }
         &mut self.hash
     }
 
@@ -91,7 +113,9 @@ impl Url {
             path.push_str(&self.search);
         }
         if !self.hash.is_empty() {
-            path.push('#');
+            if !self.hash.starts_with('#') {
+                path.push('#');
+            }
             path.push_str(&self.hash);
         }
         path
@@ -123,14 +147,20 @@ impl Url {
 
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri_component(s).unwrap().into()
+            match js_sys::decode_uri_component(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
         }
     }
 
     pub fn unescape_minimal(s: &str) -> String {
         #[cfg(not(feature = "ssr"))]
         {
-            js_sys::decode_uri(s).unwrap().into()
+            match js_sys::decode_uri(s) {
+                Ok(v) => v.into(),
+                Err(_) => s.into(),
+            }
         }
 
         #[cfg(feature = "ssr")]
@@ -165,7 +195,7 @@ impl Location {
         let state = state.into();
         let pathname = Memo::new(move |_| url.with(|url| url.path.clone()));
         let search = Memo::new(move |_| url.with(|url| url.search.clone()));
-        let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
+        let hash = Memo::new(move |_| url.with(|url| url.hash().to_string()));
         let query =
             Memo::new(move |_| url.with(|url| url.search_params.clone()));
         Location {

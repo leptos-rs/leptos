@@ -15,16 +15,16 @@ leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
 leptos_integration_utils = { path = "../../integrations/utils", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.8.1", optional = true }
 tower = { version = "0.5.1", features = ["util"], optional = true }
 tower-http = { version = "0.6.1", features = ["fs"], optional = true }
 tokio = { version = "1.39", features = ["full"], optional = true }
 http = { version = "1.1" }
-sqlx = { version = "0.8.0", features = [
+sqlx = { version = "0.8.6", features = [
   "runtime-tokio-rustls",
   "sqlite",
 ], optional = true }
-thiserror = "2.0"
+thiserror = "2.0.12"
 wasm-bindgen = "0.2.93"
 
 [features]
@@ -44,7 +44,7 @@ ssr = [
 
 [package.metadata.cargo-all-features]
 denylist = ["axum", "tower", "tower-http", "tokio", "sqlx", "leptos_axum"]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"], []]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name

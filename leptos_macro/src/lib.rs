@@ -1,6 +1,6 @@
 //! Macros for use with the Leptos framework.
 
-#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
@@ -281,7 +281,11 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
-    view_macro_impl(tokens, true)
+    if cfg!(feature = "__internal_erase_components") {
+        view(tokens)
+    } else {
+        view_macro_impl(tokens, true)
+    }
 }
 
 fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
@@ -354,16 +358,14 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
 }
 
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
-    cfg_if::cfg_if! {
-        if #[cfg(all(debug_assertions, feature = "nightly"))] {
-            Some(leptos_hot_reload::span_to_stable_id(
-                site.source_file().path(),
-                site.start().line()
-            ))
-        } else {
-            _ = site;
-            None
-        }
+    if cfg!(debug_assertions) {
+        Some(leptos_hot_reload::span_to_stable_id(
+            site.file(),
+            site.start().line(),
+        ))
+    } else {
+        _ = site;
+        None
     }
 }
 
@@ -405,6 +407,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// generate documentation for the component.
 ///
 /// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
+///
 /// ```rust
 /// # use leptos::prelude::*;
 /// use std::time::Duration;
@@ -442,6 +445,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Here are some important details about how Leptos components work within the framework:
+///
 /// * **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
@@ -454,7 +458,6 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use leptos::prelude::*;
-///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
 /// fn MyComponent() -> impl IntoView {}
@@ -496,8 +499,10 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// ## Customizing Properties
+///
 /// You can use the `#[prop]` attribute on individual component properties (function arguments) to
 /// customize the types that component property can receive. You can use the following attributes:
+///
 /// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
 ///   you could apply `#[prop(into)]` to a prop that takes
 ///   [Signal](https://docs.rs/leptos/latest/leptos/struct.Signal.html), which would
@@ -510,6 +515,11 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// * `#[prop(optional_no_strip)]`: The same as `optional`, but requires values to be passed as `None` or
 ///   `Some(T)` explicitly. This means that the optional property can be omitted (and be `None`), or explicitly
 ///   specified as either `None` or `Some(T)`.
+/// * `#[prop(default = <expr>)]`: Optional property that specifies a default value, which is used when the
+///   property is not specified.
+/// * `#[prop(name = "new_name")]`: Specifiy a different name for the property. Can be used to destructure
+///   fields in component function parameters (see example below).
+///
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -518,6 +528,8 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///     #[prop(into)] name: String,
 ///     #[prop(optional)] optional_value: Option<i32>,
 ///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
+///     #[prop(default = 7)] optional_default: i32,
+///     #[prop(name = "data")] UserInfo { email, user_id }: UserInfo,
 /// ) -> impl IntoView {
 ///     // whatever UI you need
 /// }
@@ -526,15 +538,23 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// pub fn App() -> impl IntoView {
 ///     view! {
 ///       <MyComponent
-///         name="Greg" // automatically converted to String with `.into()`
-///         optional_value=42 // received as `Some(42)`
-///         optional_no_strip=Some(42) // received as `Some(42)`
+///         name="Greg"  // automatically converted to String with `.into()`
+///         optional_value=42  // received as `Some(42)`
+///         optional_no_strip=Some(42)  // received as `Some(42)`
+///         optional_default=42  // received as `42`
+///         data=UserInfo {email: "foo", user_id: "bar" }
 ///       />
 ///       <MyComponent
 ///         name="Bob" // automatically converted to String with `.into()`
-///         // optional values can both be omitted, and received as `None`
+///         data=UserInfo {email: "foo", user_id: "bar" }
+///         // optional values can be omitted
 ///       />
 ///     }
+/// }
+///
+/// pub struct UserInfo {
+///     pub email: &'static str,
+///     pub user_id: &'static str,
 /// }
 /// ```
 #[proc_macro_error2::proc_macro_error]
@@ -556,7 +576,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    component_macro(s, is_transparent, None)
+    component_macro(s, is_transparent, false, None)
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -633,29 +653,30 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
+    let (is_transparent, is_lazy) = if !args.is_empty() {
+        let arg = parse_macro_input!(args as syn::Ident);
 
-        if transparent != "transparent" {
+        if arg != "transparent" && arg != "lazy" {
             abort!(
-                transparent,
-                "only `transparent` is supported";
-                help = "try `#[island(transparent)]` or `#[island]`"
+                arg,
+                "only `transparent` or `lazy` are supported";
+                help = "try `#[island(transparent)]`, `#[island(lazy)]`, or `#[island]`"
             );
         }
 
-        true
+        (arg == "transparent", arg == "lazy")
     } else {
-        false
+        (false, false)
     };
 
     let island_src = s.to_string();
-    component_macro(s, is_transparent, Some(island_src))
+    component_macro(s, is_transparent, is_lazy, Some(island_src))
 }
 
 fn component_macro(
     s: TokenStream,
     is_transparent: bool,
+    is_lazy: bool,
     island: Option<String>,
 ) -> TokenStream {
     let mut dummy = syn::parse::<DummyModel>(s.clone());
@@ -664,6 +685,7 @@ fn component_macro(
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model
             .is_transparent(is_transparent)
+            .is_lazy(is_lazy)
             .with_island(island)
             .into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
@@ -673,6 +695,7 @@ fn component_macro(
         }
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+
         quote! {
             #expanded
 
@@ -926,7 +949,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         args.into(),
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
-        "/api",
+        option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
     ) {
@@ -1011,14 +1034,41 @@ pub fn memo(input: TokenStream) -> TokenStream {
     memo::memo_impl(input)
 }
 
-/// The `#[lazy]` macro marks an `async` function as a function that can be lazy-loaded from a
-/// separate (WebAssembly) binary.
+/// The `#[lazy]` macro indicates that a function can be lazy-loaded from a separate WebAssembly (WASM) binary.
 ///
 /// The first time the function is called, calling the function will first load that other binary,
-/// then call the function. On subsequent call it will be called immediately, but still return
+/// then call the function. On subsequent calls it will be called immediately, but still return
 /// asynchronously to maintain the same API.
 ///
-/// All parameters and output types should be concrete types, with no generics.
+/// `#[lazy]` can be used to annotate synchronous or `async` functions. In both cases, the final function will be
+/// `async` and must be called as such.
+///
+/// All parameters and output types should be concrete types, with no generics or `impl Trait` types.
+///
+/// This should be used in tandem with a suitable build process, such as `cargo leptos --split`.
+///
+/// ```rust
+/// # use leptos_macro::lazy;
+///
+/// #[lazy]
+/// fn lazy_synchronous_function() -> String {
+///     "Hello, lazy world!".to_string()
+/// }
+///
+/// #[lazy]
+/// async fn lazy_async_function() -> String {
+///     /* do something that requires async work */
+///     "Hello, lazy async world!".to_string()
+/// }
+///
+/// async fn use_lazy_functions() {
+///     // synchronous function has been converted to async
+///     let value1 = lazy_synchronous_function().await;
+///
+///     // async function is still async
+///     let value1 = lazy_async_function().await;
+/// }
+/// ```
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {

@@ -48,10 +48,10 @@
 //!
 //! ## Design Principles and Assumptions
 //! - **Effects are expensive.** The library is built on the assumption that the side effects
-//!    (making a network request, rendering something to the DOM, writing to disk) are orders of
-//!    magnitude more expensive than propagating signal updates. As a result, the algorithm is
-//!    designed to avoid re-running side effects unnecessarily, and is willing to sacrifice a small
-//!    amount of raw update speed to that goal.
+//!   (making a network request, rendering something to the DOM, writing to disk) are orders of
+//!   magnitude more expensive than propagating signal updates. As a result, the algorithm is
+//!   designed to avoid re-running side effects unnecessarily, and is willing to sacrifice a small
+//!   amount of raw update speed to that goal.
 //! - **Automatic dependency tracking.** Dependencies are not specified as a compile-time list, but
 //!   tracked at runtime. This in turn enables **dynamic dependency tracking**: subscribers
 //!   unsubscribe from their sources between runs, which means that a subscriber that contains a
@@ -68,8 +68,8 @@
 //! [Reactively](https://github.com/modderme123/reactively), as described
 //! [in this article](https://dev.to/modderme123/super-charging-fine-grained-reactive-performance-47ph).
 
-#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
 #![deny(missing_docs)]
 
 use std::{fmt::Arguments, future::Future};
@@ -81,6 +81,7 @@ pub mod diagnostics;
 pub mod effect;
 pub mod graph;
 pub mod owner;
+pub mod send_wrapper_ext;
 #[cfg(feature = "serde")]
 mod serde;
 pub mod signal;
@@ -91,7 +92,7 @@ pub mod wrappers;
 
 use computed::ScopedFuture;
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 mod nightly;
 
 /// Reexports frequently-used traits.
@@ -103,15 +104,7 @@ pub mod prelude {
 #[allow(unused)]
 #[doc(hidden)]
 pub fn log_warning(text: Arguments) {
-    #[cfg(feature = "tracing")]
-    {
-        tracing::warn!(text);
-    }
-    #[cfg(all(
-        not(feature = "tracing"),
-        target_arch = "wasm32",
-        target_os = "unknown"
-    ))]
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     {
         web_sys::console::warn_1(&text.to_string().into());
     }
@@ -120,17 +113,30 @@ pub fn log_warning(text: Arguments) {
         not(all(target_arch = "wasm32", target_os = "unknown"))
     ))]
     {
-        eprintln!("{}", text);
+        eprintln!("{text}");
     }
 }
 
-/// Calls [`Executor::spawn`](any_spawner::Executor), but ensures that the task also runs in the current arena, if
+/// Calls [`Executor::spawn`](any_spawner::Executor::spawn) on non-wasm targets and [`Executor::spawn_local`](any_spawner::Executor::spawn_local) on wasm targets, but ensures that the task also runs in the current arena, if
 /// multithreaded arena sandboxing is enabled.
 pub fn spawn(task: impl Future<Output = ()> + Send + 'static) {
     #[cfg(feature = "sandboxed-arenas")]
     let task = owner::Sandboxed::new(task);
 
+    #[cfg(not(target_family = "wasm"))]
     any_spawner::Executor::spawn(task);
+
+    #[cfg(target_family = "wasm")]
+    any_spawner::Executor::spawn_local(task);
+}
+
+/// Calls [`Executor::spawn_local`](any_spawner::Executor::spawn_local), but ensures that the task also runs in the current arena, if
+/// multithreaded arena sandboxing is enabled.
+pub fn spawn_local(task: impl Future<Output = ()> + 'static) {
+    #[cfg(feature = "sandboxed-arenas")]
+    let task = owner::Sandboxed::new(task);
+
+    any_spawner::Executor::spawn_local(task);
 }
 
 /// Calls [`Executor::spawn_local`](any_spawner::Executor), but ensures that the task runs under the current reactive [`Owner`](crate::owner::Owner) and observer.

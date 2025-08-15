@@ -1,8 +1,8 @@
-#[cfg(feature = "futures-executor")]
+#![cfg(feature = "futures-executor")]
+
 use any_spawner::Executor;
 // All tests in this file use the same executor.
 
-#[cfg(feature = "futures-executor")]
 #[test]
 fn can_spawn_local_future() {
     use std::rc::Rc;
@@ -15,7 +15,6 @@ fn can_spawn_local_future() {
     Executor::spawn(async {});
 }
 
-#[cfg(feature = "futures-executor")]
 #[test]
 fn can_make_local_progress() {
     use std::sync::{

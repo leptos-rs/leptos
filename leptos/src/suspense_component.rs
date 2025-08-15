@@ -1,8 +1,9 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    error::ErrorBoundarySuspendedChildren,
     IntoView,
 };
-use futures::{select, FutureExt};
+use futures::{channel::oneshot, select, FutureExt};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use reactive_graph::{
@@ -13,13 +14,13 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, Track, With},
+    traits::{Dispose, Get, Read, Track, With, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::Arc;
 use tachys::{
     either::Either,
-    html::attribute::Attribute,
+    html::attribute::{any_attribute::AnyAttribute, Attribute},
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
@@ -99,6 +100,8 @@ pub fn Suspense<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
+    let error_boundary_parent = use_context::<ErrorBoundarySuspendedChildren>();
+
     let owner = Owner::new();
     owner.with(|| {
         let (starts_local, id) = {
@@ -129,6 +132,7 @@ where
             none_pending,
             fallback,
             children,
+            error_boundary_parent,
         })
     })
 }
@@ -150,6 +154,7 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub none_pending: ArcMemo<bool>,
     pub fallback: Fal,
     pub children: Chil,
+    pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -228,12 +233,14 @@ where
             none_pending,
             fallback,
             children,
+            error_boundary_parent,
         } = self;
         SuspenseBoundary {
             id,
             none_pending,
             fallback,
             children: children.add_any_attr(attr),
+            error_boundary_parent,
         }
     }
 }
@@ -247,6 +254,7 @@ where
     // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
     // itself
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
@@ -262,9 +270,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.fallback
-            .to_html_with_buf(buf, position, escape, mark_branches);
+        self.fallback.to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -273,12 +287,20 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.next_id();
         let suspense_context = use_context::<SuspenseContext>().unwrap();
         let owner = Owner::current().unwrap();
+
+        let mut notify_error_boundary =
+            self.error_boundary_parent.map(|children| {
+                let (tx, rx) = oneshot::channel();
+                children.write_value().push(rx);
+                tx
+            });
 
         // we need to wait for one of two things: either
         // 1. all tasks are finished loading, or
@@ -308,6 +330,9 @@ where
                         if let Some(tx) = tasks_tx.take() {
                             // If the receiver has dropped, it means the ScopedFuture has already
                             // dropped, so it doesn't matter if we manage to send this.
+                            _ = tx.send(());
+                        }
+                        if let Some(tx) = notify_error_boundary.take() {
                             _ = tx.send(());
                         }
                     }
@@ -371,6 +396,7 @@ where
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
             }
             Some(None) => {
@@ -380,6 +406,7 @@ where
                         position,
                         escape,
                         mark_branches,
+                        extra_attrs,
                     );
             }
             None => {
@@ -393,14 +420,21 @@ where
                         self.fallback,
                         &mut fallback_position,
                         mark_branches,
+                        extra_attrs.clone(),
                     );
                     buf.push_async_out_of_order_with_nonce(
                         fut,
                         position,
                         mark_branches,
                         nonce_or_not(),
+                        extra_attrs,
                     );
                 } else {
+                    // calling this will walk over the tree, removing all event listeners
+                    // and other single-threaded values from the view tree. this needs to be
+                    // done because the fallback can be shifted to another thread in push_async below.
+                    self.fallback.dry_resolve();
+
                     buf.push_async({
                         let mut position = *position;
                         async move {
@@ -414,6 +448,7 @@ where
                                 &mut position,
                                 escape,
                                 mark_branches,
+                                extra_attrs,
                             );
                             builder.finish().take_chunks()
                         }
@@ -462,6 +497,10 @@ where
                 this.hydrate::<FROM_SERVER>(&cursor, &position)
             }
         })
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }
 
@@ -515,6 +554,7 @@ where
     T: RenderHtml + 'static,
 {
     type AsyncOutput = Self;
+    type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -530,8 +570,15 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
-        (self.0)().to_html_with_buf(buf, position, escape, mark_branches);
+        (self.0)().to_html_with_buf(
+            buf,
+            position,
+            escape,
+            mark_branches,
+            extra_attrs,
+        );
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -540,6 +587,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
@@ -548,6 +596,7 @@ where
             position,
             escape,
             mark_branches,
+            extra_attrs,
         );
     }
 
@@ -557,5 +606,9 @@ where
         position: &PositionState,
     ) -> Self::State {
         (self.0)().hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        self
     }
 }

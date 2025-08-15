@@ -1,6 +1,6 @@
-use super::Res;
+use super::{Res, TryRes};
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
 use actix_web::{
     http::{
@@ -13,10 +13,6 @@ use actix_web::{
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use send_wrapper::SendWrapper;
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
 
 /// A wrapped Actix response.
 ///
@@ -38,14 +34,11 @@ impl From<HttpResponse> for ActixResponse {
     }
 }
 
-impl<CustErr> Res<CustErr> for ActixResponse
+impl<E> TryRes<E> for ActixResponse
 where
-    CustErr: FromStr + Display + Debug + 'static,
+    E: FromServerFnError,
 {
-    fn try_from_string(
-        content_type: &str,
-        data: String,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_string(content_type: &str, data: String) -> Result<Self, E> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
@@ -54,10 +47,7 @@ where
         )))
     }
 
-    fn try_from_bytes(
-        content_type: &str,
-        data: Bytes,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, E> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
@@ -68,23 +58,25 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + 'static,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+        data: impl Stream<Item = Result<Bytes, Bytes>> + 'static,
+    ) -> Result<Self, E> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
                 .insert_header((header::CONTENT_TYPE, content_type))
-                .streaming(
-                    data.map(|data| data.map_err(ServerFnErrorErr::from)),
-                ),
+                .streaming(data.map(|data| {
+                    data.map_err(|e| ServerFnErrorWrapper(E::de(e)))
+                })),
         )))
     }
+}
 
-    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
+impl Res for ActixResponse {
+    fn error_response(path: &str, err: Bytes) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
-                .body(err.ser().unwrap_or_else(|_| err.to_string())),
+                .body(err),
         ))
     }
 

@@ -1,5 +1,8 @@
 use self::add_attr::AddAnyAttr;
-use crate::{hydration::Cursor, ssr::StreamBuilder};
+use crate::{
+    html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
+    ssr::StreamBuilder,
+};
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
@@ -19,7 +22,7 @@ pub mod iterators;
 pub mod keyed;
 mod primitives;
 /// Optimized types for static strings known at compile time.
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 pub mod static_types;
 /// View implementation for string types.
 pub mod strings;
@@ -43,7 +46,8 @@ pub trait Render: Sized {
     fn rebuild(self, state: &mut Self::State);
 }
 
-pub(crate) trait MarkBranch {
+#[doc(hidden)]
+pub trait MarkBranch {
     fn open_branch(&mut self, branch_id: &str);
 
     fn close_branch(&mut self, branch_id: &str);
@@ -96,6 +100,9 @@ where
     /// The type of the view after waiting for all asynchronous data to load.
     type AsyncOutput: RenderHtml;
 
+    /// An equivalent value that is `'static`.
+    type Owned: RenderHtml + 'static;
+
     /// The minimum length of HTML created when this view is rendered.
     const MIN_LENGTH: usize;
 
@@ -125,7 +132,13 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, false);
+        self.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            false,
+            vec![],
+        );
         buf
     }
 
@@ -137,7 +150,13 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, true);
+        self.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            true,
+            vec![],
+        );
         buf
     }
 
@@ -152,6 +171,7 @@ where
             &mut Position::FirstChild,
             true,
             false,
+            vec![],
         );
         builder.finish()
     }
@@ -169,6 +189,7 @@ where
             &mut Position::FirstChild,
             true,
             true,
+            vec![],
         );
         builder.finish()
     }
@@ -187,6 +208,7 @@ where
             &mut Position::FirstChild,
             true,
             false,
+            vec![],
         );
         builder.finish()
     }
@@ -206,6 +228,7 @@ where
             &mut Position::FirstChild,
             true,
             true,
+            vec![],
         );
         builder.finish()
     }
@@ -217,6 +240,7 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     );
 
     /// Renders a view into a buffer of (synchronous or asynchronous) HTML chunks.
@@ -226,11 +250,18 @@ where
         position: &mut Position,
         escape: bool,
         mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.with_buf(|buf| {
-            self.to_html_with_buf(buf, position, escape, mark_branches)
+            self.to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+                extra_attrs,
+            )
         });
     }
 
@@ -246,6 +277,19 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State;
+
+    /// Asynchronously makes a set of DOM nodes rendered from HTML interactive.
+    ///
+    /// Async hydration is useful for types that may need to wait before being hydrated:
+    /// for example, lazily-loaded routes need async hydration, because the client code
+    /// may be loading asynchronously, while the server HTML was already rendered.
+    fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> impl Future<Output = Self::State> {
+        async { self.hydrate::<true>(cursor, position) }
+    }
 
     /// Hydrates using [`RenderHtml::hydrate`], beginning at the given element.
     fn hydrate_from<const FROM_SERVER: bool>(
@@ -271,6 +315,9 @@ where
         let position = PositionState::new(position);
         self.hydrate::<FROM_SERVER>(&cursor, &position)
     }
+
+    /// Convert into the equivalent value that is `'static`.
+    fn into_owned(self) -> Self::Owned;
 }
 
 /// Allows a type to be mounted to the DOM.
@@ -284,6 +331,16 @@ pub trait Mountable {
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     );
+
+    /// Mounts a node to the interface. Returns `false` if it could not be mounted.
+    fn try_mount(
+        &mut self,
+        parent: &crate::renderer::types::Element,
+        marker: Option<&crate::renderer::types::Node>,
+    ) -> bool {
+        self.mount(parent, marker);
+        true
+    }
 
     /// Inserts another `Mountable` type before this one. Returns `false` if
     /// this does not actually exist in the UI (for example, `()`).
@@ -301,6 +358,9 @@ pub trait Mountable {
             child.mount(parent, marker);
         }
     }
+
+    /// wip
+    fn elements(&self) -> Vec<crate::renderer::types::Element>;
 }
 
 /// Indicates where a node should be mounted to its parent.
@@ -336,6 +396,12 @@ where
             .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
     }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.as_ref()
+            .map(|inner| inner.elements())
+            .unwrap_or_default()
+    }
 }
 
 impl<T> Mountable for Rc<RefCell<T>>
@@ -356,6 +422,10 @@ where
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         self.borrow().insert_before_this(child)
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        self.borrow().elements()
     }
 }
 
@@ -380,6 +450,17 @@ pub trait ToTemplate {
         inner_html: &mut String,
         position: &mut Position,
     );
+
+    /// Renders a view type to a template in attribute position.
+    fn to_template_attribute(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        Self::to_template(buf, class, style, inner_html, position);
+    }
 }
 
 /// Keeps track of what position the item currently being hydrated is in, relative to its siblings
@@ -429,7 +510,7 @@ pub enum Position {
     LastChild,
 }
 
-/// Declares that this type can be converted into some other type, which can be renderered.
+/// Declares that this type can be converted into some other type, which can be rendered.
 pub trait IntoRender {
     /// The renderable type into which this type can be converted.
     type Output;

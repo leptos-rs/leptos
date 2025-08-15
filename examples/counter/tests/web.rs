@@ -1,9 +1,7 @@
 #![allow(dead_code)]
 
 use counter::*;
-use leptos::mount::mount_to;
-use leptos::prelude::*;
-use leptos::task::tick;
+use leptos::{mount::mount_to, prelude::*, task::tick};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 

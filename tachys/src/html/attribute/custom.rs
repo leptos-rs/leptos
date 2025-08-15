@@ -10,7 +10,7 @@ use crate::{
 };
 use std::{borrow::Cow, sync::Arc};
 
-/// Adds a custom attribute with any key-value combintion.
+/// Adds a custom attribute with any key-value combination.
 #[inline(always)]
 pub fn custom_attribute<K, V>(key: K, value: V) -> CustomAttr<K, V>
 where
@@ -170,7 +170,7 @@ impl CustomAttributeKey for Arc<str> {
     const KEY: &'static str = "";
 }
 
-#[cfg(feature = "nightly")]
+#[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const K: &'static str> CustomAttributeKey
     for crate::view::static_types::Static<K>
 {

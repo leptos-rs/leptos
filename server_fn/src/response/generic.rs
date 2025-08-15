@@ -12,18 +12,15 @@
 //! * `wasm32-wasip*` integration crate `leptos_wasi` is using this
 //!   crate under the hood.
 
-use super::Res;
+use super::{Res, TryRes};
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
+    SERVER_FN_ERROR_HEADER,
 };
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
 use http::{header, HeaderValue, Response, StatusCode};
-use std::{
-    fmt::{Debug, Display},
-    pin::Pin,
-    str::FromStr,
-};
+use std::pin::Pin;
 use throw_error::Error;
 
 /// The Body of a Response whose *execution model* can be
@@ -44,55 +41,62 @@ impl From<String> for Body {
     }
 }
 
-impl<CustErr> Res<CustErr> for Response<Body>
+impl From<Bytes> for Body {
+    fn from(value: Bytes) -> Self {
+        Body::Sync(value)
+    }
+}
+
+impl<E> TryRes<E> for Response<Body>
 where
-    CustErr: Send + Sync + Debug + FromStr + Display + 'static,
+    E: Send + Sync + FromServerFnError,
 {
-    fn try_from_string(
-        content_type: &str,
-        data: String,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_string(content_type: &str, data: String) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(data.into())
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
-    fn try_from_bytes(
-        content_type: &str,
-        data: Bytes,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::Sync(data))
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>
-            + Send
-            + 'static,
-    ) -> Result<Self, ServerFnError<CustErr>> {
+        data: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+    ) -> Result<Self, E> {
         let builder = http::Response::builder();
         builder
             .status(200)
             .header(http::header::CONTENT_TYPE, content_type)
             .body(Body::Async(Box::pin(
-                data.map_err(ServerFnErrorErr::from).map_err(Error::from),
+                data.map_err(|e| ServerFnErrorWrapper(E::de(e)))
+                    .map_err(Error::from),
             )))
-            .map_err(|e| ServerFnError::Response(e.to_string()))
+            .map_err(|e| {
+                ServerFnErrorErr::Response(e.to_string()).into_app_error()
+            })
     }
+}
 
-    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
+impl Res for Response<Body> {
+    fn error_response(path: &str, err: Bytes) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .header(SERVER_FN_ERROR_HEADER, path)
-            .body(err.ser().unwrap_or_else(|_| err.to_string()).into())
+            .body(err.into())
             .unwrap()
     }
 

@@ -4,6 +4,7 @@ use crate::{
     diagnostics::SpecialNonReactiveZone,
     graph::{AnySource, ToAnySource},
     owner::{use_context, Storage},
+    send_wrapper_ext::SendOption,
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
     traits::{DefinedAt, Track},
     unwrap_signal,
@@ -24,7 +25,8 @@ use std::{
 ///
 /// Implements [`Deref`](std::ops::Deref) to access the inner value. This should not be held longer
 /// than it is needed, as it prevents updates to the inner value.
-pub type AsyncDerivedGuard<T> = ReadGuard<T, Mapped<AsyncPlain<Option<T>>, T>>;
+pub type AsyncDerivedGuard<T> =
+    ReadGuard<T, Mapped<AsyncPlain<SendOption<T>>, T>>;
 
 /// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
 /// but does not contain its value.
@@ -106,7 +108,7 @@ where
 /// and contains its value. `.await`ing this clones the value `T`.
 pub struct AsyncDerivedFuture<T> {
     source: AnySource,
-    value: Arc<async_lock::RwLock<Option<T>>>,
+    value: Arc<async_lock::RwLock<SendOption<T>>>,
     loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
     inner: Arc<RwLock<ArcAsyncDerivedInner>>,
@@ -183,7 +185,7 @@ where
 /// and yields an [`AsyncDerivedGuard`] that dereferences to its value.
 pub struct AsyncDerivedRefFuture<T> {
     source: AnySource,
-    value: Arc<async_lock::RwLock<Option<T>>>,
+    value: Arc<async_lock::RwLock<SendOption<T>>>,
     loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
 }

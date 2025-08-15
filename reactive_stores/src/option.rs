@@ -24,7 +24,7 @@ where
     ///
     /// This returns `None` if the subfield is currently `None`,
     /// and a new store subfield with the inner value if it is `Some`. This can be used in some  
-    /// other reactive context, which will cause it to re-run if the field toggles betwen `None`
+    /// other reactive context, which will cause it to re-run if the field toggles between `None`
     /// and `Some(_)`.
     fn map<U>(
         self,
@@ -85,6 +85,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{self as reactive_stores, Patch as _, Store};
+    use any_spawner::Executor;
     use reactive_graph::{
         effect::Effect,
         traits::{Get, Read, ReadUntracked, Set, Write},
@@ -96,7 +97,7 @@ mod tests {
     };
 
     pub async fn tick() {
-        tokio::time::sleep(std::time::Duration::from_micros(1)).await;
+        Executor::tick().await;
     }
 
     #[derive(Debug, Clone, Store)]
@@ -250,6 +251,8 @@ mod tests {
     async fn patch() {
         use crate::OptionStoreExt;
 
+        _ = any_spawner::Executor::init_tokio();
+
         #[derive(Debug, Clone, Store, Patch)]
         struct Outer {
             inner: Option<Inner>,
@@ -267,8 +270,6 @@ mod tests {
                 second: "B".to_owned(),
             }),
         });
-
-        _ = any_spawner::Executor::init_tokio();
 
         let parent_count = Arc::new(AtomicUsize::new(0));
         let inner_first_count = Arc::new(AtomicUsize::new(0));
@@ -296,9 +297,18 @@ mod tests {
                     println!("inner_first: next run");
                 }
 
+                // note: we specifically want to test whether using `.patch()`
+                // correctly limits notifications on the first field when only the second
+                // field has changed
+                //
+                // `.map()` would also track the parent field (to track when it changed from Some
+                // to None), which would mean the notification numbers were always the same
+                //
+                // so here, we'll do `.map_untracked()`, but in general in a real case you'd want
+                // to use `.map()` so that if the parent switches to None you do track that
                 println!(
                     "  value = {:?}",
-                    store.inner().map(|inner| inner.first().get())
+                    store.inner().map_untracked(|inner| inner.first().get())
                 );
                 inner_first_count.fetch_add(1, Ordering::Relaxed);
             }
@@ -325,6 +335,7 @@ mod tests {
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 1);
 
+        println!("\npatching with A/C");
         store.patch(Outer {
             inner: Some(Inner {
                 first: "A".to_string(),
@@ -333,17 +344,18 @@ mod tests {
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 1);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 2);
 
         store.patch(Outer { inner: None });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 3);
 
+        println!("\npatching with A/B");
         store.patch(Outer {
             inner: Some(Inner {
                 first: "A".to_string(),
@@ -352,8 +364,8 @@ mod tests {
         });
 
         tick().await;
-        assert_eq!(parent_count.load(Ordering::Relaxed), 3);
-        assert_eq!(inner_first_count.load(Ordering::Relaxed), 3);
+        assert_eq!(parent_count.load(Ordering::Relaxed), 4);
+        assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 4);
     }
 }

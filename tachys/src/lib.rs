@@ -6,7 +6,10 @@
 // this is specifically used for `unsized_const_params` below
 // this allows us to use const generic &'static str for static text nodes and attributes
 #![allow(incomplete_features)]
-#![cfg_attr(feature = "nightly", feature(unsized_const_params))]
+#![cfg_attr(
+    all(feature = "nightly", rustc_nightly),
+    feature(unsized_const_params)
+)]
 #![deny(missing_docs)]
 
 /// Commonly-used traits.
@@ -14,6 +17,7 @@ pub mod prelude {
     pub use crate::{
         html::{
             attribute::{
+                any_attribute::IntoAnyAttribute,
                 aria::AriaAttributes,
                 custom::CustomAttribute,
                 global::{
@@ -21,7 +25,7 @@ pub mod prelude {
                     OnAttribute, OnTargetAttribute, PropAttribute,
                     StyleAttribute,
                 },
-                IntoAttribute, IntoAttributeValue,
+                IntoAttributeValue,
             },
             directive::DirectiveAttribute,
             element::{ElementChild, ElementExt, InnerHtmlAttribute},
@@ -29,8 +33,9 @@ pub mod prelude {
         },
         renderer::{dom::Dom, Renderer},
         view::{
-            add_attr::AddAnyAttr, any_view::IntoAny, IntoRender, Mountable,
-            Render, RenderHtml,
+            add_attr::AddAnyAttr,
+            any_view::{AnyView, IntoAny, IntoMaybeErased},
+            IntoRender, Mountable, Render, RenderHtml,
         },
     };
 }
@@ -69,6 +74,9 @@ pub mod oco;
 /// View implementations for the `reactive_graph` crate.
 #[cfg(feature = "reactive_graph")]
 pub mod reactive_graph;
+
+/// A type-erased container.
+pub mod erased;
 
 pub(crate) trait UnwrapOrDebug {
     type Output;

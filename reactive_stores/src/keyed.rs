@@ -97,7 +97,7 @@ where
 {
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
-    type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
+    type Writer = MappedMut<WriteGuard<Vec<ArcTrigger>, Inner::Writer>, T>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -116,9 +116,10 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(path.clone());
-        let guard = WriteGuard::new(trigger.children, self.inner.writer()?);
+        let mut parent = self.inner.writer()?;
+        parent.untrack();
+        let triggers = self.triggers_for_current_path();
+        let guard = WriteGuard::new(triggers, parent);
         Some(MappedMut::new(guard, self.read, self.write))
     }
 
@@ -415,7 +416,7 @@ where
         T::Output,
     >;
     type Writer = WriteGuard<
-        ArcTrigger,
+        Vec<ArcTrigger>,
         MappedMutArc<
             <KeyedSubfield<Inner, Prev, K, T> as StoreField>::Writer,
             T::Output,
@@ -465,9 +466,8 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let inner = self.inner.writer()?;
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-
+        let mut inner = self.inner.writer()?;
+        inner.untrack();
         let inner_path = self.inner.path().into_iter().collect::<StorePath>();
         let keys = self
             .inner
@@ -482,8 +482,10 @@ where
             .flatten()
             .map(|(_, idx)| idx)?;
 
+        let triggers = self.triggers_for_current_path();
+
         Some(WriteGuard::new(
-            trigger.children,
+            triggers,
             MappedMutArc::new(
                 inner,
                 move |n| &n[index],

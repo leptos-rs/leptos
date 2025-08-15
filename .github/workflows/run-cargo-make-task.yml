@@ -5,20 +5,21 @@ on:
       directory:
         required: true
         type: string
-      cargo_make_task:
-        required: true
-        type: string
-      toolchain:
-        required: true
-        type: string
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   DEBIAN_FRONTEND: noninteractive
+  RUSTFLAGS: ${{ inputs.erased_mode && '--cfg erase_components' || '' }}
+  LEPTOS_TAILWIND_VERSION: v4.0.14
+  LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
-    name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
+    name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ matrix.erased_mode && 'enabled' || 'disabled' }})"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, nightly-2025-07-16]
+        erased_mode: [true, false]
     steps:
       - name: Free Disk Space
         run: |
@@ -26,11 +27,25 @@ jobs:
           df -h
           sudo rm -rf /usr/local/.ghcup
           sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
-          sudo apt-get clean
+          sudo rm -rf /usr/local/lib/node_modules
+
+          # following lines currenly not needed as it takes too much time
+          # the new isolated CI doesn't need much space to test libraries
+          #
+          # uncommet only if nneded
+          #
+          # sudo apt-get clean
+          # sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^llvm-.*' '^mono-.*' '^php.*' '^ruby.*'
+          # sudo apt-get autoremove -y
+          # sudo apt-get clean
+          # sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # docker system prune -af
+          # docker image prune -af
+          # docker volume prune -f
           echo "Disk space after cleanup:"
           df -h
       # Setup environment
@@ -38,45 +53,58 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ inputs.toolchain }}
-      - name: Add wasm32-unknown-unknown
-        run: rustup target add wasm32-unknown-unknown
-      - name: Setup cargo-make
-        uses: davidB/rust-cargo-make@v1
-      - name: Cargo generate-lockfile
-        run: cargo generate-lockfile
-      - uses: Swatinem/rust-cache@v2
+          toolchain: ${{ matrix.toolchain }}
+          targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
       - name: Install binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
         run: cargo binstall wasm-bindgen-cli --no-confirm
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --locked --no-confirm
+      - name: Install cargo-make
+        run: cargo binstall cargo-make --no-confirm
+      - name: Install nextest
+        run: cargo binstall cargo-nextest --no-confirm
+      - name: Install cargo-all-features
+        run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+      # Part of direct-minimal-versions check
+      - name: Install cargo-hack
+        if: contains(matrix.toolchain, 'nightly')
+        uses: taiki-e/install-action@cargo-hack
+      # Part of direct-minimal-versions check
+      - name: Install cargo-minimal-versions
+        if: contains(matrix.toolchain, 'nightly')
+        uses: taiki-e/install-action@cargo-minimal-versions
       - name: Install Trunk
-        uses: jetli/trunk-action@v0.5.0
-        with:
-          version: "latest"
+        if: contains(inputs.directory, 'examples')
+        run: cargo binstall trunk --no-confirm
       - name: Print Trunk Version
+        if: contains(inputs.directory, 'examples')
         run: trunk --version
       - name: Install Node.js
+        if: contains(inputs.directory, 'examples')
         uses: actions/setup-node@v4
         with:
           node-version: 20
       - uses: pnpm/action-setup@v4
         name: Install pnpm
+        if: contains(inputs.directory, 'examples')
         id: pnpm-install
         with:
           version: 8
           run_install: false
       - name: Get pnpm store directory
+        if: contains(inputs.directory, 'examples')
         id: pnpm-cache
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v4
+        if: contains(inputs.directory, 'examples')
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
@@ -84,8 +112,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Maybe install chromedriver
+        if: contains(inputs.directory, 'examples')
         run: |
-          project_makefile=${{inputs.directory}}/Makefile.toml
+          project_makefile='${{inputs.directory}}/Makefile.toml'
           webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
           if [ $webdriver_count -eq 1 ]; then
               if ! command -v chromedriver &>/dev/null; then
@@ -99,8 +128,9 @@ jobs:
               echo chromedriver is not required
           fi
       - name: Maybe install playwright browser dependencies
+        if: contains(inputs.directory, 'examples')
         run: |
-          for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
+          for pw_path in $(find '${{inputs.directory}}' -name playwright.config.ts)
           do
             pw_dir=$(dirname $pw_path)
             if [ ! -v $pw_dir ]; then
@@ -112,17 +142,47 @@ jobs:
             fi
           done
       - name: Install Deno
+        if: contains(inputs.directory, 'examples')
         uses: denoland/setup-deno@v2
         with:
           deno-version: v1.x
       - name: Maybe install gtk-rs dependencies
+        if: contains(inputs.directory, 'gtk')
         run: |
-          if [ ! -z $(echo ${{inputs.directory}} | grep gtk) ]; then
-            sudo apt-get update
-            sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
-          fi
+          sudo apt-get install -y libglib2.0-dev libgio2.0-cil-dev libgraphene-1.0-dev libcairo2-dev libpango1.0-dev libgtk-4-dev
+      - name: Install Tailwind and Sass dependencies
+        if: contains(inputs.directory, 'examples')
+        run: |
+          cd '${{ inputs.directory }}'
+          tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
+          sass_version="$LEPTOS_SASS_VERSION"
+          pnpm add "tailwindcss@$tailwindcss_version" "@tailwindcss/cli@$tailwindcss_version" "sass@$sass_version"
+
+          echo "Tailwind CSS version:"
+          ./node_modules/.bin/tailwindcss --version
+
+          echo "Sass version:"
+          ./node_modules/.bin/sass --version
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          cd ${{ inputs.directory }}
-          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
+          cd '${{ inputs.directory }}'
+          cargo make --no-workspace --profile=github-actions ci
+          # check the direct-minimal-versions on release
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+          # Supports: v1.2.3, v1.2.3-alpha, v1.2.3-beta1, v1.2.3-rc.1, etc.
+          if [[ "$COMMIT_MSG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.?[0-9]+)?)?$ ]]; then
+            cargo make --no-workspace --profile=github-actions check-minimal-versions
+          fi
+      # Check if the counter_isomorphic can be built with leptos_debuginfo cfg flag in release mode
+      - name: ${{ inputs.cargo_make_task }} with --cfg=leptos_debuginfo
+        if: contains(inputs.directory, 'counter_isomorphic')
+        run: |
+          cd '${{ inputs.directory }}'
+          RUSTFLAGS="$RUSTFLAGS --cfg leptos_debuginfo" cargo leptos build --release
+      - name: Clean up ${{ inputs.directory }}
+        if: always()
+        run: |
+          cd '${{ inputs.directory }}'
+          cargo clean || true
+          rm -rf node_modules || true

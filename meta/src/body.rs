@@ -1,6 +1,6 @@
 use crate::ServerMetaContext;
 use leptos::{
-    attr::NextAttribute,
+    attr::{any_attribute::AnyAttribute, NextAttribute},
     component, html,
     reactive::owner::use_context,
     tachys::{
@@ -103,6 +103,7 @@ where
     At: Attribute,
 {
     type AsyncOutput = BodyView<At::AsyncOutput>;
+    type Owned = BodyView<At::CloneableOwned>;
 
     const MIN_LENGTH: usize = At::MIN_LENGTH;
 
@@ -122,10 +123,14 @@ where
         _position: &mut Position,
         _escape: bool,
         _mark_branches: bool,
+        extra_attrs: Vec<AnyAttribute>,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();
-            _ = html::attributes_to_html(self.attributes, &mut buf);
+            _ = html::attributes_to_html(
+                (self.attributes, extra_attrs),
+                &mut buf,
+            );
             if !buf.is_empty() {
                 _ = meta.body.send(buf);
             }
@@ -141,6 +146,12 @@ where
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         BodyViewState { attributes }
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        BodyView {
+            attributes: self.attributes.into_cloneable_owned(),
+        }
     }
 }
 
@@ -159,5 +170,12 @@ where
 
     fn insert_before_this(&self, _child: &mut dyn Mountable) -> bool {
         false
+    }
+
+    fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
+        vec![document()
+            .body()
+            .expect("there to be a <body> element")
+            .into()]
     }
 }

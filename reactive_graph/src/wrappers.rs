@@ -11,7 +11,8 @@ pub mod read {
         },
         signal::{
             guards::{Mapped, Plain, ReadGuard},
-            ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal,
+            ArcMappedSignal, ArcReadSignal, ArcRwSignal, MappedSignal,
+            ReadSignal, RwSignal,
         },
         traits::{
             DefinedAt, Dispose, Get, Read, ReadUntracked, ReadValue, Track,
@@ -215,6 +216,24 @@ pub mod read {
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
+        }
+    }
+
+    impl<T> ArcSignal<T, LocalStorage>
+    where
+        T: 'static,
+    {
+        /// Wraps a derived signal. Works like [`Signal::derive`] but uses [`LocalStorage`].
+        #[track_caller]
+        pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
+            Signal::derive_local(derived_signal).into()
+        }
+
+        /// Moves a static, nonreactive value into a signal, backed by [`ArcStoredValue`].
+        /// Works like [`Signal::stored`] but uses [`LocalStorage`].
+        #[track_caller]
+        pub fn stored_local(value: T) -> Self {
+            Signal::stored_local(value).into()
         }
     }
 
@@ -789,6 +808,16 @@ pub mod read {
         }
     }
 
+    impl<T> From<MappedSignal<T>> for Signal<T>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: MappedSignal<T>) -> Self {
+            Self::derive(move || value.get())
+        }
+    }
+
     impl<T> From<RwSignal<T, LocalStorage>> for Signal<T, LocalStorage>
     where
         T: 'static,
@@ -818,6 +847,16 @@ pub mod read {
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
+        }
+    }
+
+    impl<T> From<ArcMappedSignal<T>> for Signal<T>
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: ArcMappedSignal<T>) -> Self {
+            MappedSignal::from(value).into()
         }
     }
 
@@ -1115,7 +1154,7 @@ pub mod read {
     /// ```
     #[derive(Debug, PartialEq, Eq)]
     #[deprecated(
-        since = "0.7.0-rc1",
+        since = "0.7.0-rc3",
         note = "`MaybeSignal<T>` is deprecated in favour of `Signal<T>` which \
                 is `Copy`, now has a more efficient From<T> implementation \
                 and other benefits in 0.7."

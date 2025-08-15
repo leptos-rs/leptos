@@ -1,0 +1,17 @@
+[package]
+name = "wasm_split_helpers"
+version = "0.1.2"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Tools to support code-splitting and lazy loading for WebAssembly (WASM) binaries."
+rust-version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-once-cell = { default-features = true, workspace = true, features = [
+	"std",
+] }
+wasm_split_macros.workspace = true
+or_poisoned.workspace = true

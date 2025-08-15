@@ -84,22 +84,27 @@ where
         *self.0.borrow_mut() = node;
     }
 
-    /// Advances to the next placeholder node.
+    /// Advances to the next placeholder node and returns it
     pub fn next_placeholder(
         &self,
         position: &PositionState,
     ) -> crate::renderer::types::Placeholder {
         //crate::dom::log("looking for placeholder after");
         //Rndr::log_node(&self.current());
+        self.advance_to_placeholder(position);
+        let marker = self.current();
+        crate::renderer::types::Placeholder::cast_from(marker.clone())
+            .unwrap_or_else(|| failed_to_cast_marker_node(marker))
+    }
+
+    /// Advances to the next placeholder node.
+    pub fn advance_to_placeholder(&self, position: &PositionState) {
         if position.get() == Position::FirstChild {
             self.child();
         } else {
             self.sibling();
         }
-        let marker = self.current();
         position.set(Position::NextChild);
-        crate::renderer::types::Placeholder::cast_from(marker.clone())
-            .unwrap_or_else(|| failed_to_cast_marker_node(marker))
     }
 }
 

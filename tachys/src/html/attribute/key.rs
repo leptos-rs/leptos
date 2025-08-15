@@ -195,6 +195,10 @@ attributes! {
     cols "cols",
     /// The `colspan` attribute defines the number of columns a cell should span.
     colspan "colspan",
+    /// The `command` attribute defines the command to be invoked when user clicks the `<button>` element which has `commandfor` attribute specified.
+    command "command",
+    /// The `commandfor` attribute defines the id of the element which button is controlling. It is generic version of `popovertarget`.
+    commandfor "commandfor",
     /// The `content` attribute gives the value associated with the http-equiv or name attribute.
     content "content",
     /// The `contenteditable` attribute indicates whether the element's content is editable.

@@ -9,9 +9,12 @@ use crate::{
     view::{Mountable, ToTemplate},
 };
 use linear_map::LinearMap;
-use once_cell::unsync::Lazy;
 use rustc_hash::FxHashSet;
-use std::{any::TypeId, borrow::Cow, cell::RefCell};
+use std::{
+    any::TypeId,
+    borrow::Cow,
+    cell::{LazyCell, RefCell},
+};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
@@ -21,6 +24,7 @@ pub struct Dom;
 
 thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
+    pub static TEMPLATE_CACHE: RefCell<Vec<(Cow<'static, str>, web_sys::Element)>> = Default::default();
 }
 
 pub type Node = web_sys::Node;
@@ -57,7 +61,7 @@ impl Dom {
 
     pub fn create_placeholder() -> Placeholder {
         thread_local! {
-            static COMMENT: Lazy<Comment> = Lazy::new(|| {
+            static COMMENT: LazyCell<Comment> = LazyCell::new(|| {
                 document().create_comment("")
             });
         }
@@ -90,6 +94,15 @@ impl Dom {
             parent,
             "insertNode"
         );
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
+    pub fn try_insert_node(
+        parent: &Element,
+        new_child: &Node,
+        anchor: Option<&Node>,
+    ) -> bool {
+        parent.insert_before(new_child, anchor).is_ok()
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
@@ -272,9 +285,10 @@ impl Dom {
             let cb = send_wrapper::SendWrapper::new(cb);
             move |el: &Element| {
                 or_debug!(
-                    el.remove_event_listener_with_callback(
+                    el.remove_event_listener_with_callback_and_bool(
                         intern(&name),
-                        cb.as_ref().unchecked_ref()
+                        cb.as_ref().unchecked_ref(),
+                        true
                     ),
                     el,
                     "removeEventListener"
@@ -442,8 +456,8 @@ impl Dom {
         V: ToTemplate + 'static,
     {
         thread_local! {
-            static TEMPLATE_ELEMENT: Lazy<HtmlTemplateElement> =
-                Lazy::new(|| document().create_element("template").unwrap().unchecked_into());
+            static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
+                LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
             static TEMPLATES: RefCell<LinearMap<TypeId, HtmlTemplateElement>> = Default::default();
         }
 
@@ -478,12 +492,65 @@ impl Dom {
             .unchecked_into()
     }
 
-    pub fn create_element_from_html(html: &str) -> Element {
-        // TODO can be optimized to cache HTML strings or cache <template>?
-        let tpl = document().create_element("template").unwrap();
-        tpl.set_inner_html(html);
-        let tpl = Self::clone_template(tpl.unchecked_ref());
+    pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
+        let tpl = TEMPLATE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
+                (html == *key)
+                    .then_some(Self::clone_template(tpl.unchecked_ref()))
+            }) {
+                tpl_content
+            } else {
+                let tpl = document()
+                    .create_element(Self::intern("template"))
+                    .unwrap();
+                tpl.set_inner_html(&html);
+                let tpl_content = Self::clone_template(tpl.unchecked_ref());
+                cache.push((html, tpl));
+                tpl_content
+            }
+        });
         tpl.first_element_child().unwrap_or(tpl)
+    }
+
+    pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
+        let tpl = TEMPLATE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
+                (html == *key)
+                    .then_some(Self::clone_template(tpl.unchecked_ref()))
+            }) {
+                tpl_content
+            } else {
+                let tpl = document()
+                    .create_element(Self::intern("template"))
+                    .unwrap();
+                let svg = document()
+                    .create_element_ns(
+                        Some(Self::intern("http://www.w3.org/2000/svg")),
+                        Self::intern("svg"),
+                    )
+                    .unwrap();
+                let g = document()
+                    .create_element_ns(
+                        Some(Self::intern("http://www.w3.org/2000/svg")),
+                        Self::intern("g"),
+                    )
+                    .unwrap();
+                g.set_inner_html(&html);
+                svg.append_child(&g).unwrap();
+                tpl.unchecked_ref::<TemplateElement>()
+                    .content()
+                    .append_child(&svg)
+                    .unwrap();
+                let tpl_content = Self::clone_template(tpl.unchecked_ref());
+                cache.push((html, tpl));
+                tpl_content
+            }
+        });
+
+        let svg = tpl.first_element_child().unwrap();
+        svg.first_element_child().unwrap_or(svg)
     }
 }
 
@@ -496,6 +563,10 @@ impl Mountable for Node {
         Dom::insert_node(parent, self, marker);
     }
 
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent = Dom::get_parent(self).and_then(Element::cast_from);
         if let Some(parent) = parent {
@@ -503,6 +574,10 @@ impl Mountable for Node {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -515,6 +590,10 @@ impl Mountable for Text {
         Dom::insert_node(parent, self, marker);
     }
 
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent =
             Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
@@ -523,6 +602,10 @@ impl Mountable for Text {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -535,6 +618,10 @@ impl Mountable for Comment {
         Dom::insert_node(parent, self, marker);
     }
 
+    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+        Dom::try_insert_node(parent, self, marker)
+    }
+
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         let parent =
             Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
@@ -543,6 +630,10 @@ impl Mountable for Comment {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![]
     }
 }
 
@@ -563,6 +654,10 @@ impl Mountable for Element {
             return true;
         }
         false
+    }
+
+    fn elements(&self) -> Vec<crate::renderer::types::Element> {
+        vec![self.clone()]
     }
 }
 

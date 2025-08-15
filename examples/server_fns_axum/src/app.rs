@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use futures::{Sink, Stream, StreamExt};
 use http::Method;
 use leptos::{html::Input, prelude::*, task::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -6,11 +6,13 @@ use server_fn::{
     client::{browser::BrowserClient, Client},
     codec::{
         Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, MultipartData,
-        MultipartFormData, Postcard, Rkyv, SerdeLite, StreamingText,
-        TextStream,
+        MultipartFormData, Postcard, Rkyv, RkyvEncoding, SerdeLite,
+        StreamingText, TextStream,
     },
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{browser::BrowserRequest, ClientReq, Req},
-    response::{browser::BrowserResponse, ClientRes, Res},
+    response::{browser::BrowserResponse, ClientRes, TryRes},
+    ContentType, Format, FormatType,
 };
 use std::future::Future;
 #[cfg(feature = "ssr")]
@@ -27,16 +29,16 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone()/>
-                <HydrationScripts options/>
-                <meta name="color-scheme" content="dark light"/>
-                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
-                <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css"/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options=options.clone() />
+                <HydrationScripts options />
+                <meta name="color-scheme" content="dark light" />
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
+                <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css" />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -49,7 +51,7 @@ pub fn App() -> impl IntoView {
             <h1>"Server Function Demo"</h1>
         </header>
         <main>
-            <HomePage/>
+            <HomePage />
         </main>
     }
 }
@@ -58,20 +60,20 @@ pub fn App() -> impl IntoView {
 pub fn HomePage() -> impl IntoView {
     view! {
         <h2>"Some Simple Server Functions"</h2>
-        <SpawnLocal/>
-        <WithAnAction/>
-        <WithActionForm/>
+        <SpawnLocal />
+        <WithAnAction />
+        <WithActionForm />
         <h2>"Custom Error Types"</h2>
-        <CustomErrorTypes/>
+        <CustomErrorTypes />
         <h2>"Alternative Encodings"</h2>
-        <ServerFnArgumentExample/>
-        <RkyvExample/>
-        <PostcardExample/>
-        <FileUpload/>
-        <FileUploadWithProgress/>
-        <FileWatcher/>
-        <CustomEncoding/>
-        <CustomClientExample/>
+        <ServerFnArgumentExample />
+        <RkyvExample />
+        <PostcardExample />
+        <FileUpload />
+        <FileUploadWithProgress />
+        <FileWatcher />
+        <CustomEncoding />
+        <CustomClientExample />
     }
 }
 
@@ -107,7 +109,7 @@ pub fn SpawnLocal() -> impl IntoView {
             " in an event listener. "
             "Clicking this button should alert with the uppercase version of the input."
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -186,7 +188,7 @@ pub fn WithAnAction() -> impl IntoView {
             "Some server functions are conceptually \"mutations,\", which change something on the server. "
             "These often work well as actions."
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let text = input_ref.get().unwrap().value();
             action.dispatch(text.into());
@@ -276,9 +278,9 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
         <ul>
             <li>Specific server function <strong>paths</strong></li>
             <li>Mixing and matching input and output <strong>encodings</strong></li>
-            <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
+            <li>Adding custom <strong>middleware</strong>on a per-server-fn basis</li>
         </ul>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -316,8 +318,8 @@ pub fn RkyvExample() -> impl IntoView {
     let rkyv_result = Resource::new(move || input.get(), rkyv_example);
 
     view! {
-        <h3>Using <code>rkyv</code> encoding</h3>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <h3>Using <code>rkyv</code>encoding</h3>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             set_input.set(value);
@@ -377,12 +379,12 @@ pub fn FileUpload() -> impl IntoView {
             let form_data = FormData::new_with_form(&target).unwrap();
             upload_action.dispatch_local(form_data);
         }>
-            <input type="file" name="file_to_upload"/>
-            <input type="submit"/>
+            <input type="file" name="file_to_upload" />
+            <input type="submit" />
         </form>
         <p>
             {move || {
-                if upload_action.input_local().read().is_none() && upload_action.value().read().is_none()
+                if upload_action.input().read().is_none() && upload_action.value().read().is_none()
                 {
                     "Upload a file.".to_string()
                 } else if upload_action.pending().get() {
@@ -422,7 +424,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         use async_broadcast::{broadcast, Receiver, Sender};
         use dashmap::DashMap;
         use futures::Stream;
-        use once_cell::sync::Lazy;
+        use std::sync::LazyLock;
 
         struct File {
             total: usize,
@@ -430,7 +432,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             rx: Receiver<usize>,
         }
 
-        static FILES: Lazy<DashMap<String, File>> = Lazy::new(DashMap::new);
+        static FILES: LazyLock<DashMap<String, File>> =
+            LazyLock::new(DashMap::new);
 
         pub async fn add_chunk(filename: &str, len: usize) {
             println!("[{filename}]\tadding {len}");
@@ -528,7 +531,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
                 let len = len
                     .split('\n')
                     .filter(|n| !n.is_empty())
-                    .last()
+                    .next_back()
                     .expect(
                         "expected at least one non-empty value from \
                          newline-delimited rows",
@@ -550,8 +553,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         <p>A file upload with progress can be handled with two separate server functions.</p>
         <aside>See the doc comment on the component for an explanation.</aside>
         <form on:submit=on_submit>
-            <input type="file" name="file_to_upload"/>
-            <input type="submit"/>
+            <input type="file" name="file_to_upload" />
+            <input type="submit" />
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
         {move || {
@@ -652,32 +655,95 @@ pub fn FileWatcher() -> impl IntoView {
 /// implementations if you'd like. However, it's much lighter weight to use something like `strum`
 /// simply to generate those trait implementations.
 #[server]
-pub async fn ascii_uppercase(
-    text: String,
-) -> Result<String, ServerFnError<InvalidArgument>> {
+pub async fn ascii_uppercase(text: String) -> Result<String, MyErrors> {
+    other_error()?;
+    Ok(ascii_uppercase_inner(text)?)
+}
+
+pub fn other_error() -> Result<(), String> {
+    Ok(())
+}
+
+pub fn ascii_uppercase_inner(text: String) -> Result<String, InvalidArgument> {
     if text.len() < 5 {
-        Err(InvalidArgument::TooShort.into())
+        Err(InvalidArgument::TooShort)
     } else if text.len() > 15 {
-        Err(InvalidArgument::TooLong.into())
+        Err(InvalidArgument::TooLong)
     } else if text.is_ascii() {
         Ok(text.to_ascii_uppercase())
     } else {
-        Err(InvalidArgument::NotAscii.into())
+        Err(InvalidArgument::NotAscii)
     }
 }
 
+#[server]
+pub async fn ascii_uppercase_classic(
+    text: String,
+) -> Result<String, ServerFnError<InvalidArgument>> {
+    Ok(ascii_uppercase_inner(text)?)
+}
+
 // The EnumString and Display derive macros are provided by strum
-#[derive(Debug, Clone, EnumString, Display)]
+#[derive(
+    thiserror::Error,
+    Debug,
+    Clone,
+    Display,
+    EnumString,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub enum InvalidArgument {
     TooShort,
     TooLong,
     NotAscii,
 }
 
+#[derive(
+    thiserror::Error,
+    Debug,
+    Clone,
+    Display,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
+pub enum MyErrors {
+    InvalidArgument(InvalidArgument),
+    ServerFnError(ServerFnErrorErr),
+    Other(String),
+}
+
+impl From<InvalidArgument> for MyErrors {
+    fn from(value: InvalidArgument) -> Self {
+        MyErrors::InvalidArgument(value)
+    }
+}
+
+impl From<String> for MyErrors {
+    fn from(value: String) -> Self {
+        MyErrors::Other(value)
+    }
+}
+
+impl FromServerFnError for MyErrors {
+    type Encoder = RkyvEncoding;
+
+    fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+        MyErrors::ServerFnError(value)
+    }
+}
+
 #[component]
 pub fn CustomErrorTypes() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
     let (result, set_result) = signal(None);
+    let (result_classic, set_result_classic) = signal(None);
 
     view! {
         <h3>Using custom error types</h3>
@@ -688,18 +754,21 @@ pub fn CustomErrorTypes() -> impl IntoView {
             "Try typing a message that is between 5 and 15 characters of ASCII text below. Then try breaking \
             the rules!"
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
-                let data = ascii_uppercase(value).await;
+                let data = ascii_uppercase(value.clone()).await;
+                let data_classic = ascii_uppercase_classic(value).await;
                 set_result.set(Some(data));
+                set_result_classic.set(Some(data_classic));
             });
         }>
 
             "Submit"
         </button>
         <p>{move || format!("{:?}", result.get())}</p>
+        <p>{move || format!("{:?}", result_classic.get())}</p>
     }
 }
 
@@ -717,8 +786,15 @@ pub struct Toml;
 #[derive(Serialize, Deserialize)]
 pub struct TomlEncoded<T>(T);
 
-impl Encoding for Toml {
+impl ContentType for Toml {
     const CONTENT_TYPE: &'static str = "application/toml";
+}
+
+impl FormatType for Toml {
+    const FORMAT_TYPE: Format = Format::Text;
+}
+
+impl Encoding for Toml {
     const METHOD: Method = Method::POST;
 }
 
@@ -726,14 +802,12 @@ impl<T, Request, Err> IntoReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: ClientReq<Err>,
     T: Serialize,
+    Err: FromServerFnError,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<Err>> {
-        let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(self, path: &str, accepts: &str) -> Result<Request, Err> {
+        let data = toml::to_string(&self.0).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Request::try_new_post(path, Toml::CONTENT_TYPE, accepts, data)
     }
 }
@@ -742,23 +816,26 @@ impl<T, Request, Err> FromReq<Toml, Request, Err> for TomlEncoded<T>
 where
     Request: Req<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
+    async fn from_req(req: Request) -> Result<Self, Err> {
         let string_data = req.try_into_string().await?;
         toml::from_str::<T>(&string_data)
             .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+            .map_err(|e| ServerFnErrorErr::Args(e.to_string()).into_app_error())
     }
 }
 
 impl<T, Response, Err> IntoRes<Toml, Response, Err> for TomlEncoded<T>
 where
-    Response: Res<Err>,
+    Response: TryRes<Err>,
     T: Serialize + Send,
+    Err: FromServerFnError,
 {
-    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
-        let data = toml::to_string(&self.0)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    async fn into_res(self) -> Result<Response, Err> {
+        let data = toml::to_string(&self.0).map_err(|e| {
+            ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
+        })?;
         Response::try_from_string(Toml::CONTENT_TYPE, data)
     }
 }
@@ -767,12 +844,13 @@ impl<T, Response, Err> FromRes<Toml, Response, Err> for TomlEncoded<T>
 where
     Response: ClientRes<Err> + Send,
     T: DeserializeOwned,
+    Err: FromServerFnError,
 {
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
+    async fn from_res(res: Response) -> Result<Self, Err> {
         let data = res.try_into_string().await?;
-        toml::from_str(&data)
-            .map(TomlEncoded)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        toml::from_str(&data).map(TomlEncoded).map_err(|e| {
+            ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
+        })
     }
 }
 
@@ -809,7 +887,7 @@ pub fn CustomEncoding() -> impl IntoView {
         <p>
             "This example creates a custom encoding that sends server fn data using TOML. Why? Well... why not?"
         </p>
-        <input node_ref=input_ref placeholder="Type something here."/>
+        <input node_ref=input_ref placeholder="Type something here." />
         <button on:click=move |_| {
             let value = input_ref.get().unwrap().value();
             spawn_local(async move {
@@ -835,7 +913,12 @@ pub fn CustomClientExample() -> impl IntoView {
     pub struct CustomClient;
 
     // Implement the `Client` trait for it.
-    impl<CustErr> Client<CustErr> for CustomClient {
+    impl<E, IS, OS> Client<E, IS, OS> for CustomClient
+    where
+        E: FromServerFnError,
+        IS: FromServerFnError,
+        OS: FromServerFnError,
+    {
         // BrowserRequest and BrowserResponse are the defaults used by other server functions.
         // They are wrappers for the underlying Web Fetch API types.
         type Request = BrowserRequest;
@@ -844,15 +927,35 @@ pub fn CustomClientExample() -> impl IntoView {
         // Our custom `send()` implementation does all the work.
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
-               + Send {
+        ) -> impl Future<Output = Result<Self::Response, E>> + Send {
             // BrowserRequest derefs to the underlying Request type from gloo-net,
             // so we can get access to the headers here
             let headers = req.headers();
             // modify the headers by appending one
             headers.append("X-Custom-Header", "foobar");
             // delegate back out to BrowserClient to send the modified request
-            BrowserClient::send(req)
+            <BrowserClient as Client<E, IS, OS>>::send(req)
+        }
+
+        fn open_websocket(
+            path: &str,
+        ) -> impl Future<
+            Output = Result<
+                (
+                    impl Stream<
+                            Item = Result<server_fn::Bytes, server_fn::Bytes>,
+                        > + Send
+                        + 'static,
+                    impl Sink<server_fn::Bytes> + Send + 'static,
+                ),
+                E,
+            >,
+        > + Send {
+            <BrowserClient as Client<E, IS, OS>>::open_websocket(path)
+        }
+
+        fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+            <BrowserClient as Client<E, IS, OS>>::spawn(future)
         }
     }
 
@@ -926,16 +1029,14 @@ pub fn PostcardExample() -> impl IntoView {
     );
 
     view! {
-        <h3>Using <code>postcard</code> encoding</h3>
+        <h3>Using <code>postcard</code>encoding</h3>
         <p>"This example demonstrates using Postcard for efficient binary serialization."</p>
         <button on:click=move |_| {
-            // Update the input data when the button is clicked
-            set_input.update(|data| {
-                data.age += 1;
-            });
-        }>
-            "Increment Age"
-        </button>
+            set_input
+                .update(|data| {
+                    data.age += 1;
+                });
+        }>"Increment Age"</button>
         // Display the current input data
         <p>"Input: " {move || format!("{:?}", input.get())}</p>
         <Transition>

@@ -54,9 +54,8 @@ pub async fn init_verification(
 #[tracing::instrument]
 #[server]
 pub async fn verify(
-    body: HashMap<String, String>,
+    mut body: HashMap<String, String>,
 ) -> Result<Option<ViewableVerificationFlow>, ServerFnError> {
-    let mut body = body;
     let action = body
         .remove("action")
         .ok_or(ServerFnError::new("Can't find action on body."))?;

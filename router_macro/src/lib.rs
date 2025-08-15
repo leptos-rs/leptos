@@ -6,10 +6,10 @@
 
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
-use proc_macro_error2::{abort, proc_macro_error};
+use proc_macro_error2::{abort, proc_macro_error, set_dummy};
 use quote::{quote, ToTokens};
 use syn::{
-    spanned::Spanned, Block, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
+    spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
 };
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
@@ -198,6 +198,37 @@ impl ToTokens for Segments {
 /// add a [`lazy`] annotation to the `view` method, which will cause the code for the view
 /// to lazy-load concurrently with the `data` being loaded for the route.
 ///
+/// ```rust
+/// use leptos::prelude::*;
+/// use leptos_router::{lazy_route, LazyRoute};
+///
+/// // the route definition
+/// #[derive(Debug)]
+/// struct BlogListingRoute {
+///     titles: Resource<Vec<String>>
+/// }
+///
+/// #[lazy_route]
+/// impl LazyRoute for BlogListingRoute {
+///     fn data() -> Self {
+///         Self {
+///             titles: Resource::new(|| (), |_| async {
+///                 vec![/* todo: load blog posts */]
+///             })
+///         }
+///     }
+///
+///     // this function will be lazy-loaded, concurrently with data()
+///     fn view(this: Self) -> AnyView {
+///         let BlogListingRoute { titles } = this;
+///
+///         // ... now you can use the `posts` resource with Suspense, etc.,
+///         // and return AnyView by calling .into_any() on a view
+///         # ().into_any()
+///     }
+/// }
+/// ```
+///
 /// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
 /// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/macro.lazy.html
 #[proc_macro_attribute]
@@ -213,7 +244,9 @@ fn lazy_route_impl(
     _args: proc_macro::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    let mut im = syn::parse::<ItemImpl>(s).unwrap_or_else(|e| {
+    set_dummy(s.clone().into());
+
+    let mut im = syn::parse::<ItemImpl>(s.clone()).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy_route` can only be used on an `impl` block")
     });
     if im.trait_.is_none() {
@@ -232,7 +265,30 @@ fn lazy_route_impl(
         }) => segments.last().unwrap().ident.to_string(),
         _ => abort!(self_ty.span(), "only path types are supported"),
     };
-    let lazy_view_ident = Ident::new(&ty_name_to_snake, im.self_ty.span());
+    let lazy_view_ident =
+        Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
+    let preload_lazy_view_ident = Ident::new(
+        &format!("__preload_{lazy_view_ident}"),
+        lazy_view_ident.span(),
+    );
+
+    im.items.push(
+        syn::parse::<ImplItem>(
+            quote! {
+                async fn preload() {
+                    // TODO for 0.9 this is not precise
+                    // we don't split routes for wasm32 ssr
+                    // but we don't require a `hydrate`/`csr` feature on leptos_router
+                    #[cfg(target_arch = "wasm32")]
+                    #preload_lazy_view_ident().await;
+                }
+            }
+            .into(),
+        )
+        .unwrap_or_else(|e| {
+            abort!(e.span(), "could not parse preload item impl")
+        }),
+    );
 
     let item = im.items.iter_mut().find_map(|item| match item {
         ImplItem::Fn(inner) => {
@@ -244,28 +300,47 @@ fn lazy_route_impl(
         }
         _ => None,
     });
-    match item {
-        None => abort!(im.span(), "must contain a fn called `view`"),
-        Some(fun) => {
-            let body = fun.block.clone();
-            let new_block = quote! {{
-                    #[cfg_attr(feature = "split", wasm_split::wasm_split(#lazy_view_ident))]
-                    async fn view(this: #self_ty) -> ::leptos::prelude::AnyView {
-                        #body
-                    }
 
-                    view(self).await
-            }};
-            let block =
-                syn::parse::<Block>(new_block.into()).unwrap_or_else(|e| {
-                    abort!(
-                        e.span(),
-                        "`lazy_route` can only be used on an `impl` block"
-                    )
-                });
-            fun.block = block;
+    match item {
+        None => s,
+        Some(fun) => {
+            if let Some(a) = fun.sig.asyncness {
+                abort!(a.span(), "`view` method should not be async")
+            }
+            fun.sig.asyncness = Some(Default::default());
+
+            let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
+                abort!(fun.sig.span(), "must have an argument")
+            });
+            let FnArg::Typed(first_arg) = first_arg else {
+                abort!(
+                    first_arg.span(),
+                    "this must be a typed argument like `this: Self`"
+                )
+            };
+            let first_arg_pat = &*first_arg.pat;
+            let body = std::mem::replace(
+                &mut fun.block,
+                syn::parse(
+                    quote! {
+                        {
+                            #lazy_view_ident(#first_arg_pat).await
+                        }
+                    }
+                    .into(),
+                )
+                .unwrap(),
+            );
+
+            quote! {
+                #[allow(non_snake_case)]
+                #[::leptos::lazy]
+                fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
+                    #body
+                }
+
+                #im
+            }.into()
         }
     }
-
-    quote! { #im }.into()
 }

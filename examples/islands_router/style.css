@@ -1,3 +1,52 @@
-.pending {
-	color: purple;
+body {
+	font-family: system-ui, sans-serif;
+	background-color: #f6f6fa;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	font-family: ui-rounded, 'Hiragino Maru Gothic ProN', Quicksand, Comfortaa, Manjari, 'Arial Rounded MT', 'Arial Rounded MT Bold', Calibri, source-sans-pro, sans-serif;
+	text-align: center;
+}
+
+nav {
+	padding: 1rem;
+	text-align: center;
+}
+
+nav a {
+	margin: 1rem;
+}
+
+form.search {
+	display: flex;
+	margin: 2rem auto;
+	justify-content: center;
+}
+
+td {
+	min-width: 10rem;
+	width: 10rem;
+}
+
+table {
+	min-width: 100%;
+}
+
+.page {
+	width: 80%;
+	margin: auto;
+}
+
+td:last-child > * {
+	display: inline-block;
+}
+
+.note, .note {
+	text-align: center;
+}
+
+button.counter {
+	display: block;
+	font-size: 2rem;
+	margin: auto;
 }

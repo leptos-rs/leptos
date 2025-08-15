@@ -1,12 +1,8 @@
-use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::ServerFnError,
-    request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    codec::{Patch, Post, Put},
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
-use futures::StreamExt;
-use http::Method;
 use rkyv::{
     api::high::{HighDeserializer, HighSerializer, HighValidator},
     bytecheck::CheckBytes,
@@ -22,85 +18,54 @@ type RkyvDeserializer = HighDeserializer<rancor::Error>;
 type RkyvValidator<'a> = HighValidator<'a, rancor::Error>;
 
 /// Pass arguments and receive responses using `rkyv` in a `POST` request.
-pub struct Rkyv;
+pub struct RkyvEncoding;
 
-impl Encoding for Rkyv {
+impl ContentType for RkyvEncoding {
     const CONTENT_TYPE: &'static str = "application/rkyv";
-    const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<Rkyv, Request, CustErr> for T
+impl FormatType for RkyvEncoding {
+    const FORMAT_TYPE: Format = Format::Binary;
+}
+
+impl<T> Encodes<T> for RkyvEncoding
 where
-    Request: ClientReq<CustErr>,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
-        let bytes = Bytes::copy_from_slice(encoded.as_ref());
-        Request::try_new_post_bytes(path, accepts, Rkyv::CONTENT_TYPE, bytes)
+    type Error = rancor::Error;
+
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
+        let encoded = rkyv::to_bytes::<rancor::Error>(value)?;
+        Ok(Bytes::copy_from_slice(encoded.as_ref()))
     }
 }
 
-impl<CustErr, T, Request> FromReq<Rkyv, Request, CustErr> for T
+impl<T> Decodes<T> for RkyvEncoding
 where
-    Request: Req<CustErr> + Send + 'static,
     T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
     T::Archived: Deserialize<T, RkyvDeserializer>
         + for<'a> CheckBytes<RkyvValidator<'a>>,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+    type Error = rancor::Error;
+
+    fn decode(bytes: Bytes) -> Result<T, Self::Error> {
         let mut aligned = AlignedVec::<1024>::new();
-        let mut body_stream = Box::pin(req.try_into_stream()?);
-        while let Some(chunk) = body_stream.next().await {
-            match chunk {
-                Err(e) => {
-                    return Err(ServerFnError::Deserialization(e.to_string()))
-                }
-                Ok(bytes) => {
-                    for byte in bytes {
-                        aligned.push(byte);
-                    }
-                }
-            }
-        }
+        aligned.extend_from_slice(bytes.as_ref());
         rkyv::from_bytes::<T, rancor::Error>(aligned.as_ref())
-            .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
 
-impl<CustErr, T, Response> IntoRes<Rkyv, Response, CustErr> for T
-where
-    Response: Res<CustErr>,
-    T: Send,
-    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
-    T::Archived: Deserialize<T, RkyvDeserializer>
-        + for<'a> CheckBytes<RkyvValidator<'a>>,
-{
-    async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
-        let encoded = rkyv::to_bytes::<rancor::Error>(&self)
-            .map_err(|e| ServerFnError::Serialization(format!("{e:?}")))?;
-        let bytes = Bytes::copy_from_slice(encoded.as_ref());
-        Response::try_from_bytes(Rkyv::CONTENT_TYPE, bytes)
-    }
-}
+/// Pass arguments and receive responses as `rkyv` in a `POST` request.
+pub type Rkyv = Post<RkyvEncoding>;
 
-impl<CustErr, T, Response> FromRes<Rkyv, Response, CustErr> for T
-where
-    Response: ClientRes<CustErr> + Send,
-    T: Archive + for<'a> Serialize<RkyvSerializer<'a>>,
-    T::Archived: Deserialize<T, RkyvDeserializer>
-        + for<'a> CheckBytes<RkyvValidator<'a>>,
-{
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
-        let data = res.try_into_bytes().await?;
-        rkyv::from_bytes::<T, rancor::Error>(&data)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
-    }
-}
+/// Pass arguments and receive responses as `rkyv` in a `PATCH` request.
+/// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PatchRkyv = Patch<RkyvEncoding>;
+
+/// Pass arguments and receive responses as `rkyv` in a `PUT` request.
+/// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PutRkyv = Put<RkyvEncoding>;

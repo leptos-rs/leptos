@@ -2,6 +2,10 @@ use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use std::fmt::Debug;
 
 impl PossibleRouteMatch for () {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         Some(PartialPathMatch::new(path, vec![], ""))
     }
@@ -54,6 +58,10 @@ impl AsPath for &'static str {
 pub struct StaticSegment<T: AsPath>(pub T);
 
 impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
+    fn optional(&self) -> bool {
+        false
+    }
+
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();
@@ -72,12 +80,20 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
             {
                 this.next();
             }
+        } else if !path.is_empty() {
+            // Path must start with `/` otherwise we are not certain about being at the beginning of the segment in the path
+            return None;
         }
 
         for char in test {
             let n = this.next();
             // when we get a closing /, stop matching
-            if char == '/' || n.is_none() {
+            if char == '/' {
+                if n.is_some() {
+                    return None;
+                }
+                break;
+            } else if n.is_none() {
                 break;
             }
             // if the next character in the path matches the
@@ -99,9 +115,16 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
         }
 
         // build the match object
-        // the remaining is built from the path in, with the slice moved
-        // by the length of this match
-        let (matched, remaining) = path.split_at(matched_len);
+        let (matched, remaining) = if matched_len == 1 && path.starts_with('/')
+        {
+            // If only thing that matched is `/` we can't eat it, otherwise next invocation of the
+            // test function will not be able to tell that we are matching from the beginning of the path segment
+            ("/", path)
+        } else {
+            // the remaining is built from the path in, with the slice moved
+            // by the length of this match
+            path.split_at(matched_len)
+        };
         has_matched.then(|| PartialPathMatch::new(remaining, vec![], matched))
     }
 
@@ -213,6 +236,17 @@ mod tests {
     }
 
     #[test]
+    fn allow_empty_match() {
+        let path = "";
+        let def = StaticSegment("");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert!(params.is_empty());
+    }
+
+    #[test]
     fn tuple_static_mismatch() {
         let path = "/foo/baz";
         let def = (StaticSegment("foo"), StaticSegment("bar"));
@@ -222,6 +256,13 @@ mod tests {
     #[test]
     fn tuple_static_mismatch_on_enum() {
         let path = "/foo/baz";
+        let def = (StaticSegment(Foo), StaticSegment(Bar));
+        assert!(def.test(path).is_none());
+    }
+
+    #[test]
+    fn dont_match_smooshed_segments() {
+        let path = "/foobar";
         let def = (StaticSegment(Foo), StaticSegment(Bar));
         assert!(def.test(path).is_none());
     }
@@ -260,5 +301,16 @@ mod tests {
         assert_eq!(matched.remaining(), "");
         let params = matched.params();
         assert!(params.is_empty());
+    }
+
+    #[test]
+    fn only_match_full_static_paths() {
+        let def = (StaticSegment("tests"), StaticSegment("abc"));
+        assert!(def.test("/tes/abc").is_none());
+        assert!(def.test("/test/abc").is_none());
+        assert!(def.test("/tes/abc/").is_none());
+        assert!(def.test("/test/abc/").is_none());
+        assert!(def.test("/tests/ab").is_none());
+        assert!(def.test("/tests/ab/").is_none());
     }
 }

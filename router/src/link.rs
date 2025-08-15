@@ -66,6 +66,25 @@ where
 ///    This is helpful for accessibility and for styling. For example, maybe you want to set the link a
 ///    different color if it’s a link to the page you’re currently on.
 ///
+/// ### Additional Attributes
+///
+/// You can add additional HTML attributes to the `<a>` element created by this component using the attribute
+/// spreading syntax for components. For example, to add a class, you can use `attr:class="my-link"`.
+/// Alternately, you can add any number of HTML attributes (include `class`) after a `{..}` marker.
+///
+/// ```rust
+/// # use leptos::prelude::*; use leptos_router::components::A;
+/// # fn spread_example() -> impl IntoView {
+/// view! {
+///   <A href="/about" attr:class="my-link" {..} id="foo">"Some link"</A>
+///   <A href="/about" {..} class="my-link" id="bar">"Another link"</A>
+///   <A href="/about" {..} class:my-link=true id="baz">"One more"</A>
+/// }
+/// # }
+/// ```
+///
+/// For more information on this attribute spreading syntax, [see here](https://book.leptos.dev/view/03_components.html#spreading-attributes-onto-components).
+///
 /// ### DOM Properties
 ///
 /// `<a>` elements can take several additional DOM properties with special meanings.
@@ -102,7 +121,7 @@ where
     H: ToHref + Send + Sync + 'static,
 {
     fn inner(
-        href: ArcMemo<Option<String>>,
+        href: ArcMemo<String>,
         target: Option<Oco<'static, str>>,
         exact: bool,
         children: Children,
@@ -114,23 +133,21 @@ where
         let is_active = {
             let href = href.clone();
             move || {
-                href.read().as_deref().is_some_and(|to| {
-                    let path = to.split(['?', '#']).next().unwrap_or_default();
-                    current_url.with(|loc| {
-                        let loc = loc.path();
-                        if exact {
-                            loc == path
-                        } else {
-                            is_active_for(path, loc, strict_trailing_slash)
-                        }
-                    })
+                let path = normalize_path(&href.read());
+                current_url.with(|loc| {
+                    let loc = loc.path();
+                    if exact {
+                        loc == path
+                    } else {
+                        is_active_for(&path, loc, strict_trailing_slash)
+                    }
                 })
             }
         };
 
         view! {
             <a
-                href=move || href.get().unwrap_or_default()
+                href=move || href.get()
                 target=target
                 aria-current=move || if is_active() { Some("page") } else { None }
                 data-noscroll=!scroll
@@ -172,9 +189,62 @@ fn is_active_for(
         }
 }
 
+// Resolve `".."` segments in the path. Assume path is either empty or starts with a `'/'``.
+fn normalize_path(path: &str) -> String {
+    // Return only on the only condition where leading slash
+    // is allowed to be missing.
+    if path.is_empty() {
+        return String::new();
+    }
+    let mut del = 0;
+    let mut it = path
+        .split(['?', '#'])
+        .next()
+        .unwrap_or_default()
+        .split(['/'])
+        .rev()
+        .peekable();
+
+    let init = if it.peek() == Some(&"..") {
+        String::from("/")
+    } else {
+        String::new()
+    };
+    let mut path = it
+        .filter(|v| {
+            if *v == ".." {
+                del += 1;
+                false
+            } else if *v == "." {
+                false
+            } else if del > 0 {
+                del -= 1;
+                false
+            } else {
+                true
+            }
+        })
+        // We cannot reverse before the fold again bc the filter
+        // would be forwards again.
+        .fold(init, |mut p, v| {
+            p.reserve(v.len() + 1);
+            p.insert(0, '/');
+            p.insert_str(0, v);
+            p
+        });
+    path.truncate(path.len().saturating_sub(1));
+
+    // Path starts with '/' giving it an extra empty segment after the split
+    // Which should not be removed.
+    if !path.starts_with('/') {
+        path.insert(0, '/');
+    }
+    path
+}
+
 #[cfg(test)]
 mod tests {
-    use super::is_active_for;
+    use super::{is_active_for, normalize_path};
 
     #[test]
     fn is_active_for_matched() {
@@ -295,7 +365,7 @@ mod tests {
             assert!(!is_active_for("/else/where", "/", f));
             assert!(!is_active_for("/no/where/", "/", f));
 
-            // mismatch either side all cominations of trailing slashes
+            // mismatch either side all combinations of trailing slashes
             assert!(!is_active_for("/level", "/item", f));
             assert!(!is_active_for("/level", "/item/", f));
             assert!(!is_active_for("/level/", "/item", f));
@@ -383,7 +453,7 @@ mod tests {
         //
         // assert!(is_active_for("/", "/item", true));
         //
-        // Perhaps there needs to be a flag such that aria-curently applies only the _same level_, e.g
+        // Perhaps there needs to be a flag such that aria-curent applies only the _same level_, e.g
         // assert!(is_same_level("/", "/"))
         // assert!(is_same_level("/", "/anything"))
         // assert!(!is_same_level("/", "/some/"))
@@ -392,5 +462,38 @@ mod tests {
         // assert!(is_same_level("/some/", "/some/level"))
         // assert!(!is_same_level("/some/", "/some/level/"))
         // assert!(!is_same_level("/some/", "/some/level/deeper"))
+    }
+
+    #[test]
+    fn normalize_path_test() {
+        // Make sure it doesn't touch already normalized urls.
+        assert!(normalize_path("") == "".to_string());
+        assert!(normalize_path("/") == "/".to_string());
+        assert!(normalize_path("/some") == "/some".to_string());
+        assert!(normalize_path("/some/") == "/some/".to_string());
+
+        // Correctly removes ".." segments.
+        assert!(normalize_path("/some/../another") == "/another".to_string());
+        assert!(
+            normalize_path("/one/two/../three/../../four")
+                == "/four".to_string()
+        );
+
+        // Correctly sets trailing slash if last segement is "..".
+        assert!(normalize_path("/one/two/..") == "/one/".to_string());
+        assert!(normalize_path("/one/two/../") == "/one/".to_string());
+
+        // Level outside of the url.
+        assert!(normalize_path("/..") == "/".to_string());
+        assert!(normalize_path("/../") == "/".to_string());
+
+        // Going into negative levels and coming back into the positives.
+        assert!(
+            normalize_path("/one/../../two/three") == "/two/three".to_string()
+        );
+        assert!(
+            normalize_path("/one/../../two/three/")
+                == "/two/three/".to_string()
+        );
     }
 }

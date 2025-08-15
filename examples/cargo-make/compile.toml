@@ -1,11 +1,9 @@
-[tasks.build]
-toolchain = "stable"
-command = "cargo"
-args = ["build-all-features"]
-install_crate = "cargo-all-features"
+[tasks.cargo-all-features]
+install_script = '''
+cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+'''
 
-[tasks.check]
-toolchain = "stable"
+[tasks.build]
+dependencies = ["cargo-all-features"]
 command = "cargo"
-args = ["check-all-features"]
-install_crate = "cargo-all-features"
+args = ["all-features", "build"]

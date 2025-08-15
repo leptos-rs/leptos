@@ -141,8 +141,8 @@
 //! }
 //! ```
 
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
-#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 
 extern crate self as leptos;
 
@@ -162,6 +162,7 @@ pub mod prelude {
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
             form::*, hydration::*, into_view::*, mount::*, suspense::*,
+            text_prop::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::helpers::*;
@@ -169,15 +170,21 @@ pub mod prelude {
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
-            actions::*, computed::*, effect::*, graph::untrack, owner::*,
-            signal::*, wrappers::read::*,
+            actions::*,
+            computed::*,
+            effect::*,
+            graph::untrack,
+            owner::*,
+            signal::*,
+            wrappers::{read::*, write::*},
         };
-        pub use server_fn::{self, ServerFnError};
+        pub use server_fn::{
+            self,
+            error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
+        };
         pub use tachys::{
             reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
-            view::{
-                any_view::AnyView, fragment::Fragment, template::ViewTemplate,
-            },
+            view::{fragment::Fragment, template::ViewTemplate},
         };
     }
     pub use export_types::*;
@@ -293,14 +300,23 @@ pub mod logging {
 
 /// Utilities for working with asynchronous tasks.
 pub mod task {
-    pub use any_spawner::{self, CustomExecutor, Executor};
+    use any_spawner::Executor;
+    use reactive_graph::computed::ScopedFuture;
     use std::future::Future;
 
     /// Spawns a thread-safe [`Future`].
+    ///
+    /// This will be run with the current reactive owner and observer using a [`ScopedFuture`].
     #[track_caller]
     #[inline(always)]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-        Executor::spawn(fut)
+        let fut = ScopedFuture::new(fut);
+
+        #[cfg(not(target_family = "wasm"))]
+        Executor::spawn(fut);
+
+        #[cfg(target_family = "wasm")]
+        Executor::spawn_local(fut);
     }
 
     /// Spawns a [`Future`] that cannot be sent across threads.
@@ -324,7 +340,6 @@ pub mod task {
 #[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde;
-#[cfg(feature = "islands")]
 #[doc(hidden)]
 pub use serde_json;
 #[cfg(feature = "tracing")]
@@ -332,5 +347,39 @@ pub use serde_json;
 pub use tracing;
 #[doc(hidden)]
 pub use wasm_bindgen;
+pub use wasm_split_helpers;
 #[doc(hidden)]
 pub use web_sys;
+
+#[doc(hidden)]
+pub mod __reexports {
+    pub use send_wrapper;
+    pub use wasm_bindgen_futures;
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Default)]
+pub struct PrefetchLazyFn(
+    pub  reactive_graph::owner::ArcStoredValue<
+        std::collections::HashSet<&'static str>,
+    >,
+);
+
+#[doc(hidden)]
+pub fn prefetch_lazy_fn_on_server(id: &'static str) {
+    use crate::context::use_context;
+    use reactive_graph::traits::WriteValue;
+
+    if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
+        prefetches.0.write_value().insert(id);
+    }
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Default)]
+pub struct WasmSplitManifest(
+    pub  reactive_graph::owner::ArcStoredValue<(
+        String,
+        std::collections::HashMap<String, Vec<String>>,
+    )>,
+);

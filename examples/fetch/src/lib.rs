@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use leptos::tachys::html::style::style;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,7 +15,7 @@ pub enum CatError {
 
 type CatCount = usize;
 
-async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>, Error> {
     if count > 0 {
         gloo_timers::future::TimeoutFuture::new(1000).await;
         // make the request
@@ -42,11 +41,7 @@ async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
 pub fn fetch_example() -> impl IntoView {
     let (cat_count, set_cat_count) = signal::<CatCount>(1);
 
-    // we use new_unsync here because the reqwasm request type isn't Send
-    // if we were doing SSR, then
-    // 1) we'd want to use a Resource, so the data would be serialized to the client
-    // 2) we'd need to make sure there was a thread-local spawner set up
-    let cats = AsyncDerived::new_unsync(move || fetch_cats(cat_count.get()));
+    let cats = LocalResource::new(move || fetch_cats(cat_count.get()));
 
     let fallback = move |errors: ArcRwSignal<Errors>| {
         let error_list = move || {
@@ -66,8 +61,6 @@ pub fn fetch_example() -> impl IntoView {
         }
     };
 
-    let spreadable = style(("background-color", "AliceBlue"));
-
     view! {
         <div>
             <label>
@@ -82,7 +75,7 @@ pub fn fetch_example() -> impl IntoView {
                 />
 
             </label>
-            <Transition fallback=|| view! { <div>"Loading..."</div> } {..spreadable}>
+            <Transition fallback=|| view! { <div>"Loading..."</div> }>
                 <ErrorBoundary fallback>
                     <ul>
                         {move || Suspend::new(async move {
@@ -92,7 +85,7 @@ pub fn fetch_example() -> impl IntoView {
                                         .map(|s| {
                                             view! {
                                                 <li>
-                                                    <img src=s.clone()/>
+                                                    <img src=s.clone() />
                                                 </li>
                                             }
                                         })

@@ -1,6 +1,4 @@
-use leptos::ev;
-use leptos::html::Input;
-use leptos::prelude::*;
+use leptos::{ev, html::Input, prelude::*};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use web_sys::KeyboardEvent;

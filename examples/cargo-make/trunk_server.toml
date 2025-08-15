@@ -6,5 +6,6 @@ command = "trunk"
 args = ["build"]
 
 [tasks.start-client]
-command = "trunk"
-args = ["serve", "${@}"]
+script = '''
+trunk serve -q "${@}" &
+'''

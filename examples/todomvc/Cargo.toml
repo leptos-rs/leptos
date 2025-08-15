@@ -19,4 +19,4 @@ web-sys = { version = "0.3.70", features = ["Storage"] }
 wasm-bindgen-test = "0.3.42"
 
 [package.metadata.cargo-all-features]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"], []]

@@ -1,74 +1,52 @@
-use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
-    error::ServerFnError,
-    request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    codec::{Patch, Post, Put},
+    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
-use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
-/// A codec for MessagePack.
-pub struct MsgPack;
+/// Serializes and deserializes MessagePack with [`rmp_serde`].
+pub struct MsgPackEncoding;
 
-impl Encoding for MsgPack {
+impl ContentType for MsgPackEncoding {
     const CONTENT_TYPE: &'static str = "application/msgpack";
-    const METHOD: Method = Method::POST;
 }
 
-impl<T, Request, Err> IntoReq<MsgPack, Request, Err> for T
+impl FormatType for MsgPackEncoding {
+    const FORMAT_TYPE: Format = Format::Binary;
+}
+
+impl<T> Encodes<T> for MsgPackEncoding
 where
-    Request: ClientReq<Err>,
     T: Serialize,
 {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<Err>> {
-        let data = rmp_serde::to_vec(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
-        Request::try_new_post_bytes(
-            path,
-            MsgPack::CONTENT_TYPE,
-            accepts,
-            Bytes::from(data),
-        )
+    type Error = rmp_serde::encode::Error;
+
+    fn encode(value: &T) -> Result<Bytes, Self::Error> {
+        rmp_serde::to_vec(value).map(Bytes::from)
     }
 }
 
-impl<T, Request, Err> FromReq<MsgPack, Request, Err> for T
+impl<T> Decodes<T> for MsgPackEncoding
 where
-    Request: Req<Err> + Send,
     T: DeserializeOwned,
 {
-    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
-        let data = req.try_into_bytes().await?;
-        rmp_serde::from_slice::<T>(&data)
-            .map_err(|e| ServerFnError::Args(e.to_string()))
+    type Error = rmp_serde::decode::Error;
+
+    fn decode(bytes: Bytes) -> Result<T, Self::Error> {
+        rmp_serde::from_slice(&bytes)
     }
 }
 
-impl<T, Response, Err> IntoRes<MsgPack, Response, Err> for T
-where
-    Response: Res<Err>,
-    T: Serialize + Send,
-{
-    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
-        let data = rmp_serde::to_vec(&self)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
-        Response::try_from_bytes(MsgPack::CONTENT_TYPE, Bytes::from(data))
-    }
-}
+/// Pass arguments and receive responses as MessagePack in a `POST` request.
+pub type MsgPack = Post<MsgPackEncoding>;
 
-impl<T, Response, Err> FromRes<MsgPack, Response, Err> for T
-where
-    Response: ClientRes<Err> + Send,
-    T: DeserializeOwned,
-{
-    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
-        let data = res.try_into_bytes().await?;
-        rmp_serde::from_slice(&data)
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
-    }
-}
+/// Pass arguments and receive responses as MessagePack in the body of a `PATCH` request.
+/// **Note**: Browser support for `PATCH` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PatchMsgPack = Patch<MsgPackEncoding>;
+
+/// Pass arguments and receive responses as MessagePack in the body of a `PUT` request.
+/// **Note**: Browser support for `PUT` requests without JS/WASM may be poor.
+/// Consider using a `POST` request if functionality without JS/WASM is required.
+pub type PutMsgPack = Put<MsgPackEncoding>;

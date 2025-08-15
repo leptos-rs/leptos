@@ -12,39 +12,41 @@
 //! * `wasm32-wasip*` integration crate `leptos_wasi` is using this
 //!   crate under the hood.
 
-use crate::request::Req;
+use crate::{
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+    request::Req,
+};
 use bytes::Bytes;
 use futures::{
     stream::{self, Stream},
-    StreamExt,
+    Sink, StreamExt,
 };
-use http::Request;
+use http::{Request, Response};
 use std::borrow::Cow;
 
-impl<CustErr> Req<CustErr> for Request<Bytes>
+impl<Error, InputStreamError, OutputStreamError>
+    Req<Error, InputStreamError, OutputStreamError> for Request<Bytes>
 where
-    CustErr: 'static,
+    Error: FromServerFnError + Send,
+    InputStreamError: FromServerFnError + Send,
+    OutputStreamError: FromServerFnError + Send,
 {
-    async fn try_into_bytes(
-        self,
-    ) -> Result<Bytes, crate::ServerFnError<CustErr>> {
+    type WebsocketResponse = Response<Bytes>;
+
+    async fn try_into_bytes(self) -> Result<Bytes, Error> {
         Ok(self.into_body())
     }
 
-    async fn try_into_string(
-        self,
-    ) -> Result<String, crate::ServerFnError<CustErr>> {
+    async fn try_into_string(self) -> Result<String, Error> {
         String::from_utf8(self.into_body().into()).map_err(|err| {
-            crate::ServerFnError::Deserialization(err.to_string())
+            ServerFnErrorErr::Deserialization(err.to_string()).into_app_error()
         })
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, crate::ServerFnError>> + Send + 'static,
-        crate::ServerFnError<CustErr>,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>
+    {
         Ok(stream::iter(self.into_body())
             .ready_chunks(16)
             .map(|chunk| Ok(Bytes::from(chunk))))
@@ -70,5 +72,29 @@ where
 
     fn as_query(&self) -> Option<&str> {
         self.uri().query()
+    }
+
+    async fn try_into_websocket(
+        self,
+    ) -> Result<
+        (
+            impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+            impl Sink<Bytes> + Send + 'static,
+            Self::WebsocketResponse,
+        ),
+        Error,
+    > {
+        Err::<
+            (
+                futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
+                futures::sink::Drain<Bytes>,
+                Self::WebsocketResponse,
+            ),
+            _,
+        >(Error::from_server_fn_error(
+            crate::ServerFnErrorErr::Response(
+                "Websockets are not supported on this platform.".to_string(),
+            ),
+        ))
     }
 }
