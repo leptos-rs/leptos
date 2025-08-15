@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
-use tachys::prelude::{AnyView, IntoAny};
-
 use crate::IntoView;
+use std::sync::Arc;
+use tachys::prelude::{AnyView, IntoAny};
 
 /// Wrapper for a function that takes a parameter and returns a view.
 pub struct ViewFnWithParam<P = ()>(

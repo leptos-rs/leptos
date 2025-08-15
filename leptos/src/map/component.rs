@@ -1,6 +1,5 @@
-use crate::{either::Either, prelude::*};
-
 use super::{Mappable, ViewFnWithParam};
+use crate::{either::Either, prelude::*};
 
 /// Like `<Show>` but for `Option` and `Result`. This is a shortcut for
 ///
