@@ -215,12 +215,15 @@ pub mod error {
 
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
-    pub use crate::{animated_show::*, await_::*, for_loop::*, show::*};
+    pub use crate::{
+        animated_show::*, await_::*, for_loop::*, show::*, show_let::*,
+    };
 }
 mod animated_show;
 mod await_;
 mod for_loop;
 mod show;
+mod show_let;
 
 /// A component that allows rendering a component somewhere else.
 pub mod portal;
