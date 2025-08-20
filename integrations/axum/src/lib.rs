@@ -1177,7 +1177,7 @@ where
     generate_route_list_with_exclusions_and_ssg(app_fn, None).0
 }
 
-/// Generates a list of all routes defined in Leptos's Router in your app. We can then use t.clone()his to automatically
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[cfg_attr(
@@ -2061,10 +2061,12 @@ where
                         req,
                         |app, chunks, _supports_ooo| {
                             Box::pin(async move {
-                                let app = app
-                                    .to_html_stream_in_order()
-                                    .collect::<String>()
-                                    .await;
+                                let app = if cfg!(feature = "islands-router") {
+                                    app.to_html_stream_in_order_branching()
+                                } else {
+                                    app.to_html_stream_in_order()
+                                };
+                                let app = app.collect::<String>().await;
                                 let chunks = chunks();
                                 Box::pin(once(async move { app }).chain(chunks))
                                     as PinnedStream<String>
