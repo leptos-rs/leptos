@@ -18,3 +18,15 @@ pub async fn element_exists(client: &Client, id: &str) -> Result<()> {
         .expect(&format!("could not find element with id `{id}`"));
     Ok(())
 }
+
+pub async fn select_option_is_selected(
+    client: &Client,
+    id: &str,
+) -> Result<()> {
+    let el = find::element_by_id(client, id)
+        .await
+        .expect(&format!("could not find element with id `{id}`"));
+    let selected = el.prop("selected").await?;
+    assert_eq!(selected.as_deref(), Some("true"));
+    Ok(())
+}
