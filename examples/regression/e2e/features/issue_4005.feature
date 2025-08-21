@@ -1,4 +1,4 @@
-@check_issue_4217
+@check_issue_4005
 Feature: Check that issue 4005 does not reappear
 
 	Scenario: The second item is selected.
