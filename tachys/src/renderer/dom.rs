@@ -251,21 +251,21 @@ impl Dom {
         }
     }
 
-    pub fn set_property(el: &Element, key: &str, value: &JsValue) {
+    pub fn set_property_or_value(el: &Element, key: &str, value: &JsValue) {
         if key == "value" {
             queue(Box::new({
                 let el = el.clone();
                 let value = value.clone();
                 move || {
-                    Self::set_property_raw(&el, "value", &value);
+                    Self::set_property(&el, "value", &value);
                 }
             }))
         } else {
-            Self::set_property_raw(el, key, value);
+            Self::set_property(el, key, value);
         }
     }
 
-    pub fn set_property_raw(el: &Element, key: &str, value: &JsValue) {
+    pub fn set_property(el: &Element, key: &str, value: &JsValue) {
         or_debug!(
             js_sys::Reflect::set(
                 el,
