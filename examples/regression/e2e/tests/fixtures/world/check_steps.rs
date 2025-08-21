@@ -32,3 +32,14 @@ async fn i_see_the_select(world: &mut AppWorld, id: String) -> Result<()> {
     check::select_option_is_selected(client, &id).await?;
     Ok(())
 }
+
+#[then(regex = r"^I see the value of (\w+) is (.*)$")]
+async fn i_see_the_value(
+    world: &mut AppWorld,
+    id: String,
+    value: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::element_value_is(client, &id, &value).await?;
+    Ok(())
+}
