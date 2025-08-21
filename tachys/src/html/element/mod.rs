@@ -329,6 +329,8 @@ where
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
+        let attrs = self.attributes.build(&el);
+
         let children = if E::SELF_CLOSING {
             None
         } else {
@@ -336,8 +338,6 @@ where
             children.mount(&el, None);
             Some(children)
         };
-
-        let attrs = self.attributes.build(&el);
 
         ElementState {
             el,
