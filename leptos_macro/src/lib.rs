@@ -323,7 +323,9 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
             .chain(tokens)
             .collect()
     };
-    let config = rstml::ParserConfig::default().recover_block(true);
+    let config = rstml::ParserConfig::default()
+        .recover_block(true)
+        .macro_call_pattern(quote!(view! {%%}));
     let parser = rstml::Parser::new(config);
     let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
