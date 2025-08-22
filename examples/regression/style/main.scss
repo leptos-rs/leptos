@@ -17,6 +17,8 @@ footer {
 }
 
 main {
+    box-sizing: border-box;
+    padding: 0 1em;
     width: 70vw;
     border-right: 1px solid black;
 }
