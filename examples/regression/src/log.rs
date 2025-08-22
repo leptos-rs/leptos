@@ -8,10 +8,13 @@ impl IntoRender for SimpleLoggerInner {
     type Output = AnyView;
 
     fn into_render(self) -> Self::Output {
-        let entries = self.0
+        let entries = self
+            .0
             .into_iter()
-            .map(|msg| view! {
-                <li>{msg}</li>
+            .map(|msg| {
+                view! {
+                    <li>{msg}</li>
+                }
             })
             .collect_view();
         view! {

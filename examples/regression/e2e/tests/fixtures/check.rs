@@ -20,15 +20,16 @@ pub async fn element_exists(client: &Client, id: &str) -> Result<()> {
 }
 
 pub async fn count_log_messages(client: &Client, count: usize) -> Result<()> {
-    let elements = find::log_message_elements(client)
-        .await?;
+    let elements = find::log_message_elements(client).await?;
     assert_eq!(elements.len(), count);
     Ok(())
 }
 
-pub async fn last_log_messages(client: &Client, expected: &[&str]) -> Result<()> {
-    let elements = find::log_message_elements(client)
-        .await?;
+pub async fn last_log_messages(
+    client: &Client,
+    expected: &[&str],
+) -> Result<()> {
+    let elements = find::log_message_elements(client).await?;
     let elements_len = elements.len();
     let expected_len = expected.len();
     assert!(

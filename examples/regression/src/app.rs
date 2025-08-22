@@ -1,4 +1,7 @@
-use crate::{log::SimpleLogger, issue_4088::Routes4088, pr_4015::Routes4015, pr_4091::Routes4091};
+use crate::{
+    issue_4088::Routes4088, log::SimpleLogger, pr_4015::Routes4015,
+    pr_4091::Routes4091,
+};
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
 use leptos_router::{
@@ -28,7 +31,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 pub fn App() -> impl IntoView {
     provide_meta_context();
     let logger = SimpleLogger::default();
-    provide_context(logger.clone());
+    provide_context(logger);
     let fallback = || view! { "Page not found." }.into_view();
     view! {
         <Stylesheet id="leptos" href="/pkg/regression.css"/>
@@ -71,7 +74,7 @@ fn HomePage() -> impl IntoView {
     }
 }
 
-static EXAMPLE: &'static str = "\
+static EXAMPLE: &str = "\
 use leptos::prelude::*;
 use crate::log::SimpleLogger;
 let logger = expect_context::<SimpleLogger>();

@@ -30,7 +30,10 @@ async fn i_see_the_navbar(world: &mut AppWorld) -> Result<()> {
 #[then(regex = r"^I counted ([0-9]+) log messages$")]
 #[then(regex = r"^I see ([0-9]+) log message$")]
 #[then(regex = r"^I see ([0-9]+) log messages$")]
-async fn i_counted_log_messages(world: &mut AppWorld, count: usize) -> Result<()> {
+async fn i_counted_log_messages(
+    world: &mut AppWorld,
+    count: usize,
+) -> Result<()> {
     let client = &world.client;
     check::count_log_messages(client, count).await?;
     Ok(())
@@ -43,7 +46,8 @@ async fn i_find_the_following_being_the_most_recent_log_messages(
 ) -> Result<()> {
     let client = &world.client;
 
-    let expected = step.table
+    let expected = step
+        .table
         .as_ref()
         .expect("the table must be present")
         .rows
