@@ -1,4 +1,4 @@
-use crate::{issue_4088::Routes4088, pr_4015::Routes4015, pr_4091::Routes4091};
+use crate::{log::SimpleLogger, issue_4088::Routes4088, pr_4015::Routes4015, pr_4091::Routes4091};
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
 use leptos_router::{
@@ -27,6 +27,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let logger = RwSignal::new(SimpleLogger::default());
+    provide_context(logger);
     let fallback = || view! { "Page not found." }.into_view();
     view! {
         <Stylesheet id="leptos" href="/pkg/regression.css"/>
@@ -40,6 +42,9 @@ pub fn App() -> impl IntoView {
                 </Routes>
             </main>
         </Router>
+        <footer>
+            <section id="log">{move || logger.get().into_render() }</section>
+        </footer>
     }
 }
 

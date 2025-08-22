@@ -1,3 +1,26 @@
 body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
     font-family: sans-serif;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+}
+
+main,
+footer {
+    height: 100vh;
+    overflow: auto;
+}
+
+main {
+    width: 70vw;
+    border-right: 1px solid black;
+}
+
+footer {
+    width: 30vw;
 }

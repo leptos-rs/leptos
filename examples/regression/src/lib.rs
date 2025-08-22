@@ -2,6 +2,7 @@ pub mod app;
 mod issue_4088;
 mod pr_4015;
 mod pr_4091;
+pub mod log;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
