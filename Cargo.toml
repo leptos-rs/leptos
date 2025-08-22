@@ -109,7 +109,7 @@ proc-macro2 = { default-features = false, version = "1.0.96" }
 serde = { default-features = false, version = "1.0.219" }
 parking_lot = { default-features = false, version = "0.12.4" }
 axum = { default-features = false, version = "0.8.4" }
-serde_qs = { default-features = false, version = "0.15.0" }
+serde_qs = { default-features = false, version = "1.0.0-rc.3" }
 syn = { default-features = false, version = "2.0.104" }
 xxhash-rust = { default-features = false, version = "0.8.15" }
 paste = { default-features = false, version = "1.0.15" }
