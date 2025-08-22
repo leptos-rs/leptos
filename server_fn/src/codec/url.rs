@@ -13,7 +13,7 @@ pub struct GetUrl;
 /// Pass arguments as the URL-encoded body of a `POST` request.
 pub struct PostUrl;
 
-/// Pass arguments as the URL-encoded body of a `DELETE` request.
+/// Pass arguments as the URL-encoded query string of a `DELETE` request.
 /// **Note**: Browser support for `DELETE` requests without JS/WASM may be poor.
 /// Consider using a `POST` request if functionality without JS/WASM is required.
 pub struct DeleteUrl;
@@ -174,9 +174,9 @@ where
     E: FromServerFnError,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
-        let string_data = req.as_query().unwrap_or_default();
+        let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new(5, false)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;
@@ -213,9 +213,9 @@ where
     E: FromServerFnError,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
-        let string_data = req.as_query().unwrap_or_default();
+        let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new(5, false)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;
