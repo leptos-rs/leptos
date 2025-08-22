@@ -24,3 +24,31 @@ main {
 footer {
     width: 30vw;
 }
+
+#SimpleLogger {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#SimpleLogger > h1 {
+    padding-left: 1em;
+}
+
+#SimpleLogger > div#logs {
+    overflow: auto;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+#SimpleLogger > div#logs > ul {
+    border-top: 1px #ccc solid;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#SimpleLogger > div#logs > ul > li {
+    padding-left: 1em;
+    border-bottom: 1px #ccc solid;
+}
