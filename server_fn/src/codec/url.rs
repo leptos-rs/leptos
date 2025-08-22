@@ -46,7 +46,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_get(path, accepts, GetUrl::CONTENT_TYPE, &data)
+        Request::try_new_get(path, GetUrl::CONTENT_TYPE, accepts, &data)
     }
 }
 
@@ -85,7 +85,7 @@ where
         let qs = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_post(path, accepts, PostUrl::CONTENT_TYPE, qs)
+        Request::try_new_post(path, PostUrl::CONTENT_TYPE, accepts, qs)
     }
 }
 
@@ -124,7 +124,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_delete(path, accepts, GetUrl::CONTENT_TYPE, &data)
+        Request::try_new_delete(path, DeleteUrl::CONTENT_TYPE, accepts, &data)
     }
 }
 
@@ -163,7 +163,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_patch(path, accepts, GetUrl::CONTENT_TYPE, data)
+        Request::try_new_patch(path, PatchUrl::CONTENT_TYPE, accepts, data)
     }
 }
 
@@ -202,7 +202,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_put(path, accepts, GetUrl::CONTENT_TYPE, data)
+        Request::try_new_put(path, PutUrl::CONTENT_TYPE, accepts, data)
     }
 }
 
