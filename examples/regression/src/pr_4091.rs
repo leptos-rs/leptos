@@ -1,3 +1,4 @@
+use crate::log::SimpleLogger;
 use leptos::{context::Provider, prelude::*};
 use leptos_router::{
     components::{ParentRoute, Route, A},
@@ -26,6 +27,13 @@ pub fn Routes4091() -> impl leptos_router::MatchNestedRoutes + Clone {
 fn Container() -> impl IntoView {
     let rw_signal = RwSignal::new(Expectations(Vec::new()));
     provide_context(rw_signal);
+
+    let logger = expect_context::<SimpleLogger>();
+    logger.log("Mounting pr_4091 <Container>");
+    on_cleanup(move || {
+        leptos::logging::log!("Leaving <Container>");
+        logger.log("Unmounting pr_4091 <Container>");
+    });
 
     view! {
         <nav id="nav">

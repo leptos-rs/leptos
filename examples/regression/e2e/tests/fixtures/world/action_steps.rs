@@ -13,6 +13,7 @@ async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
 
 #[given(regex = "^I can access regression test (.*)$")]
 #[when(regex = "^I select the link (.*)$")]
+#[when(regex = "^I access (.*)$")]
 async fn i_select_the_link(world: &mut AppWorld, text: String) -> Result<()> {
     let client = &world.client;
     action::click_link(client, &text).await?;

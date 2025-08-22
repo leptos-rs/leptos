@@ -21,3 +21,12 @@ pub async fn link_with_text(client: &Client, text: &str) -> Result<Element> {
 pub async fn element_by_id(client: &Client, id: &str) -> Result<Element> {
     Ok(client.wait().for_element(Locator::Id(id)).await?)
 }
+
+pub async fn log_message_elements(client: &Client) -> Result<Vec<Element>> {
+    let elements = element_by_id(client, "logs")
+        .await
+        .expect("the simple logger must be present")
+        .find_all(Locator::Css("ul li"))
+        .await?;
+    Ok(elements)
+}

@@ -1,3 +1,56 @@
 body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
     font-family: sans-serif;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+}
+
+main,
+footer {
+    height: 100vh;
+    overflow: auto;
+}
+
+main {
+    box-sizing: border-box;
+    padding: 0 1em;
+    width: 70vw;
+    border-right: 1px solid black;
+}
+
+footer {
+    width: 30vw;
+}
+
+#SimpleLogger {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#SimpleLogger > h1 {
+    padding-left: 1em;
+}
+
+#SimpleLogger > div#logs {
+    overflow: auto;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+#SimpleLogger > div#logs > ul {
+    border-top: 1px #ccc solid;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#SimpleLogger > div#logs > ul > li {
+    padding-left: 1em;
+    border-bottom: 1px #ccc solid;
 }
