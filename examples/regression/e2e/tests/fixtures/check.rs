@@ -18,3 +18,28 @@ pub async fn element_exists(client: &Client, id: &str) -> Result<()> {
         .expect(&format!("could not find element with id `{id}`"));
     Ok(())
 }
+
+pub async fn count_log_messages(client: &Client, count: usize) -> Result<()> {
+    let elements = find::log_message_elements(client)
+        .await?;
+    assert_eq!(elements.len(), count);
+    Ok(())
+}
+
+pub async fn last_log_messages(client: &Client, expected: &[&str]) -> Result<()> {
+    let elements = find::log_message_elements(client)
+        .await?;
+    let elements_len = elements.len();
+    let expected_len = expected.len();
+    assert!(
+        elements_len >= expected_len,
+        "the messages available is not equal or greater than what is being expected",
+    );
+
+    let mut result = Vec::new();
+    for element in elements.into_iter().skip(elements_len - expected_len) {
+        result.push(element.text().await?);
+    }
+    assert_eq!(result, expected);
+    Ok(())
+}

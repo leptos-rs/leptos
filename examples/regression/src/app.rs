@@ -86,7 +86,7 @@ fn Readme() -> impl IntoView {
             should work without issues, but have possibly failed some time in the past in the form
             of a regression.  The components are self contained in their respective modules and
             should be accompanied by an end-to-end test suite written in Gherkin, to allow a human
-            user to also easily see the expected behavior.
+            user to also reproduce and validate the expected behavior from the written instructions.
         "</p>
         // TODO probably establish some naming conventions here?
         <p>"
@@ -99,8 +99,12 @@ fn Readme() -> impl IntoView {
                 use crate::log::SimpleLogger;
                 let logger = expect_context::<SimpleLogger>();
                 logger.log("Hello world!");
-            }>"link"</a>" is hooked with the above, so accessing that should result in that
-            message printed. "<a href="/">"Return to listing"</a>".
+            }>"example link"</a>" is hooked with the above, so accessing that should result in that
+            message printed, while this "<a href="#" on:click=|_| {
+                use crate::log::SimpleLogger;
+                let logger = expect_context::<SimpleLogger>();
+                logger.log("Something else.");
+            }>"other link"</a>" will log something else. "<a href="/">"Return to listing"</a>".
         "</p>
     }
 }
