@@ -28,11 +28,11 @@ fn Container() -> impl IntoView {
     let rw_signal = RwSignal::new(Expectations(Vec::new()));
     provide_context(rw_signal);
 
-    let logger = expect_context::<RwSignal<SimpleLogger>>();
-    logger.update(|logger| logger.log("Mounting pr_4091 <Container>"));
+    let logger = expect_context::<SimpleLogger>();
+    logger.log("Mounting pr_4091 <Container>");
     on_cleanup(move || {
         leptos::logging::log!("Leaving <Container>");
-        logger.update(|logger| logger.log("Unmounting pr_4091 <Container>"));
+        logger.log("Unmounting pr_4091 <Container>");
     });
 
     view! {

@@ -27,8 +27,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
-    let logger = RwSignal::new(SimpleLogger::default());
-    provide_context(logger);
+    let logger = SimpleLogger::default();
+    provide_context(logger.clone());
     let fallback = || view! { "Page not found." }.into_view();
     view! {
         <Stylesheet id="leptos" href="/pkg/regression.css"/>
@@ -43,7 +43,7 @@ pub fn App() -> impl IntoView {
             </main>
         </Router>
         <footer>
-            <section id="log">{move || logger.get().into_render() }</section>
+            <section id="log">{move || logger.render() }</section>
         </footer>
     }
 }
