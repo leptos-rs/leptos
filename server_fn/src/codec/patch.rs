@@ -30,8 +30,8 @@ where
         })?;
         Request::try_new_patch_bytes(
             path,
-            accepts,
             Encoding::CONTENT_TYPE,
+            accepts,
             data,
         )
     }
