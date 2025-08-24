@@ -6,7 +6,10 @@ use crate::error::{
 use axum::body::Body;
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
-use http::{header, HeaderValue, Response, StatusCode};
+use http::{
+    header::{self, CONTENT_TYPE},
+    HeaderValue, Response, StatusCode,
+};
 
 impl<E> TryRes<E> for Response<Body>
 where
@@ -58,6 +61,11 @@ impl Res for Response<Body> {
             .header(SERVER_FN_ERROR_HEADER, path)
             .body(err.into())
             .unwrap()
+    }
+
+    fn set_content_type(&mut self, content_type: &str) {
+        self.headers_mut()
+            .append(CONTENT_TYPE, HeaderValue::from_str(content_type).unwrap());
     }
 
     fn redirect(&mut self, path: &str) {

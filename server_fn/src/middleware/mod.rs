@@ -72,6 +72,8 @@ mod axum {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
+                    // TODO: this needs to set the Content-Type correctly depending on the error type
+                    // note that this only applies to middleware errors
                     let err =
                         ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     Response::<Body>::error_response(&path, err)
@@ -149,6 +151,8 @@ mod actix {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
+                    // TODO: this needs to set the Content-Type correctly depending on the error type
+                    // note that this only applies to middleware errors
                     let err =
                         ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     ActixResponse::error_response(&path, err).take()

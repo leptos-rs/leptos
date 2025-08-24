@@ -319,6 +319,12 @@ pub trait ServerFn: Send + Sized {
                         )
                     });
 
+            if err.is_some() {
+                res.set_content_type(
+                    <<Self::Error as FromServerFnError>::Encoder>::CONTENT_TYPE,
+                );
+            }
+
             // if it accepts HTML, we'll redirect to the Referer
             #[cfg(feature = "form-redirects")]
             if accepts_html {
