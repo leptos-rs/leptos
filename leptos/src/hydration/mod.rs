@@ -85,6 +85,8 @@ pub fn HydrationScripts(
 
     let mut js_file_name = options.output_name.to_string();
     let mut wasm_file_name = options.output_name.to_string();
+    let mut css_file_name = options.output_name.to_string();
+
     if options.hash_files {
         let hash_path = std::env::current_exe()
             .map(|path| {
@@ -103,6 +105,9 @@ pub fn HydrationScripts(
                             js_file_name.push_str(&format!(".{}", hash.trim()));
                         } else if file == "wasm" {
                             wasm_file_name
+                                .push_str(&format!(".{}", hash.trim()));
+                        } else if file == "css" {
+                            css_file_name
                                 .push_str(&format!(".{}", hash.trim()));
                         }
                     }
@@ -145,6 +150,7 @@ pub fn HydrationScripts(
             r#type="application/wasm"
             crossorigin=nonce.clone().unwrap_or_default()
         />
+        <link rel="stylesheet" id="leptos" href=format!("{root}/{pkg_path}/{css_file_name}.css") />
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
         </script>
