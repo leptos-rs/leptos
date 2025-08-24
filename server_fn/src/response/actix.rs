@@ -4,8 +4,7 @@ use crate::error::{
 };
 use actix_web::{
     http::{
-        header,
-        header::{HeaderValue, LOCATION},
+        header::{self, HeaderValue, CONTENT_TYPE, LOCATION},
         StatusCode,
     },
     HttpResponse,
@@ -78,6 +77,12 @@ impl Res for ActixResponse {
                 .append_header((SERVER_FN_ERROR_HEADER, path))
                 .body(err),
         ))
+    }
+
+    fn set_content_type(&mut self, content_type: &str) {
+        self.0
+            .headers_mut()
+            .append(CONTENT_TYPE, HeaderValue::from_str(content_type).unwrap());
     }
 
     fn redirect(&mut self, path: &str) {

@@ -37,8 +37,15 @@ where
 
 /// Represents the response as created by the server;
 pub trait Res {
-    /// Converts an error into a response, with a `500` status code and the error text as its body.
+    /// Converts an error into a response, with a `500` status code and the error as its body.
     fn error_response(path: &str, err: Bytes) -> Self;
+
+    /// Sets the `Content-Type` header on the response.
+    fn set_content_type(&mut self, content_type: &str) {
+        // TODO 0.9: remove this method and default implementation
+        // it is included here to make this change non-breaking
+        _ = content_type;
+    }
 
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);
@@ -100,6 +107,11 @@ impl<E> TryRes<E> for BrowserMockRes {
 
 impl Res for BrowserMockRes {
     fn error_response(_path: &str, _err: Bytes) -> Self {
+        unreachable!()
+    }
+
+    fn set_content_type(&mut self, content_type: &str) {
+        _ = content_type;
         unreachable!()
     }
 
