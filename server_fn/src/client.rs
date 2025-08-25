@@ -282,8 +282,7 @@ pub mod reqwest {
                     Err(e) => Err(OutputStreamError::from_server_fn_error(
                         ServerFnErrorErr::Request(e.to_string()),
                     )
-                    .ser()
-                    .body),
+                    .ser()),
                 }),
                 write.with(|msg: Bytes| async move {
                     Ok::<
