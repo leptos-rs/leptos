@@ -38,7 +38,7 @@ impl<Req, Res> BoxedService<Req, Res> {
     }
 }
 
-/// Type alias for the function that serializes a server fn error to [`ServerFnErrorResponseParts`].
+/// todo
 pub type ServerFnErrorSerializer =
     fn(ServerFnErrorErr) -> ServerFnErrorResponseParts;
 
