@@ -129,9 +129,9 @@ mod axum {
 
 #[cfg(feature = "actix-no-default")]
 mod actix {
+    use crate::middleware::ServerFnErrorSerializer;
     use crate::{
         error::ServerFnErrorErr,
-        middleware::ServerFnErrorSerializer,
         request::actix::ActixRequest,
         response::{actix::ActixResponse, Res},
     };
