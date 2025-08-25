@@ -9,10 +9,9 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 }
 
 /// A type-erased service, which takes an HTTP request and returns a response.
-#[non_exhaustive]
 pub struct BoxedService<Req, Res> {
     /// A function that converts a [`ServerFnErrorErr`] into a string.
-    pub err_ser: ServerFnErrorSerializer,
+    pub ser: ServerFnErrorSerializer,
     /// The inner service.
     pub service: Box<dyn Service<Req, Res> + Send>,
 }
@@ -24,7 +23,7 @@ impl<Req, Res> BoxedService<Req, Res> {
         service: impl Service<Req, Res> + Send + 'static,
     ) -> Self {
         Self {
-            err_ser: ser,
+            ser,
             service: Box::new(service),
         }
     }
@@ -34,7 +33,7 @@ impl<Req, Res> BoxedService<Req, Res> {
         &mut self,
         req: Req,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
-        self.service.run(req, self.err_ser)
+        self.service.run(req, self.ser)
     }
 }
 
@@ -105,7 +104,7 @@ mod axum {
         }
 
         fn call(&mut self, req: Request<Body>) -> Self::Future {
-            let inner = self.service.run(req, self.err_ser);
+            let inner = self.service.run(req, self.ser);
             Box::pin(async move { Ok(inner.await) })
         }
     }
@@ -122,7 +121,7 @@ mod axum {
             &self,
             inner: BoxedService<Request<Body>, Response<Body>>,
         ) -> BoxedService<Request<Body>, Response<Body>> {
-            BoxedService::new(inner.err_ser, self.layer(inner))
+            BoxedService::new(inner.ser, self.layer(inner))
         }
     }
 }
