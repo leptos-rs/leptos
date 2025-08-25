@@ -221,6 +221,13 @@ impl LocationProvider for BrowserUrl {
     fn complete_navigation(&self, loc: &LocationChange) {
         let history = window().history().unwrap();
 
+        let current_path = self
+            .path_stack
+            .read_value()
+            .last()
+            .map(|url| url.to_full_path());
+        let add_to_stack = current_path.as_ref() != Some(&loc.value);
+
         if loc.replace {
             history
                 .replace_state_with_url(
@@ -229,7 +236,7 @@ impl LocationProvider for BrowserUrl {
                     Some(&loc.value),
                 )
                 .unwrap();
-        } else {
+        } else if add_to_stack {
             // push the "forward direction" marker
             let state = &loc.state.to_js_value();
             history
@@ -240,7 +247,9 @@ impl LocationProvider for BrowserUrl {
         // add this URL to the "path stack" for detecting back navigations, and
         // unset "navigating back" state
         if let Ok(url) = Self::current() {
-            self.path_stack.write_value().push(url);
+            if add_to_stack {
+                self.path_stack.write_value().push(url);
+            }
             self.is_back.set(false);
         }
 
