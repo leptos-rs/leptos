@@ -36,6 +36,46 @@ pub type ClassList = web_sys::DomTokenList;
 pub type CssStyleDeclaration = web_sys::CssStyleDeclaration;
 pub type TemplateElement = web_sys::HtmlTemplateElement;
 
+/// A microtask is a short function which will run after the current task has
+/// completed its work and when there is no other code waiting to be run before
+/// control of the execution context is returned to the browser's event loop.
+///
+/// Microtasks are especially useful for libraries and frameworks that need
+/// to perform final cleanup or other just-before-rendering tasks.
+///
+/// [MDN queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask)
+pub fn queue_microtask(task: impl FnOnce() + 'static) {
+    use js_sys::{Function, Reflect};
+
+    let task = Closure::once_into_js(task);
+    let window = window();
+    let queue_microtask =
+        Reflect::get(&window, &JsValue::from_str("queueMicrotask"))
+            .expect("queueMicrotask not available");
+    let queue_microtask = queue_microtask.unchecked_into::<Function>();
+    _ = queue_microtask.call1(&JsValue::UNDEFINED, &task);
+}
+
+fn queue(fun: Box<dyn FnOnce()>) {
+    use std::cell::{Cell, RefCell};
+
+    thread_local! {
+        static PENDING: Cell<bool> = const { Cell::new(false) };
+        static QUEUE: RefCell<Vec<Box<dyn FnOnce()>>> = RefCell::new(Vec::new());
+    }
+
+    QUEUE.with_borrow_mut(|q| q.push(fun));
+    if !PENDING.replace(true) {
+        queue_microtask(|| {
+            let tasks = QUEUE.take();
+            for task in tasks {
+                task();
+            }
+            PENDING.set(false);
+        })
+    }
+}
+
 impl Dom {
     pub fn intern(text: &str) -> &str {
         intern(text)
@@ -208,6 +248,20 @@ impl Dom {
             true
         } else {
             false
+        }
+    }
+
+    pub fn set_property_or_value(el: &Element, key: &str, value: &JsValue) {
+        if key == "value" {
+            queue(Box::new({
+                let el = el.clone();
+                let value = value.clone();
+                move || {
+                    Self::set_property(&el, "value", &value);
+                }
+            }))
+        } else {
+            Self::set_property(el, key, value);
         }
     }
 
