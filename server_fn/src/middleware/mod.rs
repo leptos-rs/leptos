@@ -11,7 +11,7 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 /// A type-erased service, which takes an HTTP request and returns a response.
 #[non_exhaustive]
 pub struct BoxedService<Req, Res> {
-    /// A function that converts a [`ServerFnErrorErr`] into [`ServerFnErrorResponseParts`].
+    /// A function that converts a [`ServerFnErrorErr`] into a string.
     pub err_ser: ServerFnErrorSerializer,
     /// The inner service.
     pub service: Box<dyn Service<Req, Res> + Send>,
@@ -38,8 +38,7 @@ impl<Req, Res> BoxedService<Req, Res> {
     }
 }
 
-/// Type alias for a function that serializes a [`ServerFnErrorErr`] into
-/// [`ServerFnErrorResponseParts`].
+/// Type alias for the function that serializes a server fn error to [`ServerFnErrorResponseParts`].
 pub type ServerFnErrorSerializer =
     fn(ServerFnErrorErr) -> ServerFnErrorResponseParts;
 

@@ -579,7 +579,7 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Converts the custom error type to [`ServerFnErrorResponseParts`].
+    /// Converts the custom error type to a [`String`].
     fn ser(&self) -> ServerFnErrorResponseParts {
         let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
