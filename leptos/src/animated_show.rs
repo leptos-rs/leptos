@@ -1,14 +1,18 @@
-use crate::{children::ChildrenFn, component, control_flow::Show, IntoView};
+use crate::{
+    children::ChildrenFn, component, control_flow::Show, show::IntoCondition,
+    IntoView,
+};
 use core::time::Duration;
 use leptos_dom::helpers::TimeoutHandle;
 use leptos_macro::view;
 use reactive_graph::{
+    diagnostics::SpecialNonReactiveZone,
     effect::RenderEffect,
     owner::{on_cleanup, StoredValue},
     signal::RwSignal,
-    traits::{Get, GetUntracked, GetValue, Set, SetValue},
-    wrappers::read::Signal,
+    traits::{GetValue, Set, SetValue},
 };
+use std::marker::PhantomData;
 use tachys::prelude::*;
 
 /// A component that will show its children when the `when` condition is `true`.
@@ -46,14 +50,16 @@ use tachys::prelude::*;
 /// }
 /// # }
 /// ```
+///
+/// Please note, that unlike `Show`, `AnimatedShow` does not support a `fallback` prop.
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
-pub fn AnimatedShow(
+pub fn AnimatedShow<M>(
     /// The components Show wraps
     children: ChildrenFn,
-    /// If the component should show or not
-    #[prop(into)]
-    when: Signal<bool>,
+    /// When true the children are shown.
+    /// It accepts a closure that returns a boolean value as well as a boolean signal or plain boolean value.
+    when: impl IntoCondition<M>,
     /// Optional CSS class to apply if `when == true`
     #[prop(optional)]
     show_class: &'static str,
@@ -62,17 +68,26 @@ pub fn AnimatedShow(
     hide_class: &'static str,
     /// The timeout after which the component will be unmounted if `when == false`
     hide_delay: Duration,
+
+    /// Marker for generic parameters. Ignore this.
+    #[prop(optional)]
+    _marker: PhantomData<M>,
 ) -> impl IntoView {
+    let when = when.into_condition();
+
+    // Silence warnings about using signals in non-reactive contexts.
+    #[cfg(debug_assertions)]
+    let z = SpecialNonReactiveZone::enter();
+
     let handle: StoredValue<Option<TimeoutHandle>> = StoredValue::new(None);
-    let cls = RwSignal::new(if when.get_untracked() {
-        show_class
-    } else {
-        hide_class
-    });
-    let show = RwSignal::new(when.get_untracked());
+    let cls = RwSignal::new(if when.run() { show_class } else { hide_class });
+    let show = RwSignal::new(when.run());
+
+    #[cfg(debug_assertions)]
+    drop(z);
 
     let eff = RenderEffect::new(move |_| {
-        if when.get() {
+        if when.run() {
             // clear any possibly active timer
             if let Some(h) = handle.get_value() {
                 h.clear();
@@ -100,8 +115,8 @@ pub fn AnimatedShow(
     });
 
     view! {
-        <Show when=move || show.get() fallback=|| ()>
-            <div class=move || cls.get()>{children()}</div>
+        <Show when=show>
+            <div class=cls>{children()}</div>
         </Show>
     }
 }
