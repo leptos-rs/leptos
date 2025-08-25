@@ -10,7 +10,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{on_cleanup, StoredValue},
     signal::RwSignal,
-    traits::{Get, GetValue, Set, SetValue},
+    traits::{GetValue, Set, SetValue},
 };
 use std::marker::PhantomData;
 use tachys::prelude::*;
