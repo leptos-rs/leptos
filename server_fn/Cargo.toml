@@ -25,7 +25,6 @@ send_wrapper = { features = [
   "futures",
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
-bon = { workspace = true }
 
 # registration system
 inventory = { optional = true, workspace = true, default-features = true }

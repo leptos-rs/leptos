@@ -1,7 +1,6 @@
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, ServerFnErrorResponseParts, ServerFnErrorWrapper,
-    SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
 use actix_web::{
     http::{
@@ -73,13 +72,18 @@ where
 }
 
 impl Res for ActixResponse {
-    fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self {
+    fn error_response(path: &str, err: Bytes) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
-                .append_header((CONTENT_TYPE, err.content_type))
-                .body(err.body),
+                .body(err),
         ))
+    }
+
+    fn content_type(&mut self, content_type: &str) {
+        if let Ok(content_type) = HeaderValue::from_str(content_type) {
+            self.0.headers_mut().insert(CONTENT_TYPE, content_type);
+        }
     }
 
     fn redirect(&mut self, path: &str) {

@@ -170,7 +170,6 @@ async-lock = { default-features = false, version = "3.4.0" }
 base16 = { default-features = false, version = "0.2.1" }
 digest = { default-features = false, version = "0.10.7" }
 sha2 = { default-features = false, version = "0.10.8" }
-bon = { default-features = false, version = "3.6.5" }
 
 [profile.release]
 codegen-units = 1

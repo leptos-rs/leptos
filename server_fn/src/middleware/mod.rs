@@ -1,4 +1,5 @@
-use crate::error::{ServerFnErrorErr, ServerFnErrorResponseParts};
+use crate::error::ServerFnErrorErr;
+use bytes::Bytes;
 use std::{future::Future, pin::Pin};
 
 /// An abstraction over a middleware layer, which can be used to add additional
@@ -11,7 +12,7 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 /// A type-erased service, which takes an HTTP request and returns a response.
 pub struct BoxedService<Req, Res> {
     /// A function that converts a [`ServerFnErrorErr`] into a string.
-    pub ser: ServerFnErrorSerializer,
+    pub ser: fn(ServerFnErrorErr) -> Bytes,
     /// The inner service.
     pub service: Box<dyn Service<Req, Res> + Send>,
 }
@@ -19,7 +20,7 @@ pub struct BoxedService<Req, Res> {
 impl<Req, Res> BoxedService<Req, Res> {
     /// Constructs a type-erased service from this service.
     pub fn new(
-        ser: ServerFnErrorSerializer,
+        ser: fn(ServerFnErrorErr) -> Bytes,
         service: impl Service<Req, Res> + Send + 'static,
     ) -> Self {
         Self {
@@ -37,25 +38,22 @@ impl<Req, Res> BoxedService<Req, Res> {
     }
 }
 
-/// todo
-pub type ServerFnErrorSerializer =
-    fn(ServerFnErrorErr) -> ServerFnErrorResponseParts;
-
 /// A service converts an HTTP request into a response.
 pub trait Service<Request, Response> {
     /// Converts a request into a response.
     fn run(
         &mut self,
         req: Request,
-        err_ser: ServerFnErrorSerializer,
+        ser: fn(ServerFnErrorErr) -> Bytes,
     ) -> Pin<Box<dyn Future<Output = Response> + Send>>;
 }
 
 #[cfg(feature = "axum-no-default")]
 mod axum {
-    use super::{BoxedService, ServerFnErrorSerializer, Service};
+    use super::{BoxedService, Service};
     use crate::{error::ServerFnErrorErr, response::Res, ServerFnError};
     use axum::body::Body;
+    use bytes::Bytes;
     use http::{Request, Response};
     use std::{future::Future, pin::Pin};
 
@@ -68,15 +66,14 @@ mod axum {
         fn run(
             &mut self,
             req: Request<Body>,
-            err_ser: ServerFnErrorSerializer,
+            ser: fn(ServerFnErrorErr) -> Bytes,
         ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send>> {
             let path = req.uri().path().to_string();
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = err_ser(ServerFnErrorErr::MiddlewareError(
-                        e.to_string(),
-                    ));
+                    let err =
+                        ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     Response::<Body>::error_response(&path, err)
                 })
             })
@@ -128,13 +125,13 @@ mod axum {
 
 #[cfg(feature = "actix-no-default")]
 mod actix {
-    use crate::middleware::ServerFnErrorSerializer;
     use crate::{
         error::ServerFnErrorErr,
         request::actix::ActixRequest,
         response::{actix::ActixResponse, Res},
     };
     use actix_web::{HttpRequest, HttpResponse};
+    use bytes::Bytes;
     use std::{future::Future, pin::Pin};
 
     impl<S> super::Service<HttpRequest, HttpResponse> for S
@@ -146,15 +143,14 @@ mod actix {
         fn run(
             &mut self,
             req: HttpRequest,
-            err_ser: ServerFnErrorSerializer,
+            ser: fn(ServerFnErrorErr) -> Bytes,
         ) -> Pin<Box<dyn Future<Output = HttpResponse> + Send>> {
             let path = req.uri().path().to_string();
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = err_ser(ServerFnErrorErr::MiddlewareError(
-                        e.to_string(),
-                    ));
+                    let err =
+                        ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     ActixResponse::error_response(&path, err).take()
                 })
             })
@@ -170,15 +166,14 @@ mod actix {
         fn run(
             &mut self,
             req: ActixRequest,
-            err_ser: ServerFnErrorSerializer,
+            ser: fn(ServerFnErrorErr) -> Bytes,
         ) -> Pin<Box<dyn Future<Output = ActixResponse> + Send>> {
             let path = req.0 .0.uri().path().to_string();
             let inner = self.call(req.0.take().0);
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {
-                    let err = err_ser(ServerFnErrorErr::MiddlewareError(
-                        e.to_string(),
-                    ));
+                    let err =
+                        ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     ActixResponse::error_response(&path, err).take()
                 }))
             })
