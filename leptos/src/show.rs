@@ -50,7 +50,8 @@ use tachys::either::Either;
 pub fn Show<M, C>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
     children: TypedChildrenFn<C>,
-    /// A closure that returns a bool that determines whether this thing runs
+    /// When true the children are shown, otherwise the fallback.
+    /// It accepts a closure that returns a boolean value as well as a boolean signal or plain boolean value.
     when: impl IntoCondition<M>,
     /// A closure that returns what gets rendered if the when statement is false. By default this is the empty view.
     #[prop(optional, into)]
