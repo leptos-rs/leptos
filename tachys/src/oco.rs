@@ -2,6 +2,7 @@ use crate::{
     html::{
         attribute::{any_attribute::AnyAttribute, AttributeValue},
         class::IntoClass,
+        property::IntoProperty,
         style::IntoStyle,
     },
     hydration::Cursor,
@@ -11,6 +12,7 @@ use crate::{
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
+use wasm_bindgen::JsValue;
 
 /// Retained view state for [`Oco`].
 pub struct OcoStrState {
@@ -245,6 +247,47 @@ impl IntoClass for Oco<'static, str> {
     fn reset(state: &mut Self::State) {
         let (el, _prev) = state;
         Rndr::remove_attribute(el, "class");
+    }
+}
+
+impl IntoProperty for Oco<'static, str> {
+    type State = (crate::renderer::types::Element, JsValue);
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        let value = JsValue::from_str(self.as_ref());
+        Rndr::set_property(el, key, &value);
+        (el.clone(), value)
+    }
+
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        let value = JsValue::from_str(self.as_ref());
+        Rndr::set_property(el, key, &value);
+        (el.clone(), value)
+    }
+
+    fn rebuild(self, state: &mut Self::State, key: &str) {
+        let (el, prev) = state;
+        let value = JsValue::from_str(self.as_ref());
+        Rndr::set_property(el, key, &value);
+        *prev = value;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
     }
 }
 

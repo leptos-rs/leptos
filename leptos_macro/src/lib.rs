@@ -323,7 +323,14 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
             .chain(tokens)
             .collect()
     };
-    let config = rstml::ParserConfig::default().recover_block(true);
+    let macro_call_pattern = if let Some(class) = &global_class {
+        quote!(view! { class = #class, %% })
+    } else {
+        quote!(view! {%%})
+    };
+    let config = rstml::ParserConfig::default()
+        .recover_block(true)
+        .macro_call_pattern(macro_call_pattern);
     let parser = rstml::Parser::new(config);
     let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
@@ -683,7 +690,11 @@ fn component_macro(
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_transparent(is_transparent).is_lazy(is_lazy).with_island(island).into_token_stream();
+        let expanded = model
+            .is_transparent(is_transparent)
+            .is_lazy(is_lazy)
+            .with_island(island)
+            .into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -696,7 +707,7 @@ fn component_macro(
             #expanded
 
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
     } else {
@@ -705,7 +716,7 @@ fn component_macro(
                 dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
                 quote! {
                     #[doc(hidden)]
-                    #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+                    #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
                     #dummy
                 }
             }

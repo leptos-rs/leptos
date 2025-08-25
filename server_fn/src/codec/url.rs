@@ -13,7 +13,7 @@ pub struct GetUrl;
 /// Pass arguments as the URL-encoded body of a `POST` request.
 pub struct PostUrl;
 
-/// Pass arguments as the URL-encoded body of a `DELETE` request.
+/// Pass arguments as the URL-encoded query string of a `DELETE` request.
 /// **Note**: Browser support for `DELETE` requests without JS/WASM may be poor.
 /// Consider using a `POST` request if functionality without JS/WASM is required.
 pub struct DeleteUrl;
@@ -46,7 +46,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_get(path, accepts, GetUrl::CONTENT_TYPE, &data)
+        Request::try_new_get(path, GetUrl::CONTENT_TYPE, accepts, &data)
     }
 }
 
@@ -85,7 +85,7 @@ where
         let qs = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_post(path, accepts, PostUrl::CONTENT_TYPE, qs)
+        Request::try_new_post(path, PostUrl::CONTENT_TYPE, accepts, qs)
     }
 }
 
@@ -124,7 +124,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_delete(path, accepts, GetUrl::CONTENT_TYPE, &data)
+        Request::try_new_delete(path, DeleteUrl::CONTENT_TYPE, accepts, &data)
     }
 }
 
@@ -163,7 +163,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_patch(path, accepts, GetUrl::CONTENT_TYPE, data)
+        Request::try_new_patch(path, PatchUrl::CONTENT_TYPE, accepts, data)
     }
 }
 
@@ -174,9 +174,9 @@ where
     E: FromServerFnError,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
-        let string_data = req.as_query().unwrap_or_default();
+        let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new(5, false)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;
@@ -202,7 +202,7 @@ where
         let data = serde_qs::to_string(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_put(path, accepts, GetUrl::CONTENT_TYPE, data)
+        Request::try_new_put(path, PutUrl::CONTENT_TYPE, accepts, data)
     }
 }
 
@@ -213,9 +213,9 @@ where
     E: FromServerFnError,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
-        let string_data = req.as_query().unwrap_or_default();
+        let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new(5, false)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;

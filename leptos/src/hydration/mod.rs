@@ -27,6 +27,7 @@ pub fn AutoReload(
             None => options.reload_port,
         };
         let protocol = match options.reload_ws_protocol {
+            leptos_config::ReloadWSProtocol::Auto => "null",
             leptos_config::ReloadWSProtocol::WS => "'ws://'",
             leptos_config::ReloadWSProtocol::WSS => "'wss://'",
         };

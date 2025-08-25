@@ -28,7 +28,7 @@ where
         let data = Encoding::encode(&self).map_err(|e| {
             ServerFnErrorErr::Serialization(e.to_string()).into_app_error()
         })?;
-        Request::try_new_post_bytes(path, accepts, Encoding::CONTENT_TYPE, data)
+        Request::try_new_post_bytes(path, Encoding::CONTENT_TYPE, accepts, data)
     }
 }
 

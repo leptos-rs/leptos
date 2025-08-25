@@ -215,12 +215,15 @@ pub mod error {
 
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
-    pub use crate::{animated_show::*, await_::*, for_loop::*, show::*};
+    pub use crate::{
+        animated_show::*, await_::*, for_loop::*, show::*, show_let::*,
+    };
 }
 mod animated_show;
 mod await_;
 mod for_loop;
 mod show;
+mod show_let;
 
 /// A component that allows rendering a component somewhere else.
 pub mod portal;
@@ -301,12 +304,17 @@ pub mod logging {
 /// Utilities for working with asynchronous tasks.
 pub mod task {
     use any_spawner::Executor;
+    use reactive_graph::computed::ScopedFuture;
     use std::future::Future;
 
     /// Spawns a thread-safe [`Future`].
+    ///
+    /// This will be run with the current reactive owner and observer using a [`ScopedFuture`].
     #[track_caller]
     #[inline(always)]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
+        let fut = ScopedFuture::new(fut);
+
         #[cfg(not(target_family = "wasm"))]
         Executor::spawn(fut);
 
