@@ -1788,7 +1788,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "any_spawner",
  "base64",
@@ -1869,7 +1869,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "any_spawner",
  "axum",
@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "config",
  "regex",
@@ -1906,7 +1906,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "js-sys",
  "leptos",
@@ -1952,7 +1952,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -1972,7 +1972,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "server_fn",
- "server_fn_macro 0.8.6",
+ "server_fn_macro 0.8.7",
  "syn 2.0.104",
  "tracing",
  "trybuild",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -2746,7 +2746,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -2789,7 +2789,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "convert_case 0.8.0",
  "proc-macro-error2",
@@ -3283,7 +3283,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3346,7 +3346,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "const_format",
  "convert_case 0.8.0",
@@ -3361,7 +3361,7 @@ dependencies = [
 name = "server_fn_macro_default"
 version = "0.8.5"
 dependencies = [
- "server_fn_macro 0.8.6",
+ "server_fn_macro 0.8.7",
  "syn 2.0.104",
 ]
 
@@ -3573,7 +3573,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "any_spawner",
  "async-trait",
