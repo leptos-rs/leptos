@@ -1,3 +1,7 @@
+if (window.location.protocol === 'https:') {
+	protocol = 'wss://';
+}
+
 let host = window.location.hostname;
 let ws = new WebSocket(`${protocol}${host}:${reload_port}/live_reload`);
 ws.onmessage = (ev) => {
