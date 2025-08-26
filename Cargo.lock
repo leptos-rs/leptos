@@ -1788,7 +1788,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "any_spawner",
  "base64",
@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "config",
  "regex",
