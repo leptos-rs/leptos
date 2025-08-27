@@ -6,7 +6,8 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use regex::Regex;
 use std::{
-    env::VarError, fs, net::SocketAddr, path::Path, str::FromStr, sync::Arc,
+    env::VarError, fmt::Display, fs, net::SocketAddr, path::Path, str::FromStr,
+    sync::Arc,
 };
 use typed_builder::TypedBuilder;
 
@@ -222,6 +223,7 @@ fn env_w_default(
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Env {
     PROD,
     DEV,
@@ -280,6 +282,7 @@ impl TryFrom<String> for Env {
 /// An enum that can be used to define the websocket protocol Leptos uses for hotreloading
 /// Defaults to `ws`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ReloadWSProtocol {
     WS,
     WSS,
@@ -332,6 +335,16 @@ impl TryFrom<String> for ReloadWSProtocol {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         ws_from_str(s.as_str())
+    }
+}
+
+impl Display for ReloadWSProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReloadWSProtocol::WS => f.write_str("ws"),
+            ReloadWSProtocol::WSS => f.write_str("wss"),
+            ReloadWSProtocol::Auto => f.write_str("auto"),
+        }
     }
 }
 
