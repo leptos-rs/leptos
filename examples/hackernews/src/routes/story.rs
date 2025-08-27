@@ -23,24 +23,20 @@ pub fn Story() -> impl IntoView {
             None => Either::Left("Story not found."),
             Some(story) => {
                 Either::Right(view! {
-                    <Meta name="description" content=story.title.clone()/>
+                    <Meta name="description" content=story.title.clone() />
                     <div class="item-view">
                         <div class="item-view-header">
                             <a href=story.url target="_blank">
                                 <h1>{story.title}</h1>
                             </a>
                             <span class="host">"(" {story.domain} ")"</span>
-                            {story
-                                .user
-                                .map(|user| {
-                                    view! {
-                                        <p class="meta">
-                                            {story.points} " points | by "
-                                            <A href=format!("/users/{user}")>{user.clone()}</A>
-                                            {format!(" {}", story.time_ago)}
-                                        </p>
-                                    }
-                                })}
+                            <ShowLet some=move || story.user.clone() let:user>
+                                <p class="meta">
+                                    {story.points} " points | by "
+                                    <A href=format!("/users/{user}")>{user.clone()}</A>
+                                    {format!(" {}", story.time_ago)}
+                                </p>
+                            </ShowLet>
                         </div>
                         <div class="item-view-comments">
                             <p class="item-view-comments-header">
@@ -57,7 +53,7 @@ pub fn Story() -> impl IntoView {
                                     key=|comment| comment.id
                                     let:comment
                                 >
-                                    <Comment comment/>
+                                    <Comment comment />
                                 </For>
                             </ul>
                         </div>
@@ -110,8 +106,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                                 </a>
                             </div>
                             {move || {
-                                open
-                                    .get()
+                                open.get()
                                     .then({
                                         let comments = comment.comments.clone();
                                         move || {
@@ -122,7 +117,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                                                         key=|comment| comment.id
                                                         let:comment
                                                     >
-                                                        <Comment comment/>
+                                                        <Comment comment />
                                                     </For>
                                                 </ul>
                                             }

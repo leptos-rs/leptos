@@ -1,6 +1,6 @@
 use crate::{
     children::{TypedChildrenFn, ViewFn},
-    prelude::{FunctionMarker, SignalMarker},
+    prelude::FunctionMarker,
     IntoView,
 };
 use leptos_macro::component;
@@ -91,7 +91,8 @@ pub trait IntoCondition<M> {
     fn into_condition(self) -> Condition;
 }
 
-impl<S> IntoCondition<SignalMarker> for S
+#[cfg(not(feature = "nightly"))]
+impl<S> IntoCondition<crate::prelude::SignalMarker> for S
 where
     S: Get<Value = bool> + Send + Sync + 'static,
 {

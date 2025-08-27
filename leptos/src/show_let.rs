@@ -147,10 +147,12 @@ where
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 /// Marker type for creating an `OptionGetter` from a signal.
 /// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
 pub struct SignalMarker;
 
+#[cfg(not(feature = "nightly"))]
 impl<T, S> IntoOptionGetter<T, SignalMarker> for S
 where
     S: Get<Value = Option<T>> + Clone + Send + Sync + 'static,
