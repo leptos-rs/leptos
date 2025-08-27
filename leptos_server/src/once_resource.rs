@@ -386,6 +386,7 @@ T: Send + Sync + 'static,
 }
 
 #[cfg(feature = "serde-wasm-bindgen")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-wasm-bindgen")))]
 impl<T> ArcOnceResource<T, JsonSerdeWasmCodec>
 where
 T: Send + Sync + 'static,
@@ -418,6 +419,7 @@ fut: impl Future<Output = T> + Send + 'static
     }
 }
 #[cfg(feature = "miniserde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "miniserde")))]
 impl<T> ArcOnceResource<T, MiniserdeCodec>
 where
     T: Send + Sync + 'static,
@@ -451,6 +453,7 @@ where
 }
 
 #[cfg(feature = "serde-lite")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-lite")))]
 impl<T> ArcOnceResource<T, SerdeLite<JsonSerdeCodec>>
 where
 T: Send + Sync + 'static,
@@ -484,6 +487,7 @@ fut: impl Future<Output = T> + Send + 'static
 }
 
 #[cfg(feature = "rkyv")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rkyv")))]
 impl<T> ArcOnceResource<T, RkyvCodec>
 where
     T: Send + Sync + 'static,
@@ -748,6 +752,7 @@ T: Send + Sync + 'static,
 }
 
 #[cfg(feature = "serde-wasm-bindgen")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-wasm-bindgen")))]
 impl<T> OnceResource<T, JsonSerdeWasmCodec>
 where
 T: Send + Sync + 'static,
@@ -780,6 +785,7 @@ fut: impl Future<Output = T> + Send + 'static
     }
 }
 #[cfg(feature = "miniserde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "miniserde")))]
 impl<T> OnceResource<T, MiniserdeCodec>
 where
     T: Send + Sync + 'static,
@@ -813,6 +819,7 @@ where
 }
 
 #[cfg(feature = "serde-lite")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-lite")))]
 impl<T> OnceResource<T, SerdeLite<JsonSerdeCodec>>
 where
 T: Send + Sync + 'static,
@@ -846,6 +853,7 @@ fut: impl Future<Output = T> + Send + 'static
 }
 
 #[cfg(feature = "rkyv")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rkyv")))]
 impl<T> OnceResource<T, RkyvCodec>
 where
     T: Send + Sync + 'static,

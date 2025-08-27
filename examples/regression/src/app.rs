@@ -1,4 +1,7 @@
-use crate::{issue_4088::Routes4088, pr_4015::Routes4015, pr_4091::Routes4091};
+use crate::{
+    issue_4005::Routes4005, issue_4088::Routes4088, issue_4217::Routes4217,
+    pr_4015::Routes4015, pr_4091::Routes4091,
+};
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
 use leptos_router::{
@@ -37,6 +40,8 @@ pub fn App() -> impl IntoView {
                     <Routes4091/>
                     <Routes4015/>
                     <Routes4088/>
+                    <Routes4217/>
+                    <Routes4005/>
                 </Routes>
             </main>
         </Router>
@@ -59,6 +64,8 @@ fn HomePage() -> impl IntoView {
                 <li><a href="/4091/">"4091"</a></li>
                 <li><a href="/4015/">"4015"</a></li>
                 <li><a href="/4088/">"4088"</a></li>
+                <li><a href="/4217/">"4217"</a></li>
+                <li><a href="/4005/">"4005"</a></li>
             </ul>
         </nav>
     }

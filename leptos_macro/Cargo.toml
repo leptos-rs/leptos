@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.8.6"
+version = "0.8.7"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -24,7 +24,9 @@ proc-macro-error2 = { default-features = false, workspace = true }
 proc-macro2 = { workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
 syn = { features = ["full"], workspace = true, default-features = true }
-rstml = { workspace = true, default-features = true }
+rstml = { workspace = true, default-features = true, features = [
+  "rawtext-stable-hack",
+] }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = { workspace = true, default-features = true }
