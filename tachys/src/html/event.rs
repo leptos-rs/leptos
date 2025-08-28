@@ -5,6 +5,7 @@ use crate::{
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
+use reactive_graph::owner::Owner;
 use send_wrapper::SendWrapper;
 use std::{
     borrow::Cow,
@@ -110,6 +111,7 @@ where
 {
     On {
         event,
+        owner: Owner::current().unwrap_or_default(),
         cb: Some(SendWrapper::new(cb)),
     }
 }
@@ -135,6 +137,7 @@ where
 /// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F> {
     event: E,
+    owner: Owner,
     cb: Option<SendWrapper<F>>,
 }
 
@@ -146,6 +149,7 @@ where
     fn clone(&self) -> Self {
         Self {
             event: self.event.clone(),
+            owner: self.owner.clone(),
             cb: self.cb.clone(),
         }
     }
@@ -193,7 +197,7 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
-            cb.invoke(ev);
+            self.owner.with(|| cb.invoke(ev));
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
         attach_inner(
@@ -232,7 +236,7 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
-            cb.invoke(ev);
+            self.owner.with(|| cb.invoke(ev));
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
         attach_inner(el, cb, self.event.name())
@@ -320,6 +324,7 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            owner: self.owner,
             event: self.event,
         }
     }
@@ -327,6 +332,7 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            owner: self.owner,
             event: self.event,
         }
     }
