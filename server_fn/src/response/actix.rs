@@ -1,11 +1,12 @@
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, ServerFnErrorResponseParts, ServerFnErrorWrapper,
+    SERVER_FN_ERROR_HEADER,
 };
 use actix_web::{
     http::{
         header,
-        header::{HeaderValue, LOCATION},
+        header::{HeaderValue, CONTENT_TYPE, LOCATION},
         StatusCode,
     },
     HttpResponse,
@@ -72,11 +73,12 @@ where
 }
 
 impl Res for ActixResponse {
-    fn error_response(path: &str, err: Bytes) -> Self {
+    fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
-                .body(err),
+                .append_header((CONTENT_TYPE, err.content_type))
+                .body(err.body),
         ))
     }
 
