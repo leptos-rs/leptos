@@ -54,6 +54,15 @@ impl<Fut> ScopedFuture<Fut> {
             fut,
         }
     }
+
+    /// Same as [`ScopedFuture::new_untracked`], but uses the passed owner.
+    pub fn new_untracked_with_owner(fut: Fut, owner: Owner) -> Self {
+        Self {
+            owner,
+            observer: None,
+            fut,
+        }
+    }
 }
 
 impl<Fut: Future> Future for ScopedFuture<Fut> {
