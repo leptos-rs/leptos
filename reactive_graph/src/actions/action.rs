@@ -207,10 +207,10 @@ where
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
-                Box::pin(ScopedFuture::new_untracked_with_owner(
-                    owner.with(|| action_fn(input)),
-                    owner.clone(),
-                ))
+                Box::pin(
+                    owner
+                        .with(|| ScopedFuture::new_untracked(action_fn(input))),
+                )
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
@@ -386,10 +386,8 @@ where
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
                 Box::pin(SendWrapper::new(
-                    ScopedFuture::new_untracked_with_owner(
-                        owner.with(|| action_fn(input)),
-                        owner.clone(),
-                    ),
+                    owner
+                        .with(|| ScopedFuture::new_untracked(action_fn(input))),
                 ))
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
