@@ -5,7 +5,8 @@ use crate::{
             maybe_next_attr_erasure_macros::{
                 next_attr_combine, next_attr_output_type,
             },
-            Attribute, AttributeKey, AttributeValue, NextAttribute,
+            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+            NextAttribute,
         },
         event::{change, input, on},
         property::{prop, IntoProperty},
@@ -274,6 +275,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 

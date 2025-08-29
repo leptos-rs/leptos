@@ -4,7 +4,7 @@ use crate::{
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, NextAttribute,
+        Attribute, NamedAttributeKey, NextAttribute,
     },
     renderer::Rndr,
     view::add_attr::AddAnyAttr,
@@ -104,6 +104,10 @@ where
         InnerHtml {
             value: self.value.resolve().await,
         }
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::InnerHtml]
     }
 }
 

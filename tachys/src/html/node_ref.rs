@@ -7,7 +7,10 @@ use super::{
 };
 use crate::{
     html::{
-        attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+        attribute::{
+            maybe_next_attr_erasure_macros::next_attr_combine,
+            NamedAttributeKey,
+        },
         element::HtmlElement,
     },
     prelude::Render,
@@ -111,6 +114,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 

@@ -3,7 +3,10 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute, NextAttribute},
+    html::attribute::{
+        any_attribute::AnyAttribute, Attribute, NamedAttributeKey,
+        NextAttribute,
+    },
     hydration::Cursor,
     ssr::StreamBuilder,
 };
@@ -262,6 +265,13 @@ where
         match self {
             Either::Left(left) => Either::Left(left.resolve().await),
             Either::Right(right) => Either::Right(right.resolve().await),
+        }
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        match self {
+            Either::Left(left) => left.keys(),
+            Either::Right(right) => right.keys(),
         }
     }
 }
