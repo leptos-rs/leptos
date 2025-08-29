@@ -380,7 +380,7 @@ impl Attribute for Vec<AnyAttribute> {
                 } else if let Some(prop_name) = key.strip_prefix("prop:") {
                     Rndr::set_property(
                         &old.el,
-                        &prop_name,
+                        prop_name,
                         &wasm_bindgen::JsValue::UNDEFINED,
                     );
                 } else {
