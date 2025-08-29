@@ -13,7 +13,7 @@ use crate::{
     prelude::Render,
     view::add_attr::AddAnyAttr,
 };
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// Describes a container that can be used to hold a reference to an HTML element.
 pub trait NodeRefContainer<E>: Send + Clone + 'static
@@ -111,6 +111,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![]
     }
 }
 

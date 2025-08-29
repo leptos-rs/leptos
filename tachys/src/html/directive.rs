@@ -8,7 +8,7 @@ use crate::{
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
-use std::{marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
 /// Adds a directive to the element, which runs some custom logic in the browser when the element
 /// is created or hydrated.
@@ -159,6 +159,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![]
     }
 }
 

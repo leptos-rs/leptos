@@ -9,7 +9,7 @@ use crate::{
     renderer::{dom::CssStyleDeclaration, Rndr},
     view::{Position, ToTemplate},
 };
-use std::{future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that will add to an element's CSS styles.
 #[inline(always)]
@@ -99,6 +99,10 @@ where
         Style {
             style: self.style.resolve().await,
         }
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec!["style".into()]
     }
 }
 

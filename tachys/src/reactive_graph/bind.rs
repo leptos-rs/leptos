@@ -20,6 +20,7 @@ use reactive_graph::{
     wrappers::read::Signal,
 };
 use send_wrapper::SendWrapper;
+use std::borrow::Cow;
 use wasm_bindgen::JsValue;
 #[cfg(feature = "reactive_stores")]
 use {
@@ -274,6 +275,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![]
     }
 }
 

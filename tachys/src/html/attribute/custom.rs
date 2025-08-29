@@ -112,6 +112,10 @@ where
             value: self.value.resolve().await,
         }
     }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![self.key.as_ref().to_string().into()]
+    }
 }
 
 impl<K, V> NextAttribute for CustomAttr<K, V>

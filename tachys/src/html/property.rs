@@ -124,6 +124,10 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![format!("prop:{}", self.key.as_ref()).into()]
+    }
 }
 
 impl<K, P> NextAttribute for Property<K, P>

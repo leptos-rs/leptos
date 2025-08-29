@@ -699,7 +699,15 @@ impl Render for AnyViewWithAttrs {
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(&mut state.view);
-        self.attrs.rebuild(&mut state.attrs);
+
+        let elements = state.elements();
+        // FIXME this seems wrong but I think the previous version was also broken!
+        if let Some(element) = elements.first() {
+            self.attrs.rebuild(&mut (
+                element.clone(),
+                std::mem::take(&mut state.attrs),
+            ));
+        }
     }
 }
 
@@ -820,7 +828,7 @@ impl AddAnyAttr for AnyViewWithAttrs {
     }
 }
 
-/// wip
+/// State for any view with attributes spread onto it.
 pub struct AnyViewWithAttrsState {
     view: AnyViewState,
     attrs: Vec<AnyAttributeState>,

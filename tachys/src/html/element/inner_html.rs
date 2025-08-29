@@ -9,7 +9,7 @@ use crate::{
     renderer::Rndr,
     view::add_attr::AddAnyAttr,
 };
-use std::{future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that sets the inner HTML of an element.
 ///
@@ -104,6 +104,10 @@ where
         InnerHtml {
             value: self.value.resolve().await,
         }
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec!["INNER_HTML".into()]
     }
 }
 

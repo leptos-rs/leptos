@@ -342,6 +342,10 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![]
+    }
 }
 
 impl<E, F> NextAttribute for On<E, F>

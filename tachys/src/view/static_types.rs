@@ -13,7 +13,7 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.
@@ -110,6 +110,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec![K::KEY.into()]
     }
 }
 

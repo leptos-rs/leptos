@@ -97,6 +97,10 @@ where
             class: self.class.resolve().await,
         }
     }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        vec!["class".into()]
+    }
 }
 
 impl<C> NextAttribute for Class<C>

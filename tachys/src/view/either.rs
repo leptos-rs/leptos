@@ -9,6 +9,7 @@ use crate::{
 };
 use either_of::*;
 use futures::future::join;
+use std::borrow::Cow;
 
 impl<A, B> Render for Either<A, B>
 where
@@ -262,6 +263,13 @@ where
         match self {
             Either::Left(left) => Either::Left(left.resolve().await),
             Either::Right(right) => Either::Right(right.resolve().await),
+        }
+    }
+
+    fn keys(&self) -> Vec<Cow<'static, str>> {
+        match self {
+            Either::Left(left) => left.keys(),
+            Either::Right(right) => right.keys(),
         }
     }
 }
