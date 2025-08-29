@@ -25,7 +25,7 @@ pin_project! {
     pub struct ScopedFuture<Fut> {
         pub owner: Owner,
         pub observer: Option<AnySubscriber>,
-        pub diagnostics: bool,
+        diagnostics: bool,
         #[pin]
         pub fut: Fut,
     }
