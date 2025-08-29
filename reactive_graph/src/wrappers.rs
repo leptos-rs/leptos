@@ -257,11 +257,39 @@ pub mod read {
         }
     }
 
+    impl<T, S> From<ReadSignal<T, S>> for ArcSignal<T, S>
+    where
+        S: Storage<ArcReadSignal<T>> + Storage<T>,
+    {
+        #[track_caller]
+        fn from(value: ReadSignal<T, S>) -> Self {
+            Self {
+                inner: SignalTypes::ReadSignal(value.into()),
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
     impl<T: Send + Sync> From<ArcRwSignal<T>> for ArcSignal<T, SyncStorage> {
         #[track_caller]
         fn from(value: ArcRwSignal<T>) -> Self {
             Self {
                 inner: SignalTypes::ReadSignal(value.read_only()),
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T, S> From<RwSignal<T, S>> for ArcSignal<T, S>
+    where
+        S: Storage<ArcRwSignal<T>> + Storage<ArcReadSignal<T>> + Storage<T>,
+    {
+        #[track_caller]
+        fn from(value: RwSignal<T, S>) -> Self {
+            Self {
+                inner: SignalTypes::ReadSignal(value.read_only().into()),
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
@@ -276,6 +304,20 @@ pub mod read {
         fn from(value: ArcMemo<T, S>) -> Self {
             Self {
                 inner: SignalTypes::Memo(value),
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T, S> From<Memo<T, S>> for ArcSignal<T, S>
+    where
+        S: Storage<ArcMemo<T, S>> + Storage<T>,
+    {
+        #[track_caller]
+        fn from(value: Memo<T, S>) -> Self {
+            Self {
+                inner: SignalTypes::Memo(value.into()),
                 #[cfg(any(debug_assertions, leptos_debuginfo))]
                 defined_at: std::panic::Location::caller(),
             }
