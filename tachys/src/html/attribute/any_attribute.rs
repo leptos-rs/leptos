@@ -1,9 +1,10 @@
 use super::{Attribute, NextAttribute};
 use crate::{
     erased::{Erased, ErasedLocal},
+    html::attribute::NamedAttributeKey,
     renderer::{dom::Element, Rndr},
 };
-use std::{any::TypeId, borrow::Cow, fmt::Debug, mem};
+use std::{any::TypeId, fmt::Debug, mem};
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
@@ -28,7 +29,7 @@ pub struct AnyAttribute {
     resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyAttribute> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Erased),
-    keys: fn(&Erased) -> Vec<Cow<'static, str>>,
+    keys: fn(&Erased) -> Vec<NamedAttributeKey>,
 }
 
 impl Clone for AnyAttribute {
@@ -48,7 +49,7 @@ pub struct AnyAttributeState {
     type_id: TypeId,
     state: ErasedLocal,
     el: crate::renderer::types::Element,
-    keys: Vec<Cow<'static, str>>,
+    keys: Vec<NamedAttributeKey>,
 }
 
 /// Converts an [`Attribute`] into [`AnyAttribute`].
@@ -150,7 +151,7 @@ where
 
         fn keys<T: Attribute + 'static>(
             value: &Erased,
-        ) -> Vec<Cow<'static, str>> {
+        ) -> Vec<NamedAttributeKey> {
             value.get_ref::<T>().keys()
         }
 
@@ -284,7 +285,7 @@ impl Attribute for AnyAttribute {
         );
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         (self.keys)(&self.value)
     }
 }
@@ -375,16 +376,20 @@ impl Attribute for Vec<AnyAttribute> {
         let (el, state) = state;
         for old in mem::take(state) {
             for key in old.keys {
-                if key == "INNER_HTML" {
-                    Rndr::set_inner_html(&old.el, "");
-                } else if let Some(prop_name) = key.strip_prefix("prop:") {
-                    Rndr::set_property(
-                        &old.el,
-                        prop_name,
-                        &wasm_bindgen::JsValue::UNDEFINED,
-                    );
-                } else {
-                    Rndr::remove_attribute(&old.el, &key);
+                match key {
+                    NamedAttributeKey::InnerHtml => {
+                        Rndr::set_inner_html(&old.el, "");
+                    }
+                    NamedAttributeKey::Property(prop_name) => {
+                        Rndr::set_property(
+                            &old.el,
+                            &prop_name,
+                            &wasm_bindgen::JsValue::UNDEFINED,
+                        );
+                    }
+                    NamedAttributeKey::Attribute(key) => {
+                        Rndr::remove_attribute(&old.el, &key);
+                    }
                 }
             }
         }
@@ -428,7 +433,7 @@ impl Attribute for Vec<AnyAttribute> {
         );
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         self.iter().flat_map(|s| s.keys()).collect()
     }
 }

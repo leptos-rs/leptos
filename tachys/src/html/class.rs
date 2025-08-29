@@ -1,6 +1,6 @@
 use super::attribute::{
     maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
-    NextAttribute,
+    NamedAttributeKey, NextAttribute,
 };
 use crate::{
     html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
@@ -98,8 +98,8 @@ where
         }
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec!["class".into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute("class".into())]
     }
 }
 

@@ -5,7 +5,8 @@ use crate::{
             maybe_next_attr_erasure_macros::{
                 next_attr_combine, next_attr_output_type,
             },
-            Attribute, AttributeKey, AttributeValue, NextAttribute,
+            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+            NextAttribute,
         },
         event::{change, input, on},
         property::{prop, IntoProperty},
@@ -20,7 +21,6 @@ use reactive_graph::{
     wrappers::read::Signal,
 };
 use send_wrapper::SendWrapper;
-use std::borrow::Cow;
 use wasm_bindgen::JsValue;
 #[cfg(feature = "reactive_stores")]
 use {
@@ -277,7 +277,7 @@ where
         self
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         vec![]
     }
 }

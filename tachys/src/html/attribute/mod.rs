@@ -79,11 +79,21 @@ pub trait Attribute: NextAttribute + Send {
     /// Returns a set of attribute keys, associated with this attribute, if any.
     ///
     /// This is only used to manage the removal of type-erased attributes, when needed.
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         // TODO: remove default implementation in 0.9, or fix this whole approach
         // by making it easier to remove attributes
         vec![]
     }
+}
+
+/// An attribute key can be used to remove an attribute from an element.
+pub enum NamedAttributeKey {
+    /// An ordinary attribute.
+    Attribute(Cow<'static, str>),
+    /// A DOM property.
+    Property(Cow<'static, str>),
+    /// The `inner_html` pseudo-attribute.
+    InnerHtml,
 }
 
 /// Adds another attribute to this one, returning a new attribute.
@@ -143,7 +153,7 @@ impl Attribute for () {
 
     async fn resolve(self) -> Self::AsyncOutput {}
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         vec![]
     }
 }
@@ -263,8 +273,8 @@ where
         Attr(self.0, self.1.resolve().await)
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec![K::KEY.into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute(K::KEY.into())]
     }
 }
 
@@ -371,7 +381,7 @@ macro_rules! impl_attr_for_tuples {
                 )
             }
 
-            fn keys(&self) -> Vec<Cow<'static, str>> {
+            fn keys(&self) -> Vec<NamedAttributeKey> {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = &self;
                 let mut buf = $first.keys();
@@ -488,7 +498,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                 )
             }
 
-            fn keys(&self) -> Vec<Cow<'static, str>> {
+            fn keys(&self) -> Vec<NamedAttributeKey> {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = &self;
                 let mut buf = $first.keys();
@@ -572,7 +582,7 @@ where
         (self.0.resolve().await,)
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         self.0.keys()
     }
 }

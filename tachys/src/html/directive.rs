@@ -3,12 +3,14 @@ use super::attribute::{
     NextAttribute,
 };
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     prelude::AddAnyAttr,
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
-use std::{borrow::Cow, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 /// Adds a directive to the element, which runs some custom logic in the browser when the element
 /// is created or hydrated.
@@ -161,7 +163,7 @@ where
         self
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         vec![]
     }
 }

@@ -3,13 +3,15 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute, NextAttribute},
+    html::attribute::{
+        any_attribute::AnyAttribute, Attribute, NamedAttributeKey,
+        NextAttribute,
+    },
     hydration::Cursor,
     ssr::StreamBuilder,
 };
 use either_of::*;
 use futures::future::join;
-use std::borrow::Cow;
 
 impl<A, B> Render for Either<A, B>
 where
@@ -266,7 +268,7 @@ where
         }
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         match self {
             Either::Left(left) => left.keys(),
             Either::Right(right) => right.keys(),

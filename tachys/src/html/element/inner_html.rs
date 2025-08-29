@@ -4,12 +4,12 @@ use crate::{
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, NextAttribute,
+        Attribute, NamedAttributeKey, NextAttribute,
     },
     renderer::Rndr,
     view::add_attr::AddAnyAttr,
 };
-use std::{borrow::Cow, future::Future, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that sets the inner HTML of an element.
 ///
@@ -106,8 +106,8 @@ where
         }
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec!["INNER_HTML".into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::InnerHtml]
     }
 }
 

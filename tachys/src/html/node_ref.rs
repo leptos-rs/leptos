@@ -7,13 +7,16 @@ use super::{
 };
 use crate::{
     html::{
-        attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+        attribute::{
+            maybe_next_attr_erasure_macros::next_attr_combine,
+            NamedAttributeKey,
+        },
         element::HtmlElement,
     },
     prelude::Render,
     view::add_attr::AddAnyAttr,
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 /// Describes a container that can be used to hold a reference to an HTML element.
 pub trait NodeRefContainer<E>: Send + Clone + 'static
@@ -113,7 +116,7 @@ where
         self
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
+    fn keys(&self) -> Vec<NamedAttributeKey> {
         vec![]
     }
 }

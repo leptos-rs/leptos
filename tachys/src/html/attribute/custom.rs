@@ -4,7 +4,7 @@ use super::{
 use crate::{
     html::attribute::{
         maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
-        AttributeValue,
+        AttributeValue, NamedAttributeKey,
     },
     view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
@@ -113,8 +113,10 @@ where
         }
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec![self.key.as_ref().to_string().into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute(
+            self.key.as_ref().to_string().into(),
+        )]
     }
 }
 

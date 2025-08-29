@@ -5,11 +5,13 @@ use super::attribute::{
 #[cfg(all(feature = "nightly", rustc_nightly))]
 use crate::view::static_types::Static;
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     renderer::{dom::CssStyleDeclaration, Rndr},
     view::{Position, ToTemplate},
 };
-use std::{borrow::Cow, future::Future, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 /// Returns an [`Attribute`] that will add to an element's CSS styles.
 #[inline(always)]
@@ -101,8 +103,8 @@ where
         }
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec!["style".into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute("style".into())]
     }
 }
 

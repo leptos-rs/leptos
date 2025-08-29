@@ -8,12 +8,13 @@ use crate::{
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, AttributeKey, AttributeValue, NextAttribute,
+        Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+        NextAttribute,
     },
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.
@@ -112,8 +113,8 @@ where
         self
     }
 
-    fn keys(&self) -> Vec<Cow<'static, str>> {
-        vec![K::KEY.into()]
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute(K::KEY.into())]
     }
 }
 
