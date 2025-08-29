@@ -85,6 +85,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
         import_sig.output = async_output;
     }
 
+    let wrapper_pub = item_fn.vis;
     let mut wrapper_sig = item_fn.sig;
     wrapper_sig.asyncness = Some(Default::default());
     let mut args = Vec::new();
@@ -147,7 +148,8 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         #[allow(non_snake_case)]
-        #wrapper_sig {
+        #(#attrs)*
+        #wrapper_pub #wrapper_sig {
             #(#attrs)*
             #[allow(improper_ctypes_definitions)]
             #[allow(non_snake_case)]
@@ -162,7 +164,7 @@ pub fn wasm_split(args: TokenStream, input: TokenStream) -> TokenStream {
 
         #[doc(hidden)]
         #[allow(non_snake_case)]
-        pub async fn #preload_name() {
+        #wrapper_pub async fn #preload_name() {
             ::leptos::wasm_split_helpers::ensure_loaded(&#split_loader_ident).await.unwrap();
         }
     }
