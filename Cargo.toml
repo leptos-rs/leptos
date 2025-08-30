@@ -39,6 +39,10 @@ members = [
 ]
 exclude = ["benchmarks", "examples", "projects"]
 
+[patch.crates-io]
+typed-builder = { git = "https://github.com/zakstucke/rust-typed-builder.git", rev = "617e7842d33f93ae5338f66d7881c06da91ddf6d" }
+typed-builder-macro = { git = "https://github.com/zakstucke/rust-typed-builder.git", rev = "617e7842d33f93ae5338f66d7881c06da91ddf6d" }
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.88"
