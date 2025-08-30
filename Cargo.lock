@@ -2773,6 +2773,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "typed-builder",
  "web-sys",
 ]
 
@@ -4097,8 +4098,7 @@ dependencies = [
 [[package]]
 name = "typed-builder"
 version = "0.21.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef81aec2ca29576f9f6ae8755108640d0a86dd3161b2e8bca6cfa554e98f77d"
+source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=617e7842d33f93ae5338f66d7881c06da91ddf6d#617e7842d33f93ae5338f66d7881c06da91ddf6d"
 dependencies = [
  "typed-builder-macro",
 ]
@@ -4106,8 +4106,7 @@ dependencies = [
 [[package]]
 name = "typed-builder-macro"
 version = "0.21.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ecb9ecf7799210407c14a8cfdfe0173365780968dc57973ed082211958e0b18"
+source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=617e7842d33f93ae5338f66d7881c06da91ddf6d#617e7842d33f93ae5338f66d7881c06da91ddf6d"
 dependencies = [
  "proc-macro2",
  "quote",

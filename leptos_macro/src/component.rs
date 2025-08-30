@@ -1016,25 +1016,27 @@ struct PropOpt {
     name: Option<String>,
 }
 
-struct TypedBuilderOpts {
+struct TypedBuilderOpts<'a> {
     default: bool,
     default_with_value: Option<syn::Expr>,
     strip_option: bool,
     into: bool,
+    ty: &'a Type,
 }
 
-impl TypedBuilderOpts {
-    fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
+impl<'a> TypedBuilderOpts<'a> {
+    fn from_opts(opts: &PropOpt, ty: &'a Type) -> Self {
         Self {
             default: opts.optional || opts.optional_no_strip || opts.attrs,
             default_with_value: opts.default.clone(),
-            strip_option: opts.strip_option || opts.optional && is_ty_option,
+            strip_option: opts.strip_option || opts.optional && is_option(ty),
             into: opts.into,
+            ty,
         }
     }
 }
 
-impl TypedBuilderOpts {
+impl TypedBuilderOpts<'_> {
     fn to_serde_tokens(&self) -> TokenStream {
         let default = if let Some(v) = &self.default_with_value {
             let v = v.to_token_stream().to_string();
@@ -1053,7 +1055,7 @@ impl TypedBuilderOpts {
     }
 }
 
-impl ToTokens for TypedBuilderOpts {
+impl ToTokens for TypedBuilderOpts<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let default = if let Some(v) = &self.default_with_value {
             let v = v.to_token_stream().to_string();
@@ -1071,7 +1073,12 @@ impl ToTokens for TypedBuilderOpts {
         };
 
         let into = if self.into {
-            quote! { into, }
+            if is_signal(self.ty) {
+                let ty = self.ty;
+                quote! { transform_generics = "<M>", transform = |value: impl ::leptos::prelude::IntoSignal<#ty, M>| value.into_signal(), }
+            } else {
+                quote! { into, }
+            }
         } else {
             quote! {}
         };
@@ -1107,8 +1114,7 @@ fn prop_builder_fields(
                 ty,
             } = prop;
 
-            let builder_attrs =
-                TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
@@ -1153,8 +1159,7 @@ fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                     ty,
                 } = prop;
 
-                let builder_attrs =
-                    TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+                let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
                 let serde_attrs = builder_attrs.to_serde_tokens();
 
                 let PatIdent { ident, by_ref, .. } = &name;
@@ -1234,6 +1239,22 @@ pub fn is_option(ty: &Type) -> bool {
     {
         if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
             first.ident == "Option"
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+pub fn is_signal(ty: &Type) -> bool {
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            first.ident == "Signal"
         } else {
             false
         }
