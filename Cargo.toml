@@ -55,7 +55,7 @@ leptos_config = { path = "./leptos_config", version = "0.8.7" }
 leptos_dom = { path = "./leptos_dom", version = "0.8.6" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.5" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.8.5" }
-leptos_macro = { path = "./leptos_macro", version = "0.8.7" }
+leptos_macro = { path = "./leptos_macro", version = "0.8.8" }
 leptos_router = { path = "./router", version = "0.8.6" }
 leptos_router_macro = { path = "./router_macro", version = "0.8.5" }
 leptos_server = { path = "./leptos_server", version = "0.8.5" }
