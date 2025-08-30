@@ -323,14 +323,7 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
             .chain(tokens)
             .collect()
     };
-    let macro_call_pattern = if let Some(class) = &global_class {
-        quote!(view! { class = #class, %% })
-    } else {
-        quote!(view! {%%})
-    };
-    let config = rstml::ParserConfig::default()
-        .recover_block(true)
-        .macro_call_pattern(macro_call_pattern);
+    let config = rstml::ParserConfig::default().recover_block(true);
     let parser = rstml::Parser::new(config);
     let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
