@@ -67,12 +67,11 @@ where
 #[cfg(test)]
 mod tests {
 
-    use typed_builder::TypedBuilder;
-
     use crate::{
         owner::LocalStorage, signal::into_signal::IntoSignal,
         traits::GetUntracked, wrappers::read::Signal,
     };
+    use typed_builder::TypedBuilder;
 
     #[test]
     fn text_into_signal_compiles() {
