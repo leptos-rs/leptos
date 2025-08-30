@@ -1049,6 +1049,13 @@ pub mod read {
         }
     }
 
+    impl From<Signal<&'static str, LocalStorage>> for Signal<String, LocalStorage> {
+        #[track_caller]
+        fn from(value: Signal<&'static str, LocalStorage>) -> Self {
+            Signal::derive_local(move || value.read().to_string())
+        }
+    }
+
     impl From<Signal<&'static str>> for Signal<String, LocalStorage> {
         #[track_caller]
         fn from(value: Signal<&'static str>) -> Self {
@@ -1074,6 +1081,15 @@ pub mod read {
         #[track_caller]
         fn from(value: Signal<Option<&'static str>>) -> Self {
             Signal::derive(move || value.read().map(str::to_string))
+        }
+    }
+
+    impl From<Signal<Option<&'static str>, LocalStorage>>
+        for Signal<Option<String>, LocalStorage>
+    {
+        #[track_caller]
+        fn from(value: Signal<Option<&'static str>, LocalStorage>) -> Self {
+            Signal::derive_local(move || value.read().map(str::to_string))
         }
     }
 
