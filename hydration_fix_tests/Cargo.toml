@@ -49,3 +49,10 @@ path = "src/crossorigin_test.rs"
 [[test]]
 name = "attribute_debug_test"
 path = "src/attribute_debug_test.rs"
+
+[[test]]
+name = "property_based_tests"
+path = "src/property_based_tests.rs"
+
+[dev-dependencies]
+quickcheck = { version = "1.0", features = ["use_logging"] }
