@@ -521,9 +521,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            let fut = ScopedFuture::new_untracked(async move {
-                SendOption::new(Some(fut.await))
-            });
+            let fut =
+                ScopedFuture::new_untracked_with_diagnostics(async move {
+                    SendOption::new(Some(fut.await))
+                });
             #[cfg(feature = "sandboxed-arenas")]
             let fut = Sandboxed::new(fut);
             fut
