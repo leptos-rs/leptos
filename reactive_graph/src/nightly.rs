@@ -9,7 +9,7 @@ use crate::{
     },
     traits::{Get, Set},
     wrappers::{
-        read::{ArcSignal, Signal, SignalTypes},
+        read::SignalTypes,
         write::SignalSetter,
     },
 };
