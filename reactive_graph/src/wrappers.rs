@@ -324,6 +324,22 @@ pub mod read {
         }
     }
 
+    impl<S> From<&'static str> for ArcSignal<String, S>
+    where
+        S: Storage<&'static str> + Storage<String>,
+    {
+        #[track_caller]
+        fn from(value: &'static str) -> Self {
+            Self {
+                inner: SignalTypes::Stored(ArcStoredValue::new(
+                    value.to_string(),
+                )),
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
     impl<T, S> DefinedAt for ArcSignal<T, S>
     where
         S: Storage<T>,
@@ -1123,6 +1139,20 @@ pub mod read {
 
     impl<T, F>
         IntoLeptosValue<
+            ArcSignal<T, SyncStorage>,
+            __IntoLeptosValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<T, SyncStorage> {
+            ArcSignal::derive(self)
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
             Signal<T, LocalStorage>,
             __IntoLeptosValueMarkerSignalFromReactiveClosure,
         > for F
@@ -1132,6 +1162,20 @@ pub mod read {
     {
         fn into_leptos_value(self) -> Signal<T, LocalStorage> {
             Signal::derive_local(self)
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            ArcSignal<T, LocalStorage>,
+            __IntoLeptosValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<T, LocalStorage> {
+            ArcSignal::derive_local(self)
         }
     }
 
@@ -1150,6 +1194,19 @@ pub mod read {
 
     impl<F>
         IntoLeptosValue<
+            ArcSignal<String, SyncStorage>,
+            __IntoLeptosValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<String, SyncStorage> {
+            ArcSignal::derive(move || self().to_string())
+        }
+    }
+
+    impl<F>
+        IntoLeptosValue<
             Signal<String, LocalStorage>,
             __IntoLeptosValueMarkerSignalStrOutputToString,
         > for F
@@ -1158,6 +1215,19 @@ pub mod read {
     {
         fn into_leptos_value(self) -> Signal<String, LocalStorage> {
             Signal::derive_local(move || self().to_string())
+        }
+    }
+
+    impl<F>
+        IntoLeptosValue<
+            ArcSignal<String, LocalStorage>,
+            __IntoLeptosValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<String, LocalStorage> {
+            ArcSignal::derive_local(move || self().to_string())
         }
     }
 
