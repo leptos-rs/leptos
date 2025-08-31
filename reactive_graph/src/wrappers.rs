@@ -1122,6 +1122,8 @@ pub mod read {
     pub struct __IntoLeptosValueMarkerSignalFromReactiveClosure;
     #[doc(hidden)]
     pub struct __IntoLeptosValueMarkerSignalStrOutputToString;
+    #[doc(hidden)]
+    pub struct __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways;
 
     impl<T, F>
         IntoLeptosValue<
@@ -1228,6 +1230,62 @@ pub mod read {
     {
         fn into_leptos_value(self) -> ArcSignal<String, LocalStorage> {
             ArcSignal::derive_local(move || self().to_string())
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            Signal<Option<T>, SyncStorage>,
+            __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<Option<T>, SyncStorage> {
+            Signal::derive(move || Some(self()))
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            ArcSignal<Option<T>, SyncStorage>,
+            __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<Option<T>, SyncStorage> {
+            ArcSignal::derive(move || Some(self()))
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            Signal<Option<T>, LocalStorage>,
+            __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<Option<T>, LocalStorage> {
+            Signal::derive_local(move || Some(self()))
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            ArcSignal<Option<T>, LocalStorage>,
+            __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_leptos_value(self) -> ArcSignal<Option<T>, LocalStorage> {
+            ArcSignal::derive_local(move || Some(self()))
         }
     }
 
