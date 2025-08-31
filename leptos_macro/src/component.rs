@@ -1073,9 +1073,10 @@ impl ToTokens for TypedBuilderOpts<'_> {
         };
 
         let into = if self.into {
-            if is_signal(self.ty) {
-                let ty = self.ty;
-                quote! { transform_generics = "<M>", transform = |value: impl ::leptos::prelude::IntoSignal<#ty, M>| value.into_signal(), }
+            // Transform cannot be used with strip_option, but otherwise use the IntoLeptosValue trait instead of into, to provide more From types than using into alone would.
+            if !self.strip_option {
+                let ty = &self.ty;
+                quote! { transform_generics = "<__IntoLeptosValueMarker>", transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| value.into_leptos_value(), }
             } else {
                 quote! { into, }
             }
@@ -1239,22 +1240,6 @@ pub fn is_option(ty: &Type) -> bool {
     {
         if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
             first.ident == "Option"
-        } else {
-            false
-        }
-    } else {
-        false
-    }
-}
-
-pub fn is_signal(ty: &Type) -> bool {
-    if let Type::Path(TypePath {
-        path: Path { segments, .. },
-        ..
-    }) = ty
-    {
-        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
-            first.ident == "Signal"
         } else {
             false
         }

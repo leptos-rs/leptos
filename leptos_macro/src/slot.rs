@@ -1,6 +1,5 @@
 use crate::component::{
-    convert_from_snake_case, drain_filter, is_option, is_signal, unwrap_option,
-    Docs,
+    convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
@@ -198,8 +197,10 @@ impl ToTokens for TypedBuilderOpts<'_> {
         };
 
         let into = if self.into {
-            if is_signal(self.ty) {
-                quote! { transform_generics = "<M>", transform = |value: impl ::leptos::prelude::IntoSignal<::leptos::prelude::Signal<usize>, M>| value.into_signal(), }
+            // Transform cannot be used with strip_option, but otherwise use the IntoLeptosValue trait instead of into, to provide more From types than using into alone would.
+            if !self.strip_option {
+                let ty = &self.ty;
+                quote! { transform_generics = "<__IntoLeptosValueMarker>", transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| value.into_leptos_value(), }
             } else {
                 quote! { into, }
             }

@@ -17,7 +17,7 @@ pub mod read {
         traits::{
             DefinedAt, Dispose, Get, Read, ReadUntracked, ReadValue, Track,
         },
-        unwrap_signal,
+        unwrap_signal, IntoLeptosValue,
     };
     use send_wrapper::SendWrapper;
     use std::{
@@ -1099,6 +1099,65 @@ pub mod read {
         #[track_caller]
         fn from(value: Signal<Option<&'static str>>) -> Self {
             Signal::derive_local(move || value.read().map(str::to_string))
+        }
+    }
+
+    #[doc(hidden)]
+    pub struct __IntoLeptosValueMarkerSignalFromReactiveClosure;
+    #[doc(hidden)]
+    pub struct __IntoLeptosValueMarkerSignalStrOutputToString;
+
+    impl<T, F>
+        IntoLeptosValue<
+            Signal<T, SyncStorage>,
+            __IntoLeptosValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<T, SyncStorage> {
+            Signal::derive(self)
+        }
+    }
+
+    impl<T, F>
+        IntoLeptosValue<
+            Signal<T, LocalStorage>,
+            __IntoLeptosValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<T, LocalStorage> {
+            Signal::derive_local(self)
+        }
+    }
+
+    impl<F>
+        IntoLeptosValue<
+            Signal<String, SyncStorage>,
+            __IntoLeptosValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + Send + Sync + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<String, SyncStorage> {
+            Signal::derive(move || self().to_string())
+        }
+    }
+
+    impl<F>
+        IntoLeptosValue<
+            Signal<String, LocalStorage>,
+            __IntoLeptosValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + 'static,
+    {
+        fn into_leptos_value(self) -> Signal<String, LocalStorage> {
+            Signal::derive_local(move || self().to_string())
         }
     }
 
