@@ -43,11 +43,25 @@ impl<Fut> ScopedFuture<Fut> {
         }
     }
 
-    #[doc(hidden)]
-    #[track_caller]
-    pub fn new_untracked_with_diagnostics(fut: Fut) -> Self {
+    /// Wraps the given `Future` by taking the current [`Owner`] re-setting it as the
+    /// active owner every time the inner `Future` is polled. Always untracks, i.e., clears
+    /// the active [`Observer`] when polled.
+    pub fn new_untracked(fut: Fut) -> Self {
         let owner = Owner::current().unwrap_or_default();
         Self {
+            owner,
+            observer: None,
+            fut,
+        }
+    }
+
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn new_untracked_with_diagnostics(
+        fut: Fut,
+    ) -> ScopedFutureUntrackedWithDiagnostics<Fut> {
+        let owner = Owner::current().unwrap_or_default();
+        ScopedFutureUntrackedWithDiagnostics {
             owner,
             observer: None,
             fut,
@@ -60,40 +74,39 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        this.owner
-            .with(|| this.observer.with_observer(|| this.fut.poll(cx)))
+        this.owner.with(|| {
+            #[cfg(debug_assertions)]
+            let _maybe_guard = if this.observer.is_none() {
+                Some(crate::diagnostics::SpecialNonReactiveZone::enter())
+            } else {
+                None
+            };
+            this.observer.with_observer(|| this.fut.poll(cx))
+        })
     }
 }
 
 pin_project! {
-    #[doc(hidden)]
-    pub struct __NonReactiveZoneFut<Fut> {
+    /// A [`Future`] wrapper that sets the [`Owner`] and [`Observer`] before polling the inner
+    /// `Future`, output of [`ScopedFuture::new_untracked_with_diagnostics`].
+    ///
+    /// In leptos 0.9 this will be replaced with `ScopedFuture` itself.
+    #[derive(Clone)]
+    pub struct ScopedFutureUntrackedWithDiagnostics<Fut> {
+        owner: Owner,
+        observer: Option<AnySubscriber>,
         #[pin]
         fut: Fut,
     }
 }
 
-impl<Fut> ScopedFuture<__NonReactiveZoneFut<Fut>> {
-    /// Wraps the given `Future` by taking the current [`Owner`] re-setting it as the
-    /// active owner every time the inner `Future` is polled. Always untracks, i.e., clears
-    /// the active [`Observer`] when polled.
-    pub fn new_untracked(fut: Fut) -> Self {
-        let owner = Owner::current().unwrap_or_default();
-        Self {
-            owner,
-            observer: None,
-            fut: __NonReactiveZoneFut { fut },
-        }
-    }
-}
-
-impl<Fut: Future> Future for __NonReactiveZoneFut<Fut> {
+impl<Fut: Future> Future for ScopedFutureUntrackedWithDiagnostics<Fut> {
     type Output = Fut::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        #[cfg(debug_assertions)]
-        let _guard = crate::diagnostics::SpecialNonReactiveZone::enter();
-        self.project().fut.poll(cx)
+        let this = self.project();
+        this.owner
+            .with(|| this.observer.with_observer(|| this.fut.poll(cx)))
     }
 }
 
