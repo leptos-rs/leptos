@@ -1,6 +1,7 @@
 use crate::{
     html::attribute::{
         maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+        NamedAttributeKey,
     },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
@@ -359,6 +360,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 
