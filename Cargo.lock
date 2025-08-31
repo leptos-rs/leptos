@@ -4310,7 +4310,7 @@ dependencies = [
 [[package]]
 name = "typed-builder"
 version = "0.21.2"
-source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=617e7842d33f93ae5338f66d7881c06da91ddf6d#617e7842d33f93ae5338f66d7881c06da91ddf6d"
+source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=3bc55429a0036d0143ed96f9e48715def754f99d#3bc55429a0036d0143ed96f9e48715def754f99d"
 dependencies = [
  "typed-builder-macro",
 ]
@@ -4318,7 +4318,7 @@ dependencies = [
 [[package]]
 name = "typed-builder-macro"
 version = "0.21.2"
-source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=617e7842d33f93ae5338f66d7881c06da91ddf6d#617e7842d33f93ae5338f66d7881c06da91ddf6d"
+source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=3bc55429a0036d0143ed96f9e48715def754f99d#3bc55429a0036d0143ed96f9e48715def754f99d"
 dependencies = [
  "proc-macro2",
  "quote",

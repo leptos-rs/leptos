@@ -38,10 +38,6 @@ members = [
 ]
 exclude = ["benchmarks", "examples", "projects"]
 
-[patch.crates-io]
-typed-builder = { git = "https://github.com/zakstucke/rust-typed-builder.git", rev = "617e7842d33f93ae5338f66d7881c06da91ddf6d" }
-typed-builder-macro = { git = "https://github.com/zakstucke/rust-typed-builder.git", rev = "617e7842d33f93ae5338f66d7881c06da91ddf6d" }
-
 [workspace.package]
 edition = "2021"
 rust-version = "1.88"
@@ -80,7 +76,7 @@ itertools = { default-features = false, version = "0.14.0" }
 convert_case = { default-features = false, version = "0.8.0" }
 serde_json = { default-features = false, version = "1.0.143" }
 trybuild = { default-features = false, version = "1.0.110" }
-typed-builder = { default-features = false, version = "0.21.2" }
+typed-builder = { default-features = false, version = "0.22.0" }
 thiserror = { default-features = false, version = "2.0.17" }
 wasm-bindgen = { default-features = false, version = "0.2.100" }
 indexmap = { default-features = false, version = "2.11.0" }
@@ -124,7 +120,6 @@ serial_test = { default-features = false, version = "3.2.0" }
 erased = { default-features = false, version = "0.1.2" }
 glib = { default-features = false, version = "0.20.12" }
 async-trait = { default-features = false, version = "0.1.89" }
-typed-builder-macro = { default-features = false, version = "0.21.0" }
 linear-map = { default-features = false, version = "1.2.0" }
 anyhow = { default-features = false, version = "1.0.100" }
 walkdir = { default-features = false, version = "2.5.0" }
