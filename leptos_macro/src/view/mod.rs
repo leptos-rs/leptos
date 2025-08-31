@@ -610,6 +610,18 @@ fn fragment_to_tokens(
         Some(quote! {
              (#(#chunks),*)
         })
+    } else if children.len() > 3 {
+        // HYDRATION FIX: Handle 4+ elements by using the same approach as >16 elements
+        // This fixes the "expected 3 elements, found 5" compilation error
+        // Use chunking to create nested tuples that are compatible with the trait implementations
+        let chunks = children.chunks(3).map(|chunk| {
+            quote! {
+                (#(#chunk),*)
+            }
+        });
+        Some(quote! {
+            (#(#chunks),*)
+        })
     } else {
         Some(quote! {
             (#(#children),*)

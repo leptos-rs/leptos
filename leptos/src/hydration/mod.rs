@@ -135,15 +135,11 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
+    // Workaround for view macro issue with None::<String> syntax
+    let crossorigin_none: Option<String> = None;
     view! {
         <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
-        <link
-            rel="preload"
-            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
-            r#as="fetch"
-            r#type="application/wasm"
-            crossorigin=nonce.clone().unwrap_or_default()
-        />
+        <link rel="preload" href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm") crossorigin=crossorigin_none />
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
         </script>

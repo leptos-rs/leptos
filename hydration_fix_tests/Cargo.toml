@@ -1,0 +1,51 @@
+[package]
+name = "hydration_fix_tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../leptos", features = ["csr", "ssr", "hydrate"] }
+leptos_macro = { path = "../leptos_macro" }
+syn = { version = "2.0", features = ["full", "visit"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[[test]]
+name = "hydration_fix_validation"
+path = "src/hydration_fix_validation.rs"
+
+[[test]]
+name = "macro_expansion_validation"
+path = "src/macro_expansion_validation.rs"
+
+[[test]]
+name = "simple_test"
+path = "src/simple_test.rs"
+
+[[test]]
+name = "minimal_test"
+path = "src/minimal_test.rs"
+
+[[test]]
+name = "hydration_module_test"
+path = "src/hydration_module_test.rs"
+
+[[test]]
+name = "format_macro_test"
+path = "src/format_macro_test.rs"
+
+[[test]]
+name = "self_closing_test"
+path = "src/self_closing_test.rs"
+
+[[test]]
+name = "hydration_exact_test"
+path = "src/hydration_exact_test.rs"
+
+[[test]]
+name = "crossorigin_test"
+path = "src/crossorigin_test.rs"
+
+[[test]]
+name = "attribute_debug_test"
+path = "src/attribute_debug_test.rs"

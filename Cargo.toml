@@ -36,6 +36,9 @@ members = [
   "router",
   "router_macro",
   "any_error",
+  
+  # testing
+  "hydration_fix_tests",
 ]
 exclude = ["benchmarks", "examples", "projects"]
 
