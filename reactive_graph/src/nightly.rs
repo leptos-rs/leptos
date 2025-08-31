@@ -8,10 +8,7 @@ use crate::{
         WriteSignal,
     },
     traits::{Get, Set},
-    wrappers::{
-        read::SignalTypes,
-        write::SignalSetter,
-    },
+    wrappers::{read::SignalTypes, write::SignalSetter},
 };
 
 macro_rules! impl_set_fn_traits {
