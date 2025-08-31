@@ -150,7 +150,7 @@ impl_get_fn_traits_get_arena![
     ReadSignal,
     RwSignal,
     ArcMemo,
-    ArcSignal,
+    // ArcSignal,
     // Signal,
     MaybeSignal,
     Memo,

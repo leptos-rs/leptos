@@ -136,6 +136,12 @@ pub fn IntoLeptosValueTestComponent(
     #[prop(into)] arg18: UnsyncCallback<usize, String>,
     #[prop(into)] arg19: UnsyncCallback<(usize,), String>,
     #[prop(into)] arg20: UnsyncCallback<(usize, String), String>,
+    #[prop(into)] arg21: ArcSignal<String>,
+    #[prop(into)] arg22: ArcSignal<String>,
+    #[prop(into)] arg23: ArcSignal<String>,
+    #[prop(into)] arg24: ArcSignal<usize>,
+    #[prop(into)] arg25: ArcSignal<usize>,
+    #[prop(into)] arg26: ArcSignal<usize>,
 ) -> impl IntoView {
     move || {
         view! {
@@ -154,6 +160,12 @@ pub fn IntoLeptosValueTestComponent(
                 <p>{arg18.run(1)}</p>
                 <p>{arg19.run((2,))}</p>
                 <p>{arg20.run((3, "three".into()))}</p>
+                <p>{arg21.get()}</p>
+                <p>{arg22.get()}</p>
+                <p>{arg23.get()}</p>
+                <p>{arg24.get()}</p>
+                <p>{arg25.get()}</p>
+                <p>{arg26.get()}</p>
             </div>
         }
     }
@@ -177,6 +189,12 @@ fn test_into_leptos_value() {
             arg18=|_n| "I was a callback static str!"
             arg19=|(_n,)| "I was a callback static str!"
             arg20=|(_n, _s)| "I was a callback static str!"
+            arg21=move || "I was a reactive closure!"
+            arg22="I was a basic str!"
+            arg23=ArcSignal::stored("I was already a signal!".to_string())
+            arg24=move || 2
+            arg25=3
+            arg26=ArcSignal::stored(4)
         />
     };
 }
