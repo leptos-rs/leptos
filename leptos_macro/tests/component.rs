@@ -128,6 +128,7 @@ pub fn IntoLeptosValueTestComponent(
     #[prop(into)] arg4: Signal<usize>,
     #[prop(into)] arg5: Signal<usize>,
     #[prop(into)] arg6: Signal<usize>,
+    #[prop(into)] arg7: Signal<Option<usize>>,
     #[prop(into)] arg13: Callback<(), String>,
     #[prop(into)] arg14: Callback<usize, String>,
     #[prop(into)] arg15: Callback<(usize,), String>,
@@ -142,6 +143,12 @@ pub fn IntoLeptosValueTestComponent(
     #[prop(into)] arg24: ArcSignal<usize>,
     #[prop(into)] arg25: ArcSignal<usize>,
     #[prop(into)] arg26: ArcSignal<usize>,
+    #[prop(into)] arg27: ArcSignal<Option<usize>>,
+    // Optionals:
+    #[prop(into, optional)] arg28: Option<Signal<usize>>,
+    #[prop(into, optional)] arg29_purposely_omitted: Option<Signal<usize>>,
+    #[prop(into, optional)] arg30: Option<Signal<usize>>,
+    #[prop(into, strip_option)] arg31: Option<Signal<usize>>,
 ) -> impl IntoView {
     move || {
         view! {
@@ -152,6 +159,7 @@ pub fn IntoLeptosValueTestComponent(
                 <p>{arg4.get()}</p>
                 <p>{arg5.get()}</p>
                 <p>{arg6.get()}</p>
+                <p>{arg7.get()}</p>
                 <p>{arg13.run(())}</p>
                 <p>{arg14.run(1)}</p>
                 <p>{arg15.run((2,))}</p>
@@ -166,6 +174,11 @@ pub fn IntoLeptosValueTestComponent(
                 <p>{arg24.get()}</p>
                 <p>{arg25.get()}</p>
                 <p>{arg26.get()}</p>
+                <p>{arg27.get()}</p>
+                <p>{arg28.get()}</p>
+                <p>{arg29_purposely_omitted.get()}</p>
+                <p>{arg30.get()}</p>
+                <p>{arg31.get()}</p>
             </div>
         }
     }
@@ -181,6 +194,7 @@ fn test_into_leptos_value() {
             arg4=move || 2
             arg5=3
             arg6=Signal::stored(4)
+            arg7=|| 2
             arg13=|| "I was a callback static str!"
             arg14=|_n| "I was a callback static str!"
             arg15=|(_n,)| "I was a callback static str!"
@@ -195,6 +209,10 @@ fn test_into_leptos_value() {
             arg24=move || 2
             arg25=3
             arg26=ArcSignal::stored(4)
+            arg27=|| 2
+            arg28=|| 2
+            nostrip:arg30=Some(|| 2)
+            arg31=|| 2
         />
     };
 }

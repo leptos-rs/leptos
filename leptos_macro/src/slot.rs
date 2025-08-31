@@ -190,19 +190,26 @@ impl ToTokens for TypedBuilderOpts<'_> {
             quote! {}
         };
 
-        let strip_option = if self.strip_option {
+        // If self.strip_option && self.into, then the strip_option will be represented as part of the transform closure.
+        let strip_option = if self.strip_option && !self.into {
             quote! { strip_option, }
         } else {
             quote! {}
         };
 
         let into = if self.into {
-            // Transform cannot be used with strip_option, but otherwise use the IntoLeptosValue trait instead of into, to provide more From types than using into alone would.
             if !self.strip_option {
                 let ty = &self.ty;
-                quote! { transform_generics = "<__IntoLeptosValueMarker>", transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| value.into_leptos_value(), }
+                quote! {
+                    transform_generics = "<__IntoLeptosValueMarker>",
+                    transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| value.into_leptos_value(),
+                }
             } else {
-                quote! { into, }
+                let ty = unwrap_option(self.ty);
+                quote! {
+                    transform_generics = "<__IntoLeptosValueMarker>",
+                    transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| Some(value.into_leptos_value()),
+                }
             }
         } else {
             quote! {}
