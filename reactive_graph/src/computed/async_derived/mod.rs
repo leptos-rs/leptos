@@ -25,7 +25,6 @@ pin_project! {
     pub struct ScopedFuture<Fut> {
         pub owner: Owner,
         pub observer: Option<AnySubscriber>,
-        diagnostics: bool,
         #[pin]
         pub fut: Fut,
     }
@@ -40,20 +39,6 @@ impl<Fut> ScopedFuture<Fut> {
         Self {
             owner,
             observer,
-            diagnostics: true,
-            fut,
-        }
-    }
-
-    /// Wraps the given `Future` by taking the current [`Owner`] re-setting it as the
-    /// active owner every time the inner `Future` is polled. Always untracks, i.e., clears
-    /// the active [`Observer`] when polled.
-    pub fn new_untracked(fut: Fut) -> Self {
-        let owner = Owner::current().unwrap_or_default();
-        Self {
-            owner,
-            observer: None,
-            diagnostics: false,
             fut,
         }
     }
@@ -65,7 +50,6 @@ impl<Fut> ScopedFuture<Fut> {
         Self {
             owner,
             observer: None,
-            diagnostics: true,
             fut,
         }
     }
@@ -76,17 +60,40 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        this.owner.with(|| {
-            this.observer.with_observer(|| {
-                #[cfg(debug_assertions)]
-                let _maybe_guard = if *this.diagnostics {
-                    None
-                } else {
-                    Some(crate::diagnostics::SpecialNonReactiveZone::enter())
-                };
-                this.fut.poll(cx)
-            })
-        })
+        this.owner
+            .with(|| this.observer.with_observer(|| this.fut.poll(cx)))
+    }
+}
+
+pin_project! {
+    #[doc(hidden)]
+    pub struct __NonReactiveZoneFut<Fut> {
+        #[pin]
+        fut: Fut,
+    }
+}
+
+impl<Fut> ScopedFuture<__NonReactiveZoneFut<Fut>> {
+    /// Wraps the given `Future` by taking the current [`Owner`] re-setting it as the
+    /// active owner every time the inner `Future` is polled. Always untracks, i.e., clears
+    /// the active [`Observer`] when polled.
+    pub fn new_untracked(fut: Fut) -> Self {
+        let owner = Owner::current().unwrap_or_default();
+        Self {
+            owner,
+            observer: None,
+            fut: __NonReactiveZoneFut { fut },
+        }
+    }
+}
+
+impl<Fut: Future> Future for __NonReactiveZoneFut<Fut> {
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[cfg(debug_assertions)]
+        let _guard = crate::diagnostics::SpecialNonReactiveZone::enter();
+        self.project().fut.poll(cx)
     }
 }
 
