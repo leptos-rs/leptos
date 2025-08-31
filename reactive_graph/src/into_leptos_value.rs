@@ -21,13 +21,18 @@ where
 mod tests {
 
     use crate::{
-        into_leptos_value::IntoLeptosValue, owner::LocalStorage,
-        traits::GetUntracked, wrappers::read::Signal,
+        into_leptos_value::IntoLeptosValue,
+        owner::{LocalStorage, Owner},
+        traits::GetUntracked,
+        wrappers::read::Signal,
     };
     use typed_builder::TypedBuilder;
 
     #[test]
     fn text_into_signal_compiles() {
+        let owner = Owner::new();
+        owner.set();
+
         let _: Signal<usize> = (|| 2).into_leptos_value();
         let _: Signal<usize, LocalStorage> = 2.into_leptos_value();
         let _: Signal<usize, LocalStorage> = (|| 2).into_leptos_value();
