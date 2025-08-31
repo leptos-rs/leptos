@@ -120,6 +120,67 @@ fn returns_static_lifetime() {
     }
 }
 
+#[component]
+pub fn IntoLeptosValueTestComponent(
+    #[prop(into)] arg1: Signal<String>,
+    #[prop(into)] arg2: Signal<String>,
+    #[prop(into)] arg3: Signal<String>,
+    #[prop(into)] arg4: Signal<usize>,
+    #[prop(into)] arg5: Signal<usize>,
+    #[prop(into)] arg6: Signal<usize>,
+    #[prop(into)] arg13: Callback<(), String>,
+    #[prop(into)] arg14: Callback<usize, String>,
+    #[prop(into)] arg15: Callback<(usize,), String>,
+    #[prop(into)] arg16: Callback<(usize, String), String>,
+    #[prop(into)] arg17: UnsyncCallback<(), String>,
+    #[prop(into)] arg18: UnsyncCallback<usize, String>,
+    #[prop(into)] arg19: UnsyncCallback<(usize,), String>,
+    #[prop(into)] arg20: UnsyncCallback<(usize, String), String>,
+) -> impl IntoView {
+    move || {
+        view! {
+            <div>
+                <p>{arg1.get()}</p>
+                <p>{arg2.get()}</p>
+                <p>{arg3.get()}</p>
+                <p>{arg4.get()}</p>
+                <p>{arg5.get()}</p>
+                <p>{arg6.get()}</p>
+                <p>{arg13.run(())}</p>
+                <p>{arg14.run(1)}</p>
+                <p>{arg15.run((2,))}</p>
+                <p>{arg16.run((3, "three".into()))}</p>
+                <p>{arg17.run(())}</p>
+                <p>{arg18.run(1)}</p>
+                <p>{arg19.run((2,))}</p>
+                <p>{arg20.run((3, "three".into()))}</p>
+            </div>
+        }
+    }
+}
+
+#[test]
+fn test_into_leptos_value() {
+    let _ = view! {
+        <IntoLeptosValueTestComponent
+            arg1=move || "I was a reactive closure!"
+            arg2="I was a basic str!"
+            arg3=Signal::stored("I was already a signal!")
+            arg4=move || 2
+            arg5=3
+            arg6=Signal::stored(4)
+            arg13=|| "I was a callback static str!"
+            arg14=|_n| "I was a callback static str!"
+            arg15=|(_n,)| "I was a callback static str!"
+            arg16=|(_n, _s)| "I was a callback static str!"
+            arg17=|| "I was a callback static str!"
+            arg18=|_n| "I was a callback static str!"
+            arg19=|(_n,)| "I was a callback static str!"
+            arg20=|(_n, _s)| "I was a callback static str!"
+        />
+    };
+}
+
 // an attempt to catch unhygienic macros regression
 mod macro_hygiene {
     // To ensure no relative module path to leptos inside macros.
@@ -152,12 +213,7 @@ mod macro_hygiene {
 
         #[component]
         fn Component() -> impl IntoView {
-            view! {
-                <div>
-                    {().into_any()}
-                    {()}
-                </div>
-            }
+            view! { <div>{().into_any()} {()}</div> }
         }
     }
 }
