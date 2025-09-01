@@ -1,7 +1,8 @@
 use crate::{
-    computed::{ArcMemo, Memo},
+    computed::{ArcMemo, Memo, ScopedFuture},
     diagnostics::is_suppressing_resource_load,
-    owner::{ArcStoredValue, ArenaItem},
+    graph::untrack,
+    owner::{ArcStoredValue, ArenaItem, Owner},
     send_wrapper_ext::SendOption,
     signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
@@ -199,13 +200,18 @@ where
         I: Send + Sync,
         O: Send + Sync,
     {
+        let owner = Owner::current().unwrap_or_default();
         ArcAction {
             in_flight: ArcRwSignal::new(0),
             input: ArcRwSignal::new(SendOption::new(None)),
             value: ArcRwSignal::new(SendOption::new(value)),
             version: Default::default(),
             dispatched: Default::default(),
-            action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
+            action_fn: Arc::new(move |input| {
+                Box::pin(owner.with(|| {
+                    ScopedFuture::new_untracked(untrack(|| action_fn(input)))
+                }))
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
@@ -370,6 +376,7 @@ where
         F: Fn(&I) -> Fu + 'static,
         Fu: Future<Output = O> + 'static,
     {
+        let owner = Owner::current().unwrap_or_default();
         let action_fn = SendWrapper::new(action_fn);
         ArcAction {
             in_flight: ArcRwSignal::new(0),
@@ -378,7 +385,9 @@ where
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
-                Box::pin(SendWrapper::new(action_fn(input)))
+                Box::pin(SendWrapper::new(owner.with(|| {
+                    ScopedFuture::new_untracked(untrack(|| action_fn(input)))
+                })))
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
