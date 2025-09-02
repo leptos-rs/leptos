@@ -1,10 +1,8 @@
 use crate::{children::Children, component, prelude::*, IntoView};
 use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
-use serde::de::DeserializeOwned;
 use server_fn::{
     client::Client,
-    codec::PostUrl,
     error::{IntoAppError, ServerFnErrorErr},
     request::ClientReq,
     Http, ServerFn,
@@ -75,7 +73,7 @@ use web_sys::{
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
-pub fn ActionForm<ServFn, OutputProtocol>(
+pub fn ActionForm<ServFn, InputProtocol, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -85,8 +83,8 @@ pub fn ActionForm<ServFn, OutputProtocol>(
     children: Children,
 ) -> impl IntoView
 where
-    ServFn: DeserializeOwned
-        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
+    ServFn: FromFormData
+        + ServerFn<Protocol = Http<InputProtocol, OutputProtocol>>
         + Clone
         + Send
         + Sync
@@ -98,6 +96,7 @@ where
     ServFn::Output: Send + Sync + 'static,
     ServFn::Error: Send + Sync + 'static,
     <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
+    InputProtocol: enc_type::EncType,
 {
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
     _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
@@ -152,7 +151,7 @@ where
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[component]
-pub fn MultiActionForm<ServFn, OutputProtocol>(
+pub fn MultiActionForm<ServFn, InputProtocol, OutputProtocol>(
     /// The action from which to build the form.
     action: ServerMultiAction<ServFn>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
@@ -165,8 +164,8 @@ where
     ServFn: Send
         + Sync
         + Clone
-        + DeserializeOwned
-        + ServerFn<Protocol = Http<PostUrl, OutputProtocol>>
+        + FromFormData
+        + ServerFn<Protocol = Http<InputProtocol, OutputProtocol>>
         + 'static,
     ServFn::Output: Send + Sync + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
@@ -174,6 +173,7 @@ where
     >>::FormData: From<FormData>,
     ServFn::Error: Send + Sync + 'static,
     <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
+    InputProtocol: enc_type::EncType,
 {
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
     _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
@@ -244,10 +244,15 @@ pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
 /// validation during form submission.
 pub trait FromFormData
 where
-    Self: Sized + serde::de::DeserializeOwned,
+    Self: Sized,
 {
     /// Tries to deserialize the data, given only the `submit` event.
-    fn from_event(ev: &web_sys::Event) -> Result<Self, FromFormDataError>;
+    fn from_event(ev: &web_sys::Event) -> Result<Self, FromFormDataError> {
+        let submit_ev = ev.unchecked_ref();
+        let form_data = form_data_from_event(submit_ev)?;
+        Self::from_form_data(&form_data)
+            .map_err(FromFormDataError::Deserialization)
+    }
 
     /// Tries to deserialize the data, given the actual form data.
     fn from_form_data(
@@ -273,13 +278,6 @@ impl<T> FromFormData for T
 where
     T: serde::de::DeserializeOwned,
 {
-    fn from_event(ev: &Event) -> Result<Self, FromFormDataError> {
-        let submit_ev = ev.unchecked_ref();
-        let form_data = form_data_from_event(submit_ev)?;
-        Self::from_form_data(&form_data)
-            .map_err(FromFormDataError::Deserialization)
-    }
-
     fn from_form_data(
         form_data: &web_sys::FormData,
     ) -> Result<Self, serde_qs::Error> {
@@ -324,4 +322,11 @@ fn form_data_from_event(
             Ok(form_data)
         }
     }
+}
+
+mod enc_type {
+    pub trait EncType {}
+
+    impl EncType for server_fn::codec::PostUrl {}
+    impl EncType for server_fn::codec::MultipartFormData {}
 }
