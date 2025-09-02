@@ -345,6 +345,7 @@ pub mod task {
 pub use serde;
 #[doc(hidden)]
 pub use serde_json;
+pub use serde_qs;
 #[cfg(feature = "tracing")]
 #[doc(hidden)]
 pub use tracing;
