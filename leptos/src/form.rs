@@ -138,6 +138,7 @@ where
     let action_form = form()
         .action(ServFn::url())
         .method("post")
+        .enctype(<InputProtocol as server_fn::ContentType>::CONTENT_TYPE)
         .on(submit, on_submit)
         .child(children());
     if let Some(node_ref) = node_ref {
@@ -206,6 +207,7 @@ where
         .action(ServFn::url())
         .method("post")
         .attr("method", "post")
+        .enctype(<InputProtocol as server_fn::ContentType>::CONTENT_TYPE)
         .on(submit, on_submit)
         .child(children());
     if let Some(node_ref) = node_ref {
@@ -325,7 +327,7 @@ fn form_data_from_event(
 }
 
 mod enc_type {
-    pub trait EncType {}
+    pub trait EncType: server_fn::ContentType {}
 
     impl EncType for server_fn::codec::PostUrl {}
     impl EncType for server_fn::codec::MultipartFormData {}
