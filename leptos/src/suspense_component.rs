@@ -32,12 +32,12 @@ use tachys::{
 };
 use throw_error::ErrorHookFuture;
 
-/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
+/// If any [`Resource`](crate::prelude::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`.
 ///
 /// Each time one of the resources is loading again, it will fall back. To keep the current
-/// children instead, use [Transition](crate::Transition).
+/// children instead, use [Transition](crate::prelude::Transition).
 ///
 /// Note that the `children` will be rendered initially (in order to capture the fact that
 /// those resources are read under the suspense), so you cannot assume that resources read
