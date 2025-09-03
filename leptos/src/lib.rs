@@ -85,12 +85,22 @@
 //! # Feature Flags
 //!
 //! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
+//!   Also enables some experimental optimizations that improve the handling of static strings and
+//!   the performance of the `template! {}` macro.
 //! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
 //! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
+//! - **`islands`** Activates “islands mode,” in which components are not made interactive on the
+//!   client unless they use the `#[island]` macro.
 //! - **`hydrate`** Hydration: use this to add interactivity to an SSRed Leptos app.
-//! - **`rkyv`** In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
-//!   from the server to the client.
+//! - **`nonce`** Adds support for nonces to be added as part of a Content Security Policy.
+//! - **`rkyv`** In SSR/hydrate mode, enables using [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources.
 //! - **`tracing`** Adds support for [`tracing`](https://docs.rs/tracing/latest/tracing/).
+//! - **`trace-component-props`** Adds `tracing` support for component props.
+//! - **`delegation`** Uses event delegation rather than the browser’s native event handling
+//!   system. (This improves the performance of creating large numbers of elements simultaneously,
+//!   in exchange for occasional edge cases in which events behave differently from native browser
+//!   events.)
+//! - **`rustls`** Use `rustls` for server functions.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in. You should only enable one of these per build target,
