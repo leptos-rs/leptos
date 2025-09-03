@@ -99,7 +99,7 @@ html-escape = { default-features = false, version = "0.2.13" }
 proc-macro-error2 = { default-features = false, version = "2.0.1" }
 const_format = { default-features = false, version = "0.2.34" }
 gloo-net = { default-features = false, version = "0.6.0" }
-url = { default-features = false, version = "2.5.4" }
+url = { default-features = false, version = "2.5.7" }
 tokio = { default-features = false, version = "1.47.1" }
 base64 = { default-features = false, version = "0.22.1" }
 cfg-if = { default-features = false, version = "1.0.3" }
@@ -131,8 +131,8 @@ actix-ws = { default-features = false, version = "0.3.0" }
 tower-http = { default-features = false, version = "0.6.4" }
 prettyplease = { default-features = false, version = "0.2.37" }
 inventory = { default-features = false, version = "0.3.21" }
-config = { default-features = false, version = "0.15.14" }
-camino = { default-features = false, version = "1.1.11" }
+config = { default-features = false, version = "0.15.15" }
+camino = { default-features = false, version = "1.1.12" }
 ciborium = { default-features = false, version = "0.2.2" }
 multer = { default-features = false, version = "3.1.0" }
 leptos-spin-macro = { default-features = false, version = "0.2.0" }
@@ -150,7 +150,7 @@ tempfile = { default-features = false, version = "3.21.0" }
 futures-lite = { default-features = false, version = "2.6.1" }
 log = { default-features = false, version = "0.4.27" }
 percent-encoding = { default-features = false, version = "2.3.2" }
-async-executor = { default-features = false, version = "1.13.2" }
+async-executor = { default-features = false, version = "1.13.3" }
 const-str = { default-features = false, version = "0.6.4" }
 http-body-util = { default-features = false, version = "0.1.3" }
 hyper = { default-features = false, version = "1.7.0" }
@@ -165,7 +165,7 @@ actix-http = { default-features = false, version = "3.11.1" }
 wasm-bindgen-test = { default-features = false, version = "0.3.50" }
 rustversion = { default-features = false, version = "1.0.22" }
 getrandom = { default-features = false, version = "0.3.3" }
-actix-files = { default-features = false, version = "0.6.6" }
+actix-files = { default-features = false, version = "0.6.7" }
 async-lock = { default-features = false, version = "3.4.1" }
 base16 = { default-features = false, version = "0.2.1" }
 digest = { default-features = false, version = "0.10.7" }
