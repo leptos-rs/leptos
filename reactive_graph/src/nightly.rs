@@ -8,10 +8,7 @@ use crate::{
         WriteSignal,
     },
     traits::{Get, Set},
-    wrappers::{
-        read::{ArcSignal, Signal, SignalTypes},
-        write::SignalSetter,
-    },
+    wrappers::{read::SignalTypes, write::SignalSetter},
 };
 
 macro_rules! impl_set_fn_traits {
@@ -150,8 +147,8 @@ impl_get_fn_traits_get_arena![
     ReadSignal,
     RwSignal,
     ArcMemo,
-    ArcSignal,
-    Signal,
+    // ArcSignal,
+    // Signal,
     MaybeSignal,
     Memo,
     MaybeProp
