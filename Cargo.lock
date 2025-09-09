@@ -2571,6 +2571,7 @@ dependencies = [
 name = "leptos_macro"
 version = "0.8.8"
 dependencies = [
+ "any_spawner",
  "attribute-derive",
  "cfg-if",
  "convert_case 0.8.0",
@@ -2585,6 +2586,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
+ "reactive_graph",
  "rstml",
  "rustc_version",
  "serde",

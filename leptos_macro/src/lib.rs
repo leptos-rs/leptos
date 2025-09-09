@@ -27,6 +27,7 @@ mod lazy;
 mod memo;
 mod slice;
 mod slot;
+mod diagnostics;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:

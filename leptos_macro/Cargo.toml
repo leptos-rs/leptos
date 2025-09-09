@@ -40,6 +40,12 @@ leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
+any_spawner = { workspace = true, default-features = true }
+reactive_graph = { workspace = true, default-features = true }
+
+[[test]]
+name = "error-message-enhancement-integration-tests"
+path = "../tests/error-message-enhancement-integration-tests.rs"
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }

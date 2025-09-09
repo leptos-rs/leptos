@@ -6,6 +6,7 @@ use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
 };
+use crate::diagnostics::{LeptosDiagnostics, ServerFunctionDiagnostics};
 use convert_case::{
     Case::{Snake, UpperCamel},
     Casing,
@@ -705,7 +706,12 @@ fn node_to_tokens(
             disable_inert_html,
         ),
         Node::Block(block) => {
-            Some(quote! { ::leptos::prelude::IntoRender::into_render(#block) })
+            // Analyze the block for common Leptos usage patterns
+            if let Some(diagnostic_tokens) = analyze_block_for_diagnostics(block) {
+                Some(diagnostic_tokens)
+            } else {
+                Some(quote! { ::leptos::prelude::IntoRender::into_render(#block) })
+            }
         }
         Node::Text(text) => Some(text_to_tokens(&text.value)),
         Node::RawText(raw) => {
@@ -1941,4 +1947,34 @@ enum TupleName {
     None,
     Str(String),
     Array(Vec<String>),
+}
+
+/// Analyze a block expression for common Leptos usage patterns and emit helpful diagnostics
+fn analyze_block_for_diagnostics(block: &NodeBlock) -> Option<TokenStream> {
+    use rstml::node::NodeBlock::ValidBlock;
+    
+    match block {
+        ValidBlock(block) => {
+            let diagnostics = LeptosDiagnostics::new();
+            let server_diagnostics = ServerFunctionDiagnostics;
+            
+            // Analyze each statement in the block
+            for stmt in &block.stmts {
+                if let syn::Stmt::Expr(expr, _) = stmt {
+                    // Check for signal usage issues
+                    if let Some(tokens) = diagnostics.analyze_expression(expr, expr.span()) {
+                        return Some(tokens);
+                    }
+                    
+                    // Check for server function usage issues
+                    if let Some(tokens) = server_diagnostics.check_server_function_usage(expr, expr.span()) {
+                        return Some(tokens);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    
+    None
 }

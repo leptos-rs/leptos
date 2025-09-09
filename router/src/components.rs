@@ -637,7 +637,7 @@ pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
 pub fn RoutingProgress(
     /// Whether the router is currently loading the new page.
     #[prop(into)]
-    is_routing: Signal<bool>,
+    is_routing: ReadSignal<bool>,
     /// The maximum expected time for loading, which is used to
     /// calibrate the animation process.
     #[prop(optional, into)]
@@ -651,8 +651,8 @@ pub fn RoutingProgress(
         max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
     let percent_per_increment = 100.0 / expected_increments;
 
-    let (is_showing, set_is_showing) = signal(false);
-    let (progress, set_progress) = signal(0.0);
+    let (is_showing, set_is_showing) = create_signal(false);
+    let (progress, set_progress) = create_signal(0.0);
 
     StoredValue::new(RenderEffect::new(
         move |prev: Option<Option<IntervalHandle>>| {
