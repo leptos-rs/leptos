@@ -11,10 +11,10 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 serde_yaml = "0.9"
 toml = "0.8"
-syn = { version = "2.0", features = ["full", "parsing", "visit-mut"] }
-quote = "1.0"
-proc-macro2 = "1.0"
-thiserror = "2.0"
+syn = { workspace = true, features = ["full", "parsing", "visit-mut", "visit"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+thiserror = { workspace = true }
 clap = { version = "4.0", features = ["derive"] }
 
 [dev-dependencies]
@@ -24,6 +24,6 @@ tempfile = { workspace = true }
 name = "leptos_feature_detection"
 path = "src/lib.rs"
 
-[[bin]]
-name = "leptos-mode-detect"
-path = "src/bin/leptos-mode-detect.rs"
+# [[bin]]
+# name = "leptos-mode-detect"
+# path = "src/bin/leptos-mode-detect.rs"

@@ -3,11 +3,13 @@
 //! This tool analyzes Leptos projects and provides intelligent mode detection,
 //! configuration validation, and migration assistance.
 
+use clap::Parser;
 use leptos_feature_detection::{
-    ModeDetector, LeptosMode, ValidationFramework, 
-    detection::SmartDetector, mode::{ModeResolver, ModeConfigBuilder},
-    DetectionError, Severity
+    ModeDetector, LeptosMode, 
+    detection::SmartDetector, 
+    Severity
 };
+use leptos_feature_detection::validation::ValidationFramework;
 use std::path::PathBuf;
 use std::process;
 
@@ -509,8 +511,8 @@ fn apply_mode_migration(
 }
 
 fn ensure_crate_type(cargo_toml: &mut toml::Value, types: Vec<&str>) -> Result<(), Box<dyn std::error::Error>> {
-    let lib = cargo_toml.get_mut("lib")
-        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+      let lib = cargo_toml.get_mut("lib")
+        .get_or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
     let lib_table = lib.as_table_mut().ok_or("Invalid [lib] section")?;
     
     let crate_types: Vec<toml::Value> = types.into_iter()

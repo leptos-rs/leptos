@@ -65,12 +65,13 @@ impl SmartDetector {
             .unwrap_or((LeptosMode::CSR, 0.0));
 
         // Generate analysis result
+        let current_features = signals.current_features.clone();
         let mut analysis = AnalysisResult {
             detected_mode,
             confidence,
             issues: Vec::new(),
             recommendations: Vec::new(),
-            current_features: signals.current_features,
+            current_features,
         };
 
         // Detect configuration issues
@@ -279,14 +280,15 @@ impl SmartDetector {
         let deps_score = self.calculate_deps_scores(signals);
 
         // Combine weighted scores
-        for mode in scores.keys() {
+        let mode_keys: Vec<_> = scores.keys().cloned().collect();
+        for mode in mode_keys {
             let total_score = 
-                structure_score.get(mode).unwrap_or(&0.0) * self.confidence_weights.structure_weight +
-                config_score.get(mode).unwrap_or(&0.0) * self.confidence_weights.config_weight +
-                code_score.get(mode).unwrap_or(&0.0) * self.confidence_weights.code_weight +
-                deps_score.get(mode).unwrap_or(&0.0) * self.confidence_weights.deps_weight;
+                structure_score.get(&mode).unwrap_or(&0.0) * self.confidence_weights.structure_weight +
+                config_score.get(&mode).unwrap_or(&0.0) * self.confidence_weights.config_weight +
+                code_score.get(&mode).unwrap_or(&0.0) * self.confidence_weights.code_weight +
+                deps_score.get(&mode).unwrap_or(&0.0) * self.confidence_weights.deps_weight;
             
-            scores.insert(mode.clone(), total_score);
+            scores.insert(mode, total_score);
         }
 
         scores
@@ -616,6 +618,12 @@ struct DetectionSignals {
     has_wasm_deps: bool,
 }
 
+impl DetectionSignals {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// Detected mount patterns in the code
 #[derive(Debug, Clone, PartialEq, Default)]
 enum MountPattern {
@@ -655,7 +663,7 @@ impl<'ast> Visit<'ast> for AdvancedCodeVisitor {
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
         // Check for server function attributes
         for attr in &func.attrs {
-            if let Ok(meta) = attr.parse_meta() {
+            if let Ok(meta) = attr.parse_args::<syn::Meta>() {
                 match &meta {
                     syn::Meta::Path(path) if path.is_ident("server") => {
                         self.server_function_count += 1;
@@ -669,9 +677,9 @@ impl<'ast> Visit<'ast> for AdvancedCodeVisitor {
         }
 
         // Check function content for patterns
-        let func_string = quote::quote!(#func).to_string();
+        let func_name = &func.sig.ident.to_string();
         
-        if func_string.contains("mount_to_body") {
+        if func_name.contains("mount") {
             match self.mount_patterns {
                 MountPattern::None => self.mount_patterns = MountPattern::MountToBody,
                 MountPattern::Hydrate => self.mount_patterns = MountPattern::Both,
@@ -679,7 +687,7 @@ impl<'ast> Visit<'ast> for AdvancedCodeVisitor {
             }
         }
         
-        if func_string.contains("hydrate") {
+        if func_name.contains("hydrate") {
             self.has_hydration_patterns = true;
             match self.mount_patterns {
                 MountPattern::None => self.mount_patterns = MountPattern::Hydrate,
@@ -688,11 +696,11 @@ impl<'ast> Visit<'ast> for AdvancedCodeVisitor {
             }
         }
         
-        if func_string.contains("async") || func_string.contains(".await") {
+        if func_name.contains("async") || func_name.contains("await") {
             self.has_async_patterns = true;
         }
         
-        if func_string.contains("static_") || func_string.contains("generate") {
+        if func_name.contains("static") || func_name.contains("generate") {
             self.has_static_patterns = true;
         }
 
@@ -700,10 +708,10 @@ impl<'ast> Visit<'ast> for AdvancedCodeVisitor {
     }
 
     fn visit_attribute(&mut self, attr: &'ast syn::Attribute) {
-        if let Ok(meta) = attr.parse_meta() {
+        if let Ok(meta) = attr.parse_args::<syn::Meta>() {
             if let syn::Meta::List(list) = meta {
                 if list.path.is_ident("cfg") {
-                    let tokens = list.nested.to_token_stream().to_string();
+                    let tokens = list.tokens.to_string();
                     if tokens.contains("feature =") {
                         self.cfg_features.push(tokens);
                     }

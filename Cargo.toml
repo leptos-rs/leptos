@@ -41,6 +41,9 @@ members = [
   "hydration_fix_tests",
   "tests/framework_improvements",
   
+  # examples
+  "examples/automatic_mode_detection",
+  
   # enhanced initialization
   "leptos_init",
   "leptos_mode_resolver",
@@ -48,6 +51,10 @@ members = [
   # compile-time validation
   "leptos_compile_validator",
   "leptos_compile_validator_derive",
+  
+  # automatic mode detection
+  "leptos_feature_detection",
+  "leptos_mode_cli",
   
   # development performance
   "leptos_dev_performance",

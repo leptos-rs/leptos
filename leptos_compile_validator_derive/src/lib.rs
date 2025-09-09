@@ -4,11 +4,10 @@
 //! of Leptos code based on build context and mode.
 
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
 use syn::{
-    parse_macro_input, spanned::Spanned, Attribute, Data, DataStruct, DeriveInput, Expr, ExprLit,
-    Fields, Lit, Meta, MetaNameValue, Path, Type, TypePath,
+    parse_macro_input, Attribute, DeriveInput, Meta,
 };
 
 /// Derive macro for automatic context validation
@@ -119,16 +118,14 @@ fn extract_context_from_attrs(attrs: &[Attribute]) -> syn::Result<ContextType> {
                     }
                     Meta::List(list) => {
                         if list.path.is_ident("leptos") {
-                            for nested in &list.nested {
-                                if let syn::NestedMeta::Meta(Meta::Path(path)) = nested {
-                                    if path.is_ident("server_only") {
-                                        return Ok(ContextType::ServerOnly);
-                                    } else if path.is_ident("client_only") {
-                                        return Ok(ContextType::ClientOnly);
-                                    } else if path.is_ident("universal") {
-                                        return Ok(ContextType::Universal);
-                                    }
-                                }
+                            // Parse the tokens manually for the new syn API
+                            let tokens = list.tokens.to_string();
+                            if tokens.contains("server_only") {
+                                return Ok(ContextType::ServerOnly);
+                            } else if tokens.contains("client_only") {
+                                return Ok(ContextType::ClientOnly);
+                            } else if tokens.contains("universal") {
+                                return Ok(ContextType::Universal);
                             }
                         }
                     }
@@ -437,17 +434,32 @@ fn extract_required_features(attrs: &[Attribute]) -> syn::Result<Vec<String>> {
             if let Ok(meta) = attr.parse_args::<Meta>() {
                 if let Meta::List(list) = meta {
                     if list.path.is_ident("leptos") {
-                        for nested in &list.nested {
-                            if let syn::NestedMeta::Meta(Meta::List(nested_list)) = nested {
-                                if nested_list.path.is_ident("requires_features") {
-                                    let mut features = Vec::new();
-                                    for feature_nested in &nested_list.nested {
-                                        if let syn::NestedMeta::Lit(Lit::Str(lit_str)) = feature_nested {
-                                            features.push(lit_str.value());
+                        // Parse the tokens manually for the new syn API
+                        let tokens = list.tokens.to_string();
+                        if tokens.contains("requires_features") {
+                            // Simple parsing - extract quoted strings
+                            let mut features = Vec::new();
+                            let mut chars = tokens.chars().peekable();
+                            let mut current_string = String::new();
+                            let mut in_quotes = false;
+                            
+                            while let Some(c) = chars.next() {
+                                match c {
+                                    '"' if !in_quotes => in_quotes = true,
+                                    '"' if in_quotes => {
+                                        if !current_string.is_empty() {
+                                            features.push(current_string.clone());
+                                            current_string.clear();
                                         }
+                                        in_quotes = false;
                                     }
-                                    return Ok(features);
+                                    c if in_quotes => current_string.push(c),
+                                    _ => {}
                                 }
+                            }
+                            
+                            if !features.is_empty() {
+                                return Ok(features);
                             }
                         }
                     }

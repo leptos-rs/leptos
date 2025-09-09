@@ -8,7 +8,10 @@ leptos_init = { path = "../../leptos_init" }
 leptos_mode_resolver = { path = "../../leptos_mode_resolver" }
 leptos_compile_validator = { path = "../../leptos_compile_validator" }
 leptos_performance_optimizations = { path = "../../leptos_performance_optimizations" }
+leptos_feature_detection = { path = "../../leptos_feature_detection" }
+leptos_mode_cli = { path = "../../leptos_mode_cli" }
 tempfile = { workspace = true }
+walkdir = "2.0"
 
 [[test]]
 name = "integration_tests"
@@ -17,3 +20,15 @@ path = "integration/leptos_init_integration_test.rs"
 [[test]]
 name = "phase2_integration_tests"
 path = "integration/phase2_integration_test.rs"
+
+[[test]]
+name = "automatic_mode_detection_unit_tests"
+path = "unit/automatic_mode_detection_tests.rs"
+
+[[test]]
+name = "automatic_mode_detection_integration_tests"
+path = "integration/automatic_mode_detection_integration_tests.rs"
+
+[[test]]
+name = "automatic_mode_detection_performance_tests"
+path = "performance/automatic_mode_detection_performance_tests.rs"

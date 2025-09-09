@@ -14,7 +14,7 @@ pub mod mode;
 pub mod validation;
 
 /// Supported Leptos build modes
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LeptosMode {
     /// Client-side rendering only
     CSR,
@@ -416,11 +416,11 @@ impl CodeAnalysisVisitor {
 
 impl<'ast> Visit<'ast> for CodeAnalysisVisitor {
     fn visit_attribute(&mut self, attr: &'ast syn::Attribute) {
-        if let Ok(meta) = attr.parse_meta() {
+        if let Ok(meta) = attr.parse_args::<syn::Meta>() {
             match &meta {
                 syn::Meta::List(list) if list.path.is_ident("cfg") => {
                     // Check for feature flag configurations
-                    let tokens = list.nested.to_token_stream().to_string();
+                    let tokens = list.tokens.to_string();
                     if tokens.contains("feature = \"ssr\"") {
                         self.has_server_functions = true;
                     }
@@ -451,7 +451,7 @@ impl<'ast> Visit<'ast> for CodeAnalysisVisitor {
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
         // Check for server function patterns
         for attr in &func.attrs {
-            if let Ok(meta) = attr.parse_meta() {
+            if let Ok(meta) = attr.parse_args::<syn::Meta>() {
                 if let syn::Meta::Path(path) = meta {
                     if path.is_ident("server") {
                         self.has_server_functions = true;
@@ -461,8 +461,8 @@ impl<'ast> Visit<'ast> for CodeAnalysisVisitor {
         }
 
         // Check function body for hydration patterns
-        let func_string = quote::quote!(#func).to_string();
-        if func_string.contains("mount_to_body") || func_string.contains("hydrate") {
+        let func_name = &func.sig.ident.to_string();
+        if func_name.contains("mount") || func_name.contains("hydrate") {
             self.has_hydration = true;
         }
 

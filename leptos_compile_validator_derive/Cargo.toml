@@ -14,4 +14,4 @@ leptos_mode_resolver = { path = "../leptos_mode_resolver" }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true, features = ["full", "derive", "proc-macro"] }
-proc-macro-error = "2.0"
+proc-macro-error2 = { workspace = true }

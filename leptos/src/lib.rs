@@ -162,7 +162,7 @@ pub mod prelude {
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
             form::*, hydration::*, into_view::*, mount::*, suspense::*,
-            text_prop::*,
+            text_prop::*, unified_signal::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::helpers::*;
@@ -245,6 +245,8 @@ mod suspense_component;
 
 /// Types for reactive string properties for components.
 pub mod text_prop;
+
+pub mod unified_signal;
 mod transition;
 pub use leptos_macro::*;
 #[doc(inline)]

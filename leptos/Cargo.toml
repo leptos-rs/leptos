@@ -110,6 +110,7 @@ tokio = { features = [
 ], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
+tempfile = "3.0"
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
@@ -153,6 +154,46 @@ max_combination_size = 2
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[[test]]
+name = "unified-signal-tests"
+path = "../tests/unified-signal-tests.rs"
+
+[[test]]
+name = "unified-signal-performance-tests"
+path = "../tests/unified-signal-performance-tests.rs"
+
+[[test]]
+name = "unified-signal-async-tests"
+path = "../tests/unified-signal-async-tests.rs"
+
+[[test]]
+name = "leptos-migrate-tests"
+path = "../tests/leptos-migrate-tests.rs"
+
+[[test]]
+name = "unified-signal-deprecation-tests"
+path = "../tests/unified-signal-deprecation-tests.rs"
+
+[[test]]
+name = "unified-signal-integration-tests"
+path = "../tests/unified-signal-integration-tests.rs"
+
+[[test]]
+name = "unified-signal-community-beta-tests"
+path = "../tests/unified-signal-community-beta-tests.rs"
+
+[[test]]
+name = "unified-signal-ssr-tests"
+path = "../tests/unified-signal-ssr-tests.rs"
+
+[[test]]
+name = "unified-signal-performance-optimization-tests"
+path = "../tests/unified-signal-performance-optimization-tests.rs"
+
+[[test]]
+name = "leptos-motion-unified-signal-tests"
+path = "../tests/leptos-motion-unified-signal-tests.rs"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
