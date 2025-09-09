@@ -13,6 +13,38 @@
 
 You can find a list of useful libraries and example projects at [`awesome-leptos`](https://github.com/leptos-rs/awesome-leptos).
 
+## 🚀 Quick Start with `leptos init`
+
+The fastest way to start a new Leptos project is with the `leptos init` command:
+
+```bash
+# Install the leptos-init tool
+cargo install leptos-init
+
+# Create a new project (interactive mode)
+leptos init my-awesome-app
+
+# Or create with a specific template
+leptos init my-spa --template spa
+leptos init my-api --template api --database sqlite
+leptos init my-blog --template static --styling tailwind
+
+# Start development
+cd my-awesome-app
+cargo leptos watch
+```
+
+The `leptos init` command eliminates the complex manual setup that previously took 30+ minutes and reduces it to under 1 minute with smart scaffolding, proper configuration, and ready-to-run templates.
+
+**Available Templates:**
+- `fullstack` - SSR + Client hydration (recommended)
+- `spa` - Client-side only applications
+- `api` - Server functions only
+- `static` - Static site generation
+- `custom` - Interactive wizard
+
+For more information, see the [Leptos Init Guide](docs/LEPTOS_INIT_GUIDE.md).
+
 # Leptos
 
 ```rust

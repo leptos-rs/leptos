@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 /// Project template types with intelligent defaults
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, clap::ValueEnum)]
 pub enum ProjectTemplate {
     /// Client-side only (SPA)
     Spa,
@@ -25,7 +25,7 @@ pub enum ProjectTemplate {
 }
 
 /// Server backend options
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, clap::ValueEnum)]
 pub enum ServerBackend {
     Axum,
     Actix,
@@ -33,7 +33,7 @@ pub enum ServerBackend {
 }
 
 /// Database integration options
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Database {
     None,
     Sqlite,
@@ -42,7 +42,7 @@ pub enum Database {
 }
 
 /// Styling framework options
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Styling {
     None,
     Tailwind,

@@ -10,6 +10,7 @@ repository = "https://github.com/leptos-rs/leptos"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 tempfile = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -17,3 +18,7 @@ tempfile = { workspace = true }
 [lib]
 name = "leptos_init"
 path = "src/lib.rs"
+
+[[bin]]
+name = "leptos-init"
+path = "src/bin/leptos-init.rs"
