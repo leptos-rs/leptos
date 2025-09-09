@@ -47,6 +47,14 @@ reactive_graph = { workspace = true, default-features = true }
 name = "error-message-enhancement-integration-tests"
 path = "../tests/error-message-enhancement-integration-tests.rs"
 
+[[test]]
+name = "error-message-diagnostic-demo"
+path = "../tests/error-message-diagnostic-demo.rs"
+
+[[test]]
+name = "error-message-real-demo"
+path = "../tests/error-message-real-demo.rs"
+
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
 
