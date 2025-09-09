@@ -39,6 +39,21 @@ members = [
   
   # testing
   "hydration_fix_tests",
+  "tests/framework_improvements",
+  
+  # enhanced initialization
+  "leptos_init",
+  "leptos_mode_resolver",
+  
+  # compile-time validation
+  "leptos_compile_validator",
+  "leptos_compile_validator_derive",
+  
+  # development performance
+  "leptos_dev_performance",
+  
+  # performance optimizations
+  "leptos_performance_optimizations",
 ]
 exclude = ["benchmarks", "examples", "projects"]
 
@@ -75,6 +90,10 @@ server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", versio
 tachys = { path = "./tachys", version = "0.2.7" }
 wasm_split_helpers = { path = "./wasm_split", version = "0.1.2" }
 wasm_split_macros = { path = "./wasm_split_macros", version = "0.1.2" }
+leptos_init = { path = "./leptos_init", version = "0.1.0" }
+leptos_mode_resolver = { path = "./leptos_mode_resolver", version = "0.1.0" }
+leptos_compile_validator = { path = "./leptos_compile_validator", version = "0.1.0" }
+leptos_compile_validator_derive = { path = "./leptos_compile_validator_derive", version = "0.1.0" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5.3" }

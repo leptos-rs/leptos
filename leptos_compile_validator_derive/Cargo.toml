@@ -1,0 +1,16 @@
+[package]
+name = "leptos_compile_validator_derive"
+version = "0.1.0"
+edition = "2021"
+description = "Proc macro derives for Leptos compile-time validation"
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+leptos_mode_resolver = { path = "../leptos_mode_resolver" }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["full"] }

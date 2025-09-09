@@ -1,0 +1,19 @@
+[package]
+name = "leptos_framework_improvements_tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos_init = { path = "../../leptos_init" }
+leptos_mode_resolver = { path = "../../leptos_mode_resolver" }
+leptos_compile_validator = { path = "../../leptos_compile_validator" }
+leptos_performance_optimizations = { path = "../../leptos_performance_optimizations" }
+tempfile = { workspace = true }
+
+[[test]]
+name = "integration_tests"
+path = "integration/leptos_init_integration_test.rs"
+
+[[test]]
+name = "phase2_integration_tests"
+path = "integration/phase2_integration_test.rs"

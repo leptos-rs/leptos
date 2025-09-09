@@ -1,0 +1,16 @@
+[package]
+name = "leptos_compile_validator"
+version = "0.1.0"
+edition = "2021"
+description = "Compile-time validation system for Leptos framework"
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+
+[dependencies]
+leptos_mode_resolver = { path = "../leptos_mode_resolver" }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["full", "derive", "proc-macro"] }
+
+[features]
+build = []  # Enable build-time validation features

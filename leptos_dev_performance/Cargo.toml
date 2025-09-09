@@ -1,0 +1,49 @@
+[package]
+name = "leptos_dev_performance"
+version = "0.1.0"
+edition = "2021"
+description = "Development performance optimizations for Leptos framework"
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+
+[dependencies]
+# Build-time profiling and monitoring
+sysinfo = "0.30"
+tokio = { version = "1.0", features = ["time", "rt"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Incremental compilation helpers
+walkdir = "2.4"
+blake3 = "1.5"
+dashmap = "5.5"
+parking_lot = "0.12"
+
+# Hot-reload infrastructure
+notify = "6.1"
+crossbeam-channel = "0.5"
+
+# Error handling
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+criterion = "0.5"
+assert_cmd = "2.0"
+
+[[test]]
+name = "development_performance_tests"
+path = "tests/development_performance_tests.rs"
+
+# [[bench]]
+# name = "build_performance"
+# harness = false
+
+[features]
+default = ["fast-dev"]
+fast-dev = []           # Enable fast development mode optimizations
+build-profiling = []    # Enable detailed build profiling
+hot-reload = []         # Enable hot-reload infrastructure

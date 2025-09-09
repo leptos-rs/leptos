@@ -1,0 +1,19 @@
+[package]
+name = "leptos_init"
+version = "0.1.0"
+edition = "2021"
+description = "Enhanced project initialization for Leptos framework"
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lib]
+name = "leptos_init"
+path = "src/lib.rs"
