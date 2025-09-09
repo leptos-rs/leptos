@@ -531,6 +531,95 @@ struct TrendData {
     confidence: f64,
 }
 
+impl PerformanceMetrics {
+    /// Record a build time for a specific build type
+    pub fn record_build_simple(&mut self, build_type: &str, duration: std::time::Duration) {
+        // Create a simple build record for the existing record_build method
+        let build_type_enum = match build_type {
+            "initial" => BuildType::Initial,
+            "incremental" => BuildType::Incremental,
+            "full" => BuildType::Full,
+            "clean" => BuildType::Clean,
+            "test" => BuildType::Test,
+            _ => BuildType::Full, // Default to Full
+        };
+        
+        let record = BuildRecord {
+            build_type: build_type_enum,
+            duration,
+            timestamp: chrono::Utc::now(),
+            success: true,
+            modules_compiled: 0,
+            memory_peak: 0,
+            cpu_utilization: 0.0,
+            metadata: std::collections::HashMap::new(),
+        };
+        self.record_build(record);
+    }
+
+    /// Get average duration for a build type
+    pub fn get_average_duration(&self, build_type: &str) -> Option<std::time::Duration> {
+        let build_type_enum = match build_type {
+            "initial" => BuildType::Initial,
+            "incremental" => BuildType::Incremental,
+            "full" => BuildType::Full,
+            "clean" => BuildType::Clean,
+            "test" => BuildType::Test,
+            _ => BuildType::Full,
+        };
+        
+        let relevant_records: Vec<_> = self.build_history
+            .iter()
+            .filter(|record| std::mem::discriminant(&record.build_type) == std::mem::discriminant(&build_type_enum))
+            .collect();
+            
+        if relevant_records.is_empty() {
+            None
+        } else {
+            let total: std::time::Duration = relevant_records.iter()
+                .map(|record| record.duration)
+                .sum();
+            Some(total / relevant_records.len() as u32)
+        }
+    }
+
+    /// Generate a performance report
+    pub fn generate_report(&self) -> String {
+        let mut report = String::new();
+        report.push_str("📊 Performance Report\n");
+        report.push_str("===================\n\n");
+
+        // Group by build type
+        let mut build_types: std::collections::HashMap<String, Vec<&BuildRecord>> = std::collections::HashMap::new();
+        for record in &self.build_history {
+            let build_type_str = match record.build_type {
+                BuildType::Initial => "initial",
+                BuildType::Incremental => "incremental", 
+                BuildType::Full => "full",
+                BuildType::Clean => "clean",
+                BuildType::Test => "test",
+            };
+            build_types.entry(build_type_str.to_string()).or_default().push(record);
+        }
+
+        for (build_type, records) in build_types {
+            if let Some(avg) = self.get_average_duration(&build_type) {
+                let durations: Vec<_> = records.iter().map(|r| r.duration).collect();
+                let min = durations.iter().min().unwrap_or(&avg);
+                let max = durations.iter().max().unwrap_or(&avg);
+                
+                report.push_str(&format!("{} Build:\n", build_type));
+                report.push_str(&format!("  Average: {:.2}s\n", avg.as_secs_f64()));
+                report.push_str(&format!("  Min: {:.2}s\n", min.as_secs_f64()));
+                report.push_str(&format!("  Max: {:.2}s\n", max.as_secs_f64()));
+                report.push_str(&format!("  Samples: {}\n\n", records.len()));
+            }
+        }
+
+        report
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

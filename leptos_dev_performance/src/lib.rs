@@ -14,12 +14,18 @@ mod fast_dev_mode;
 mod hot_reload_manager;
 mod incremental_compiler;
 mod performance_metrics;
+mod benchmark_suite;
+mod performance_validator;
+mod performance_reporter;
 
 pub use build_profiler::{BuildProfiler, BuildPhase, OptimizationRecommendation};
 pub use fast_dev_mode::{FastDevMode, FastDevError};
 pub use hot_reload_manager::{HotReloadManager, HotReloadError};
 pub use incremental_compiler::{IncrementalCompiler, CompilationResult, IncrementalError};
 pub use performance_metrics::{PerformanceMetrics, PerformanceTargets, BuildBottleneck};
+pub use benchmark_suite::{BenchmarkSuite, BenchmarkConfig, BenchmarkScenario, BenchmarkReport, BenchmarkResult, BenchmarkSummary, BuildType};
+pub use performance_validator::{PerformanceValidator, PerformanceThresholds, ValidationReport, ValidationStatus, ValidationRule};
+pub use performance_reporter::{PerformanceReporter, PerformanceReport, ReportFormat};
 
 // Performance targets are now defined in performance_metrics module
 
@@ -47,6 +53,9 @@ pub enum DevPerformanceError {
     
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    
+    #[error("Profiling error: {0}")]
+    ProfilingError(#[from] build_profiler::ProfilingError),
 }
 
 pub type Result<T> = std::result::Result<T, DevPerformanceError>;

@@ -92,3 +92,17 @@ lib-features = ["hydrate"]
 #
 # Optional. Defaults to false.
 lib-default-features = false
+
+
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 0
+debug = true
+incremental = true
+codegen-units = 16
+lto = false
+panic = "abort"
+
+# Skip expensive checks for faster compilation
+[profile.dev-fast.package."*"]
+opt-level = 0

@@ -2362,6 +2362,7 @@ dependencies = [
  "assert_cmd",
  "blake3",
  "chrono",
+ "clap",
  "criterion",
  "crossbeam-channel",
  "dashmap 5.5.3",

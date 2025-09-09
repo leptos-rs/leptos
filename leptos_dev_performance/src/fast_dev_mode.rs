@@ -91,11 +91,17 @@ pub enum FastDevError {
     #[error("Build execution failed: {reason}")]
     BuildExecution { reason: String },
     
+    #[error("Build failed: {reason}")]
+    BuildFailed { reason: String },
+    
     #[error("Cache corruption: {reason}")]
     CacheCorruption { reason: String },
     
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    
+    #[error("Walkdir error: {0}")]
+    Walkdir(#[from] walkdir::Error),
 }
 
 impl Default for FastDevConfig {
@@ -176,7 +182,7 @@ impl FastDevMode {
         let result = self.process_build_output(build_output, start_time)?;
         
         // Update cache
-        self.update_build_cache(&result);
+        self.update_build_cache()?;
         
         self.last_build_time = Some(start_time);
         Ok(result)
@@ -470,10 +476,6 @@ impl FastDevMode {
         None
     }
     
-    /// Update build cache with successful result
-    fn update_build_cache(&mut self, _result: &FastDevBuildResult) {
-        // Update cache - implementation would be more sophisticated
-    }
     
     /// Update incremental cache with successful result
     fn update_incremental_cache(&mut self, _result: &FastDevBuildResult) {
@@ -495,6 +497,173 @@ pub struct BuildMetrics {
     pub last_build_time: Option<Instant>,
     pub cache_size: usize,
     pub config: FastDevConfig,
+}
+
+impl FastDevMode {
+    /// Setup fast development configuration
+    pub fn setup_fast_config(&self) -> Result<(), FastDevError> {
+        println!("⚙️  Setting up fast development configuration...");
+        
+        // Note: cargo-leptos build doesn't support custom profiles
+        // We'll rely on incremental compilation and other optimizations
+        
+        // Setup incremental compilation
+        self.setup_incremental_compilation()?;
+        
+        // Configure development features
+        self.configure_dev_features()?;
+        
+        println!("✅ Fast development configuration ready");
+        Ok(())
+    }
+
+    /// Perform a fast build
+    pub fn build_fast(&mut self) -> Result<(), FastDevError> {
+        let start = std::time::Instant::now();
+        
+        println!("🔨 Starting fast development build...");
+        
+        // Check if we can use cached build
+        if self.can_use_cached_build()? {
+            println!("📦 Using cached build (no changes detected)");
+            return Ok(());
+        }
+        
+        // Perform incremental build
+        self.perform_incremental_build()?;
+        
+        // Update build cache
+        self.update_build_cache()?;
+        
+        let duration = start.elapsed();
+        self.last_build_time = Some(start);
+        
+        println!("✅ Fast build completed in {:.2}s", duration.as_secs_f64());
+        Ok(())
+    }
+
+
+    /// Setup incremental compilation
+    fn setup_incremental_compilation(&self) -> Result<(), FastDevError> {
+        // Create .cargo/config.toml if it doesn't exist
+        let cargo_config_dir = self.project_path.join(".cargo");
+        if !cargo_config_dir.exists() {
+            std::fs::create_dir_all(&cargo_config_dir)?;
+        }
+        
+        let config_path = cargo_config_dir.join("config.toml");
+        let config_content = r#"
+[build]
+incremental = true
+
+[target.'cfg(not(target_arch = "wasm32"))']
+rustflags = ["-C", "target-cpu=native"]
+
+[target.'cfg(target_arch = "wasm32")']
+rustflags = ["-C", "target-feature=+bulk-memory"]
+"#;
+        
+        std::fs::write(&config_path, config_content)?;
+        Ok(())
+    }
+
+    /// Configure development features
+    fn configure_dev_features(&self) -> Result<(), FastDevError> {
+        // This would configure development-specific features
+        // For now, we'll just ensure the configuration is ready
+        Ok(())
+    }
+
+    /// Check if we can use a cached build
+    fn can_use_cached_build(&self) -> Result<bool, FastDevError> {
+        // Simple check: if no source files changed since last build
+        if let Some(last_build) = self.last_build_time {
+            let src_dir = self.project_path.join("src");
+            if src_dir.exists() {
+                let mut latest_mtime = std::time::SystemTime::UNIX_EPOCH;
+                
+                for entry in walkdir::WalkDir::new(&src_dir) {
+                    let entry = entry?;
+                    if entry.file_type().is_file() {
+                        let metadata = entry.metadata()?;
+                        if let Ok(mtime) = metadata.modified() {
+                            if mtime > latest_mtime {
+                                latest_mtime = mtime;
+                            }
+                        }
+                    }
+                }
+                
+                if let Ok(duration) = latest_mtime.duration_since(std::time::UNIX_EPOCH) {
+                    // Convert Instant to SystemTime for comparison
+                    let build_time = std::time::SystemTime::now() - last_build.elapsed();
+                    if let Ok(build_duration) = build_time.duration_since(std::time::UNIX_EPOCH) {
+                        if duration < build_duration {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+
+    /// Perform incremental build
+    fn perform_incremental_build(&self) -> Result<(), FastDevError> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("leptos")
+            .arg("build")
+            .current_dir(&self.project_path);
+        
+        let output = cmd.output()?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(FastDevError::BuildFailed {
+                reason: format!("Fast build failed: {}", stderr),
+            });
+        }
+        
+        Ok(())
+    }
+
+    /// Update build cache
+    fn update_build_cache(&mut self) -> Result<(), FastDevError> {
+        // Update cache with current build metadata
+        let build_hash = self.calculate_build_hash()?;
+        self.build_cache.last_build_hash = Some(build_hash);
+        Ok(())
+    }
+
+    /// Calculate build hash for caching
+    fn calculate_build_hash(&self) -> Result<String, FastDevError> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        
+        // Hash source files
+        let src_dir = self.project_path.join("src");
+        if src_dir.exists() {
+            for entry in walkdir::WalkDir::new(&src_dir) {
+                let entry = entry?;
+                if entry.file_type().is_file() {
+                    let content = std::fs::read(entry.path())?;
+                    content.hash(&mut hasher);
+                }
+            }
+        }
+        
+        // Hash Cargo.toml
+        let cargo_toml = self.project_path.join("Cargo.toml");
+        if cargo_toml.exists() {
+            let content = std::fs::read(&cargo_toml)?;
+            content.hash(&mut hasher);
+        }
+        
+        Ok(format!("{:x}", hasher.finish()))
+    }
 }
 
 #[cfg(test)]

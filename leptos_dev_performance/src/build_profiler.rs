@@ -17,6 +17,11 @@ pub struct BuildProfiler {
     profiling_enabled: bool,
     current_session: Option<ProfilingSession>,
     historical_data: Vec<ProfilingSession>,
+    current_session_name: Option<String>,
+    session_start: Option<Instant>,
+    current_phase: Option<String>,
+    phase_start: Option<Instant>,
+    phases: HashMap<String, Duration>,
 }
 
 /// A profiling session containing all build metrics
@@ -149,6 +154,11 @@ impl BuildProfiler {
             profiling_enabled: false,
             current_session: None,
             historical_data: Vec::new(),
+            current_session_name: None,
+            session_start: None,
+            current_phase: None,
+            phase_start: None,
+            phases: HashMap::new(),
         }
     }
     
@@ -481,6 +491,7 @@ impl BuildProfiler {
             total_cpu / session.phases.len() as f32
         }
     }
+
 }
 
 impl BuildMetrics {
@@ -503,6 +514,7 @@ impl BuildMetrics {
     pub fn get_phase_duration(&self, phase_name: &str) -> Option<Duration> {
         self.phases.get(phase_name).copied()
     }
+
 }
 
 #[cfg(test)]

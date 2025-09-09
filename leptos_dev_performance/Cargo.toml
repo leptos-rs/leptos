@@ -29,6 +29,9 @@ crossbeam-channel = "0.5"
 # Error handling
 thiserror = "1.0"
 
+# CLI interface
+clap = { version = "4.0", features = ["derive"] }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 criterion = "0.5"
@@ -41,6 +44,10 @@ path = "tests/development_performance_tests.rs"
 # [[bench]]
 # name = "build_performance"
 # harness = false
+
+[[bin]]
+name = "leptos-dev"
+path = "src/bin/leptos-dev.rs"
 
 [features]
 default = ["fast-dev"]
