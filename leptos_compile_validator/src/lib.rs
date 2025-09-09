@@ -324,6 +324,7 @@ pub fn setup_validation_in_project(project_path: &std::path::Path) -> Result<(),
             r#"
 [dependencies]
 leptos_compile_validator = {{ path = "../leptos_compile_validator" }}
+leptos_compile_validator_derive = {{ path = "../leptos_compile_validator_derive" }}
 
 [build-dependencies]
 leptos_compile_validator = {{ path = "../leptos_compile_validator", features = ["build"] }}
@@ -352,6 +353,68 @@ fn main() {
     std::fs::write(project_path.join("build.rs"), build_rs_content)?;
 
     Ok(())
+}
+
+/// Enhanced validation that includes context-aware checks
+pub fn validate_with_context() -> TokenStream {
+    let context = ValidationContext::from_env();
+    let mut errors = Vec::new();
+
+    // Standard feature validation
+    let feature_validation = validate_features();
+    
+    // Context-aware validation
+    if let Some(mode) = context.current_mode {
+        let resolver = ModeResolver::new(mode.clone());
+        
+        // Check for context mismatches
+        for feature in &context.enabled_features {
+            if !resolver.is_feature_valid(feature) {
+                errors.push(ValidationError::invalid_feature(
+                    feature,
+                    &format!("{:?}", mode),
+                    None,
+                ));
+            }
+        }
+        
+        // Validate mode-specific requirements
+        match mode {
+            BuildMode::Spa => {
+                if context.enabled_features.contains(&"ssr".to_string()) {
+                    errors.push(ValidationError::invalid_feature(
+                        "ssr",
+                        "SPA mode",
+                        None,
+                    ));
+                }
+            }
+            BuildMode::Fullstack => {
+                // Fullstack mode should have both ssr and hydrate
+                if !context.enabled_features.contains(&"ssr".to_string()) {
+                    errors.push(ValidationError {
+                        error_type: ValidationErrorType::MissingFeature,
+                        message: "Fullstack mode requires 'ssr' feature for server builds".to_string(),
+                        suggestion: Some("Enable 'ssr' feature or use a different mode".to_string()),
+                        span: None,
+                        help_url: Some("https://leptos.dev/modes#fullstack".to_string()),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Generate compile errors
+    let error_tokens: Vec<TokenStream> = errors
+        .iter()
+        .map(|error| error.to_compile_error())
+        .collect();
+
+    quote! {
+        #feature_validation
+        #(#error_tokens)*
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,29 @@
+[package]
+name = "leptos_feature_detection"
+version = "0.1.0"
+edition = "2021"
+description = "Automatic feature flag detection and build mode management for Leptos"
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, default-features = true }
+serde_yaml = "0.9"
+toml = "0.8"
+syn = { version = "2.0", features = ["full", "parsing", "visit-mut"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+thiserror = "2.0"
+clap = { version = "4.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lib]
+name = "leptos_feature_detection"
+path = "src/lib.rs"
+
+[[bin]]
+name = "leptos-mode-detect"
+path = "src/bin/leptos-mode-detect.rs"

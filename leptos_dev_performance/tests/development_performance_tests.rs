@@ -8,7 +8,7 @@
 
 use leptos_dev_performance::{
     BuildProfiler, FastDevMode, HotReloadManager, IncrementalCompiler,
-    PerformanceMetrics, PerformanceTarget
+    PerformanceMetrics, PerformanceTargets
 };
 use std::time::Duration;
 use tempfile::TempDir;
@@ -24,7 +24,7 @@ fn test_development_build_performance_targets() {
     create_test_leptos_project(&project_path);
     
     let profiler = BuildProfiler::new();
-    let fast_dev = FastDevMode::new(&project_path).expect("Failed to initialize fast dev mode");
+    let mut fast_dev = FastDevMode::new(&project_path).expect("Failed to initialize fast dev mode");
     
     // TEST 1: Initial build should complete in reasonable time
     let initial_build_start = std::time::Instant::now();
@@ -150,12 +150,12 @@ fn test_build_profiling_insights() {
     profiler.enable_detailed_profiling();
     
     // Perform build with profiling
-    let fast_dev = FastDevMode::new(&project_path)
+    let mut fast_dev = FastDevMode::new(&project_path)
         .expect("Failed to initialize fast dev mode");
     
     profiler.start_profiling();
     let result = fast_dev.build_project().expect("Build should succeed");
-    let metrics = profiler.finish_profiling();
+    let metrics = profiler.finish_profiling().expect("Profiling should succeed");
     
     // TEST 1: Profiler should identify build phases
     assert!(metrics.phases.len() >= 5, "Should identify major build phases");
@@ -164,14 +164,14 @@ fn test_build_profiling_insights() {
     let expected_phases = ["dependency_resolution", "macro_expansion", "compilation", "linking"];
     for phase in &expected_phases {
         assert!(
-            metrics.phases.contains_key(phase),
+            metrics.phases.contains_key(*phase),
             "Should profile '{}' phase",
             phase
         );
     }
     
     // TEST 2: Should identify performance bottlenecks
-    let bottleneck = metrics.identify_bottleneck();
+    let bottleneck = metrics.bottlenecks.first();
     assert!(bottleneck.is_some(), "Should identify primary bottleneck");
     
     let bottleneck = bottleneck.unwrap();
@@ -181,11 +181,11 @@ fn test_build_profiling_insights() {
     );
     
     // TEST 3: Should provide actionable recommendations
-    let recommendations = metrics.get_optimization_recommendations();
+    let recommendations = &metrics.recommendations;
     assert!(!recommendations.is_empty(), "Should provide optimization recommendations");
     
     // Verify recommendations are actionable
-    for rec in &recommendations {
+    for rec in recommendations {
         assert!(!rec.description.is_empty(), "Recommendation should have description");
         assert!(!rec.action.is_empty(), "Recommendation should have actionable steps");
         assert!(rec.impact_estimate.is_some(), "Should estimate impact");
@@ -267,11 +267,11 @@ fn test_performance_regression_prevention() {
     
     create_test_leptos_project(&project_path);
     
-    let fast_dev = FastDevMode::new(&project_path)
+    let mut fast_dev = FastDevMode::new(&project_path)
         .expect("Failed to initialize fast dev mode");
     
     // Establish baseline performance
-    let baseline_times = measure_build_times(&fast_dev, 5);
+    let baseline_times = measure_build_times(&mut fast_dev, 5);
     let baseline_avg = baseline_times.iter().sum::<Duration>() / baseline_times.len() as u32;
     
     // Simulate various project sizes and complexities
@@ -284,7 +284,7 @@ fn test_performance_regression_prevention() {
     for (scenario_name, component_count) in test_scenarios {
         create_project_with_components(&project_path, component_count);
         
-        let scenario_times = measure_build_times(&fast_dev, 3);
+        let scenario_times = measure_build_times(&mut fast_dev, 3);
         let scenario_avg = scenario_times.iter().sum::<Duration>() / scenario_times.len() as u32;
         
         // Performance should scale reasonably with project size
@@ -392,7 +392,7 @@ fn modify_component_file(project_path: &std::path::Path, file_path: &str, additi
     std::fs::write(&full_path, content).expect("Failed to write modified file");
 }
 
-fn measure_build_times(fast_dev: &FastDevMode, iterations: usize) -> Vec<Duration> {
+fn measure_build_times(fast_dev: &mut FastDevMode, iterations: usize) -> Vec<Duration> {
     let mut times = Vec::new();
     
     for i in 0..iterations {
