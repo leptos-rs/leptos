@@ -5,7 +5,7 @@
 //! # Usage
 //! Callbacks can be created manually from any function or closure, but the easiest way
 //! to create them is to use `#[prop(into)]]` when defining a component.
-//! ```
+//! ```ignore
 //! use leptos::prelude::*;
 //!
 //! #[component]
@@ -41,9 +41,10 @@
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
-use reactive_graph::{
+use crate::{
     owner::{LocalStorage, StoredValue},
     traits::{Dispose, WithValue},
+    IntoLeptosValue,
 };
 use std::{fmt, rc::Rc, sync::Arc};
 
@@ -151,7 +152,7 @@ impl_unsync_callable_from_fn!(
 /// Callbacks define a standard way to store functions and closures.
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// # use leptos::prelude::*;
 /// # use leptos::callback::{Callable, Callback};
 /// #[component]
@@ -241,6 +242,7 @@ impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
 
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
+    #[track_caller]
     pub fn new<F>(fun: F) -> Self
     where
         F: Fn(In) -> Out + Send + Sync + 'static,
@@ -262,22 +264,92 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
     }
 }
 
+#[doc(hidden)]
+pub struct __IntoLeptosValueMarkerCallbackSingleParam;
+
+#[doc(hidden)]
+pub struct __IntoLeptosValueMarkerCallbackStrOutputToString;
+
+impl<I, O, F>
+    IntoLeptosValue<Callback<I, O>, __IntoLeptosValueMarkerCallbackSingleParam>
+    for F
+where
+    F: Fn(I) -> O + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn into_leptos_value(self) -> Callback<I, O> {
+        Callback::new(self)
+    }
+}
+
+impl<I, O, F>
+    IntoLeptosValue<
+        UnsyncCallback<I, O>,
+        __IntoLeptosValueMarkerCallbackSingleParam,
+    > for F
+where
+    F: Fn(I) -> O + 'static,
+{
+    #[track_caller]
+    fn into_leptos_value(self) -> UnsyncCallback<I, O> {
+        UnsyncCallback::new(self)
+    }
+}
+
+impl<I, F>
+    IntoLeptosValue<
+        Callback<I, String>,
+        __IntoLeptosValueMarkerCallbackStrOutputToString,
+    > for F
+where
+    F: Fn(I) -> &'static str + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn into_leptos_value(self) -> Callback<I, String> {
+        Callback::new(move |i| self(i).to_string())
+    }
+}
+
+impl<I, F>
+    IntoLeptosValue<
+        UnsyncCallback<I, String>,
+        __IntoLeptosValueMarkerCallbackStrOutputToString,
+    > for F
+where
+    F: Fn(I) -> &'static str + 'static,
+{
+    #[track_caller]
+    fn into_leptos_value(self) -> UnsyncCallback<I, String> {
+        UnsyncCallback::new(move |i| self(i).to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Callable;
-    use crate::callback::{Callback, UnsyncCallback};
-    use reactive_graph::traits::Dispose;
+    use crate::{
+        callback::{Callback, UnsyncCallback},
+        owner::Owner,
+        traits::Dispose,
+        IntoLeptosValue,
+    };
 
     struct NoClone {}
 
     #[test]
     fn clone_callback() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback;
     }
 
     #[test]
     fn clone_unsync_callback() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback =
             UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback;
@@ -285,20 +357,39 @@ mod tests {
 
     #[test]
     fn runback_from() {
+        let owner = Owner::new();
+        owner.set();
+
         let _callback: Callback<(), String> = (|| "test").into();
         let _callback: Callback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
+        // Single params should work without needing the (foo,) tuple using IntoLeptosValue:
+        let _callback: Callback<usize, &'static str> =
+            (|_usize| "test").into_leptos_value();
+        let _callback: Callback<usize, String> =
+            (|_usize| "test").into_leptos_value();
     }
 
     #[test]
     fn sync_callback_from() {
+        let owner = Owner::new();
+        owner.set();
+
         let _callback: UnsyncCallback<(), String> = (|| "test").into();
         let _callback: UnsyncCallback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
+        // Single params should work without needing the (foo,) tuple using IntoLeptosValue:
+        let _callback: UnsyncCallback<usize, &'static str> =
+            (|_usize| "test").into_leptos_value();
+        let _callback: UnsyncCallback<usize, String> =
+            (|_usize| "test").into_leptos_value();
     }
 
     #[test]
     fn sync_callback_try_run() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = Callback::new(move |arg| arg);
         assert_eq!(callback.try_run((0,)), Some((0,)));
         callback.dispose();
@@ -307,6 +398,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_try_run() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = UnsyncCallback::new(move |arg| arg);
         assert_eq!(callback.try_run((0,)), Some((0,)));
         callback.dispose();
@@ -315,6 +409,9 @@ mod tests {
 
     #[test]
     fn callback_matches_same() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = Callback::new(|x: i32| x * 2);
         let callback2 = callback1;
         assert!(callback1.matches(&callback2));
@@ -322,6 +419,9 @@ mod tests {
 
     #[test]
     fn callback_matches_different() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = Callback::new(|x: i32| x * 2);
         let callback2 = Callback::new(|x: i32| x + 1);
         assert!(!callback1.matches(&callback2));
@@ -329,6 +429,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_matches_same() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = UnsyncCallback::new(|x: i32| x * 2);
         let callback2 = callback1;
         assert!(callback1.matches(&callback2));
@@ -336,6 +439,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_matches_different() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = UnsyncCallback::new(|x: i32| x * 2);
         let callback2 = UnsyncCallback::new(|x: i32| x + 1);
         assert!(!callback1.matches(&callback2));
