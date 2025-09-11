@@ -45,7 +45,7 @@ typed-builder = { workspace = true, default-features = true }
 typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-server_fn = { workspace = true, features = ["form-redirects", "browser"] }
+server_fn = { workspace = true, features = ["form-redirects", "browser", "multipart"] }
 web-sys = { features = [
   "ShadowRoot",
   "ShadowRootInit",
