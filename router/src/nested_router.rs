@@ -26,7 +26,7 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track},
+    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
@@ -165,7 +165,7 @@ where
 
         let new_match = self.routes.match_route(url_snapshot.path());
 
-        state.current_url.set(url_snapshot);
+        *state.current_url.write_untracked() = url_snapshot;
 
         match new_match {
             None => {
