@@ -19,7 +19,7 @@ use leptos::{
     attr::any_attribute::AnyAttribute,
     component,
     oco::Oco,
-    prelude::{ArcStoredValue, WriteValue},
+    prelude::{ArcStoredValue, Write, WriteValue},
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -114,12 +114,14 @@ where
         let matched_view = match new_match {
             None => EitherOf3::B(fallback()),
             Some(route) => {
-                route.build_nested_route(
-                    &url,
-                    base,
-                    &mut loaders,
-                    &mut outlets,
-                );
+                outer_owner.with(|| {
+                    route.build_nested_route(
+                        &url,
+                        base,
+                        &mut loaders,
+                        &mut outlets,
+                    )
+                });
                 drop(url);
 
                 EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
@@ -165,7 +167,7 @@ where
 
         let new_match = self.routes.match_route(url_snapshot.path());
 
-        state.current_url.set(url_snapshot);
+        *state.current_url.write_untracked() = url_snapshot;
 
         match new_match {
             None => {
@@ -183,16 +185,18 @@ where
 
                 let mut preloaders = Vec::new();
                 let mut full_loaders = Vec::new();
-                let different_level = route.rebuild_nested_route(
-                    &self.current_url.read_untracked(),
-                    self.base,
-                    &mut 0,
-                    &mut preloaders,
-                    &mut full_loaders,
-                    &mut state.outlets,
-                    self.set_is_routing.is_some(),
-                    0,
-                );
+                let different_level = self.outer_owner.with(|| {
+                    route.rebuild_nested_route(
+                        &self.current_url.read_untracked(),
+                        self.base,
+                        &mut 0,
+                        &mut preloaders,
+                        &mut full_loaders,
+                        &mut state.outlets,
+                        self.set_is_routing.is_some(),
+                        0,
+                    )
+                });
 
                 let (abort_handle, abort_registration) =
                     AbortHandle::new_pair();
@@ -364,12 +368,14 @@ where
                 None => Either::Left(fallback()),
                 Some(route) => {
                     let mut loaders = Vec::new();
-                    route.build_nested_route(
-                        &current_url,
-                        base,
-                        &mut loaders,
-                        &mut outlets,
-                    );
+                    outer_owner.with(|| {
+                        route.build_nested_route(
+                            &current_url,
+                            base,
+                            &mut loaders,
+                            &mut outlets,
+                        )
+                    });
 
                     // outlets will not send their views if the loaders are never polled
                     // the loaders are async so that they can lazy-load routes in the browser,
@@ -417,12 +423,14 @@ where
             None => Either::Left(fallback()),
             Some(route) => {
                 let mut loaders = Vec::new();
-                route.build_nested_route(
-                    &current_url,
-                    base,
-                    &mut loaders,
-                    &mut outlets,
-                );
+                outer_owner.with(|| {
+                    route.build_nested_route(
+                        &current_url,
+                        base,
+                        &mut loaders,
+                        &mut outlets,
+                    )
+                });
 
                 // outlets will not send their views if the loaders are never polled
                 // the loaders are async so that they can lazy-load routes in the browser,
@@ -470,12 +478,14 @@ where
             match new_match {
                 None => EitherOf3::B(fallback()),
                 Some(route) => {
-                    route.build_nested_route(
-                        &url,
-                        base,
-                        &mut loaders,
-                        &mut outlets,
-                    );
+                    outer_owner.with(|| {
+                        route.build_nested_route(
+                            &url,
+                            base,
+                            &mut loaders,
+                            &mut outlets,
+                        )
+                    });
                     drop(url);
 
                     join_all(mem::take(&mut loaders)).now_or_never().expect(
@@ -525,12 +535,14 @@ where
             match new_match {
                 None => EitherOf3::B(fallback()),
                 Some(route) => {
-                    route.build_nested_route(
-                        &url,
-                        base,
-                        &mut loaders,
-                        &mut outlets,
-                    );
+                    outer_owner.with(|| {
+                        route.build_nested_route(
+                            &url,
+                            base,
+                            &mut loaders,
+                            &mut outlets,
+                        );
+                    });
                     drop(url);
 
                     join_all(mem::take(&mut loaders)).await;
