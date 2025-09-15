@@ -747,7 +747,12 @@ where
                 provide_context(matched.clone());
                 outlet
                     .preload_owner
-                    .with(|| ScopedFuture::new(view.preload()))
+                    .with(|| {
+                        provide_context(params.clone());
+                        provide_context(url.clone());
+                        provide_context(matched.clone());
+                        ScopedFuture::new(view.preload())
+                    })
                     .await;
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
@@ -928,6 +933,11 @@ where
                             outlet
                                 .preload_owner
                                 .with(|| {
+                                    provide_context(
+                                        params_including_parents.clone(),
+                                    );
+                                    provide_context(url.clone());
+                                    provide_context(matched.clone());
                                     ScopedFuture::new(async {
                                         if set_is_routing {
                                             AsyncTransition::run(|| {
