@@ -429,6 +429,13 @@ where
                     &outer_owner,
                 );
 
+                let preload_owners = outlets
+                    .iter()
+                    .map(|o| o.preload_owner.clone())
+                    .collect::<Vec<_>>();
+                outer_owner
+                    .with(|| Owner::on_cleanup(move || drop(preload_owners)));
+
                 // outlets will not send their views if the loaders are never polled
                 // the loaders are async so that they can lazy-load routes in the browser,
                 // but they should always be synchronously available on the server
