@@ -1,5 +1,5 @@
-@check_issue_4005
-Feature: Check that issue 4005 does not reappear
+@check_issue_4285
+Feature: Check that issue 4285 does not reappear
 
 	Scenario: Navigating several times to same lazy route does not cause issues.
 		Given I see the app
