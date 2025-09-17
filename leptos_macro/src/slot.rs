@@ -201,14 +201,16 @@ impl ToTokens for TypedBuilderOpts<'_> {
             if !self.strip_option {
                 let ty = &self.ty;
                 quote! {
-                    transform_generics = "<__IntoLeptosValueMarker>",
-                    transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| value.into_leptos_value(),
+                    fn transform<__IntoLeptosValueMarker>(value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>) -> #ty {
+                        value.into_leptos_value()
+                    },
                 }
             } else {
                 let ty = unwrap_option(self.ty);
                 quote! {
-                    transform_generics = "<__IntoLeptosValueMarker>",
-                    transform = |value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>| Some(value.into_leptos_value()),
+                    fn transform<__IntoLeptosValueMarker>(value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>) -> Option<#ty> {
+                        Some(value.into_leptos_value())
+                    },
                 }
             }
         } else {
