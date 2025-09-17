@@ -4309,16 +4309,18 @@ dependencies = [
 
 [[package]]
 name = "typed-builder"
-version = "0.21.2"
-source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=3bc55429a0036d0143ed96f9e48715def754f99d#3bc55429a0036d0143ed96f9e48715def754f99d"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "398a3a3c918c96de527dc11e6e846cd549d4508030b8a33e1da12789c856b81a"
 dependencies = [
  "typed-builder-macro",
 ]
 
 [[package]]
 name = "typed-builder-macro"
-version = "0.21.2"
-source = "git+https://github.com/zakstucke/rust-typed-builder.git?rev=3bc55429a0036d0143ed96f9e48715def754f99d#3bc55429a0036d0143ed96f9e48715def754f99d"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e48cea23f68d1f78eb7bc092881b6bb88d3d6b5b7e6234f6f9c911da1ffb221"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4657,7 +4659,25 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
+<<<<<<< HEAD
  "windows-sys 0.61.0",
+||||||| parent of 88996843 (Updates:)
+ "windows-sys 0.52.0",
+=======
+<<<<<<< HEAD
+ "windows-sys 0.52.0",
+||||||| parent of e8f56d4f (Updates:)
+ "windows-sys 0.61.0",
+=======
+<<<<<<< HEAD
+ "windows-sys 0.61.0",
+||||||| parent of 97259a60 (Updates:)
+ "windows-sys 0.52.0",
+=======
+ "windows-sys 0.60.2",
+>>>>>>> 97259a60 (Updates:)
+>>>>>>> e8f56d4f (Updates:)
+>>>>>>> 88996843 (Updates:)
 ]
 
 [[package]]
