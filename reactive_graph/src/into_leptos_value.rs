@@ -1,9 +1,10 @@
 #[doc(hidden)]
 pub struct __IntoLeptosValueMarkerBaseCase;
 
-/// TODO docs
+/// A helper trait that works like `Into<T>` but uses a marker generic
+/// to allow more `From` implementations than would be allowed with just `Into<T>`.
 pub trait IntoLeptosValue<T, M> {
-    /// TODO docs
+    /// Converts `self` into a `T`.
     fn into_leptos_value(self) -> T;
 }
 
@@ -29,7 +30,7 @@ mod tests {
     use typed_builder::TypedBuilder;
 
     #[test]
-    fn text_into_signal_compiles() {
+    fn test_into_signal_compiles() {
         let owner = Owner::new();
         owner.set();
 
@@ -41,7 +42,11 @@ mod tests {
 
         #[derive(TypedBuilder)]
         struct Foo {
-            #[builder(setter(transform_generics = "<M>", transform = |value: impl IntoLeptosValue<Signal<usize>, M>| value.into_leptos_value()))]
+            #[builder(setter(
+                fn transform<M>(value: impl IntoLeptosValue<Signal<usize>, M>) {
+                    value.into_leptos_value()
+                }
+            ))]
             sig: Signal<usize>,
         }
 
