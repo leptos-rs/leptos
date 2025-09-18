@@ -10,6 +10,9 @@
     all(feature = "nightly", rustc_nightly),
     feature(unsized_const_params)
 )]
+// support for const generic &'static str has now moved back and forth between
+// these two features a couple times; we'll just enable both
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(adt_const_params))]
 #![deny(missing_docs)]
 
 /// Commonly-used traits.
