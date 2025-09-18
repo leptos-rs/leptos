@@ -763,8 +763,8 @@ impl Prop {
         // that we'll recognize later in TypedBuilderOpts::from_opts.
         let modified_attrs = preprocess_prop_attributes(typed.attrs.clone());
 
-        let prop_opts =
-            PropOpt::from_attributes(&modified_attrs).unwrap_or_else(|e| {
+        let prop_opts = PropOpt::from_attributes(&modified_attrs)
+            .unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
                 abort!(e.span(), e.to_string());
             });
@@ -1055,7 +1055,8 @@ impl TypedBuilderOpts {
         let (has_default, default_value) = match &opts.default {
             Some(expr) => {
                 // Check if it's our empty tuple marker for standalone #[prop(default)]
-                if matches!(expr, syn::Expr::Tuple(tuple) if tuple.elems.is_empty()) {
+                if matches!(expr, syn::Expr::Tuple(tuple) if tuple.elems.is_empty())
+                {
                     // This means the user wrote #[prop(default)] without a value
                     // We'll use Default::default() for this prop
                     (true, None)
@@ -1063,12 +1064,15 @@ impl TypedBuilderOpts {
                     // User provided an explicit default value: #[prop(default = expr)]
                     (true, Some(expr.clone()))
                 }
-            },
-            None => (false, None),  // No default attribute at all
+            }
+            None => (false, None), // No default attribute at all
         };
 
         Self {
-            default: opts.optional || opts.optional_no_strip || opts.attrs || has_default,
+            default: opts.optional
+                || opts.optional_no_strip
+                || opts.attrs
+                || has_default,
             default_with_value: default_value,
             strip_option: opts.strip_option || opts.optional && is_ty_option,
             into: opts.into,
@@ -1283,27 +1287,31 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
 /// - Input: `#[prop(default = 42)]` (unchanged)
 /// - Output: `#[prop(default = 42)]`
 fn preprocess_prop_attributes(attrs: Vec<Attribute>) -> Vec<Attribute> {
-    attrs.into_iter().map(|mut attr| {
-        if attr.path().is_ident("prop") {
-            if let Meta::List(meta_list) = &attr.meta {
-                let tokens_str = meta_list.tokens.to_string();
+    attrs
+        .into_iter()
+        .map(|mut attr| {
+            if attr.path().is_ident("prop") {
+                if let Meta::List(meta_list) = &attr.meta {
+                    let tokens_str = meta_list.tokens.to_string();
 
-                // Check if the attribute contains standalone "default" (not "default = ...")
-                // We need to be careful to match whole word "default" and not part of another identifier
-                if has_standalone_default(&tokens_str) {
-                    // Transform "default" to "default = ()" as a marker
-                    let new_tokens = transform_standalone_default(&meta_list.tokens);
+                    // Check if the attribute contains standalone "default" (not "default = ...")
+                    // We need to be careful to match whole word "default" and not part of another identifier
+                    if has_standalone_default(&tokens_str) {
+                        // Transform "default" to "default = ()" as a marker
+                        let new_tokens =
+                            transform_standalone_default(&meta_list.tokens);
 
-                    attr.meta = Meta::List(syn::MetaList {
-                        path: meta_list.path.clone(),
-                        delimiter: meta_list.delimiter.clone(),
-                        tokens: new_tokens,
-                    });
+                        attr.meta = Meta::List(syn::MetaList {
+                            path: meta_list.path.clone(),
+                            delimiter: meta_list.delimiter.clone(),
+                            tokens: new_tokens,
+                        });
+                    }
                 }
             }
-        }
-        attr
-    }).collect()
+            attr
+        })
+        .collect()
 }
 
 /// Checks if the token string contains a standalone "default" keyword
@@ -1318,11 +1326,14 @@ fn has_standalone_default(tokens: &str) -> bool {
 }
 
 /// Transforms a standalone "default" in the tokens to "default = ()".
-fn transform_standalone_default(tokens: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+fn transform_standalone_default(
+    tokens: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
     let tokens_str = tokens.to_string();
     // Replace standalone "default" with "default = ()"
     // This is a simple string replacement that works for the common case
-    tokens_str.replace("default", "default = ()")
+    tokens_str
+        .replace("default", "default = ()")
         .parse()
         .unwrap_or_else(|_| tokens.clone())
 }
