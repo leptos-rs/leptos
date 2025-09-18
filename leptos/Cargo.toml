@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.8.8"
+version = "0.8.9"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
