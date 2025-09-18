@@ -227,7 +227,7 @@ html_self_closing_elements! {
 
 html_elements! {
     /// The `<a>` HTML element (or anchor element), with its href attribute, creates a hyperlink to web pages, files, email addresses, locations in the same page, or anything else a URL can address.
-    a HtmlAnchorElement [download, href, hreflang, ping, rel, target, r#type ] true,
+    a HtmlAnchorElement [download, href, hreflang, ping, referrerpolicy, rel, target, r#type ] true,
     /// The `<abbr>` HTML element represents an abbreviation or acronym; the optional title attribute can provide an expansion or description for the abbreviation. If present, title must contain this full description and nothing else.
     abbr HtmlElement [] true,
     /// The `<address>` HTML element indicates that the enclosed HTML provides contact information for a person or people, or for an organization.
