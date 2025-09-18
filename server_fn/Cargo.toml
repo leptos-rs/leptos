@@ -5,7 +5,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = "0.8.6"
+version = "0.8.7"
 rust-version.workspace = true
 edition.workspace = true
 
