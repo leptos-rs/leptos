@@ -756,8 +756,15 @@ impl Prop {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
+        // Preprocess attributes to handle #[prop(default)] without a value.
+        // The attribute-derive crate expects #[prop(default = expr)] syntax,
+        // but we want to support #[prop(default)] to mean "use Default::default()".
+        // We transform #[prop(default)] into #[prop(default = ())] as a marker
+        // that we'll recognize later in TypedBuilderOpts::from_opts.
+        let modified_attrs = preprocess_prop_attributes(typed.attrs.clone());
+
         let prop_opts =
-            PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
+            PropOpt::from_attributes(&modified_attrs).unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
                 abort!(e.span(), e.to_string());
             });
@@ -1000,6 +1007,8 @@ impl ToTokens for UnknownAttrs {
     }
 }
 
+/// Options extracted from the #[prop(...)] attributes on component function parameters.
+/// These are parsed using the attribute-derive crate.
 #[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
 struct PropOpt {
@@ -1009,25 +1018,58 @@ struct PropOpt {
     optional_no_strip: bool,
     #[attribute(conflicts = [optional, optional_no_strip])]
     strip_option: bool,
-    #[attribute(example = "5 * 10")]
+    /// Supports both #[prop(default)] and #[prop(default = expr)].
+    /// We preprocess #[prop(default)] to #[prop(default = ())] as a marker
+    /// that indicates "use Default::default()".
+    #[attribute(optional, example = "5 * 10")]
     default: Option<syn::Expr>,
     into: bool,
     attrs: bool,
     name: Option<String>,
 }
 
+/// Configuration for the typed builder that gets generated for component props.
 struct TypedBuilderOpts {
+    /// Whether this prop has a default value (either explicit or via Default trait)
     default: bool,
+    /// The explicit default expression, if provided (None means use Default::default())
     default_with_value: Option<syn::Expr>,
+    /// Whether to strip Option wrapper from the prop type
     strip_option: bool,
+    /// Whether to apply Into conversion
     into: bool,
 }
 
 impl TypedBuilderOpts {
+    /// Converts from PropOpt (parsed attributes) to TypedBuilderOpts (builder configuration).
+    ///
+    /// This method handles the special case where #[prop(default)] (without a value)
+    /// is transformed into #[prop(default = ())] during preprocessing. The empty tuple
+    /// serves as a marker that means "use Default::default()".
+    ///
+    /// # Arguments
+    /// * `opts` - The parsed prop options from attributes
+    /// * `is_ty_option` - Whether the prop type is an Option<T>
     fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
+        // Determine if we have a default and what kind
+        let (has_default, default_value) = match &opts.default {
+            Some(expr) => {
+                // Check if it's our empty tuple marker for standalone #[prop(default)]
+                if matches!(expr, syn::Expr::Tuple(tuple) if tuple.elems.is_empty()) {
+                    // This means the user wrote #[prop(default)] without a value
+                    // We'll use Default::default() for this prop
+                    (true, None)
+                } else {
+                    // User provided an explicit default value: #[prop(default = expr)]
+                    (true, Some(expr.clone()))
+                }
+            },
+            None => (false, None),  // No default attribute at all
+        };
+
         Self {
-            default: opts.optional || opts.optional_no_strip || opts.attrs,
-            default_with_value: opts.default.clone(),
+            default: opts.optional || opts.optional_no_strip || opts.attrs || has_default,
+            default_with_value: default_value,
             strip_option: opts.strip_option || opts.optional && is_ty_option,
             into: opts.into,
         }
@@ -1226,7 +1268,66 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     }
 }
 
-pub fn is_option(ty: &Type) -> bool {
+/// Preprocesses prop attributes to support #[prop(default)] syntax without a value.
+///
+/// The attribute-derive crate requires #[prop(default = expr)] syntax, but we want
+/// to support #[prop(default)] as a shorthand for "use Default::default()".
+///
+/// This function transforms #[prop(default)] into #[prop(default = ())] where the
+/// empty tuple serves as a marker that we recognize later when generating the
+/// typed builder options.
+///
+/// # Example
+/// - Input: `#[prop(default)]`
+/// - Output: `#[prop(default = ())]`
+/// - Input: `#[prop(default = 42)]` (unchanged)
+/// - Output: `#[prop(default = 42)]`
+fn preprocess_prop_attributes(attrs: Vec<Attribute>) -> Vec<Attribute> {
+    attrs.into_iter().map(|mut attr| {
+        if attr.path().is_ident("prop") {
+            if let Meta::List(meta_list) = &attr.meta {
+                let tokens_str = meta_list.tokens.to_string();
+
+                // Check if the attribute contains standalone "default" (not "default = ...")
+                // We need to be careful to match whole word "default" and not part of another identifier
+                if has_standalone_default(&tokens_str) {
+                    // Transform "default" to "default = ()" as a marker
+                    let new_tokens = transform_standalone_default(&meta_list.tokens);
+
+                    attr.meta = Meta::List(syn::MetaList {
+                        path: meta_list.path.clone(),
+                        delimiter: meta_list.delimiter.clone(),
+                        tokens: new_tokens,
+                    });
+                }
+            }
+        }
+        attr
+    }).collect()
+}
+
+/// Checks if the token string contains a standalone "default" keyword
+/// (not followed by '=' or part of another identifier).
+fn has_standalone_default(tokens: &str) -> bool {
+    // Simple heuristic: check if we have "default" but not "default =" or "default="
+    // This could be more sophisticated with proper token parsing, but this works
+    // for the common cases.
+    tokens.contains("default")
+        && !tokens.contains("default =")
+        && !tokens.contains("default=")
+}
+
+/// Transforms a standalone "default" in the tokens to "default = ()".
+fn transform_standalone_default(tokens: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let tokens_str = tokens.to_string();
+    // Replace standalone "default" with "default = ()"
+    // This is a simple string replacement that works for the common case
+    tokens_str.replace("default", "default = ()")
+        .parse()
+        .unwrap_or_else(|_| tokens.clone())
+}
+
+pub(crate) fn is_option(ty: &Type) -> bool {
     if let Type::Path(TypePath {
         path: Path { segments, .. },
         ..

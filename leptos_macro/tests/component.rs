@@ -161,3 +161,47 @@ mod macro_hygiene {
         }
     }
 }
+
+// Test for #[prop(default)] - using Default::default() for the type
+#[component]
+fn ComponentWithDefault(
+    #[prop(default)] count: i32,
+    #[prop(default)] name: String,
+    #[prop(default)] enabled: bool,
+) -> impl IntoView {
+    view! {
+        <div>
+            <p>"Count: " {count}</p>
+            <p>"Name: " {name}</p>
+            <p>"Enabled: " {enabled}</p>
+        </div>
+    }
+}
+
+#[test]
+fn component_with_default() {
+    // Test that components with default props compile and use Default::default()
+    let props1 = ComponentWithDefaultProps::builder().build();
+    assert_eq!(props1.count, 0); // i32::default() is 0
+    assert_eq!(props1.name, ""); // String::default() is empty string
+    assert_eq!(props1.enabled, false); // bool::default() is false
+
+    // Test with some values set
+    let props2 = ComponentWithDefaultProps::builder()
+        .count(42)
+        .name("Test".to_string())
+        .build();
+    assert_eq!(props2.count, 42);
+    assert_eq!(props2.name, "Test");
+    assert_eq!(props2.enabled, false); // Still using default
+
+    // Test with all values set
+    let props3 = ComponentWithDefaultProps::builder()
+        .count(100)
+        .name("Full".to_string())
+        .enabled(true)
+        .build();
+    assert_eq!(props3.count, 100);
+    assert_eq!(props3.name, "Full");
+    assert_eq!(props3.enabled, true);
+}
