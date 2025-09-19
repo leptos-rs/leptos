@@ -106,16 +106,14 @@ trace-component-props = [
 delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
 subsecond = [
-	"leptos_macro/subsecond",
-	"tachys/subsecond", 
-	"reactive_graph/subsecond",
-	"dep:subsecond",
-	"dep:dioxus-cli-config",
-	"dep:dioxus-devtools",
-	"web-sys/Location",
-	"web-sys/MessageEvent",
-	"web-sys/WebSocket",
-	"web-sys/Window"
+  "reactive_graph/subsecond",
+  "dep:subsecond",
+  "dep:dioxus-cli-config",
+  "dep:dioxus-devtools",
+  "web-sys/Location",
+  "web-sys/MessageEvent",
+  "web-sys/WebSocket",
+  "web-sys/Window",
 ]
 
 [dev-dependencies]

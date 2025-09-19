@@ -26,7 +26,6 @@ erased = { workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
 js-sys = { workspace = true, default-features = true }
-subsecond = { workspace = true, default-features = true, optional = true }
 web-sys = { features = [
   "Window",
   "Document",
@@ -190,7 +189,6 @@ reactive_stores = ["reactive_graph", "dep:reactive_stores"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
 mark_branches = []
-subsecond = ["dep:subsecond"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]

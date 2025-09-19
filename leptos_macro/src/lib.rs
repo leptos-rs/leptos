@@ -334,12 +334,6 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
         template,
     );
 
-    let nodes_output = if cfg!(feature = "subsecond") && false {
-        nodes_output.map(|n| quote! { || #n  })
-    } else {
-        nodes_output
-    };
-
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
     // seems to break rust-analyzer, but it works when the allow is put here.
