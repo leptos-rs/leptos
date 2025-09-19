@@ -17,7 +17,7 @@ pub mod read {
         traits::{
             DefinedAt, Dispose, Get, Read, ReadUntracked, ReadValue, Track,
         },
-        unwrap_signal, IntoLeptosValue,
+        unwrap_signal,
     };
     use send_wrapper::SendWrapper;
     use std::{
@@ -1118,15 +1118,19 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     #[doc(hidden)]
     pub struct __IntoLeptosValueMarkerSignalFromReactiveClosure;
+    #[cfg(not(feature = "nightly"))]
     #[doc(hidden)]
     pub struct __IntoLeptosValueMarkerSignalStrOutputToString;
+    #[cfg(not(feature = "nightly"))]
     #[doc(hidden)]
     pub struct __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways;
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<T, SyncStorage>,
             __IntoLeptosValueMarkerSignalFromReactiveClosure,
         > for F
@@ -1139,8 +1143,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<T, SyncStorage>,
             __IntoLeptosValueMarkerSignalFromReactiveClosure,
         > for F
@@ -1153,8 +1158,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<T, LocalStorage>,
             __IntoLeptosValueMarkerSignalFromReactiveClosure,
         > for F
@@ -1167,8 +1173,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<T, LocalStorage>,
             __IntoLeptosValueMarkerSignalFromReactiveClosure,
         > for F
@@ -1181,8 +1188,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<String, SyncStorage>,
             __IntoLeptosValueMarkerSignalStrOutputToString,
         > for F
@@ -1194,8 +1202,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<String, SyncStorage>,
             __IntoLeptosValueMarkerSignalStrOutputToString,
         > for F
@@ -1207,8 +1216,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<String, LocalStorage>,
             __IntoLeptosValueMarkerSignalStrOutputToString,
         > for F
@@ -1220,8 +1230,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<String, LocalStorage>,
             __IntoLeptosValueMarkerSignalStrOutputToString,
         > for F
@@ -1233,8 +1244,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<Option<T>, SyncStorage>,
             __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
         > for F
@@ -1247,8 +1259,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<Option<T>, SyncStorage>,
             __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
         > for F
@@ -1261,8 +1274,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             Signal<Option<T>, LocalStorage>,
             __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
         > for F
@@ -1275,8 +1289,9 @@ pub mod read {
         }
     }
 
+    #[cfg(not(feature = "nightly"))]
     impl<T, F>
-        IntoLeptosValue<
+        crate::IntoLeptosValue<
             ArcSignal<Option<T>, LocalStorage>,
             __IntoLeptosValueMarkerOptionalSignalFromReactiveClosureAlways,
         > for F
