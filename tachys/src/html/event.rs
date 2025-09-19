@@ -1,6 +1,7 @@
 use crate::{
     html::attribute::{
         maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+        NamedAttributeKey,
     },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
@@ -110,6 +111,8 @@ where
 {
     On {
         event,
+        #[cfg(feature = "reactive_graph")]
+        owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
         cb: Some(SendWrapper::new(cb)),
     }
 }
@@ -135,6 +138,8 @@ where
 /// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F> {
     event: E,
+    #[cfg(feature = "reactive_graph")]
+    owner: reactive_graph::owner::Owner,
     cb: Option<SendWrapper<F>>,
 }
 
@@ -146,6 +151,8 @@ where
     fn clone(&self) -> Self {
         Self {
             event: self.event.clone(),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner.clone(),
             cb: self.cb.clone(),
         }
     }
@@ -193,6 +200,10 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
+
+            #[cfg(feature = "reactive_graph")]
+            self.owner.with(|| cb.invoke(ev));
+            #[cfg(not(feature = "reactive_graph"))]
             cb.invoke(ev);
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
@@ -232,6 +243,10 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
+
+            #[cfg(feature = "reactive_graph")]
+            self.owner.with(|| cb.invoke(ev));
+            #[cfg(not(feature = "reactive_graph"))]
             cb.invoke(ev);
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
@@ -320,6 +335,8 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner,
             event: self.event,
         }
     }
@@ -327,6 +344,8 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner,
             event: self.event,
         }
     }
@@ -341,6 +360,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 

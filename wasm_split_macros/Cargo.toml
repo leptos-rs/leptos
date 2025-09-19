@@ -1,6 +1,6 @@
 [package]
 name = "wasm_split_macros"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "README.md"

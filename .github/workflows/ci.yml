@@ -63,6 +63,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Semver Checks
         uses: obi1kenobi/cargo-semver-checks-action@v2

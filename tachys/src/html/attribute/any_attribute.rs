@@ -1,6 +1,10 @@
 use super::{Attribute, NextAttribute};
-use crate::erased::{Erased, ErasedLocal};
-use std::{any::TypeId, fmt::Debug};
+use crate::{
+    erased::{Erased, ErasedLocal},
+    html::attribute::NamedAttributeKey,
+    renderer::{dom::Element, Rndr},
+};
+use std::{any::TypeId, fmt::Debug, mem};
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
@@ -25,6 +29,7 @@ pub struct AnyAttribute {
     resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyAttribute> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Erased),
+    keys: fn(&Erased) -> Vec<NamedAttributeKey>,
 }
 
 impl Clone for AnyAttribute {
@@ -44,6 +49,7 @@ pub struct AnyAttributeState {
     type_id: TypeId,
     state: ErasedLocal,
     el: crate::renderer::types::Element,
+    keys: Vec<NamedAttributeKey>,
 }
 
 /// Converts an [`Attribute`] into [`AnyAttribute`].
@@ -84,6 +90,7 @@ where
         ) -> AnyAttributeState {
             AnyAttributeState {
                 type_id: TypeId::of::<T>(),
+                keys: value.get_ref::<T>().keys(),
                 state: ErasedLocal::new(value.into_inner::<T>().build(&el)),
                 el,
             }
@@ -96,6 +103,7 @@ where
         ) -> AnyAttributeState {
             AnyAttributeState {
                 type_id: TypeId::of::<T>(),
+                keys: value.get_ref::<T>().keys(),
                 state: ErasedLocal::new(
                     value.into_inner::<T>().hydrate::<true>(&el),
                 ),
@@ -110,6 +118,7 @@ where
         ) -> AnyAttributeState {
             AnyAttributeState {
                 type_id: TypeId::of::<T>(),
+                keys: value.get_ref::<T>().keys(),
                 state: ErasedLocal::new(
                     value.into_inner::<T>().hydrate::<true>(&el),
                 ),
@@ -140,6 +149,12 @@ where
             async move {value.into_inner::<T>().resolve().await.into_any_attr()}.boxed()
         }
 
+        fn keys<T: Attribute + 'static>(
+            value: &Erased,
+        ) -> Vec<NamedAttributeKey> {
+            value.get_ref::<T>().keys()
+        }
+
         let value = self.into_cloneable_owned();
         AnyAttribute {
             type_id: TypeId::of::<T::CloneableOwned>(),
@@ -158,6 +173,7 @@ where
             resolve: resolve::<T::CloneableOwned>,
             #[cfg(feature = "ssr")]
             dry_resolve: dry_resolve::<T::CloneableOwned>,
+            keys: keys::<T::CloneableOwned>,
         }
     }
 }
@@ -268,6 +284,10 @@ impl Attribute for AnyAttribute {
              enabled."
         );
     }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        (self.keys)(&self.value)
+    }
 }
 
 impl NextAttribute for Vec<AnyAttribute> {
@@ -286,7 +306,7 @@ impl Attribute for Vec<AnyAttribute> {
     const MIN_LENGTH: usize = 0;
 
     type AsyncOutput = Vec<AnyAttribute>;
-    type State = Vec<AnyAttributeState>;
+    type State = (Element, Vec<AnyAttributeState>);
     type Cloneable = Vec<AnyAttribute>;
     type CloneableOwned = Vec<AnyAttribute>;
 
@@ -321,13 +341,19 @@ impl Attribute for Vec<AnyAttribute> {
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
         if FROM_SERVER {
-            self.into_iter()
-                .map(|attr| attr.hydrate::<true>(el))
-                .collect()
+            (
+                el.clone(),
+                self.into_iter()
+                    .map(|attr| attr.hydrate::<true>(el))
+                    .collect(),
+            )
         } else {
-            self.into_iter()
-                .map(|attr| attr.hydrate::<false>(el))
-                .collect()
+            (
+                el.clone(),
+                self.into_iter()
+                    .map(|attr| attr.hydrate::<false>(el))
+                    .collect(),
+            )
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -340,13 +366,34 @@ impl Attribute for Vec<AnyAttribute> {
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        self.into_iter().map(|attr| attr.build(el)).collect()
+        (
+            el.clone(),
+            self.into_iter().map(|attr| attr.build(el)).collect(),
+        )
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        for (attr, state) in self.into_iter().zip(state.iter_mut()) {
-            attr.rebuild(state)
+        let (el, state) = state;
+        for old in mem::take(state) {
+            for key in old.keys {
+                match key {
+                    NamedAttributeKey::InnerHtml => {
+                        Rndr::set_inner_html(&old.el, "");
+                    }
+                    NamedAttributeKey::Property(prop_name) => {
+                        Rndr::set_property(
+                            &old.el,
+                            &prop_name,
+                            &wasm_bindgen::JsValue::UNDEFINED,
+                        );
+                    }
+                    NamedAttributeKey::Attribute(key) => {
+                        Rndr::remove_attribute(&old.el, &key);
+                    }
+                }
+            }
         }
+        *state = self.into_iter().map(|s| s.build(el)).collect();
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -384,5 +431,9 @@ impl Attribute for Vec<AnyAttribute> {
             "You are rendering AnyAttribute to HTML without the `ssr` feature \
              enabled."
         );
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        self.iter().flat_map(|s| s.keys()).collect()
     }
 }

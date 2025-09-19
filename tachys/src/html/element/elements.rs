@@ -227,7 +227,7 @@ html_self_closing_elements! {
 
 html_elements! {
     /// The `<a>` HTML element (or anchor element), with its href attribute, creates a hyperlink to web pages, files, email addresses, locations in the same page, or anything else a URL can address.
-    a HtmlAnchorElement [download, href, hreflang, ping, rel, target, r#type ] true,
+    a HtmlAnchorElement [download, href, hreflang, ping, referrerpolicy, rel, target, r#type ] true,
     /// The `<abbr>` HTML element represents an abbreviation or acronym; the optional title attribute can provide an expansion or description for the abbreviation. If present, title must contain this full description and nothing else.
     abbr HtmlElement [] true,
     /// The `<address>` HTML element indicates that the enclosed HTML provides contact information for a person or people, or for an organization.
@@ -249,7 +249,7 @@ html_elements! {
     /// The `<body>` HTML element represents the content of an HTML document. There can be only one `<body>` element in a document.
     body HtmlBodyElement [] true,
     /// The `<button>` HTML element represents a clickable button, used to submit forms or anywhere in a document for accessible, standard button functionality.
-    button HtmlButtonElement [disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value, popovertarget, popovertargetaction] true,
+    button HtmlButtonElement [command, commandfor, disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, name, r#type, value, popovertarget, popovertargetaction] true,
     /// Use the HTML `<canvas>` element with either the canvas scripting API or the WebGL API to draw graphics and animations.
     canvas HtmlCanvasElement [height, width] true,
     /// The `<caption>` HTML element specifies the caption (or title) of a table.
@@ -269,7 +269,7 @@ html_elements! {
     /// The `<del>` HTML element represents a range of text that has been deleted from a document. This can be used when rendering "track changes" or source code diff information, for example. The ins element can be used for the opposite purpose: to indicate text that has been added to the document.
     del HtmlModElement [cite, datetime] true,
     /// The `<details>` HTML element creates a disclosure widget in which information is visible only when the widget is toggled into an "open" state. A summary or label must be provided using the summary element.
-    details HtmlDetailsElement [open] true,
+    details HtmlDetailsElement [name, open] true,
     /// The `<dfn>` HTML element is used to indicate the term being defined within the context of a definition phrase or sentence. The p element, the dt/dd pairing, or the section element which is the nearest ancestor of the `<dfn>` is considered to be the definition of the term.
     dfn HtmlElement [] true,
     /// The `<dialog>` HTML element represents a dialog box or other interactive component, such as a dismissible alert, inspector, or subwindow.

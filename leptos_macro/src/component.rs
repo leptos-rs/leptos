@@ -1360,7 +1360,10 @@ fn prop_to_doc(
 }
 
 pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
-    Ident::new(&format!("__{ident}"), ident.span())
+    Ident::new(
+        &format!("__component_{}", ident.to_string().to_case(Snake)),
+        ident.span(),
+    )
 }
 
 /// Converts all `impl Trait`s in a function signature to use generic params instead.

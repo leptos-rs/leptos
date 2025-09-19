@@ -307,16 +307,18 @@ pub trait ServerFn: Send + Sized {
                     .await
                     .map(|res| (res, None))
                     .unwrap_or_else(|e| {
-                        (
+                        let mut response =
                             <<Self as ServerFn>::Server as crate::Server<
                                 Self::Error,
                                 Self::InputStreamError,
                                 Self::OutputStreamError,
                             >>::Response::error_response(
                                 Self::PATH, e.ser()
-                            ),
-                            Some(e),
-                        )
+                            );
+                        let content_type =
+                    <Self::Error as FromServerFnError>::Encoder::CONTENT_TYPE;
+                        response.content_type(content_type);
+                        (response, Some(e))
                     });
 
             // if it accepts HTML, we'll redirect to the Referer

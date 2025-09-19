@@ -18,7 +18,7 @@ jobs:
   autofix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with: {toolchain: "nightly-2025-07-16", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
       - name: Install Glib
