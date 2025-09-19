@@ -341,9 +341,10 @@ impl ServerFnCall {
                     Clone, #server_fn_path::rkyv::Archive, #server_fn_path::rkyv::Serialize, #server_fn_path::rkyv::Deserialize
                 },
             ),
-            Some("MultipartFormData")
-            | Some("Streaming")
-            | Some("StreamingText") => (PathInfo::None, quote! {}),
+            Some("MultipartFormData") => (PathInfo::None, quote! { Clone }),
+            Some("Streaming") | Some("StreamingText") => {
+                (PathInfo::None, quote! {})
+            }
             Some("SerdeLite") => (
                 PathInfo::Serde,
                 quote! {
@@ -744,6 +745,31 @@ impl ServerFnCall {
         }
     }
 
+    fn impl_from_form(&self) -> TokenStream2 {
+        if self.input_ident().as_deref() != Some("MultipartFormData") {
+            return quote! {};
+        }
+
+        let Some((field_name, _)) = self.single_field() else {
+            return quote! {};
+        };
+
+        let server_fn_path = self.server_fn_path();
+        let struct_name = self.struct_name();
+
+        quote! {
+            impl ::leptos::form::FromFormData for #struct_name {
+                fn from_form_data(
+                    form_data: &::leptos::web_sys::FormData,
+                ) -> Result<Self, ::leptos::serde_qs::Error> {
+                    Ok(Self {
+                        #field_name: #server_fn_path::codec::MultipartData::from(form_data.clone()),
+                    })
+                }
+            }
+        }
+    }
+
     fn func_tokens(&self) -> TokenStream2 {
         let body = &self.body;
         // default values for args
@@ -811,6 +837,8 @@ impl ToTokens for ServerFnCall {
 
         let impl_from = self.impl_from();
 
+        let impl_from_form = self.impl_from_form();
+
         let deref_impl = self.deref_impl();
 
         let inventory = self.submit_to_inventory();
@@ -825,6 +853,8 @@ impl ToTokens for ServerFnCall {
             #struct_tokens
 
             #impl_from
+
+            #impl_from_form
 
             #deref_impl
 
