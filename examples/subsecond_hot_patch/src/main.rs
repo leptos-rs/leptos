@@ -1,4 +1,8 @@
 use leptos::{prelude::*, subsecond::connect_to_hot_patch_messages};
+use leptos_router::{
+    components::{Route, Router, Routes},
+    path,
+};
 
 fn main() {
     // connect to DX CLI and patch the WASM binary whenever we receive a message
@@ -9,15 +13,32 @@ fn main() {
     mount_to_body(|| App);
 }
 
+#[component]
 fn App() -> impl IntoView {
-    let msg = RwSignal::new("hello, world!".to_string());
     view! {
-        <p>{msg}</p>
-        <button on:click=move |_| {
-            msg.set("wow!".to_string());
-        }>
-            "a cool button"
-        </button>
+        <nav>
+            <a href="/">"Home"</a>
+            <a href="/about">"About"</a>
+        </nav>
+        <Router>
+            <Routes fallback=|| "Not found">
+                <Route path=path!("/") view=HomePage/>
+                <Route path=path!("/about") view=About/>
+            </Routes>
+        </Router>
     }
-    .into_any()
+}
+
+#[component]
+fn HomePage() -> impl IntoView {
+    view! {
+        <h1>"Home Page"</h1>
+    }
+}
+
+#[component]
+fn About() -> impl IntoView {
+    view! {
+        <h1>"About"</h1>
+    }
 }

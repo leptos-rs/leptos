@@ -5,7 +5,8 @@ authors = ["Greg Johnston <greg.johnston@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "subsecond" ] }
+leptos = { path = "../../leptos", features = ["csr", "subsecond"] }
+leptos_router = { path = "../../router" }
 
 [features]
 default = ["web"]
