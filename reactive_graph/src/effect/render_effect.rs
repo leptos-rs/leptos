@@ -137,7 +137,11 @@ where
     fn new_with_value_erased(
         #[allow(unused_mut)] mut fun: Box<dyn FnMut(Option<T>) -> T + 'static>,
         initial_value: Option<T>,
-        #[cfg(feature = "subsecond")] hot_fn_ptr: CurrentHotPtr,
+        // this argument can be used to invalidate individual effects in the future
+        // in present experiments, I have found that it is not actually granular enough to make a difference
+        #[allow(unused)]
+        #[cfg(feature = "subsecond")]
+        hot_fn_ptr: CurrentHotPtr,
     ) -> Self {
         // codegen optimisation:
         fn prep() -> (Owner, Arc<RwLock<EffectInner>>, crate::channel::Receiver)
