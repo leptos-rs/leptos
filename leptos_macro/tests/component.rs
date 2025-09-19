@@ -120,8 +120,9 @@ fn returns_static_lifetime() {
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 #[component]
-pub fn IntoLeptosValueTestComponent(
+pub fn IntoLeptosValueTestComponentSignal(
     #[prop(into)] arg1: Signal<String>,
     #[prop(into)] arg2: Signal<String>,
     #[prop(into)] arg3: Signal<String>,
@@ -129,26 +130,18 @@ pub fn IntoLeptosValueTestComponent(
     #[prop(into)] arg5: Signal<usize>,
     #[prop(into)] arg6: Signal<usize>,
     #[prop(into)] arg7: Signal<Option<usize>>,
-    #[prop(into)] arg13: Callback<(), String>,
-    #[prop(into)] arg14: Callback<usize, String>,
-    #[prop(into)] arg15: Callback<(usize,), String>,
-    #[prop(into)] arg16: Callback<(usize, String), String>,
-    #[prop(into)] arg17: UnsyncCallback<(), String>,
-    #[prop(into)] arg18: UnsyncCallback<usize, String>,
-    #[prop(into)] arg19: UnsyncCallback<(usize,), String>,
-    #[prop(into)] arg20: UnsyncCallback<(usize, String), String>,
-    #[prop(into)] arg21: ArcSignal<String>,
-    #[prop(into)] arg22: ArcSignal<String>,
-    #[prop(into)] arg23: ArcSignal<String>,
-    #[prop(into)] arg24: ArcSignal<usize>,
-    #[prop(into)] arg25: ArcSignal<usize>,
-    #[prop(into)] arg26: ArcSignal<usize>,
-    #[prop(into)] arg27: ArcSignal<Option<usize>>,
+    #[prop(into)] arg8: ArcSignal<String>,
+    #[prop(into)] arg9: ArcSignal<String>,
+    #[prop(into)] arg10: ArcSignal<String>,
+    #[prop(into)] arg11: ArcSignal<usize>,
+    #[prop(into)] arg12: ArcSignal<usize>,
+    #[prop(into)] arg13: ArcSignal<usize>,
+    #[prop(into)] arg14: ArcSignal<Option<usize>>,
     // Optionals:
-    #[prop(into, optional)] arg28: Option<Signal<usize>>,
-    #[prop(into, optional)] arg29_purposely_omitted: Option<Signal<usize>>,
-    #[prop(into, optional)] arg30: Option<Signal<usize>>,
-    #[prop(into, strip_option)] arg31: Option<Signal<usize>>,
+    #[prop(into, optional)] arg15: Option<Signal<usize>>,
+    #[prop(into, optional)] arg16_purposely_omitted: Option<Signal<usize>>,
+    #[prop(into, optional)] arg17: Option<Signal<usize>>,
+    #[prop(into, strip_option)] arg18: Option<Signal<usize>>,
 ) -> impl IntoView {
     move || {
         view! {
@@ -160,34 +153,54 @@ pub fn IntoLeptosValueTestComponent(
                 <p>{arg5.get()}</p>
                 <p>{arg6.get()}</p>
                 <p>{arg7.get()}</p>
-                <p>{arg13.run(())}</p>
-                <p>{arg14.run(1)}</p>
-                <p>{arg15.run((2,))}</p>
-                <p>{arg16.run((3, "three".into()))}</p>
-                <p>{arg17.run(())}</p>
-                <p>{arg18.run(1)}</p>
-                <p>{arg19.run((2,))}</p>
-                <p>{arg20.run((3, "three".into()))}</p>
-                <p>{arg21.get()}</p>
-                <p>{arg22.get()}</p>
-                <p>{arg23.get()}</p>
-                <p>{arg24.get()}</p>
-                <p>{arg25.get()}</p>
-                <p>{arg26.get()}</p>
-                <p>{arg27.get()}</p>
-                <p>{arg28.get()}</p>
-                <p>{arg29_purposely_omitted.get()}</p>
-                <p>{arg30.get()}</p>
-                <p>{arg31.get()}</p>
+                <p>{arg8.get()}</p>
+                <p>{arg9.get()}</p>
+                <p>{arg10.get()}</p>
+                <p>{arg11.get()}</p>
+                <p>{arg12.get()}</p>
+                <p>{arg13.get()}</p>
+                <p>{arg14.get()}</p>
+                <p>{arg15.get()}</p>
+                <p>{arg16_purposely_omitted.get()}</p>
+                <p>{arg17.get()}</p>
+                <p>{arg18.get()}</p>
             </div>
         }
     }
 }
 
+#[component]
+pub fn IntoLeptosValueTestComponentCallback(
+    #[prop(into)] arg1: Callback<(), String>,
+    #[prop(into)] arg2: Callback<usize, String>,
+    #[prop(into)] arg3: Callback<(usize,), String>,
+    #[prop(into)] arg4: Callback<(usize, String), String>,
+    #[prop(into)] arg5: UnsyncCallback<(), String>,
+    #[prop(into)] arg6: UnsyncCallback<usize, String>,
+    #[prop(into)] arg7: UnsyncCallback<(usize,), String>,
+    #[prop(into)] arg8: UnsyncCallback<(usize, String), String>,
+) -> impl IntoView {
+    move || {
+        view! {
+            <div>
+                <p>{arg1.run(())}</p>
+                <p>{arg2.run(1)}</p>
+                <p>{arg3.run((2,))}</p>
+                <p>{arg4.run((3, "three".into()))}</p>
+                <p>{arg5.run(())}</p>
+                <p>{arg6.run(1)}</p>
+                <p>{arg7.run((2,))}</p>
+                <p>{arg8.run((3, "three".into()))}</p>
+            </div>
+        }
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
 #[test]
-fn test_into_leptos_value() {
+fn test_into_leptos_value_signal() {
     let _ = view! {
-        <IntoLeptosValueTestComponent
+        <IntoLeptosValueTestComponentSignal
             arg1=move || "I was a reactive closure!"
             arg2="I was a basic str!"
             arg3=Signal::stored("I was already a signal!")
@@ -195,24 +208,32 @@ fn test_into_leptos_value() {
             arg5=3
             arg6=Signal::stored(4)
             arg7=|| 2
-            arg13=|| "I was a callback static str!"
-            arg14=|_n| "I was a callback static str!"
-            arg15=|(_n,)| "I was a callback static str!"
-            arg16=|(_n, _s)| "I was a callback static str!"
-            arg17=|| "I was a callback static str!"
-            arg18=|_n| "I was a callback static str!"
-            arg19=|(_n,)| "I was a callback static str!"
-            arg20=|(_n, _s)| "I was a callback static str!"
-            arg21=move || "I was a reactive closure!"
-            arg22="I was a basic str!"
-            arg23=ArcSignal::stored("I was already a signal!".to_string())
-            arg24=move || 2
-            arg25=3
-            arg26=ArcSignal::stored(4)
-            arg27=|| 2
-            arg28=|| 2
-            nostrip:arg30=Some(|| 2)
-            arg31=|| 2
+            arg8=move || "I was a reactive closure!"
+            arg9="I was a basic str!"
+            arg10=ArcSignal::stored("I was already a signal!".to_string())
+            arg11=move || 2
+            arg12=3
+            arg13=ArcSignal::stored(4)
+            arg14=|| 2
+            arg15=|| 2
+            nostrip:arg17=Some(|| 2)
+            arg18=|| 2
+        />
+    };
+}
+
+#[test]
+fn test_into_leptos_value_callback() {
+    let _ = view! {
+        <IntoLeptosValueTestComponentCallback
+            arg1=|| "I was a callback static str!"
+            arg2=|_n| "I was a callback static str!"
+            arg3=|(_n,)| "I was a callback static str!"
+            arg4=|(_n, _s)| "I was a callback static str!"
+            arg5=|| "I was a callback static str!"
+            arg6=|_n| "I was a callback static str!"
+            arg7=|(_n,)| "I was a callback static str!"
+            arg8=|(_n, _s)| "I was a callback static str!"
         />
     };
 }

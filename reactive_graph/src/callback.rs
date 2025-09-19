@@ -2,42 +2,12 @@
 //! for component properties, because they can be used to define optional callback functions,
 //! which generic props don’t support.
 //!
-//! # Usage
-//! Callbacks can be created manually from any function or closure, but the easiest way
-//! to create them is to use `#[prop(into)]]` when defining a component.
-//! ```ignore
-//! use leptos::prelude::*;
-//!
-//! #[component]
-//! fn MyComponent(
-//!     #[prop(into)] render_number: Callback<(i32,), String>,
-//! ) -> impl IntoView {
-//!     view! {
-//!         <div>
-//!             {render_number.run((1,))}
-//!             // callbacks can be called multiple times
-//!             {render_number.run((42,))}
-//!         </div>
-//!     }
-//! }
-//! // you can pass a closure directly as `render_number`
-//! fn test() -> impl IntoView {
-//!     view! {
-//!         <MyComponent render_number=|x: i32| x.to_string()/>
-//!     }
-//! }
-//! ```
-//!
-//! *Notes*:
-//! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
-//! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`](leptos::callback::Callable) trait, and can be invoked with `my_callback.run(input)`.
-//! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
+//! The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
-//! - [`Callback`](leptos::callback::Callback)
-//! - [`UnsyncCallback`](leptos::callback::UnsyncCallback)
+//! - [`Callback`](reactive_graph::callback::Callback)
+//! - [`UnsyncCallback`](reactive_graph::callback::UnsyncCallback)
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
@@ -61,7 +31,16 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
     fn run(&self, input: In) -> Out;
 }
 
-/// A callback type that is not required to be `Send + Sync`.
+/// A callback type that is not required to be [`Send`] or [`Sync`].
+///
+/// # Example
+/// ```
+/// # use reactive_graph::prelude::*; use reactive_graph::callback::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
+/// let _: UnsyncCallback<()> = UnsyncCallback::new(|_| {});
+/// let _: UnsyncCallback<(i32, i32)> = (|_x: i32, _y: i32| {}).into();
+/// let cb: UnsyncCallback<i32, String> = UnsyncCallback::new(|x: i32| x.to_string());
+/// assert_eq!(cb.run(42), "42".to_string());
+/// ```
 pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
     StoredValue<Rc<dyn Fn(In) -> Out>, LocalStorage>,
 );
@@ -149,28 +128,15 @@ impl_unsync_callable_from_fn!(
     P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12
 );
 
-/// Callbacks define a standard way to store functions and closures.
+/// A callback type that is [`Send`] + [`Sync`].
 ///
 /// # Example
-/// ```ignore
-/// # use leptos::prelude::*;
-/// # use leptos::callback::{Callable, Callback};
-/// #[component]
-/// fn MyComponent(
-///     #[prop(into)] render_number: Callback<(i32,), String>,
-/// ) -> impl IntoView {
-///     view! {
-///         <div>
-///             {render_number.run((42,))}
-///         </div>
-///     }
-/// }
-///
-/// fn test() -> impl IntoView {
-///     view! {
-///         <MyComponent render_number=move |x: i32| x.to_string()/>
-///     }
-/// }
+/// ```
+/// # use reactive_graph::prelude::*; use reactive_graph::callback::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
+/// let _: Callback<()> = Callback::new(|_| {});
+/// let _: Callback<(i32, i32)> = (|_x: i32, _y: i32| {}).into();
+/// let cb: Callback<i32, String> = Callback::new(|x: i32| x.to_string());
+/// assert_eq!(cb.run(42), "42".to_string());
 /// ```
 pub struct Callback<In, Out = ()>(
     StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>>,
