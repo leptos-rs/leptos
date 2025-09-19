@@ -448,12 +448,10 @@ pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
     duration: Duration,
 ) -> Result<IntervalHandle, JsValue> {
-    let mut cb = subsecond::HotFn::current(cb);
-
     #[cfg(debug_assertions)]
     let cb = move || {
         let _z = SpecialNonReactiveZone::enter();
-        cb.call(());
+        cb();
     };
     #[cfg(feature = "tracing")]
     let span = ::tracing::Span::current();

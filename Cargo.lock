@@ -2003,7 +2003,6 @@ dependencies = [
  "send_wrapper",
  "serde",
  "serde_json",
- "subsecond",
  "tachys",
  "tracing",
  "wasm-bindgen",
