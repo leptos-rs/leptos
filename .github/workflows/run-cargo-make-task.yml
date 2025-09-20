@@ -21,22 +21,36 @@ jobs:
         toolchain: [stable, nightly-2025-07-16]
         erased_mode: [true, false]
     steps:
+      # Setup environment
+      - name: Install Glib
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
+      - name: Install binstall
+        uses: cargo-bins/cargo-binstall@main
       - name: Free Disk Space
         run: |
+          cargo binstall rmz --quiet --no-confirm
           echo "Disk space before cleanup:"
           df -h
-          sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /usr/local/lib/node_modules
+          sudo rmz -f /usr/local/.ghcup || true
+          sudo rmz -f /opt/hostedtoolcache/CodeQL || true
+          sudo rmz -f /usr/local/lib/android || true
+          sudo rmz -f /usr/share/dotnet || true
+          sudo rmz -f /opt/ghc || true
+          sudo rmz -f /usr/local/share/boost || true
+          sudo rmz -f /usr/local/lib/node_modules || true
 
           # following lines currenly not needed as it takes too much time
           # the new isolated CI doesn't need much space to test libraries
           #
-          # uncommet only if nneded
+          # uncomment only if needed
           #
           # sudo apt-get clean
           # sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^llvm-.*' '^mono-.*' '^php.*' '^ruby.*'
@@ -46,22 +60,10 @@ jobs:
           # docker system prune -af
           # docker image prune -af
           # docker volume prune -f
+
           echo "Disk space after cleanup:"
           df -h
-      # Setup environment
-      - name: Install Glib
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev
       - uses: actions/checkout@v5
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          targets: wasm32-unknown-unknown
-          components: clippy,rustfmt
-      - name: Install binstall
-        uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
         run: cargo binstall wasm-bindgen-cli --no-confirm
       - name: Install cargo-leptos
