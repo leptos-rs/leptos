@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
 
 //! # About Leptos
 //!
@@ -305,6 +304,10 @@ pub use tachys::mathml as math;
 /// SVG element types.
 #[doc(inline)]
 pub use tachys::svg;
+
+#[cfg(feature = "subsecond")]
+/// Utilities for using binary hot-patching with [`subsecond`].
+pub mod subsecond;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {

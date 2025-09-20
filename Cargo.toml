@@ -170,6 +170,9 @@ async-lock = { default-features = false, version = "3.4.1" }
 base16 = { default-features = false, version = "0.2.1" }
 digest = { default-features = false, version = "0.10.7" }
 sha2 = { default-features = false, version = "0.10.8" }
+subsecond = { default-features = false, git = "https://github.com/dioxuslabs/dioxus" }
+dioxus-cli-config = { default-features = false, git = "https://github.com/dioxuslabs/dioxus" }
+dioxus-devtools = { default-features = false, git = "https://github.com/dioxuslabs/dioxus" }
 
 [profile.release]
 codegen-units = 1
