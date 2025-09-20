@@ -463,7 +463,7 @@ pub fn set_interval_with_handle(
 
     #[inline(never)]
     fn si(
-        cb: Box<dyn Fn()>,
+        cb: Box<dyn FnMut()>,
         duration: Duration,
     ) -> Result<IntervalHandle, JsValue> {
         let cb = Closure::wrap(cb).into_js_value();
