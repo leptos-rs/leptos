@@ -294,7 +294,7 @@ impl Dom {
         );
 
         // return the remover
-        RemoveEventHandler::new({
+        RemoveEventHandler::new(el.clone(), {
             let name = name.to_owned();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
@@ -332,7 +332,7 @@ impl Dom {
         );
 
         // return the remover
-        RemoveEventHandler::new({
+        RemoveEventHandler::new(el.clone(), {
             let name = name.to_owned();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
@@ -446,7 +446,7 @@ impl Dom {
         });
 
         // return the remover
-        RemoveEventHandler::new({
+        RemoveEventHandler::new(el.clone(), {
             let key = key.to_owned();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread

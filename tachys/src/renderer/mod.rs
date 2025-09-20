@@ -120,16 +120,31 @@ pub trait Renderer: Send + Sized + Debug + 'static {
               should store it in some other data structure to clean it up \
               later to avoid dropping it immediately, or leak it with \
               std::mem::forget() to never drop it."]
-pub struct RemoveEventHandler<T>(Box<dyn FnOnce(&T) + Send + Sync>);
+#[allow(clippy::type_complexity)]
+pub struct RemoveEventHandler<T>(T, Option<Box<dyn FnOnce(&T) + Send + Sync>>);
 
 impl<T> RemoveEventHandler<T> {
     /// Creates a new container with a function that will be called when it is dropped.
-    pub(crate) fn new(remove: impl FnOnce(&T) + Send + Sync + 'static) -> Self {
-        Self(Box::new(remove))
+    pub(crate) fn new(
+        el: T,
+        remove: impl FnOnce(&T) + Send + Sync + 'static,
+    ) -> Self {
+        Self(el, Some(Box::new(remove)))
     }
 
-    pub(crate) fn into_inner(self) -> Box<dyn FnOnce(&T) + Send + Sync> {
-        self.0
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn into_inner(
+        mut self,
+    ) -> Option<Box<dyn FnOnce(&T) + Send + Sync>> {
+        self.1.take()
+    }
+}
+
+impl<T> Drop for RemoveEventHandler<T> {
+    fn drop(&mut self) {
+        if let Some(cb) = self.1.take() {
+            cb(&self.0)
+        }
     }
 }
 
