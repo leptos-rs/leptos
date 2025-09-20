@@ -125,7 +125,7 @@ glib = { default-features = false, version = "0.20.12" }
 async-trait = { default-features = false, version = "0.1.89" }
 typed-builder-macro = { default-features = false, version = "0.21.0" }
 linear-map = { default-features = false, version = "1.2.0" }
-anyhow = { default-features = false, version = "1.0.99" }
+anyhow = { default-features = false, version = "1.0.100" }
 walkdir = { default-features = false, version = "2.5.0" }
 actix-ws = { default-features = false, version = "0.3.0" }
 tower-http = { default-features = false, version = "0.6.4" }
