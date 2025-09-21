@@ -294,21 +294,22 @@ impl Dom {
         );
 
         // return the remover
-        RemoveEventHandler::new(el.clone(), {
+        RemoveEventHandler::new({
             let name = name.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
+            let cb = send_wrapper::SendWrapper::new(move || {
                 or_debug!(
                     el.remove_event_listener_with_callback(
                         intern(&name),
                         cb.as_ref().unchecked_ref()
                     ),
-                    el,
+                    &el,
                     "removeEventListener"
                 )
-            }
+            });
+            move || cb()
         })
     }
 
@@ -332,22 +333,23 @@ impl Dom {
         );
 
         // return the remover
-        RemoveEventHandler::new(el.clone(), {
+        RemoveEventHandler::new({
             let name = name.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
+            let cb = send_wrapper::SendWrapper::new(move || {
                 or_debug!(
                     el.remove_event_listener_with_callback_and_bool(
                         intern(&name),
                         cb.as_ref().unchecked_ref(),
                         true
                     ),
-                    el,
+                    &el,
                     "removeEventListener"
                 )
-            }
+            });
+            move || cb()
         })
     }
 
@@ -446,19 +448,21 @@ impl Dom {
         });
 
         // return the remover
-        RemoveEventHandler::new(el.clone(), {
+        RemoveEventHandler::new({
             let key = key.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
-                drop(cb.take());
+            let el_cb = send_wrapper::SendWrapper::new((el, cb));
+            move || {
+                let (el, cb) = el_cb.take();
+                drop(cb);
                 or_debug!(
                     js_sys::Reflect::delete_property(
-                        el,
+                        &el,
                         &JsValue::from_str(&key)
                     ),
-                    el,
+                    &el,
                     "delete property"
                 );
             }

@@ -324,7 +324,7 @@ where
         let (el, prev_cleanup) = state;
         if let Some(prev) = prev_cleanup.take() {
             if let Some(remove) = prev.into_inner() {
-                remove(el);
+                remove();
             }
         }
         *prev_cleanup = Some(if E::CAPTURE {

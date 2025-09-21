@@ -1,5 +1,5 @@
 use crate::view::{Mountable, ToTemplate};
-use std::{borrow::Cow, fmt::Debug};
+use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 use wasm_bindgen::JsValue;
 
 /// A DOM renderer.
@@ -121,29 +121,31 @@ pub trait Renderer: Send + Sized + Debug + 'static {
               later to avoid dropping it immediately, or leak it with \
               std::mem::forget() to never drop it."]
 #[allow(clippy::type_complexity)]
-pub struct RemoveEventHandler<T>(T, Option<Box<dyn FnOnce(&T) + Send + Sync>>);
+pub struct RemoveEventHandler<T>(
+    Option<Box<dyn FnOnce() + Send + Sync>>,
+    // only here to keep the generic, removing which would be a breaking change
+    // TODO remove generic in 0.9
+    PhantomData<fn() -> T>,
+);
 
 impl<T> RemoveEventHandler<T> {
     /// Creates a new container with a function that will be called when it is dropped.
-    pub(crate) fn new(
-        el: T,
-        remove: impl FnOnce(&T) + Send + Sync + 'static,
-    ) -> Self {
-        Self(el, Some(Box::new(remove)))
+    pub(crate) fn new(remove: impl FnOnce() + Send + Sync + 'static) -> Self {
+        Self(Some(Box::new(remove)), PhantomData)
     }
 
     #[allow(clippy::type_complexity)]
     pub(crate) fn into_inner(
         mut self,
-    ) -> Option<Box<dyn FnOnce(&T) + Send + Sync>> {
-        self.1.take()
+    ) -> Option<Box<dyn FnOnce() + Send + Sync>> {
+        self.0.take()
     }
 }
 
 impl<T> Drop for RemoveEventHandler<T> {
     fn drop(&mut self) {
-        if let Some(cb) = self.1.take() {
-            cb(&self.0)
+        if let Some(cb) = self.0.take() {
+            cb()
         }
     }
 }
