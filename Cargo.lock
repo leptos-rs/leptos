@@ -279,9 +279,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.99"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "async-executor"
@@ -903,12 +903,12 @@ dependencies = [
 [[package]]
 name = "dioxus-cli-config"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 
 [[package]]
 name = "dioxus-core"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "const_format",
  "dioxus-core-types",
@@ -929,12 +929,12 @@ dependencies = [
 [[package]]
 name = "dioxus-core-types"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 
 [[package]]
 name = "dioxus-devtools"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "dioxus-cli-config",
  "dioxus-core",
@@ -952,7 +952,7 @@ dependencies = [
 [[package]]
 name = "dioxus-devtools-types"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "dioxus-core",
  "serde",
@@ -962,7 +962,7 @@ dependencies = [
 [[package]]
 name = "dioxus-signals"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "dioxus-core",
  "futures-channel",
@@ -1051,7 +1051,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1239,7 +1239,7 @@ dependencies = [
 [[package]]
 name = "generational-box"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "parking_lot",
  "tracing",
@@ -2148,12 +2148,12 @@ checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "libloading"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.3",
+ "windows-link 0.2.0",
 ]
 
 [[package]]
@@ -3137,7 +3137,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3638,7 +3638,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "subsecond"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "js-sys",
  "libc",
@@ -3656,7 +3656,7 @@ dependencies = [
 [[package]]
 name = "subsecond-types"
 version = "0.7.0-rc.0"
-source = "git+https://github.com/dioxuslabs/dioxus#eef4db67b1164934eb29b7ac4d4bcd693bba25a5"
+source = "git+https://github.com/dioxuslabs/dioxus#2e7e0696a320a2a98a07e405603f59c8296b0b42"
 dependencies = [
  "serde",
 ]
@@ -3804,7 +3804,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4611,7 +4611,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
