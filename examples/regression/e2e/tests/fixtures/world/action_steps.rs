@@ -45,3 +45,12 @@ async fn i_refresh_the_browser(world: &mut AppWorld) -> Result<()> {
 
     Ok(())
 }
+
+#[given(regex = "^I press the back button$")]
+#[when(regex = "^I press the back button$")]
+async fn i_go_back(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    client.back().await?;
+
+    Ok(())
+}
