@@ -109,7 +109,7 @@ pub fn HydrationScripts(
         let pkg_dir = &options.site_pkg_dir;
         let path = PathBuf::from(site_dir.to_string());
         let path = path.join(pkg_dir.to_string()).join(wasm_split_manifest);
-        let file = std::fs::read_to_string(path).unwrap();
+        let file = std::fs::read_to_string(path).ok()?;
 
         let manifest = WasmSplitManifest(ArcStoredValue::new((
             format!("{root}/{pkg_dir}"),
