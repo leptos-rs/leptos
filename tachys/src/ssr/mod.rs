@@ -459,11 +459,11 @@ impl Stream for StreamBuilder {
                         }
 
                         if this.sync_buf.is_empty() {
-                            return Poll::Pending;
+                            Poll::Pending
                         } else {
-                            return Poll::Ready(Some(mem::take(
+                            Poll::Ready(Some(mem::take(
                                 &mut this.sync_buf,
-                            )));
+                            )))
                         }
                     }
                 }
