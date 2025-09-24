@@ -461,9 +461,7 @@ impl Stream for StreamBuilder {
                         if this.sync_buf.is_empty() {
                             Poll::Pending
                         } else {
-                            Poll::Ready(Some(mem::take(
-                                &mut this.sync_buf,
-                            )))
+                            Poll::Ready(Some(mem::take(&mut this.sync_buf)))
                         }
                     }
                 }
