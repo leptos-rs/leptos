@@ -68,7 +68,8 @@ pub trait ExtendResponse: Sized {
                 let nonce =
                     use_nonce().map(|n| n.to_string()).unwrap_or_default();
                 if let Some(manifest) = use_context::<WasmSplitManifest>() {
-                    let (pkg_path, manifest) = &*manifest.0.read_value();
+                    let (pkg_path, manifest, wasm_split_file) =
+                        &*manifest.0.read_value();
                     let prefetches = prefetches.0.read_value();
 
                     let all_prefetches = prefetches.iter().flat_map(|key| {
@@ -90,7 +91,7 @@ pub trait ExtendResponse: Sized {
                         .to_html();
                     }
                     _ = view! {
-                        <Link rel="modulepreload" href=format!("{pkg_path}/__wasm_split.js") crossorigin=nonce/>
+                        <Link rel="modulepreload" href=format!("{pkg_path}/{wasm_split_file}") crossorigin=nonce/>
                     }
                     .to_html();
                 }
