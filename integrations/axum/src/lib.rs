@@ -684,7 +684,7 @@ where
         additional_context.clone(),
         app_fn.clone(),
     );
-    let asyn = render_app_async_stream_with_context(
+    let asyn = render_app_async_with_context(
         additional_context.clone(),
         app_fn.clone(),
     );
@@ -1059,6 +1059,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
+#[deprecated = "Use `render_app_async_with_context` instead"]
 pub fn render_app_async_stream_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send + Sync,
     app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
@@ -1071,19 +1072,7 @@ pub fn render_app_async_stream_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
-        Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
-                app.to_html_stream_in_order_branching()
-            } else {
-                app.to_html_stream_in_order()
-            };
-            let app = app.collect::<String>().await;
-            let chunks = chunks();
-            Box::pin(once(async move { app }).chain(chunks))
-                as PinnedStream<String>
-        })
-    })
+    render_app_async_with_context(additional_context, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -2059,19 +2048,7 @@ where
                         },
                         move || shell(options),
                         req,
-                        |app, chunks, _supports_ooo| {
-                            Box::pin(async move {
-                                let app = if cfg!(feature = "islands-router") {
-                                    app.to_html_stream_in_order_branching()
-                                } else {
-                                    app.to_html_stream_in_order()
-                                };
-                                let app = app.collect::<String>().await;
-                                let chunks = chunks();
-                                Box::pin(once(async move { app }).chain(chunks))
-                                    as PinnedStream<String>
-                            })
-                        },
+                        async_stream_builder,
                     )
                     .await;
 
