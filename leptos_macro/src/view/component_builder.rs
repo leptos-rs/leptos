@@ -90,7 +90,7 @@ pub(crate) fn component_to_tokens(
 
         if optional {
             optional_props.push(quote! {
-                props.#name = { #value }.map(::leptos::prelude::IntoLeptosValue::into_leptos_value);
+                props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
             required_props.push(quote! {

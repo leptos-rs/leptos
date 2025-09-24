@@ -122,7 +122,7 @@ fn returns_static_lifetime() {
 
 #[cfg(not(feature = "nightly"))]
 #[component]
-pub fn IntoLeptosValueTestComponentSignal(
+pub fn IntoReactiveValueTestComponentSignal(
     #[prop(into)] arg1: Signal<String>,
     #[prop(into)] arg2: Signal<String>,
     #[prop(into)] arg3: Signal<String>,
@@ -170,7 +170,7 @@ pub fn IntoLeptosValueTestComponentSignal(
 }
 
 #[component]
-pub fn IntoLeptosValueTestComponentCallback(
+pub fn IntoReactiveValueTestComponentCallback(
     #[prop(into)] arg1: Callback<(), String>,
     #[prop(into)] arg2: Callback<usize, String>,
     #[prop(into)] arg3: Callback<(usize,), String>,
@@ -198,9 +198,9 @@ pub fn IntoLeptosValueTestComponentCallback(
 
 #[cfg(not(feature = "nightly"))]
 #[test]
-fn test_into_leptos_value_signal() {
+fn test_into_reactive_value_signal() {
     let _ = view! {
-        <IntoLeptosValueTestComponentSignal
+        <IntoReactiveValueTestComponentSignal
             arg1=move || "I was a reactive closure!"
             arg2="I was a basic str!"
             arg3=Signal::stored("I was already a signal!")
@@ -223,9 +223,9 @@ fn test_into_leptos_value_signal() {
 }
 
 #[test]
-fn test_into_leptos_value_callback() {
+fn test_into_reactive_value_callback() {
     let _ = view! {
-        <IntoLeptosValueTestComponentCallback
+        <IntoReactiveValueTestComponentCallback
             arg1=|| "I was a callback static str!"
             arg2=|_n| "I was a callback static str!"
             arg3=|(_n,)| "I was a callback static str!"
