@@ -90,8 +90,8 @@ pub mod traits;
 pub mod transition;
 pub mod wrappers;
 
-mod into_leptos_value;
-pub use into_leptos_value::*;
+mod into_reactive_value;
+pub use into_reactive_value::*;
 
 /// A standard way to wrap functions and closures to pass them to components.
 pub mod callback;
@@ -104,7 +104,7 @@ mod nightly;
 /// Reexports frequently-used traits.
 pub mod prelude {
     pub use crate::{
-        into_leptos_value::IntoLeptosValue, owner::FromLocal, traits::*,
+        into_reactive_value::IntoReactiveValue, owner::FromLocal, traits::*,
     };
 }
 
