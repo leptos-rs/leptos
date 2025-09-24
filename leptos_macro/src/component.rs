@@ -1077,15 +1077,15 @@ impl ToTokens for TypedBuilderOpts<'_> {
             if !self.strip_option {
                 let ty = &self.ty;
                 quote! {
-                    fn transform<__IntoLeptosValueMarker>(value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>) -> #ty {
-                        value.into_leptos_value()
+                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> #ty {
+                        value.into_reactive_value()
                     },
                 }
             } else {
                 let ty = unwrap_option(self.ty);
                 quote! {
-                    fn transform<__IntoLeptosValueMarker>(value: impl ::leptos::prelude::IntoLeptosValue<#ty, __IntoLeptosValueMarker>) -> Option<#ty> {
-                        Some(value.into_leptos_value())
+                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
+                        Some(value.into_reactive_value())
                     },
                 }
             }

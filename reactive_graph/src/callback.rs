@@ -14,7 +14,7 @@
 use crate::{
     owner::{LocalStorage, StoredValue},
     traits::{Dispose, WithValue},
-    IntoLeptosValue,
+    IntoReactiveValue,
 };
 use std::{fmt, rc::Rc, sync::Arc};
 
@@ -231,61 +231,63 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
 }
 
 #[doc(hidden)]
-pub struct __IntoLeptosValueMarkerCallbackSingleParam;
+pub struct __IntoReactiveValueMarkerCallbackSingleParam;
 
 #[doc(hidden)]
-pub struct __IntoLeptosValueMarkerCallbackStrOutputToString;
+pub struct __IntoReactiveValueMarkerCallbackStrOutputToString;
 
 impl<I, O, F>
-    IntoLeptosValue<Callback<I, O>, __IntoLeptosValueMarkerCallbackSingleParam>
-    for F
+    IntoReactiveValue<
+        Callback<I, O>,
+        __IntoReactiveValueMarkerCallbackSingleParam,
+    > for F
 where
     F: Fn(I) -> O + Send + Sync + 'static,
 {
     #[track_caller]
-    fn into_leptos_value(self) -> Callback<I, O> {
+    fn into_reactive_value(self) -> Callback<I, O> {
         Callback::new(self)
     }
 }
 
 impl<I, O, F>
-    IntoLeptosValue<
+    IntoReactiveValue<
         UnsyncCallback<I, O>,
-        __IntoLeptosValueMarkerCallbackSingleParam,
+        __IntoReactiveValueMarkerCallbackSingleParam,
     > for F
 where
     F: Fn(I) -> O + 'static,
 {
     #[track_caller]
-    fn into_leptos_value(self) -> UnsyncCallback<I, O> {
+    fn into_reactive_value(self) -> UnsyncCallback<I, O> {
         UnsyncCallback::new(self)
     }
 }
 
 impl<I, F>
-    IntoLeptosValue<
+    IntoReactiveValue<
         Callback<I, String>,
-        __IntoLeptosValueMarkerCallbackStrOutputToString,
+        __IntoReactiveValueMarkerCallbackStrOutputToString,
     > for F
 where
     F: Fn(I) -> &'static str + Send + Sync + 'static,
 {
     #[track_caller]
-    fn into_leptos_value(self) -> Callback<I, String> {
+    fn into_reactive_value(self) -> Callback<I, String> {
         Callback::new(move |i| self(i).to_string())
     }
 }
 
 impl<I, F>
-    IntoLeptosValue<
+    IntoReactiveValue<
         UnsyncCallback<I, String>,
-        __IntoLeptosValueMarkerCallbackStrOutputToString,
+        __IntoReactiveValueMarkerCallbackStrOutputToString,
     > for F
 where
     F: Fn(I) -> &'static str + 'static,
 {
     #[track_caller]
-    fn into_leptos_value(self) -> UnsyncCallback<I, String> {
+    fn into_reactive_value(self) -> UnsyncCallback<I, String> {
         UnsyncCallback::new(move |i| self(i).to_string())
     }
 }
@@ -297,7 +299,7 @@ mod tests {
         callback::{Callback, UnsyncCallback},
         owner::Owner,
         traits::Dispose,
-        IntoLeptosValue,
+        IntoReactiveValue,
     };
 
     struct NoClone {}
@@ -329,11 +331,11 @@ mod tests {
         let _callback: Callback<(), String> = (|| "test").into();
         let _callback: Callback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
-        // Single params should work without needing the (foo,) tuple using IntoLeptosValue:
+        // Single params should work without needing the (foo,) tuple using IntoReactiveValue:
         let _callback: Callback<usize, &'static str> =
-            (|_usize| "test").into_leptos_value();
+            (|_usize| "test").into_reactive_value();
         let _callback: Callback<usize, String> =
-            (|_usize| "test").into_leptos_value();
+            (|_usize| "test").into_reactive_value();
     }
 
     #[test]
@@ -344,11 +346,11 @@ mod tests {
         let _callback: UnsyncCallback<(), String> = (|| "test").into();
         let _callback: UnsyncCallback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
-        // Single params should work without needing the (foo,) tuple using IntoLeptosValue:
+        // Single params should work without needing the (foo,) tuple using IntoReactiveValue:
         let _callback: UnsyncCallback<usize, &'static str> =
-            (|_usize| "test").into_leptos_value();
+            (|_usize| "test").into_reactive_value();
         let _callback: UnsyncCallback<usize, String> =
-            (|_usize| "test").into_leptos_value();
+            (|_usize| "test").into_reactive_value();
     }
 
     #[test]

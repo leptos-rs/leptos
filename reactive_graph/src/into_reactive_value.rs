@@ -1,19 +1,19 @@
 #[doc(hidden)]
-pub struct __IntoLeptosValueMarkerBaseCase;
+pub struct __IntoReactiveValueMarkerBaseCase;
 
 /// A helper trait that works like `Into<T>` but uses a marker generic
 /// to allow more `From` implementations than would be allowed with just `Into<T>`.
-pub trait IntoLeptosValue<T, M> {
+pub trait IntoReactiveValue<T, M> {
     /// Converts `self` into a `T`.
-    fn into_leptos_value(self) -> T;
+    fn into_reactive_value(self) -> T;
 }
 
 // The base case, which allows anything which implements .into() to work:
-impl<T, I> IntoLeptosValue<T, __IntoLeptosValueMarkerBaseCase> for I
+impl<T, I> IntoReactiveValue<T, __IntoReactiveValueMarkerBaseCase> for I
 where
     I: Into<T>,
 {
-    fn into_leptos_value(self) -> T {
+    fn into_reactive_value(self) -> T {
         self.into()
     }
 }
@@ -22,7 +22,7 @@ where
 mod tests {
 
     use crate::{
-        into_leptos_value::IntoLeptosValue,
+        into_reactive_value::IntoReactiveValue,
         owner::{LocalStorage, Owner},
         traits::GetUntracked,
         wrappers::read::Signal,
@@ -35,18 +35,18 @@ mod tests {
         owner.set();
 
         #[cfg(not(feature = "nightly"))]
-        let _: Signal<usize> = (|| 2).into_leptos_value();
-        let _: Signal<usize, LocalStorage> = 2.into_leptos_value();
+        let _: Signal<usize> = (|| 2).into_reactive_value();
+        let _: Signal<usize, LocalStorage> = 2.into_reactive_value();
         #[cfg(not(feature = "nightly"))]
-        let _: Signal<usize, LocalStorage> = (|| 2).into_leptos_value();
-        let _: Signal<String> = "str".into_leptos_value();
-        let _: Signal<String, LocalStorage> = "str".into_leptos_value();
+        let _: Signal<usize, LocalStorage> = (|| 2).into_reactive_value();
+        let _: Signal<String> = "str".into_reactive_value();
+        let _: Signal<String, LocalStorage> = "str".into_reactive_value();
 
         #[derive(TypedBuilder)]
         struct Foo {
             #[builder(setter(
-                fn transform<M>(value: impl IntoLeptosValue<Signal<usize>, M>) {
-                    value.into_leptos_value()
+                fn transform<M>(value: impl IntoReactiveValue<Signal<usize>, M>) {
+                    value.into_reactive_value()
                 }
             ))]
             sig: Signal<usize>,
