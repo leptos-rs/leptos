@@ -395,7 +395,8 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
 #[derive(Clone, Debug, Default)]
 pub struct WasmSplitManifest(
     pub  reactive_graph::owner::ArcStoredValue<(
-        String,
-        std::collections::HashMap<String, Vec<String>>,
+        String,                                         // the pkg root
+        std::collections::HashMap<String, Vec<String>>, // preloads
+        String, // the name of the __wasm_split.js file
     )>,
 );
