@@ -43,3 +43,13 @@ pub async fn element_value_is(
     assert_eq!(value.as_deref(), Some(expected));
     Ok(())
 }
+
+pub async fn path_is(client: &Client, expected_path: &str) -> Result<()> {
+    let url = client
+        .current_url()
+        .await
+        .expect("could not access current URL");
+    let path = url.path();
+    assert_eq!(expected_path, path);
+    Ok(())
+}

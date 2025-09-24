@@ -43,3 +43,10 @@ async fn i_see_the_value(
     check::element_value_is(client, &id, &value).await?;
     Ok(())
 }
+
+#[then(regex = r"^I see the path is (.*)$")]
+async fn i_see_the_path(world: &mut AppWorld, path: String) -> Result<()> {
+    let client = &world.client;
+    check::path_is(client, &path).await?;
+    Ok(())
+}
