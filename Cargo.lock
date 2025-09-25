@@ -4661,6 +4661,7 @@ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
  "windows-sys 0.61.0",
 ||||||| parent of 88996843 (Updates:)
  "windows-sys 0.52.0",
@@ -4671,7 +4672,15 @@ dependencies = [
 <<<<<<< HEAD
  "windows-sys 0.52.0",
 ||||||| parent of e8f56d4f (Updates:)
+||||||| parent of 13bba185 (Re-enable for nightly)
+<<<<<<< HEAD
+<<<<<<< HEAD
+ "windows-sys 0.52.0",
+||||||| parent of e8f56d4f (Updates:)
+=======
+>>>>>>> 13bba185 (Re-enable for nightly)
  "windows-sys 0.61.0",
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 ||||||| parent of 279abd38 (Fix conflicts)
@@ -4699,6 +4708,31 @@ dependencies = [
 =======
 >>>>>>> 279abd38 (Fix conflicts)
 >>>>>>> 8f514196 (Fix conflicts)
+||||||| parent of 13bba185 (Re-enable for nightly)
+=======
+<<<<<<< HEAD
+||||||| parent of 279abd38 (Fix conflicts)
+<<<<<<< HEAD
+=======
+>>>>>>> 279abd38 (Fix conflicts)
+ "windows-sys 0.61.0",
+<<<<<<< HEAD
+||||||| parent of 97259a60 (Updates:)
+ "windows-sys 0.52.0",
+=======
+ "windows-sys 0.60.2",
+>>>>>>> 97259a60 (Updates:)
+>>>>>>> e8f56d4f (Updates:)
+||||||| parent of 279abd38 (Fix conflicts)
+||||||| parent of 97259a60 (Updates:)
+ "windows-sys 0.52.0",
+=======
+ "windows-sys 0.60.2",
+>>>>>>> 97259a60 (Updates:)
+=======
+>>>>>>> 279abd38 (Fix conflicts)
+=======
+>>>>>>> 13bba185 (Re-enable for nightly)
 ]
 
 [[package]]
