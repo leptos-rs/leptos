@@ -1057,7 +1057,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -3146,7 +3146,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -3815,7 +3815,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -4622,33 +4622,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
-<<<<<<< HEAD
-<<<<<<< HEAD
- "windows-sys 0.52.0",
-||||||| parent of e8f56d4f (Updates:)
  "windows-sys 0.61.0",
-=======
-<<<<<<< HEAD
-||||||| parent of 279abd38 (Fix conflicts)
-<<<<<<< HEAD
-=======
->>>>>>> 279abd38 (Fix conflicts)
- "windows-sys 0.61.0",
-<<<<<<< HEAD
-||||||| parent of 97259a60 (Updates:)
- "windows-sys 0.52.0",
-=======
- "windows-sys 0.60.2",
->>>>>>> 97259a60 (Updates:)
->>>>>>> e8f56d4f (Updates:)
-||||||| parent of 279abd38 (Fix conflicts)
-||||||| parent of 97259a60 (Updates:)
- "windows-sys 0.52.0",
-=======
- "windows-sys 0.60.2",
->>>>>>> 97259a60 (Updates:)
-=======
->>>>>>> 279abd38 (Fix conflicts)
 ]
 
 [[package]]
