@@ -311,7 +311,7 @@ pub mod subsecond;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {
-    pub use leptos_dom::{debug_warn, error, log, warn};
+    pub use leptos_dom::{debug_log, debug_warn, debug_error, error, log, warn};
 }
 
 /// Utilities for working with asynchronous tasks.
