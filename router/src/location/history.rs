@@ -185,10 +185,14 @@ impl LocationProvider for BrowserUrl {
             let is_back = self.is_back.clone();
             move || match Self::current() {
                 Ok(new_url) => {
-                    let stack = path_stack.read_value();
+                    let mut stack = path_stack.write_value();
                     let is_navigating_back = stack.len() == 1
                         || (stack.len() >= 2
                             && stack.get(stack.len() - 2) == Some(&new_url));
+
+                    if is_navigating_back {
+                        stack.pop();
+                    }
 
                     is_back.set(is_navigating_back);
 
