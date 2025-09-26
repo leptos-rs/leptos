@@ -70,6 +70,8 @@
 
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(auto_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(negative_impls))]
 #![deny(missing_docs)]
 
 use std::{fmt::Arguments, future::Future};
@@ -90,6 +92,12 @@ pub mod traits;
 pub mod transition;
 pub mod wrappers;
 
+mod into_reactive_value;
+pub use into_reactive_value::*;
+
+/// A standard way to wrap functions and closures to pass them to components.
+pub mod callback;
+
 use computed::ScopedFuture;
 
 #[cfg(all(feature = "nightly", rustc_nightly))]
@@ -97,7 +105,9 @@ mod nightly;
 
 /// Reexports frequently-used traits.
 pub mod prelude {
-    pub use crate::{owner::FromLocal, traits::*};
+    pub use crate::{
+        into_reactive_value::IntoReactiveValue, owner::FromLocal, traits::*,
+    };
 }
 
 // TODO remove this, it's just useful while developing
