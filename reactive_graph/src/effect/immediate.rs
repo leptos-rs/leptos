@@ -215,6 +215,8 @@ mod inner {
             fun: impl Fn() + Send + Sync + 'static,
         ) -> Arc<RwLock<EffectInner>> {
             let owner = Owner::new();
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            let defined_at = Location::caller();
 
             Arc::new_cyclic(|weak| {
                 let any_subscriber = AnySubscriber(
@@ -224,7 +226,7 @@ mod inner {
 
                 RwLock::new(EffectInner {
                     #[cfg(any(debug_assertions, leptos_debuginfo))]
-                    defined_at: Location::caller(),
+                    defined_at,
                     owner,
                     state: ReactiveNodeState::Dirty,
                     run_count_start: 0,
