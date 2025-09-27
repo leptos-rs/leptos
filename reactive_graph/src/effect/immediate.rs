@@ -95,10 +95,23 @@ impl ImmediateEffect {
     /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
     ///
     /// NOTE: this requires a `Fn` function because it might recurse.
+    /// Use [Self::new_mut_scoped] to pass a `FnMut` function, it'll panic on recursion.
     /// NOTE: this effect is automatically cleaned up when the current owner is cleared or disposed.
     #[track_caller]
     pub fn new_scoped(fun: impl Fn() + Send + Sync + 'static) {
         let effect = Self::new(fun);
+
+        on_cleanup(move || effect.dispose());
+    }
+    /// Creates a new effect which runs immediately, then again as soon as any tracked signal changes.
+    ///
+    /// NOTE: this effect is automatically cleaned up when the current owner is cleared or disposed.
+    ///
+    /// # Panics
+    /// Panics on recursion or if triggered in parallel. Also see [Self::new_scoped]
+    #[track_caller]
+    pub fn new_mut_scoped(fun: impl FnMut() + Send + Sync + 'static) {
+        let effect = Self::new_mut(fun);
 
         on_cleanup(move || effect.dispose());
     }
