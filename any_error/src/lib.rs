@@ -161,9 +161,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error as StdError;
-
     use super::*;
+    use std::error::Error as StdError;
 
     #[derive(Debug)]
     struct MyError;
