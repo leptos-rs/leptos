@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.5"
+version = "0.2.8"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -27,6 +27,7 @@ async-lock = { workspace = true, default-features = true }
 send_wrapper = { features = [
   "futures",
 ], workspace = true, default-features = true }
+subsecond = { workspace = true, default-features = true, optional = true }
 indexmap = { workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
@@ -51,6 +52,7 @@ hydration = ["dep:hydration_context"]
 effects = [
 ] # whether to run effects: should be disabled for something like server rendering
 sandboxed-arenas = []
+subsecond = ["dep:subsecond"]
 
 [package.metadata.docs.rs]
 all-features = true

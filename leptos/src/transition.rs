@@ -16,11 +16,11 @@ use reactive_graph::{
 use slotmap::{DefaultKey, SlotMap};
 use tachys::reactive_graph::OwnedView;
 
-/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
+/// If any [`Resource`](crate::prelude::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`.
 ///
-/// Unlike [`Suspense`](crate::Suspense), this will not fall
+/// Unlike [`Suspense`](crate::prelude::Suspense), this will not fall
 /// back to the `fallback` state if there are further changes after the initial load.
 ///
 /// Note that the `children` will be rendered initially (in order to capture the fact that

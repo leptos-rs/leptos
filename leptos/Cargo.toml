@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.8.6"
+version = "0.8.10"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -58,6 +58,9 @@ slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 wasm_split_helpers.workspace = true
+subsecond = { workspace = true, default-features = true, optional = true }
+dioxus-cli-config = { workspace = true, default-features = true, optional = true }
+dioxus-devtools = { workspace = true, default-features = true, optional = true }
 
 [features]
 hydration = [
@@ -102,6 +105,16 @@ trace-component-props = [
 ]
 delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
+subsecond = [
+  "reactive_graph/subsecond",
+  "dep:subsecond",
+  "dep:dioxus-cli-config",
+  "dep:dioxus-devtools",
+  "web-sys/Location",
+  "web-sys/MessageEvent",
+  "web-sys/WebSocket",
+  "web-sys/Window",
+]
 
 [dev-dependencies]
 tokio = { features = [

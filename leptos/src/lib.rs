@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
 
 //! # About Leptos
 //!
@@ -85,12 +84,22 @@
 //! # Feature Flags
 //!
 //! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
+//!   Also enables some experimental optimizations that improve the handling of static strings and
+//!   the performance of the `template! {}` macro.
 //! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
 //! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
+//! - **`islands`** Activates “islands mode,” in which components are not made interactive on the
+//!   client unless they use the `#[island]` macro.
 //! - **`hydrate`** Hydration: use this to add interactivity to an SSRed Leptos app.
-//! - **`rkyv`** In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
-//!   from the server to the client.
+//! - **`nonce`** Adds support for nonces to be added as part of a Content Security Policy.
+//! - **`rkyv`** In SSR/hydrate mode, enables using [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources.
 //! - **`tracing`** Adds support for [`tracing`](https://docs.rs/tracing/latest/tracing/).
+//! - **`trace-component-props`** Adds `tracing` support for component props.
+//! - **`delegation`** Uses event delegation rather than the browser’s native event handling
+//!   system. (This improves the performance of creating large numbers of elements simultaneously,
+//!   in exchange for occasional edge cases in which events behave differently from native browser
+//!   events.)
+//! - **`rustls`** Use `rustls` for server functions.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in. You should only enable one of these per build target,
@@ -296,6 +305,10 @@ pub use tachys::mathml as math;
 #[doc(inline)]
 pub use tachys::svg;
 
+#[cfg(feature = "subsecond")]
+/// Utilities for using binary hot-patching with [`subsecond`].
+pub mod subsecond;
+
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
@@ -382,7 +395,8 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
 #[derive(Clone, Debug, Default)]
 pub struct WasmSplitManifest(
     pub  reactive_graph::owner::ArcStoredValue<(
-        String,
-        std::collections::HashMap<String, Vec<String>>,
+        String,                                         // the pkg root
+        std::collections::HashMap<String, Vec<String>>, // preloads
+        String, // the name of the __wasm_split.js file
     )>,
 );

@@ -209,6 +209,25 @@ impl Owner {
         this
     }
 
+    /// Returns the parent of this `Owner`, if any.
+    ///
+    /// None when:
+    /// - This is a root owner
+    /// - The parent has been dropped
+    pub fn parent(&self) -> Option<Owner> {
+        self.inner
+            .read()
+            .or_poisoned()
+            .parent
+            .as_ref()
+            .and_then(|p| p.upgrade())
+            .map(|inner| Owner {
+                inner,
+                #[cfg(feature = "hydration")]
+                shared_context: self.shared_context.clone(),
+            })
+    }
+
     /// Creates a new `Owner` that is the child of the current `Owner`, if any.
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));

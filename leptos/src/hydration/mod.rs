@@ -65,16 +65,56 @@ pub fn HydrationScripts(
     if let Some(splits) = SPLIT_MANIFEST.get_or_init(|| {
         let root = root.clone().unwrap_or_default();
 
+        let (wasm_split_js, wasm_split_manifest) = if options.hash_files {
+            let hash_path = std::env::current_exe()
+                .map(|path| {
+                    path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+                })
+                .unwrap_or_default()
+                .join(options.hash_file.as_ref());
+            let hashes = std::fs::read_to_string(&hash_path)
+                .expect("failed to read hash file");
+
+            let mut split =
+                "__wasm_split.______________________.js".to_string();
+            let mut manifest = "__wasm_split_manifest.json".to_string();
+            for line in hashes.lines() {
+                let line = line.trim();
+                if !line.is_empty() {
+                    if let Some((file, hash)) = line.split_once(':') {
+                        if file == "manifest" {
+                            manifest.clear();
+                            manifest.push_str("__wasm_split_manifest.");
+                            manifest.push_str(hash.trim());
+                            manifest.push_str(".json");
+                        }
+                        if file == "split" {
+                            split.clear();
+                            split.push_str("__wasm_split.");
+                            split.push_str(hash.trim());
+                            split.push_str(".js");
+                        }
+                    }
+                }
+            }
+            (split, manifest)
+        } else {
+            (
+                "__wasm_split.______________________.js".to_string(),
+                "__wasm_split_manifest.json".to_string(),
+            )
+        };
+
         let site_dir = &options.site_root;
         let pkg_dir = &options.site_pkg_dir;
         let path = PathBuf::from(site_dir.to_string());
-        let path = path
-            .join(pkg_dir.to_string())
-            .join("__wasm_split_manifest.json");
+        let path = path.join(pkg_dir.to_string()).join(wasm_split_manifest);
         let file = std::fs::read_to_string(path).ok()?;
+
         let manifest = WasmSplitManifest(ArcStoredValue::new((
             format!("{root}/{pkg_dir}"),
             serde_json::from_str(&file).expect("could not read manifest file"),
+            wasm_split_js,
         )));
 
         Some(manifest)

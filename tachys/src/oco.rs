@@ -261,7 +261,7 @@ impl IntoProperty for Oco<'static, str> {
         key: &str,
     ) -> Self::State {
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         (el.clone(), value)
     }
 
@@ -271,14 +271,14 @@ impl IntoProperty for Oco<'static, str> {
         key: &str,
     ) -> Self::State {
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         (el.clone(), value)
     }
 
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         *prev = value;
     }
 
