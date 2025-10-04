@@ -1542,7 +1542,6 @@ pub mod read {
 
     impl<T, S> ReadUntracked for MaybeProp<T, S>
     where
-        T: Clone,
         S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
     {
         type Value = ReadGuard<Option<T>, SignalReadGuard<Option<T>, S>>;
