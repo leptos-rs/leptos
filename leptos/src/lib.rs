@@ -203,7 +203,7 @@ pub mod prelude {
 pub mod form;
 
 /// A standard way to wrap functions and closures to pass them to components.
-pub mod callback;
+pub use reactive_graph::callback;
 
 /// Types that can be passed as the `children` prop of a component.
 pub mod children;

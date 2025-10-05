@@ -2,48 +2,19 @@
 //! for component properties, because they can be used to define optional callback functions,
 //! which generic props don’t support.
 //!
-//! # Usage
-//! Callbacks can be created manually from any function or closure, but the easiest way
-//! to create them is to use `#[prop(into)]]` when defining a component.
-//! ```
-//! use leptos::prelude::*;
-//!
-//! #[component]
-//! fn MyComponent(
-//!     #[prop(into)] render_number: Callback<(i32,), String>,
-//! ) -> impl IntoView {
-//!     view! {
-//!         <div>
-//!             {render_number.run((1,))}
-//!             // callbacks can be called multiple times
-//!             {render_number.run((42,))}
-//!         </div>
-//!     }
-//! }
-//! // you can pass a closure directly as `render_number`
-//! fn test() -> impl IntoView {
-//!     view! {
-//!         <MyComponent render_number=|x: i32| x.to_string()/>
-//!     }
-//! }
-//! ```
-//!
-//! *Notes*:
-//! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
-//! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`](leptos::callback::Callable) trait, and can be invoked with `my_callback.run(input)`.
-//! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
+//! The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
-//! - [`Callback`](leptos::callback::Callback)
-//! - [`UnsyncCallback`](leptos::callback::UnsyncCallback)
+//! - [`Callback`](reactive_graph::callback::Callback)
+//! - [`UnsyncCallback`](reactive_graph::callback::UnsyncCallback)
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
-use reactive_graph::{
+use crate::{
     owner::{LocalStorage, StoredValue},
     traits::{Dispose, WithValue},
+    IntoReactiveValue,
 };
 use std::{fmt, rc::Rc, sync::Arc};
 
@@ -60,7 +31,16 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
     fn run(&self, input: In) -> Out;
 }
 
-/// A callback type that is not required to be `Send + Sync`.
+/// A callback type that is not required to be [`Send`] or [`Sync`].
+///
+/// # Example
+/// ```
+/// # use reactive_graph::prelude::*; use reactive_graph::callback::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
+/// let _: UnsyncCallback<()> = UnsyncCallback::new(|_| {});
+/// let _: UnsyncCallback<(i32, i32)> = (|_x: i32, _y: i32| {}).into();
+/// let cb: UnsyncCallback<i32, String> = UnsyncCallback::new(|x: i32| x.to_string());
+/// assert_eq!(cb.run(42), "42".to_string());
+/// ```
 pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
     StoredValue<Rc<dyn Fn(In) -> Out>, LocalStorage>,
 );
@@ -148,28 +128,15 @@ impl_unsync_callable_from_fn!(
     P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12
 );
 
-/// Callbacks define a standard way to store functions and closures.
+/// A callback type that is [`Send`] + [`Sync`].
 ///
 /// # Example
 /// ```
-/// # use leptos::prelude::*;
-/// # use leptos::callback::{Callable, Callback};
-/// #[component]
-/// fn MyComponent(
-///     #[prop(into)] render_number: Callback<(i32,), String>,
-/// ) -> impl IntoView {
-///     view! {
-///         <div>
-///             {render_number.run((42,))}
-///         </div>
-///     }
-/// }
-///
-/// fn test() -> impl IntoView {
-///     view! {
-///         <MyComponent render_number=move |x: i32| x.to_string()/>
-///     }
-/// }
+/// # use reactive_graph::prelude::*; use reactive_graph::callback::*;  let owner = reactive_graph::owner::Owner::new(); owner.set();
+/// let _: Callback<()> = Callback::new(|_| {});
+/// let _: Callback<(i32, i32)> = (|_x: i32, _y: i32| {}).into();
+/// let cb: Callback<i32, String> = Callback::new(|x: i32| x.to_string());
+/// assert_eq!(cb.run(42), "42".to_string());
 /// ```
 pub struct Callback<In, Out = ()>(
     StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>>,
@@ -241,6 +208,7 @@ impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
 
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
+    #[track_caller]
     pub fn new<F>(fun: F) -> Self
     where
         F: Fn(In) -> Out + Send + Sync + 'static,
@@ -262,22 +230,94 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
     }
 }
 
+#[doc(hidden)]
+pub struct __IntoReactiveValueMarkerCallbackSingleParam;
+
+#[doc(hidden)]
+pub struct __IntoReactiveValueMarkerCallbackStrOutputToString;
+
+impl<I, O, F>
+    IntoReactiveValue<
+        Callback<I, O>,
+        __IntoReactiveValueMarkerCallbackSingleParam,
+    > for F
+where
+    F: Fn(I) -> O + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn into_reactive_value(self) -> Callback<I, O> {
+        Callback::new(self)
+    }
+}
+
+impl<I, O, F>
+    IntoReactiveValue<
+        UnsyncCallback<I, O>,
+        __IntoReactiveValueMarkerCallbackSingleParam,
+    > for F
+where
+    F: Fn(I) -> O + 'static,
+{
+    #[track_caller]
+    fn into_reactive_value(self) -> UnsyncCallback<I, O> {
+        UnsyncCallback::new(self)
+    }
+}
+
+impl<I, F>
+    IntoReactiveValue<
+        Callback<I, String>,
+        __IntoReactiveValueMarkerCallbackStrOutputToString,
+    > for F
+where
+    F: Fn(I) -> &'static str + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn into_reactive_value(self) -> Callback<I, String> {
+        Callback::new(move |i| self(i).to_string())
+    }
+}
+
+impl<I, F>
+    IntoReactiveValue<
+        UnsyncCallback<I, String>,
+        __IntoReactiveValueMarkerCallbackStrOutputToString,
+    > for F
+where
+    F: Fn(I) -> &'static str + 'static,
+{
+    #[track_caller]
+    fn into_reactive_value(self) -> UnsyncCallback<I, String> {
+        UnsyncCallback::new(move |i| self(i).to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Callable;
-    use crate::callback::{Callback, UnsyncCallback};
-    use reactive_graph::traits::Dispose;
+    use crate::{
+        callback::{Callback, UnsyncCallback},
+        owner::Owner,
+        traits::Dispose,
+        IntoReactiveValue,
+    };
 
     struct NoClone {}
 
     #[test]
     fn clone_callback() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback;
     }
 
     #[test]
     fn clone_unsync_callback() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback =
             UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback;
@@ -285,20 +325,39 @@ mod tests {
 
     #[test]
     fn runback_from() {
+        let owner = Owner::new();
+        owner.set();
+
         let _callback: Callback<(), String> = (|| "test").into();
         let _callback: Callback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
+        // Single params should work without needing the (foo,) tuple using IntoReactiveValue:
+        let _callback: Callback<usize, &'static str> =
+            (|_usize| "test").into_reactive_value();
+        let _callback: Callback<usize, String> =
+            (|_usize| "test").into_reactive_value();
     }
 
     #[test]
     fn sync_callback_from() {
+        let owner = Owner::new();
+        owner.set();
+
         let _callback: UnsyncCallback<(), String> = (|| "test").into();
         let _callback: UnsyncCallback<(i32, String), String> =
             (|num, s| format!("{num} {s}")).into();
+        // Single params should work without needing the (foo,) tuple using IntoReactiveValue:
+        let _callback: UnsyncCallback<usize, &'static str> =
+            (|_usize| "test").into_reactive_value();
+        let _callback: UnsyncCallback<usize, String> =
+            (|_usize| "test").into_reactive_value();
     }
 
     #[test]
     fn sync_callback_try_run() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = Callback::new(move |arg| arg);
         assert_eq!(callback.try_run((0,)), Some((0,)));
         callback.dispose();
@@ -307,6 +366,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_try_run() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback = UnsyncCallback::new(move |arg| arg);
         assert_eq!(callback.try_run((0,)), Some((0,)));
         callback.dispose();
@@ -315,6 +377,9 @@ mod tests {
 
     #[test]
     fn callback_matches_same() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = Callback::new(|x: i32| x * 2);
         let callback2 = callback1;
         assert!(callback1.matches(&callback2));
@@ -322,6 +387,9 @@ mod tests {
 
     #[test]
     fn callback_matches_different() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = Callback::new(|x: i32| x * 2);
         let callback2 = Callback::new(|x: i32| x + 1);
         assert!(!callback1.matches(&callback2));
@@ -329,6 +397,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_matches_same() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = UnsyncCallback::new(|x: i32| x * 2);
         let callback2 = callback1;
         assert!(callback1.matches(&callback2));
@@ -336,6 +407,9 @@ mod tests {
 
     #[test]
     fn unsync_callback_matches_different() {
+        let owner = Owner::new();
+        owner.set();
+
         let callback1 = UnsyncCallback::new(|x: i32| x * 2);
         let callback2 = UnsyncCallback::new(|x: i32| x + 1);
         assert!(!callback1.matches(&callback2));
