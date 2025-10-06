@@ -6,7 +6,8 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use regex::Regex;
 use std::{
-    env::VarError, fs, net::SocketAddr, path::Path, str::FromStr, sync::Arc,
+    env::VarError, fmt::Display, fs, net::SocketAddr, path::Path, str::FromStr,
+    sync::Arc,
 };
 use typed_builder::TypedBuilder;
 
@@ -153,7 +154,7 @@ impl LeptosOptions {
                 None => None,
             },
             reload_ws_protocol: ws_from_str(
-                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "auto")?.as_str(),
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?
                 .into(),
@@ -222,6 +223,7 @@ fn env_w_default(
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Env {
     PROD,
     DEV,
@@ -280,25 +282,28 @@ impl TryFrom<String> for Env {
 /// An enum that can be used to define the websocket protocol Leptos uses for hotreloading
 /// Defaults to `ws`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ReloadWSProtocol {
     WS,
     WSS,
+    Auto,
 }
 
 impl Default for ReloadWSProtocol {
     fn default() -> Self {
-        Self::WS
+        Self::Auto
     }
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
+        "auto" => Ok(ReloadWSProtocol::Auto),
         "ws" | "WS" => Ok(ReloadWSProtocol::WS),
         "wss" | "WSS" => Ok(ReloadWSProtocol::WSS),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported websocket protocol. Use only `ws` or \
-             `wss`.",
+            "{input} is not a supported websocket protocol. Use only `auto`, \
+             `ws` or `wss`.",
         ))),
     }
 }
@@ -330,6 +335,16 @@ impl TryFrom<String> for ReloadWSProtocol {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         ws_from_str(s.as_str())
+    }
+}
+
+impl Display for ReloadWSProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReloadWSProtocol::WS => f.write_str("ws"),
+            ReloadWSProtocol::WSS => f.write_str("wss"),
+            ReloadWSProtocol::Auto => f.write_str("auto"),
+        }
     }
 }
 
