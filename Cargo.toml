@@ -70,7 +70,7 @@ server_fn = { path = "./server_fn", version = "0.8.7" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.7" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
 tachys = { path = "./tachys", version = "0.2.9" }
-wasm_split = { git = "https://github.com/WorldSEnder/wasm-split-prototype.git", version = "0.1", rev = "9b4876034a3be928a634c55be9c55085a9395f46" }
+wasm_split = { git = "https://github.com/WorldSEnder/wasm-split-prototype.git", version = "0.1", rev = "be660c8761a4b1fcaa7f9b5ed6b2f33050e2720c" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5.3" }

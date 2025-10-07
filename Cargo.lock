@@ -4567,7 +4567,7 @@ dependencies = [
 [[package]]
 name = "wasm_split"
 version = "0.1.0"
-source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=9b4876034a3be928a634c55be9c55085a9395f46#9b4876034a3be928a634c55be9c55085a9395f46"
+source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=be660c8761a4b1fcaa7f9b5ed6b2f33050e2720c#be660c8761a4b1fcaa7f9b5ed6b2f33050e2720c"
 dependencies = [
  "async-once-cell",
  "wasm_split_macros",
@@ -4576,7 +4576,7 @@ dependencies = [
 [[package]]
 name = "wasm_split_macros"
 version = "0.1.0"
-source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=9b4876034a3be928a634c55be9c55085a9395f46#9b4876034a3be928a634c55be9c55085a9395f46"
+source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=be660c8761a4b1fcaa7f9b5ed6b2f33050e2720c#be660c8761a4b1fcaa7f9b5ed6b2f33050e2720c"
 dependencies = [
  "base16",
  "quote",

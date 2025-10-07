@@ -7,7 +7,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     mem,
 };
-use syn::{parse_macro_input, parse_quote, ItemFn, ReturnType};
+use syn::{parse_macro_input, parse_quote, ItemFn, ReturnType, Stmt};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let name = if !args.is_empty() {
@@ -48,6 +48,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
     if is_wasm {
         let mut fun = fun;
+        let mut return_wrapper = None;
         if was_async {
             fun.sig.asyncness = None;
             let ty = match &fun.sig.output {
@@ -55,22 +56,26 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 ReturnType::Type(_, ty) => quote! { #ty },
             };
             let sync_output: ReturnType = parse_quote! {
-                -> ::std::pin::Pin<Box<dyn ::std::future::Future<Output = #ty> + Send + Sync>>
+                -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #ty> + ::std::marker::Send + ::std::marker::Sync>>
             };
-            fun.sig.output = sync_output;
+            let async_output = mem::replace(&mut fun.sig.output, sync_output);
             let stmts = mem::take(&mut fun.block.stmts);
-            fun.block.stmts.push(parse_quote! {
+            fun.block.stmts.push(Stmt::Expr(parse_quote! {
                 ::std::boxed::Box::pin(::leptos::__reexports::send_wrapper::SendWrapper::new(async move {
                     #( #stmts )*
                 }))
-            })
+            }, None));
+            return_wrapper = Some(quote! {
+                return_wrapper(let future = _; { future.await } #async_output),
+            });
         }
 
         quote! {
             #[::leptos::wasm_split::wasm_split(
                 #unique_name,
-                wasm_import_module = "__wasm_split.______________________.js",
+                wasm_import_module = "./__wasm_split.______________________.js",
                 wasm_split_path = ::leptos::wasm_split,
+                #return_wrapper
             )]
             #fun
         }
