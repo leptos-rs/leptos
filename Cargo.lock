@@ -1921,7 +1921,7 @@ dependencies = [
  "typed-builder-macro",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm_split_helpers",
+ "wasm_split",
  "web-sys",
 ]
 
@@ -4565,24 +4565,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasm_split_helpers"
-version = "0.1.2"
+name = "wasm_split"
+version = "0.1.0"
+source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=9b4876034a3be928a634c55be9c55085a9395f46#9b4876034a3be928a634c55be9c55085a9395f46"
 dependencies = [
  "async-once-cell",
- "or_poisoned",
  "wasm_split_macros",
 ]
 
 [[package]]
 name = "wasm_split_macros"
-version = "0.1.3"
+version = "0.1.0"
+source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=9b4876034a3be928a634c55be9c55085a9395f46#9b4876034a3be928a634c55be9c55085a9395f46"
 dependencies = [
  "base16",
- "digest",
  "quote",
  "sha2",
  "syn 2.0.106",
- "wasm-bindgen",
 ]
 
 [[package]]

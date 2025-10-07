@@ -267,10 +267,6 @@ fn lazy_route_impl(
     };
     let lazy_view_ident =
         Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
-    let preload_lazy_view_ident = Ident::new(
-        &format!("__preload_{lazy_view_ident}"),
-        lazy_view_ident.span(),
-    );
 
     im.items.push(
         syn::parse::<ImplItem>(
@@ -280,7 +276,7 @@ fn lazy_route_impl(
                     // we don't split routes for wasm32 ssr
                     // but we don't require a `hydrate`/`csr` feature on leptos_router
                     #[cfg(target_arch = "wasm32")]
-                    #preload_lazy_view_ident().await;
+                    #lazy_view_ident::preload().await;
                 }
             }
             .into(),
