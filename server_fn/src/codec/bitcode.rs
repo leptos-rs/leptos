@@ -17,9 +17,7 @@ impl<T> Encodes<T> for BitcodeEncoding
 where
     T: bitcode::Encode,
 {
-    // this will never happen, should be ()
-    // but unit type () does not impl Display
-    type Error = String;
+    type Error = std::convert::Infallible;
 
     fn encode(value: &T) -> Result<Bytes, Self::Error> {
         Ok(Bytes::from(bitcode::encode(value)))
