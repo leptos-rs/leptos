@@ -134,6 +134,7 @@ inventory = { default-features = false, version = "0.3.21" }
 config = { default-features = false, version = "0.15.14" }
 camino = { default-features = false, version = "1.1.11" }
 ciborium = { default-features = false, version = "0.2.2" }
+bitcode = { default-features = false, version = "0.6.6" }
 multer = { default-features = false, version = "3.1.0" }
 leptos-spin-macro = { default-features = false, version = "0.2.0" }
 sledgehammer_utils = { default-features = false, version = "0.3.1" }
