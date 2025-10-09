@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use proc_macro_error2::abort;
-use quote::quote;
+use quote::{format_ident, quote};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     mem,
@@ -69,12 +69,14 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 return_wrapper(let future = _; { future.await } #async_output),
             });
         }
+        let preload_name = format_ident!("__preload_{}", fun.sig.ident);
 
         quote! {
             #[::leptos::wasm_split::wasm_split(
                 #unique_name,
                 wasm_import_module = "./__wasm_split.______________________.js",
                 wasm_split_path = ::leptos::wasm_split,
+                preload(#[doc(hidden)] #[allow(non_snake_case)] #preload_name),
                 #return_wrapper
             )]
             #fun
