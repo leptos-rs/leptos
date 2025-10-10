@@ -50,6 +50,11 @@ mod postcard;
 #[cfg(feature = "postcard")]
 pub use postcard::*;
 
+#[cfg(feature = "bitcode")]
+mod bitcode;
+#[cfg(feature = "bitcode")]
+pub use bitcode::*;
+
 mod patch;
 pub use patch::*;
 mod post;
