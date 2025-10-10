@@ -1678,7 +1678,7 @@ fn attribute_value(
 }
 
 // Keep list alphabetized for binary search
-const TYPED_EVENTS: [&str; 126] = [
+const TYPED_EVENTS: [&str; 127] = [
     "DOMContentLoaded",
     "abort",
     "afterprint",
@@ -1774,6 +1774,7 @@ const TYPED_EVENTS: [&str; 126] = [
     "reset",
     "resize",
     "scroll",
+    "scrollend",
     "securitypolicyviolation",
     "seeked",
     "seeking",
