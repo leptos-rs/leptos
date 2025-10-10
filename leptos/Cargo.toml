@@ -148,13 +148,13 @@ denylist = [
   "trace-component-props",
   "spin",
   "islands",
+  "bitcode",
 ]
 skip_feature_sets = [
   ["csr", "ssr"],
   ["csr", "hydrate"],
   ["ssr", "hydrate"],
   ["serde", "serde-lite"],
-  ["serde-lite", "miniserde"],
   ["serde", "miniserde"],
   ["serde", "rkyv"],
   ["miniserde", "rkyv"],
