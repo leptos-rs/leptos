@@ -14,7 +14,7 @@ use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{Event, HtmlAnchorElement, MouseEvent};
+use web_sys::{HtmlAnchorElement, MouseEvent};
 
 mod history;
 mod server;
@@ -300,15 +300,14 @@ pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
     parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,
     navigate: NavFn,
-) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
+) -> Box<dyn Fn(MouseEvent) -> Result<(), JsValue>>
 where
     NavFn: Fn(Url, LocationChange) -> NavFut + 'static,
     NavFut: Future<Output = ()> + 'static,
 {
     let router_base = router_base.unwrap_or_default();
 
-    Box::new(move |ev: Event| {
-        let ev = ev.unchecked_into::<MouseEvent>();
+    Box::new(move |ev: MouseEvent| {
         let origin = window().location().origin()?;
         if ev.default_prevented()
             || ev.button() != 0
