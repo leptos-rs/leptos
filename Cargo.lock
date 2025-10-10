@@ -3873,6 +3873,7 @@ dependencies = [
 name = "throw_error"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "pin-project-lite",
 ]
 

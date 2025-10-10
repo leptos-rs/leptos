@@ -11,3 +11,6 @@ edition.workspace = true
 
 [dependencies]
 pin-project-lite = { workspace = true, default-features = true }
+
+[dev-dependencies]
+anyhow.workspace = true
