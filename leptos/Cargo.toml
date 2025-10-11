@@ -88,6 +88,11 @@ ssr = [
 ]
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
 rkyv = ["server_fn/rkyv", "leptos_server/rkyv"]
+serde-lite = ["server_fn/serde-lite", "leptos_server/serde-lite"]
+cbor = ["server_fn/cbor"]
+msgpack = ["server_fn/msgpack"]
+postcard = ["server_fn/postcard"]
+multipart = ["server_fn/multipart"]
 tracing = [
   "dep:tracing",
   "reactive_graph/tracing",
@@ -147,6 +152,11 @@ denylist = [
   "trace-component-props",
   "spin",
   "islands",
+  "serde-lite",
+  "cbor",
+  "msgpack",
+  "postcard",
+  "multipart",
 ]
 skip_feature_sets = [
   ["csr", "ssr"],
