@@ -79,6 +79,13 @@ pub struct AnyView {
     ) -> Pin<Box<dyn Future<Output = AnyViewState>>>,
 }
 
+impl AnyView {
+    #[doc(hidden)]
+    pub fn as_type_id(&self) -> TypeId {
+        self.type_id
+    }
+}
+
 impl Debug for AnyView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AnyView")
