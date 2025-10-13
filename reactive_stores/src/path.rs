@@ -11,6 +11,15 @@ impl IntoIterator for StorePath {
     }
 }
 
+impl<'a> IntoIterator for &'a StorePath {
+    type Item = &'a StorePathSegment;
+    type IntoIter = std::slice::Iter<'a, StorePathSegment>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl From<Vec<StorePathSegment>> for StorePath {
     fn from(value: Vec<StorePathSegment>) -> Self {
         Self(value)
@@ -18,6 +27,16 @@ impl From<Vec<StorePathSegment>> for StorePath {
 }
 
 impl StorePath {
+    /// Creates a new path.
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Creates a new path with storage capacity for `capacity` segments.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
+
     /// Adds a new segment to the path.
     pub fn push(&mut self, segment: impl Into<StorePathSegment>) {
         self.0.push(segment.into());
