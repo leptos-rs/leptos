@@ -84,6 +84,10 @@ where
         self.inner.get_trigger(path)
     }
 
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         let index = self.index;

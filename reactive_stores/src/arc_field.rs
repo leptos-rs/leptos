@@ -30,6 +30,8 @@ where
     defined_at: &'static Location<'static>,
     path: Arc<dyn Fn() -> StorePath + Send + Sync>,
     get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
+    get_trigger_unkeyed:
+        Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     pub(crate) write:
         Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
@@ -103,6 +105,10 @@ impl<T> StoreField for ArcField<T> {
         (self.get_trigger)(path)
     }
 
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        (self.get_trigger_unkeyed)(path)
+    }
+
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         (self.path)()
     }
@@ -132,6 +138,9 @@ where
             defined_at: Location::caller(),
             path: Arc::new(move || value.path().into_iter().collect()),
             get_trigger: Arc::new(move |path| value.get_trigger(path)),
+            get_trigger_unkeyed: Arc::new(move |path| {
+                value.get_trigger_unkeyed(path)
+            }),
             read: Arc::new(move || value.reader().map(StoreFieldReader::new)),
             write: Arc::new(move || value.writer().map(StoreFieldWriter::new)),
             keys: Arc::new(move || value.keys()),
@@ -157,6 +166,10 @@ where
             get_trigger: Arc::new({
                 let value = value.clone();
                 move |path| value.get_trigger(path)
+            }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
             }),
             read: Arc::new({
                 let value = value.clone();
@@ -202,6 +215,10 @@ where
                 let value = value.clone();
                 move |path| value.get_trigger(path)
             }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
+            }),
             read: Arc::new({
                 let value = value.clone();
                 move || value.reader().map(StoreFieldReader::new)
@@ -244,6 +261,10 @@ where
             get_trigger: Arc::new({
                 let value = value.clone();
                 move |path| value.get_trigger(path)
+            }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
             }),
             read: Arc::new({
                 let value = value.clone();
@@ -288,6 +309,10 @@ where
             get_trigger: Arc::new({
                 let value = value.clone();
                 move |path| value.get_trigger(path)
+            }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
             }),
             read: Arc::new({
                 let value = value.clone();
@@ -337,6 +362,10 @@ where
                 let value = value.clone();
                 move |path| value.get_trigger(path)
             }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
+            }),
             read: Arc::new({
                 let value = value.clone();
                 move || value.reader().map(StoreFieldReader::new)
@@ -368,6 +397,7 @@ impl<T> Clone for ArcField<T> {
             defined_at: self.defined_at,
             path: self.path.clone(),
             get_trigger: Arc::clone(&self.get_trigger),
+            get_trigger_unkeyed: Arc::clone(&self.get_trigger_unkeyed),
             read: Arc::clone(&self.read),
             write: Arc::clone(&self.write),
             keys: Arc::clone(&self.keys),
