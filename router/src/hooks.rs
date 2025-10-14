@@ -131,7 +131,7 @@ where
 
         if !IS_NAVIGATING.load(Ordering::Relaxed) {
             IS_NAVIGATING.store(true, Ordering::Relaxed);
-            request_animation_frame({
+            _ = request_animation_frame({
                 let navigate = navigate.clone();
                 let nav_options = nav_options.clone();
                 move || {

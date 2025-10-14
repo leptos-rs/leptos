@@ -670,7 +670,7 @@ pub fn RoutingProgress(
                 prev?
             } else {
                 set_progress.set(100.0);
-                set_timeout(
+                _ = set_timeout(
                     move || {
                         set_progress.set(0.0);
                         set_is_showing.set(false);
