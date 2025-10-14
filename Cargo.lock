@@ -1057,7 +1057,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -1921,7 +1921,7 @@ dependencies = [
  "typed-builder-macro",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm_split",
+ "wasm_split_helpers",
  "web-sys",
 ]
 
@@ -3144,7 +3144,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -3813,7 +3813,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -4565,9 +4565,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasm_split"
-version = "0.1.0"
-source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=58a1687f830b87418e6e55fcdbb68c2fbee639f8#58a1687f830b87418e6e55fcdbb68c2fbee639f8"
+name = "wasm_split_helpers"
+version = "0.2.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc3000893c24b0baebd716d661d8c5b5b862cd300d21f778090d941ca158fcc1"
 dependencies = [
  "async-once-cell",
  "wasm_split_macros",
@@ -4575,8 +4576,9 @@ dependencies = [
 
 [[package]]
 name = "wasm_split_macros"
-version = "0.1.0"
-source = "git+https://github.com/WorldSEnder/wasm-split-prototype.git?rev=58a1687f830b87418e6e55fcdbb68c2fbee639f8#58a1687f830b87418e6e55fcdbb68c2fbee639f8"
+version = "0.2.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7afd189c4eca2feb00659cdd2dc4014f608209692360254319413a4738db91c"
 dependencies = [
  "base16",
  "quote",
@@ -4619,7 +4621,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
