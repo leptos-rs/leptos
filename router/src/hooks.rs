@@ -138,7 +138,7 @@ where
                     navigate(&new_url, nav_options.clone());
                     IS_NAVIGATING.store(false, Ordering::Relaxed)
                 }
-            })
+            });
         }
     });
 
