@@ -133,6 +133,8 @@ pub use ::bytes as bytes_export;
 #[doc(hidden)]
 pub use ::http as http_export;
 use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+#[cfg(feature = "bitcode")]
+pub use bitcode;
 // re-exported to make it possible to implement a custom Client without adding a separate
 // dependency on `bytes`
 pub use bytes::Bytes;
@@ -156,8 +158,6 @@ use request::Req;
 use response::{ClientRes, Res, TryRes};
 #[cfg(feature = "rkyv")]
 pub use rkyv;
-#[cfg(feature = "bitcode")]
-pub use bitcode;
 #[doc(hidden)]
 pub use serde;
 #[doc(hidden)]

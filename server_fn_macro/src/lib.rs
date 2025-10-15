@@ -382,7 +382,7 @@ impl ServerFnCall {
                 quote! {
                     #[serde(crate = #serde_path)]
                 }
-            },
+            }
             PathInfo::Bitcode => quote! {},
             PathInfo::Rkyv => quote! {},
             PathInfo::None => quote! {},
