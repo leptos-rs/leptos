@@ -110,6 +110,10 @@ where
         self.inner.get_trigger(path)
     }
 
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         Some(Mapped::new_with_guard(inner, self.read))
@@ -432,7 +436,7 @@ where
         let this = keys
             .with_field_keys(
                 inner.clone(),
-                |keys| keys.get(&self.key),
+                |keys| (keys.get(&self.key), vec![]),
                 || self.inner.latest_keys(),
             )
             .flatten()
@@ -444,6 +448,10 @@ where
         self.inner.get_trigger(path)
     }
 
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
 
@@ -452,7 +460,7 @@ where
         let index = keys
             .with_field_keys(
                 inner_path,
-                |keys| keys.get(&self.key),
+                |keys| (keys.get(&self.key), vec![]),
                 || self.inner.latest_keys(),
             )
             .flatten()
@@ -476,7 +484,7 @@ where
         let index = keys
             .with_field_keys(
                 inner_path.clone(),
-                |keys| keys.get(&self.key),
+                |keys| (keys.get(&self.key), vec![]),
                 || self.inner.latest_keys(),
             )
             .flatten()
@@ -624,9 +632,7 @@ where
         let latest = self.latest_keys();
         keys.with_field_keys(
             inner_path,
-            |keys| {
-                keys.update(latest);
-            },
+            |keys| ((), keys.update(latest)),
             || self.latest_keys(),
         );
     }
