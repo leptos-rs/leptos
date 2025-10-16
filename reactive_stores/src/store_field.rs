@@ -26,6 +26,14 @@ pub trait StoreField: Sized {
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger;
 
+    /// Returns the trigger that tracks access and updates for this field.
+    ///
+    /// This uses *unkeyed* paths: i.e., if any field in the path is keyed, it will
+    /// try to look up the key for the item at the index given in the path, rather than
+    /// the keyed item.
+    #[track_caller]
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger;
+
     /// The path of this field (see [`StorePath`]).
     #[track_caller]
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
@@ -84,6 +92,26 @@ pub trait StoreField: Sized {
 
         triggers
     }
+
+    /// Returns triggers for the field at the given path, and all parent fields
+    fn triggers_for_path_unkeyed(&self, path: StorePath) -> Vec<ArcTrigger> {
+        // see notes on triggers_for_path() for additional comments on implementation
+
+        let trigger = self.get_trigger_unkeyed(path.clone());
+        let mut full_path = path;
+
+        let mut triggers = Vec::with_capacity(full_path.len() + 2);
+        triggers.push(trigger.this.clone());
+        triggers.push(trigger.children.clone());
+        while !full_path.is_empty() {
+            full_path.pop();
+            let inner = self.get_trigger_unkeyed(full_path.clone());
+            triggers.push(inner.children.clone());
+        }
+        triggers.reverse();
+
+        triggers
+    }
 }
 
 impl<T> StoreField for ArcStore<T>
@@ -99,6 +127,26 @@ where
         let triggers = &self.signals;
         let trigger = triggers.write().or_poisoned().get_or_insert(path);
         trigger
+    }
+
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        let orig_path = path.clone();
+
+        let mut path = StorePath::with_capacity(orig_path.len());
+        for segment in &orig_path {
+            let parent_is_keyed = self.keys.contains_key(&path);
+
+            if parent_is_keyed {
+                let key = self
+                    .keys
+                    .get_key_for_index(&(path.clone(), segment.0))
+                    .expect("could not find key for index");
+                path.push(key);
+            } else {
+                path.push(*segment);
+            }
+        }
+        self.get_trigger(path)
     }
 
     #[track_caller]
@@ -138,6 +186,14 @@ where
         self.inner
             .try_get_value()
             .map(|n| n.get_trigger(path))
+            .unwrap_or_default()
+    }
+
+    #[track_caller]
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner
+            .try_get_value()
+            .map(|n| n.get_trigger_unkeyed(path))
             .unwrap_or_default()
     }
 

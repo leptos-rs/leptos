@@ -434,7 +434,7 @@ dependencies = [
  "sha1",
  "sync_wrapper",
  "tokio",
- "tokio-tungstenite 0.28.0",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "tower-service",
@@ -2898,7 +2898,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.2.5"
+version = "0.3.0"
 dependencies = [
  "any_spawner",
  "dashmap",
@@ -3458,7 +3458,7 @@ dependencies = [
  "thiserror 2.0.17",
  "throw_error",
  "tokio",
- "tokio-tungstenite 0.27.0",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "trybuild",
@@ -3873,6 +3873,7 @@ dependencies = [
 name = "throw_error"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "pin-project-lite",
 ]
 
@@ -4009,25 +4010,13 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "489a59b6730eda1b0171fcfda8b121f4bee2b35cba8645ca35c5f7ba3eb736c1"
-dependencies = [
- "futures-util",
- "log",
- "rustls",
- "tokio",
- "tungstenite 0.27.0",
-]
-
-[[package]]
-name = "tokio-tungstenite"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
  "tokio",
  "tungstenite 0.28.0",
 ]

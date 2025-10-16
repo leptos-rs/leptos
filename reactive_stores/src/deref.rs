@@ -68,6 +68,11 @@ where
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
+
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner.path()
     }

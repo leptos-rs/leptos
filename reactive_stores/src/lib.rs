@@ -364,12 +364,17 @@ where
         })
     }
 
-    fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+    fn update(
+        &mut self,
+        iter: impl IntoIterator<Item = K>,
+    ) -> Vec<(usize, StorePathSegment)> {
         let new_keys = iter
             .into_iter()
             .enumerate()
             .map(|(idx, key)| (key, idx))
             .collect::<FxHashMap<K, usize>>();
+
+        let mut index_keys = Vec::with_capacity(new_keys.len());
 
         // remove old keys and recycle the slots
         self.keys.retain(|key, old_entry| match new_keys.get(key) {
@@ -385,14 +390,17 @@ where
 
         // add new keys
         for (key, idx) in new_keys {
-            // the suggestion doesn't compile because we need &mut for self.next_key(),
-            // and we don't want to call that until after the check
-            #[allow(clippy::map_entry)]
-            if !self.keys.contains_key(&key) {
-                let path = self.next_key();
-                self.keys.insert(key, (path, idx));
+            match self.keys.get(&key) {
+                Some((segment, idx)) => index_keys.push((*idx, *segment)),
+                None => {
+                    let path = self.next_key();
+                    self.keys.insert(key, (path, idx));
+                    index_keys.push((idx, path));
+                }
             }
         }
+
+        index_keys
     }
 }
 
@@ -415,14 +423,20 @@ type HashMap<K, V> = send_wrapper::SendWrapper<
 
 /// A map of the keys for a keyed subfield.
 #[derive(Clone)]
-pub struct KeyMap(HashMap<StorePath, Box<dyn Any + Send + Sync>>);
+pub struct KeyMap(
+    HashMap<StorePath, Box<dyn Any + Send + Sync>>,
+    HashMap<(StorePath, usize), StorePathSegment>,
+);
 
 impl Default for KeyMap {
     fn default() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
-        return Self(Default::default());
+        return Self(Default::default(), Default::default());
         #[cfg(target_arch = "wasm32")]
-        return Self(send_wrapper::SendWrapper::new(Default::default()));
+        return Self(
+            send_wrapper::SendWrapper::new(Default::default()),
+            send_wrapper::SendWrapper::new(Default::default()),
+        );
     }
 }
 
@@ -430,31 +444,70 @@ impl KeyMap {
     fn with_field_keys<K, T>(
         &self,
         path: StorePath,
-        fun: impl FnOnce(&mut FieldKeys<K>) -> T,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
         initialize: impl FnOnce() -> Vec<K>,
     ) -> Option<T>
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
+        let initial_keys = initialize();
+
         #[cfg(not(target_arch = "wasm32"))]
         let mut entry = self
             .0
-            .entry(path)
-            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+            .entry(path.clone())
+            .or_insert_with(|| Box::new(FieldKeys::new(initial_keys)));
 
         #[cfg(target_arch = "wasm32")]
         let entry = if !self.0.borrow().contains_key(&path) {
-            Some(Box::new(FieldKeys::new(initialize())))
+            Some(Box::new(FieldKeys::new(initial_keys)))
         } else {
             None
         };
         #[cfg(target_arch = "wasm32")]
         let mut map = self.0.borrow_mut();
         #[cfg(target_arch = "wasm32")]
-        let entry = map.entry(path).or_insert_with(|| entry.unwrap());
+        let entry = map.entry(path.clone()).or_insert_with(|| entry.unwrap());
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-        Some(fun(entry))
+        let (result, new_keys) = fun(entry);
+        if !new_keys.is_empty() {
+            for (idx, segment) in new_keys {
+                #[cfg(not(target_arch = "wasm32"))]
+                self.1.insert((path.clone(), idx), segment);
+
+                #[cfg(target_arch = "wasm32")]
+                self.1.borrow_mut().insert((path.clone(), idx), segment);
+            }
+        }
+        Some(result)
+    }
+
+    fn contains_key(&self, key: &StorePath) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.0.contains_key(key)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.0.borrow_mut().contains_key(key)
+        }
+    }
+
+    fn get_key_for_index(
+        &self,
+        key: &(StorePath, usize),
+    ) -> Option<StorePathSegment> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.1.get(key).as_deref().copied()
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.1.borrow().get(key).as_deref().copied()
+        }
     }
 }
 
