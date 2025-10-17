@@ -2052,7 +2052,9 @@ where
                 if res.status() == StatusCode::OK {
                     additional_context();
                     let res = res.into_response();
-                    if let Some(response_options) = use_context::<ResponseOptions>() {
+                    if let Some(response_options) =
+                        use_context::<ResponseOptions>()
+                    {
                         let mut res = AxumResponse(res);
                         res.extend_response(&response_options);
                         res.0
