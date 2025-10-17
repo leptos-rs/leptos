@@ -1335,4 +1335,44 @@ mod tests {
 
         assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_unkeyed_child() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        let tracked_field = store.todos().at_unkeyed(0);
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.todos().write().pop();
+        tick().await;
+
+        store.todos().write().push(Todo {
+            label: "another one".into(),
+            completed: false,
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
 }
