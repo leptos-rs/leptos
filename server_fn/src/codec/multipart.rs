@@ -31,6 +31,20 @@ pub enum MultipartData {
     Server(multer::Multipart<'static>),
 }
 
+impl Clone for MultipartData {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Client(data) => {
+                let form_data = (*data.0).clone();
+                Self::from(form_data)
+            }
+            Self::Server(_) => {
+                panic!("Cannot clone server side multipart data")
+            }
+        }
+    }
+}
+
 impl MultipartData {
     /// Extracts the inner data to handle as a stream.
     ///
