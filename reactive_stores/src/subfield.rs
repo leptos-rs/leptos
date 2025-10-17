@@ -88,6 +88,10 @@ where
         self.inner.get_trigger(path)
     }
 
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         Some(Mapped::new_with_guard(inner, self.read))
