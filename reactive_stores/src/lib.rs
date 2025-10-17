@@ -885,6 +885,30 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Foo {
+        id: i32,
+        bar: Bar,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Bar {
+        bar_signature: i32,
+        baz: Baz,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baz {
+        more_data: i32,
+        baw: Baw,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baw {
+        more_data: i32,
+        end: i32,
+    }
+
     #[tokio::test]
     async fn mutating_field_triggers_effect() {
         _ = any_spawner::Executor::init_tokio();
@@ -1165,30 +1189,6 @@ mod tests {
 
         _ = any_spawner::Executor::init_tokio();
 
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Foo {
-            id: i32,
-            bar: Bar,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Bar {
-            bar_signature: i32,
-            baz: Baz,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baz {
-            more_data: i32,
-            baw: Baw,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baw {
-            more_data: i32,
-            end: i32,
-        }
-
         let store = Store::new(Foo {
             id: 42,
             bar: Bar {
@@ -1271,5 +1271,68 @@ mod tests {
         assert_eq!(bar_baz_runs.get_value(), 3);
         assert_eq!(more_data_runs.get_value(), 3);
         assert_eq!(baz_baw_end_runs.get_value(), 3);
+    }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_subfield() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(Foo {
+            id: 42,
+            bar: Bar {
+                bar_signature: 69,
+                baz: Baz {
+                    more_data: 9999,
+                    baw: Baw {
+                        more_data: 22,
+                        end: 1112,
+                    },
+                },
+            },
+        });
+
+        let tracked_field = store.bar().baz().more_data();
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.bar().baz().set(Baz {
+            more_data: 42,
+            baw: Baw {
+                more_data: 11,
+                end: 31,
+            },
+        });
+        tick().await;
+        store.bar().set(Bar {
+            bar_signature: 23,
+            baz: Baz {
+                more_data: 32,
+                baw: Baw {
+                    more_data: 432,
+                    end: 423,
+                },
+            },
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 }
