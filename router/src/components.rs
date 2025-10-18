@@ -658,7 +658,7 @@ pub fn RoutingProgress(
         move |prev: Option<Option<IntervalHandle>>| {
             if is_routing.get() && !is_showing.get() {
                 set_is_showing.set(true);
-                set_interval_with_handle(
+                set_interval(
                     move || {
                         set_progress.update(|n| *n += percent_per_increment);
                     },
@@ -670,7 +670,7 @@ pub fn RoutingProgress(
                 prev?
             } else {
                 set_progress.set(100.0);
-                set_timeout(
+                _ = set_timeout(
                     move || {
                         set_progress.set(0.0);
                         set_is_showing.set(false);
