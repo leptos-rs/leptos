@@ -225,3 +225,38 @@ fn threaded_chaos_effect() {
     let values: Vec<_> = signals.iter().map(|s| s.get_untracked()).collect();
     println!("FINAL: {values:?}");
 }
+
+#[cfg(feature = "effects")]
+#[test]
+fn test_batch() {
+    use imports::*;
+    use reactive_graph::{effect::batch, owner::StoredValue};
+
+    let owner = Owner::new();
+    owner.set();
+
+    let a = RwSignal::new(0);
+    let b = RwSignal::new(0);
+
+    let values = StoredValue::new(Vec::new());
+
+    ImmediateEffect::new_scoped(move || {
+        println!("{} = {}", a.get(), b.get());
+        values.write_value().push((a.get(), b.get()));
+    });
+
+    a.set(1);
+    b.set(1);
+
+    batch(move || {
+        a.set(2);
+        b.set(2);
+
+        batch(move || {
+            a.set(3);
+            b.set(3);
+        });
+    });
+
+    assert_eq!(values.get_value(), vec![(0, 0), (1, 0), (1, 1), (3, 3)]);
+}

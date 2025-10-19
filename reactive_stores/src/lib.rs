@@ -364,12 +364,17 @@ where
         })
     }
 
-    fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+    fn update(
+        &mut self,
+        iter: impl IntoIterator<Item = K>,
+    ) -> Vec<(usize, StorePathSegment)> {
         let new_keys = iter
             .into_iter()
             .enumerate()
             .map(|(idx, key)| (key, idx))
             .collect::<FxHashMap<K, usize>>();
+
+        let mut index_keys = Vec::with_capacity(new_keys.len());
 
         // remove old keys and recycle the slots
         self.keys.retain(|key, old_entry| match new_keys.get(key) {
@@ -385,14 +390,17 @@ where
 
         // add new keys
         for (key, idx) in new_keys {
-            // the suggestion doesn't compile because we need &mut for self.next_key(),
-            // and we don't want to call that until after the check
-            #[allow(clippy::map_entry)]
-            if !self.keys.contains_key(&key) {
-                let path = self.next_key();
-                self.keys.insert(key, (path, idx));
+            match self.keys.get(&key) {
+                Some((segment, idx)) => index_keys.push((*idx, *segment)),
+                None => {
+                    let path = self.next_key();
+                    self.keys.insert(key, (path, idx));
+                    index_keys.push((idx, path));
+                }
             }
         }
+
+        index_keys
     }
 }
 
@@ -415,14 +423,20 @@ type HashMap<K, V> = send_wrapper::SendWrapper<
 
 /// A map of the keys for a keyed subfield.
 #[derive(Clone)]
-pub struct KeyMap(HashMap<StorePath, Box<dyn Any + Send + Sync>>);
+pub struct KeyMap(
+    HashMap<StorePath, Box<dyn Any + Send + Sync>>,
+    HashMap<(StorePath, usize), StorePathSegment>,
+);
 
 impl Default for KeyMap {
     fn default() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
-        return Self(Default::default());
+        return Self(Default::default(), Default::default());
         #[cfg(target_arch = "wasm32")]
-        return Self(send_wrapper::SendWrapper::new(Default::default()));
+        return Self(
+            send_wrapper::SendWrapper::new(Default::default()),
+            send_wrapper::SendWrapper::new(Default::default()),
+        );
     }
 }
 
@@ -430,31 +444,70 @@ impl KeyMap {
     fn with_field_keys<K, T>(
         &self,
         path: StorePath,
-        fun: impl FnOnce(&mut FieldKeys<K>) -> T,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
         initialize: impl FnOnce() -> Vec<K>,
     ) -> Option<T>
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
+        let initial_keys = initialize();
+
         #[cfg(not(target_arch = "wasm32"))]
         let mut entry = self
             .0
-            .entry(path)
-            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+            .entry(path.clone())
+            .or_insert_with(|| Box::new(FieldKeys::new(initial_keys)));
 
         #[cfg(target_arch = "wasm32")]
         let entry = if !self.0.borrow().contains_key(&path) {
-            Some(Box::new(FieldKeys::new(initialize())))
+            Some(Box::new(FieldKeys::new(initial_keys)))
         } else {
             None
         };
         #[cfg(target_arch = "wasm32")]
         let mut map = self.0.borrow_mut();
         #[cfg(target_arch = "wasm32")]
-        let entry = map.entry(path).or_insert_with(|| entry.unwrap());
+        let entry = map.entry(path.clone()).or_insert_with(|| entry.unwrap());
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-        Some(fun(entry))
+        let (result, new_keys) = fun(entry);
+        if !new_keys.is_empty() {
+            for (idx, segment) in new_keys {
+                #[cfg(not(target_arch = "wasm32"))]
+                self.1.insert((path.clone(), idx), segment);
+
+                #[cfg(target_arch = "wasm32")]
+                self.1.borrow_mut().insert((path.clone(), idx), segment);
+            }
+        }
+        Some(result)
+    }
+
+    fn contains_key(&self, key: &StorePath) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.0.contains_key(key)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.0.borrow_mut().contains_key(key)
+        }
+    }
+
+    fn get_key_for_index(
+        &self,
+        key: &(StorePath, usize),
+    ) -> Option<StorePathSegment> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.1.get(key).as_deref().copied()
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.1.borrow().get(key).as_deref().copied()
+        }
     }
 }
 
@@ -832,6 +885,30 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Foo {
+        id: i32,
+        bar: Bar,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Bar {
+        bar_signature: i32,
+        baz: Baz,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baz {
+        more_data: i32,
+        baw: Baw,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baw {
+        more_data: i32,
+        end: i32,
+    }
+
     #[tokio::test]
     async fn mutating_field_triggers_effect() {
         _ = any_spawner::Executor::init_tokio();
@@ -1112,30 +1189,6 @@ mod tests {
 
         _ = any_spawner::Executor::init_tokio();
 
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Foo {
-            id: i32,
-            bar: Bar,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Bar {
-            bar_signature: i32,
-            baz: Baz,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baz {
-            more_data: i32,
-            baw: Baw,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baw {
-            more_data: i32,
-            end: i32,
-        }
-
         let store = Store::new(Foo {
             id: 42,
             bar: Bar {
@@ -1218,5 +1271,108 @@ mod tests {
         assert_eq!(bar_baz_runs.get_value(), 3);
         assert_eq!(more_data_runs.get_value(), 3);
         assert_eq!(baz_baw_end_runs.get_value(), 3);
+    }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_subfield() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(Foo {
+            id: 42,
+            bar: Bar {
+                bar_signature: 69,
+                baz: Baz {
+                    more_data: 9999,
+                    baw: Baw {
+                        more_data: 22,
+                        end: 1112,
+                    },
+                },
+            },
+        });
+
+        let tracked_field = store.bar().baz().more_data();
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.bar().baz().set(Baz {
+            more_data: 42,
+            baw: Baw {
+                more_data: 11,
+                end: 31,
+            },
+        });
+        tick().await;
+        store.bar().set(Bar {
+            bar_signature: 23,
+            baz: Baz {
+                more_data: 32,
+                baw: Baw {
+                    more_data: 432,
+                    end: 423,
+                },
+            },
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_unkeyed_child() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        let tracked_field = store.todos().at_unkeyed(0);
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.todos().write().pop();
+        tick().await;
+
+        store.todos().write().push(Todo {
+            label: "another one".into(),
+            completed: false,
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 }
