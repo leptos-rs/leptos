@@ -22,7 +22,10 @@ async fn main() {
         })
         .fallback(leptos_axum::file_and_error_handler_with_context(
             move || {
-                let opts = expect_context::<leptos_axum::ResponseOptions>();
+                let opts = match use_context::<leptos_axum::ResponseOptions>() {
+                    Some(opts) => opts,
+                    None => leptos_axum::ResponseOptions::default(),
+                };
                 opts.insert_header(
                     HeaderName::from_static("cross-origin-opener-policy"),
                     HeaderValue::from_static("same-origin"),
