@@ -74,7 +74,6 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         quote! {
             #[::leptos::wasm_split::wasm_split(
                 #unique_name,
-                wasm_import_module = "./__wasm_split.______________________.js",
                 wasm_split_path = ::leptos::wasm_split,
                 preload(#[doc(hidden)] #[allow(non_snake_case)] #preload_name),
                 #return_wrapper
