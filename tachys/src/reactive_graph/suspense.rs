@@ -468,7 +468,8 @@ where
         //
         // in this case, though, we can simply... discover that the data are already here, and then
         // stuff them back into a new Future, which can safely be polled after its completion
-        if let Some(inner) = self.inner.as_mut().now_or_never() {
+        if let Some(mut inner) = self.inner.as_mut().now_or_never() {
+            inner.dry_resolve();
             self.inner = Box::pin(async move { inner })
                 as Pin<Box<dyn Future<Output = T> + Send>>;
         }
