@@ -1937,7 +1937,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "actix-files",
  "actix-http",
