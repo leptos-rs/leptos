@@ -22,10 +22,10 @@ async fn main() {
         })
         .fallback(leptos_axum::file_and_error_handler_with_context(
             move || {
-                let opts = match use_context::<leptos_axum::ResponseOptions>() {
-                    Some(opts) => opts,
-                    None => leptos_axum::ResponseOptions::default(),
-                };
+                // if you want to add custom headers to the static file handler response,
+                // you can do that by providing `ResponseOptions` via context
+                let opts = use_context::<leptos_axum::ResponseOptions>()
+                    .unwrap_or_default();
                 opts.insert_header(
                     HeaderName::from_static("cross-origin-opener-policy"),
                     HeaderValue::from_static("same-origin"),
