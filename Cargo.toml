@@ -172,7 +172,7 @@ sha2 = { default-features = false, version = "0.10.8" }
 subsecond = { default-features = false, version = "0.7.0-rc.0" }
 dioxus-cli-config = { default-features = false, version = "0.7.0-rc.0" }
 dioxus-devtools = { default-features = false, version = "0.7.0-rc.0" }
-wasm_split_helpers = { default-features = false, "0.2.0" }
+wasm_split_helpers = { default-features = false, version = "0.2.0" }
 
 [profile.release]
 codegen-units = 1

@@ -57,7 +57,7 @@ serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-wasm_split_helpers.workspace = true
+wasm_split_helpers = { workspace = true, default-features = true }
 subsecond = { workspace = true, default-features = true, optional = true }
 dioxus-cli-config = { workspace = true, default-features = true, optional = true }
 dioxus-devtools = { workspace = true, default-features = true, optional = true }
