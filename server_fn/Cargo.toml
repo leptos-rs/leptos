@@ -64,6 +64,7 @@ http-body-util = { optional = true, workspace = true, default-features = true }
 rkyv = { optional = true, workspace = true, default-features = true }
 rmp-serde = { optional = true, workspace = true, default-features = true }
 base64 = { workspace = true, default-features = true }
+bitcode = { optional = true, workspace = true, default-features = true }
 
 # client
 gloo-net = { optional = true, workspace = true, default-features = true }
@@ -126,6 +127,7 @@ cbor = ["dep:ciborium"]
 rkyv = ["dep:rkyv"]
 msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
+bitcode = ["dep:bitcode"]
 default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
