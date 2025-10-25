@@ -2943,7 +2943,6 @@ name = "reactive_stores"
 version = "0.3.0"
 dependencies = [
  "any_spawner",
- "dashmap",
  "guardian",
  "itertools",
  "leptos",
