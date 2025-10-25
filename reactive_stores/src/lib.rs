@@ -452,8 +452,8 @@ impl KeyMap {
     {
         let initial_keys = initialize();
 
+        #[cfg(not(target_arch = "wasm32"))]
         let mut map_0 = self.0.lock().unwrap();
-
         #[cfg(not(target_arch = "wasm32"))]
         let entry = map_0
             .entry(path.clone())
@@ -472,7 +472,10 @@ impl KeyMap {
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
         let (result, new_keys) = fun(entry);
+
+        #[cfg(not(target_arch = "wasm32"))]
         drop(map_0);
+
         if !new_keys.is_empty() {
             for (idx, segment) in new_keys {
                 #[cfg(not(target_arch = "wasm32"))]
