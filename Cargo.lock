@@ -3476,7 +3476,6 @@ dependencies = [
  "ciborium",
  "const-str",
  "const_format",
- "dashmap",
  "futures",
  "gloo-net",
  "http 1.3.1",
