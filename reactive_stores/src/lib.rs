@@ -478,10 +478,14 @@ impl KeyMap {
 
         let mut map_1 = {
             #[cfg(not(target_arch = "wasm32"))]
-            { self.1.lock().unwrap() }
+            {
+                self.1.lock().unwrap()
+            }
 
             #[cfg(target_arch = "wasm32")]
-            { self.1.borrow_mut() }
+            {
+                self.1.borrow_mut()
+            }
         };
 
         if !new_keys.is_empty() {
