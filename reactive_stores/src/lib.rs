@@ -506,7 +506,7 @@ impl KeyMap {
     ) -> Option<StorePathSegment> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.1.lock().unwrap().get(key).as_deref().copied()
+            self.1.lock().unwrap().get(key).copied()
         }
 
         #[cfg(target_arch = "wasm32")]

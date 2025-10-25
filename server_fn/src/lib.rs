@@ -1078,9 +1078,7 @@ pub mod axum {
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
             .read()
-            .unwrap()
-            .iter()
-            .map(|(_, item)| (item.path(), item.method()))
+            .unwrap().values().map(|item| (item.path(), item.method()))
             .collect();
 
         paths.into_iter()
@@ -1198,9 +1196,7 @@ pub mod actix {
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
             .read()
-            .unwrap()
-            .iter()
-            .map(|(_, item)| (item.path(), item.method()))
+            .unwrap().values().map(|item| (item.path(), item.method()))
             .collect();
 
         paths.into_iter()
