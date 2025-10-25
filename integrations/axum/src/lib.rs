@@ -48,7 +48,9 @@ use axum::{
     routing::{delete, get, patch, post, put},
 };
 #[cfg(feature = "default")]
-use dashmap::DashMap;
+use std::collections::HashMap;
+#[cfg(feature = "default")]
+use std::sync::Mutex;
 use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
@@ -1522,8 +1524,7 @@ impl StaticRouteGenerator {
 }
 
 #[cfg(feature = "default")]
-static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
-    LazyLock::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<Mutex<HashMap<String, ResponseOptions>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
@@ -1558,7 +1559,7 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.insert(path.to_string(), options);
+        STATIC_HEADERS.lock().unwrap().insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1635,7 +1636,7 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers = STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                let headers = STATIC_HEADERS.lock().unwrap().get(orig_path).map(|v| v.clone());
                 (headers, None)
             };
 

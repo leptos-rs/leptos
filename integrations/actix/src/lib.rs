@@ -16,7 +16,8 @@ use actix_web::{
     web::{Data, Payload, ServiceConfig},
     *,
 };
-use dashmap::DashMap;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
@@ -1222,8 +1223,8 @@ impl StaticRouteGenerator {
     }
 }
 
-static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
-    LazyLock::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<Mutex<HashMap<String, ResponseOptions>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1255,7 +1256,7 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.insert(path.to_string(), options);
+        STATIC_HEADERS.lock().unwrap().insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1323,7 +1324,7 @@ where
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
                     let headers =
-                        STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                        STATIC_HEADERS.lock().unwrap().get(orig_path).map(|v| v.clone());
                     (headers, None)
                 };
 
