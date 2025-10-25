@@ -1695,7 +1695,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tokio",
  "tower-service",
  "tracing",
@@ -2796,7 +2796,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
@@ -2833,7 +2833,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -4602,23 +4602,24 @@ dependencies = [
 
 [[package]]
 name = "wasm_split_helpers"
-version = "0.1.2"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a114b3073258dd5de3d812cdd048cca6842342755e828a14dbf15f843f2d1b84"
 dependencies = [
  "async-once-cell",
- "or_poisoned",
  "wasm_split_macros",
 ]
 
 [[package]]
 name = "wasm_split_macros"
-version = "0.1.3"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56481f8ed1a9f9ae97ea7b08a5e2b12e8adf9a7818a6ba952b918e09c7be8bf0"
 dependencies = [
  "base16",
- "digest",
  "quote",
  "sha2",
  "syn 2.0.106",
- "wasm-bindgen",
 ]
 
 [[package]]
