@@ -16,8 +16,6 @@ use actix_web::{
     web::{Data, Payload, ServiceConfig},
     *,
 };
-use std::collections::HashMap;
-use std::sync::Mutex;
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
@@ -46,12 +44,12 @@ use server_fn::{
     request::actix::ActixRequest,
 };
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::{Debug, Display},
     future::Future,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -1256,7 +1254,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.lock().unwrap().insert(path.to_string(), options);
+        STATIC_HEADERS
+            .lock()
+            .unwrap()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1323,8 +1324,11 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
-                    let headers =
-                        STATIC_HEADERS.lock().unwrap().get(orig_path).map(|v| v.clone());
+                    let headers = STATIC_HEADERS
+                        .lock()
+                        .unwrap()
+                        .get(orig_path)
+                        .map(|v| v.clone());
                     (headers, None)
                 };
 

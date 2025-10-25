@@ -170,7 +170,7 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock, RwLock},
 };
 #[doc(hidden)]
 pub use xxhash_rust;
@@ -873,7 +873,7 @@ macro_rules! initialize_server_fn_map {
                 })
                 .collect();
 
-            std::sync::Mutex::new(map)
+            std::sync::RwLock::new(map)
         })
     };
 }
@@ -986,7 +986,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
-    LazyLock<Mutex<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
+    LazyLock<RwLock<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1068,7 +1068,7 @@ pub mod axum {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.lock().unwrap().insert(
+        REGISTERED_SERVER_FUNCTIONS.write().unwrap().insert(
             (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
@@ -1077,7 +1077,7 @@ pub mod axum {
     /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
-            .lock()
+            .read()
             .unwrap()
             .iter()
             .map(|(_, item)| (item.path(), item.method()))
@@ -1118,7 +1118,7 @@ pub mod axum {
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
         let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS
-            .lock()
+            .read()
             .unwrap()
             .get(&key)
             .map(|server_fn| {
@@ -1188,7 +1188,7 @@ pub mod actix {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.lock().unwrap().insert(
+        REGISTERED_SERVER_FUNCTIONS.write().unwrap().insert(
             (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
@@ -1197,7 +1197,7 @@ pub mod actix {
     /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
-            .lock()
+            .read()
             .unwrap()
             .iter()
             .map(|(_, item)| (item.path(), item.method()))
@@ -1254,7 +1254,7 @@ pub mod actix {
         };
 
         REGISTERED_SERVER_FUNCTIONS
-            .lock()
+            .read()
             .unwrap()
             .get(&(path.into(), method))
             .map(|server_fn| {

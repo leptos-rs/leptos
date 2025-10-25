@@ -47,10 +47,6 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-#[cfg(feature = "default")]
-use std::collections::HashMap;
-#[cfg(feature = "default")]
-use std::sync::Mutex;
 use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
@@ -74,9 +70,13 @@ use leptos_router::{
 use parking_lot::RwLock;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
+use std::collections::HashMap;
+#[cfg(feature = "default")]
 use std::path::Path;
 #[cfg(feature = "default")]
 use std::sync::LazyLock;
+#[cfg(feature = "default")]
+use std::sync::Mutex;
 use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
@@ -1524,7 +1524,8 @@ impl StaticRouteGenerator {
 }
 
 #[cfg(feature = "default")]
-static STATIC_HEADERS: LazyLock<Mutex<HashMap<String, ResponseOptions>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static STATIC_HEADERS: LazyLock<Mutex<HashMap<String, ResponseOptions>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
@@ -1559,7 +1560,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.lock().unwrap().insert(path.to_string(), options);
+        STATIC_HEADERS
+            .lock()
+            .unwrap()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1636,7 +1640,11 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers = STATIC_HEADERS.lock().unwrap().get(orig_path).map(|v| v.clone());
+                let headers = STATIC_HEADERS
+                    .lock()
+                    .unwrap()
+                    .get(orig_path)
+                    .map(|v| v.clone());
                 (headers, None)
             };
 
