@@ -476,13 +476,18 @@ impl KeyMap {
         #[cfg(not(target_arch = "wasm32"))]
         drop(map_0);
 
+        let mut map_1 = {
+            #[cfg(not(target_arch = "wasm32"))]
+            { self.1.lock().unwrap() }
+
+            #[cfg(target_arch = "wasm32")]
+            { self.1.borrow_mut() }
+        };
+
         if !new_keys.is_empty() {
             for (idx, segment) in new_keys {
-                #[cfg(not(target_arch = "wasm32"))]
-                self.1.lock().unwrap().insert((path.clone(), idx), segment);
-
-                #[cfg(target_arch = "wasm32")]
-                self.1.borrow_mut().insert((path.clone(), idx), segment);
+                map_1.insert((path.clone(), idx), segment);
+                map_1.insert((path.clone(), idx), segment);
             }
         }
         Some(result)

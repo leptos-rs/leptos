@@ -49,7 +49,7 @@ use std::{
     future::Future,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock},
 };
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -1221,8 +1221,8 @@ impl StaticRouteGenerator {
     }
 }
 
-static STATIC_HEADERS: LazyLock<Mutex<HashMap<String, ResponseOptions>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static STATIC_HEADERS: LazyLock<RwLock<HashMap<String, ResponseOptions>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1255,8 +1255,7 @@ async fn write_static_route(
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
         STATIC_HEADERS
-            .lock()
-            .unwrap()
+            .write()
             .insert(path.to_string(), options);
     }
 
@@ -1324,8 +1323,10 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
-                    let headers =
-                        STATIC_HEADERS.lock().unwrap().get(orig_path).cloned();
+                    let headers = STATIC_HEADERS
+                        .read()
+                        .get(orig_path)
+                        .map(|v| v.clone());
                     (headers, None)
                 };
 
