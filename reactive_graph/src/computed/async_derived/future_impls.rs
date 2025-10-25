@@ -9,7 +9,7 @@ use crate::{
     traits::{DefinedAt, Track},
     unwrap_signal,
 };
-use futures::pin_mut;
+use guardian::ArcRwLockReadGuardian;
 use or_poisoned::OrPoisoned;
 use std::{
     future::{Future, IntoFuture},
@@ -108,7 +108,7 @@ where
 /// and contains its value. `.await`ing this clones the value `T`.
 pub struct AsyncDerivedFuture<T> {
     source: AnySource,
-    value: Arc<async_lock::RwLock<SendOption<T>>>,
+    value: Arc<RwLock<SendOption<T>>>,
     loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
     inner: Arc<RwLock<ArcAsyncDerivedInner>>,
@@ -126,7 +126,7 @@ where
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
-        let value = self.value.read_arc();
+        let guard = ArcRwLockReadGuardian::take(self.value.clone()).unwrap();
 
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
             self.inner
@@ -136,16 +136,14 @@ where
                 .push(suspense_context);
         }
 
-        pin_mut!(value);
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
-            (true, _) => {
+        match self.loading.load(Ordering::Relaxed) {
+            true => {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending
             }
-            (_, Poll::Pending) => Poll::Pending,
-            (_, Poll::Ready(guard)) => {
+            false => {
                 Poll::Ready(guard.as_ref().unwrap().clone())
-            }
+            },
         }
     }
 }
@@ -185,7 +183,7 @@ where
 /// and yields an [`AsyncDerivedGuard`] that dereferences to its value.
 pub struct AsyncDerivedRefFuture<T> {
     source: AnySource,
-    value: Arc<async_lock::RwLock<SendOption<T>>>,
+    value: Arc<RwLock<SendOption<T>>>,
     loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
 }
@@ -201,19 +199,19 @@ where
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
-        let value = self.value.read_arc();
-        pin_mut!(value);
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
-            (true, _) => {
+        let guard = ArcRwLockReadGuardian::take(self.value.clone()).unwrap();
+        match self.loading.load(Ordering::Relaxed) {
+            true => {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending
             }
-            (_, Poll::Pending) => Poll::Pending,
-            (_, Poll::Ready(guard)) => Poll::Ready(ReadGuard::new(
-                Mapped::new_with_guard(AsyncPlain { guard }, |guard| {
+            false => {
+                let mapped = Mapped::new_with_guard(AsyncPlain { guard }, |guard| {
                     guard.as_ref().unwrap()
-                }),
-            )),
+                });
+
+                Poll::Ready(ReadGuard::new(mapped))
+            },
         }
     }
 }

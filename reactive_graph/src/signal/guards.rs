@@ -1,7 +1,6 @@
 //! Guards that integrate with the reactive system, wrapping references to the values of signals.
 
 use crate::{
-    computed::BlockingLock,
     traits::{Notify, UntrackableGuard},
 };
 use core::fmt::Debug;
@@ -138,7 +137,7 @@ impl<T: Display> Display for Plain<T> {
 
 /// A guard that provides access to an async signal's value.
 pub struct AsyncPlain<T: 'static> {
-    pub(crate) guard: async_lock::RwLockReadGuardArc<T>,
+    pub(crate) guard: guardian::ArcRwLockReadGuardian<T>,
 }
 
 impl<T: 'static> Debug for AsyncPlain<T> {
@@ -149,9 +148,9 @@ impl<T: 'static> Debug for AsyncPlain<T> {
 
 impl<T: 'static> AsyncPlain<T> {
     /// Takes a reference-counted async read guard on the given lock.
-    pub fn try_new(inner: &Arc<async_lock::RwLock<T>>) -> Option<Self> {
+    pub fn try_new(inner: &Arc<RwLock<T>>) -> Option<Self> {
         Some(Self {
-            guard: inner.blocking_read_arc(),
+            guard: guardian::ArcRwLockReadGuardian::take(inner.clone()).ok()?,
         })
     }
 }
