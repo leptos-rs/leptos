@@ -1321,8 +1321,7 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
-                    let headers =
-                        STATIC_HEADERS.read().get(orig_path).cloned();
+                    let headers = STATIC_HEADERS.read().get(orig_path).cloned();
                     (headers, None)
                 };
 
