@@ -1322,7 +1322,7 @@ where
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
                     let headers =
-                        STATIC_HEADERS.read().get(orig_path).map(|v| v.clone());
+                        STATIC_HEADERS.read().get(orig_path).cloned();
                     (headers, None)
                 };
 
