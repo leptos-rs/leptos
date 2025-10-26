@@ -22,7 +22,6 @@ leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 tachys = { workspace = true }
-parking_lot = { workspace = true, default-features = true }
 tokio = { default-features = false, workspace = true }
 tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }

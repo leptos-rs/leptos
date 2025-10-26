@@ -104,7 +104,6 @@ wasm-bindgen-futures = { default-features = false, version = "0.4.50" }
 tower = { default-features = false, version = "0.5.2" }
 proc-macro2 = { default-features = false, version = "1.0.101" }
 serde = { default-features = false, version = "1.0.219" }
-parking_lot = { default-features = false, version = "0.12.5" }
 axum = { default-features = false, version = "0.8.6" }
 serde_qs = { default-features = false, version = "0.15.0" }
 syn = { default-features = false, version = "2.0.106" }

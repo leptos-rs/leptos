@@ -37,7 +37,6 @@ use leptos_router::{
     static_routes::{RegenerationFn, ResolvedStaticPath},
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
-use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
     error::ServerFnErrorErr, redirect::REDIRECT_HEADER,
@@ -49,7 +48,7 @@ use std::{
     future::Future,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, RwLock},
 };
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -120,12 +119,12 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
+        let mut writable = self.0.write().unwrap();
         *writable = parts
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
@@ -135,7 +134,7 @@ impl ResponseOptions {
         key: header::HeaderName,
         value: header::HeaderValue,
     ) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
@@ -145,7 +144,7 @@ impl ResponseOptions {
         key: header::HeaderName,
         value: header::HeaderValue,
     ) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -169,7 +168,7 @@ impl ExtendResponse for ActixResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write();
+        let mut res_options = res_options.0.write().unwrap();
 
         let headers = self.0.headers_mut();
         for (key, value) in std::mem::take(&mut res_options.headers) {
@@ -393,7 +392,8 @@ pub fn handle_server_fns_with_context(
                             // the Location header may have been set to Referer, so any redirection by the
                             // user must overwrite it
                             {
-                                let mut res_options = res_options.0.write();
+                                let mut res_options =
+                                    res_options.0.write().unwrap();
                                 let headers = res.0.headers_mut();
 
                                 for location in
@@ -1226,7 +1226,7 @@ static STATIC_HEADERS: LazyLock<RwLock<HashMap<String, ResponseOptions>>> =
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
-    let status = resp.0.read().status;
+    let status = resp.0.read().unwrap().status;
 
     if let Some(status) = status {
         return status == StatusCode::NOT_FOUND;
@@ -1254,7 +1254,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.write().insert(path.to_string(), options);
+        STATIC_HEADERS
+            .write()
+            .unwrap()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1321,8 +1324,11 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
-                    let headers =
-                        STATIC_HEADERS.read().get(orig_path).map(|v| v.clone());
+                    let headers = STATIC_HEADERS
+                        .read()
+                        .unwrap()
+                        .get(orig_path)
+                        .map(|v| v.clone());
                     (headers, None)
                 };
 

@@ -67,7 +67,6 @@ use leptos_router::{
     static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
     RouteListing, SsrMode,
 };
-use parking_lot::RwLock;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
 use std::collections::HashMap;
@@ -75,6 +74,7 @@ use std::collections::HashMap;
 use std::path::Path;
 #[cfg(feature = "default")]
 use std::sync::LazyLock;
+use std::sync::RwLock;
 #[cfg(feature = "default")]
 use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
@@ -127,24 +127,24 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
+        let mut writable = self.0.write().unwrap();
         *writable = parts
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key.
     pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact.
     pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().unwrap();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -167,7 +167,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write();
+        let mut res_options = res_options.0.write().unwrap();
         if let Some(status) = res_options.status {
             *self.0.status_mut() = status;
         }
@@ -1529,7 +1529,7 @@ static STATIC_HEADERS: LazyLock<RwLock<HashMap<String, ResponseOptions>>> =
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
-    let status = resp.0.read().status;
+    let status = resp.0.read().unwrap().status;
 
     if let Some(status) = status {
         return status == StatusCode::NOT_FOUND;
@@ -1559,7 +1559,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.write().insert(path.to_string(), options);
+        STATIC_HEADERS
+            .write()
+            .unwrap()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1636,8 +1639,11 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers =
-                    STATIC_HEADERS.read().get(orig_path).map(|v| v.clone());
+                let headers = STATIC_HEADERS
+                    .read()
+                    .unwrap()
+                    .get(orig_path)
+                    .map(|v| v.clone());
                 (headers, None)
             };
 
