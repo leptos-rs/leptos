@@ -26,9 +26,20 @@ pub fn AutoReload(
             Some(val) => val,
             None => options.reload_port,
         };
+
         let protocol = match options.reload_ws_protocol {
+            leptos_config::ReloadWSProtocol::Auto => "null",
             leptos_config::ReloadWSProtocol::WS => "'ws://'",
             leptos_config::ReloadWSProtocol::WSS => "'wss://'",
+
+            unrecognized => {
+                leptos::logging::error!(
+                    "Unrecognized live reload protocol option '{}'",
+                    unrecognized,
+                );
+
+                "null"
+            }
         };
 
         let script = format!(
