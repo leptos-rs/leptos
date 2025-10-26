@@ -1327,8 +1327,7 @@ where
                     let headers = STATIC_HEADERS
                         .read()
                         .unwrap()
-                        .get(orig_path)
-                        .map(|v| v.clone());
+                        .get(orig_path).cloned();
                     (headers, None)
                 };
 
