@@ -110,10 +110,12 @@ fn effect_base() -> (Receiver, Owner, Arc<RwLock<EffectInner>>) {
     (rx, owner, inner)
 }
 
+#[cfg(debug_assertions)]
 thread_local! {
     static EFFECT_SCOPE_ACTIVE: AtomicBool = const { AtomicBool::new(false) };
 }
 
+#[cfg(debug_assertions)]
 /// Returns whether the current thread is currently running an effect.
 pub fn in_effect_scope() -> bool {
     EFFECT_SCOPE_ACTIVE
@@ -123,14 +125,22 @@ pub fn in_effect_scope() -> bool {
 /// Set a static to true whilst running the given function.
 /// [`is_in_effect_scope`] will return true whilst the function is running.
 fn run_in_effect_scope<T>(fun: impl FnOnce() -> T) -> T {
-    // For the theoretical nested case, set back to initial value rather than false:
-    let initial = EFFECT_SCOPE_ACTIVE
-        .with(|scope| scope.swap(true, std::sync::atomic::Ordering::Relaxed));
-    let result = fun();
-    EFFECT_SCOPE_ACTIVE.with(|scope| {
-        scope.store(initial, std::sync::atomic::Ordering::Relaxed)
-    });
-    result
+    #[cfg(debug_assertions)]
+    {
+        // For the theoretical nested case, set back to initial value rather than false:
+        let initial = EFFECT_SCOPE_ACTIVE.with(|scope| {
+            scope.swap(true, std::sync::atomic::Ordering::Relaxed)
+        });
+        let result = fun();
+        EFFECT_SCOPE_ACTIVE.with(|scope| {
+            scope.store(initial, std::sync::atomic::Ordering::Relaxed)
+        });
+        result
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        fun()
+    }
 }
 
 impl<S> Effect<S>
