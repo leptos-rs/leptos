@@ -89,7 +89,6 @@ actix-web = { default-features = false, version = "4.11.0" }
 tracing = { default-features = false, version = "0.1.41" }
 slotmap = { default-features = false, version = "1.0.7" }
 futures = { default-features = false, version = "0.3.31" }
-dashmap = { default-features = false, version = "6.1.0" }
 pin-project-lite = { default-features = false, version = "0.2.16" }
 send_wrapper = { default-features = false, version = "0.6.0" }
 tokio-test = { default-features = false, version = "0.4.4" }
