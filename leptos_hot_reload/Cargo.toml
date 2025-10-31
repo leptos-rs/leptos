@@ -25,7 +25,6 @@ proc-macro2 = { features = [
   "span-locations",
   "nightly",
 ], workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
 walkdir = { workspace = true, default-features = true }
 camino = { workspace = true, default-features = true }
 indexmap = { workspace = true, default-features = true }

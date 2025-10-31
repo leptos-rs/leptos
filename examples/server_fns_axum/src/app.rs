@@ -422,7 +422,8 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};
-        use dashmap::DashMap;
+        use std::collections::HashMap;
+        use std::sync::Mutex;
         use futures::Stream;
         use std::sync::LazyLock;
 
@@ -432,13 +433,14 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             rx: Receiver<usize>,
         }
 
-        static FILES: LazyLock<DashMap<String, File>> =
-            LazyLock::new(DashMap::new);
+        static FILES: LazyLock<Mutex<Hashmap<String, File>>> =
+            LazyLock::new(|| Mutex::new(HashMap::new()));
 
         pub async fn add_chunk(filename: &str, len: usize) {
             println!("[{filename}]\tadding {len}");
+            let files = FILES.lock().unwrap();
             let mut entry =
-                FILES.entry(filename.to_string()).or_insert_with(|| {
+                files.entry(filename.to_string()).or_insert_with(|| {
                     println!("[{filename}]\tinserting channel");
                     // NOTE: this channel capacity is set arbitrarily for this demo code.
                     // it allows for up to exactly 1048 chunks to be sent, which sets an upper cap
@@ -464,8 +466,9 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         }
 
         pub fn for_file(filename: &str) -> impl Stream<Item = usize> {
+            let files = FILES.lock().unwrap();
             let entry =
-                FILES.entry(filename.to_string()).or_insert_with(|| {
+                files.entry(filename.to_string()).or_insert_with(|| {
                     println!("[{filename}]\tinserting channel");
                     let (tx, rx) = broadcast(128);
                     File { total: 0, tx, rx }
