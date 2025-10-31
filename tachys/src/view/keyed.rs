@@ -8,7 +8,6 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
 };
-use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use std::hash::{BuildHasherDefault, Hash};
@@ -762,8 +761,7 @@ fn apply_diff<T, VFS, V>(
         children[at] = Some((set_index, item));
     }
 
-    #[allow(unstable_name_collisions)]
-    children.drain_filter(|c| c.is_none());
+    children.retain(Option::is_some);
 }
 
 fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
