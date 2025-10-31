@@ -5,8 +5,7 @@ use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, Field, ItemStruct, LitStr, Meta, Type,
-    Visibility,
+    parse::Parse, parse_quote, Field, ItemStruct, LitStr, Type, Visibility,
 };
 
 pub struct Model {
