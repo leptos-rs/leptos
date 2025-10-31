@@ -1,5 +1,5 @@
 use crate::component::{
-    convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
+    convert_from_snake_case, is_option, unwrap_option, Docs,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
@@ -30,19 +30,18 @@ impl Parse for Model {
             .map(Prop::new)
             .collect::<Vec<_>>();
 
-        // We need to remove the `#[doc = ""]` and `#[builder(_)]`
-        // attrs from the function signature
-        drain_filter(&mut item.attrs, |attr| match &attr.meta {
-            Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-            Meta::List(attr) => attr.path == parse_quote!(prop),
-            _ => false,
-        });
+        const DISCARD_ATTRS: &[&str] = &["doc", "prop"];
+
+        let apply_discard = |attr: &syn::Attribute| {
+            !DISCARD_ATTRS
+                .iter()
+                .any(|discardable| attr.path().is_ident(discardable))
+        };
+
+        item.attrs.retain(apply_discard);
+
         item.fields.iter_mut().for_each(|arg| {
-            drain_filter(&mut arg.attrs, |attr| match &attr.meta {
-                Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-                Meta::List(attr) => attr.path == parse_quote!(prop),
-                _ => false,
-            });
+            arg.attrs.retain(apply_discard);
         });
 
         Ok(Self {
