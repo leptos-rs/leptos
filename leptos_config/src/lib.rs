@@ -277,18 +277,14 @@ impl TryFrom<String> for Env {
     }
 }
 
-/// An enum that can be used to define the websocket protocol Leptos uses for hotreloading
-/// Defaults to `ws`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+/// An enum that can be used to define the websocket protocol Leptos uses for hotreloading.
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
+)]
 pub enum ReloadWSProtocol {
+    #[default]
     WS,
     WSS,
-}
-
-impl Default for ReloadWSProtocol {
-    fn default() -> Self {
-        Self::WS
-    }
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
