@@ -43,7 +43,6 @@ tachys = { workspace = true, features = [
 thiserror = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
-typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 server_fn = { workspace = true, features = ["form-redirects", "browser"] }

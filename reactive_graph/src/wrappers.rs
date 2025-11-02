@@ -1118,22 +1118,8 @@ pub mod read {
         }
     }
 
-    #[cfg(not(all(feature = "nightly", rustc_nightly)))]
-    /// On nightly signal types implement `Fn()`,
-    /// so must use negative trait bounds to prevent these implementations for Fn() types
-    /// causing "multiple impl errors" with the signal types themselves.
     trait NotSignalMarker {}
-    #[cfg(not(all(feature = "nightly", rustc_nightly)))]
     impl<T> NotSignalMarker for T {}
-
-    #[cfg(all(feature = "nightly", rustc_nightly))]
-    auto trait NotSignalMarker {}
-
-    #[cfg(all(feature = "nightly", rustc_nightly))]
-    impl<T, S> !NotSignalMarker for Signal<T, S> {}
-
-    #[cfg(all(feature = "nightly", rustc_nightly))]
-    impl<T, S> !NotSignalMarker for ArcSignal<T, S> {}
 
     #[doc(hidden)]
     pub struct __IntoReactiveValueMarkerSignalFromReactiveClosure;
