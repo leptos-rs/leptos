@@ -1971,6 +1971,7 @@ dependencies = [
  "tokio-test",
  "tracing",
  "typed-builder",
+ "typed-builder-macro",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm_split_helpers",
