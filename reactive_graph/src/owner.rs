@@ -340,12 +340,31 @@ impl Owner {
     }
 
     /// Removes this from its state as the thread-local owner and drops it.
+    /// If there are other holders of this owner, it may not cleanup, if always cleaning up is required,
+    /// see [`Owner::unset_with_forced_cleanup`].
     pub fn unset(self) {
         OWNER.with_borrow_mut(|owner| {
             if owner.as_ref().and_then(|n| n.upgrade()) == Some(self) {
                 mem::take(owner);
             }
         })
+    }
+
+    /// Removes this from its state as the thread-local owner and drops it.
+    /// Unlike [`Owner::unset`], this will always run cleanup on this owner,
+    /// even if there are other holders of this owner.
+    pub fn unset_with_forced_cleanup(self) {
+        OWNER.with_borrow_mut(|owner| {
+            if owner
+                .as_ref()
+                .and_then(|n| n.upgrade())
+                .map(|o| o == self)
+                .unwrap_or(false)
+            {
+                mem::take(owner);
+            }
+        });
+        self.cleanup();
     }
 
     /// Returns the current [`SharedContext`], if any.
