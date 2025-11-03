@@ -1059,62 +1059,6 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-#[deprecated = "Use `render_app_async_with_context` instead"]
-pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send + Sync,
-    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
-) -> impl Fn(
-    Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
-where
-    IV: IntoView + 'static,
-{
-    render_app_async_with_context(additional_context, app_fn)
-}
-
-/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` resources have loaded.
-///
-/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
-/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
-/// the data to leptos in a closure. An example is below
-/// ```
-/// use axum::{
-///     body::Body,
-///     extract::Path,
-///     http::Request,
-///     response::{IntoResponse, Response},
-/// };
-/// use leptos::context::provide_context;
-///
-/// async fn custom_handler(
-///     Path(id): Path<String>,
-///     req: Request<Body>,
-/// ) -> Response {
-///     let handler = leptos_axum::render_app_async_with_context(
-///         move || {
-///             provide_context(id.clone());
-///         },
-///         || { /* your application here */ },
-///     );
-///     handler(req).await.into_response()
-/// }
-/// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
-///
-/// ## Provided Context Types
-/// This function always provides context values including the following types:
-/// - [`Parts`]
-/// - [`ResponseOptions`]
-/// - [`ServerMetaContext`]
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(level = "trace", fields(error), skip_all)
-)]
 pub fn render_app_async_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send + Sync,
     app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
