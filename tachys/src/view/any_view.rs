@@ -624,7 +624,10 @@ impl RenderHtml for AnyView {
         {
             _ = cursor;
             _ = position;
-            panic!("the `lazy` feature on `tachys` must be activated to use lazy hydration");
+            panic!(
+                "the `lazy` feature on `tachys` must be activated to use lazy \
+                 hydration"
+            );
         }
         #[cfg(not(feature = "hydrate"))]
         {
