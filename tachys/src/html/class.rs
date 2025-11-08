@@ -57,6 +57,10 @@ where
         _style: &mut String,
         _inner_html: &mut String,
     ) {
+        // If this is a class="..." attribute (not class:name=value), clear previous value
+        if self.class.should_overwrite() {
+            class.clear();
+        }
         class.push(' ');
         self.class.to_html(class);
     }
@@ -155,6 +159,12 @@ pub trait IntoClass: Send {
 
     /// Renders the class to HTML.
     fn to_html(self, class: &mut String);
+
+    /// Whether this class attribute should overwrite previous class values.
+    /// Returns `true` for `class="..."` attributes, `false` for `class:name=value` directives.
+    fn should_overwrite(&self) -> bool {
+        false
+    }
 
     /// Renders the class to HTML for a `<template>`.
     #[allow(unused)] // it's used with `nightly` feature
@@ -289,6 +299,10 @@ impl IntoClass for &str {
         class.push_str(self);
     }
 
+    fn should_overwrite(&self) -> bool {
+        true
+    }
+
     fn hydrate<const FROM_SERVER: bool>(
         self,
         el: &crate::renderer::types::Element,
@@ -344,6 +358,10 @@ impl IntoClass for Cow<'_, str> {
 
     fn to_html(self, class: &mut String) {
         IntoClass::to_html(&*self, class);
+    }
+
+    fn should_overwrite(&self) -> bool {
+        true
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -403,6 +421,10 @@ impl IntoClass for String {
         IntoClass::to_html(self.as_str(), class);
     }
 
+    fn should_overwrite(&self) -> bool {
+        true
+    }
+
     fn hydrate<const FROM_SERVER: bool>(
         self,
         el: &crate::renderer::types::Element,
@@ -458,6 +480,10 @@ impl IntoClass for Arc<str> {
 
     fn to_html(self, class: &mut String) {
         IntoClass::to_html(self.as_ref(), class);
+    }
+
+    fn should_overwrite(&self) -> bool {
+        true
     }
 
     fn hydrate<const FROM_SERVER: bool>(
