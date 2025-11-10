@@ -67,7 +67,7 @@ pub struct AnyView {
     resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Erased),
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
     #[allow(clippy::type_complexity)]
     hydrate_from_server: fn(Erased, &Cursor, &PositionState) -> AnyViewState,
     #[cfg(all(feature = "hydrate", feature = "lazy"))]
@@ -291,7 +291,7 @@ where
             }
         }
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         fn hydrate_from_server<T: RenderHtml + 'static>(
             value: Erased,
             cursor: &Cursor,
@@ -367,7 +367,7 @@ where
             to_html_async: to_html_async::<T::Owned>,
             #[cfg(feature = "ssr")]
             to_html_async_ooo: to_html_async_ooo::<T::Owned>,
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
             hydrate_from_server: hydrate_from_server::<T::Owned>,
             #[cfg(all(feature = "hydrate", feature = "lazy"))]
             hydrate_async: hydrate_async::<T::Owned>,
