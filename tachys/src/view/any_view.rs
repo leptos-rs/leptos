@@ -572,7 +572,7 @@ impl RenderHtml for AnyView {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         {
             if FROM_SERVER {
                 if cfg!(feature = "mark_branches") {
@@ -590,6 +590,14 @@ impl RenderHtml for AnyView {
                      supported."
                 );
             }
+        }
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
+        {
+            _ = cursor;
+            _ = position;
+            panic!(
+                "you have the `lazy` feature enabled, but are using regular hydration; use `hydrate_lazy()` instead"
+            );
         }
         #[cfg(not(feature = "hydrate"))]
         {
