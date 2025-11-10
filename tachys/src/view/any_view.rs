@@ -620,7 +620,7 @@ impl RenderHtml for AnyView {
             }
             state
         }
-        #[cfg(not(all(feature = "hydrate", feature = "lazy")))]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy"))))]
         {
             _ = cursor;
             _ = position;
