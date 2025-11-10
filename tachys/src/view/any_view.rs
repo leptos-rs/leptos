@@ -596,7 +596,8 @@ impl RenderHtml for AnyView {
             _ = cursor;
             _ = position;
             panic!(
-                "you have the `lazy` feature enabled, but are using regular hydration; use `hydrate_lazy()` instead"
+                "you have the `lazy` feature enabled, but are using regular \
+                 hydration; use `hydrate_lazy()` instead"
             );
         }
         #[cfg(not(feature = "hydrate"))]
