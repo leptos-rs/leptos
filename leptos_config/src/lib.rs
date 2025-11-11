@@ -221,16 +221,13 @@ fn env_w_default(
 /// An enum that can be used to define the environment Leptos is running in.
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
+)]
 pub enum Env {
     PROD,
+    #[default]
     DEV,
-}
-
-impl Default for Env {
-    fn default() -> Self {
-        Self::DEV
-    }
 }
 
 fn env_from_str(input: &str) -> Result<Env, LeptosConfigError> {
@@ -279,16 +276,13 @@ impl TryFrom<String> for Env {
 
 /// An enum that can be used to define the websocket protocol Leptos uses for hotreloading
 /// Defaults to `ws`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
+)]
 pub enum ReloadWSProtocol {
+    #[default]
     WS,
     WSS,
-}
-
-impl Default for ReloadWSProtocol {
-    fn default() -> Self {
-        Self::WS
-    }
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {

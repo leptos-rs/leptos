@@ -440,7 +440,14 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             let mut entry =
                 FILES.entry(filename.to_string()).or_insert_with(|| {
                     println!("[{filename}]\tinserting channel");
-                    let (tx, rx) = broadcast(128);
+                    // NOTE: this channel capacity is set arbitrarily for this demo code.
+                    // it allows for up to exactly 1048 chunks to be sent, which sets an upper cap
+                    // on upload size (the precise details vary by client)
+                    // in a real system, you will want to create some more reasonable ways of
+                    // sending and sharing notifications
+                    //
+                    // see https://github.com/leptos-rs/leptos/issues/4397 for related discussion
+                    let (tx, rx) = broadcast(1048);
                     File { total: 0, tx, rx }
                 });
             entry.total += len;

@@ -121,7 +121,7 @@ pub trait ExtendResponse: Sized {
                     // drop the owner, cleaning up the reactive runtime,
                     // once the stream is over
                     .chain(once(async move {
-                        owner.unset();
+                        owner.unset_with_forced_cleanup();
                         Default::default()
                     })),
             ));
