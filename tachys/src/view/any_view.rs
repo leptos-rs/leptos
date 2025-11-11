@@ -593,12 +593,11 @@ impl RenderHtml for AnyView {
         }
         #[cfg(all(feature = "hydrate", feature = "lazy"))]
         {
-            _ = cursor;
-            _ = position;
-            panic!(
-                "you have the `lazy` feature enabled, but are using regular \
-                 hydration; use `hydrate_lazy()` instead"
-            );
+            use futures::FutureExt;
+
+            (self.hydrate_async)(self.value, cursor, position)
+                .now_or_never()
+                .unwrap()
         }
         #[cfg(not(feature = "hydrate"))]
         {
