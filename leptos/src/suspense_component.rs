@@ -13,9 +13,12 @@ use reactive_graph::{
         ArcMemo, ScopedFuture,
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, Owner},
+    owner::{provide_context, use_context, ArcStoredValue, Owner, StoredValue},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Notify, Read, Track, With, WriteValue},
+    traits::{
+        Dispose, Get, GetValue, Notify, Read, ReadUntracked, SetValue, Track,
+        With, WriteValue,
+    },
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
@@ -327,8 +330,12 @@ where
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             let children = Arc::clone(&children);
             move |double_checking: Option<bool>| {
-                tasks.track();
-                if let Some(curr_tasks) = tasks.try_read() {
+                // on the first run, always track the tasks
+                if double_checking.is_none() {
+                    tasks.track();
+                }
+
+                if let Some(curr_tasks) = tasks.try_read_untracked() {
                     if curr_tasks.is_empty() {
                         if double_checking == Some(true) {
                             // we have finished loading, and checking the children again told us there are
@@ -352,11 +359,28 @@ where
                             {
                                 children.dry_resolve();
                             }
-                            // ensure that the double-check effect runs, even if no no resources were read
-                            tasks.notify();
+
+                            if tasks
+                                .try_read()
+                                .map(|n| n.is_empty())
+                                .unwrap_or(false)
+                            {
+                                // there are no additional pending tasks, and we can simply return
+                                if let Some(tx) = tasks_tx.take() {
+                                    // If the receiver has dropped, it means the ScopedFuture has already
+                                    // dropped, so it doesn't matter if we manage to send this.
+                                    _ = tx.send(());
+                                }
+                                if let Some(tx) = notify_error_boundary.take() {
+                                    _ = tx.send(());
+                                }
+                            }
+
                             // tell ourselves that we're just double-checking
                             return true;
                         }
+                    } else {
+                        tasks.track();
                     }
                 }
                 false
