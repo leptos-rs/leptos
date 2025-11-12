@@ -15,7 +15,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, Track, With, WriteValue},
+    traits::{Dispose, Get, Notify, Read, Track, With, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
@@ -328,8 +328,8 @@ where
             let children = Arc::clone(&children);
             move |double_checking: Option<bool>| {
                 tasks.track();
-                if let Some(tasks) = tasks.try_read() {
-                    if tasks.is_empty() {
+                if let Some(curr_tasks) = tasks.try_read() {
+                    if curr_tasks.is_empty() {
                         if double_checking == Some(true) {
                             // we have finished loading, and checking the children again told us there are
                             // no more pending tasks. so we can render both the children and the error boundary
@@ -344,18 +344,16 @@ where
                             }
                         } else {
                             // release the read guard on tasks, as we'll be updating it again
-                            drop(tasks);
+                            drop(curr_tasks);
                             // check the children for additional pending tasks
                             // the will catch additional resource reads nested inside a conditional depending on initial resource reads
-                            children
-                                .lock()
-                                .or_poisoned()
-                                .as_mut()
-                                .expect(
-                                    "children should not be removed until we \
-                                     notify later",
-                                )
-                                .dry_resolve();
+                            if let Some(children) =
+                                children.lock().or_poisoned().as_mut()
+                            {
+                                children.dry_resolve();
+                            }
+                            // ensure that the double-check effect runs, even if no no resources were read
+                            tasks.notify();
                             // tell ourselves that we're just double-checking
                             return true;
                         }
