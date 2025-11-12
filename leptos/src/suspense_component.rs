@@ -13,12 +13,9 @@ use reactive_graph::{
         ArcMemo, ScopedFuture,
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, ArcStoredValue, Owner, StoredValue},
+    owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{
-        Dispose, Get, GetValue, Notify, Read, ReadUntracked, SetValue, Track,
-        With, WriteValue,
-    },
+    traits::{Dispose, Get, Read, ReadUntracked, Track, With, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
