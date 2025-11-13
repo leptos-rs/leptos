@@ -575,14 +575,8 @@ impl RenderHtml for AnyView {
         #[cfg(feature = "hydrate")]
         {
             if FROM_SERVER {
-                if cfg!(feature = "mark_branches") {
-                    cursor.advance_to_placeholder(position);
-                }
                 let state =
                     (self.hydrate_from_server)(self.value, cursor, position);
-                if cfg!(feature = "mark_branches") {
-                    cursor.advance_to_placeholder(position);
-                }
                 state
             } else {
                 panic!(
@@ -609,14 +603,8 @@ impl RenderHtml for AnyView {
     ) -> Self::State {
         #[cfg(feature = "hydrate")]
         {
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             let state =
                 (self.hydrate_async)(self.value, cursor, position).await;
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             state
         }
         #[cfg(not(feature = "hydrate"))]

@@ -411,9 +411,6 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
         let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
@@ -422,9 +419,6 @@ where
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
         };
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
         state
     }
 
@@ -433,9 +427,6 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
         let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate_async(cursor, position).await)
@@ -444,9 +435,6 @@ where
                 Either::Right(right.hydrate_async(cursor, position).await)
             }
         };
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
         state
     }
 
@@ -973,17 +961,11 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
 
                     Self::State { state }
                 }
@@ -993,17 +975,11 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate_async(cursor, position).await)
                         })*
                     };
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
 
                     Self::State { state }
                 }
