@@ -7,6 +7,7 @@ use std::cell::Cell;
 use std::{cell::RefCell, panic::Location, rc::Rc};
 use web_sys::{Comment, Element, Node, Text};
 
+#[cfg(feature = "mark_branches")]
 const COMMENT_NODE: u16 = 8;
 
 /// Hydration works by walking over the DOM, adding interactivity as needed.
