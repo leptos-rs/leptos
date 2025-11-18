@@ -6,6 +6,7 @@ use crate::{
 use futures::{channel::oneshot, select, FutureExt};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
         suspense::{LocalResourceNotifier, SuspenseContext},
@@ -14,10 +15,10 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, Track, With, WriteValue},
+    traits::{Dispose, Get, Read, ReadUntracked, Track, With, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tachys::{
     either::Either,
     html::attribute::{any_attribute::AnyAttribute, Attribute},
@@ -320,23 +321,66 @@ where
 
         // walk over the tree of children once to make sure that all resource loads are registered
         self.children.dry_resolve();
+        let children = Arc::new(Mutex::new(Some(self.children)));
 
         // check the set of tasks to see if it is empty, now or later
         let eff = reactive_graph::effect::Effect::new_isomorphic({
-            move |_| {
-                tasks.track();
-                if let Some(tasks) = tasks.try_read() {
-                    if tasks.is_empty() {
-                        if let Some(tx) = tasks_tx.take() {
-                            // If the receiver has dropped, it means the ScopedFuture has already
-                            // dropped, so it doesn't matter if we manage to send this.
-                            _ = tx.send(());
+            let children = Arc::clone(&children);
+            move |double_checking: Option<bool>| {
+                // on the first run, always track the tasks
+                if double_checking.is_none() {
+                    tasks.track();
+                }
+
+                if let Some(curr_tasks) = tasks.try_read_untracked() {
+                    if curr_tasks.is_empty() {
+                        if double_checking == Some(true) {
+                            // we have finished loading, and checking the children again told us there are
+                            // no more pending tasks. so we can render both the children and the error boundary
+
+                            if let Some(tx) = tasks_tx.take() {
+                                // If the receiver has dropped, it means the ScopedFuture has already
+                                // dropped, so it doesn't matter if we manage to send this.
+                                _ = tx.send(());
+                            }
+                            if let Some(tx) = notify_error_boundary.take() {
+                                _ = tx.send(());
+                            }
+                        } else {
+                            // release the read guard on tasks, as we'll be updating it again
+                            drop(curr_tasks);
+                            // check the children for additional pending tasks
+                            // the will catch additional resource reads nested inside a conditional depending on initial resource reads
+                            if let Some(children) =
+                                children.lock().or_poisoned().as_mut()
+                            {
+                                children.dry_resolve();
+                            }
+
+                            if tasks
+                                .try_read()
+                                .map(|n| n.is_empty())
+                                .unwrap_or(false)
+                            {
+                                // there are no additional pending tasks, and we can simply return
+                                if let Some(tx) = tasks_tx.take() {
+                                    // If the receiver has dropped, it means the ScopedFuture has already
+                                    // dropped, so it doesn't matter if we manage to send this.
+                                    _ = tx.send(());
+                                }
+                                if let Some(tx) = notify_error_boundary.take() {
+                                    _ = tx.send(());
+                                }
+                            }
+
+                            // tell ourselves that we're just double-checking
+                            return true;
                         }
-                        if let Some(tx) = notify_error_boundary.take() {
-                            _ = tx.send(());
-                        }
+                    } else {
+                        tasks.track();
                     }
                 }
+                false
             }
         });
 
@@ -362,12 +406,17 @@ where
                         None
                     }
                     _ = tasks_rx => {
+                        let children = {
+                            let mut children_lock = children.lock().or_poisoned();
+                            children_lock.take().expect("children should not be removed until we render here")
+                        };
+
                         // if we ran this earlier, reactive reads would always be registered as None
                         // this is fine in the case where we want to use Suspend and .await on some future
                         // but in situations like a <For each=|| some_resource.snapshot()/> we actually
                         // want to be able to 1) synchronously read a resource's value, but still 2) wait
                         // for it to load before we render everything
-                        let mut children = Box::pin(self.children.resolve().fuse());
+                        let mut children = Box::pin(children.resolve().fuse());
 
                         // we continue racing the children against the "do we have any local
                         // resources?" Future
