@@ -302,6 +302,22 @@ impl RenderHtml for InertElement {
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
+
+        // if it's a comment node that starts with hot-reload, it's a marker that should be
+        // ignored
+        #[cfg(debug_assertions)]
+        {
+            let node = cursor.current();
+            if node.node_type() == 8
+                && node
+                    .text_content()
+                    .unwrap_or_default()
+                    .starts_with("hot-reload")
+            {
+                cursor.sibling();
+            }
+        }
+
         let el = crate::renderer::types::Element::cast_from(cursor.current())
             .unwrap();
         position.set(Position::NextChild);
