@@ -22,7 +22,7 @@ where
 {
     Property {
         key,
-        value: Some(SendWrapper::new(value)),
+        value: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(value)),
     }
 }
 
@@ -115,13 +115,7 @@ where
         }
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.value.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
