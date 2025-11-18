@@ -575,9 +575,7 @@ impl RenderHtml for AnyView {
         #[cfg(feature = "hydrate")]
         {
             if FROM_SERVER {
-                let state =
-                    (self.hydrate_from_server)(self.value, cursor, position);
-                state
+                (self.hydrate_from_server)(self.value, cursor, position)
             } else {
                 panic!(
                     "hydrating AnyView from inside a ViewTemplate is not \
