@@ -411,15 +411,14 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let state = match self {
+        match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
-        };
-        state
+        }
     }
 
     async fn hydrate_async(
@@ -427,15 +426,14 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let state = match self {
+        match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate_async(cursor, position).await)
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate_async(cursor, position).await)
             }
-        };
-        state
+        }
     }
 
     fn into_owned(self) -> Self::Owned {
