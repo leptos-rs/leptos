@@ -322,10 +322,6 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
-
         // get parent and position
         let current = cursor.current();
         let parent = if position.get() == Position::FirstChild {
@@ -346,21 +342,11 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
-
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
 
         KeyedState {
             parent: Some(parent),
@@ -375,10 +361,6 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
-
         // get parent and position
         let current = cursor.current();
         let parent = if position.get() == Position::FirstChild {
@@ -399,21 +381,11 @@ where
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             let item = view.hydrate_async(cursor, position).await;
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
         position.set(Position::NextChild);
-
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
 
         KeyedState {
             parent: Some(parent),
