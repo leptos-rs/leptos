@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
   # utilities
-  "oco",
   "any_spawner",
   "const_str_slice_concat",
   "either_of",
