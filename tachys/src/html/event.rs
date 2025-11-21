@@ -113,7 +113,7 @@ where
         event,
         #[cfg(feature = "reactive_graph")]
         owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
-        cb: Some(SendWrapper::new(cb)),
+        cb: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(cb)),
     }
 }
 
@@ -352,13 +352,7 @@ where
         }
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.cb.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

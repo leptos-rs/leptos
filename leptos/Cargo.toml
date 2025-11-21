@@ -1,9 +1,10 @@
 [package]
 name = "leptos"
-version = "0.8.10"
+version = "0.8.12"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
+homepage = "https://leptos.dev/"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
 rust-version.workspace = true
@@ -57,7 +58,7 @@ serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-wasm_split_helpers.workspace = true
+wasm_split_helpers = { workspace = true, default-features = true }
 subsecond = { workspace = true, default-features = true, optional = true }
 dioxus-cli-config = { workspace = true, default-features = true, optional = true }
 dioxus-devtools = { workspace = true, default-features = true, optional = true }
@@ -88,6 +89,12 @@ ssr = [
 ]
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
 rkyv = ["server_fn/rkyv", "leptos_server/rkyv"]
+bitcode = ["server_fn/bitcode"]
+serde-lite = ["server_fn/serde-lite", "leptos_server/serde-lite"]
+cbor = ["server_fn/cbor"]
+msgpack = ["server_fn/msgpack"]
+postcard = ["server_fn/postcard"]
+multipart = ["server_fn/multipart"]
 tracing = [
   "dep:tracing",
   "reactive_graph/tracing",
@@ -147,13 +154,18 @@ denylist = [
   "trace-component-props",
   "spin",
   "islands",
+  "bitcode",
+  "serde-lite",
+  "cbor",
+  "msgpack",
+  "postcard",
+  "multipart",
 ]
 skip_feature_sets = [
   ["csr", "ssr"],
   ["csr", "hydrate"],
   ["ssr", "hydrate"],
   ["serde", "serde-lite"],
-  ["serde-lite", "miniserde"],
   ["serde", "miniserde"],
   ["serde", "rkyv"],
   ["miniserde", "rkyv"],
