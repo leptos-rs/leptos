@@ -4659,46 +4659,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
-<<<<<<< HEAD
-<<<<<<< HEAD
  "windows-sys 0.61.0",
-||||||| parent of 88996843 (Updates:)
- "windows-sys 0.52.0",
-=======
-||||||| parent of 8f514196 (Fix conflicts)
-=======
->>>>>>> 8f514196 (Fix conflicts)
-<<<<<<< HEAD
- "windows-sys 0.52.0",
-||||||| parent of e8f56d4f (Updates:)
- "windows-sys 0.61.0",
-=======
-<<<<<<< HEAD
-||||||| parent of 279abd38 (Fix conflicts)
-<<<<<<< HEAD
-=======
->>>>>>> 279abd38 (Fix conflicts)
- "windows-sys 0.61.0",
-<<<<<<< HEAD
-||||||| parent of 97259a60 (Updates:)
- "windows-sys 0.52.0",
-=======
- "windows-sys 0.60.2",
->>>>>>> 97259a60 (Updates:)
->>>>>>> e8f56d4f (Updates:)
-<<<<<<< HEAD
->>>>>>> 88996843 (Updates:)
-||||||| parent of 8f514196 (Fix conflicts)
-=======
-||||||| parent of 279abd38 (Fix conflicts)
-||||||| parent of 97259a60 (Updates:)
- "windows-sys 0.52.0",
-=======
- "windows-sys 0.60.2",
->>>>>>> 97259a60 (Updates:)
-=======
->>>>>>> 279abd38 (Fix conflicts)
->>>>>>> 8f514196 (Fix conflicts)
 ]
 
 [[package]]
