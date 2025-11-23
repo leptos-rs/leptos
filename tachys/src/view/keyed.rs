@@ -614,11 +614,16 @@ struct DiffOpRemove {
     at: usize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DiffOpAddMode {
-    #[default]
     Normal,
     Append,
+}
+
+impl Default for DiffOpAddMode {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 fn apply_diff<T, VFS, V>(
