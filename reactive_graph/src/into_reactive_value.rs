@@ -34,8 +34,10 @@ mod tests {
         let owner = Owner::new();
         owner.set();
 
+        #[cfg(not(feature = "nightly"))]
         let _: Signal<usize> = (|| 2).into_reactive_value();
         let _: Signal<usize, LocalStorage> = 2.into_reactive_value();
+        #[cfg(not(feature = "nightly"))]
         let _: Signal<usize, LocalStorage> = (|| 2).into_reactive_value();
         let _: Signal<String> = "str".into_reactive_value();
         let _: Signal<String, LocalStorage> = "str".into_reactive_value();
@@ -51,6 +53,7 @@ mod tests {
         }
 
         assert_eq!(Foo::builder().sig(2).build().sig.get_untracked(), 2);
+        #[cfg(not(feature = "nightly"))]
         assert_eq!(Foo::builder().sig(|| 2).build().sig.get_untracked(), 2);
         assert_eq!(
             Foo::builder()

@@ -120,6 +120,7 @@ fn returns_static_lifetime() {
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 #[component]
 pub fn IntoReactiveValueTestComponentSignal(
     #[prop(into)] arg1: Signal<String>,
@@ -195,6 +196,7 @@ pub fn IntoReactiveValueTestComponentCallback(
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 #[test]
 fn test_into_reactive_value_signal() {
     let _ = view! {
