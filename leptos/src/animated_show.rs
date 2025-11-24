@@ -46,6 +46,8 @@ use tachys::prelude::*;
 /// }
 /// # }
 /// ```
+///
+/// Please note, that unlike `Show`, `AnimatedShow` does not support a `fallback` prop.
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn AnimatedShow(
