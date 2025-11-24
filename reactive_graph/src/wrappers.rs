@@ -324,6 +324,22 @@ pub mod read {
         }
     }
 
+    impl<S> From<&'static str> for ArcSignal<String, S>
+    where
+        S: Storage<&'static str> + Storage<String>,
+    {
+        #[track_caller]
+        fn from(value: &'static str) -> Self {
+            Self {
+                inner: SignalTypes::Stored(ArcStoredValue::new(
+                    value.to_string(),
+                )),
+                #[cfg(any(debug_assertions, leptos_debuginfo))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
     impl<T, S> DefinedAt for ArcSignal<T, S>
     where
         S: Storage<T>,
@@ -1049,6 +1065,13 @@ pub mod read {
         }
     }
 
+    impl From<Signal<&'static str, LocalStorage>> for Signal<String, LocalStorage> {
+        #[track_caller]
+        fn from(value: Signal<&'static str, LocalStorage>) -> Self {
+            Signal::derive_local(move || value.read().to_string())
+        }
+    }
+
     impl From<Signal<&'static str>> for Signal<String, LocalStorage> {
         #[track_caller]
         fn from(value: Signal<&'static str>) -> Self {
@@ -1077,12 +1100,207 @@ pub mod read {
         }
     }
 
+    impl From<Signal<Option<&'static str>, LocalStorage>>
+        for Signal<Option<String>, LocalStorage>
+    {
+        #[track_caller]
+        fn from(value: Signal<Option<&'static str>, LocalStorage>) -> Self {
+            Signal::derive_local(move || value.read().map(str::to_string))
+        }
+    }
+
     impl From<Signal<Option<&'static str>>>
         for Signal<Option<String>, LocalStorage>
     {
         #[track_caller]
         fn from(value: Signal<Option<&'static str>>) -> Self {
             Signal::derive_local(move || value.read().map(str::to_string))
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    #[doc(hidden)]
+    pub struct __IntoReactiveValueMarkerSignalFromReactiveClosure;
+    #[cfg(not(feature = "nightly"))]
+    #[doc(hidden)]
+    pub struct __IntoReactiveValueMarkerSignalStrOutputToString;
+    #[cfg(not(feature = "nightly"))]
+    #[doc(hidden)]
+    pub struct __IntoReactiveValueMarkerOptionalSignalFromReactiveClosureAlways;
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            Signal<T, SyncStorage>,
+            __IntoReactiveValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<T, SyncStorage> {
+            Signal::derive(self)
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            ArcSignal<T, SyncStorage>,
+            __IntoReactiveValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<T, SyncStorage> {
+            ArcSignal::derive(self)
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            Signal<T, LocalStorage>,
+            __IntoReactiveValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<T, LocalStorage> {
+            Signal::derive_local(self)
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            ArcSignal<T, LocalStorage>,
+            __IntoReactiveValueMarkerSignalFromReactiveClosure,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<T, LocalStorage> {
+            ArcSignal::derive_local(self)
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<F>
+        crate::IntoReactiveValue<
+            Signal<String, SyncStorage>,
+            __IntoReactiveValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<String, SyncStorage> {
+            Signal::derive(move || self().to_string())
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<F>
+        crate::IntoReactiveValue<
+            ArcSignal<String, SyncStorage>,
+            __IntoReactiveValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<String, SyncStorage> {
+            ArcSignal::derive(move || self().to_string())
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<F>
+        crate::IntoReactiveValue<
+            Signal<String, LocalStorage>,
+            __IntoReactiveValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<String, LocalStorage> {
+            Signal::derive_local(move || self().to_string())
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<F>
+        crate::IntoReactiveValue<
+            ArcSignal<String, LocalStorage>,
+            __IntoReactiveValueMarkerSignalStrOutputToString,
+        > for F
+    where
+        F: Fn() -> &'static str + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<String, LocalStorage> {
+            ArcSignal::derive_local(move || self().to_string())
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            Signal<Option<T>, SyncStorage>,
+            __IntoReactiveValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<Option<T>, SyncStorage> {
+            Signal::derive(move || Some(self()))
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            ArcSignal<Option<T>, SyncStorage>,
+            __IntoReactiveValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: Send + Sync + 'static,
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<Option<T>, SyncStorage> {
+            ArcSignal::derive(move || Some(self()))
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            Signal<Option<T>, LocalStorage>,
+            __IntoReactiveValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_reactive_value(self) -> Signal<Option<T>, LocalStorage> {
+            Signal::derive_local(move || Some(self()))
+        }
+    }
+
+    #[cfg(not(feature = "nightly"))]
+    impl<T, F>
+        crate::IntoReactiveValue<
+            ArcSignal<Option<T>, LocalStorage>,
+            __IntoReactiveValueMarkerOptionalSignalFromReactiveClosureAlways,
+        > for F
+    where
+        T: 'static,
+        F: Fn() -> T + 'static,
+    {
+        fn into_reactive_value(self) -> ArcSignal<Option<T>, LocalStorage> {
+            ArcSignal::derive_local(move || Some(self()))
         }
     }
 
