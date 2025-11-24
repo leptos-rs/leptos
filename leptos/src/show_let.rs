@@ -100,8 +100,7 @@ where
         let children = children.clone();
         let fallback = fallback.clone();
 
-        some
-            .get()
+        some.get()
             .map(move |t| Either::Left(children(t)))
             .unwrap_or_else(move || Either::Right(fallback.run()))
     }
