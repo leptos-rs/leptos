@@ -1920,7 +1920,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.12"
+version = "0.8.13"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2004,7 +2004,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "any_spawner",
  "axum",
@@ -2027,7 +2027,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "config",
  "regex",
@@ -2074,7 +2074,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "futures",
  "hydration_context",
@@ -2131,7 +2131,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.8.9"
+version = "0.8.10"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2915,7 +2915,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -3793,7 +3793,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "any_spawner",
  "async-trait",
