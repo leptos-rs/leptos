@@ -1,7 +1,6 @@
 use crate::{children::ViewFn, IntoView};
 use leptos_macro::component;
-use reactive_graph::traits::Get;
-use std::{marker::PhantomData, sync::Arc};
+use reactive_graph::{traits::Get, wrappers::read::Signal};
 use tachys::either::Either;
 
 /// Like `<Show>` but for `Option`. This is a shortcut for
@@ -82,7 +81,7 @@ pub fn ShowLet<T, ChFn, V>(
     /// If the value is `Some`, the children will be shown.
     /// Otherwise the fallback will be shown, if present.
     #[prop(into)]
-    some: Signal<T>,
+    some: Signal<Option<T>>,
 
     /// A closure that returns what gets rendered when the value is `None`.
     /// By default this is the empty view.
@@ -94,14 +93,13 @@ pub fn ShowLet<T, ChFn, V>(
 where
     ChFn: Fn(T) -> V + Send + Clone + 'static,
     V: IntoView + 'static,
-    T: 'static,
+    T: Clone + Send + Sync + 'static,
 {
     move || {
         let children = children.clone();
         let fallback = fallback.clone();
 
-        some
-            .get()
+        some.get()
             .map(move |t| Either::Left(children(t)))
             .unwrap_or_else(move || Either::Right(fallback.run()))
     }
