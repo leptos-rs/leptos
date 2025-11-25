@@ -1,4 +1,4 @@
-use super::{ArcAsyncDerived, AsyncDerivedReadyFuture, BlockingLock};
+use super::{ArcAsyncDerived, AsyncDerivedReadyFuture};
 use crate::{
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
@@ -14,6 +14,7 @@ use crate::{
     unwrap_signal,
 };
 use core::fmt::Debug;
+use guardian::ArcRwLockWriteGuardian;
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
@@ -350,7 +351,7 @@ where
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         let guard = self
             .inner
-            .try_with_value(|n| n.value.blocking_write_arc())?;
+            .try_with_value(|n| ArcRwLockWriteGuardian::take(n.value.clone()).unwrap())?;
 
         self.inner.try_with_value(|n| {
             let mut guard = n.inner.write().or_poisoned();
@@ -383,7 +384,7 @@ where
         });
 
         self.inner
-            .try_with_value(|n| n.value.blocking_write_arc())
+            .try_with_value(|n|  ArcRwLockWriteGuardian::take(n.value.clone()).unwrap())
             .map(|inner| {
                 MappedMut::new(inner, |v| v.deref(), |v| v.deref_mut())
             })

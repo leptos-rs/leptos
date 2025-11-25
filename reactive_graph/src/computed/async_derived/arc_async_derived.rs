@@ -24,7 +24,6 @@ use crate::{
     },
     transition::AsyncTransition,
 };
-use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
@@ -109,75 +108,11 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<AsyncRwLock<SendOption<T>>>,
+    pub(crate) value: Arc<RwLock<SendOption<T>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
     pub(crate) loading: Arc<AtomicBool>,
-}
-
-#[allow(dead_code)]
-pub(crate) trait BlockingLock<T> {
-    fn blocking_read_arc(self: &Arc<Self>)
-        -> async_lock::RwLockReadGuardArc<T>;
-
-    fn blocking_write_arc(
-        self: &Arc<Self>,
-    ) -> async_lock::RwLockWriteGuardArc<T>;
-
-    fn blocking_read(&self) -> async_lock::RwLockReadGuard<'_, T>;
-
-    fn blocking_write(&self) -> async_lock::RwLockWriteGuard<'_, T>;
-}
-
-impl<T> BlockingLock<T> for AsyncRwLock<T> {
-    fn blocking_read_arc(
-        self: &Arc<Self>,
-    ) -> async_lock::RwLockReadGuardArc<T> {
-        #[cfg(not(target_family = "wasm"))]
-        {
-            self.read_arc_blocking()
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            self.read_arc().now_or_never().unwrap()
-        }
-    }
-
-    fn blocking_write_arc(
-        self: &Arc<Self>,
-    ) -> async_lock::RwLockWriteGuardArc<T> {
-        #[cfg(not(target_family = "wasm"))]
-        {
-            self.write_arc_blocking()
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            self.write_arc().now_or_never().unwrap()
-        }
-    }
-
-    fn blocking_read(&self) -> async_lock::RwLockReadGuard<'_, T> {
-        #[cfg(not(target_family = "wasm"))]
-        {
-            self.read_blocking()
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            self.read().now_or_never().unwrap()
-        }
-    }
-
-    fn blocking_write(&self) -> async_lock::RwLockWriteGuard<'_, T> {
-        #[cfg(not(target_family = "wasm"))]
-        {
-            self.write_blocking()
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            self.write().now_or_never().unwrap()
-        }
-    }
 }
 
 impl<T> Clone for ArcAsyncDerived<T> {
@@ -237,7 +172,7 @@ macro_rules! spawn_derived {
             suspenses: Vec::new(),
             pending_suspenses: Vec::new()
         }));
-        let value = Arc::new(AsyncRwLock::new($initial));
+        let value = Arc::new(RwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
 
         let this = ArcAsyncDerived {
@@ -280,7 +215,7 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.state = AsyncDerivedState::Clean;
-                        *value.blocking_write() = orig_value;
+                        *value.write().unwrap() = orig_value;
                         this.loading.store(false, Ordering::Relaxed);
                         (true, None)
                     }
@@ -409,13 +344,13 @@ macro_rules! spawn_derived {
 impl<T: 'static> ArcAsyncDerived<T> {
     async fn set_inner_value(
         new_value: SendOption<T>,
-        value: Arc<AsyncRwLock<SendOption<T>>>,
+        value: Arc<RwLock<SendOption<T>>>,
         wakers: Arc<RwLock<Vec<Waker>>>,
         inner: Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        *value.write().await.deref_mut() = new_value;
+        *value.write().unwrap() = new_value;
         Self::notify_subs(&wakers, &inner, &loading, ready_tx);
     }
 
@@ -669,7 +604,7 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
         drop(mem::take(&mut guard.pending_suspenses));
 
         Some(MappedMut::new(
-            WriteGuard::new(self.clone(), self.value.blocking_write()),
+            WriteGuard::new(self.clone(), self.value.write().unwrap()),
             |v| v.deref(),
             |v| v.deref_mut(),
         ))
@@ -687,7 +622,7 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
         drop(mem::take(&mut guard.pending_suspenses));
 
         Some(MappedMut::new(
-            self.value.blocking_write(),
+            self.value.write().unwrap(),
             |v| v.deref(),
             |v| v.deref_mut(),
         ))
