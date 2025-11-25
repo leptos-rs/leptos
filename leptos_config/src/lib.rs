@@ -10,6 +10,31 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
+macro_rules! read_env_config {
+    ($key:expr) => {
+        match ::std::env::var($key) {
+            Ok(val) => Ok(Some(val)),
+            Err(::std::env::VarError::NotPresent) => {
+                Ok(option_env!($key).map(ToString::to_string))
+            }
+            Err(e) => Err($crate::errors::LeptosConfigError::EnvVarError(
+                format!("{}: {e}", $key),
+            )),
+        }
+    };
+    ($key:expr, $default:expr) => {
+        match std::env::var($key) {
+            Ok(val) => Ok(val),
+            Err(::std::env::VarError::NotPresent) => {
+                Ok(option_env!($key).unwrap_or($default).to_string())
+            }
+            Err(e) => Err($crate::errors::LeptosConfigError::EnvVarError(
+                format!("{}: {e}", $key),
+            )),
+        }
+    };
+}
+
 /// A Struct to allow us to parse LeptosOptions from the file. Not really needed, most interactions should
 /// occur with LeptosOptions
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -122,10 +147,7 @@ pub struct LeptosOptions {
 
 impl LeptosOptions {
     fn try_from_env() -> Result<Self, LeptosConfigError> {
-        let output_name = env_w_default(
-            "LEPTOS_OUTPUT_NAME",
-            std::option_env!("LEPTOS_OUTPUT_NAME",).unwrap_or_default(),
-        )?;
+        let output_name = read_env_config!("LEPTOS_OUTPUT_NAME", "")?;
         if output_name.is_empty() {
             eprintln!(
                 "It looks like you're trying to compile Leptos without the \
@@ -139,31 +161,35 @@ impl LeptosOptions {
         }
         Ok(LeptosOptions {
             output_name: output_name.into(),
-            site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
-            site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?.into(),
-            env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
-            site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
+            site_root: read_env_config!("LEPTOS_SITE_ROOT", "target/site")?
+                .into(),
+            site_pkg_dir: read_env_config!("LEPTOS_SITE_PKG_DIR", "pkg")?
+                .into(),
+            env: env_from_str(read_env_config!("LEPTOS_ENV", "DEV")?.as_str())?,
+            site_addr: read_env_config!("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
-            reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
+            reload_port: read_env_config!("LEPTOS_RELOAD_PORT", "3001")?
                 .parse()?,
-            reload_external_port: match env_wo_default(
-                "LEPTOS_RELOAD_EXTERNAL_PORT",
+            reload_external_port: match read_env_config!(
+                "LEPTOS_RELOAD_EXTERNAL_PORT"
             )? {
                 Some(val) => Some(val.parse()?),
                 None => None,
             },
             reload_ws_protocol: ws_from_str(
-                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+                read_env_config!("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
             )?,
-            not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?
+            not_found_path: read_env_config!("LEPTOS_NOT_FOUND_PATH", "/404")?
                 .into(),
-            hash_file: env_w_default("LEPTOS_HASH_FILE_NAME", "hash.txt")?
+            hash_file: read_env_config!("LEPTOS_HASH_FILE_NAME", "hash.txt")?
                 .into(),
-            hash_files: env_w_default("LEPTOS_HASH_FILES", "false")?.parse()?,
-            server_fn_prefix: env_wo_default("SERVER_FN_PREFIX")?,
-            disable_server_fn_hash: env_wo_default("DISABLE_SERVER_FN_HASH")?
+            hash_files: read_env_config!("LEPTOS_HASH_FILES", "false")?
+                .parse()?,
+            server_fn_prefix: read_env_config!("SERVER_FN_PREFIX")?,
+            disable_server_fn_hash: read_env_config!("DISABLE_SERVER_FN_HASH")?
                 .is_some(),
-            server_fn_mod_path: env_wo_default("SERVER_FN_MOD_PATH")?.is_some(),
+            server_fn_mod_path: read_env_config!("SERVER_FN_MOD_PATH")?
+                .is_some(),
         })
     }
 }
@@ -198,24 +224,6 @@ fn default_hash_file_name() -> Arc<str> {
 
 fn default_hash_files() -> bool {
     false
-}
-
-fn env_wo_default(key: &str) -> Result<Option<String>, LeptosConfigError> {
-    match std::env::var(key) {
-        Ok(val) => Ok(Some(val)),
-        Err(VarError::NotPresent) => Ok(None),
-        Err(e) => Err(LeptosConfigError::EnvVarError(format!("{key}: {e}"))),
-    }
-}
-fn env_w_default(
-    key: &str,
-    default: &str,
-) -> Result<String, LeptosConfigError> {
-    match std::env::var(key) {
-        Ok(val) => Ok(val),
-        Err(VarError::NotPresent) => Ok(default.to_string()),
-        Err(e) => Err(LeptosConfigError::EnvVarError(format!("{key}: {e}"))),
-    }
 }
 
 /// An enum that can be used to define the environment Leptos is running in.
