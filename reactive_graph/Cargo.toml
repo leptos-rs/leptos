@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.9"
+version = "0.2.11"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -29,6 +29,7 @@ send_wrapper = { features = [
 ], workspace = true, default-features = true }
 subsecond = { workspace = true, default-features = true, optional = true }
 indexmap = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 web-sys = { version = "0.3.77", features = ["console"] }
@@ -40,6 +41,7 @@ tokio = { features = [
 ], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
+typed-builder.workspace = true
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }

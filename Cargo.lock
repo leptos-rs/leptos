@@ -1920,7 +1920,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.12"
+version = "0.8.14"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2004,7 +2004,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "any_spawner",
  "axum",
@@ -2027,7 +2027,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "config",
  "regex",
@@ -2074,7 +2074,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "futures",
  "hydration_context",
@@ -2087,7 +2087,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -2131,7 +2131,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.8.9"
+version = "0.8.10"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2915,7 +2915,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.2.9"
+version = "0.2.11"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -2924,6 +2924,7 @@ dependencies = [
  "hydration_context",
  "indexmap",
  "or_poisoned",
+ "paste",
  "pin-project-lite",
  "rustc-hash 2.1.1",
  "rustc_version",
@@ -2935,6 +2936,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "typed-builder",
  "web-sys",
 ]
 
@@ -3791,7 +3793,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "any_spawner",
  "async-trait",
@@ -4307,18 +4309,18 @@ dependencies = [
 
 [[package]]
 name = "typed-builder"
-version = "0.21.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef81aec2ca29576f9f6ae8755108640d0a86dd3161b2e8bca6cfa554e98f77d"
+checksum = "398a3a3c918c96de527dc11e6e846cd549d4508030b8a33e1da12789c856b81a"
 dependencies = [
  "typed-builder-macro",
 ]
 
 [[package]]
 name = "typed-builder-macro"
-version = "0.21.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ecb9ecf7799210407c14a8cfdfe0173365780968dc57973ed082211958e0b18"
+checksum = "0e48cea23f68d1f78eb7bc092881b6bb88d3d6b5b7e6234f6f9c911da1ffb221"
 dependencies = [
  "proc-macro2",
  "quote",

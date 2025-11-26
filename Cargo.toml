@@ -49,26 +49,26 @@ any_spawner = { path = "./any_spawner/", version = "0.3.0" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
 either_of = { path = "./either_of/", version = "0.1.6" }
 hydration_context = { path = "./hydration_context", version = "0.3.0" }
-leptos = { path = "./leptos", version = "0.8.12" }
-leptos_config = { path = "./leptos_config", version = "0.8.7" }
+leptos = { path = "./leptos", version = "0.8.14" }
+leptos_config = { path = "./leptos_config", version = "0.8.8" }
 leptos_dom = { path = "./leptos_dom", version = "0.8.7" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.5" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.8.6" }
-leptos_macro = { path = "./leptos_macro", version = "0.8.11" }
-leptos_router = { path = "./router", version = "0.8.9" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.8.7" }
+leptos_macro = { path = "./leptos_macro", version = "0.8.12" }
+leptos_router = { path = "./router", version = "0.8.10" }
 leptos_router_macro = { path = "./router_macro", version = "0.8.6" }
-leptos_server = { path = "./leptos_server", version = "0.8.5" }
+leptos_server = { path = "./leptos_server", version = "0.8.6" }
 leptos_meta = { path = "./meta", version = "0.8.5" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
-reactive_graph = { path = "./reactive_graph", version = "0.2.9" }
+reactive_graph = { path = "./reactive_graph", version = "0.2.11" }
 reactive_stores = { path = "./reactive_stores", version = "0.3.0" }
 reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.6" }
 server_fn = { path = "./server_fn", version = "0.8.8" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.8" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
-tachys = { path = "./tachys", version = "0.2.10" }
+tachys = { path = "./tachys", version = "0.2.11" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5.3" }
@@ -76,7 +76,8 @@ itertools = { default-features = false, version = "0.14.0" }
 convert_case = { default-features = false, version = "0.8.0" }
 serde_json = { default-features = false, version = "1.0.143" }
 trybuild = { default-features = false, version = "1.0.110" }
-typed-builder = { default-features = false, version = "0.21.2" }
+typed-builder = { default-features = false, version = "0.22.0" }
+typed-builder-macro = { default-features = false, version = "0.22.0" }
 thiserror = { default-features = false, version = "2.0.17" }
 wasm-bindgen = { default-features = false, version = "0.2.100" }
 indexmap = { default-features = false, version = "2.11.0" }
@@ -120,7 +121,6 @@ serial_test = { default-features = false, version = "3.2.0" }
 erased = { default-features = false, version = "0.1.2" }
 glib = { default-features = false, version = "0.20.12" }
 async-trait = { default-features = false, version = "0.1.89" }
-typed-builder-macro = { default-features = false, version = "0.21.0" }
 linear-map = { default-features = false, version = "1.2.0" }
 anyhow = { default-features = false, version = "1.0.100" }
 walkdir = { default-features = false, version = "2.5.0" }
