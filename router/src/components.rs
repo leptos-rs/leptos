@@ -686,7 +686,7 @@ pub fn RoutingProgress(
     ));
 
     view! {
-        <Show when=move || is_showing.get() fallback=|| ()>
+        <Show when=is_showing>
             <progress min="0" max="100" value=move || progress.get()></progress>
         </Show>
     }
