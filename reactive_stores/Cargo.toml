@@ -17,7 +17,6 @@ paste = { workspace = true, default-features = true }
 reactive_graph = { workspace = true }
 rustc-hash = { workspace = true, default-features = true }
 reactive_stores_macro = { workspace = true }
-dashmap = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 
 [dev-dependencies]
