@@ -1026,12 +1026,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drain_filter_polyfill"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "669a445ee724c5c69b1b06fe0b63e70a1c84bc9bb7d9696cd4f4e3ec45050408"
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3798,7 +3792,6 @@ dependencies = [
  "any_spawner",
  "async-trait",
  "const_str_slice_concat",
- "drain_filter_polyfill",
  "either_of",
  "erased",
  "futures",
