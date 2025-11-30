@@ -8,7 +8,7 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 			leptos::leptos_dom::HydrationCtx::reset_id();
 			#[component]
 			fn Counter(initial: i32) -> impl IntoView {
-				let (value, set_value) = create_signal(initial);
+				let (value, set_value) = signal(initial);
 				view! {
 					<div>
 						<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
@@ -37,7 +37,7 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 
 #[bench]
 fn tachys_ssr_bench(b: &mut Bencher) {
-	use leptos::{create_runtime, create_signal, SignalGet, SignalUpdate};
+	use leptos::{create_runtime, signal, SignalGet, SignalUpdate};
 	use tachy_maccy::view;
 	use tachydom::view::{Render, RenderHtml};
 	use tachydom::html::element::ElementChild;
@@ -48,7 +48,7 @@ fn tachys_ssr_bench(b: &mut Bencher) {
 	let rt = create_runtime();
     b.iter(|| {
 		fn counter(initial: i32) -> impl Render<Dom> + RenderHtml<Dom> {
-			let (value, set_value) = create_signal(initial);
+			let (value, set_value) = signal(initial);
 			view! {
 				<div>
 					<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
