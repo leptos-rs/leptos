@@ -176,7 +176,10 @@ pub(crate) fn component_to_tokens(
     let spreads = (!(spreads.is_empty())).then(|| {
         if cfg!(feature = "__internal_erase_components") {
             quote! {
-                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
+                .add_any_attr({
+                    use crate::html::attribute::any_attribute::IntoAnyAttribute;
+                    vec![#(#spreads.into_any_attr(),)*]
+                })
             }
         } else {
             quote! {
