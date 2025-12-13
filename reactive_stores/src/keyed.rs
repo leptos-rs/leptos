@@ -719,11 +719,12 @@ mod tests {
     use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
     use reactive_graph::{
         effect::Effect,
-        traits::Track,
-        traits::{GetUntracked, ReadUntracked, Set, Write},
+        traits::{GetUntracked, ReadUntracked, Set, Track, Write},
     };
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
 
     #[derive(Debug, Store, Default)]
     struct Todos {
