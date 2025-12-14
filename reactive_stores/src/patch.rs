@@ -30,7 +30,7 @@ where
     type Value = T::Value;
 
     fn patch(&self, new: Self::Value) {
-        let path = self.path().into_iter().collect::<StorePath>();
+        let path = self.path_unkeyed().into_iter().collect::<StorePath>();
         if let Some(mut writer) = self.writer() {
             // don't track the writer for the whole store
             writer.untrack();

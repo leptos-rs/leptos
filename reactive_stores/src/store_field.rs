@@ -38,6 +38,13 @@ pub trait StoreField: Sized {
     #[track_caller]
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
+    /// The path of this field (see [`StorePath`]). Uses unkeyed indices for any keyed fields.
+    #[track_caller]
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        // TODO remove default impl next time we do a breaking release
+        self.path()
+    }
+
     /// Reactively tracks this field.
     #[track_caller]
     fn track_field(&self) {
@@ -129,7 +136,9 @@ where
         trigger
     }
 
+    #[track_caller]
     fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        let caller = std::panic::Location::caller();
         let orig_path = path.clone();
 
         let mut path = StorePath::with_capacity(orig_path.len());
@@ -140,7 +149,13 @@ where
                 let key = self
                     .keys
                     .get_key_for_index(&(path.clone(), segment.0))
-                    .expect("could not find key for index");
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "could not find key for index {:?} at {}",
+                            &(path.clone(), segment.0),
+                            caller
+                        )
+                    });
                 path.push(key);
             } else {
                 path.push(*segment);
@@ -151,6 +166,11 @@ where
 
     #[track_caller]
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        iter::empty()
+    }
+
+    #[track_caller]
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
         iter::empty()
     }
 
@@ -202,6 +222,14 @@ where
         self.inner
             .try_get_value()
             .map(|n| n.path().into_iter().collect::<Vec<_>>())
+            .unwrap_or_default()
+    }
+
+    #[track_caller]
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .try_get_value()
+            .map(|n| n.path_unkeyed().into_iter().collect::<Vec<_>>())
             .unwrap_or_default()
     }
 

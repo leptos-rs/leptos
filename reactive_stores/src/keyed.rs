@@ -106,6 +106,13 @@ where
             .chain(iter::once(self.path_segment))
     }
 
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .path_unkeyed()
+            .into_iter()
+            .chain(iter::once(self.path_segment))
+    }
+
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
@@ -444,6 +451,24 @@ where
         inner.into_iter().chain(this)
     }
 
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        let inner =
+            self.inner.path_unkeyed().into_iter().collect::<StorePath>();
+        let keys = self
+            .inner
+            .keys()
+            .expect("using keys on a store with no keys");
+        let this = keys
+            .with_field_keys(
+                inner.clone(),
+                |keys| (keys.get(&self.key), vec![]),
+                || self.inner.latest_keys(),
+            )
+            .flatten()
+            .map(|(_, idx)| StorePathSegment(idx));
+        inner.into_iter().chain(this)
+    }
+
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
@@ -721,18 +746,19 @@ mod tests {
         effect::Effect,
         traits::{GetUntracked, ReadUntracked, Set, Track, Write},
     };
+    use reactive_stores::Patch;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
 
-    #[derive(Debug, Store, Default)]
+    #[derive(Debug, Store, Default, Patch)]
     struct Todos {
         #[store(key: usize = |todo| todo.id)]
         todos: Vec<Todo>,
     }
 
-    #[derive(Debug, Store, Default, Clone, PartialEq, Eq)]
+    #[derive(Debug, Store, Default, Clone, PartialEq, Eq, Patch)]
     struct Todo {
         id: usize,
         label: String,
