@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use nested_stores::App;
+use store_slotmap::App;
 
 pub fn main() {
     console_error_panic_hook::set_once();
