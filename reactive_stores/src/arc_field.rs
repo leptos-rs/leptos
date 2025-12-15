@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedSubfield, Store,
-    StoreField, StoreFieldTrigger, Subfield,
+    ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
+    KeyedSubfield, Store, StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::Storage,
@@ -362,16 +362,16 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> From<AtKeyed<Inner, Prev, K, T>> for ArcField<T::Output>
+impl<Inner, Prev, K, T> From<AtKeyed<Inner, Prev, K, T>> for ArcField<T::Value>
 where
     AtKeyed<Inner, Prev, K, T>: Clone,
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: 'static,
-    T: IndexMut<usize> + 'static,
-    T::Output: Sized,
+    T: KeyedAccess<Key = K> + 'static,
+    T::Value: Sized,
 {
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
