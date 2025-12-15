@@ -73,6 +73,13 @@ where
             .unwrap_or_default()
     }
 
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .try_get_value()
+            .map(|inner| inner.path_unkeyed().into_iter().collect::<Vec<_>>())
+            .unwrap_or_default()
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         self.inner.try_get_value().and_then(|inner| inner.reader())
     }
