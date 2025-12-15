@@ -48,20 +48,19 @@ impl Parse for Model {
             .map(Prop::new)
             .collect::<Vec<_>>();
 
-        // We need to remove the `#[doc = ""]` and `#[builder(_)]`
-        // attrs from the function signature
-        drain_filter(&mut item.attrs, |attr| match &attr.meta {
-            Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-            Meta::List(attr) => attr.path == parse_quote!(prop),
-            _ => false,
-        });
+        const DISCARD_ATTRS: &[&str] = &["doc", "prop"];
+
+        let apply_discard = |attr: &syn::Attribute| {
+            !DISCARD_ATTRS
+                .iter()
+                .any(|discardable| attr.path().is_ident(discardable))
+        };
+
+        item.attrs.retain(apply_discard);
+
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
-                drain_filter(&mut ty.attrs, |attr| match &attr.meta {
-                    Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-                    Meta::List(attr) => attr.path == parse_quote!(prop),
-                    _ => false,
-                });
+                ty.attrs.retain(apply_discard);
             }
         });
 
@@ -110,22 +109,6 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(not(feature = "__internal_erase_components"))]
     {
         let _ = ret;
-    }
-}
-
-// implemented manually because Vec::drain_filter is nightly only
-// follows std recommended parallel
-pub fn drain_filter<T>(
-    vec: &mut Vec<T>,
-    mut some_predicate: impl FnMut(&mut T) -> bool,
-) {
-    let mut i = 0;
-    while i < vec.len() {
-        if some_predicate(&mut vec[i]) {
-            _ = vec.remove(i);
-        } else {
-            i += 1;
-        }
     }
 }
 
@@ -668,15 +651,12 @@ pub struct DummyModel {
 impl Parse for DummyModel {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = input.call(Attribute::parse_outer)?;
-        // Drop unknown attributes like #[deprecated]
-        drain_filter(&mut attrs, |attr| {
-            let path = attr.path();
-            !(path.is_ident("doc")
-                || path.is_ident("allow")
-                || path.is_ident("expect")
-                || path.is_ident("warn")
-                || path.is_ident("deny")
-                || path.is_ident("forbid"))
+
+        const RETAIN_ATTRS: &[&str] =
+            &["doc", "allow", "expect", "warn", "deny", "forbid"];
+
+        attrs.retain(|attr| {
+            RETAIN_ATTRS.iter().any(|known| attr.path().is_ident(known))
         });
 
         let vis: Visibility = input.parse()?;
