@@ -66,13 +66,24 @@ mod tests {
     };
 
     #[derive(Debug, Default, Store)]
-    struct Todos {
+    struct TodoSlotMap {
         #[store(key: DefaultKey = |(k,_)| k)]
         todos: SlotMap<DefaultKey, Todo>,
     }
-    impl Todos {
+    impl TodoSlotMap {
         pub fn add(&mut self, label: impl ToString) -> DefaultKey {
             self.todos.insert_with_key(|key| Todo::new(key, label))
+        }
+
+        pub fn test_data() -> (Self, Vec<DefaultKey>) {
+            let mut todos = TodoSlotMap::default();
+
+            let ids = ["A", "B", "C"]
+                .into_iter()
+                .map(|label| todos.add(label))
+                .collect();
+
+            (todos, ids)
         }
     }
 
@@ -91,21 +102,11 @@ mod tests {
         }
     }
 
-    fn data() -> (Todos, Vec<DefaultKey>) {
-        let mut todos = Todos::default();
-
-        let ids = ["A", "B", "C"]
-            .into_iter()
-            .map(|label| todos.add(label))
-            .collect();
-
-        (todos, ids)
-    }
     #[tokio::test]
-    async fn keyed_fields_can_be_moved() {
+    async fn slotmap_keyed_fields_can_be_moved() {
         _ = any_spawner::Executor::init_tokio();
 
-        let (todos, ids) = data();
+        let (todos, ids) = TodoSlotMap::test_data();
         let store = Store::new(todos);
         assert_eq!(store.read_untracked().todos.len(), 3);
 
