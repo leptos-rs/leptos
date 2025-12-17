@@ -15,7 +15,7 @@ use codee::{
     Decoder, Encoder,
 };
 use core::{fmt::Debug, marker::PhantomData};
-use futures::Future;
+use futures::{Future, FutureExt};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
@@ -258,11 +258,17 @@ where
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
             if self.value.read().or_poisoned().is_none() {
                 let handle = suspense_context.task_id();
-                let ready = SpecialNonReactiveFuture::new(self.ready());
-                reactive_graph::spawn(async move {
-                    ready.await;
-                    drop(handle);
-                });
+                let mut ready =
+                    Box::pin(SpecialNonReactiveFuture::new(self.ready()));
+                match ready.as_mut().now_or_never() {
+                    Some(_) => drop(handle),
+                    None => {
+                        reactive_graph::spawn(async move {
+                            ready.await;
+                            drop(handle);
+                        });
+                    }
+                }
                 self.suspenses.write().or_poisoned().push(suspense_context);
             }
         }

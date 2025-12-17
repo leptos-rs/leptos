@@ -33,6 +33,6 @@ Feature: Regression test for issue #4492
 		When I click the button c-toggle
 		Then I see c-result has the text 0
 		When I click the button c-button
-		Then I see c-result has the text 0
+		Then I see c-result has the text 42
 		When I wait 100ms
 		Then I see c-result has the text 1

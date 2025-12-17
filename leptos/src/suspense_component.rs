@@ -134,7 +134,7 @@ where
             }
         });
         let has_tasks =
-            Arc::new(move || tasks.with_untracked(SlotMap::is_empty));
+            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
 
         OwnedView::new(SuspenseBoundary::<false, _, _> {
             id,

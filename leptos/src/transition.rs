@@ -117,7 +117,7 @@ where
             }
         });
         let has_tasks =
-            Arc::new(move || tasks.with_untracked(SlotMap::is_empty));
+            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
         if let Some(set_pending) = set_pending {
             Effect::new_isomorphic({
                 let none_pending = none_pending.clone();
