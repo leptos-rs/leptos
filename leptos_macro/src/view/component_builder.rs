@@ -176,7 +176,9 @@ pub(crate) fn component_to_tokens(
     let spreads = (!(spreads.is_empty())).then(|| {
         if cfg!(feature = "__internal_erase_components") {
             quote! {
-                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
+                .add_any_attr({
+                    vec![#(::leptos::html::attribute::any_attribute::IntoAnyAttribute::into_any_attr(#spreads),)*]
+                })
             }
         } else {
             quote! {
