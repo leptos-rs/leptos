@@ -15,7 +15,10 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, ReadUntracked, Track, With, WriteValue},
+    traits::{
+        Dispose, Get, GetUntracked, Read, ReadUntracked, Track, With,
+        WriteValue,
+    },
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
@@ -192,12 +195,26 @@ where
                 outer_owner.clone(),
             );
 
-            if let Some(mut state) = prev {
+            let state = if let Some(mut state) = prev {
                 this.rebuild(&mut state);
                 state
             } else {
                 this.build()
+            };
+
+            if nth_run == 1 && none_pending.get_untracked() {
+                // if this is the first run, and there are no pending resources at this point,
+                // it means that there were no resources read while rendering the children
+                // this means that we're effectively on the settled second run: none_pending
+                // won't change false => true and cause this to rerender (and therefore increment nth_run)
+                //
+                // we increment it manually here so that future resource changes won't cause the transition fallback
+                // to be displayed for the first time
+                // see https://github.com/leptos-rs/leptos/issues/3868, https://github.com/leptos-rs/leptos/issues/4492
+                nth_run += 1;
             }
+
+            state
         })
     }
 
