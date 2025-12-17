@@ -204,7 +204,7 @@ where
 
             if nth_run == 1 && none_pending.get_untracked() {
                 // if this is the first run, and there are no pending resources at this point,
-                // it means that there were no resources read while rendering the children
+                // it means that there were no actually-async resources read while rendering the children
                 // this means that we're effectively on the settled second run: none_pending
                 // won't change false => true and cause this to rerender (and therefore increment nth_run)
                 //
