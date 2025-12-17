@@ -1507,6 +1507,128 @@ where
 
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
+/// Identical to the implementation provided for actix_web::App
+impl<T> LeptosRoutes for actix_web::Scope<T>
+where
+    T: ServiceFactory<
+        ServiceRequest,
+        Config = (),
+        Error = Error,
+        InitError = (),
+    >,
+{
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_routes<IV>(
+        self,
+        paths: Vec<ActixRouteListing>,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        self.leptos_routes_with_context(paths, || {}, app_fn)
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_routes_with_context<IV>(
+        self,
+        paths: Vec<ActixRouteListing>,
+        additional_context: impl Fn() + 'static + Clone + Send,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+
+        let excluded = paths
+            .iter()
+            .filter(|&p| p.exclude)
+            .map(|p| p.path.as_str())
+            .collect::<HashSet<_>>();
+
+        // register server functions first to allow for wildcard route in Leptos's Router
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            if !excluded.contains(path) {
+                let additional_context = additional_context.clone();
+                let handler =
+                    handle_server_fns_with_context(additional_context);
+                router = router.route(path, handler);
+            }
+        }
+
+        // register routes defined in Leptos's Router
+        for listing in paths.iter().filter(|p| !p.exclude) {
+            let path = listing.path();
+            let mode = listing.mode();
+
+            for method in listing.methods() {
+                let additional_context = additional_context.clone();
+                let additional_context_and_method = move || {
+                    provide_context(method);
+                    additional_context();
+                };
+                router = if matches!(listing.mode(), SsrMode::Static(_)) {
+                    router.route(
+                        path,
+                        handle_static_route(
+                            additional_context_and_method.clone(),
+                            app_fn.clone(),
+                            listing.regenerate.clone(),
+                        ),
+                    )
+                } else {
+                    router
+                        .route(path, web::head().to(HttpResponse::Ok))
+                        .route(
+                            path,
+                            match mode {
+                                SsrMode::OutOfOrder => {
+                                    render_app_to_stream_with_context(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::PartiallyBlocked => {
+                                    render_app_to_stream_with_context_and_replace_blocks(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                        true,
+                                    )
+                                }
+                                SsrMode::InOrder => {
+                                    render_app_to_stream_in_order_with_context(
+                                        additional_context_and_method.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::Async => render_app_async_with_context(
+                                    additional_context_and_method.clone(),
+                                    app_fn.clone(),
+                                    method,
+                                ),
+                                _ => unreachable!()
+                            },
+                        )
+                };
+            }
+        }
+
+        router
+    }
+}
+
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
 impl LeptosRoutes for &mut ServiceConfig {
     #[cfg_attr(
         feature = "tracing",
