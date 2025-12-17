@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
@@ -16,6 +14,7 @@ use reactive_graph::{
     wrappers::write::SignalSetter,
 };
 use slotmap::{DefaultKey, SlotMap};
+use std::sync::Arc;
 use tachys::reactive_graph::OwnedView;
 
 /// If any [`Resource`](crate::prelude::Resource) is read in the `children` of this
