@@ -145,7 +145,6 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 pub use const_format;
 #[doc(hidden)]
 pub use const_str;
-use dashmap::DashMap;
 pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
@@ -165,12 +164,13 @@ pub use serde;
 pub use serde_lite;
 use server::Server;
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display},
     future::Future,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, RwLock},
 };
 #[doc(hidden)]
 pub use xxhash_rust;
@@ -866,12 +866,14 @@ pub use inventory;
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
         std::sync::LazyLock::new(|| {
-            $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
+            let map = $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
                 .into_iter()
                 .map(|obj| {
                     ((obj.path().to_string(), obj.method()), obj.clone())
                 })
-                .collect()
+                .collect();
+
+            std::sync::RwLock::new(map)
         })
     };
 }
@@ -984,7 +986,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
-    LazyLock<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
+    LazyLock<RwLock<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1066,7 +1068,7 @@ pub mod axum {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.insert(
+        REGISTERED_SERVER_FUNCTIONS.write().unwrap().insert(
             (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
@@ -1074,9 +1076,14 @@ pub mod axum {
 
     /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
-        REGISTERED_SERVER_FUNCTIONS
-            .iter()
+        let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .unwrap()
+            .values()
             .map(|item| (item.path(), item.method()))
+            .collect();
+
+        paths.into_iter()
     }
 
     /// An Axum handler that responds to a server function request.
@@ -1110,14 +1117,18 @@ pub mod axum {
         method: Method,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
         let key = (path.into(), method);
-        REGISTERED_SERVER_FUNCTIONS.get(&key).map(|server_fn| {
-            let middleware = (server_fn.middleware)();
-            let mut service = server_fn.clone().boxed();
-            for middleware in middleware {
-                service = middleware.layer(service);
-            }
-            service
-        })
+        REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .unwrap()
+            .get(&key)
+            .map(|server_fn| {
+                let middleware = (server_fn.middleware)();
+                let mut service = server_fn.clone().boxed();
+                for middleware in middleware {
+                    service = middleware.layer(service);
+                }
+                service
+            })
     }
 }
 
@@ -1177,7 +1188,7 @@ pub mod actix {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.insert(
+        REGISTERED_SERVER_FUNCTIONS.write().unwrap().insert(
             (T::PATH.into(), T::Protocol::METHOD),
             ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
         );
@@ -1185,9 +1196,14 @@ pub mod actix {
 
     /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
-        REGISTERED_SERVER_FUNCTIONS
-            .iter()
+        let paths: Vec<_> = REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .unwrap()
+            .values()
             .map(|item| (item.path(), item.method()))
+            .collect();
+
+        paths.into_iter()
     }
 
     /// An Actix handler that responds to a server function request.
@@ -1236,16 +1252,19 @@ pub mod actix {
             ActixMethod::CONNECT => Method::CONNECT,
             _ => unreachable!(),
         };
-        REGISTERED_SERVER_FUNCTIONS.get(&(path.into(), method)).map(
-            |server_fn| {
+
+        REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .unwrap()
+            .get(&(path.into(), method))
+            .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
                 for middleware in middleware {
                     service = middleware.layer(service);
                 }
                 service
-            },
-        )
+            })
     }
 }
 
