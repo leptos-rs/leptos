@@ -176,6 +176,7 @@ where
 {
     inner: KeyedSubfield<Inner, Prev, K, T>,
     guard: Option<Guard>,
+    untracked: bool,
 }
 
 impl<Inner, Prev, K, T, Guard> Deref
@@ -227,6 +228,7 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn untrack(&mut self) {
+        self.untracked = true;
         if let Some(inner) = self.guard.as_mut() {
             inner.untrack();
         }
@@ -251,7 +253,10 @@ where
         // now that the write lock is release, we can get a read lock to refresh this keyed field
         // based on the new value
         self.inner.update_keys();
-        self.inner.notify();
+
+        if !self.untracked {
+            self.inner.notify();
+        }
 
         // reactive updates happen on the next tick
     }
@@ -344,6 +349,7 @@ where
         Some(KeyedSubfieldWriteGuard {
             inner: self.clone(),
             guard: Some(guard),
+            untracked: false,
         })
     }
 
@@ -355,6 +361,7 @@ where
         Some(KeyedSubfieldWriteGuard {
             inner: self.clone(),
             guard: Some(guard),
+            untracked: true,
         })
     }
 }
@@ -878,5 +885,42 @@ mod tests {
         assert_eq!(a_count.load(Ordering::Relaxed), 3);
         assert_eq!(b_count.load(Ordering::Relaxed), 1);
         assert_eq!(c_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn untracked_write_on_keyed_subfield_shouldnt_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(data());
+        assert_eq!(store.read_untracked().todos.len(), 3);
+
+        // create an effect to read from the keyed subfield
+        let todos_count = Arc::new(AtomicUsize::new(0));
+        Effect::new_sync({
+            let todos_count = Arc::clone(&todos_count);
+            move || {
+                store.todos().track();
+                todos_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(todos_count.load(Ordering::Relaxed), 1);
+
+        // writing to keyed subfield notifies the iterator
+        store.todos().write().push(Todo {
+            id: 13,
+            label: "D".into(),
+        });
+        tick().await;
+        assert_eq!(todos_count.load(Ordering::Relaxed), 2);
+
+        // but an untracked write doesn't
+        store.todos().write_untracked().push(Todo {
+            id: 14,
+            label: "E".into(),
+        });
+        tick().await;
+        assert_eq!(todos_count.load(Ordering::Relaxed), 2);
     }
 }
