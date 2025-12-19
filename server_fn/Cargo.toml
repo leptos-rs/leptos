@@ -32,7 +32,7 @@ dashmap = { workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = false }
+actix-web = { optional = true, workspace = true, default-features = false, features = ["ws"] }
 actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum
