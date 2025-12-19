@@ -2047,7 +2047,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.13"
+version = "0.8.14"
 dependencies = [
  "attribute-derive",
  "cfg-if",
