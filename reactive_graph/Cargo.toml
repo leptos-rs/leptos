@@ -23,7 +23,6 @@ slotmap = { workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 guardian = { workspace = true, default-features = true }
-async-lock = { workspace = true, default-features = true }
 send_wrapper = { features = [
   "futures",
 ], workspace = true, default-features = true }
