@@ -2,7 +2,13 @@ use chrono::{Local, NaiveDate};
 use leptos::{logging::warn, prelude::*};
 use reactive_stores::{Field, Patch, Store};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
 
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
@@ -12,6 +18,49 @@ struct Todos {
     user: User,
     #[store(key: usize = |todo| todo.id)]
     todos: Vec<Todo>,
+    #[store(key: Arc<String> = |(name, _)| name.clone())]
+    completed: BTreeMap<Arc<String>, (Arc<String>, usize)>,
+}
+
+impl Todos {
+    fn data() -> Self {
+        Self {
+            user: User {
+                name: "Bob".to_string(),
+                email: "lawblog@bobloblaw.com".into(),
+            },
+            todos: vec![
+                Todo {
+                    id: 0,
+                    label: "Create reactive store".to_string(),
+                    status: Status::Pending,
+                },
+                Todo {
+                    id: 1,
+                    label: "???".to_string(),
+                    status: Status::Pending,
+                },
+                Todo {
+                    id: 2,
+                    label: "Profit".to_string(),
+                    status: Status::Pending,
+                },
+            ],
+            completed: Default::default(),
+        }
+    }
+}
+
+/// Record who completed a todo.
+fn complete(
+    completed: &mut BTreeMap<Arc<String>, (Arc<String>, usize)>,
+    user: String,
+) {
+    let name: Arc<String> = user.into();
+    let entry = completed
+        .entry(name.clone())
+        .or_insert_with(|| (name.clone(), 0));
+    *(&mut entry.1) += 1;
 }
 
 #[derive(Debug, Store, Patch, Serialize, Deserialize)]
@@ -26,6 +75,15 @@ struct Todo {
     label: String,
     status: Status,
 }
+impl Todo {
+    pub fn new(label: impl ToString) -> Self {
+        Self {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            label: label.to_string(),
+            status: Status::Pending,
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone, Store, Serialize, Deserialize)]
 enum Status {
@@ -37,7 +95,6 @@ enum Status {
     },
     Done,
 }
-
 impl Status {
     pub fn next_step(&mut self) {
         *self = match self {
@@ -50,69 +107,30 @@ impl Status {
     }
 }
 
-impl Todo {
-    pub fn new(label: impl ToString) -> Self {
-        Self {
-            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
-            label: label.to_string(),
-            status: Status::Pending,
-        }
-    }
-}
-
-fn data() -> Todos {
-    Todos {
-        user: User {
-            name: "Bob".to_string(),
-            email: "lawblog@bobloblaw.com".into(),
-        },
-        todos: vec![
-            Todo {
-                id: 0,
-                label: "Create reactive store".to_string(),
-                status: Status::Pending,
-            },
-            Todo {
-                id: 1,
-                label: "???".to_string(),
-                status: Status::Pending,
-            },
-            Todo {
-                id: 2,
-                label: "Profit".to_string(),
-                status: Status::Pending,
-            },
-        ],
-    }
-}
-
 #[component]
 pub fn App() -> impl IntoView {
-    let store = Store::new(data());
+    let store = Store::new(Todos::data());
 
     let input_ref = NodeRef::new();
 
     view! {
         <p>"Hello, " {move || store.user().name().get()}</p>
-        <UserForm user=store.user()/>
-        <hr/>
+        <UserForm user=store.user() />
+        <UserAchievements store=store.clone() />
+        <hr />
         <form on:submit=move |ev| {
             ev.prevent_default();
             store.todos().write().push(Todo::new(input_ref.get().unwrap().value()));
         }>
-            <label>"Add a Todo" <input type="text" node_ref=input_ref/></label>
-            <input type="submit"/>
+            <label>"Add a Todo" <input type="text" node_ref=input_ref /></label>
+            <input type="submit" />
         </form>
         <ol>
             // because `todos` is a keyed field, `store.todos()` returns a struct that
             // directly implements IntoIterator, so we can use it in <For/> and
             // it will manage reactivity for the store fields correctly
-            <For
-                each=move || store.todos()
-                key=|row| row.id().get()
-                let:todo
-            >
-                <TodoRow store todo/>
+            <For each=move || store.todos() key=|row| row.id().get() let:todo>
+                <TodoRow store todo />
             </For>
 
         </ol>
@@ -137,14 +155,27 @@ fn UserForm(#[prop(into)] user: Field<User>) -> impl IntoView {
             }
         }>
             <label>
-                "Name" <input type="text" name="name" prop:value=move || user.name().get()/>
+                "Name" <input type="text" name="name" prop:value=move || user.name().get() />
             </label>
             <label>
-                "Email" <input type="email" name="email" prop:value=move || user.email().get()/>
+                "Email" <input type="email" name="email" prop:value=move || user.email().get() />
             </label>
-            <input type="submit"/>
+            <input type="submit" />
         </form>
     }
+}
+
+#[component]
+fn UserAchievements(store: Store<Todos>) -> impl IntoView {
+    let completed = Memo::new(move |_| {
+        store
+            .completed()
+            .at_key(store.user().name().get().into())
+            .try_get()
+            .map(|completed| completed.1)
+            .unwrap_or_default()
+    });
+    view! { <div>{completed}</div> }
 }
 
 #[component]
@@ -159,7 +190,7 @@ fn TodoRow(
 
     view! {
         <li style:text-decoration=move || {
-          if status.done() { "line-through" } else { Default::default() }
+            if status.done() { "line-through" } else { Default::default() }
         }>
 
             <p
@@ -181,7 +212,12 @@ fn TodoRow(
             />
 
             <button on:click=move |_| {
-                status.write().next_step()
+                let was_undone = !status.done();
+                status.write().next_step();
+                if was_undone && status.done() {
+                    let name = store.user().name().get();
+                    complete(&mut store.completed().write(), name);
+                }
             }>
                 {move || {
                     if todo.status().done() {
