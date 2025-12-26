@@ -309,6 +309,16 @@ impl ServerFnCall {
             .collect::<TokenStream2>()
     }
 
+    /// Get the lint attributes for the server function.
+    pub fn lint_attrs(&self) -> TokenStream2 {
+        // pass through lint attributes from the function body
+        self.body
+            .lint_attrs
+            .iter()
+            .map(|lint_attr| quote!(#lint_attr))
+            .collect::<TokenStream2>()
+    }
+
     fn fn_name_as_str(&self) -> String {
         self.body.ident.to_string()
     }
@@ -388,6 +398,8 @@ impl ServerFnCall {
             PathInfo::None => quote! {},
         };
 
+        let lint_attrs = self.lint_attrs();
+
         let vis = &self.body.vis;
         let struct_name = self.struct_name();
         let fields = self
@@ -410,6 +422,7 @@ impl ServerFnCall {
             #docs
             #[derive(Debug, #derives)]
             #addl_path
+            #lint_attrs
             #vis struct #struct_name {
                 #(#fields),*
             }
@@ -1465,6 +1478,8 @@ pub struct ServerFnBody {
     pub block: TokenStream2,
     /// The documentation of the server function.
     pub docs: Vec<(String, Span)>,
+    /// The lint attributes of the server function.
+    pub lint_attrs: Vec<Attribute>,
     /// The middleware attributes applied to the server function.
     pub middlewares: Vec<Middleware>,
 }
@@ -1522,6 +1537,27 @@ impl Parse for ServerFnBody {
             };
             !attr.path.is_ident("doc")
         });
+
+        let lint_attrs = attrs
+            .iter()
+            .filter_map(|attr| {
+                if attr.path().is_ident("allow")
+                    || attr.path().is_ident("warn")
+                    || attr.path().is_ident("deny")
+                    || attr.path().is_ident("forbid")
+                {
+                    return Some(attr.clone());
+                }
+                None
+            })
+            .collect();
+        attrs.retain(|attr| {
+            !attr.path().is_ident("allow")
+                && !attr.path().is_ident("warn")
+                && !attr.path().is_ident("deny")
+                && !attr.path().is_ident("forbid")
+        });
+
         // extract all #[middleware] attributes, removing them from signature of dummy
         let mut middlewares: Vec<Middleware> = vec![];
         attrs.retain(|attr| {
@@ -1557,6 +1593,7 @@ impl Parse for ServerFnBody {
             block,
             attrs,
             docs,
+            lint_attrs,
             middlewares,
         })
     }
