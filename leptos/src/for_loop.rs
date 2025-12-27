@@ -27,7 +27,7 @@ use tachys::{
 ///
 /// #[component]
 /// fn Counters() -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+///   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 ///
 ///   view! {
 ///     <div>
@@ -62,7 +62,7 @@ use tachys::{
 /// #
 /// # #[component]
 /// # fn Counters() -> impl IntoView {
-/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 /// #
 ///   view! {
 ///     <div>
@@ -93,7 +93,7 @@ use tachys::{
 /// #
 /// # #[component]
 /// # fn Counters() -> impl IntoView {
-/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 /// #
 ///   view! {
 ///     <div>
@@ -162,7 +162,7 @@ where
 ///
 /// #[component]
 /// fn Counters() -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+///   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 ///
 ///   view! {
 ///     <div>
