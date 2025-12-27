@@ -2930,6 +2930,8 @@ dependencies = [
  "reactive_stores_macro",
  "rustc-hash 2.1.1",
  "send_wrapper",
+ "serde",
+ "slotmap",
  "tokio",
  "tokio-test",
 ]
