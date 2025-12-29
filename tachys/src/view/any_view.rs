@@ -829,6 +829,7 @@ impl AddAnyAttr for AnyViewWithAttrs {
 /// State for any view with attributes spread onto it.
 pub struct AnyViewWithAttrsState {
     view: AnyViewState,
+    #[allow(dead_code)] // keeps attribute states alive until dropped
     attrs: Vec<AnyAttributeState>,
 }
 
