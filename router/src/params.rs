@@ -202,8 +202,7 @@ where
 /// Helpers for the `Params` derive macro to allow specialization without nightly.
 pub mod macro_helpers {
     use crate::params::{IntoParam, ParamsError};
-    use std::str::FromStr;
-    use std::sync::Arc;
+    use std::{str::FromStr, sync::Arc};
 
     /// This struct is never actually created; it just exists so that we can impl associated
     /// functions on it.
