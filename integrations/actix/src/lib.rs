@@ -1329,7 +1329,8 @@ where
                     let headers = STATIC_HEADERS
                         .read()
                         .or_poisoned()
-                        .get(orig_path).cloned();
+                        .get(orig_path)
+                        .cloned();
                     (headers, None)
                 };
 
