@@ -5,6 +5,7 @@ mod issue_4217;
 mod issue_4285;
 mod issue_4296;
 mod issue_4324;
+mod issue_4492;
 mod pr_4015;
 mod pr_4091;
 

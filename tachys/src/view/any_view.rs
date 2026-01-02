@@ -693,13 +693,18 @@ impl Render for AnyViewWithAttrs {
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(&mut state.view);
 
-        let elements = state.elements();
-        // FIXME this seems wrong but I think the previous version was also broken!
-        if let Some(element) = elements.first() {
-            self.attrs.rebuild(&mut (
-                element.clone(),
-                std::mem::take(&mut state.attrs),
-            ));
+        // at this point, we have rebuilt the inner view
+        // now we need to update attributes that were spread onto this
+        // this approach is not ideal, but it avoids two edge cases:
+        // 1) merging attributes from two unrelated views (https://github.com/leptos-rs/leptos/issues/4268)
+        // 2) failing to re-create attributes from the same view (https://github.com/leptos-rs/leptos/issues/4512)
+        for element in state.elements() {
+            // first, remove the previous set of attributes
+            self.attrs
+                .clone()
+                .rebuild(&mut (element.clone(), Vec::new()));
+            // then, add the new set of attributes
+            self.attrs.clone().build(&element);
         }
     }
 }
@@ -824,6 +829,7 @@ impl AddAnyAttr for AnyViewWithAttrs {
 /// State for any view with attributes spread onto it.
 pub struct AnyViewWithAttrsState {
     view: AnyViewState,
+    #[allow(dead_code)] // keeps attribute states alive until dropped
     attrs: Vec<AnyAttributeState>,
 }
 

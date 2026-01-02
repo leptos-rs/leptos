@@ -57,11 +57,11 @@
 //! # if false { // don't run effect in doctests
 //! Effect::new(move |_| {
 //!     // you can access individual store fields with a getter
-//!     println!("todos: {:?}", &*store.todos().read());
+//!     println!("user: {:?}", &*store.user().read());
 //! });
 //! # }
 //!
-//! // won't notify the effect that listens to `todos`
+//! // won't notify the effect that listens to `user`
 //! store.todos().write().push(Todo {
 //!     label: "Test".to_string(),
 //!     completed: false,
@@ -833,7 +833,7 @@ mod tests {
     use reactive_graph::{
         effect::Effect,
         owner::StoredValue,
-        traits::{Read, ReadUntracked, Set, Update, Write},
+        traits::{Read, ReadUntracked, Set, Track, Update, Write},
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -1374,5 +1374,35 @@ mod tests {
         tick().await;
 
         assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn untracked_write_on_subfield_shouldnt_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let name_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        let tracked_field = store.user();
+
+        Effect::new_sync({
+            let name_count = Arc::clone(&name_count);
+            move |_| {
+                tracked_field.track();
+                name_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 1);
+
+        tracked_field.write().push('!');
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 2);
+
+        tracked_field.write_untracked().push('!');
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 2);
     }
 }

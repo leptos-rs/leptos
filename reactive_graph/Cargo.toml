@@ -1,6 +1,6 @@
 [package]
 name = "reactive_graph"
-version = "0.2.11"
+version = "0.2.12"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -32,7 +32,7 @@ indexmap = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-web-sys = { version = "0.3.77", features = ["console"] }
+web-sys = { version = "0.3.83", features = ["console"] }
 
 [dev-dependencies]
 tokio = { features = [
