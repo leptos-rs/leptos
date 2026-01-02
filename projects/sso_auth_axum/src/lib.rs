@@ -87,7 +87,7 @@ pub fn App() -> impl IntoView {
         move || email.get().unwrap_or(String::from("No email to display"));
     let refresh_token = create_server_action::<RefreshToken>();
 
-    create_effect(move |handle: Option<Option<TimeoutHandle>>| {
+    Effect::new(move |handle: Option<Option<TimeoutHandle>>| {
         // If this effect is called, try to cancel the previous handle.
         if let Some(prev_handle) = handle.flatten() {
             prev_handle.clear();
@@ -113,7 +113,7 @@ pub fn App() -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(Ok(expires_in)) = refresh_token.value().get() {
             rw_expires_in.set(expires_in);
         }

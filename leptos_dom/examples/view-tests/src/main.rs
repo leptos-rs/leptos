@@ -8,9 +8,9 @@ pub fn main() {
 
 #[component]
 fn SelfUpdatingEffect() -> Element {
-    let (a, set_a) = create_signal(false);
+    let (a, set_a) = signal(false);
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if !a() {
             set_a(true);
         }
