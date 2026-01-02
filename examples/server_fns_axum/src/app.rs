@@ -422,7 +422,6 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};
-        use dashmap::DashMap;
         use futures::Stream;
         use std::sync::LazyLock;
 
