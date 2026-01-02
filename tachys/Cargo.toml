@@ -179,6 +179,7 @@ default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
 hydrate = []
+lazy = []
 islands = ["dep:serde", "dep:serde_json"]
 ssr = []
 oco = ["dep:oco_ref"]
