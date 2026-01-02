@@ -16,7 +16,6 @@ use actix_web::{
     web::{Data, Payload, ServiceConfig},
     *,
 };
-use dashmap::DashMap;
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
@@ -38,6 +37,7 @@ use leptos_router::{
     static_routes::{RegenerationFn, ResolvedStaticPath},
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
+use or_poisoned::OrPoisoned;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -45,7 +45,7 @@ use server_fn::{
     request::actix::ActixRequest,
 };
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::{Debug, Display},
     future::Future,
     ops::{Deref, DerefMut},
@@ -1222,8 +1222,9 @@ impl StaticRouteGenerator {
     }
 }
 
-static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
-    LazyLock::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<
+    std::sync::RwLock<HashMap<String, ResponseOptions>>,
+> = LazyLock::new(Default::default);
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1255,7 +1256,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.insert(path.to_string(), options);
+        STATIC_HEADERS
+            .write()
+            .or_poisoned()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1322,8 +1326,11 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
-                    let headers =
-                        STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                    let headers = STATIC_HEADERS
+                        .read()
+                        .or_poisoned()
+                        .get(orig_path)
+                        .map(|v| v.clone());
                     (headers, None)
                 };
 
