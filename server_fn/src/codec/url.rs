@@ -180,7 +180,7 @@ where
         let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new()
             .use_form_encoding(true)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;
@@ -220,7 +220,7 @@ where
         let string_data = req.try_into_string().await?;
         let args = serde_qs::Config::new()
             .use_form_encoding(true)
-            .deserialize_str::<Self>(string_data)
+            .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
             })?;
