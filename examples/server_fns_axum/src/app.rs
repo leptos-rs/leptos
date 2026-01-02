@@ -564,17 +564,12 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             <input type="submit" />
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
-        {move || {
-            max.get()
-                .map(|max| {
-                    view! {
-                        <progress
-                            max=max
-                            value=move || current.get().unwrap_or_default()
-                        ></progress>
-                    }
-                })
-        }}
+        <ShowLet some=max let:max>
+            <progress
+                max=max
+                value=move || current.get().unwrap_or_default()
+            ></progress>
+        </ShowLet>
     }
 }
 #[component]

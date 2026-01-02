@@ -76,6 +76,11 @@ where
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner.path()
     }
+
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner.path_unkeyed()
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         Some(Mapped::new_with_guard(inner, |n| n.deref()))

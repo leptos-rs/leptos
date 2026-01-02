@@ -84,6 +84,13 @@ where
             .chain(iter::once(self.path_segment))
     }
 
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .path_unkeyed()
+            .into_iter()
+            .chain(iter::once(self.path_segment))
+    }
+
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }

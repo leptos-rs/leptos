@@ -19,6 +19,17 @@ async fn i_see_the_result_is_the_string(
     Ok(())
 }
 
+#[then(regex = r"^I see ([\w-]+) has the text (.*)$")]
+async fn i_see_element_has_text(
+    world: &mut AppWorld,
+    id: String,
+    text: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::element_text_is(client, &id, &text).await?;
+    Ok(())
+}
+
 #[then(regex = r"^I see the navbar$")]
 async fn i_see_the_navbar(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;

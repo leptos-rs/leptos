@@ -5,4 +5,4 @@ test cases that typically happens at integration.
 
 ## Quick Start
 
-Run `cargo leptos watch` to run this example.
+Run `cargo leptos watch --split` to run this example.

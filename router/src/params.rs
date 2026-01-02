@@ -199,31 +199,56 @@ where
     }
 }
 
-// TODO can we support Option<T> and T in a non-nightly way?
-#[cfg(all(feature = "nightly", rustc_nightly))]
-mod option_param {
-    use super::{IntoParam, ParamsError};
+/// Helpers for the `Params` derive macro to allow specialization without nightly.
+pub mod macro_helpers {
+    use crate::params::{IntoParam, ParamsError};
     use std::{str::FromStr, sync::Arc};
 
-    auto trait NotOption {}
-    impl<T> !NotOption for Option<T> {}
+    /// This struct is never actually created; it just exists so that we can impl associated
+    /// functions on it.
+    pub struct Wrapper<T>(T);
 
-    impl<T> IntoParam for T
-    where
-        T: FromStr + NotOption,
-        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-    {
-        fn into_param(
+    impl<T: IntoParam> Wrapper<T> {
+        /// This is the 'preferred' impl to be used for all `T` that implement `IntoParam`.
+        /// Because it is directly on the struct, the compiler will pick this over the impl from
+        /// the `Fallback` trait.
+        #[inline]
+        pub fn __into_param(
             value: Option<&str>,
             name: &str,
-        ) -> Result<Self, ParamsError> {
-            let value = value
-                .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
-            Self::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
+        ) -> Result<T, ParamsError> {
+            T::into_param(value, name)
         }
     }
-}
 
+    /// If the Fallback trait is in scope, then the compiler has two possible implementations for
+    /// `__into_params`. It will pick the one from this trait if the inherent one doesn't exist.
+    /// (which it won't if `T` does not implement `IntoParam`)
+    pub trait Fallback<T>: Sized
+    where
+        T: FromStr,
+        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+    {
+        /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
+        /// `T`
+        #[inline]
+        fn __into_param(
+            value: Option<&str>,
+            name: &str,
+        ) -> Result<T, ParamsError> {
+            let value = value
+                .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
+            T::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
+        }
+    }
+
+    impl<T> Fallback<T> for Wrapper<T>
+    where
+        T: FromStr,
+        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+    {
+    }
+}
 /// Errors that can occur while parsing params using [`Params`].
 #[derive(Error, Debug, Clone)]
 pub enum ParamsError {

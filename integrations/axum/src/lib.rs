@@ -2050,7 +2050,20 @@ where
                 let res = res.await.unwrap();
 
                 if res.status() == StatusCode::OK {
-                    res.into_response()
+                    let owner = Owner::new();
+                    owner.with(|| {
+                        additional_context();
+                        let res = res.into_response();
+                        if let Some(response_options) =
+                            use_context::<ResponseOptions>()
+                        {
+                            let mut res = AxumResponse(res);
+                            res.extend_response(&response_options);
+                            res.0
+                        } else {
+                            res
+                        }
+                    })
                 } else {
                     let mut res = handle_response_inner(
                         move || {

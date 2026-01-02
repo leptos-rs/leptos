@@ -199,7 +199,7 @@ mod slot;
 /// ```
 ///
 /// 9. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
-///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
+///    [NodeRef](https://docs.rs/leptos/latest/leptos/prelude/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -505,9 +505,9 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///
 /// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
 ///   you could apply `#[prop(into)]` to a prop that takes
-///   [Signal](https://docs.rs/leptos/latest/leptos/struct.Signal.html), which would
-///   allow users to pass a [ReadSignal](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) or
-///   [RwSignal](https://docs.rs/leptos/latest/leptos/struct.RwSignal.html)
+///   [Signal](https://docs.rs/leptos/latest/leptos/prelude/struct.Signal.html), which would
+///   allow users to pass a [ReadSignal](https://docs.rs/leptos/latest/leptos/prelude/struct.ReadSignal.html) or
+///   [RwSignal](https://docs.rs/leptos/latest/leptos/prelude/struct.RwSignal.html)
 ///   and automatically convert it.)
 /// * `#[prop(optional)]`: If the user does not specify this property when they use the component,
 ///   it will be set to its default value. If the property type is `Option<T>`, values should be passed

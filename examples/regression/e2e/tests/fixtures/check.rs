@@ -7,7 +7,15 @@ pub async fn result_text_is(
     client: &Client,
     expected_text: &str,
 ) -> Result<()> {
-    let actual = find::text_at_id(client, "result").await?;
+    element_text_is(client, "result", expected_text).await
+}
+
+pub async fn element_text_is(
+    client: &Client,
+    id: &str,
+    expected_text: &str,
+) -> Result<()> {
+    let actual = find::text_at_id(client, id).await?;
     assert_eq!(&actual, expected_text);
     Ok(())
 }

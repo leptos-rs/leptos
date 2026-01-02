@@ -5,7 +5,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = "0.8.8"
+version = "0.8.9"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -32,7 +32,7 @@ dashmap = { workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = false }
+actix-web = { optional = true, workspace = true, default-features = false, features = ["ws"] }
 actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum

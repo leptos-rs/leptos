@@ -90,7 +90,7 @@ pub(crate) fn component_to_tokens(
 
         if optional {
             optional_props.push(quote! {
-                props.#name = { #value }.map(Into::into);
+                props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
             required_props.push(quote! {
@@ -176,7 +176,9 @@ pub(crate) fn component_to_tokens(
     let spreads = (!(spreads.is_empty())).then(|| {
         if cfg!(feature = "__internal_erase_components") {
             quote! {
-                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
+                .add_any_attr({
+                    vec![#(::leptos::attr::any_attribute::IntoAnyAttribute::into_any_attr(#spreads),)*]
+                })
             }
         } else {
             quote! {
