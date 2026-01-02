@@ -34,13 +34,27 @@ mod tests {
         let owner = Owner::new();
         owner.set();
 
-        #[cfg(not(feature = "nightly"))]
         let _: Signal<usize> = (|| 2).into_reactive_value();
         let _: Signal<usize, LocalStorage> = 2.into_reactive_value();
-        #[cfg(not(feature = "nightly"))]
         let _: Signal<usize, LocalStorage> = (|| 2).into_reactive_value();
         let _: Signal<String> = "str".into_reactive_value();
         let _: Signal<String, LocalStorage> = "str".into_reactive_value();
+
+        // Confirm doesn't affect nightly function syntax:
+        #[cfg(all(rustc_nightly, feature = "nightly"))]
+        {
+            let sig: Signal<usize> = Signal::stored(2).into_reactive_value();
+            assert_eq!(sig(), 2);
+        }
+
+        // Confirm can be used in more complex expressions:
+        {
+            use crate::traits::Get;
+            let a: Signal<usize> = (|| 2).into_reactive_value();
+            let b: Signal<usize> = Signal::stored(2).into_reactive_value();
+            let _: Signal<usize> =
+                (move || a.get() + b.get()).into_reactive_value();
+        }
 
         #[derive(TypedBuilder)]
         struct Foo {
@@ -53,7 +67,6 @@ mod tests {
         }
 
         assert_eq!(Foo::builder().sig(2).build().sig.get_untracked(), 2);
-        #[cfg(not(feature = "nightly"))]
         assert_eq!(Foo::builder().sig(|| 2).build().sig.get_untracked(), 2);
         assert_eq!(
             Foo::builder()
