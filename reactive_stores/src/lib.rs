@@ -415,7 +415,7 @@ impl<K> Default for FieldKeys<K> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-type HashMap<K, V> = Arc<dashmap::DashMap<K, V>>;
+type HashMap<K, V> = Arc<std::sync::Mutex<std::collections::HashMap<K, V>>>;
 #[cfg(target_arch = "wasm32")]
 type HashMap<K, V> = send_wrapper::SendWrapper<
     std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>,
@@ -453,8 +453,9 @@ impl KeyMap {
         let initial_keys = initialize();
 
         #[cfg(not(target_arch = "wasm32"))]
-        let mut entry = self
-            .0
+        let mut map_0 = self.0.lock().unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
+        let entry = map_0
             .entry(path.clone())
             .or_insert_with(|| Box::new(FieldKeys::new(initial_keys)));
 
@@ -471,13 +472,26 @@ impl KeyMap {
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
         let (result, new_keys) = fun(entry);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        drop(map_0);
+
+        let mut map_1 = {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.1.lock().unwrap()
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                self.1.borrow_mut()
+            }
+        };
+
         if !new_keys.is_empty() {
             for (idx, segment) in new_keys {
-                #[cfg(not(target_arch = "wasm32"))]
-                self.1.insert((path.clone(), idx), segment);
-
-                #[cfg(target_arch = "wasm32")]
-                self.1.borrow_mut().insert((path.clone(), idx), segment);
+                map_1.insert((path.clone(), idx), segment);
+                map_1.insert((path.clone(), idx), segment);
             }
         }
         Some(result)
@@ -486,7 +500,7 @@ impl KeyMap {
     fn contains_key(&self, key: &StorePath) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.0.contains_key(key)
+            self.0.lock().unwrap().contains_key(key)
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -501,7 +515,7 @@ impl KeyMap {
     ) -> Option<StorePathSegment> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.1.get(key).as_deref().copied()
+            self.1.lock().unwrap().get(key).copied()
         }
 
         #[cfg(target_arch = "wasm32")]
