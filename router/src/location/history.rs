@@ -3,7 +3,7 @@ use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
 use js_sys::{try_iter, Array, JsString};
-use leptos::prelude::*;
+use leptos::{ev, prelude::*};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     signal::ArcRwSignal,
@@ -11,13 +11,12 @@ use reactive_graph::{
 };
 use std::{
     borrow::Cow,
-    boxed::Box,
     string::String,
     sync::{Arc, Mutex},
 };
 use tachys::dom::{document, window};
-use wasm_bindgen::{closure::Closure, JsCast, JsValue};
-use web_sys::{Event, UrlSearchParams};
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::UrlSearchParams;
 
 #[derive(Clone)]
 pub struct BrowserUrl {
@@ -116,7 +115,6 @@ impl LocationProvider for BrowserUrl {
     }
 
     fn init(&self, base: Option<Cow<'static, str>>) {
-        let window = window();
         let navigate = {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
@@ -159,36 +157,31 @@ impl LocationProvider for BrowserUrl {
 
         let handle_anchor_click =
             handle_anchor_click(base, Self::parse_with_base, navigate);
-        let closure = Closure::wrap(Box::new(move |ev: Event| {
+
+        let click_handle = window_event_listener(ev::click, move |ev| {
             if let Err(e) = handle_anchor_click(ev) {
                 #[cfg(feature = "tracing")]
                 tracing::error!("{e:?}");
                 #[cfg(not(feature = "tracing"))]
                 web_sys::console::error_1(&e);
             }
-        }) as Box<dyn FnMut(Event)>)
-        .into_js_value();
-        window
-            .add_event_listener_with_callback(
-                "click",
-                closure.as_ref().unchecked_ref(),
-            )
-            .expect(
-                "couldn't add `click` listener to `window` to handle `<a>` \
-                 clicks",
-            );
+        });
 
         // handle popstate event (forward/back navigation)
-        let cb = {
+        let popstate_cb = {
             let url = self.url.clone();
             let path_stack = self.path_stack.clone();
             let is_back = self.is_back.clone();
             move || match Self::current() {
                 Ok(new_url) => {
-                    let stack = path_stack.read_value();
+                    let mut stack = path_stack.write_value();
                     let is_navigating_back = stack.len() == 1
                         || (stack.len() >= 2
                             && stack.get(stack.len() - 2) == Some(&new_url));
+
+                    if is_navigating_back {
+                        stack.pop();
+                    }
 
                     is_back.set(is_navigating_back);
 
@@ -202,14 +195,14 @@ impl LocationProvider for BrowserUrl {
                 }
             }
         };
-        let closure =
-            Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
-        window
-            .add_event_listener_with_callback(
-                "popstate",
-                closure.as_ref().unchecked_ref(),
-            )
-            .expect("couldn't add `popstate` listener to `window`");
+
+        let popstate_handle =
+            window_event_listener(ev::popstate, move |_| popstate_cb());
+
+        on_cleanup(|| {
+            click_handle.remove();
+            popstate_handle.remove();
+        });
     }
 
     fn ready_to_complete(&self) {
@@ -221,6 +214,13 @@ impl LocationProvider for BrowserUrl {
     fn complete_navigation(&self, loc: &LocationChange) {
         let history = window().history().unwrap();
 
+        let current_path = self
+            .path_stack
+            .read_value()
+            .last()
+            .map(|url| url.to_full_path());
+        let add_to_stack = current_path.as_ref() != Some(&loc.value);
+
         if loc.replace {
             history
                 .replace_state_with_url(
@@ -229,7 +229,7 @@ impl LocationProvider for BrowserUrl {
                     Some(&loc.value),
                 )
                 .unwrap();
-        } else {
+        } else if add_to_stack {
             // push the "forward direction" marker
             let state = &loc.state.to_js_value();
             history
@@ -240,7 +240,9 @@ impl LocationProvider for BrowserUrl {
         // add this URL to the "path stack" for detecting back navigations, and
         // unset "navigating back" state
         if let Ok(url) = Self::current() {
-            self.path_stack.write_value().push(url);
+            if add_to_stack {
+                self.path_stack.write_value().push(url);
+            }
             self.is_back.set(false);
         }
 

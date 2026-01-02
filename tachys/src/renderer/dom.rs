@@ -36,6 +36,46 @@ pub type ClassList = web_sys::DomTokenList;
 pub type CssStyleDeclaration = web_sys::CssStyleDeclaration;
 pub type TemplateElement = web_sys::HtmlTemplateElement;
 
+/// A microtask is a short function which will run after the current task has
+/// completed its work and when there is no other code waiting to be run before
+/// control of the execution context is returned to the browser's event loop.
+///
+/// Microtasks are especially useful for libraries and frameworks that need
+/// to perform final cleanup or other just-before-rendering tasks.
+///
+/// [MDN queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask)
+pub fn queue_microtask(task: impl FnOnce() + 'static) {
+    use js_sys::{Function, Reflect};
+
+    let task = Closure::once_into_js(task);
+    let window = window();
+    let queue_microtask =
+        Reflect::get(&window, &JsValue::from_str("queueMicrotask"))
+            .expect("queueMicrotask not available");
+    let queue_microtask = queue_microtask.unchecked_into::<Function>();
+    _ = queue_microtask.call1(&JsValue::UNDEFINED, &task);
+}
+
+fn queue(fun: Box<dyn FnOnce()>) {
+    use std::cell::{Cell, RefCell};
+
+    thread_local! {
+        static PENDING: Cell<bool> = const { Cell::new(false) };
+        static QUEUE: RefCell<Vec<Box<dyn FnOnce()>>> = RefCell::new(Vec::new());
+    }
+
+    QUEUE.with_borrow_mut(|q| q.push(fun));
+    if !PENDING.replace(true) {
+        queue_microtask(|| {
+            let tasks = QUEUE.take();
+            for task in tasks {
+                task();
+            }
+            PENDING.set(false);
+        })
+    }
+}
+
 impl Dom {
     pub fn intern(text: &str) -> &str {
         intern(text)
@@ -211,6 +251,20 @@ impl Dom {
         }
     }
 
+    pub fn set_property_or_value(el: &Element, key: &str, value: &JsValue) {
+        if key == "value" {
+            queue(Box::new({
+                let el = el.clone();
+                let value = value.clone();
+                move || {
+                    Self::set_property(&el, "value", &value);
+                }
+            }))
+        } else {
+            Self::set_property(el, key, value);
+        }
+    }
+
     pub fn set_property(el: &Element, key: &str, value: &JsValue) {
         or_debug!(
             js_sys::Reflect::set(
@@ -242,19 +296,20 @@ impl Dom {
         // return the remover
         RemoveEventHandler::new({
             let name = name.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
+            let cb = send_wrapper::SendWrapper::new(move || {
                 or_debug!(
                     el.remove_event_listener_with_callback(
                         intern(&name),
                         cb.as_ref().unchecked_ref()
                     ),
-                    el,
+                    &el,
                     "removeEventListener"
                 )
-            }
+            });
+            move || cb()
         })
     }
 
@@ -280,20 +335,21 @@ impl Dom {
         // return the remover
         RemoveEventHandler::new({
             let name = name.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
+            let cb = send_wrapper::SendWrapper::new(move || {
                 or_debug!(
                     el.remove_event_listener_with_callback_and_bool(
                         intern(&name),
                         cb.as_ref().unchecked_ref(),
                         true
                     ),
-                    el,
+                    &el,
                     "removeEventListener"
                 )
-            }
+            });
+            move || cb()
         })
     }
 
@@ -394,17 +450,19 @@ impl Dom {
         // return the remover
         RemoveEventHandler::new({
             let key = key.to_owned();
+            let el = el.clone();
             // safe to construct this here, because it will only run in the browser
             // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(cb);
-            move |el: &Element| {
-                drop(cb.take());
+            let el_cb = send_wrapper::SendWrapper::new((el, cb));
+            move || {
+                let (el, cb) = el_cb.take();
+                drop(cb);
                 or_debug!(
                     js_sys::Reflect::delete_property(
-                        el,
+                        &el,
                         &JsValue::from_str(&key)
                     ),
-                    el,
+                    &el,
                     "delete property"
                 );
             }

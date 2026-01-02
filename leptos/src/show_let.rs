@@ -160,3 +160,16 @@ where
         OptionGetter(Arc::new(move || cloned.get()))
     }
 }
+
+/// Marker type for creating an `OptionGetter` from a static value.
+/// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
+pub struct StaticMarker;
+
+impl<T> IntoOptionGetter<T, StaticMarker> for Option<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn into_option_getter(self) -> OptionGetter<T> {
+        OptionGetter(Arc::new(move || self.clone()))
+    }
+}

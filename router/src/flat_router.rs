@@ -364,6 +364,12 @@ where
 #[derive(Debug)]
 pub(crate) struct MatchedRoute(pub String, pub AnyView);
 
+impl MatchedRoute {
+    fn branch_name(&self) -> String {
+        format!("{:?}", self.1.as_type_id())
+    }
+}
+
 impl Render for MatchedRoute {
     type State = <AnyView as Render>::State;
 
@@ -414,8 +420,9 @@ impl RenderHtml for MatchedRoute {
         mark_branches: bool,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches && escape {
-            buf.open_branch(&self.0);
+        let branch_name = (mark_branches && escape).then(|| self.branch_name());
+        if let Some(bn) = &branch_name {
+            buf.open_branch(bn);
         }
         self.1.to_html_with_buf(
             buf,
@@ -424,8 +431,8 @@ impl RenderHtml for MatchedRoute {
             mark_branches,
             extra_attrs,
         );
-        if mark_branches && escape {
-            buf.close_branch(&self.0);
+        if let Some(bn) = &branch_name {
+            buf.close_branch(bn);
             if *position == Position::NextChildAfterText {
                 *position = Position::NextChild;
             }
@@ -442,8 +449,9 @@ impl RenderHtml for MatchedRoute {
     ) where
         Self: Sized,
     {
-        if mark_branches && escape {
-            buf.open_branch(&self.0);
+        let branch_name = (mark_branches && escape).then(|| self.branch_name());
+        if let Some(bn) = &branch_name {
+            buf.open_branch(bn);
         }
         self.1.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
@@ -452,8 +460,8 @@ impl RenderHtml for MatchedRoute {
             mark_branches,
             extra_attrs,
         );
-        if mark_branches && escape {
-            buf.close_branch(&self.0);
+        if let Some(bn) = &branch_name {
+            buf.close_branch(bn);
             if *position == Position::NextChildAfterText {
                 *position = Position::NextChild;
             }

@@ -521,9 +521,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let fun = move || {
             let fut = fun();
-            let fut = ScopedFuture::new_untracked(async move {
-                SendOption::new(Some(fut.await))
-            });
+            let fut =
+                ScopedFuture::new_untracked_with_diagnostics(async move {
+                    SendOption::new(Some(fut.await))
+                });
             #[cfg(feature = "sandboxed-arenas")]
             let fut = Sandboxed::new(fut);
             fut
@@ -631,12 +632,29 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
+            // create a handle to register it with suspense
             let handle = suspense_context.task_id();
-            let ready = SpecialNonReactiveFuture::new(self.ready());
-            crate::spawn(async move {
-                ready.await;
-                drop(handle);
-            });
+
+            // check if the task is *already* ready
+            let mut ready =
+                Box::pin(SpecialNonReactiveFuture::new(self.ready()));
+            match ready.as_mut().now_or_never() {
+                Some(_) => {
+                    // if it's already ready, drop the handle immediately
+                    // this will immediately notify the suspense context that it's complete
+                    drop(handle);
+                }
+                None => {
+                    // otherwise, spawn a task to wait for it to be ready, then drop the handle,
+                    // which will notify the suspense
+                    crate::spawn(async move {
+                        ready.await;
+                        drop(handle);
+                    });
+                }
+            }
+
+            // register the suspense context with our list of them, to be notified later if this re-runs
             self.inner
                 .write()
                 .or_poisoned()

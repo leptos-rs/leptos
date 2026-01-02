@@ -205,6 +205,14 @@ where
         self.add_any_attr(enterkeyhint(value))
     }
 
+    /// The `exportparts` attribute enables the sharing of parts of an element's shadow DOM with a containing document.
+    fn exportparts(
+        self,
+        value: V,
+    ) -> <Self as AddAnyAttr>::Output<Attr<Exportparts, V>> {
+        self.add_any_attr(exportparts(value))
+    }
+
     /// The `hidden` global attribute is a Boolean attribute indicating that the element is not yet, or is no longer, relevant.
     fn hidden(self, value: V) -> <Self as AddAnyAttr>::Output<Attr<Hidden, V>> {
         self.add_any_attr(hidden(value))
