@@ -4,14 +4,14 @@ use anyhow::Result;
 use camino::Utf8PathBuf;
 use diff::Patches;
 use node::LNode;
-use parking_lot::RwLock;
+use or_poisoned::OrPoisoned;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 use syn::{
     spanned::Spanned,
@@ -58,7 +58,7 @@ impl ViewMacros {
             }
         }
 
-        *self.views.write() = views;
+        *self.views.write().or_poisoned() = views;
 
         Ok(())
     }
@@ -101,7 +101,7 @@ impl ViewMacros {
     /// Will return `Err` if the contents of the file cannot be parsed.
     pub fn patch(&self, path: &Utf8PathBuf) -> Result<Option<Patches>> {
         let new_views = Self::parse_file(path)?;
-        let mut lock = self.views.write();
+        let mut lock = self.views.write().or_poisoned();
         let diffs = match lock.get(path) {
             None => return Ok(None),
             Some(current_views) => {

@@ -3,8 +3,13 @@ use crate::{
     html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
     ssr::StreamBuilder,
 };
-use parking_lot::RwLock;
-use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
+use or_poisoned::OrPoisoned;
+use std::{
+    cell::RefCell,
+    future::Future,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
 /// Add attributes to typed views.
 pub mod add_attr;
@@ -476,12 +481,12 @@ impl PositionState {
 
     /// Sets the current position.
     pub fn set(&self, position: Position) {
-        *self.0.write() = position;
+        *self.0.write().or_poisoned() = position;
     }
 
     /// Gets the current position.
     pub fn get(&self) -> Position {
-        *self.0.read()
+        *self.0.read().or_poisoned()
     }
 
     /// Creates a new [`PositionState`], which starts with the same [`Position`], but no longer

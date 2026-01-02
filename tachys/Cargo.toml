@@ -152,7 +152,6 @@ drain_filter_polyfill = { workspace = true, default-features = true }
 indexmap = { workspace = true, default-features = true }
 rustc-hash = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
 itertools = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 linear-map = { workspace = true, default-features = true }
