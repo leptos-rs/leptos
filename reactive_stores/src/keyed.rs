@@ -234,6 +234,18 @@ where
     }
 }
 
+impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
+where
+    Self: Clone,
+    for<'a> &'a T: IntoIterator,
+    Inner: StoreField<Value = Prev>,
+{
+    /// Keyed access to a keyed subfield of a store.
+    pub fn at_key(&self, key: K) -> AtKeyed<Inner, Prev, K, T> {
+        AtKeyed::new(self.clone(), key)
+    }
+}
+
 /// Gives keyed write access to a value in some collection.
 pub struct KeyedSubfieldWriteGuard<Inner, Prev, K, T, Guard>
 where
@@ -834,7 +846,7 @@ mod tests {
     };
     use reactive_stores::Patch;
     use std::{
-        collections::{BTreeMap, BTreeSet},
+        collections::{BTreeMap, BTreeSet, HashMap},
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
@@ -896,7 +908,38 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Store, Default, Clone, PartialEq, Eq, Patch)]
+    #[derive(Debug, Store, Default)]
+    struct TodoHashMap {
+        #[store(key: String = |(key, _)| key.clone())]
+        todos: HashMap<String, Todo>,
+    }
+    impl TodoHashMap {
+        fn test_data() -> Self {
+            Self {
+                todos: [
+                    Todo {
+                        id: 10,
+                        label: "A".to_string(),
+                    },
+                    Todo {
+                        id: 11,
+                        label: "B".to_string(),
+                    },
+                    Todo {
+                        id: 12,
+                        label: "C".to_string(),
+                    },
+                ]
+                .into_iter()
+                .map(|todo| (todo.label.clone(), todo))
+                .collect(),
+            }
+        }
+    }
+
+    #[derive(
+        Debug, Store, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Patch,
+    )]
     struct Todo {
         id: usize,
         label: String,
@@ -1131,6 +1174,120 @@ mod tests {
         assert_eq!(existing, Some(Todo::new(13, "New")));
 
         let at_faulty_key = AtKeyed::new(store.todos(), 999);
+        let missing = at_faulty_key.try_get();
+        assert!(missing.is_none(), "faulty key should return none.")
+    }
+
+    #[tokio::test]
+    async fn hashmap_keyed_fields_can_be_moved() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(TodoHashMap::test_data());
+        assert_eq!(store.read_untracked().todos.len(), 3);
+
+        // create an effect to read from each keyed field
+        let a_count = Arc::new(AtomicUsize::new(0));
+        let b_count = Arc::new(AtomicUsize::new(0));
+        let c_count = Arc::new(AtomicUsize::new(0));
+
+        let a = AtKeyed::new(store.todos(), "A".to_string());
+        let b = AtKeyed::new(store.todos(), "B".to_string());
+        let c = AtKeyed::new(store.todos(), "C".to_string());
+
+        Effect::new_sync({
+            let a_count = Arc::clone(&a_count);
+            let a = a.clone();
+            move || {
+                a.track();
+                a_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let b_count = Arc::clone(&b_count);
+            move || {
+                b.track();
+                b_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let c_count = Arc::clone(&c_count);
+            move || {
+                c.track();
+                c_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // writing at a key doesn't notify siblings
+        *a.clone().label().write() = "Foo".to_string();
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 2);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<BTreeSet<_>>(),
+            BTreeSet::from([
+                Todo::new(10, "Foo"),
+                Todo::new(11, "B"),
+                Todo::new(12, "C"),
+            ])
+        );
+
+        a.clone().label().set("Bar".into());
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<BTreeSet<_>>(),
+            BTreeSet::from([
+                Todo::new(10, "Bar"),
+                Todo::new(11, "B"),
+                Todo::new(12, "C")
+            ]),
+        );
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // we can remove a key and add a new one
+        store.todos().write().remove(&"C".to_string());
+        store
+            .todos()
+            .write()
+            .insert("New".to_string(), Todo::new(13, "New"));
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<BTreeSet<_>>(),
+            BTreeSet::from([
+                Todo::new(10, "Bar"),
+                Todo::new(11, "B"),
+                Todo::new(13, "New"),
+            ])
+        );
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        assert_eq!(
+            after.keys().cloned().collect::<BTreeSet<String>>(),
+            BTreeSet::from([
+                "A".to_string(),
+                "B".to_string(),
+                "New".to_string()
+            ])
+        );
+
+        let at_existing_key = AtKeyed::new(store.todos(), "New".to_string());
+        let existing = at_existing_key.try_get();
+        assert!(existing.is_some());
+        assert_eq!(existing, Some(Todo::new(13, "New")));
+
+        let at_faulty_key = AtKeyed::new(store.todos(), "faulty".to_string());
         let missing = at_faulty_key.try_get();
         assert!(missing.is_none(), "faulty key should return none.")
     }
