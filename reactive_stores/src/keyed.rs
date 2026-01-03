@@ -29,57 +29,57 @@ pub trait KeyedAccess {
     /// Collection values.
     type Value;
     /// Acquire mutable access to a value.
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value;
+    fn keyed_mut(&mut self, index: usize, key: Self::Key) -> &mut Self::Value;
     /// Acquire read-only access to a value.
-    fn keyed(&self, key: Self::Key) -> &Self::Value;
+    fn keyed(&self, index: usize, key: Self::Key) -> &Self::Value;
 }
 impl<T> KeyedAccess for VecDeque<T> {
     type Key = usize;
     type Value = T;
-    fn keyed(&self, key: Self::Key) -> &Self::Value {
-        self.index(key)
+    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+        self.index(index)
     }
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
-        self.index_mut(key)
+    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+        self.index_mut(index)
     }
 }
 impl<T> KeyedAccess for Vec<T> {
     type Key = usize;
     type Value = T;
-    fn keyed(&self, key: Self::Key) -> &Self::Value {
-        self.index(key)
+    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+        self.index(index)
     }
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
-        self.index_mut(key)
+    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+        self.index_mut(index)
     }
 }
 impl<T> KeyedAccess for [T] {
     type Key = usize;
     type Value = T;
-    fn keyed(&self, key: Self::Key) -> &Self::Value {
-        self.index(key)
+    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+        self.index(index)
     }
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
-        self.index_mut(key)
+    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+        self.index_mut(index)
     }
 }
 impl<K: Ord, V> KeyedAccess for std::collections::BTreeMap<K, V> {
     type Key = K;
     type Value = V;
-    fn keyed(&self, key: Self::Key) -> &Self::Value {
+    fn keyed(&self, _index: usize, key: Self::Key) -> &Self::Value {
         self.get(&key).expect("key does not exist")
     }
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, _index: usize, key: Self::Key) -> &mut Self::Value {
         self.get_mut(&key).expect("key does not exist")
     }
 }
 impl<K: Hash + Eq, V> KeyedAccess for std::collections::HashMap<K, V> {
     type Key = K;
     type Value = V;
-    fn keyed(&self, key: Self::Key) -> &Self::Value {
+    fn keyed(&self, _index: usize, key: Self::Key) -> &Self::Value {
         self.get(&key).expect("key does not exist")
     }
-    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, _index: usize, key: Self::Key) -> &mut Self::Value {
         self.get_mut(&key).expect("key does not exist")
     }
 }
@@ -487,6 +487,30 @@ where
     }
 }
 
+impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
+where
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    KeyedSubfield<Inner, Prev, K, T>: Clone,
+    for<'a> &'a T: IntoIterator,
+    Inner: StoreField<Value = Prev>,
+    Prev: 'static,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized,
+{
+    /// Attempt to resolve the inner index if is still exists.
+    fn resolve_index(&self) -> Option<usize> {
+        let inner_path = self.inner.path().into_iter().collect();
+        let keys = self.inner.keys()?;
+        keys.with_field_keys(
+            inner_path,
+            |keys| (keys.get(&self.key), vec![]),
+            || self.inner.latest_keys(),
+        )
+        .flatten()
+        .map(|(_, idx)| idx)
+    }
+}
+
 impl<Inner, Prev, K, T> StoreField for AtKeyed<Inner, Prev, K, T>
 where
     K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -555,50 +579,27 @@ where
 
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
-        let inner_path = self.inner.path().into_iter().collect();
-        let keys = self.inner.keys()?;
-
-        // Check whether the key path still exists.
-        keys.with_field_keys(
-            inner_path,
-            |keys| (keys.get(&self.key), vec![]),
-            || self.inner.latest_keys(),
-        )
-        .flatten()?;
-
+        let index = self.resolve_index()?;
         let key = self.key;
         Some(MappedMutArc::new(
             inner,
-            move |n| n.keyed(key),
-            move |n| n.keyed_mut(key),
+            move |n| n.keyed(index, key),
+            move |n| n.keyed_mut(index, key),
         ))
     }
 
     fn writer(&self) -> Option<Self::Writer> {
         let mut inner = self.inner.writer()?;
         inner.untrack();
-        let inner_path = self.inner.path().into_iter().collect::<StorePath>();
-        let keys = self
-            .inner
-            .keys()
-            .expect("using keys on a store with no keys");
-
-        // Check whether the key path still exists.
-        keys.with_field_keys(
-            inner_path.clone(),
-            |keys| (keys.get(&self.key), vec![]),
-            || self.inner.latest_keys(),
-        )
-        .flatten()?;
-
-        let triggers = self.triggers_for_current_path();
+        let index = self.resolve_index()?;
         let key = self.key;
+        let triggers = self.triggers_for_current_path();
         Some(WriteGuard::new(
             triggers,
             MappedMutArc::new(
                 inner,
-                move |n| n.keyed(key),
-                move |n| n.keyed_mut(key),
+                move |n| n.keyed(index, key),
+                move |n| n.keyed_mut(index, key),
             ),
         ))
     }
