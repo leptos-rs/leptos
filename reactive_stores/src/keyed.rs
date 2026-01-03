@@ -459,6 +459,17 @@ where
     key: K,
 }
 
+impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
+where
+    for<'a> &'a T: IntoIterator,
+    K: Clone,
+{
+    /// Key used for keyed collection access.
+    pub fn key(&self) -> K {
+        self.key.clone()
+    }
+}
+
 impl<Inner, Prev, K, T> Clone for AtKeyed<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
