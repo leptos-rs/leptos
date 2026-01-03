@@ -19,9 +19,45 @@ async fn i_see_the_result_is_the_string(
     Ok(())
 }
 
+#[then(regex = r"^I see ([\w-]+) has the text (.*)$")]
+async fn i_see_element_has_text(
+    world: &mut AppWorld,
+    id: String,
+    text: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::element_text_is(client, &id, &text).await?;
+    Ok(())
+}
+
 #[then(regex = r"^I see the navbar$")]
 async fn i_see_the_navbar(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;
     check::element_exists(client, "nav").await?;
+    Ok(())
+}
+
+#[then(regex = r"^I see ([\d\w]+) is selected$")]
+async fn i_see_the_select(world: &mut AppWorld, id: String) -> Result<()> {
+    let client = &world.client;
+    check::select_option_is_selected(client, &id).await?;
+    Ok(())
+}
+
+#[then(regex = r"^I see the value of (\w+) is (.*)$")]
+async fn i_see_the_value(
+    world: &mut AppWorld,
+    id: String,
+    value: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::element_value_is(client, &id, &value).await?;
+    Ok(())
+}
+
+#[then(regex = r"^I see the path is (.*)$")]
+async fn i_see_the_path(world: &mut AppWorld, path: String) -> Result<()> {
+    let client = &world.client;
+    check::path_is(client, &path).await?;
     Ok(())
 }

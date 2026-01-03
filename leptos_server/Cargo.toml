@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version = "0.8.5"
+version = "0.8.6"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -44,7 +44,8 @@ denylist = ["tracing"]
 max_combination_size = 2
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "--cfg", "docsrs"]
+all-features = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

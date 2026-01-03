@@ -1,6 +1,7 @@
 use crate::{
     html::attribute::{
         maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
+        NamedAttributeKey,
     },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
@@ -110,7 +111,9 @@ where
 {
     On {
         event,
-        cb: Some(SendWrapper::new(cb)),
+        #[cfg(feature = "reactive_graph")]
+        owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
+        cb: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(cb)),
     }
 }
 
@@ -135,6 +138,8 @@ where
 /// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F> {
     event: E,
+    #[cfg(feature = "reactive_graph")]
+    owner: reactive_graph::owner::Owner,
     cb: Option<SendWrapper<F>>,
 }
 
@@ -146,6 +151,8 @@ where
     fn clone(&self) -> Self {
         Self {
             event: self.event.clone(),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner.clone(),
             cb: self.cb.clone(),
         }
     }
@@ -193,6 +200,10 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
+
+            #[cfg(feature = "reactive_graph")]
+            self.owner.with(|| cb.invoke(ev));
+            #[cfg(not(feature = "reactive_graph"))]
             cb.invoke(ev);
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
@@ -232,6 +243,10 @@ where
             let _tracing_guard = span.enter();
 
             let ev = E::EventType::from(ev);
+
+            #[cfg(feature = "reactive_graph")]
+            self.owner.with(|| cb.invoke(ev));
+            #[cfg(not(feature = "reactive_graph"))]
             cb.invoke(ev);
         }) as Box<dyn FnMut(crate::renderer::types::Event)>;
 
@@ -308,7 +323,9 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev_cleanup) = state;
         if let Some(prev) = prev_cleanup.take() {
-            (prev.into_inner())(el);
+            if let Some(remove) = prev.into_inner() {
+                remove();
+            }
         }
         *prev_cleanup = Some(if E::CAPTURE {
             self.attach_capture(el)
@@ -320,6 +337,8 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner,
             event: self.event,
         }
     }
@@ -327,20 +346,20 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         On {
             cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
+            #[cfg(feature = "reactive_graph")]
+            owner: self.owner,
             event: self.event,
         }
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.cb.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 
@@ -589,7 +608,7 @@ generate_event_types! {
   animation start: AnimationEvent,
   aux click: MouseEvent,
   before input: InputEvent,
-  before toggle: Event, // web_sys does not include `ToggleEvent`
+  before toggle: ToggleEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
@@ -700,7 +719,7 @@ generate_event_types! {
   #[does_not_bubble]
   time update: Event,
   #[does_not_bubble]
-  toggle: Event,
+  toggle: ToggleEvent,
   touch cancel: TouchEvent,
   touch end: TouchEvent,
   touch move: TouchEvent,

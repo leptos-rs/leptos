@@ -1,6 +1,6 @@
 [package]
 name = "throw_error"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -11,3 +11,6 @@ edition.workspace = true
 
 [dependencies]
 pin-project-lite = { workspace = true, default-features = true }
+
+[dev-dependencies]
+anyhow.workspace = true

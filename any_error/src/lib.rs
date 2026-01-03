@@ -45,10 +45,10 @@ impl fmt::Display for Error {
 
 impl<T> From<T> for Error
 where
-    T: error::Error + Send + Sync + 'static,
+    T: Into<Box<dyn error::Error + Send + Sync + 'static>>,
 {
     fn from(value: T) -> Self {
-        Error(Arc::new(value))
+        Error(Arc::from(value.into()))
     }
 }
 
@@ -156,5 +156,34 @@ where
             .as_ref()
             .map(|hook| set_error_hook(Arc::clone(hook)));
         this.inner.poll(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error as StdError;
+
+    #[derive(Debug)]
+    struct MyError;
+
+    impl Display for MyError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "MyError")
+        }
+    }
+
+    impl StdError for MyError {}
+
+    #[test]
+    fn test_from() {
+        let e = MyError;
+        let _le = Error::from(e);
+
+        let e = "some error".to_string();
+        let _le = Error::from(e);
+
+        let e = anyhow::anyhow!("anyhow error");
+        let _le = Error::from(e);
     }
 }

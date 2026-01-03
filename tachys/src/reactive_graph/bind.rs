@@ -5,7 +5,8 @@ use crate::{
             maybe_next_attr_erasure_macros::{
                 next_attr_combine, next_attr_output_type,
             },
-            Attribute, AttributeKey, AttributeValue, NextAttribute,
+            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+            NextAttribute,
         },
         event::{change, input, on},
         property::{prop, IntoProperty},
@@ -257,7 +258,9 @@ where
         prop(self.key(), signal).rebuild(attr_state);
 
         if let Some(prev) = prev_cleanup.take() {
-            (prev.into_inner())(el);
+            if let Some(remove) = prev.into_inner() {
+                remove();
+            }
         }
         *prev_cleanup = Some(self.attach(el));
     }
@@ -274,6 +277,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 

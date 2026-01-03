@@ -5,7 +5,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = "0.8.5"
+version = "0.8.9"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -25,7 +25,7 @@ send_wrapper = { features = [
   "futures",
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
-bon = { workspace = true }
+typed-builder = { workspace = true, default-features = true }
 
 # registration system
 inventory = { optional = true, workspace = true, default-features = true }
@@ -33,7 +33,7 @@ dashmap = { workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = false }
+actix-web = { optional = true, workspace = true, default-features = false, features = ["ws"] }
 actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum
@@ -65,6 +65,7 @@ http-body-util = { optional = true, workspace = true, default-features = true }
 rkyv = { optional = true, workspace = true, default-features = true }
 rmp-serde = { optional = true, workspace = true, default-features = true }
 base64 = { workspace = true, default-features = true }
+bitcode = { optional = true, workspace = true, default-features = true }
 
 # client
 gloo-net = { optional = true, workspace = true, default-features = true }
@@ -127,6 +128,7 @@ cbor = ["dep:ciborium"]
 rkyv = ["dep:rkyv"]
 msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
+bitcode = ["dep:bitcode"]
 default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]

@@ -684,7 +684,7 @@ where
         additional_context.clone(),
         app_fn.clone(),
     );
-    let asyn = render_app_async_stream_with_context(
+    let asyn = render_app_async_with_context(
         additional_context.clone(),
         app_fn.clone(),
     );
@@ -1017,73 +1017,6 @@ where
     IV: IntoView + 'static,
 {
     render_app_async_with_context(|| {}, app_fn)
-}
-
-/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` resources have loaded.
-///
-/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
-/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
-/// the data to leptos in a closure. An example is below
-/// ```
-/// use axum::{
-///     body::Body,
-///     extract::Path,
-///     http::Request,
-///     response::{IntoResponse, Response},
-/// };
-/// use leptos::context::provide_context;
-///
-/// async fn custom_handler(
-///     Path(id): Path<String>,
-///     req: Request<Body>,
-/// ) -> Response {
-///     let handler = leptos_axum::render_app_async_with_context(
-///         move || {
-///             provide_context(id.clone());
-///         },
-///         || { /* your application here */ },
-///     );
-///     handler(req).await.into_response()
-/// }
-/// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
-///
-/// ## Provided Context Types
-/// This function always provides context values including the following types:
-/// - [`Parts`]
-/// - [`ResponseOptions`]
-/// - [`ServerMetaContext`]
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(level = "trace", fields(error), skip_all)
-)]
-pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send + Sync,
-    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
-) -> impl Fn(
-    Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
-where
-    IV: IntoView + 'static,
-{
-    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
-        Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
-                app.to_html_stream_in_order_branching()
-            } else {
-                app.to_html_stream_in_order()
-            };
-            let app = app.collect::<String>().await;
-            let chunks = chunks();
-            Box::pin(once(async move { app }).chain(chunks))
-                as PinnedStream<String>
-        })
-    })
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -2050,7 +1983,20 @@ where
                 let res = res.await.unwrap();
 
                 if res.status() == StatusCode::OK {
-                    res.into_response()
+                    let owner = Owner::new();
+                    owner.with(|| {
+                        additional_context();
+                        let res = res.into_response();
+                        if let Some(response_options) =
+                            use_context::<ResponseOptions>()
+                        {
+                            let mut res = AxumResponse(res);
+                            res.extend_response(&response_options);
+                            res.0
+                        } else {
+                            res
+                        }
+                    })
                 } else {
                     let mut res = handle_response_inner(
                         move || {
@@ -2059,17 +2005,7 @@ where
                         },
                         move || shell(options),
                         req,
-                        |app, chunks, _supports_ooo| {
-                            Box::pin(async move {
-                                let app = app
-                                    .to_html_stream_in_order()
-                                    .collect::<String>()
-                                    .await;
-                                let chunks = chunks();
-                                Box::pin(once(async move { app }).chain(chunks))
-                                    as PinnedStream<String>
-                            })
-                        },
+                        async_stream_builder,
                     )
                     .await;
 

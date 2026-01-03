@@ -1,21 +1,42 @@
+if (window.location.protocol === "https:") {
+	protocol = "wss://";
+}
+
 let host = window.location.hostname;
-let ws = new WebSocket(`${protocol}${host}:${reload_port}/live_reload`);
-ws.onmessage = (ev) => {
-	let msg = JSON.parse(ev.data);
-	if (msg.all) window.location.reload();
-	if (msg.css) {
-		let found = false;
-		document.querySelectorAll("link").forEach((link) => {
-			if (link.getAttribute('href').includes(msg.css)) {
-				let newHref = '/' + msg.css + '?version=' + Date.now();
-				link.setAttribute('href', newHref);
-				found = true;
-			}
-		});
-		if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${msg.css}\"> element`);
+
+function connect() {
+	let ws = new WebSocket(`${protocol}${host}:${reload_port}/live_reload`);
+
+	ws.onmessage = (ev) => {
+		let msg = JSON.parse(ev.data);
+		if (msg.all) window.location.reload();
+		if (msg.css) {
+			let found = false;
+			document.querySelectorAll("link").forEach((link) => {
+				if (link.getAttribute("href").includes(msg.css)) {
+					let newHref = "/" + msg.css + "?version=" + Date.now();
+					link.setAttribute("href", newHref);
+					found = true;
+				}
+			});
+			if (!found)
+				console.warn(
+					`CSS hot-reload: Could not find a <link href=/\"${msg.css}\"> element`,
+				);
+		}
+		if (msg.view) {
+			patch(msg.view);
+		}
 	};
-	if(msg.view) {
-		patch(msg.view);
-	}
-};
-ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+
+	ws.onclose = () => {
+		console.warn("Live-reload disconnected. Reconnecting...");
+		setTimeout(connect, 1000);
+	};
+
+	ws.onerror = () => {
+		ws.close();
+	};
+}
+
+connect();

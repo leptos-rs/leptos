@@ -9,6 +9,7 @@ use std::{
     str::FromStr,
 };
 use throw_error::Error;
+use typed_builder::TypedBuilder;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
@@ -561,7 +562,7 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
 }
 
 /// Response parts returned by [`FromServerFnError::ser`] to be returned to the client.
-#[derive(bon::Builder)]
+#[derive(TypedBuilder)]
 #[non_exhaustive]
 pub struct ServerFnErrorResponseParts {
     /// The raw [`Bytes`] of the serialized error.
@@ -579,7 +580,8 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Converts the custom error type to [`ServerFnErrorResponseParts`].
+    /// Converts the custom error type to [`ServerFnErrorResponseParts`], according to the encoding
+    /// given by [`Self::Encoder`].
     fn ser(&self) -> ServerFnErrorResponseParts {
         let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
@@ -596,7 +598,7 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
             .build()
     }
 
-    /// Deserializes the custom error type from a [`&str`].
+    /// Deserializes the custom error type, according to the encoding given by `Self::Encoding`.
     fn de(data: Bytes) -> Self {
         Self::Encoder::decode(data).unwrap_or_else(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()

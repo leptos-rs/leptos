@@ -20,6 +20,14 @@ async fn i_select_the_link(world: &mut AppWorld, text: String) -> Result<()> {
     Ok(())
 }
 
+#[when(regex = "^I click the button (.*)$")]
+async fn i_click_the_button(world: &mut AppWorld, id: String) -> Result<()> {
+    let client = &world.client;
+    action::click_button(client, &id).await?;
+
+    Ok(())
+}
+
 #[given(expr = "I select the following links")]
 #[when(expr = "I select the following links")]
 async fn i_select_the_following_links(
@@ -42,6 +50,22 @@ async fn i_select_the_following_links(
 async fn i_refresh_the_browser(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;
     client.refresh().await?;
+
+    Ok(())
+}
+
+#[given(regex = "^I press the back button$")]
+#[when(regex = "^I press the back button$")]
+async fn i_go_back(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    client.back().await?;
+
+    Ok(())
+}
+
+#[when(regex = r"^I wait (\d+)ms$")]
+async fn i_wait_ms(_world: &mut AppWorld, ms: u64) -> Result<()> {
+    tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
 
     Ok(())
 }

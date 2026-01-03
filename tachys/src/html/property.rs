@@ -3,7 +3,9 @@ use super::attribute::{
     NextAttribute,
 };
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     renderer::Rndr,
     view::{Position, ToTemplate},
 };
@@ -20,7 +22,7 @@ where
 {
     Property {
         key,
-        value: Some(SendWrapper::new(value)),
+        value: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(value)),
     }
 }
 
@@ -113,16 +115,16 @@ where
         }
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.value.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Property(
+            self.key.as_ref().to_string().into(),
+        )]
     }
 }
 
@@ -202,7 +204,7 @@ macro_rules! prop_type {
                 key: &str,
             ) -> Self::State {
                 let value = self.into();
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 (el.clone(), value)
             }
 
@@ -212,14 +214,14 @@ macro_rules! prop_type {
                 key: &str,
             ) -> Self::State {
                 let value = self.into();
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 (el.clone(), value)
             }
 
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = self.into();
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 *prev = value;
             }
 
@@ -245,7 +247,7 @@ macro_rules! prop_type {
                 let was_some = self.is_some();
                 let value = self.into();
                 if was_some {
-                    Rndr::set_property(el, key, &value);
+                    Rndr::set_property_or_value(el, key, &value);
                 }
                 (el.clone(), value)
             }
@@ -258,7 +260,7 @@ macro_rules! prop_type {
                 let was_some = self.is_some();
                 let value = self.into();
                 if was_some {
-                    Rndr::set_property(el, key, &value);
+                    Rndr::set_property_or_value(el, key, &value);
                 }
                 (el.clone(), value)
             }
@@ -266,7 +268,7 @@ macro_rules! prop_type {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = self.into();
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 *prev = value;
             }
 
@@ -294,7 +296,7 @@ macro_rules! prop_type_str {
                 key: &str,
             ) -> Self::State {
                 let value = JsValue::from(&*self);
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 (el.clone(), value)
             }
 
@@ -304,14 +306,14 @@ macro_rules! prop_type_str {
                 key: &str,
             ) -> Self::State {
                 let value = JsValue::from(&*self);
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 (el.clone(), value)
             }
 
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = JsValue::from(&*self);
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 *prev = value;
             }
 
@@ -339,7 +341,7 @@ macro_rules! prop_type_str {
                 let was_some = self.is_some();
                 let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
                 if was_some {
-                    Rndr::set_property(el, key, &value);
+                    Rndr::set_property_or_value(el, key, &value);
                 }
                 (el.clone(), value)
             }
@@ -352,7 +354,7 @@ macro_rules! prop_type_str {
                 let was_some = self.is_some();
                 let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
                 if was_some {
-                    Rndr::set_property(el, key, &value);
+                    Rndr::set_property_or_value(el, key, &value);
                 }
                 (el.clone(), value)
             }
@@ -360,7 +362,7 @@ macro_rules! prop_type_str {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
-                Rndr::set_property(el, key, &value);
+                Rndr::set_property_or_value(el, key, &value);
                 *prev = value;
             }
 
@@ -392,7 +394,7 @@ impl IntoProperty for Arc<str> {
         key: &str,
     ) -> Self::State {
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         (el.clone(), value)
     }
 
@@ -402,14 +404,14 @@ impl IntoProperty for Arc<str> {
         key: &str,
     ) -> Self::State {
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         (el.clone(), value)
     }
 
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
         let value = JsValue::from_str(self.as_ref());
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         *prev = value;
     }
 
@@ -435,7 +437,7 @@ impl IntoProperty for Option<Arc<str>> {
         let was_some = self.is_some();
         let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
         if was_some {
-            Rndr::set_property(el, key, &value);
+            Rndr::set_property_or_value(el, key, &value);
         }
         (el.clone(), value)
     }
@@ -448,7 +450,7 @@ impl IntoProperty for Option<Arc<str>> {
         let was_some = self.is_some();
         let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
         if was_some {
-            Rndr::set_property(el, key, &value);
+            Rndr::set_property_or_value(el, key, &value);
         }
         (el.clone(), value)
     }
@@ -456,7 +458,7 @@ impl IntoProperty for Option<Arc<str>> {
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
         let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
-        Rndr::set_property(el, key, &value);
+        Rndr::set_property_or_value(el, key, &value);
         *prev = value;
     }
 

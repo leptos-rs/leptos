@@ -12,7 +12,7 @@ jobs:
       contents: write # To push a branch
       pull-requests: write # To create a PR from that branch
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Install mdbook

@@ -317,6 +317,26 @@ where
     type State = ElementState<At::State, Ch::State>;
 
     fn rebuild(self, state: &mut Self::State) {
+        // check whether the tag is the same, for custom elements
+        // because this is const `false` for all other element types,
+        // the compiler should be able to optimize it out
+        if E::TAG.is_empty() {
+            // see https://github.com/leptos-rs/leptos/issues/4412
+            let new_tag = self.tag.tag();
+
+            // this is not particularly efficient, but it saves us from
+            // having to keep track of the tag name for every element state
+            let old_tag = state.el.tag_name();
+            if new_tag != old_tag {
+                let mut new_state = self.build();
+                state.insert_before_this(&mut new_state);
+                state.unmount();
+                *state = new_state;
+                return;
+            }
+        }
+
+        // rebuild attributes and children for any element
         let ElementState {
             attrs, children, ..
         } = state;
@@ -329,6 +349,8 @@ where
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag.tag(), E::NAMESPACE);
 
+        let attrs = self.attributes.build(&el);
+
         let children = if E::SELF_CLOSING {
             None
         } else {
@@ -336,8 +358,6 @@ where
             children.mount(&el, None);
             Some(children)
         };
-
-        let attrs = self.attributes.build(&el);
 
         ElementState {
             el,

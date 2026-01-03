@@ -1,9 +1,10 @@
 [package]
 name = "leptos"
-version = "0.8.6"
+version = "0.8.15"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
+homepage = "https://leptos.dev/"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
 rust-version.workspace = true
@@ -57,7 +58,10 @@ serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-wasm_split_helpers.workspace = true
+wasm_split_helpers = { workspace = true, default-features = true }
+subsecond = { workspace = true, default-features = true, optional = true }
+dioxus-cli-config = { workspace = true, default-features = true, optional = true }
+dioxus-devtools = { workspace = true, default-features = true, optional = true }
 
 [features]
 hydration = [
@@ -85,6 +89,12 @@ ssr = [
 ]
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
 rkyv = ["server_fn/rkyv", "leptos_server/rkyv"]
+bitcode = ["server_fn/bitcode"]
+serde-lite = ["server_fn/serde-lite", "leptos_server/serde-lite"]
+cbor = ["server_fn/cbor"]
+msgpack = ["server_fn/msgpack"]
+postcard = ["server_fn/postcard"]
+multipart = ["server_fn/multipart"]
 tracing = [
   "dep:tracing",
   "reactive_graph/tracing",
@@ -102,6 +112,17 @@ trace-component-props = [
 ]
 delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
+subsecond = [
+  "reactive_graph/subsecond",
+  "dep:subsecond",
+  "dep:dioxus-cli-config",
+  "dep:dioxus-devtools",
+  "web-sys/Location",
+  "web-sys/MessageEvent",
+  "web-sys/WebSocket",
+  "web-sys/Window",
+]
+lazy = ["tachys/lazy"]
 
 [dev-dependencies]
 tokio = { features = [
@@ -134,13 +155,18 @@ denylist = [
   "trace-component-props",
   "spin",
   "islands",
+  "bitcode",
+  "serde-lite",
+  "cbor",
+  "msgpack",
+  "postcard",
+  "multipart",
 ]
 skip_feature_sets = [
   ["csr", "ssr"],
   ["csr", "hydrate"],
   ["ssr", "hydrate"],
   ["serde", "serde-lite"],
-  ["serde-lite", "miniserde"],
   ["serde", "miniserde"],
   ["serde", "rkyv"],
   ["miniserde", "rkyv"],

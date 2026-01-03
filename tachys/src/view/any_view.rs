@@ -17,7 +17,7 @@ use crate::{
 };
 use futures::future::{join, join_all};
 use std::{any::TypeId, fmt::Debug};
-#[cfg(any(feature = "ssr", feature = "hydrate"))]
+#[cfg(any(feature = "ssr", all(feature = "hydrate", feature = "lazy")))]
 use std::{future::Future, pin::Pin};
 
 /// A type-erased view. This can be used if control flow requires that multiple different types of
@@ -67,16 +67,23 @@ pub struct AnyView {
     resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Erased),
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
     #[allow(clippy::type_complexity)]
     hydrate_from_server: fn(Erased, &Cursor, &PositionState) -> AnyViewState,
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", feature = "lazy"))]
     #[allow(clippy::type_complexity)]
     hydrate_async: fn(
         Erased,
         &Cursor,
         &PositionState,
     ) -> Pin<Box<dyn Future<Output = AnyViewState>>>,
+}
+
+impl AnyView {
+    #[doc(hidden)]
+    pub fn as_type_id(&self) -> TypeId {
+        self.type_id
+    }
 }
 
 impl Debug for AnyView {
@@ -284,7 +291,7 @@ where
             }
         }
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         fn hydrate_from_server<T: RenderHtml + 'static>(
             value: Erased,
             cursor: &Cursor,
@@ -306,7 +313,7 @@ where
             }
         }
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
         fn hydrate_async<T: RenderHtml + 'static>(
             value: Erased,
             cursor: &Cursor,
@@ -360,9 +367,9 @@ where
             to_html_async: to_html_async::<T::Owned>,
             #[cfg(feature = "ssr")]
             to_html_async_ooo: to_html_async_ooo::<T::Owned>,
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
             hydrate_from_server: hydrate_from_server::<T::Owned>,
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", feature = "lazy"))]
             hydrate_async: hydrate_async::<T::Owned>,
             value: Erased::new(value),
         }
@@ -565,24 +572,24 @@ impl RenderHtml for AnyView {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         {
             if FROM_SERVER {
-                if cfg!(feature = "mark_branches") {
-                    cursor.advance_to_placeholder(position);
-                }
-                let state =
-                    (self.hydrate_from_server)(self.value, cursor, position);
-                if cfg!(feature = "mark_branches") {
-                    cursor.advance_to_placeholder(position);
-                }
-                state
+                (self.hydrate_from_server)(self.value, cursor, position)
             } else {
                 panic!(
                     "hydrating AnyView from inside a ViewTemplate is not \
                      supported."
                 );
             }
+        }
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
+        {
+            use futures::FutureExt;
+
+            (self.hydrate_async)(self.value, cursor, position)
+                .now_or_never()
+                .unwrap()
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -600,17 +607,21 @@ impl RenderHtml for AnyView {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
         {
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
+            #[cfg(all(feature = "hydrate", feature = "lazy"))]
             let state =
                 (self.hydrate_async)(self.value, cursor, position).await;
-            if cfg!(feature = "mark_branches") {
-                cursor.advance_to_placeholder(position);
-            }
             state
+        }
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
+        {
+            _ = cursor;
+            _ = position;
+            panic!(
+                "the `lazy` feature on `tachys` must be activated to use lazy \
+                 hydration"
+            );
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -699,7 +710,20 @@ impl Render for AnyViewWithAttrs {
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(&mut state.view);
-        self.attrs.rebuild(&mut state.attrs);
+
+        // at this point, we have rebuilt the inner view
+        // now we need to update attributes that were spread onto this
+        // this approach is not ideal, but it avoids two edge cases:
+        // 1) merging attributes from two unrelated views (https://github.com/leptos-rs/leptos/issues/4268)
+        // 2) failing to re-create attributes from the same view (https://github.com/leptos-rs/leptos/issues/4512)
+        for element in state.elements() {
+            // first, remove the previous set of attributes
+            self.attrs
+                .clone()
+                .rebuild(&mut (element.clone(), Vec::new()));
+            // then, add the new set of attributes
+            self.attrs.clone().build(&element);
+        }
     }
 }
 
@@ -820,9 +844,10 @@ impl AddAnyAttr for AnyViewWithAttrs {
     }
 }
 
-/// wip
+/// State for any view with attributes spread onto it.
 pub struct AnyViewWithAttrsState {
     view: AnyViewState,
+    #[allow(dead_code)] // keeps attribute states alive until dropped
     attrs: Vec<AnyAttributeState>,
 }
 

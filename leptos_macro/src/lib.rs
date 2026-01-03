@@ -199,7 +199,7 @@ mod slot;
 /// ```
 ///
 /// 9. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
-///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
+///    [NodeRef](https://docs.rs/leptos/latest/leptos/prelude/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -505,9 +505,9 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///
 /// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
 ///   you could apply `#[prop(into)]` to a prop that takes
-///   [Signal](https://docs.rs/leptos/latest/leptos/struct.Signal.html), which would
-///   allow users to pass a [ReadSignal](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) or
-///   [RwSignal](https://docs.rs/leptos/latest/leptos/struct.RwSignal.html)
+///   [Signal](https://docs.rs/leptos/latest/leptos/prelude/struct.Signal.html), which would
+///   allow users to pass a [ReadSignal](https://docs.rs/leptos/latest/leptos/prelude/struct.ReadSignal.html) or
+///   [RwSignal](https://docs.rs/leptos/latest/leptos/prelude/struct.RwSignal.html)
 ///   and automatically convert it.)
 /// * `#[prop(optional)]`: If the user does not specify this property when they use the component,
 ///   it will be set to its default value. If the property type is `Option<T>`, values should be passed
@@ -683,7 +683,11 @@ fn component_macro(
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_transparent(is_transparent).is_lazy(is_lazy).with_island(island).into_token_stream();
+        let expanded = model
+            .is_transparent(is_transparent)
+            .is_lazy(is_lazy)
+            .with_island(island)
+            .into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -696,7 +700,7 @@ fn component_macro(
             #expanded
 
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
     } else {
@@ -705,7 +709,7 @@ fn component_macro(
                 dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
                 quote! {
                     #[doc(hidden)]
-                    #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
+                    #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
                     #dummy
                 }
             }

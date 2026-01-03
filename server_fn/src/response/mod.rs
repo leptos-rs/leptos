@@ -38,7 +38,7 @@ where
 
 /// Represents the response as created by the server;
 pub trait Res {
-    /// Converts an error into a response, with a `500` status code and the error text as its body.
+    /// Converts an error into a response, with a `500` status code and the serialized error as its body.
     fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self;
     /// Redirect the response by setting a 302 code and Location header.
     fn redirect(&mut self, path: &str);

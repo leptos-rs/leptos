@@ -74,8 +74,8 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 ## What does that mean?
 
-- **Full-stack**: Leptos can be used to build apps that run in the browser (client-side rendering), on the server (server-side rendering), or by rendering HTML on the server and then adding interactivity in the browser (server-side rendering with hydration). This includes support for HTTP streaming of both data ([`Resource`s](https://docs.rs/leptos/latest/leptos/struct.Resource.html)) and HTML (out-of-order or in-order streaming of [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/fn.Suspense.html) components.)
-- **Isomorphic**: Leptos provides primitives to write isomorphic [server functions](https://docs.rs/leptos_server/0.2.5/leptos_server/index.html), i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser, without needing to create and maintain a separate REST or other API.
+- **Full-stack**: Leptos can be used to build apps that run in the browser (client-side rendering), on the server (server-side rendering), or by rendering HTML on the server and then adding interactivity in the browser (server-side rendering with hydration). This includes support for HTTP streaming of both data ([`Resource`s](https://docs.rs/leptos/latest/leptos/prelude/struct.Resource.html)) and HTML (out-of-order or in-order streaming of [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/suspense/fn.Suspense.html) components.)
+- **Isomorphic**: Leptos provides primitives to write isomorphic [server functions](https://docs.rs/server_fn/latest/server_fn/), i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser, without needing to create and maintain a separate REST or other API.
 - **Web**: Leptos is built on the Web platform and Web standards. The [router](https://docs.rs/leptos_router/latest/leptos_router/) is designed to use Web fundamentals (like links and forms) and build on top of them rather than trying to replace them.
 - **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
 - **Fine-grained reactivity**: The entire framework is built from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (So, no virtual DOM overhead!)
@@ -95,7 +95,7 @@ Here are some resources for learning more about Leptos:
 [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
 
 ```bash
-cargo install cargo-leptos
+cargo install cargo-leptos --locked
 cargo leptos new --git https://github.com/leptos-rs/start-axum
 cd [your project name]
 cargo leptos watch
