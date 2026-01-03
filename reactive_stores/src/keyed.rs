@@ -834,7 +834,7 @@ mod tests {
     };
     use reactive_stores::Patch;
     use std::{
-        collections::BTreeMap,
+        collections::{BTreeMap, BTreeSet},
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
@@ -1119,5 +1119,10 @@ mod tests {
         assert_eq!(a_count.load(Ordering::Relaxed), 3);
         assert_eq!(b_count.load(Ordering::Relaxed), 1);
         assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        assert_eq!(
+            after.keys().copied().collect::<BTreeSet<usize>>(),
+            BTreeSet::from([10, 11, 13])
+        );
     }
 }
