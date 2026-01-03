@@ -18,9 +18,71 @@ use std::{
     fmt::Debug,
     hash::Hash,
     iter,
-    ops::{Deref, DerefMut, IndexMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
     panic::Location,
 };
+
+/// Accesses an item form a collection.
+pub trait KeyedAccess {
+    /// Key used to access values.
+    type Key;
+    /// Collection values.
+    type Value;
+    /// Acquire mutable access to a value.
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value;
+    /// Acquire read-only access to a value.
+    fn keyed(&self, key: Self::Key) -> &Self::Value;
+}
+impl<T> KeyedAccess for VecDeque<T> {
+    type Key = usize;
+    type Value = T;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.index(key)
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.index_mut(key)
+    }
+}
+impl<T> KeyedAccess for Vec<T> {
+    type Key = usize;
+    type Value = T;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.index(key)
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.index_mut(key)
+    }
+}
+impl<T> KeyedAccess for [T] {
+    type Key = usize;
+    type Value = T;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.index(key)
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.index_mut(key)
+    }
+}
+impl<K: Ord, V> KeyedAccess for std::collections::BTreeMap<K, V> {
+    type Key = K;
+    type Value = V;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.get(&key).expect("key does not exist")
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.get_mut(&key).expect("key does not exist")
+    }
+}
+impl<K: Hash + Eq, V> KeyedAccess for std::collections::HashMap<K, V> {
+    type Key = K;
+    type Value = V;
+    fn keyed(&self, key: Self::Key) -> &Self::Value {
+        self.get(&key).expect("key does not exist")
+    }
+    fn keyed_mut(&mut self, key: Self::Key) -> &mut Self::Value {
+        self.get_mut(&key).expect("key does not exist")
+    }
+}
 
 /// Provides access to a subfield that contains some kind of keyed collection.
 #[derive(Debug)]
@@ -427,24 +489,24 @@ where
 
 impl<Inner, Prev, K, T> StoreField for AtKeyed<Inner, Prev, K, T>
 where
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: IndexMut<usize>,
-    T::Output: Sized,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized,
 {
-    type Value = T::Output;
+    type Value = T::Value;
     type Reader = MappedMutArc<
         <KeyedSubfield<Inner, Prev, K, T> as StoreField>::Reader,
-        T::Output,
+        T::Value,
     >;
     type Writer = WriteGuard<
         Vec<ArcTrigger>,
         MappedMutArc<
             <KeyedSubfield<Inner, Prev, K, T> as StoreField>::Writer,
-            T::Output,
+            T::Value,
         >,
     >;
 
@@ -493,22 +555,22 @@ where
 
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
-
         let inner_path = self.inner.path().into_iter().collect();
         let keys = self.inner.keys()?;
-        let index = keys
-            .with_field_keys(
-                inner_path,
-                |keys| (keys.get(&self.key), vec![]),
-                || self.inner.latest_keys(),
-            )
-            .flatten()
-            .map(|(_, idx)| idx)?;
 
+        // Check whether the key path still exists.
+        keys.with_field_keys(
+            inner_path,
+            |keys| (keys.get(&self.key), vec![]),
+            || self.inner.latest_keys(),
+        )
+        .flatten()?;
+
+        let key = self.key;
         Some(MappedMutArc::new(
             inner,
-            move |n| &n[index],
-            move |n| &mut n[index],
+            move |n| n.keyed(key),
+            move |n| n.keyed_mut(key),
         ))
     }
 
@@ -520,23 +582,23 @@ where
             .inner
             .keys()
             .expect("using keys on a store with no keys");
-        let index = keys
-            .with_field_keys(
-                inner_path.clone(),
-                |keys| (keys.get(&self.key), vec![]),
-                || self.inner.latest_keys(),
-            )
-            .flatten()
-            .map(|(_, idx)| idx)?;
+
+        // Check whether the key path still exists.
+        keys.with_field_keys(
+            inner_path.clone(),
+            |keys| (keys.get(&self.key), vec![]),
+            || self.inner.latest_keys(),
+        )
+        .flatten()?;
 
         let triggers = self.triggers_for_current_path();
-
+        let key = self.key;
         Some(WriteGuard::new(
             triggers,
             MappedMutArc::new(
                 inner,
-                move |n| &n[index],
-                move |n| &mut n[index],
+                move |n| n.keyed(key),
+                move |n| n.keyed_mut(key),
             ),
         ))
     }
@@ -575,13 +637,13 @@ where
 
 impl<Inner, Prev, K, T> Notify for AtKeyed<Inner, Prev, K, T>
 where
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: IndexMut<usize>,
-    T::Output: Sized,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized,
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
@@ -592,13 +654,13 @@ where
 
 impl<Inner, Prev, K, T> Track for AtKeyed<Inner, Prev, K, T>
 where
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: IndexMut<usize>,
-    T::Output: Sized,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized,
 {
     fn track(&self) {
         self.track_field();
@@ -607,13 +669,13 @@ where
 
 impl<Inner, Prev, K, T> ReadUntracked for AtKeyed<Inner, Prev, K, T>
 where
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: IndexMut<usize>,
-    T::Output: Sized,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized,
 {
     type Value = <Self as StoreField>::Reader;
 
@@ -624,15 +686,15 @@ where
 
 impl<Inner, Prev, K, T> Write for AtKeyed<Inner, Prev, K, T>
 where
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: IndexMut<usize>,
-    T::Output: Sized + 'static,
+    T: KeyedAccess<Key = K>,
+    T::Value: Sized + 'static,
 {
-    type Value = T::Output;
+    type Value = T::Value;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         self.writer()
@@ -683,9 +745,9 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: Clone + StoreField<Value = Prev> + 'static,
     Prev: 'static,
-    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
-    T: IndexMut<usize> + 'static,
-    T::Output: Sized,
+    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    T: KeyedAccess<Key = K> + 'static,
+    T::Value: Sized,
 {
     type Item = AtKeyed<Inner, Prev, K, T>;
     type IntoIter = StoreFieldKeyedIter<Inner, Prev, K, T>;
@@ -716,7 +778,7 @@ where
 pub struct StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
-    T: IndexMut<usize>,
+    T: KeyedAccess<Key = K>,
 {
     inner: KeyedSubfield<Inner, Prev, K, T>,
     keys: VecDeque<K>,
@@ -725,8 +787,7 @@ where
 impl<Inner, Prev, K, T> Iterator for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     Inner: StoreField<Value = Prev> + Clone + 'static,
-    T: IndexMut<usize> + 'static,
-    T::Output: Sized + 'static,
+    T: KeyedAccess<Key = K> + 'static,
     for<'a> &'a T: IntoIterator,
 {
     type Item = AtKeyed<Inner, Prev, K, T>;
@@ -742,8 +803,8 @@ impl<Inner, Prev, K, T> DoubleEndedIterator
     for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     Inner: StoreField<Value = Prev> + Clone + 'static,
-    T: IndexMut<usize> + 'static,
-    T::Output: Sized + 'static,
+    T: KeyedAccess<Key = K> + 'static,
+    T::Value: Sized + 'static,
     for<'a> &'a T: IntoIterator,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
