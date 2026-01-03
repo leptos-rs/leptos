@@ -15,11 +15,14 @@ static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
 #[derive(Debug, Store, Serialize, Deserialize)]
 struct Todos {
+    /// Current user.
     user: User,
+    /// Vector storage of a collection of todo's.
     #[store(key: usize = |todo| todo.id)]
     todos: Vec<Todo>,
+    /// User names to todo IDs.
     #[store(key: Arc<String> = |(name, _)| name.clone())]
-    completed: BTreeMap<Arc<String>, (Arc<String>, usize)>,
+    completed: BTreeMap<Arc<String>, usize>,
 }
 
 impl Todos {
@@ -49,18 +52,6 @@ impl Todos {
             completed: Default::default(),
         }
     }
-}
-
-/// Record who completed a todo.
-fn complete(
-    completed: &mut BTreeMap<Arc<String>, (Arc<String>, usize)>,
-    user: String,
-) {
-    let name: Arc<String> = user.into();
-    let entry = completed
-        .entry(name.clone())
-        .or_insert_with(|| (name.clone(), 0));
-    *(&mut entry.1) += 1;
 }
 
 #[derive(Debug, Store, Patch, Serialize, Deserialize)]
@@ -172,10 +163,17 @@ fn UserAchievements(store: Store<Todos>) -> impl IntoView {
             .completed()
             .at_key(store.user().name().get().into())
             .try_get()
-            .map(|completed| completed.1)
             .unwrap_or_default()
+            .to_string()
     });
-    view! { <div>{completed}</div> }
+    view! {
+        <div>"You completed: " {completed} " tasks"</div>
+        <ul>
+            <For each=move || store.completed() key=|row| row.key() let:achievement>
+                <div>{achievement.key().to_uppercase()}: {move || achievement.get()}</div>
+            </For>
+        </ul>
+    }
 }
 
 #[component]
@@ -199,7 +197,6 @@ fn TodoRow(
                     editing.update(|n| *n = !*n);
                 }
             >
-
                 {move || title.get()}
             </p>
             <input
@@ -216,7 +213,9 @@ fn TodoRow(
                 status.write().next_step();
                 if was_undone && status.done() {
                     let name = store.user().name().get();
-                    complete(&mut store.completed().write(), name);
+                    store
+                        .completed()
+                        .update(|completed| *completed.entry(name.into()).or_default() += 1)
                 }
             }>
                 {move || {
