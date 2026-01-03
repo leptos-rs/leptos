@@ -365,7 +365,7 @@ where
 impl<Inner, Prev, K, T> From<AtKeyed<Inner, Prev, K, T>> for ArcField<T::Value>
 where
     AtKeyed<Inner, Prev, K, T>: Clone,
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev> + Send + Sync + 'static,

@@ -489,7 +489,7 @@ where
 
 impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -513,7 +513,7 @@ where
 
 impl<Inner, Prev, K, T> StoreField for AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -580,11 +580,16 @@ where
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         let index = self.resolve_index()?;
-        let key = self.key;
         Some(MappedMutArc::new(
             inner,
-            move |n| n.keyed(index, key),
-            move |n| n.keyed_mut(index, key),
+            {
+                let key = self.key.clone();
+                move |n| n.keyed(index, key.clone())
+            },
+            {
+                let key = self.key.clone();
+                move |n| n.keyed_mut(index, key.clone())
+            },
         ))
     }
 
@@ -592,14 +597,19 @@ where
         let mut inner = self.inner.writer()?;
         inner.untrack();
         let index = self.resolve_index()?;
-        let key = self.key;
         let triggers = self.triggers_for_current_path();
         Some(WriteGuard::new(
             triggers,
             MappedMutArc::new(
                 inner,
-                move |n| n.keyed(index, key),
-                move |n| n.keyed_mut(index, key),
+                {
+                    let key = self.key.clone();
+                    move |n| n.keyed(index, key.clone())
+                },
+                {
+                    let key = self.key.clone();
+                    move |n| n.keyed_mut(index, key.clone())
+                },
             ),
         ))
     }
@@ -638,7 +648,7 @@ where
 
 impl<Inner, Prev, K, T> Notify for AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -655,7 +665,7 @@ where
 
 impl<Inner, Prev, K, T> Track for AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -670,7 +680,7 @@ where
 
 impl<Inner, Prev, K, T> ReadUntracked for AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -687,7 +697,7 @@ where
 
 impl<Inner, Prev, K, T> Write for AtKeyed<Inner, Prev, K, T>
 where
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
@@ -746,7 +756,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: Clone + StoreField<Value = Prev> + 'static,
     Prev: 'static,
-    K: Copy + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     T: KeyedAccess<Key = K> + 'static,
     T::Value: Sized,
 {
