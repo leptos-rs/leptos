@@ -218,11 +218,16 @@ fn env_w_default(
     }
 }
 
+pub const ENV_DEV_KEY_SHORT: &str = "dev";
+pub const ENV_DEV_KEY_LONG: &str = "development";
+pub const ENV_PROD_KEY_SHORT: &str = "prod";
+pub const ENV_PROD_KEY_LONG: &str = "production";
+
 /// An enum that can be used to define the environment Leptos is running in.
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(
-    Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
+    Debug, Clone, serde::Serialize, PartialEq, Eq, Default,
 )]
 pub enum Env {
     PROD,
@@ -233,11 +238,12 @@ pub enum Env {
 fn env_from_str(input: &str) -> Result<Env, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
-        "dev" | "development" => Ok(Env::DEV),
-        "prod" | "production" => Ok(Env::PROD),
+        ENV_DEV_KEY_SHORT | ENV_DEV_KEY_LONG => Ok(Env::DEV),
+        ENV_PROD_KEY_SHORT | ENV_PROD_KEY_LONG => Ok(Env::PROD),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported environment. Use either `dev` or \
-             `production`.",
+            "{input} is not a supported environment. \
+            Use either `{ENV_DEV_KEY_SHORT}`, `{ENV_DEV_KEY_LONG}`, \
+            `{ENV_PROD_KEY_SHORT}`, or `{ENV_PROD_KEY_LONG}`.",
         ))),
     }
 }
@@ -271,6 +277,37 @@ impl TryFrom<String> for Env {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         env_from_str(s.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+struct EnvVisitor;
+
+impl<'de> serde::de::Visitor<'de> for EnvVisitor {
+    type Value = Env;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            formatter,
+            "a case-insensitive string of either `{ENV_DEV_KEY_SHORT}`, `{ENV_DEV_KEY_LONG}`, \
+            `{ENV_PROD_KEY_SHORT}`, or `{ENV_PROD_KEY_LONG}`"
+        )
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        env_from_str(v).map_err(|err| E::custom(err.to_string()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Env {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(EnvVisitor)
     }
 }
 
