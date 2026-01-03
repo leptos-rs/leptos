@@ -3466,6 +3466,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "trybuild",
+ "typed-builder",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
