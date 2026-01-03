@@ -3,7 +3,7 @@ use leptos::{logging::warn, prelude::*};
 use reactive_stores::{Field, Patch, Store};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
