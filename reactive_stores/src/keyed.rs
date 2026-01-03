@@ -830,7 +830,7 @@ mod tests {
     use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
     use reactive_graph::{
         effect::Effect,
-        traits::{GetUntracked, ReadUntracked, Set, Track, Write},
+        traits::{Get, GetUntracked, ReadUntracked, Set, Track, Write},
     };
     use reactive_stores::Patch;
     use std::{
@@ -1124,5 +1124,14 @@ mod tests {
             after.keys().copied().collect::<BTreeSet<usize>>(),
             BTreeSet::from([10, 11, 13])
         );
+
+        let at_existing_key = AtKeyed::new(store.todos(), 13);
+        let existing = at_existing_key.try_get();
+        assert!(existing.is_some());
+        assert_eq!(existing, Some(Todo::new(13, "New")));
+
+        let at_faulty_key = AtKeyed::new(store.todos(), 999);
+        let missing = at_faulty_key.try_get();
+        assert!(missing.is_none(), "faulty key should return none.")
     }
 }
