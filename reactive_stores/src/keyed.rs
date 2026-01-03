@@ -833,15 +833,67 @@ mod tests {
         traits::{GetUntracked, ReadUntracked, Set, Track, Write},
     };
     use reactive_stores::Patch;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    use std::{
+        collections::BTreeMap,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     };
 
     #[derive(Debug, Store, Default, Patch)]
-    struct Todos {
+    struct TodoVec {
         #[store(key: usize = |todo| todo.id)]
         todos: Vec<Todo>,
+    }
+    impl TodoVec {
+        fn test_data() -> Self {
+            Self {
+                todos: vec![
+                    Todo {
+                        id: 10,
+                        label: "A".to_string(),
+                    },
+                    Todo {
+                        id: 11,
+                        label: "B".to_string(),
+                    },
+                    Todo {
+                        id: 12,
+                        label: "C".to_string(),
+                    },
+                ],
+            }
+        }
+    }
+
+    #[derive(Debug, Store, Default)]
+    struct TodoBTreeMap {
+        #[store(key: usize = |(key, _)| *key)]
+        todos: BTreeMap<usize, Todo>,
+    }
+    impl TodoBTreeMap {
+        fn test_data() -> Self {
+            Self {
+                todos: [
+                    Todo {
+                        id: 10,
+                        label: "A".to_string(),
+                    },
+                    Todo {
+                        id: 11,
+                        label: "B".to_string(),
+                    },
+                    Todo {
+                        id: 12,
+                        label: "C".to_string(),
+                    },
+                ]
+                .into_iter()
+                .map(|todo| (todo.id, todo))
+                .collect(),
+            }
+        }
     }
 
     #[derive(Debug, Store, Default, Clone, PartialEq, Eq, Patch)]
@@ -859,29 +911,11 @@ mod tests {
         }
     }
 
-    fn data() -> Todos {
-        Todos {
-            todos: vec![
-                Todo {
-                    id: 10,
-                    label: "A".to_string(),
-                },
-                Todo {
-                    id: 11,
-                    label: "B".to_string(),
-                },
-                Todo {
-                    id: 12,
-                    label: "C".to_string(),
-                },
-            ],
-        }
-    }
     #[tokio::test]
     async fn keyed_fields_can_be_moved() {
         _ = any_spawner::Executor::init_tokio();
 
-        let store = Store::new(data());
+        let store = Store::new(TodoVec::test_data());
         assert_eq!(store.read_untracked().todos.len(), 3);
 
         // create an effect to read from each keyed field
@@ -970,7 +1004,7 @@ mod tests {
     async fn untracked_write_on_keyed_subfield_shouldnt_notify() {
         _ = any_spawner::Executor::init_tokio();
 
-        let store = Store::new(data());
+        let store = Store::new(TodoVec::test_data());
         assert_eq!(store.read_untracked().todos.len(), 3);
 
         // create an effect to read from the keyed subfield
@@ -1001,5 +1035,89 @@ mod tests {
         });
         tick().await;
         assert_eq!(todos_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn btree_keyed_fields_can_be_moved() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(TodoBTreeMap::test_data());
+        assert_eq!(store.read_untracked().todos.len(), 3);
+
+        // create an effect to read from each keyed field
+        let a_count = Arc::new(AtomicUsize::new(0));
+        let b_count = Arc::new(AtomicUsize::new(0));
+        let c_count = Arc::new(AtomicUsize::new(0));
+
+        let a = AtKeyed::new(store.todos(), 10);
+        let b = AtKeyed::new(store.todos(), 11);
+        let c = AtKeyed::new(store.todos(), 12);
+
+        Effect::new_sync({
+            let a_count = Arc::clone(&a_count);
+            move || {
+                a.track();
+                a_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let b_count = Arc::clone(&b_count);
+            move || {
+                b.track();
+                b_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let c_count = Arc::clone(&c_count);
+            move || {
+                c.track();
+                c_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // writing at a key doesn't notify siblings
+        *a.label().write() = "Foo".into();
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 2);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<Vec<_>>(),
+            vec![Todo::new(10, "Foo"), Todo::new(11, "B"), Todo::new(12, "C"),]
+        );
+
+        a.label().set("Bar".into());
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<Vec<_>>(),
+            vec![Todo::new(10, "Bar"), Todo::new(11, "B"), Todo::new(12, "C"),]
+        );
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // we can remove a key and add a new one
+        store.todos().write().remove(&12);
+        store.todos().write().insert(13, Todo::new(13, "New"));
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after.values().cloned().collect::<Vec<_>>(),
+            vec![
+                Todo::new(10, "Bar"),
+                Todo::new(11, "B"),
+                Todo::new(13, "New")
+            ]
+        );
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
     }
 }
