@@ -2,7 +2,7 @@ use chrono::{Local, NaiveDate};
 use leptos::{logging::warn, prelude::*};
 use reactive_stores::{Field, Store};
 use serde::{Deserialize, Serialize};
-use slotmap::{new_key_type, DenseSlotMap, HopSlotMap};
+use slotmap::{new_key_type, SlotMap};
 
 new_key_type! {
     pub struct TodoKey;
@@ -12,7 +12,7 @@ new_key_type! {
 pub struct Data {
     /// Todos per user.
     #[store(key: TodoKey = |(k,_)| k)]
-    todos: HopSlotMap<TodoKey, Todo>,
+    todos: SlotMap<TodoKey, Todo>,
 }
 
 #[derive(Clone, Debug, Store, Serialize, Deserialize)]
@@ -137,7 +137,7 @@ fn TodoRow(
 
             <button on:click=move |_| {
                 let id = todo.id().get();
-                store.todos().write().retain(|_, todo| &todo.id != &id);
+                store.todos().write().retain(|_, todo| todo.id != id);
             }>"X"</button>
             <input
                 type="date"
