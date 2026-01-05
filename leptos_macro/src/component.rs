@@ -669,15 +669,7 @@ impl Parse for DummyModel {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = input.call(Attribute::parse_outer)?;
         // Drop unknown attributes like #[deprecated]
-        drain_filter(&mut attrs, |attr| {
-            let path = attr.path();
-            !(path.is_ident("doc")
-                || path.is_ident("allow")
-                || path.is_ident("expect")
-                || path.is_ident("warn")
-                || path.is_ident("deny")
-                || path.is_ident("forbid"))
-        });
+        drain_filter(&mut attrs, |attr| !is_lint_attr(attr));
 
         let vis: Visibility = input.parse()?;
         let mut sig: Signature = input.parse()?;
@@ -958,6 +950,15 @@ impl Docs {
     }
 }
 
+fn is_lint_attr(attr: &Attribute) -> bool {
+    let path = &attr.path();
+    path.is_ident("allow")
+        || path.is_ident("warn")
+        || path.is_ident("expect")
+        || path.is_ident("deny")
+        || path.is_ident("forbid")
+}
+
 pub struct UnknownAttrs(Vec<(TokenStream, Span)>);
 
 impl UnknownAttrs {
@@ -965,20 +966,13 @@ impl UnknownAttrs {
         let attrs = attrs
             .iter()
             .filter_map(|attr| {
-                let path = attr.path();
-
-                if path.is_ident("doc") {
+                if attr.path().is_ident("doc") {
                     if let Meta::NameValue(_) = &attr.meta {
                         return None;
                     }
                 }
 
-                if path.is_ident("allow")
-                    || path.is_ident("expect")
-                    || path.is_ident("warn")
-                    || path.is_ident("deny")
-                    || path.is_ident("forbid")
-                {
+                if is_lint_attr(attr) {
                     return None;
                 }
 
