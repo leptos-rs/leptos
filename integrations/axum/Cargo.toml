@@ -49,6 +49,7 @@ islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
