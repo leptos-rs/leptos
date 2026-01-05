@@ -1715,6 +1715,17 @@ where
     where
         H: axum::handler::Handler<T, S>,
         T: 'static;
+
+    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
+    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
+    /// that resides under `LEPTOS_SITE_ROOT`.
+    ///
+    /// Note that the service that is added may not necessarily set up a fallback; if this is
+    /// required, use the underlying helpers along with the setup for that to achieve it.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    #[cfg(feature = "default")]
+    fn leptos_site_pkg_dir_route(self, options: &S) -> Self;
 }
 
 trait AxumPath {
@@ -1968,6 +1979,22 @@ where
         }
         router
     }
+
+    #[cfg(feature = "default")]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_site_pkg_dir_route(self, options: &S) -> Self {
+        // Note that this does not currently address the use case required by #4377(#4394) as
+        // `extend_response()` won't be called with the service as provided.
+        let options = LeptosOptions::from_ref(options);
+        let serve_dir = site_pkg_dir_service(&options);
+        let path = site_pkg_dir_service_route_path(&options);
+        let mut router = self;
+        router = router.route_service(&path, serve_dir);
+        router
+    }
 }
 
 /// A helper to make it easier to use Axum extractors in server functions.
@@ -2176,6 +2203,9 @@ async fn get_static_file(
 /// as the fallback service, or be attached as a service route on the router,
 /// typically with the path derived from [`site_pkg_dir_service_route_path`].
 ///
+/// [`LeptosRoutes::leptos_site_pkg_dir_route`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]
 pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
@@ -2187,6 +2217,9 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
 /// A helper for constructing the axum route path from the `LeptosOptions`, can be used
 /// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
 /// for setting up a routed site pkg service with [`Router::route_service`].
+///
+/// [`LeptosRoutes::leptos_site_pkg_dir_route`] is the more convenient shorthand
+/// as it will set all this up more directly.
 ///
 /// [`ServeDir`]: tower_http::services::ServeDir
 pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
