@@ -291,20 +291,20 @@ fn env_consistent_deserialization() {
 output-name = "app-test"
 env = "{env_value}"
             "#
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     let path: &Path = cargo_tmp.as_ref();
     let path_s = path.to_string_lossy().to_string();
 
-    let config_from_file = get_config_from_file(&path_s).unwrap().leptos_options;
+    let config_from_file =
+        get_config_from_file(&path_s).unwrap().leptos_options;
 
-    let config_from_env = temp_env::with_vars(
-        [
-            ("LEPTOS_ENV", Some(env_value))
-        ],
-        || get_config_from_env().unwrap().leptos_options
-    );
+    let config_from_env =
+        temp_env::with_vars([("LEPTOS_ENV", Some(env_value))], || {
+            get_config_from_env().unwrap().leptos_options
+        });
 
     assert_eq!(config_from_file.env, config_from_env.env);
 }

@@ -226,9 +226,7 @@ pub const ENV_PROD_KEY_LONG: &str = "production";
 /// An enum that can be used to define the environment Leptos is running in.
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
-#[derive(
-    Debug, Clone, serde::Serialize, PartialEq, Eq, Default,
-)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq, Default)]
 pub enum Env {
     PROD,
     #[default]
@@ -241,9 +239,9 @@ fn env_from_str(input: &str) -> Result<Env, LeptosConfigError> {
         ENV_DEV_KEY_SHORT | ENV_DEV_KEY_LONG => Ok(Env::DEV),
         ENV_PROD_KEY_SHORT | ENV_PROD_KEY_LONG => Ok(Env::PROD),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported environment. \
-            Use either `{ENV_DEV_KEY_SHORT}`, `{ENV_DEV_KEY_LONG}`, \
-            `{ENV_PROD_KEY_SHORT}`, or `{ENV_PROD_KEY_LONG}`.",
+            "{input} is not a supported environment. Use either \
+             `{ENV_DEV_KEY_SHORT}`, `{ENV_DEV_KEY_LONG}`, \
+             `{ENV_PROD_KEY_SHORT}`, or `{ENV_PROD_KEY_LONG}`.",
         ))),
     }
 }
@@ -286,11 +284,15 @@ struct EnvVisitor;
 impl<'de> serde::de::Visitor<'de> for EnvVisitor {
     type Value = Env;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(
+        &self,
+        formatter: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
         write!(
             formatter,
-            "a case-insensitive string of either `{ENV_DEV_KEY_SHORT}`, `{ENV_DEV_KEY_LONG}`, \
-            `{ENV_PROD_KEY_SHORT}`, or `{ENV_PROD_KEY_LONG}`"
+            "a case-insensitive string of either `{ENV_DEV_KEY_SHORT}`, \
+             `{ENV_DEV_KEY_LONG}`, `{ENV_PROD_KEY_SHORT}`, or \
+             `{ENV_PROD_KEY_LONG}`"
         )
     }
 
