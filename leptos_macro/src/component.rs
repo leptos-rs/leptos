@@ -669,7 +669,9 @@ impl Parse for DummyModel {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = input.call(Attribute::parse_outer)?;
         // Drop unknown attributes like #[deprecated]
-        drain_filter(&mut attrs, |attr| !is_lint_attr(attr));
+        drain_filter(&mut attrs, |attr| {
+            !is_lint_attr(attr) && !attr.path().is_ident("doc")
+        });
 
         let vis: Visibility = input.parse()?;
         let mut sig: Signature = input.parse()?;
