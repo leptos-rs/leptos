@@ -98,6 +98,7 @@ skip_feature_sets = [
 max_combination_size = 2
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [lints.rust]
