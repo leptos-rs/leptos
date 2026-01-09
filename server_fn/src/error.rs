@@ -9,6 +9,7 @@ use std::{
     str::FromStr,
 };
 use throw_error::Error;
+use typed_builder::TypedBuilder;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
@@ -474,7 +475,7 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
         let mut url = Url::parse(base)?;
         url.query_pairs_mut()
             .append_pair("__path", &self.path)
-            .append_pair("__err", &URL_SAFE.encode(self.error.ser()));
+            .append_pair("__err", &URL_SAFE.encode(self.error.ser().body));
         Ok(url)
     }
 
@@ -536,7 +537,7 @@ impl<E: FromServerFnError> Display for ServerFnErrorWrapper<E> {
         write!(
             f,
             "{}",
-            <E::Encoder as FormatType>::into_encoded_string(self.0.ser())
+            <E::Encoder as FormatType>::into_encoded_string(self.0.ser().body)
         )
     }
 }
@@ -560,6 +561,17 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
     }
 }
 
+/// Response parts returned by [`FromServerFnError::ser`] to be returned to the client.
+#[derive(TypedBuilder)]
+#[non_exhaustive]
+pub struct ServerFnErrorResponseParts {
+    /// The raw [`Bytes`] of the serialized error.
+    pub body: Bytes,
+    /// The value of the `CONTENT_TYPE` associated constant for the `FromServerFnError`
+    /// implementation. Used to set the `content-type` header in http responses.
+    pub content_type: &'static str,
+}
+
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// The encoding strategy used to serialize and deserialize this error type. Must implement the [`Encodes`](server_fn::Encodes) trait for references to the error type.
@@ -568,9 +580,10 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Serializes the custom error type to bytes, according to the encoding given by `Self::Encoding`.
-    fn ser(&self) -> Bytes {
-        Self::Encoder::encode(self).unwrap_or_else(|e| {
+    /// Converts the custom error type to [`ServerFnErrorResponseParts`], according to the encoding
+    /// given by [`Self::Encoder`].
+    fn ser(&self) -> ServerFnErrorResponseParts {
+        let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
                 ServerFnErrorErr::Serialization(e.to_string()),
             ))
@@ -578,7 +591,11 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
                 "error serializing should success at least with the \
                  Serialization error",
             )
-        })
+        });
+        ServerFnErrorResponseParts::builder()
+            .body(body)
+            .content_type(Self::Encoder::CONTENT_TYPE)
+            .build()
     }
 
     /// Deserializes the custom error type, according to the encoding given by `Self::Encoding`.
