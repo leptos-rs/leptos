@@ -14,7 +14,6 @@ hydration_context = { workspace = true }
 axum = { default-features = false, features = [
   "matched-path",
 ], workspace = true }
-dashmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 leptos = { workspace = true, features = ["nonce", "ssr"] }
 server_fn = { workspace = true, features = ["axum-no-default"] }
@@ -28,6 +27,7 @@ tokio = { default-features = false, workspace = true }
 tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
+or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
 axum = { workspace = true, default-features = true }
