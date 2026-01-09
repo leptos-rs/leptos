@@ -1537,26 +1537,8 @@ impl Parse for ServerFnBody {
             };
             !attr.path.is_ident("doc")
         });
-
-        let lint_attrs = attrs
-            .iter()
-            .filter_map(|attr| {
-                if attr.path().is_ident("allow")
-                    || attr.path().is_ident("warn")
-                    || attr.path().is_ident("deny")
-                    || attr.path().is_ident("forbid")
-                {
-                    return Some(attr.clone());
-                }
-                None
-            })
-            .collect();
-        attrs.retain(|attr| {
-            !attr.path().is_ident("allow")
-                && !attr.path().is_ident("warn")
-                && !attr.path().is_ident("deny")
-                && !attr.path().is_ident("forbid")
-        });
+        let (lint_attrs, mut attrs): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(is_lint_attr);
 
         // extract all #[middleware] attributes, removing them from signature of dummy
         let mut middlewares: Vec<Middleware> = vec![];
@@ -1625,4 +1607,13 @@ impl ServerFnBody {
             #block
         }
     }
+}
+
+fn is_lint_attr(attr: &Attribute) -> bool {
+    let path = &attr.path();
+    path.is_ident("allow")
+        || path.is_ident("warn")
+        || path.is_ident("expect")
+        || path.is_ident("deny")
+        || path.is_ident("forbid")
 }

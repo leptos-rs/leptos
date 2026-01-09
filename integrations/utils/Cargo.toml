@@ -18,4 +18,5 @@ leptos_config = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
