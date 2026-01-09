@@ -151,9 +151,9 @@ pub fn LoginPage() -> impl IntoView {
     let login = Action::<Login, _>::server();
     let login_flow = create_local_resource(|| (), |_| async move { init_login().await });
 
-    let login_resp = create_rw_signal(None::<Result<LoginResponse, ServerFnError>>);
+    let login_resp = RwSignal::new(None::<Result<LoginResponse, ServerFnError>>);
     // after user tries to login we update the signal resp.
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(resp) = login.value().get() {
             login_resp.set(Some(resp))
         }
@@ -165,7 +165,7 @@ pub fn LoginPage() -> impl IntoView {
             login_flow.get()
         }
     });
-    let body = create_rw_signal(HashMap::new());
+    let body = RwSignal::new(HashMap::new());
     view! {
       <Suspense fallback=||view!{Loading Login Details}>
         <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
