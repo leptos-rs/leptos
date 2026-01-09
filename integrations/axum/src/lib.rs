@@ -69,13 +69,19 @@ use leptos_router::{
     static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
     RouteListing, SsrMode,
 };
-use parking_lot::RwLock;
+use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
 use std::path::Path;
 #[cfg(feature = "default")]
 use std::sync::LazyLock;
-use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
+use std::{
+    collections::HashSet,
+    fmt::Debug,
+    io,
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
 #[cfg(feature = "default")]
@@ -126,24 +132,24 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
+        let mut writable = self.0.write().or_poisoned();
         *writable = parts
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key.
     pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact.
     pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -166,7 +172,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write();
+        let mut res_options = res_options.0.write().or_poisoned();
         if let Some(status) = res_options.status {
             *self.0.status_mut() = status;
         }
@@ -1528,7 +1534,7 @@ static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
-    let status = resp.0.read().status;
+    let status = resp.0.read().or_poisoned().status;
 
     if let Some(status) = status {
         return status == StatusCode::NOT_FOUND;
