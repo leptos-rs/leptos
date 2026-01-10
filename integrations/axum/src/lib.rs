@@ -2163,3 +2163,37 @@ async fn get_static_file(
         )),
     }
 }
+
+/// A helper to create a [`ServeDir`] service for the static files under
+/// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
+/// as the fallback service, or be attached as a service route on the router,
+/// typically with the path derived from [`site_pkg_dir_service_route_path`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+#[cfg(feature = "default")]
+pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
+    ServeDir::new(&*options.site_root)
+        .precompressed_gzip()
+        .precompressed_br()
+}
+
+/// A helper for constructing the axum route path from the `LeptosOptions`, can be used
+/// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
+/// for setting up a routed site pkg service with [`Router::route_service`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
+    // The path of the route being built will be constained to serve only the
+    // contents of `site_pkg_dir` to avoid conflicts with the root routes.
+    let mut path = String::new();
+    // While it shouldn't start with a '/', but check anyway.
+    if !options.site_pkg_dir.starts_with('/') {
+        path.push('/');
+    }
+    path.push_str(&options.site_pkg_dir);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path.push_str("{*path}");
+    path
+}
