@@ -1,7 +1,4 @@
-use crate::{
-    env_from_str, env_w_default, env_wo_default, ws_from_str, Env,
-    LeptosOptions, ReloadWSProtocol,
-};
+use crate::{env_from_str, ws_from_str, Env, LeptosOptions, ReloadWSProtocol};
 use std::{net::SocketAddr, str::FromStr};
 
 #[test]
@@ -29,33 +26,30 @@ fn ws_from_str_test() {
 }
 
 #[test]
-fn env_w_default_test() {
+fn read_env_config_test() {
     temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
         assert_eq!(
-            env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
+            read_env_config!("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
             String::from("custom")
         );
     });
 
     temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
         assert_eq!(
-            env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
+            read_env_config!("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
             String::from("default")
         );
     });
-}
 
-#[test]
-fn env_wo_default_test() {
     temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
         assert_eq!(
-            env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(),
+            read_env_config!("LEPTOS_CONFIG_ENV_TEST").unwrap(),
             Some(String::from("custom"))
         );
     });
 
     temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
-        assert_eq!(env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
+        assert_eq!(read_env_config!("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
     });
 }
 
