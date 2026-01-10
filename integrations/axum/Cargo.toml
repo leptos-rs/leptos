@@ -54,4 +54,5 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+extra_features = ["default"]
 max_combination_size = 2
