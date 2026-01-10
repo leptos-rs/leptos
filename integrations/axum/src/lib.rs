@@ -82,6 +82,17 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
+mod private {
+    pub trait Sealed {}
+
+    impl<S> Sealed for axum::Router<S> {}
+}
+
+#[cfg(feature = "default")]
+mod service;
+#[cfg(feature = "default")]
+pub use service::ErrorHandler;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -1600,7 +1611,10 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<S>
+///
+/// This trait is sealed and cannot be implemented for callers to avoid breaking backwards compatibility when
+/// new methods are added.
+pub trait LeptosRoutes<S>: private::Sealed
 where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
@@ -1643,6 +1657,17 @@ where
     where
         H: axum::handler::Handler<T, S>,
         T: 'static;
+
+    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
+    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
+    /// that resides under `LEPTOS_SITE_ROOT`.
+    ///
+    /// Note that the service that is added may not necessarily set up a fallback; if this is
+    /// required, use the underlying helpers along with the setup for that to achieve it.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    #[cfg(feature = "default")]
+    fn leptos_site_pkg_dir_route(self, options: &S) -> Self;
 }
 
 trait AxumPath {
@@ -1896,6 +1921,22 @@ where
         }
         router
     }
+
+    #[cfg(feature = "default")]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_site_pkg_dir_route(self, options: &S) -> Self {
+        // Note that this does not currently address the use case required by #4377(#4394) as
+        // `extend_response()` won't be called with the service as provided.
+        let options = LeptosOptions::from_ref(options);
+        let serve_dir = site_pkg_dir_service(&options);
+        let path = site_pkg_dir_service_route_path(&options);
+        let mut router = self;
+        router = router.route_service(&path, serve_dir);
+        router
+    }
 }
 
 /// A helper to make it easier to use Axum extractors in server functions.
@@ -1954,7 +1995,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler_with_context<S, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -2027,7 +2072,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
     shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
@@ -2077,4 +2126,44 @@ async fn get_static_file(
             format!("Something went wrong: {err}"),
         )),
     }
+}
+
+/// A helper to create a [`ServeDir`] service for the static files under
+/// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
+/// as the fallback service, or be attached as a service route on the router,
+/// typically with the path derived from [`site_pkg_dir_service_route_path`].
+///
+/// [`LeptosRoutes::leptos_site_pkg_dir_route`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+#[cfg(feature = "default")]
+pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
+    ServeDir::new(&*options.site_root)
+        .precompressed_gzip()
+        .precompressed_br()
+}
+
+/// A helper for constructing the axum route path from the `LeptosOptions`, can be used
+/// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
+/// for setting up a routed site pkg service with [`Router::route_service`].
+///
+/// [`LeptosRoutes::leptos_site_pkg_dir_route`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
+    // The path of the route being built will be constained to serve only the
+    // contents of `site_pkg_dir` to avoid conflicts with the root routes.
+    let mut path = String::new();
+    // While it shouldn't start with a '/', but check anyway.
+    if !options.site_pkg_dir.starts_with('/') {
+        path.push('/');
+    }
+    path.push_str(&options.site_pkg_dir);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path.push_str("{*path}");
+    path
 }
