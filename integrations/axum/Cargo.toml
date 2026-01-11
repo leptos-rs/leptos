@@ -30,9 +30,12 @@ tracing = { optional = true, workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 axum = { workspace = true, default-features = true }
+reqwest = { workspace = true }
 tokio = { features = [
   "net",
+  "process",
   "rt-multi-thread",
 ], workspace = true, default-features = true }
 
