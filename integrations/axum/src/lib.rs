@@ -88,6 +88,11 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
+#[cfg(feature = "default")]
+mod service;
+#[cfg(feature = "default")]
+pub use service::ErrorHandler;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -2027,7 +2032,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler_with_context<S, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -2112,7 +2121,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
     shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
@@ -2162,4 +2175,38 @@ async fn get_static_file(
             format!("Something went wrong: {err}"),
         )),
     }
+}
+
+/// A helper to create a [`ServeDir`] service for the static files under
+/// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
+/// as the fallback service, or be attached as a service route on the router,
+/// typically with the path derived from [`site_pkg_dir_service_route_path`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+#[cfg(feature = "default")]
+pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
+    ServeDir::new(&*options.site_root)
+        .precompressed_gzip()
+        .precompressed_br()
+}
+
+/// A helper for constructing the axum route path from the `LeptosOptions`, can be used
+/// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
+/// for setting up a routed site pkg service with [`Router::route_service`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
+    // The path of the route being built will be constained to serve only the
+    // contents of `site_pkg_dir` to avoid conflicts with the root routes.
+    let mut path = String::new();
+    // While it shouldn't start with a '/', but check anyway.
+    if !options.site_pkg_dir.starts_with('/') {
+        path.push('/');
+    }
+    path.push_str(&options.site_pkg_dir);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path.push_str("{*path}");
+    path
 }

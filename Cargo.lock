@@ -1969,6 +1969,7 @@ name = "leptos_axum"
 version = "0.8.7"
 dependencies = [
  "any_spawner",
+ "anyhow",
  "axum",
  "dashmap",
  "futures",
@@ -1979,6 +1980,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "or_poisoned",
+ "reqwest",
  "server_fn",
  "tachys",
  "tokio",
