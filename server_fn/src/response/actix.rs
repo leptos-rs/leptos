@@ -75,10 +75,13 @@ where
 impl Res for ActixResponse {
     fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self {
         ActixResponse(SendWrapper::new(
-            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-                .append_header((SERVER_FN_ERROR_HEADER, path))
-                .append_header((CONTENT_TYPE, err.content_type))
-                .body(err.body),
+            HttpResponse::build(
+                StatusCode::from_u16(err.status_code.as_u16())
+                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+            )
+            .append_header((SERVER_FN_ERROR_HEADER, path))
+            .append_header((CONTENT_TYPE, err.content_type))
+            .body(err.body),
         ))
     }
 

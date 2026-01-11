@@ -3,6 +3,7 @@
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use bytes::Bytes;
+use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Write},
@@ -567,9 +568,12 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
 pub struct ServerFnErrorResponseParts {
     /// The raw [`Bytes`] of the serialized error.
     pub body: Bytes,
-    /// The value of the `CONTENT_TYPE` associated constant for the `FromServerFnError`
-    /// implementation. Used to set the `content-type` header in http responses.
+    /// The value of the `CONTENT_TYPE` associated constant for the [`FromServerFnError`]
+    /// implementation. Used to set the `content-type` header of the http response.
     pub content_type: &'static str,
+    /// The status code to set on the http response as provided by
+    /// [`FromServerFnError::status_code`].
+    pub status_code: StatusCode,
 }
 
 /// A trait for types that can be returned from a server function.
@@ -580,9 +584,15 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
+    /// Allows customizing the [`StatusCode`] of the http response for the server function error.
+    fn status_code(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
     /// Converts the custom error type to [`ServerFnErrorResponseParts`], according to the encoding
     /// given by [`Self::Encoder`].
     fn ser(&self) -> ServerFnErrorResponseParts {
+        let status_code = self.status_code();
         let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
                 ServerFnErrorErr::Serialization(e.to_string()),
@@ -595,6 +605,7 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
         ServerFnErrorResponseParts::builder()
             .body(body)
             .content_type(Self::Encoder::CONTENT_TYPE)
+            .status_code(status_code)
             .build()
     }
 

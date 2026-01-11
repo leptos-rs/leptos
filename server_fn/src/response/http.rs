@@ -54,7 +54,7 @@ where
 impl Res for Response<Body> {
     fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self {
         Response::builder()
-            .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+            .status(err.status_code)
             .header(SERVER_FN_ERROR_HEADER, path)
             .header(header::CONTENT_TYPE, err.content_type)
             .body(err.body.into())
