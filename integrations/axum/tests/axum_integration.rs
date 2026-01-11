@@ -171,6 +171,10 @@ fn build_test_service(name: &str) {
     // this assumes the current working dir is at the root of this crate, i.e. `integration/axum`.
     let working_dir = Path::new("tests").join(name);
 
+    // TODO provide the ability to skip this step if and only if the source code hasn't been changed
+    // to not require using cargo-nextest setup scripts to prepare this.  Essentially if this is done
+    // it will become possible to parallelize in both `cargo test` and `cargo nextest` correctly.
+
     let cmd = Command::new("cargo");
     let mut build = cmd
         .into_std()

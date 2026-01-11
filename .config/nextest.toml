@@ -1,0 +1,12 @@
+[test-groups]
+serial-integration = { max-threads = 1 }
+
+# Given the inability to ensure all tests must run in the same process (like how `cargo test` does it),
+# the next best thing is to seralize it for the axum integration test.
+#
+# References:
+# - https://github.com/nextest-rs/nextest/issues/27
+# - https://github.com/nextest-rs/nextest/issues/209
+[[profile.default.overrides]]
+filter = 'binary_id(leptos_axum::axum_integration)'
+test-group = 'serial-integration'
