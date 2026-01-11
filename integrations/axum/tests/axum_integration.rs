@@ -1,4 +1,7 @@
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{
+    header::{HeaderName, HeaderValue},
+    Client, StatusCode, Url,
+};
 use std::{
     path::Path,
     sync::Once,
@@ -43,6 +46,33 @@ async fn fallback() -> anyhow::Result<()> {
         .text()
         .await?
         .contains("<title>Error from fallback</title>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn fallback_with_context() -> anyhow::Result<()> {
+    // ensure fixes implemented in #4394 for the headers to show up actually do show up.
+    let host = "127.0.0.1:3030";
+    let _service =
+        start_test_service("service_mode", host, "fallback-with-context").await;
+    let url = url(host);
+    let client = Client::new();
+    let res = client
+        .get(url.join("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
     Ok(())
 }
 

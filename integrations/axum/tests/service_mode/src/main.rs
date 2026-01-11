@@ -1,8 +1,11 @@
 #[cfg(feature = "ssr")]
 mod router {
-    use axum::Router;
+    use axum::{
+        Router,
+        http::{HeaderName, HeaderValue},
+    };
     use clap::{Parser, Subcommand};
-    use leptos::prelude::get_configuration;
+    use leptos::prelude::{get_configuration, provide_context, use_context};
     use leptos_axum::{ErrorHandler, LeptosRoutes, generate_route_list};
     use service_mode::app::{App, shell};
 
@@ -16,6 +19,7 @@ mod router {
     enum Mode {
         Bare,
         Fallback,
+        FallbackWithContext,
         ErrorHandlerService,
         ErrorHandlerServiceFallback,
         RouteSitePkgNoFallback,
@@ -40,6 +44,33 @@ mod router {
                         move || shell(leptos_options.clone())
                     })
                     .fallback(leptos_axum::file_and_error_handler(shell))
+                    .with_state(leptos_options),
+                Mode::FallbackWithContext => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .fallback(leptos_axum::file_and_error_handler_with_context(
+                        move || {
+                            let opts =
+                                use_context::<leptos_axum::ResponseOptions>()
+                                    .unwrap_or_default();
+                            opts.insert_header(
+                                HeaderName::from_static(
+                                    "cross-origin-opener-policy",
+                                ),
+                                HeaderValue::from_static("same-origin"),
+                            );
+                            opts.insert_header(
+                                HeaderName::from_static(
+                                    "cross-origin-embedder-policy",
+                                ),
+                                HeaderValue::from_static("require-corp"),
+                            );
+                            provide_context(opts);
+                        },
+                        shell,
+                    ))
                     .with_state(leptos_options),
                 Mode::ErrorHandlerService => Router::new()
                     .leptos_routes(&leptos_options, routes, {
