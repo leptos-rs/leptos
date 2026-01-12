@@ -127,6 +127,8 @@ async fn main() {
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    // write out the port from the bounded local_addr to allow the caller to know how to connect.
+    println!("{}", listener.local_addr().unwrap().port());
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();

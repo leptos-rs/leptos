@@ -34,9 +34,11 @@ anyhow = { workspace = true }
 axum = { workspace = true, default-features = true }
 reqwest = { workspace = true }
 tokio = { features = [
+  "io-util",
   "net",
   "process",
   "rt-multi-thread",
+  "time",
 ], workspace = true, default-features = true }
 
 [features]
