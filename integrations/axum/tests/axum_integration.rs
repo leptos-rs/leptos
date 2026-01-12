@@ -173,6 +173,10 @@ fn build_test_service(name: &str) {
     // this assumes the current working dir is at the root of this crate, i.e. `integration/axum`.
     let working_dir = Path::new("tests").join(name);
 
+    // If set, assume that `cargo-nextest` is running this and that it already built this service.
+    if std::env::var("NEXTEST").as_deref() == Ok("1") {
+        return;
+    }
     // TODO provide the ability to skip this step if and only if the source code hasn't been changed
     // to not require using cargo-nextest setup scripts to prepare this.  Essentially if this is done
     // it will become possible to parallelize in both `cargo test` and `cargo nextest` correctly.
