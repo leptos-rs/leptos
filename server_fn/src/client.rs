@@ -55,7 +55,7 @@ pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
 #[cfg(feature = "browser")]
 /// Implements [`Client`] for a `fetch` request in the browser.
 pub mod browser {
-    use super::Client;
+    use super::{get_server_url, Client};
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::browser::{BrowserRequest, RequestInner},
@@ -120,9 +120,19 @@ pub mod browser {
                 Error,
             >,
         > + Send {
+            let mut websocket_server_url = get_server_url().to_string();
+            if let Some(postfix) = websocket_server_url.strip_prefix("http://")
+            {
+                websocket_server_url = format!("ws://{postfix}");
+            } else if let Some(postfix) =
+                websocket_server_url.strip_prefix("https://")
+            {
+                websocket_server_url = format!("wss://{postfix}");
+            }
+            let url = format!("{websocket_server_url}{url}");
             SendWrapper::new(async move {
                 let websocket =
-                    gloo_net::websocket::futures::WebSocket::open(url)
+                    gloo_net::websocket::futures::WebSocket::open(&url)
                         .map_err(|err| {
                             web_sys::console::error_1(&err.to_string().into());
                             Error::from_server_fn_error(
