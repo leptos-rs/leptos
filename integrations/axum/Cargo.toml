@@ -30,10 +30,15 @@ tracing = { optional = true, workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 axum = { workspace = true, default-features = true }
+reqwest = { workspace = true }
 tokio = { features = [
+  "io-util",
   "net",
+  "process",
   "rt-multi-thread",
+  "time",
 ], workspace = true, default-features = true }
 
 [features]
@@ -54,4 +59,5 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+extra_features = ["default"]
 max_combination_size = 2
