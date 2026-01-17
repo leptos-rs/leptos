@@ -71,7 +71,7 @@ use tachys::either::Either;
 /// }
 /// # }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn ShowLet<T, ChFn, V, M>(
     /// The children will be shown whenever `value` is `Some`.
     ///
