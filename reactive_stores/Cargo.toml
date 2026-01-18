@@ -25,6 +25,7 @@ reactive_stores_macro = { workspace = true }
 send_wrapper = { workspace = true, default-features = true }
 serde = { workspace = true, optional = true }
 slotmap = { workspace = true, optional = true }
+indexmap = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { features = [

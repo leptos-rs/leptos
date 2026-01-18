@@ -63,8 +63,8 @@ next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.2.13" }
-reactive_stores = { path = "./reactive_stores", version = "0.4.0" }
-reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.2.6" }
+reactive_stores = { path = "./reactive_stores", version = "0.4.1" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.4.0" }
 server_fn = { path = "./server_fn", version = "0.8.10" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.9" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
