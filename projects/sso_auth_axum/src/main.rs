@@ -9,14 +9,14 @@ use axum::{
 };
 use axum_session::{Key, SessionConfig, SessionLayer, SessionStore};
 use axum_session_auth::{AuthConfig, AuthSessionLayer};
-use leptos::{get_configuration, logging::log, provide_context, view};
+use leptos::prelude::*;
 use leptos_axum::{
-    generate_route_list, handle_server_fns_with_context, LeptosRoutes,
+    file_and_error_handler, generate_route_list,
+    handle_server_fns_with_context, LeptosRoutes,
 };
+use leptos_meta::{HashedStylesheet, MetaTags};
 use sqlx::sqlite::SqlitePoolOptions;
-use sso_auth_axum::{
-    auth::*, fallback::file_and_error_handler, state::AppState,
-};
+use sso_auth_axum::{auth::*, state::AppState};
 
 async fn server_fn_handler(
     State(app_state): State<AppState>,
@@ -24,7 +24,7 @@ async fn server_fn_handler(
     path: Path<String>,
     request: Request<AxumBody>,
 ) -> impl IntoResponse {
-    log!("{:?}", path);
+    leptos::logging::log!("{:?}", path);
 
     handle_server_fns_with_context(
         move || {
@@ -40,11 +40,9 @@ async fn server_fn_handler(
 pub async fn leptos_routes_handler(
     auth_session: AuthSession,
     State(app_state): State<AppState>,
-    axum::extract::State(option): axum::extract::State<leptos::LeptosOptions>,
     request: Request<AxumBody>,
 ) -> axum::response::Response {
     let handler = leptos_axum::render_app_async_with_context(
-        option.clone(),
         move || {
             provide_context(app_state.clone());
             provide_context(auth_session.clone());
@@ -134,7 +132,7 @@ async fn main() {
             get(server_fn_handler).post(server_fn_handler),
         )
         .leptos_routes_with_handler(routes, get(leptos_routes_handler))
-        .fallback(file_and_error_handler)
+        .fallback(file_and_error_handler::<AppState, _>(shell))
         .layer(
             AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(
                 Some(pool.clone()),
@@ -147,8 +145,38 @@ async fn main() {
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    log!("listening on http://{}", &addr);
+    leptos::logging::log!("listening on http://{}", &addr);
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+                <AutoReload options=options.clone() />
+                <HydrationScripts options=options.clone() />
+                <MetaTags />
+
+                <link rel="preconnect" href="/fonts/inter" />
+                <link rel="stylesheet" href="/fonts/inter/inter.css" />
+                <link rel="preconnect" href="/fonts/jetbrains-mono" />
+                <link rel="stylesheet" href="/fonts/jetbrains-mono/jetbrains-mono.css" />
+
+                <HashedStylesheet options />
+
+                <title>"SSO Auth Axum"</title>
+            </head>
+
+            <body>
+                <sso_auth_axum::App />
+            </body>
+        </html>
+    }
+    .into_any()
 }
