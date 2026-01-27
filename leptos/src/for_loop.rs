@@ -139,7 +139,7 @@ where
     let children = move |_, child| {
         let owner = parent.with(Owner::new);
         let view = owner.with(|| children(child));
-        (|_| {}, OwnedView::new_with_owner(view, owner))
+        (drop, OwnedView::new_with_owner(view, owner))
     };
     move || keyed(each(), key.clone(), children.clone())
 }
