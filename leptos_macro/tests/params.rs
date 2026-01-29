@@ -9,7 +9,6 @@ struct UserInfo {
     not_found: Option<i32>,
 }
 
-
 #[test]
 fn params_test() {
     let mut map = leptos_router::params::ParamsMap::new();
