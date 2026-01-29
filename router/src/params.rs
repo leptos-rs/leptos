@@ -161,12 +161,20 @@ where
 {
     /// Attempts to deserialize the map into the given type.
     fn from_map(map: &ParamsMap) -> Result<Self, ParamsError>;
+
+    /// Attempts to create Params map from given type.
+    fn to_map(&self) -> Result<ParamsMap, ParamsError>;
 }
 
 impl Params for () {
     #[inline(always)]
     fn from_map(_map: &ParamsMap) -> Result<Self, ParamsError> {
         Ok(())
+    }
+
+    #[inline(always)]
+    fn to_map(&self) -> Result<ParamsMap, ParamsError> {
+        Ok(ParamsMap::new())
     }
 }
 

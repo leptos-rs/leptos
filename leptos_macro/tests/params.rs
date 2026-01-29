@@ -9,8 +9,14 @@ struct UserInfo {
     not_found: Option<i32>,
 }
 
+
 #[test]
 fn params_test() {
+    // ::leptos_router::params::macro_helpers::Wrapper::<i32>::into_reactive_value(self)
+    // ::leptos_router::params::macro_helpers::Wrapper::<#ty>::__into_param(
+    //     map.get_str(#field_name_string),
+    //     #field_name_string
+    // )?
     let mut map = leptos_router::params::ParamsMap::new();
     map.insert("user_id", "12".to_owned());
     map.insert("email", "em@il".to_owned());
