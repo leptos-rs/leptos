@@ -55,7 +55,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 				let ident = &field.ident;
 				let span = field.span();
 				quote_spanned! {
-					span=> map.insert(#field_name_string, self.#ident.to_string());
+					span=> if let Some(v) = &self.#ident { map.insert(#field_name_string, v.to_string()); }
 				}
 			})
             .collect()
