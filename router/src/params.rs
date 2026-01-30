@@ -178,6 +178,36 @@ impl Params for () {
     }
 }
 
+/// I try to get a string from a T
+pub trait FromParam
+where
+    Self: Sized,
+{
+    /// Converts the param.
+    fn from_param(
+        param: Self,
+        name: &str,
+    ) -> Result<Option<String>, ParamsError>;
+}
+
+/// some docu for now
+impl<T> FromParam for Option<T>
+where
+    T: ToString,
+    // <T as ToString>::Err: std::error::Error + Send + Sync + 'static,
+{
+    /// some docu for now
+    fn from_param(
+        param: Self,
+        _name: &str,
+    ) -> Result<Option<String>, ParamsError> {
+        match param {
+            Some(value) => Ok(Some(value.to_string())),
+            None => Ok(None),
+        }
+    }
+}
+
 /// Converts some parameter value from the URL into a typed parameter with the given name.
 pub trait IntoParam
 where
@@ -209,7 +239,7 @@ where
 
 /// Helpers for the `Params` derive macro to allow specialization without nightly.
 pub mod macro_helpers {
-    use crate::params::{IntoParam, ParamsError};
+    use crate::params::{FromParam, IntoParam, ParamsError};
     use std::{str::FromStr, sync::Arc};
 
     /// This struct is never actually created; it just exists so that we can impl associated
@@ -229,30 +259,53 @@ pub mod macro_helpers {
         }
     }
 
+    impl<T: FromParam> Wrapper<T> {
+        /// This is the 'preferred' impl to be used for all `T` that implement `IntoParam`.
+        /// Because it is directly on the struct, the compiler will pick this over the impl from
+        /// the `Fallback` trait.
+        #[inline]
+        pub fn __from_param(
+            value: T,
+            name: &str,
+        ) -> Result<Option<String>, ParamsError> {
+            T::from_param(value, name)
+        }
+    }
+
     /// If the Fallback trait is in scope, then the compiler has two possible implementations for
     /// `__into_params`. It will pick the one from this trait if the inherent one doesn't exist.
     /// (which it won't if `T` does not implement `IntoParam`)
     pub trait Fallback<T>: Sized
     where
-        T: FromStr,
+        T: FromStr + ToString,
         <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
     {
         /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
         /// `T`
         #[inline]
         fn __into_param(
-            value: Option<&str>,
+            value: &Option<&str>,
             name: &str,
         ) -> Result<T, ParamsError> {
             let value = value
                 .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
             T::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
         }
+
+        /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
+        /// `T`
+        #[inline]
+        fn __from_param(
+            value: T,
+            _name: &str,
+        ) -> Result<Option<String>, ParamsError> {
+            Ok(Some(T::to_string(&value)))
+        }
     }
 
     impl<T> Fallback<T> for Wrapper<T>
     where
-        T: FromStr,
+        T: FromStr + ToString,
         <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
     {
     }
