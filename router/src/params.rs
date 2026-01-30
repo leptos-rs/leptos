@@ -178,33 +178,25 @@ impl Params for () {
     }
 }
 
-/// I try to get a string from a T
+/// Helper trait that converts a typed Parameter for the URL into an Option of a
+/// String to be used in the ParamsMap
 pub trait FromParam
 where
     Self: Sized,
 {
-    /// Converts the param.
-    fn from_param(
-        param: Self,
-        name: &str,
-    ) -> Result<Option<String>, ParamsError>;
+    /// Convert a typed Parameter for the URL into an Option of a String
+    fn from_param(&self, name: &str) -> Option<String>;
 }
 
-/// some docu for now
+/// Helper trait that converts a typed Parameter for the URL into an Option of a
+/// String to be used in the ParamsMap
 impl<T> FromParam for Option<T>
 where
     T: ToString,
-    // <T as ToString>::Err: std::error::Error + Send + Sync + 'static,
 {
-    /// some docu for now
-    fn from_param(
-        param: Self,
-        _name: &str,
-    ) -> Result<Option<String>, ParamsError> {
-        match param {
-            Some(value) => Ok(Some(value.to_string())),
-            None => Ok(None),
-        }
+    /// Convert a typed Parameter for the URL into an Option of a String
+    fn from_param(&self, _name: &str) -> Option<String> {
+        self.as_ref().map(|value| value.to_string())
     }
 }
 
@@ -260,14 +252,11 @@ pub mod macro_helpers {
     }
 
     impl<T: FromParam> Wrapper<T> {
-        /// This is the 'preferred' impl to be used for all `T` that implement `IntoParam`.
+        /// This is the 'preferred' impl to be used for all `T` that implement `FromParam`.
         /// Because it is directly on the struct, the compiler will pick this over the impl from
         /// the `Fallback` trait.
         #[inline]
-        pub fn __from_param(
-            value: T,
-            name: &str,
-        ) -> Result<Option<String>, ParamsError> {
+        pub fn __from_param(value: &T, name: &str) -> Option<String> {
             T::from_param(value, name)
         }
     }
@@ -284,7 +273,7 @@ pub mod macro_helpers {
         /// `T`
         #[inline]
         fn __into_param(
-            value: &Option<&str>,
+            value: Option<&str>,
             name: &str,
         ) -> Result<T, ParamsError> {
             let value = value
@@ -295,11 +284,8 @@ pub mod macro_helpers {
         /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
         /// `T`
         #[inline]
-        fn __from_param(
-            value: T,
-            _name: &str,
-        ) -> Result<Option<String>, ParamsError> {
-            Ok(Some(T::to_string(&value)))
+        fn __from_param(value: &T, _name: &str) -> Option<String> {
+            Some(T::to_string(value))
         }
     }
 
