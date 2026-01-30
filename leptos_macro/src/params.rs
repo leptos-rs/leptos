@@ -56,7 +56,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 				let ty = &field.ty;
 				let span = field.span();
 				quote_spanned! {
-                    span=> if let Some(val) = ::leptos_router::params::macro_helpers::Wrapper::<#ty>::__from_param(&self.#ident, #field_name_string) {
+                    span=> if let Some(val) = ::leptos_router::params::macro_helpers::Wrapper::<#ty>::__param_to_string(&self.#ident, #field_name_string) {
                         map.insert(#field_name_string, val);
                     }
 				}

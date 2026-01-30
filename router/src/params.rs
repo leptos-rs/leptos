@@ -180,22 +180,22 @@ impl Params for () {
 
 /// Helper trait that converts a typed Parameter for the URL into an Option of a
 /// String to be used in the ParamsMap
-pub trait FromParam
+pub trait ParamToString
 where
     Self: Sized,
 {
     /// Convert a typed Parameter for the URL into an Option of a String
-    fn from_param(&self, name: &str) -> Option<String>;
+    fn param_to_string(&self, name: &str) -> Option<String>;
 }
 
 /// Helper trait that converts a typed Parameter for the URL into an Option of a
 /// String to be used in the ParamsMap
-impl<T> FromParam for Option<T>
+impl<T> ParamToString for Option<T>
 where
     T: ToString,
 {
     /// Convert a typed Parameter for the URL into an Option of a String
-    fn from_param(&self, _name: &str) -> Option<String> {
+    fn param_to_string(&self, _name: &str) -> Option<String> {
         self.as_ref().map(|value| value.to_string())
     }
 }
@@ -231,7 +231,7 @@ where
 
 /// Helpers for the `Params` derive macro to allow specialization without nightly.
 pub mod macro_helpers {
-    use crate::params::{FromParam, IntoParam, ParamsError};
+    use crate::params::{IntoParam, ParamToString, ParamsError};
     use std::{str::FromStr, sync::Arc};
 
     /// This struct is never actually created; it just exists so that we can impl associated
@@ -251,13 +251,13 @@ pub mod macro_helpers {
         }
     }
 
-    impl<T: FromParam> Wrapper<T> {
-        /// This is the 'preferred' impl to be used for all `T` that implement `FromParam`.
+    impl<T: ParamToString> Wrapper<T> {
+        /// This is the 'preferred' impl to be used for all `T` that implement `ParamToString`.
         /// Because it is directly on the struct, the compiler will pick this over the impl from
         /// the `Fallback` trait.
         #[inline]
-        pub fn __from_param(value: &T, name: &str) -> Option<String> {
-            T::from_param(value, name)
+        pub fn __param_to_string(value: &T, name: &str) -> Option<String> {
+            T::param_to_string(value, name)
         }
     }
 
@@ -284,7 +284,7 @@ pub mod macro_helpers {
         /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
         /// `T`
         #[inline]
-        fn __from_param(value: &T, _name: &str) -> Option<String> {
+        fn __param_to_string(value: &T, _name: &str) -> Option<String> {
             Some(T::to_string(value))
         }
     }
