@@ -670,7 +670,7 @@ fn apply_diff<T, VFS, V>(
     marker: &crate::renderer::types::Placeholder,
     diff: Diff,
     children: &mut Vec<Option<(VFS, V::State)>>,
-    view_fn: impl Fn(usize, T) -> (VFS, V),
+    view_fn: &dyn Fn(usize, T) -> (VFS, V),
     mut items: Vec<Option<T>>,
 ) where
     VFS: Fn(usize),
