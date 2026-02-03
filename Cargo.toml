@@ -140,7 +140,7 @@ wasm-streams = { default-features = false, version = "0.4.2" }
 rkyv = { default-features = false, version = "0.8.12" }
 temp-env = { default-features = false, version = "0.3.6" }
 uuid = { default-features = false, version = "1.19.0" }
-bytes = { default-features = false, version = "1.11.0" }
+bytes = { default-features = false, version = "1.11.1" }
 http = { default-features = false, version = "1.4.0" }
 regex = { default-features = false, version = "1.12.2" }
 drain_filter_polyfill = { default-features = false, version = "0.1.3" }
