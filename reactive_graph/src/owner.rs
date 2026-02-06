@@ -264,9 +264,7 @@ impl Owner {
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         // codegen optimisation:
         fn inner_1(self_: &Owner) -> Option<WeakOwner> {
-            let prev = {
-                OWNER.with(|o| (*o.borrow_mut()).replace(self_.downgrade()))
-            };
+            let prev = OWNER.with_borrow_mut(|o| o.replace(self_.downgrade()));
             #[cfg(feature = "sandboxed-arenas")]
             Arena::set(&self_.inner.read().or_poisoned().arena);
             prev
@@ -277,9 +275,7 @@ impl Owner {
 
         // monomorphisation optimisation:
         fn inner_2(prev: Option<WeakOwner>) {
-            OWNER.with(|o| {
-                *o.borrow_mut() = prev;
-            });
+            OWNER.with_borrow_mut(|o| *o = prev);
         }
         inner_2(prev);
 
