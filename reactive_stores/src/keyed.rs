@@ -641,6 +641,23 @@ where
     fn keys(&self) -> Option<KeyMap> {
         self.inner.keys()
     }
+
+    fn track_field(&self) {
+        let mut full_path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.track();
+        trigger.children.track();
+
+        // tracks `this` for all ancestors: i.e., it will track any change that is made
+        // directly to one of its ancestors, but not a change made to a *child* of an ancestor
+        // (which would end up with every subfield tracking its own siblings, because they are
+        // children of its parent)
+        while !full_path.is_empty() {
+            full_path.pop();
+            let inner = self.get_trigger(full_path.clone());
+            inner.this.track();
+        }
+    }
 }
 
 impl<Inner, Prev, K, T> DefinedAt for AtKeyed<Inner, Prev, K, T>
@@ -1024,9 +1041,9 @@ mod tests {
         );
 
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 2);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
 
         // and after we move the keys around, they still update the moved items
         a.label().set("Bar".into());
@@ -1036,9 +1053,9 @@ mod tests {
             vec![Todo::new(12, "C"), Todo::new(11, "B"), Todo::new(10, "Bar")]
         );
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 3);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 4);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
 
         // we can remove a key and add a new one
         store.todos().write().pop();
@@ -1049,9 +1066,9 @@ mod tests {
             vec![Todo::new(12, "C"), Todo::new(11, "B"), Todo::new(13, "New")]
         );
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 3);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 5);
+        assert_eq!(b_count.load(Ordering::Relaxed), 3);
+        assert_eq!(c_count.load(Ordering::Relaxed), 3);
     }
 
     #[tokio::test]
@@ -1170,9 +1187,9 @@ mod tests {
             ]
         );
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 3);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 4);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
 
         assert_eq!(
             after.keys().copied().collect::<BTreeSet<usize>>(),
@@ -1280,9 +1297,9 @@ mod tests {
             ])
         );
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 3);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 4);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
 
         assert_eq!(
             after.keys().cloned().collect::<BTreeSet<String>>(),
