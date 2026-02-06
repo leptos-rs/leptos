@@ -67,7 +67,7 @@ use leptos_router::{
     static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
     RouteListing, SsrMode,
 };
-use parking_lot::RwLock;
+use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
 use std::sync::LazyLock;
@@ -1648,11 +1648,8 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers = STATIC_HEADERS
-                    .read()
-                    .or_poisoned()
-                    .get(orig_path)
-                    .map(|v| v.clone());
+                let headers =
+                    STATIC_HEADERS.read().or_poisoned().get(orig_path).cloned();
                 (headers, None)
             };
 
