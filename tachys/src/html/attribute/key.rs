@@ -179,6 +179,8 @@ attributes! {
     capture "capture",
     /// The `challenge` attribute specifies the challenge string that is paired with the keygen element.
     challenge "challenge",
+    /// The `closedby` attribute specifies the types of user actions that can be used to close the associated `<dialog>` element.
+    closedby "closedby",
     /// The `charset` attribute specifies the character encoding of the HTML document.
     charset "charset",
     /// The `checked` attribute indicates whether an input element is checked or not.
