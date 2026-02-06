@@ -34,6 +34,7 @@ trace-component-props = ["dep:serde", "dep:serde_json"]
 hydration = ["reactive_graph/hydration"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]

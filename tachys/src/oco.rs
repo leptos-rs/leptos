@@ -2,6 +2,7 @@ use crate::{
     html::{
         attribute::{any_attribute::AnyAttribute, AttributeValue},
         class::IntoClass,
+        element::InnerHtmlValue,
         property::IntoProperty,
         style::IntoStyle,
     },
@@ -339,5 +340,62 @@ impl IntoStyle for Oco<'static, str> {
     fn reset(state: &mut Self::State) {
         let (el, _prev) = state;
         Rndr::remove_attribute(el, "style");
+    }
+}
+
+impl InnerHtmlValue for Oco<'static, str> {
+    type AsyncOutput = Self;
+    type State = (crate::renderer::types::Element, Self);
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
+    fn to_html(self, buf: &mut String) {
+        buf.push_str(&self);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            Rndr::set_inner_html(el, &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &crate::renderer::types::Element) -> Self::State {
+        Rndr::set_inner_html(el, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if self != state.1 {
+            Rndr::set_inner_html(&state.0, &self);
+            state.1 = self;
+        }
+    }
+
+    fn into_cloneable(mut self) -> Self::Cloneable {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
+    }
+
+    fn into_cloneable_owned(mut self) -> Self::CloneableOwned {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }

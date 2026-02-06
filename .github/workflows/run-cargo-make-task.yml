@@ -69,7 +69,7 @@ jobs:
       - name: Install cargo-make
         run: cargo binstall cargo-make --no-confirm
       - name: Install nextest
-        run: cargo binstall cargo-nextest --no-confirm
+        run: cargo binstall cargo-nextest --locked --no-confirm
       - name: Install cargo-all-features
         run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
       # Part of direct-minimal-versions check

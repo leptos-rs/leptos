@@ -57,11 +57,11 @@
 //! # if false { // don't run effect in doctests
 //! Effect::new(move |_| {
 //!     // you can access individual store fields with a getter
-//!     println!("todos: {:?}", &*store.todos().read());
+//!     println!("user: {:?}", &*store.user().read());
 //! });
 //! # }
 //!
-//! // won't notify the effect that listens to `todos`
+//! // won't notify the effect that listens to `user`
 //! store.todos().write().push(Todo {
 //!     label: "Test".to_string(),
 //!     completed: false,

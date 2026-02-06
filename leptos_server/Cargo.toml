@@ -44,8 +44,8 @@ denylist = ["tracing"]
 max_combination_size = 2
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--generate-link-to-definition", "--cfg", "docsrs"]
 all-features = true
+rustdoc-args = ["--generate-link-to-definition", "--cfg", "docsrs"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
