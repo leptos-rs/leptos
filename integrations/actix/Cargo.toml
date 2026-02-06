@@ -27,7 +27,6 @@ tracing = { optional = true, workspace = true, default-features = true }
 tokio = { features = ["rt", "fs"], workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
-or_poisoned = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 all-features = true
