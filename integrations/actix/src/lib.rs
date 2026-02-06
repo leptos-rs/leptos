@@ -1330,7 +1330,7 @@ where
                         .read()
                         .or_poisoned()
                         .get(orig_path)
-                        .map(|v| v.clone());
+                        .cloned();
                     (headers, None)
                 };
 
