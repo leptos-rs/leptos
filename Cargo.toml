@@ -162,7 +162,7 @@ actix-http = { default-features = false, version = "3.11.2" }
 wasm-bindgen-test = { default-features = false, version = "0.3.56" }
 rustversion = { default-features = false, version = "1.0.22" }
 getrandom = { default-features = false, version = "0.3.4" }
-actix-files = { default-features = false, version = "0.6.9" }
+actix-files = { default-features = false, version = "0.6.10" }
 async-lock = { default-features = false, version = "3.4.2" }
 base16 = { default-features = false, version = "0.2.1" }
 digest = { default-features = false, version = "0.10.7" }
