@@ -8,7 +8,6 @@ use crate::{
     ok_or_debug, or_debug,
     view::{Mountable, ToTemplate},
 };
-use linear_map::LinearMap;
 use rustc_hash::FxHashSet;
 use std::{
     any::TypeId,
@@ -379,8 +378,7 @@ impl Dom {
             "set property"
         );
 
-        GLOBAL_EVENTS.with(|global_events| {
-            let mut events = global_events.borrow_mut();
+        GLOBAL_EVENTS.with_borrow_mut(|events| {
             if !events.contains(&name) {
                 // create global handler
                 let key = JsValue::from_str(key);
@@ -516,13 +514,14 @@ impl Dom {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
                 LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
-            static TEMPLATES: RefCell<LinearMap<TypeId, HtmlTemplateElement>> = Default::default();
+            static TEMPLATES: RefCell<Vec<(TypeId, HtmlTemplateElement)>> = Default::default();
         }
 
-        TEMPLATES.with(|t| {
-            t.borrow_mut()
-                .entry(TypeId::of::<V>())
-                .or_insert_with(|| {
+        TEMPLATES.with_borrow_mut(|t| {
+            let id = TypeId::of::<V>();
+            t.iter()
+                .find_map(|entry| (entry.0 == id).then(|| entry.1.clone()))
+                .unwrap_or_else(|| {
                     let tpl = TEMPLATE_ELEMENT.with(|t| {
                         t.clone_node()
                             .unwrap()
@@ -537,9 +536,9 @@ impl Dom {
                         &mut Default::default(),
                     );
                     tpl.set_inner_html(&buf);
+                    t.push((id, tpl.clone()));
                     tpl
                 })
-                .clone()
         })
     }
 
@@ -551,8 +550,7 @@ impl Dom {
     }
 
     pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
-        let tpl = TEMPLATE_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
+        let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
             if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
                 (html == *key)
                     .then_some(Self::clone_template(tpl.unchecked_ref()))
@@ -572,8 +570,7 @@ impl Dom {
     }
 
     pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
-        let tpl = TEMPLATE_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
+        let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
             if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
                 (html == *key)
                     .then_some(Self::clone_template(tpl.unchecked_ref()))

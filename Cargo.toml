@@ -121,7 +121,6 @@ serial_test = { default-features = false, version = "3.2.0" }
 erased = { default-features = false, version = "0.1.2" }
 glib = { default-features = false, version = "0.21.5" }
 async-trait = { default-features = false, version = "0.1.89" }
-linear-map = { default-features = false, version = "1.2.0" }
 anyhow = { default-features = false, version = "1.0.100" }
 walkdir = { default-features = false, version = "2.5.0" }
 actix-ws = { default-features = false, version = "0.3.0" }
