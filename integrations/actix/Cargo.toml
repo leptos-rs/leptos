@@ -23,13 +23,14 @@ leptos_router = { workspace = true, features = ["ssr"] }
 server_fn = { workspace = true, features = ["actix-no-default"] }
 tachys = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 tokio = { features = ["rt", "fs"], workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
+or_poisoned = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
