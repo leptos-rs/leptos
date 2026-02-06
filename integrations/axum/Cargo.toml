@@ -23,17 +23,22 @@ leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 tachys = { workspace = true }
-parking_lot = { workspace = true, default-features = true }
 tokio = { default-features = false, workspace = true }
 tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
+or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 axum = { workspace = true, default-features = true }
+reqwest = { workspace = true }
 tokio = { features = [
+  "io-util",
   "net",
+  "process",
   "rt-multi-thread",
+  "time",
 ], workspace = true, default-features = true }
 
 [features]
@@ -49,8 +54,10 @@ islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing"]
+extra_features = ["default"]
 max_combination_size = 2

@@ -29,6 +29,7 @@ tracing = ["dep:tracing"]
 nonce = ["leptos/nonce"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]
