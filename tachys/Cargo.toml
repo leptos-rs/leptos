@@ -154,7 +154,6 @@ rustc-hash = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 itertools = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-linear-map = { workspace = true, default-features = true }
 sledgehammer_bindgen = { features = [
   "web",
 ], optional = true, workspace = true, default-features = true }
