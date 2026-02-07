@@ -74,6 +74,7 @@ tachys = { path = "./tachys", version = "0.2.11" }
 async-once-cell = { default-features = false, version = "0.5" }
 itertools = { default-features = false, version = "0.14" }
 convert_case = { default-features = false, version = "0.11" }
+convert_case_extras = { default-features = false, version = "0.2" }
 serde_json = { default-features = false, version = "1.0" }
 trybuild = { default-features = false, version = "1.0" }
 typed-builder = { default-features = false, version = "0.23" }
