@@ -161,12 +161,42 @@ where
 {
     /// Attempts to deserialize the map into the given type.
     fn from_map(map: &ParamsMap) -> Result<Self, ParamsError>;
+
+    /// Attempts to create Params map from given type.
+    fn to_map(&self) -> Result<ParamsMap, ParamsError>;
 }
 
 impl Params for () {
     #[inline(always)]
     fn from_map(_map: &ParamsMap) -> Result<Self, ParamsError> {
         Ok(())
+    }
+
+    #[inline(always)]
+    fn to_map(&self) -> Result<ParamsMap, ParamsError> {
+        Ok(ParamsMap::new())
+    }
+}
+
+/// Helper trait that converts a typed Parameter for the URL into an Option of a
+/// String to be used in the ParamsMap
+pub trait ParamToString
+where
+    Self: Sized,
+{
+    /// Convert a typed Parameter for the URL into an Option of a String
+    fn param_to_string(&self, name: &str) -> Option<String>;
+}
+
+/// Helper trait that converts a typed Parameter for the URL into an Option of a
+/// String to be used in the ParamsMap
+impl<T> ParamToString for Option<T>
+where
+    T: ToString,
+{
+    /// Convert a typed Parameter for the URL into an Option of a String
+    fn param_to_string(&self, _name: &str) -> Option<String> {
+        self.as_ref().map(|value| value.to_string())
     }
 }
 
@@ -201,7 +231,7 @@ where
 
 /// Helpers for the `Params` derive macro to allow specialization without nightly.
 pub mod macro_helpers {
-    use crate::params::{IntoParam, ParamsError};
+    use crate::params::{IntoParam, ParamToString, ParamsError};
     use std::{str::FromStr, sync::Arc};
 
     /// This struct is never actually created; it just exists so that we can impl associated
@@ -221,12 +251,22 @@ pub mod macro_helpers {
         }
     }
 
+    impl<T: ParamToString> Wrapper<T> {
+        /// This is the 'preferred' impl to be used for all `T` that implement `ParamToString`.
+        /// Because it is directly on the struct, the compiler will pick this over the impl from
+        /// the `Fallback` trait.
+        #[inline]
+        pub fn __param_to_string(value: &T, name: &str) -> Option<String> {
+            T::param_to_string(value, name)
+        }
+    }
+
     /// If the Fallback trait is in scope, then the compiler has two possible implementations for
     /// `__into_params`. It will pick the one from this trait if the inherent one doesn't exist.
     /// (which it won't if `T` does not implement `IntoParam`)
     pub trait Fallback<T>: Sized
     where
-        T: FromStr,
+        T: FromStr + ToString,
         <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
     {
         /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
@@ -240,11 +280,18 @@ pub mod macro_helpers {
                 .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
             T::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
         }
+
+        /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
+        /// `T`
+        #[inline]
+        fn __param_to_string(value: &T, _name: &str) -> Option<String> {
+            Some(T::to_string(value))
+        }
     }
 
     impl<T> Fallback<T> for Wrapper<T>
     where
-        T: FromStr,
+        T: FromStr + ToString,
         <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
     {
     }
