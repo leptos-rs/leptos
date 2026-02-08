@@ -549,6 +549,7 @@ where
             let called_at = Location::caller();
             let ty = std::any::type_name::<Self::Value>();
 
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
             crate::log_warning(format_args!(
                 "At {called_at}, you tried to update a {ty}, but the update \
                  failed. This can happen if a read guard over the value is \
