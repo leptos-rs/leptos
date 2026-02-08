@@ -545,7 +545,19 @@ where
 
     #[track_caller]
     fn set(&self, value: Self::Value) {
-        self.try_update(|n| *n = value);
+        let failed = self.try_update(|n| *n = value).is_none();
+
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        if failed && !self.is_disposed() {
+            let called_at = Location::caller();
+            let ty = std::any::type_name::<Self::Value>();
+
+            crate::log_warning(format_args!(
+                "At {called_at}, you tried to update a {ty}, but the update \
+                 failed. This can happen if a read guard over the value is \
+                 still alive."
+            ));
+        };
     }
 
     #[track_caller]
