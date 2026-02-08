@@ -28,6 +28,7 @@ rstml = { workspace = true, default-features = true }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = { workspace = true, default-features = true }
+convert_case_extras = { workspace = true, default-features = true }
 uuid = { features = ["v4"], workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 

@@ -3,6 +3,7 @@ use convert_case::{
     Case::{Pascal, Snake},
     Casing,
 };
+use convert_case_extras::is_case;
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -131,7 +132,7 @@ pub fn drain_filter<T>(
 
 pub fn convert_from_snake_case(name: &Ident) -> Ident {
     let name_str = name.to_string();
-    if !name_str.is_case(Snake) {
+    if !is_case(&name_str, Snake) {
         name.clone()
     } else {
         Ident::new(&name_str.to_case(Pascal), name.span())

@@ -3,7 +3,7 @@ env = { "NEXTEST_NO_TESTS" = "warn" }
 command = "cargo"
 args = ["all-features", "nextest", "run", "--all-targets"]
 install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+cargo install cargo-all-features
 '''
 
 # This can be removed once doctests is supported in nextest
@@ -12,5 +12,5 @@ cargo install --git https://github.com/sabify/cargo-all-features --branch arbitr
 command = "cargo"
 args = ["all-features", "test", "--doc"]
 install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+cargo install cargo-all-features
 '''
