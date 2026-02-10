@@ -32,7 +32,9 @@ inventory = { optional = true, workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = false, features = ["ws"] }
+actix-web = { optional = true, workspace = true, default-features = false, features = [
+  "ws",
+] }
 actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum
@@ -129,7 +131,7 @@ msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
 bitcode = ["dep:bitcode"]
 default-tls = ["reqwest?/default-tls"]
-rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
+rustls = ["reqwest?/rustls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
 ssr = ["inventory"]
 generic = []
