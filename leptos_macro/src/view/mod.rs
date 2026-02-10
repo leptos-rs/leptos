@@ -444,6 +444,12 @@ fn inert_svg_element_to_tokens(
                     Node::Element(node) => {
                         let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
+                        // strip trailing underscores, for identifiers such as SVG use_
+                        let el_name = el_name
+                            .strip_suffix('_')
+                            .map(str::to_string)
+                            .unwrap_or(el_name);
+
                         let escape = el_name != "script"
                             && el_name != "style"
                             && el_name != "textarea";
