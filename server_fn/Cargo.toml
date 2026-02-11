@@ -26,10 +26,10 @@ send_wrapper = { features = [
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
+or_poisoned = { workspace = true, default-features = true }
 
 # registration system
 inventory = { optional = true, workspace = true, default-features = true }
-dashmap = { workspace = true, default-features = true }
 
 ## servers
 # actix
