@@ -239,6 +239,7 @@
 //! field in the signal inner `Arc<RwLock<_>>`, and tracks the trigger that corresponds with its
 //! path; calling `.write()` returns a writeable guard, and notifies that same trigger.
 
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
@@ -414,31 +415,14 @@ impl<K> Default for FieldKeys<K> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-type HashMap<K, V> = Arc<dashmap::DashMap<K, V>>;
-#[cfg(target_arch = "wasm32")]
-type HashMap<K, V> = send_wrapper::SendWrapper<
-    std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>,
->;
+type Map<K, V> = Arc<std::sync::RwLock<std::collections::HashMap<K, V>>>;
 
 /// A map of the keys for a keyed subfield.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct KeyMap(
-    HashMap<StorePath, Box<dyn Any + Send + Sync>>,
-    HashMap<(StorePath, usize), StorePathSegment>,
+    Map<StorePath, Box<dyn Any + Send + Sync>>,
+    Map<(StorePath, usize), StorePathSegment>,
 );
-
-impl Default for KeyMap {
-    fn default() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        return Self(Default::default(), Default::default());
-        #[cfg(target_arch = "wasm32")]
-        return Self(
-            send_wrapper::SendWrapper::new(Default::default()),
-            send_wrapper::SendWrapper::new(Default::default()),
-        );
-    }
-}
 
 impl KeyMap {
     fn with_field_keys<K, T>(
@@ -452,62 +436,33 @@ impl KeyMap {
     {
         let initial_keys = initialize();
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut entry = self
-            .0
+        let mut guard = self.0.write().or_poisoned();
+        let entry = guard
             .entry(path.clone())
             .or_insert_with(|| Box::new(FieldKeys::new(initial_keys)));
-
-        #[cfg(target_arch = "wasm32")]
-        let entry = if !self.0.borrow().contains_key(&path) {
-            Some(Box::new(FieldKeys::new(initial_keys)))
-        } else {
-            None
-        };
-        #[cfg(target_arch = "wasm32")]
-        let mut map = self.0.borrow_mut();
-        #[cfg(target_arch = "wasm32")]
-        let entry = map.entry(path.clone()).or_insert_with(|| entry.unwrap());
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
         let (result, new_keys) = fun(entry);
         if !new_keys.is_empty() {
             for (idx, segment) in new_keys {
-                #[cfg(not(target_arch = "wasm32"))]
-                self.1.insert((path.clone(), idx), segment);
-
-                #[cfg(target_arch = "wasm32")]
-                self.1.borrow_mut().insert((path.clone(), idx), segment);
+                self.1
+                    .write()
+                    .or_poisoned()
+                    .insert((path.clone(), idx), segment);
             }
         }
         Some(result)
     }
 
     fn contains_key(&self, key: &StorePath) -> bool {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.0.contains_key(key)
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.0.borrow_mut().contains_key(key)
-        }
+        self.0.read().or_poisoned().contains_key(key)
     }
 
     fn get_key_for_index(
         &self,
         key: &(StorePath, usize),
     ) -> Option<StorePathSegment> {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.1.get(key).as_deref().copied()
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.1.borrow().get(key).as_deref().copied()
-        }
+        self.1.read().or_poisoned().get(key).copied()
     }
 }
 
