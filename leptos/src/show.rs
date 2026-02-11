@@ -6,7 +6,7 @@ use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get};
 use tachys::either::Either;
 
-#[component]
+#[component(transparent)]
 pub fn Show<W, C>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
     children: TypedChildrenFn<C>,
