@@ -66,7 +66,7 @@ impl ParamsMap {
     }
 
     /// Gets an iterator for all the most-recently-added values on the map
-    pub fn get_iter(&self) -> ParamsMapIterRef<'_> {
+    pub fn latest_values(&self) -> ParamsMapIterRef<'_> {
         let inner: Vec<_> = self
             .0
             .iter()
