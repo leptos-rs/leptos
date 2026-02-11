@@ -107,14 +107,14 @@ proc-macro2 = { default-features = false, version = "1.0" }
 serde = { default-features = false, version = "1.0" }
 parking_lot = { default-features = false, version = "0.12" }
 axum = { default-features = false, version = "0.8" }
-serde_qs = { default-features = false, version = "0.15" }
+serde_qs = { default-features = false, version = "1.0" }
 syn = { default-features = false, version = "2.0" }
 xxhash-rust = { default-features = false, version = "0.8" }
 paste = { default-features = false, version = "1.0" }
 quote = { default-features = false, version = "1.0" }
 web-sys = { default-features = false, version = "0.3" }
 js-sys = { default-features = false, version = "0.3" }
-rand = { default-features = false, version = "0.9" }
+rand = { default-features = false, version = "0.10" }
 serde-lite = { default-features = false, version = "0.5" }
 tokio-tungstenite = { default-features = false, version = "0.28" }
 serial_test = { default-features = false, version = "3.3" }
@@ -143,7 +143,7 @@ bytes = { default-features = false, version = "1.11" }
 http = { default-features = false, version = "1.4" }
 regex = { default-features = false, version = "1.12" }
 drain_filter_polyfill = { default-features = false, version = "0.1" }
-tempfile = { default-features = false, version = "3.24" }
+tempfile = { default-features = false, version = "3.25" }
 futures-lite = { default-features = false, version = "2.6" }
 log = { default-features = false, version = "0.4" }
 percent-encoding = { default-features = false, version = "2.3" }
