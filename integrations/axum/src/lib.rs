@@ -88,6 +88,12 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
+mod private {
+    pub trait Sealed {}
+
+    impl<S> Sealed for axum::Router<S> {}
+}
+
 mod service;
 pub use service::ErrorHandler;
 
@@ -1614,7 +1620,10 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<S>
+///
+/// This trait is sealed and cannot be implemented for callers to avoid breaking backwards compatibility when
+/// new methods are added.
+pub trait LeptosRoutes<S>: private::Sealed
 where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
