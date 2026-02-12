@@ -23,6 +23,8 @@ mod router {
         ErrorHandlerService,
         ErrorHandlerServiceFallback,
         RouteSitePkgNoFallback,
+        RouteSitePkgDirMethod,
+        RouteSitePkgDirFallbackMethod,
     }
 
     impl From<Cli> for Router {
@@ -110,6 +112,22 @@ mod router {
                         shell,
                         leptos_options.clone(),
                     ))
+                    .with_state(leptos_options),
+                Mode::RouteSitePkgDirMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .leptos_route_site_pkg_dir(&leptos_options, shell)
+                    .with_state(leptos_options),
+                Mode::RouteSitePkgDirFallbackMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    // to spice it up, different fallback "shells".
+                    .leptos_route_site_pkg_dir(&leptos_options, |_| "site_pkg_dir fallback")
+                    .leptos_route_fallback(&leptos_options, |_| "root fallback")
                     .with_state(leptos_options),
             }
         }

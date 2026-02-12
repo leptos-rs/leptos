@@ -166,6 +166,77 @@ async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn route_site_pkg_dir_method() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "route-site-pkg-dir-method").await;
+    let client = Client::new();
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_ne!(res.content_length(), Some(0));
+    assert!(res
+        .text()
+        .await?
+        .contains("<title>Error from fallback</title>"));
+    // gven the lack of a more generic fallback service, those other paths will not get a shell
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length(), Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn route_site_pkg_dir_fallback_method() -> anyhow::Result<()> {
+    let service = start_test_service(
+        "service_mode",
+        "route-site-pkg-dir-fallback-method",
+    )
+    .await;
+    let client = Client::new();
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("site_pkg_dir fallback"));
+    // the fallback service will also trigger for all other unrouted paths with a separate service
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("root fallback"));
+    Ok(())
+}
+
 // Killing `cargo leptos watch` may not necessarily kill the underlying server task, so rather
 // than running that, build and run the service in separate steps.  This also has the advantage
 // of avoiding parallel build issues with generating the site onto the same location.

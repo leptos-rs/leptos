@@ -35,13 +35,22 @@ use tower::Service;
 /// #     view! { <main>"Hello, world!"</main> }
 /// # }
 /// # let conf = get_configuration(None).unwrap();
-/// # let addr = conf.leptos_options.site_addr;
 /// # let leptos_options = conf.leptos_options;
 /// # let routes = generate_route_list(App);
 /// fn shell(options: LeptosOptions) -> impl IntoView {
-///     view! { <App/> }
+///     view! {
+///         <html>
+///             <head>
+///                 <HydrationScripts options/>
+///             </head>
+///             <body>
+///                 <App/>
+///             </body>
+///         </html>
+///     }
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// let app = Router::new()
 ///     .leptos_routes(&leptos_options, routes, {
 ///         let leptos_options = leptos_options.clone();
@@ -50,6 +59,8 @@ use tower::Service;
 ///     // the following `fallback_service(...)` call approximately replicates
 ///     // .fallback(leptos_axum::file_and_error_handler(shell))
 ///     .fallback_service(
+///         // please do take note that both `file_and_error_handler` and
+///         // `site_pkg_dir_service` require `feature = "default"`
 ///         leptos_axum::site_pkg_dir_service(&leptos_options).fallback(
 ///             leptos_axum::ErrorHandler::new(shell, leptos_options),
 ///         ),
