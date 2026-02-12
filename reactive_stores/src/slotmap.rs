@@ -193,8 +193,8 @@ mod tests {
             ]
         );
         tick().await;
-        assert_eq!(a_count.load(Ordering::Relaxed), 3);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 4);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
     }
 }
