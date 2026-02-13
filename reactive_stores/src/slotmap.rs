@@ -21,6 +21,7 @@ impl<K: slotmap::Key, V> KeyedAccess for slotmap::DenseSlotMap<K, V> {
         self.get_mut(key).expect("key does not exist")
     }
 }
+#[allow(deprecated)]
 impl<K: slotmap::Key, V> KeyedAccess for slotmap::HopSlotMap<K, V> {
     type Key = K;
     type Value = V;
