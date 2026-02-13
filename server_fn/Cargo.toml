@@ -5,7 +5,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = "0.8.8"
+version = "0.8.9"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -25,14 +25,17 @@ send_wrapper = { features = [
   "futures",
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
+typed-builder = { workspace = true, default-features = true }
+or_poisoned = { workspace = true, default-features = true }
 
 # registration system
 inventory = { optional = true, workspace = true, default-features = true }
-dashmap = { workspace = true, default-features = true }
 
 ## servers
 # actix
-actix-web = { optional = true, workspace = true, default-features = false }
+actix-web = { optional = true, workspace = true, default-features = false, features = [
+  "ws",
+] }
 actix-ws = { optional = true, workspace = true, default-features = true }
 
 # axum
@@ -129,7 +132,7 @@ msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
 bitcode = ["dep:bitcode"]
 default-tls = ["reqwest?/default-tls"]
-rustls = ["reqwest?/rustls-tls", "tokio-tungstenite?/rustls"]
+rustls = ["reqwest?/rustls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
 ssr = ["inventory"]
 generic = []

@@ -10,6 +10,7 @@ use convert_case::{
     Case::{Snake, UpperCamel},
     Casing,
 };
+use convert_case_extras::is_case;
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
@@ -444,6 +445,12 @@ fn inert_svg_element_to_tokens(
                     Node::Element(node) => {
                         let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
+                        // strip trailing underscores, for identifiers such as SVG use_
+                        let el_name = el_name
+                            .strip_suffix('_')
+                            .map(str::to_string)
+                            .unwrap_or(el_name);
+
                         let escape = el_name != "script"
                             && el_name != "style"
                             && el_name != "textarea";
@@ -1840,7 +1847,7 @@ pub(crate) fn parse_event_name(
 }
 
 fn convert_to_snake_case(name: String) -> String {
-    if !name.is_case(Snake) {
+    if !is_case(&name, Snake) {
         name.to_case(Snake)
     } else {
         name

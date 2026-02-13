@@ -72,6 +72,7 @@ web-sys = { features = [
   "SecurityPolicyViolationEvent",
   "StorageEvent",
   "SubmitEvent",
+  "ToggleEvent",
   "TouchEvent",
   "TransitionEvent",
   "UiEvent",
@@ -152,10 +153,8 @@ drain_filter_polyfill = { workspace = true, default-features = true }
 indexmap = { workspace = true, default-features = true }
 rustc-hash = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
 itertools = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
-linear-map = { workspace = true, default-features = true }
 sledgehammer_bindgen = { features = [
   "web",
 ], optional = true, workspace = true, default-features = true }
@@ -179,6 +178,7 @@ default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
 hydrate = []
+lazy = []
 islands = ["dep:serde", "dep:serde_json"]
 ssr = []
 oco = ["dep:oco_ref"]

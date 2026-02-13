@@ -10,5 +10,5 @@ args = [
   "--direct",
 ]
 install_script = '''
-cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+cargo install cargo-all-features
 '''

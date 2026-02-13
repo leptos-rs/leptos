@@ -422,9 +422,11 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     #[cfg(feature = "ssr")]
     mod progress {
         use async_broadcast::{broadcast, Receiver, Sender};
-        use dashmap::DashMap;
         use futures::Stream;
-        use std::sync::LazyLock;
+        use std::{
+            collections::HashMap,
+            sync::{LazyLock, RwLock},
+        };
 
         struct File {
             total: usize,
@@ -432,30 +434,31 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             rx: Receiver<usize>,
         }
 
-        static FILES: LazyLock<DashMap<String, File>> =
-            LazyLock::new(DashMap::new);
+        static FILES: LazyLock<RwLock<HashMap<String, File>>> =
+            LazyLock::new(|| RwLock::new(HashMap::new()));
 
         pub async fn add_chunk(filename: &str, len: usize) {
             println!("[{filename}]\tadding {len}");
-            let mut entry =
-                FILES.entry(filename.to_string()).or_insert_with(|| {
-                    println!("[{filename}]\tinserting channel");
-                    // NOTE: this channel capacity is set arbitrarily for this demo code.
-                    // it allows for up to exactly 1048 chunks to be sent, which sets an upper cap
-                    // on upload size (the precise details vary by client)
-                    // in a real system, you will want to create some more reasonable ways of
-                    // sending and sharing notifications
-                    //
-                    // see https://github.com/leptos-rs/leptos/issues/4397 for related discussion
-                    let (tx, rx) = broadcast(1048);
-                    File { total: 0, tx, rx }
-                });
-            entry.total += len;
-            let new_total = entry.total;
+            let (tx, new_total) = {
+                let mut lock = FILES.write().unwrap();
+                let entry =
+                    lock.entry(filename.to_string()).or_insert_with(|| {
+                        println!("[{filename}]\tinserting channel");
+                        // NOTE: this channel capacity is set arbitrarily for this demo code.
+                        // it allows for up to exactly 1048 chunks to be sent, which sets an upper cap
+                        // on upload size (the precise details vary by client)
+                        // in a real system, you will want to create some more reasonable ways of
+                        // sending and sharing notifications
+                        //
+                        // see https://github.com/leptos-rs/leptos/issues/4397 for related discussion
+                        let (tx, rx) = broadcast(1048);
+                        File { total: 0, tx, rx }
+                    });
+                entry.total += len;
+                let new_total = entry.total;
 
-            // we're about to do an async broadcast, so we don't want to hold a lock across it
-            let tx = entry.tx.clone();
-            drop(entry);
+                (entry.tx.clone(), new_total)
+            };
 
             // now we send the message and don't have to worry about it
             tx.broadcast(new_total)
@@ -464,12 +467,12 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         }
 
         pub fn for_file(filename: &str) -> impl Stream<Item = usize> {
-            let entry =
-                FILES.entry(filename.to_string()).or_insert_with(|| {
-                    println!("[{filename}]\tinserting channel");
-                    let (tx, rx) = broadcast(128);
-                    File { total: 0, tx, rx }
-                });
+            let mut lock = FILES.write().unwrap();
+            let entry = lock.entry(filename.to_string()).or_insert_with(|| {
+                println!("[{filename}]\tinserting channel");
+                let (tx, rx) = broadcast(128);
+                File { total: 0, tx, rx }
+            });
             entry.rx.clone()
         }
     }
@@ -564,17 +567,12 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             <input type="submit" />
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
-        {move || {
-            max.get()
-                .map(|max| {
-                    view! {
-                        <progress
-                            max=max
-                            value=move || current.get().unwrap_or_default()
-                        ></progress>
-                    }
-                })
-        }}
+        <ShowLet some=max let:max>
+            <progress
+                max=max
+                value=move || current.get().unwrap_or_default()
+            ></progress>
+        </ShowLet>
     }
 }
 #[component]

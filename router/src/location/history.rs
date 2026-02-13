@@ -259,7 +259,7 @@ impl LocationProvider for BrowserUrl {
         if url.origin() == current_origin {
             let navigate = navigate.clone();
             // delay by a tick here, so that the Action updates *before* the redirect
-            request_animation_frame(move || {
+            _ = request_animation_frame(move || {
                 navigate(&url.href(), Default::default());
             });
             // Use set_href() if the conditions for client-side navigation were not satisfied

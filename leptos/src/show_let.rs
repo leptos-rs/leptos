@@ -71,7 +71,7 @@ use tachys::either::Either;
 /// }
 /// # }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn ShowLet<T, ChFn, V, M>(
     /// The children will be shown whenever `value` is `Some`.
     ///
@@ -158,5 +158,18 @@ where
     fn into_option_getter(self) -> OptionGetter<T> {
         let cloned = self.clone();
         OptionGetter(Arc::new(move || cloned.get()))
+    }
+}
+
+/// Marker type for creating an `OptionGetter` from a static value.
+/// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
+pub struct StaticMarker;
+
+impl<T> IntoOptionGetter<T, StaticMarker> for Option<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn into_option_getter(self) -> OptionGetter<T> {
+        OptionGetter(Arc::new(move || self.clone()))
     }
 }

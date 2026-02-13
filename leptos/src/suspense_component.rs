@@ -15,7 +15,10 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Dispose, Get, Read, ReadUntracked, Track, With, WriteValue},
+    traits::{
+        Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
+        WriteValue,
+    },
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
@@ -119,14 +122,19 @@ where
         provide_context(SuspenseContext {
             tasks: tasks.clone(),
         });
-        let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
-            tasks.track();
-            if prev.is_none() && starts_local {
-                false
-            } else {
-                tasks.with(SlotMap::is_empty)
+        let none_pending = ArcMemo::new({
+            let tasks = tasks.clone();
+            move |prev: Option<&bool>| {
+                tasks.track();
+                if prev.is_none() && starts_local {
+                    false
+                } else {
+                    tasks.with(SlotMap::is_empty)
+                }
             }
         });
+        let has_tasks =
+            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
 
         OwnedView::new(SuspenseBoundary::<false, _, _> {
             id,
@@ -134,6 +142,7 @@ where
             fallback,
             children,
             error_boundary_parent,
+            has_tasks,
         })
     })
 }
@@ -156,6 +165,7 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub fallback: Fal,
     pub children: Chil,
     pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
+    pub has_tasks: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -192,12 +202,26 @@ where
                 outer_owner.clone(),
             );
 
-            if let Some(mut state) = prev {
+            let state = if let Some(mut state) = prev {
                 this.rebuild(&mut state);
                 state
             } else {
                 this.build()
+            };
+
+            if nth_run == 1 && !(self.has_tasks)() {
+                // if this is the first run, and there are no pending resources at this point,
+                // it means that there were no actually-async resources read while rendering the children
+                // this means that we're effectively on the settled second run: none_pending
+                // won't change false => true and cause this to rerender (and therefore increment nth_run)
+                //
+                // we increment it manually here so that future resource changes won't cause the transition fallback
+                // to be displayed for the first time
+                // see https://github.com/leptos-rs/leptos/issues/3868, https://github.com/leptos-rs/leptos/issues/4492
+                nth_run += 1;
             }
+
+            state
         })
     }
 
@@ -235,6 +259,7 @@ where
             fallback,
             children,
             error_boundary_parent,
+            has_tasks,
         } = self;
         SuspenseBoundary {
             id,
@@ -242,6 +267,7 @@ where
             fallback,
             children: children.add_any_attr(attr),
             error_boundary_parent,
+            has_tasks,
         }
     }
 }

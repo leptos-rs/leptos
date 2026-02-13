@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -17,7 +17,6 @@ paste = { workspace = true, default-features = true }
 reactive_graph = { workspace = true }
 rustc-hash = { workspace = true, default-features = true }
 reactive_stores_macro = { workspace = true }
-dashmap = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 
 [dev-dependencies]

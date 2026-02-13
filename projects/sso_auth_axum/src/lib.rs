@@ -95,7 +95,7 @@ pub fn App() -> impl IntoView {
         // if expires_in isn't 0, then set a timeout that rerfresh a minute short of the refresh.
         let expires_in = rw_expires_in.get();
         if expires_in != 0 && email.get_untracked().is_some() {
-            let handle = set_timeout_with_handle(
+            let handle = set_timeout(
                 move || {
                     refresh_token.dispatch(RefreshToken {
                         email: email.get_untracked().unwrap(),

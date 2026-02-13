@@ -23,14 +23,32 @@ pub fn keyed<T, I, K, KF, VF, VFS, V>(
 ) -> Keyed<T, I, K, KF, VF, VFS, V>
 where
     I: IntoIterator<Item = T>,
-    K: Eq + Hash + 'static,
+    K: Eq + Hash + SerializableKey + 'static,
     KF: Fn(&T) -> K,
     V: Render,
     VF: Fn(usize, T) -> (VFS, V),
     VFS: Fn(usize),
 {
     Keyed {
-        items,
+        #[cfg(not(feature = "ssr"))]
+        items: Some(items),
+        #[cfg(feature = "ssr")]
+        items: None,
+        #[cfg(feature = "ssr")]
+        ssr_items: items
+            .into_iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let key = if cfg!(feature = "islands") {
+                    let key = (key_fn)(&t);
+                    key.ser_key()
+                } else {
+                    String::new()
+                };
+                let (_, view) = (view_fn)(i, t);
+                (key, view)
+            })
+            .collect::<Vec<_>>(),
         key_fn,
         view_fn,
     }
@@ -45,7 +63,9 @@ where
     VF: Fn(usize, T) -> (VFS, V),
     VFS: Fn(usize),
 {
-    items: I,
+    items: Option<I>,
+    #[cfg(feature = "ssr")]
+    ssr_items: Vec<(String, V)>,
     key_fn: KF,
     view_fn: VF,
 }
@@ -106,14 +126,13 @@ where
     VFS: Fn(usize),
 {
     type State = KeyedState<K, VFS, V>;
-    // TODO fallible state and try_build()/try_rebuild() here
 
     fn build(self) -> Self::State {
-        let items = self.items.into_iter();
+        let items = self.items.into_iter().flatten();
         let (capacity, _) = items.size_hint();
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
-        let mut rendered_items = Vec::new();
+        let mut rendered_items = Vec::with_capacity(capacity);
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
@@ -134,7 +153,7 @@ where
             hashed_items,
             ref mut rendered_items,
         } = state;
-        let new_items = self.items.into_iter();
+        let new_items = self.items.into_iter().flatten();
         let (capacity, _) = new_items.size_hint();
         let mut new_hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
@@ -198,6 +217,8 @@ where
     {
         let Keyed {
             items,
+            #[cfg(feature = "ssr")]
+            ssr_items,
             key_fn,
             view_fn,
         } = self;
@@ -205,6 +226,11 @@ where
         Keyed {
             items,
             key_fn,
+            #[cfg(feature = "ssr")]
+            ssr_items: ssr_items
+                .into_iter()
+                .map(|(k, v)| (k, v.add_any_attr(attr.clone())))
+                .collect(),
             view_fn: Box::new(move |index, item| {
                 let (index, view) = view_fn(index, item);
                 (index, view.add_any_attr(attr.clone()))
@@ -229,21 +255,39 @@ where
     const MIN_LENGTH: usize = 0;
 
     fn dry_resolve(&mut self) {
-        // TODO...
+        #[cfg(feature = "ssr")]
+        for view in &mut self.ssr_items {
+            view.dry_resolve();
+        }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        futures::future::join_all(self.items.into_iter().enumerate().map(
-            |(index, item)| {
-                let (_, view) = (self.view_fn)(index, item);
-                view.resolve()
-            },
-        ))
-        .await
-        .into_iter()
-        .collect::<Vec<_>>()
+        #[cfg(feature = "ssr")]
+        {
+            futures::future::join_all(
+                self.ssr_items.into_iter().map(|(_, view)| view.resolve()),
+            )
+            .await
+            .into_iter()
+            .collect::<Vec<_>>()
+        }
+        #[cfg(not(feature = "ssr"))]
+        {
+            futures::future::join_all(
+                self.items.into_iter().flatten().enumerate().map(
+                    |(index, item)| {
+                        let (_, view) = (self.view_fn)(index, item);
+                        view.resolve()
+                    },
+                ),
+            )
+            .await
+            .into_iter()
+            .collect::<Vec<_>>()
+        }
     }
 
+    #[allow(unused)]
     fn to_html_with_buf(
         self,
         buf: &mut String,
@@ -255,8 +299,9 @@ where
         if mark_branches && escape {
             buf.open_branch("for");
         }
-        for (index, item) in self.items.into_iter().enumerate() {
-            let (_, item) = (self.view_fn)(index, item);
+
+        #[cfg(feature = "ssr")]
+        for item in self.ssr_items {
             if mark_branches && escape {
                 buf.open_branch("item");
             }
@@ -278,6 +323,7 @@ where
         buf.push_str("<!>");
     }
 
+    #[allow(unused)]
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
@@ -289,13 +335,10 @@ where
         if mark_branches && escape {
             buf.open_branch("for");
         }
-        for (index, item) in self.items.into_iter().enumerate() {
-            let branch_name = mark_branches.then(|| {
-                let key = (self.key_fn)(&item);
-                let key = key.ser_key();
-                format!("item-{key}")
-            });
-            let (_, item) = (self.view_fn)(index, item);
+
+        #[cfg(feature = "ssr")]
+        for (key, item) in self.ssr_items {
+            let branch_name = mark_branches.then(|| format!("item-{key}"));
             if mark_branches && escape {
                 buf.open_branch(branch_name.as_ref().unwrap());
             }
@@ -311,6 +354,7 @@ where
             }
             *position = Position::NextChild;
         }
+
         if mark_branches && escape {
             buf.close_branch("for");
         }
@@ -334,11 +378,11 @@ where
             .expect("parent of keyed list should be an element");
 
         // build list
-        let items = self.items.into_iter();
+        let items = self.items.into_iter().flatten();
         let (capacity, _) = items.size_hint();
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
-        let mut rendered_items = Vec::new();
+        let mut rendered_items = Vec::with_capacity(capacity);
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
@@ -373,11 +417,11 @@ where
             .expect("parent of keyed list should be an element");
 
         // build list
-        let items = self.items.into_iter();
+        let items = self.items.into_iter().flatten();
         let (capacity, _) = items.size_hint();
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
-        let mut rendered_items = Vec::new();
+        let mut rendered_items = Vec::with_capacity(capacity);
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
             let (set_index, view) = (self.view_fn)(index, item);
@@ -626,7 +670,7 @@ fn apply_diff<T, VFS, V>(
     marker: &crate::renderer::types::Placeholder,
     diff: Diff,
     children: &mut Vec<Option<(VFS, V::State)>>,
-    view_fn: impl Fn(usize, T) -> (VFS, V),
+    view_fn: &dyn Fn(usize, T) -> (VFS, V),
     mut items: Vec<Option<T>>,
 ) where
     VFS: Fn(usize),

@@ -510,11 +510,9 @@ if (window.hljs) {
             });
             view! {
                 <pre><code class="language-rust">{code.await}</code></pre>
-                {
-                    move || script.get().map(|script| {
-                        view! { <Script>{script}</Script> }
-                    })
-                }
+                <ShowLet some=script let:script>
+                    <Script>{script}</Script>
+                </ShowLet>
             }
         })
     };
@@ -567,11 +565,9 @@ if (window.hljs) {
             });
             view! {
                 <pre><code class="language-rust">{code.await}</code></pre>
-                {
-                    move || script.get().map(|script| {
-                        view! { <Script>{script}</Script> }
-                    })
-                }
+                <ShowLet some=script let:script>
+                    <Script>{script}</Script>
+                </ShowLet>
             }
         })
     };
@@ -674,7 +670,7 @@ fn CodeDemoWasm(mode: WasmDemo) -> impl IntoView {
                                 leptos::logging::log!("wasm csr_listener listener added");
 
                                 // Dispatch the event when this view is finally mounted onto the DOM.
-                                request_animation_frame(move || {
+                                _ = request_animation_frame(move || {
                                     let event = web_sys::Event::new("hljs_hook")
                                         .expect("error creating hljs_hook event");
                                     document.dispatch_event(&event)
@@ -693,7 +689,7 @@ fn CodeDemoWasm(mode: WasmDemo) -> impl IntoView {
             <Suspense fallback=move || view! { <p>"Loading code example..."</p> }>{
                 move || Suspend::new(async move {
                     Effect::new(move |_| {
-                        request_animation_frame(move || {
+                        _ = request_animation_frame(move || {
                             leptos::logging::log!("request_animation_frame invoking hljs::highlight_all");
                             // under SSR this is an noop, but it wouldn't be called under there anyway because
                             // it isn't the isomorphic version, i.e. Effect::new_isomorphic(...).
@@ -819,7 +815,7 @@ fn WasmBindgenJSHookReadyEvent() -> impl IntoView {
     leptos::logging::log!("wasm csr_listener listener added");
 
     // Dispatch the event when this view is finally mounted onto the DOM.
-    request_animation_frame(move || {
+    _ = request_animation_frame(move || {
         let event = web_sys::Event::new("hljs_hook")
             .expect("error creating hljs_hook event");
         document.dispatch_event(&event)
@@ -870,7 +866,7 @@ fn WasmBindgenEffect() -> impl IntoView {
     let example = r#"<Suspense fallback=move || view! { <p>"Loading code example..."</p> }>{
     move || Suspend::new(async move {
         Effect::new(move |_| {
-            request_animation_frame(move || {
+            _ = request_animation_frame(move || {
                 leptos::logging::log!("request_animation_frame invoking hljs::highlight_all");
                 // under SSR this is an noop.
                 crate::hljs::highlight_all();

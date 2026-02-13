@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.8.10"
+version = "0.8.11"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -65,6 +65,7 @@ ssr = ["dep:percent-encoding"]
 nightly = []
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]

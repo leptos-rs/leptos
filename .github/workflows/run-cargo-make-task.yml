@@ -53,7 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -69,9 +69,9 @@ jobs:
       - name: Install cargo-make
         run: cargo binstall cargo-make --no-confirm
       - name: Install nextest
-        run: cargo binstall cargo-nextest --no-confirm
+        run: cargo binstall cargo-nextest --locked --no-confirm
       - name: Install cargo-all-features
-        run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+        run: cargo install cargo-all-features
       # Part of direct-minimal-versions check
       - name: Install cargo-hack
         if: contains(matrix.toolchain, 'nightly')
@@ -103,7 +103,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         if: contains(inputs.directory, 'examples')
         name: Setup pnpm cache
         with:
@@ -172,7 +172,7 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=format:'%s')
           # Supports: v1.2.3, v1.2.3-alpha, v1.2.3-beta1, v1.2.3-rc.1, etc.
           if [[ "$COMMIT_MSG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.?[0-9]+)?)?$ ]]; then
-            cargo make --no-workspace --profile=github-actions check-minimal-versions
+            cargo make --no-workspace --profile=github-actions check-minimal-versions --direct
           fi
       # Check if the counter_isomorphic can be built with leptos_debuginfo cfg flag in release mode
       - name: ${{ inputs.cargo_make_task }} with --cfg=leptos_debuginfo
