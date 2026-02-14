@@ -4,7 +4,7 @@ use axum::{
     http::{Request, Response, StatusCode},
 };
 use futures::{stream::once, Future, StreamExt};
-use leptos::{config::LeptosOptions, context::provide_context, IntoView};
+use leptos::{context::provide_context, IntoView};
 use std::{
     convert::Infallible,
     pin::Pin,
@@ -56,41 +56,42 @@ use tower::Service;
 ///     );
 /// ```
 #[derive(Clone, Debug)]
-pub struct ErrorHandler<CX, SH> {
+pub struct ErrorHandler<CX, SH, S> {
     additional_context: CX,
     shell: SH,
-    options: LeptosOptions,
+    state: S,
 }
 
-impl<SH> ErrorHandler<(), SH> {
-    /// Create a new handler with the provided shell and options.
-    pub fn new(shell: SH, options: LeptosOptions) -> Self {
+impl<SH, S> ErrorHandler<(), SH, S> {
+    /// Create a new handler with the provided shell and state.
+    pub fn new(shell: SH, state: S) -> Self {
         Self {
             additional_context: (),
             shell,
-            options,
+            state,
         }
     }
 }
 
-impl<CX, SH> ErrorHandler<CX, SH> {
-    /// Create a new handler with an additional context along with the provided shell and options.
+impl<CX, SH, S> ErrorHandler<CX, SH, S> {
+    /// Create a new handler with an additional context along with the provided shell and state.
     pub fn new_with_context(
         additional_context: CX,
         shell: SH,
-        options: LeptosOptions,
+        state: S,
     ) -> Self {
         Self {
             additional_context,
             shell,
-            options,
+            state,
         }
     }
 }
 
-impl<SH, IV> Service<Request<Body>> for ErrorHandler<(), SH>
+impl<SH, IV, S> Service<Request<Body>> for ErrorHandler<(), SH, S>
 where
-    SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send,
+    SH: Fn(S) -> IV + 'static + Clone + Send,
+    S: Clone + Send + Sync + 'static,
     IV: IntoView + 'static,
 {
     type Response = Response<Body>;
@@ -112,16 +113,17 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let options = self.options.clone();
+        let state = self.state.clone();
         let shell = self.shell.clone();
-        render_error_handler(|| {}, shell, options, req)
+        render_error_handler(|| {}, shell, state, req)
     }
 }
 
-impl<CX, SH, IV> Service<Request<Body>> for ErrorHandler<CX, SH>
+impl<CX, SH, S, IV> Service<Request<Body>> for ErrorHandler<CX, SH, S>
 where
     CX: Fn() + 'static + Clone + Send,
-    SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send,
+    SH: Fn(S) -> IV + 'static + Clone + Send,
+    S: Clone + Send + Sync + 'static,
     IV: IntoView + 'static,
 {
     type Response = Response<Body>;
@@ -143,17 +145,17 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let options = self.options.clone();
+        let state = self.state.clone();
         let shell = self.shell.clone();
         let additional_context = self.additional_context.clone();
-        render_error_handler(additional_context, shell, options, req)
+        render_error_handler(additional_context, shell, state, req)
     }
 }
 
-fn render_error_handler<IV>(
+fn render_error_handler<IV, S>(
     additional_context: impl Fn() + 'static + Clone + Send,
-    shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
-    options: LeptosOptions,
+    shell: impl Fn(S) -> IV + 'static + Clone + Send,
+    state: S,
     req: Request<Body>,
 ) -> Pin<
     Box<
@@ -164,21 +166,22 @@ fn render_error_handler<IV>(
 >
 where
     IV: IntoView + 'static,
+    S: Send + Sync + Clone + 'static,
 {
     Box::pin(async move {
         let mut res = handle_response_inner(
             {
-                let options = options.clone();
+                let state = state.clone();
                 let additional_context = additional_context.clone();
                 move || {
-                    provide_context(options.clone());
+                    provide_context(state.clone());
                     additional_context();
                 }
             },
             {
-                let options = options.clone();
+                let state = state.clone();
                 let shell = shell.clone();
-                move || shell(options)
+                move || shell(state)
             },
             req,
             |app, chunks, _supports_ooo| {
