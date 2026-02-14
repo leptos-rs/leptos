@@ -107,7 +107,7 @@ pub fn App() -> impl IntoView {
     view! {
         <p>"Hello, " {move || store.user().name().get()}</p>
         <UserForm user=store.user() />
-        <UserAchievements store=store.clone() />
+        <UserAchievements store />
         <hr />
         <form on:submit=move |ev| {
             ev.prevent_default();
