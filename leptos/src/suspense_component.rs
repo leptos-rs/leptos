@@ -406,7 +406,7 @@ where
                         tasks.track();
                     }
                 }
-                false
+                double_checking.unwrap_or(false)
             }
         });
 
