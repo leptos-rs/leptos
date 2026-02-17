@@ -2,10 +2,7 @@ use leptos::prelude::*;
 
 // Wrong type passed for a `#[prop(into)]` prop.
 // `Vec<i32>` does not implement `IntoReactiveValue<String, _>`.
-// The error currently spans the entire `view! { ... }` block rather
-// than the specific value expression. Localizing the span to the
-// value is a known limitation.
-// TODO: investigate localizing the error span to the value expression.
+// The error should point to the value expression (`vec![1, 2, 3]`).
 
 #[component]
 fn PropIntoInvalidType() -> impl IntoView {

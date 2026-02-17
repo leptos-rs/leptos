@@ -1,8 +1,8 @@
 error[E0277]: the trait bound `std::string::String: From<Vec<{integer}>>` is not satisfied
-  --> tests/view/30_into_strip_option_prop_wrong_type.rs:13:32
+  --> tests/view/30_into_strip_option_prop_wrong_type.rs:11:36
    |
-13 |             <Inner required=42 val=vec![1, 2, 3]/>
-   |                                ^^^ the trait `From<Vec<{integer}>>` is not implemented for `std::string::String`
+11 |             <Inner required=42 val=vec![1, 2, 3]/>
+   |                                    ^^^^^^^^^^^^^ the trait `From<Vec<{integer}>>` is not implemented for `std::string::String`
    |
    = help: the following other types implement trait `From<T>`:
              `std::string::String` implements `From<&JsString>`
@@ -17,11 +17,11 @@ error[E0277]: the trait bound `std::string::String: From<Vec<{integer}>>` is not
    = note: required for `Vec<{integer}>` to implement `Into<std::string::String>`
    = note: required for `Vec<{integer}>` to implement `leptos::prelude::IntoReactiveValue<std::string::String, leptos::reactive_graph::__IntoReactiveValueMarkerBaseCase>`
 note: required by a bound in `InnerPropsBuilder::<(__required, ())>::val`
-  --> tests/view/30_into_strip_option_prop_wrong_type.rs:18:1
+  --> tests/view/30_into_strip_option_prop_wrong_type.rs:16:1
    |
-18 | #[component]
+16 | #[component]
    | ^^^^^^^^^^^^ required by this bound in `InnerPropsBuilder::<(__required, ())>::val`
 ...
-21 |     #[prop(into, strip_option)] val: Option<String>,
+19 |     #[prop(into, strip_option)] val: Option<String>,
    |                                 --- required by a bound in this associated function
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

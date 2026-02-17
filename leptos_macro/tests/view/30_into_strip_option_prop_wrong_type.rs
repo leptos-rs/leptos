@@ -2,9 +2,7 @@ use leptos::prelude::*;
 
 // Wrong type passed for a `#[prop(into, strip_option)]` prop.
 // `Vec<i32>` does not implement `Into<String>`.
-// The error currently spans the entire `view! { ... }` block rather
-// than the specific value expression (known limitation).
-// TODO: investigate localizing the error span to the value expression.
+// The error should point to the value expression (`vec![1, 2, 3]`).
 
 #[component]
 fn PropIntoStripOptionInvalidType() -> impl IntoView {
