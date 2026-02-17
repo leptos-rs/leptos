@@ -17,6 +17,22 @@ pub trait PropsOrNoPropsBuilder {
     fn builder_or_not() -> Self::Builder;
 }
 
+/// Compile-time validation trait for component props.
+///
+/// The `__check()` method is conditionally available only when generic
+/// bounds are satisfied, causing the compiler to emit E0599 errors
+/// pointing to the component invocation site when a type mismatch
+/// occurs.
+#[doc(hidden)]
+pub trait PropsCheck: Sized {
+    fn __check(self) -> Self;
+}
+
+/// Fallback for components with no props.
+impl PropsCheck for () {
+    fn __check(self) -> Self {}
+}
+
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct EmptyPropsBuilder {}

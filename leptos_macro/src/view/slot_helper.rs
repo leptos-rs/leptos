@@ -1,10 +1,13 @@
 use super::{
-    component_builder::maybe_optimised_component_children,
+    component_builder::{
+        generate_per_prop_check_calls, maybe_optimised_component_children,
+    },
     convert_to_snake_case, full_path_from_tag_name,
+    utils::{attr_check_info, children_span},
 };
 use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -51,7 +54,8 @@ pub(crate) fn slot_to_tokens(
         .cloned()
         .collect::<Vec<_>>();
 
-    let props = attrs
+    let mut prop_check_info: Vec<(Ident, proc_macro2::Span)> = vec![];
+    let props: Vec<TokenStream> = attrs
         .iter()
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
@@ -68,10 +72,13 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
+            prop_check_info.push(attr_check_info(attr));
+
             quote! {
-                .#name(#[allow(unused_braces)] { #value })
+                let __props_builder = __props_builder.#name(#[allow(unused_braces)] { #value });
             }
-        });
+        })
+        .collect();
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
         .into_iter()
@@ -99,6 +106,10 @@ pub(crate) fn slot_to_tokens(
         quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
     };
 
+    // Compute children span once, used for both the children arg
+    // and the per-prop check info.
+    let children_span = children_span(&node.children, node.name().span());
+
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
@@ -106,6 +117,7 @@ pub(crate) fn slot_to_tokens(
         &node.children,
         &items_to_bind,
         &items_to_clone,
+        node.name().span(),
     ) {
         children
     } else {
@@ -143,21 +155,28 @@ pub(crate) fn slot_to_tokens(
                 }
             });
 
+            let name_span = node.name().span();
             if bindables.len() > 0 {
-                quote_spanned! {children.span()=>
-                    .children({
+                let children_arg = quote_spanned! {children_span=>
+                    {
                         #(#clonables)*
 
                         move |#(#bindables)*| #children #view_marker
-                    })
+                    }
+                };
+                quote_spanned! {name_span=>
+                    let __props_builder = __props_builder.children(#children_arg);
                 }
             } else {
-                quote_spanned! {children.span()=>
-                    .children({
+                let children_arg = quote_spanned! {children_span=>
+                    {
                         #(#clonables)*
 
                         ::leptos::children::ToChildren::to_children(move || #children #view_marker)
-                    })
+                    }
+                };
+                quote_spanned! {name_span=>
+                    let __props_builder = __props_builder.children(#children_arg);
                 }
             }
         } else {
@@ -181,8 +200,19 @@ pub(crate) fn slot_to_tokens(
             values.remove(0)
         };
 
-        quote! { .#slot(#value) }
+        quote! {
+            let __props_builder = __props_builder.#slot(#value);
+        }
     });
+
+    if !children.is_empty() {
+        prop_check_info
+            .push((format_ident!("__check_children"), children_span));
+    }
+
+    let slot_ident = Ident::new("slot", node.name().span());
+    let per_prop_check_calls =
+        generate_per_prop_check_calls(&prop_check_info, &slot_ident);
 
     let build = quote_spanned! {node.name().span()=>
         .build()
@@ -190,12 +220,15 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
-            let slot = #component_path::builder()
-                #(#props)*
-                #(#slots)*
-                #children
-                #build
-                #dyn_attrs;
+            use ::leptos::component::PropsCheck as _;
+            let __props_builder = #component_path::builder();
+            #(#props)*
+            #(#slots)*
+            #children
+            let slot = __props_builder #build;
+            #(#per_prop_check_calls)*
+            let slot = slot.__check();
+            let slot = slot #dyn_attrs;
 
             #[allow(unreachable_code, clippy::useless_conversion)]
             slot.into()

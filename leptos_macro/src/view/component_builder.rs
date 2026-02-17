@@ -1,8 +1,14 @@
 use super::{
-    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+    fragment_to_tokens,
+    utils::{
+        attr_check_info, children_span, is_nostrip_optional_and_update_key,
+        node_name_to_ident_with_span,
+    },
+    TagType,
 };
 use crate::view::{
-    attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
+    attribute_absolute, text_to_tokens,
+    utils::{filter_prefixed_attrs, key_value_span},
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -65,6 +71,7 @@ pub(crate) fn component_to_tokens(
 
     let mut required_props = vec![];
     let mut optional_props = vec![];
+    let mut prop_check_info: Vec<(Ident, proc_macro2::Span)> = vec![];
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
         idx < &spread_marker && {
             let attr_key = attr.key.to_string();
@@ -88,15 +95,33 @@ pub(crate) fn component_to_tokens(
             })
             .unwrap_or_else(|| quote! { #name });
 
+        let key_value_span = key_value_span(
+            attr.key.span(),
+            attr.value().map(|it| it.span()),
+            name.span(),
+        );
+
+        // Create a setter name ident that carries the value's span.
+        // For `into` props, E0277 points to the method name, so
+        // this ensures the error points to the value expression.
+        let setter_name = node_name_to_ident_with_span(
+            name,
+            attr.value()
+                .map(|v| v.span())
+                .unwrap_or_else(|| name.span()),
+        );
+
         if optional {
-            optional_props.push(quote! {
-                props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
+            optional_props.push(quote_spanned! {key_value_span=>
+                props.#setter_name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            required_props.push(quote! {
-                .#name(#[allow(unused_braces)] { #value })
+            required_props.push(quote_spanned! {key_value_span=>
+                let __props_builder = __props_builder.#setter_name(#[allow(unused_braces)] { #value });
             })
         }
+
+        prop_check_info.push(attr_check_info(attr));
     }
 
     // Drop the mutable reference to the node, go to an owned clone:
@@ -200,66 +225,86 @@ pub(crate) fn component_to_tokens(
     let events_and_directives =
         events.into_iter().chain(directives).collect::<Vec<_>>(); */
 
+    let name_span = node.name().span();
+
+    // Compute children span once, used for both the children arg
+    // and the per-prop check info.
+    let children_span = children_span(&node.children, name_span);
+
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
-    } else if let Some(children) = maybe_optimised_component_children(
-        &node.children,
-        &items_to_bind,
-        &items_to_clone,
-    ) {
-        children
     } else {
-        let children = fragment_to_tokens(
-            &mut node.children,
-            TagType::Unknown,
-            Some(&mut slots),
-            global_class,
-            None,
-            disable_inert_html,
-        );
-
-        // TODO view marker for hot-reloading
-        /*
-        cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                // For some reason spanning for `.children` breaks, unless `#view_marker`
-                // is also covered by `children.span()`.
-                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-        */
-
-        if let Some(children) = children {
-            let bindables =
-                items_to_bind.iter().map(|ident| quote! { #ident, });
-
-            let clonables = items_to_clone_to_tokens(&items_to_clone);
-
-            if bindables.len() > 0 {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        move |#(#bindables)*| #children
-                    })
-                }
-            } else {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        ::leptos::children::ToChildren::to_children(move || #children)
-                    })
-                }
-            }
+        if let Some(children_fragment) = maybe_optimised_component_children(
+            &node.children,
+            &items_to_bind,
+            &items_to_clone,
+            name_span,
+        ) {
+            children_fragment
         } else {
-            quote! {}
+            let children = fragment_to_tokens(
+                &mut node.children,
+                TagType::Unknown,
+                Some(&mut slots),
+                global_class,
+                None,
+                disable_inert_html,
+            );
+
+            // TODO view marker for hot-reloading
+            /*
+            cfg_if::cfg_if! {
+                if #[cfg(debug_assertions)] {
+                    let marker = format!("<{component_name}/>-children");
+                    // For some reason spanning for `.children` breaks, unless `#view_marker`
+                    // is also covered by `children.span()`.
+                    let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
+                } else {
+                    let view_marker = quote! {};
+                }
+            }
+            */
+
+            if let Some(children) = children {
+                let bindables =
+                    items_to_bind.iter().map(|ident| quote! { #ident, });
+
+                let clonables = items_to_clone_to_tokens(&items_to_clone);
+
+                if bindables.len() > 0 {
+                    let children_arg = quote_spanned! {children_span=>
+                        {
+                            #(#clonables)*
+
+                            move |#(#bindables)*| #children
+                        }
+                    };
+                    quote_spanned! {name_span=>
+                        let __props_builder = __props_builder.children(#children_arg);
+                    }
+                } else {
+                    let children_arg = quote_spanned! {children_span=>
+                        {
+                            #(#clonables)*
+
+                            ::leptos::children::ToChildren::to_children(move || #children)
+                        }
+                    };
+                    quote_spanned! {name_span=>
+                        let __props_builder = __props_builder.children(#children_arg);
+                    }
+                }
+            } else {
+                quote! {}
+            }
         }
     };
+
+    if !children.is_empty() {
+        prop_check_info
+            .push((format_ident!("__check_children"), children_span));
+    }
 
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
@@ -277,7 +322,9 @@ pub(crate) fn component_to_tokens(
             values.remove(0)
         };
 
-        quote! { .#slot(#value) }
+        quote_spanned! {span=>
+            let __props_builder = __props_builder.#slot(#value);
+        }
     });
 
     let generics = &node.open_tag.generics;
@@ -288,8 +335,13 @@ pub(crate) fn component_to_tokens(
     };
 
     let name = node.name();
+
+    let props_ident = Ident::new("props", name_span);
+    let per_prop_check_calls =
+        generate_per_prop_check_calls(&prop_check_info, &props_ident);
+
     #[allow(unused_mut)] // used in debug
-    let mut component = quote! {
+    let mut component = quote_spanned! {name_span=>
         {
             #[allow(unreachable_code)]
             #[allow(unused_mut)]
@@ -298,13 +350,15 @@ pub(crate) fn component_to_tokens(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#name,
                 {
-                    let mut props = ::leptos::component::component_props_builder(&#name #generics)
-                        #(#required_props)*
-                        #(#slots)*
-                        #children
-                        .build();
+                    use ::leptos::component::PropsCheck as _;
+                    let __props_builder = #name ::builder #generics ();
+                    #(#required_props)*
+                    #(#slots)*
+                    #children
+                    let mut #props_ident = __props_builder.build();
                     #(#optional_props)*
-                    props
+                    #(#per_prop_check_calls)*
+                    #props_ident.__check()
                 }
             )
             #spreads
@@ -329,6 +383,31 @@ fn is_attr_let(key: &NodeName) -> bool {
     }
 }
 
+/// Generates the per-prop `.__check_<name>()` calls from collected
+/// `(check_fn_ident, span)` info, binding to the given `receiver`
+/// variable name (e.g. `"props"` or `"slot"`).
+///
+/// Check calls are generated for ALL props, not just generic ones.
+/// For non-generic (concrete) props, the check method is a no-op
+/// identity function that always compiles. For generic props, the
+/// method is conditionally available based on trait bounds, so
+/// calling it triggers an E0599 error when bounds aren't satisfied.
+/// The view macro cannot distinguish generic from concrete props,
+/// so it emits checks uniformly.
+pub fn generate_per_prop_check_calls(
+    info: &[(Ident, proc_macro2::Span)],
+    receiver: &Ident,
+) -> Vec<TokenStream> {
+    info.iter()
+        .map(|(check_fn, span)| {
+            let check_fn = Ident::new(&check_fn.to_string(), *span);
+            quote_spanned! {*span=>
+                let #receiver = #receiver.#check_fn();
+            }
+        })
+        .collect()
+}
+
 pub fn items_to_clone_to_tokens(
     items_to_clone: &[Ident],
 ) -> impl Iterator<Item = TokenStream> + '_ {
@@ -345,6 +424,7 @@ pub fn maybe_optimised_component_children(
     children: &[Node<impl CustomNode>],
     items_to_bind: &[TokenStream],
     items_to_clone: &[Ident],
+    method_span: proc_macro2::Span,
 ) -> Option<TokenStream> {
     // If there are bindables will have to be in a closure:
     if !items_to_bind.is_empty() {
@@ -428,11 +508,16 @@ pub fn maybe_optimised_component_children(
     // );
 
     let clonables = items_to_clone_to_tokens(items_to_clone);
-    Some(quote_spanned! {children.span()=>
-        .children({
+    let children_arg = quote_spanned! {children.span()=>
+        {
             #(#clonables)*
 
-            ::leptos::children::ToChildren::to_children(::leptos::children::ChildrenOptContainer(#children))
-        })
+            ::leptos::children::ToChildren::to_children(
+                ::leptos::children::ChildrenOptContainer(#children),
+            )
+        }
+    };
+    Some(quote_spanned! {method_span=>
+        let __props_builder = __props_builder.children(#children_arg);
     })
 }

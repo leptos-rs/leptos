@@ -1,5 +1,7 @@
 use crate::component::{
-    convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
+    collect_phantom_type_params, convert_from_snake_case, drain_filter,
+    generate_check_impls, generate_phantom_field, is_option,
+    strip_non_structural_bounds, unwrap_option, CheckImplTokens, Docs,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
@@ -65,13 +67,39 @@ impl ToTokens for Model {
             body,
         } = self;
 
-        let (_, generics, where_clause) = body.generics.split_for_impl();
+        let (_, generics, _) = body.generics.split_for_impl();
+
+        let original_generics = &body.generics;
+
+        let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
+        let struct_generics =
+            strip_non_structural_bounds(&body.generics, &field_types);
+        let (struct_impl_generics, _, struct_where_clause) =
+            struct_generics.split_for_impl();
+
+        let phantom_type_params =
+            collect_phantom_type_params(&body.generics, &field_types);
+        let phantom_field = generate_phantom_field(&phantom_type_params, false);
 
         let prop_builder_fields = prop_builder_fields(vis, props);
         let prop_docs = generate_prop_docs(props);
         let builder_name_doc = LitStr::new(
             &format!("Props for the [`{name}`] slot."),
             name.span(),
+        );
+
+        let prop_pairs: Vec<(&Ident, &Type)> =
+            props.iter().map(|p| (&p.name, &p.ty)).collect();
+        let CheckImplTokens {
+            props_check_impl,
+            non_generic_check_impl,
+            generic_prop_impls,
+        } = generate_check_impls(
+            original_generics,
+            &struct_generics,
+            name,
+            &prop_pairs,
+            &field_types,
         );
 
         let output = quote! {
@@ -81,15 +109,20 @@ impl ToTokens for Model {
             #prop_docs
             #[derive(::leptos::typed_builder_macro::TypedBuilder)]
             #[builder(doc, crate_module_path=::leptos::typed_builder)]
-            #vis struct #name #generics #where_clause {
+            #vis struct #name #struct_impl_generics #struct_where_clause {
                 #prop_builder_fields
+                #phantom_field
             }
 
-            impl #generics From<#name #generics> for Vec<#name #generics> #where_clause {
+            impl #struct_impl_generics From<#name #generics> for Vec<#name #generics> #struct_where_clause {
                 fn from(value: #name #generics) -> Self {
                     vec![value]
                 }
             }
+
+            #props_check_impl
+            #non_generic_check_impl
+            #(#generic_prop_impls)*
 
             /*impl #impl_generics ::leptos::Props for #name #generics #where_clause {
                 type Builder = #builder_name #generics;
