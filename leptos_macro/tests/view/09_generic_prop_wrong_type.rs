@@ -1,9 +1,7 @@
 use leptos::prelude::*;
 
-// Wrong type for generic prop `generic_fun`. Primary error expected:
-// - E0277 on the value `true` (from per-prop `__check_generic_fun()`)
-// Secondary error (known limitation):
-// - E0599 on the component name `Inner` (from `__check()` / PropsCheck)
+// Wrong type for generic prop `generic_fun`. Expected error:
+// - E0599 on the value `true` (from per-prop `__check_generic_fun()`)
 
 #[component]
 fn InvalidGenericPropPassed() -> impl IntoView {

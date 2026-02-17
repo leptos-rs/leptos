@@ -1,10 +1,8 @@
 use leptos::prelude::*;
 
 // First of two generic props has wrong type (`true` instead of `|| true`).
-// Primary error expected:
-// - E0277 on the value `true` (from per-prop `__check_fun_a()`)
-// Secondary error (known limitation):
-// - E0599 on the component name `Inner` (from `__check()` / PropsCheck)
+// Expected error:
+// - E0599 on the value `true` (from per-prop `__check_fun_a()`)
 
 #[component]
 fn MultipleGenericsFirstInvalid() -> impl IntoView {

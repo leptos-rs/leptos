@@ -1,36 +1,19 @@
-error[E0271]: expected `{closure@14_multiple_generic_params_second_wrong_type.rs:13:40}` to return `i32`, but it returns `bool`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:13:43
+error[E0599]: the method `__check_fun_b` exists for struct `InnerProps<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:26: 11:28}, {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}>`, but its trait bounds were not satisfied
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40
    |
-13 |             <Inner fun_a=|| true fun_b=|| true/>
-   |              -----                     -- ^^^^ expected `i32`, found `bool`
-   |              |                         |
-   |              closure used here         this closure
-   |
-note: required by a bound in `Inner`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:22:16
-   |
-19 | fn Inner<F, G>(fun_a: F, fun_b: G) -> impl IntoView
-   |    ----- required by a bound in this function
-...
-22 |     G: Fn() -> i32,
-   |                ^^^ required by this bound in `Inner`
-
-error[E0599]: the method `__check_fun_b` exists for struct `InnerProps<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:13:26: 13:28}, {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:13:40: 13:42}>`, but its trait bounds were not satisfied
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:13:40
-   |
-13 |             <Inner fun_a=|| true fun_b=|| true/>
+11 |             <Inner fun_a=|| true fun_b=|| true/>
    |                                        --^^^^^
    |                                        |
    |                                        doesn't satisfy `<_ as FnOnce<()>>::Output = i32`
 ...
-18 | #[component]
+16 | #[component]
    | ------------ method `__check_fun_b` not found for this struct
    |
-note: trait bound `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:13:40: 13:42} as FnOnce<()>>::Output = i32` was not satisfied
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:22:16
+note: trait bound `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32` was not satisfied
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:16
    |
-18 | #[component]
+16 | #[component]
    | ------------
 ...
-22 |     G: Fn() -> i32,
+20 |     G: Fn() -> i32,
    |                ^^^ unsatisfied trait bound introduced here

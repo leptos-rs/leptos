@@ -1,10 +1,8 @@
 use leptos::prelude::*;
 
 // Same as test 09 but using the shorthand form for the generic prop.
-// Primary error expected:
-// - E0277 on the key `generic_fun` (shorthand has no separate value token)
-// Secondary error (known limitation):
-// - E0599 on the component name `Inner` (from `__check()` / PropsCheck)
+// Expected error:
+// - E0599 on the key `generic_fun` (shorthand has no separate value token)
 
 #[component]
 fn InvalidGenericPropPassed() -> impl IntoView {
