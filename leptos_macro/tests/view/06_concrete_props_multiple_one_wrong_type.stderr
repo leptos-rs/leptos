@@ -1,0 +1,5 @@
+error[E0308]: mismatched types
+  --> tests/view/06_concrete_props_multiple_one_wrong_type.rs:16:20
+   |
+16 |             <Inner concrete_bool concrete_i32=3/>
+   |                    ^^^^^^^^^^^^^ expected `bool`, found integer

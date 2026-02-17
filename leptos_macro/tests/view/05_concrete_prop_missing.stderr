@@ -1,0 +1,35 @@
+warning: use of deprecated method `InnerPropsBuilder::build`: Missing required field concrete_bool
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+11 |             <Inner/>
+   |              ^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+error[E0061]: this method takes 1 argument but 0 arguments were supplied
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+11 |             <Inner/>
+   |              ^^^^^ argument #1 of type `InnerPropsBuilder_Error_Missing_required_field_concrete_bool` is missing
+   |
+note: method defined here
+  --> tests/view/05_concrete_prop_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the derive macro `::leptos::typed_builder_macro::TypedBuilder` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: provide the argument
+   |
+11 |             <Inner(/* InnerPropsBuilder_Error_Missing_required_field_concrete_bool */)/>
+   |                   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0282]: type annotations needed
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+11 |             <Inner/>
+   |              ^^^^^
+   |
+help: consider giving `props` an explicit type
+   |
+11 |             <Inner: /* Type *//>
+   |                   ++++++++++++

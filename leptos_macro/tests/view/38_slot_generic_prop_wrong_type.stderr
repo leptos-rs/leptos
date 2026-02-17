@@ -1,0 +1,19 @@
+error[E0599]: the method `__check_generic_fun` exists for struct `HelloSlot<bool>`, but its trait bounds were not satisfied
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
+   |
+ 7 | #[slot]
+   | ------- method `__check_generic_fun` not found for this struct
+...
+27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
+   |                                                         ^^^^ method cannot be called on `HelloSlot<bool>` due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `bool: Fn<()>`
+      `bool: FnOnce<()>`
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:21
+   |
+ 8 | struct HelloSlot<F: Fn() -> bool> {
+   |        -------------^^^^^^^^^^^^-
+   |                     |       |
+   |                     |       unsatisfied trait bound introduced here
+   |                     unsatisfied trait bound introduced here

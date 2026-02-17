@@ -1,0 +1,5 @@
+error[E0308]: mismatched types
+  --> tests/view/11_concrete_prop_wrong_type_in_generic_component.rs:10:29
+   |
+10 |             <Inner concrete=true fun=|| true>
+   |                             ^^^^ expected `i32`, found `bool`

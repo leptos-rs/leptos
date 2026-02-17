@@ -1,0 +1,35 @@
+warning: use of deprecated method `InnerPropsBuilder::<F, ((i32,), (), __children)>::build`: Missing required field generic_fun
+  --> tests/view/08_generic_prop_missing.rs:10:14
+   |
+10 |             <Inner concrete_i32=42>
+   |              ^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+error[E0061]: this method takes 1 argument but 0 arguments were supplied
+  --> tests/view/08_generic_prop_missing.rs:10:14
+   |
+10 |             <Inner concrete_i32=42>
+   |              ^^^^^ argument #1 of type `InnerPropsBuilder_Error_Missing_required_field_generic_fun` is missing
+   |
+note: method defined here
+  --> tests/view/08_generic_prop_missing.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the derive macro `::leptos::typed_builder_macro::TypedBuilder` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: provide the argument
+   |
+10 |             <Inner(/* InnerPropsBuilder_Error_Missing_required_field_generic_fun */) concrete_i32=42>
+   |                   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0282]: type annotations needed
+  --> tests/view/08_generic_prop_missing.rs:10:14
+   |
+10 |             <Inner concrete_i32=42>
+   |              ^^^^^
+   |
+help: consider giving `props` an explicit type
+   |
+10 |             <Inner: /* Type */ concrete_i32=42>
+   |                   ++++++++++++
