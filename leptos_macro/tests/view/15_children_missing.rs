@@ -4,7 +4,7 @@ use leptos::prelude::*;
 // We expect an error to be reported on the component name `Inner`.
 
 #[component]
-fn InvalidPropPassed() -> impl IntoView {
+fn ChildrenMissing() -> impl IntoView {
     view! {
         <div>
             <Inner concrete_i32=42 generic_fun=|| true>
@@ -14,7 +14,11 @@ fn InvalidPropPassed() -> impl IntoView {
 }
 
 #[component]
-fn Inner<F>(concrete_i32: i32, generic_fun: F, children: ChildrenFn) -> impl IntoView
+fn Inner<F>(
+    concrete_i32: i32,
+    generic_fun: F,
+    children: ChildrenFn,
+) -> impl IntoView
 where
     F: Fn() -> bool,
 {

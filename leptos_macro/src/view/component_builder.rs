@@ -354,6 +354,8 @@ pub(crate) fn component_to_tokens(
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call
+                    #delinked_path ::__require_props(
+                        &__props_builder);
                     let __props_builder =
                         __props_builder.__check_missing();
                     let #props_mut #props_ident =

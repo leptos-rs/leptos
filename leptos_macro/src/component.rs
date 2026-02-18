@@ -636,6 +636,7 @@ impl ToTokens for Model {
         let RequiredCheckTokens {
             marker_traits,
             check_required_method,
+            check_required_fn,
         } = generate_required_check(
             name,
             &props_builder_name,
@@ -718,6 +719,7 @@ impl ToTokens for Model {
             impl #companion_name {
                 #builder_method
                 #(#check_methods)*
+                #check_required_fn
             }
 
             // Type alias so that `ComponentName::builder()` and renamed
@@ -1996,9 +1998,15 @@ pub(crate) struct RequiredCheckTokens {
     /// Marker trait definitions (with `on_unimplemented`) to be
     /// placed at module scope.
     pub marker_traits: TokenStream,
-    /// The `__check_missing` associated function to be placed
-    /// inside the companion struct (or slot struct) impl block.
+    /// The `__check_missing` impl block: a standalone impl on
+    /// the builder with all bounds. Placed at module scope.
     pub check_required_method: TokenStream,
+    /// An associated function `__require_props` for the
+    /// companion struct. Takes `&builder` and has the same
+    /// bounds as `__check_missing`. When bounds fail, produces
+    /// E0277 (which shows `on_unimplemented` messages) instead
+    /// of E0599.
+    pub check_required_fn: TokenStream,
 }
 
 /// Generates marker traits and a `__check_missing` associated
@@ -2030,6 +2038,14 @@ pub(crate) fn generate_required_check(
         return RequiredCheckTokens {
             marker_traits: quote! {},
             check_required_method: quote! {},
+            // No props → no bounds to check, but the view
+            // macro always emits the call, so provide a
+            // trivial generic function.
+            check_required_fn: quote! {
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub fn __require_props<__T>(_: &__T) {}
+            },
         };
     }
 
@@ -2131,9 +2147,26 @@ pub(crate) fn generate_required_check(
         }
     };
 
+    // An associated function on the companion struct that
+    // triggers E0277 (not E0599) when required-prop bounds
+    // fail. E0277 shows `on_unimplemented` messages, giving
+    // the user a clear "missing required prop" error as the
+    // primary diagnostic. Called before `__check_missing`
+    // (which provides `{error}` propagation via E0599).
+    let check_required_fn = quote! {
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub fn __require_props<#impl_params>(
+            _: &#builder_name<#builder_type_args>
+        )
+        #where_clause
+        {}
+    };
+
     RequiredCheckTokens {
         marker_traits: quote! { #(#marker_traits)* },
         check_required_method,
+        check_required_fn,
     }
 }
 

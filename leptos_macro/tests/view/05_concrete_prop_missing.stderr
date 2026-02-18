@@ -1,3 +1,30 @@
+error[E0277]: missing required prop `concrete_bool` on component `Inner`
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+ 9 | /     view! {
+10 | |         <div>
+11 | |             <Inner/>
+   | |              ^^^^^ the trait `__required_Inner_concrete_bool` is not implemented for `()`
+12 | |         </div>
+13 | |     }
+   | |_____- required by a bound introduced by this call
+   |
+help: the trait `__required_Inner_concrete_bool` is implemented for `(__T,)`
+  --> tests/view/05_concrete_prop_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `Inner__::__require_props`
+  --> tests/view/05_concrete_prop_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Inner__::__require_props`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use a unary tuple instead
+   |
+11 |             <(Inner,)/>
+   |              +     ++
+
 error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder`, but its trait bounds were not satisfied
   --> tests/view/05_concrete_prop_missing.rs:11:14
    |

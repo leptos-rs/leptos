@@ -115,6 +115,7 @@ impl ToTokens for Model {
         let RequiredCheckTokens {
             marker_traits,
             check_required_method,
+            check_required_fn: _,
         } = generate_required_check(
             name,
             &slot_builder_name,

@@ -4,7 +4,7 @@ use leptos::prelude::*;
 // We expect the error to be on the component name `Inner`.
 
 #[component]
-fn InvalidPropPassed() -> impl IntoView {
+fn GenericPropMissing() -> impl IntoView {
     view! {
         <div>
             <Inner concrete_i32=42>
