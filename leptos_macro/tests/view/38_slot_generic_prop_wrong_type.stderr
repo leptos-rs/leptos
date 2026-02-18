@@ -31,7 +31,7 @@ error[E0599]: the method `__pass` exists for struct `__HelloSlot_Wrap_generic_fu
    | ------- method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
 ...
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |                                                         ^^^^ method cannot be called on `__HelloSlot_Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+   |                                                         ^^^^
    |
 note: trait bound `bool: __HelloSlot_PropBound_generic_fun` was not satisfied
   --> tests/view/38_slot_generic_prop_wrong_type.rs:8:8
@@ -42,4 +42,4 @@ note: trait bound `bool: __HelloSlot_PropBound_generic_fun` was not satisfied
    |        ^^^^^^^^^ unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
    = note: the following trait defines an item `__pass`, perhaps you need to implement it:
-           candidate #1: `leptos::prelude::__PropPass`
+           candidate #1: `leptos::component::__PropPass`

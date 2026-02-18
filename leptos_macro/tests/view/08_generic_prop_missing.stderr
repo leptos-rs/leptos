@@ -13,16 +13,22 @@ error[E0277]: missing required prop `generic_fun` on component `Inner`
    |
    = help: the trait `__required_Inner_generic_fun` is not implemented for `()`
    = note: all required props must be provided as attributes on the component
-note: required by a bound in `Inner__::__require_props`
+help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
   --> tests/view/08_generic_prop_missing.rs:17:1
    |
 17 | #[component]
-   | ^^^^^^^^^^^^ required by this bound in `Inner__::__require_props`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: use a unary tuple instead
+   | ^^^^^^^^^^^^
+note: required for `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>` to implement `Inner::__CheckAllRequired`
+  --> tests/view/08_generic_prop_missing.rs:17:1
    |
-10 |             <(Inner,) concrete_i32=42>
-   |              +     ++
+17 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `Inner::__require_props`
+  --> tests/view/08_generic_prop_missing.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `__require_props`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>`, but its trait bounds were not satisfied
   --> tests/view/08_generic_prop_missing.rs:10:14
@@ -31,11 +37,16 @@ error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 17 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+   | ------------ method `__check_missing` not found for this struct because it doesn't satisfy `_: __CheckMissing`
    |
 note: trait bound `(): __required_Inner_generic_fun` was not satisfied
   --> tests/view/08_generic_prop_missing.rs:17:1
    |
 17 | #[component]
    | ^^^^^^^^^^^^
+   = help: items from traits can only be used if the trait is in scope
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `__CheckMissing` which provides `__check_missing` is implemented but not in scope; perhaps you want to import it
+   |
+ 1 + use crate::GenericPropMissing::__CheckMissing;
+   |

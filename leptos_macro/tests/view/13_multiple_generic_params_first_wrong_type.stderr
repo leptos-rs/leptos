@@ -1,54 +1,22 @@
-error[E0277]: `bool` is not a valid type for prop `fun_a` on component `Inner`
+error[E0599]: `bool` is not a valid type for prop `fun_a` on component `Inner`
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:26
    |
- 9 | /     view! {
-10 | |         <div>
-11 | |             <Inner fun_a=true fun_b=|| 42/>
-   | |                          ^^^^ the trait `Fn()` is not implemented for `bool`
-12 | |         </div>
-13 | |     }
-   | |_____- required by a bound introduced by this call
+11 |             <Inner fun_a=true fun_b=|| 42/>
+   |                          ^^^^
    |
-   = note: required: `Fn() -> bool`
-note: required for `bool` to implement `__Inner_PropBound_fun_a`
+note: the following trait bounds were not satisfied:
+      `&bool: __Check_fun_a`
+      `&mut bool: __Check_fun_a`
+      `bool: __Check_fun_a`
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-17 | fn Inner<F, G>(fun_a: F, fun_b: G) -> impl IntoView
-   |    ^^^^^
-18 | where
-19 |     F: Fn() -> bool,
-   |        ------------ unsatisfied trait bound introduced here
-note: required by a bound in `Inner__::__check_fun_a`
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:17:4
-   |
-16 | #[component]
-   | ------------ required by a bound in this associated function
-17 | fn Inner<F, G>(fun_a: F, fun_b: G) -> impl IntoView
-   |    ^^^^^ required by this bound in `Inner__::__check_fun_a`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0599]: the method `__pass` exists for struct `__Inner_Wrap_fun_a<bool>`, but its trait bounds were not satisfied
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:26
-   |
- 9 | /     view! {
-10 | |         <div>
-11 | |             <Inner fun_a=true fun_b=|| 42/>
-   | |                         -^^^^ method cannot be called on `__Inner_Wrap_fun_a<bool>` due to unsatisfied trait bounds
-   | |_________________________|
-   |
-...
-16 |   #[component]
-   |   ------------ method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
-   |
-note: trait bound `bool: __Inner_PropBound_fun_a` was not satisfied
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:17:4
-   |
-16 | #[component]
-   | ------------
-17 | fn Inner<F, G>(fun_a: F, fun_b: G) -> impl IntoView
-   |    ^^^^^ unsatisfied trait bound introduced here
+   = note: required: `Fn() -> bool`
    = help: items from traits can only be used if the trait is implemented and in scope
-   = note: the following trait defines an item `__pass`, perhaps you need to implement it:
-           candidate #1: `leptos::prelude::__PropPass`
+note: `__Pass_fun_a` defines an item `__pass_fun_a`, perhaps you need to implement it
+  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

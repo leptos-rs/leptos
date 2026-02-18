@@ -12,16 +12,22 @@ error[E0277]: missing required prop `children` on component `Inner`
    |
    = help: the trait `__required_Inner_children` is not implemented for `()`
    = note: all required props must be provided as attributes on the component
-note: required by a bound in `Inner__::__require_props`
+help: the trait `__required_Inner_children` is implemented for `(__T,)`
   --> tests/view/15_children_missing.rs:16:1
    |
 16 | #[component]
-   | ^^^^^^^^^^^^ required by this bound in `Inner__::__require_props`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: use a unary tuple instead
+   | ^^^^^^^^^^^^
+note: required for `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>` to implement `Inner::__CheckAllRequired`
+  --> tests/view/15_children_missing.rs:16:1
    |
-10 |             <(Inner,) concrete_i32=42 generic_fun=|| true>
-   |              +     ++
+16 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `Inner::__require_props`
+  --> tests/view/15_children_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `__require_props`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>`, but its trait bounds were not satisfied
   --> tests/view/15_children_missing.rs:10:14
@@ -30,11 +36,16 @@ error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 16 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+   | ------------ method `__check_missing` not found for this struct because it doesn't satisfy `_: __CheckMissing`
    |
 note: trait bound `(): __required_Inner_children` was not satisfied
   --> tests/view/15_children_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^
+   = help: items from traits can only be used if the trait is in scope
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `__CheckMissing` which provides `__check_missing` is implemented but not in scope; perhaps you want to import it
+   |
+ 1 + use crate::ChildrenMissing::__CheckMissing;
+   |

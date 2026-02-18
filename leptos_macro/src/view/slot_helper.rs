@@ -1,10 +1,13 @@
 use super::{
     component_builder::extract_children_arg,
     convert_to_snake_case, full_path_from_tag_name,
-    utils::{attr_check_idents, children_span, generate_pre_check_tokens},
+    utils::{
+        attr_check_idents, children_span, generate_slot_pre_check_tokens,
+        PropCheckInfo,
+    },
 };
 use crate::view::utils::filter_prefixed_attrs;
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
@@ -54,12 +57,7 @@ pub(crate) fn slot_to_tokens(
         .collect::<Vec<_>>();
 
     // Collect pre-check info and builder setter info
-    let mut pre_check_info: Vec<(
-        Ident,       // check_fn ident with check_span
-        Ident,       // checked_var ident with check_span
-        TokenStream, // value expression
-        Span,        // check_span
-    )> = vec![];
+    let mut prop_infos: Vec<PropCheckInfo> = vec![];
     let mut builder_setters: Vec<TokenStream> = vec![];
     for attr in attrs.iter().filter(|attr| {
         !attr.key.to_string().starts_with("let:")
@@ -75,19 +73,21 @@ pub(crate) fn slot_to_tokens(
             })
             .unwrap_or_else(|| quote! { #attr_name });
 
-        let (check_fn_spanned, checked_var, check_span) =
+        let (check_fn_spanned, pass_trait, pass_method, checked_var, check_span) =
             attr_check_idents(attr);
-
-        pre_check_info.push((
-            check_fn_spanned,
-            checked_var.clone(),
-            value,
-            check_span,
-        ));
 
         builder_setters.push(quote_spanned! {check_span=>
             let __props_builder = __props_builder
                 .#attr_name(#[allow(unused_braces)] #checked_var);
+        });
+
+        prop_infos.push(PropCheckInfo {
+            check_fn: check_fn_spanned,
+            pass_trait,
+            pass_method,
+            checked_var,
+            value,
+            check_span,
         });
     }
 
@@ -175,7 +175,7 @@ pub(crate) fn slot_to_tokens(
     // Generate pre-check calls using slot struct.
     // Chain .__pass() for {error} propagation on bound failure.
     let pre_checks =
-        generate_pre_check_tokens(&pre_check_info, &component_path);
+        generate_slot_pre_check_tokens(&prop_infos, &component_path);
 
     let build = quote_spanned! {node.name().span()=>
         .build()

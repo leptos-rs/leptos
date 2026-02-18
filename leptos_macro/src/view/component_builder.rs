@@ -2,7 +2,8 @@ use super::{
     fragment_to_tokens,
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
-        generate_pre_check_tokens, is_nostrip_optional_and_update_key,
+        generate_component_pass_imports, generate_component_pre_check_tokens,
+        is_nostrip_optional_and_update_key, PropCheckInfo,
     },
     TagType,
 };
@@ -39,11 +40,24 @@ pub(crate) fn component_to_tokens(
     // A span-delinked copy of the component path for builder and
     // check calls.  The last segment gets `Span::call_site()` so
     // that rust-analyzer does NOT map ctrl+click on the source
-    // `<Component />` to the type-alias usage (which would cause a
+    // `<Component />` to the module usage (which would cause a
     // "choose function vs type" disambiguation prompt).  Only the
     // function reference (`&Component`) keeps the original span,
     // giving the IDE a single, unambiguous navigation target.
     let delinked_path = delinked_path_from_node_name(node.name());
+
+    // For trait imports from the companion module, we need to
+    // disambiguate from glob-imported traits of the same name.
+    // `self::Component::__Pass_foo` resolves the local module
+    // definition, not the glob-imported `trait Component`.
+    // For qualified paths (e.g., `crate::foo::Inner`), this is
+    // not needed since they already resolve unambiguously.
+    let module_import_path = match node.name() {
+        NodeName::Path(expr_path) if expr_path.path.segments.len() == 1 => {
+            quote! { self::#delinked_path }
+        }
+        _ => delinked_path.clone(),
+    };
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
@@ -86,25 +100,11 @@ pub(crate) fn component_to_tokens(
 
     // Collect pre-check info and builder setter info.
     //
-    // For each non-optional prop we:
-    // 1. Pre-check the value via companion struct method (E0277
-    //    with custom `on_unimplemented` for bounded generic props).
-    //    The check returns a wrapper type.
-    // 2. Call `.__pass()` on the wrapper — for bounded generic
-    //    props, this produces E0599 → `{error}`, suppressing all
-    //    downstream errors (including __check_missing).
-    // 3. Pass the result to the builder setter.
-    let mut pre_check_info: Vec<(
-        Ident,       // check_fn ident with check_span
-        Ident,       // checked_var ident with check_span
-        TokenStream, // value expression
-        Span,        // check_span (value's span)
-    )> = vec![];
-    let mut setter_info: Vec<(
-        Ident,       // checked_var ident with check_span
-        TokenStream, // setter_name tokens (from NodeName)
-        Span,        // key_value_span (for builder setter)
-    )> = vec![];
+    // For each non-optional prop we pre-check the value via UFCS
+    // trait call through the companion module. For bounded generic
+    // props, E0277 fires with custom `on_unimplemented` and the
+    // expression type is `{error}`, suppressing downstream errors.
+    let mut prop_infos: Vec<(PropCheckInfo, TokenStream, Span)> = vec![];
     let mut optional_props = vec![];
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
         idx < &spread_marker && {
@@ -140,16 +140,22 @@ pub(crate) fn component_to_tokens(
                 props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            let (check_fn_spanned, checked_var, check_span) =
+            let (check_fn, pass_trait, pass_method, checked_var, check_span) =
                 attr_check_idents(attr);
 
-            pre_check_info.push((
-                check_fn_spanned,
-                checked_var.clone(),
-                value,
-                check_span,
+            let setter_name = quote! { #name };
+            prop_infos.push((
+                PropCheckInfo {
+                    check_fn,
+                    pass_trait,
+                    pass_method,
+                    checked_var,
+                    value,
+                    check_span,
+                },
+                setter_name,
+                key_value_span,
             ));
-            setter_info.push((checked_var, quote! { #name }, key_value_span));
         }
     }
 
@@ -256,26 +262,21 @@ pub(crate) fn component_to_tokens(
         disable_inert_html,
     );
 
-    // Generate children pre-check and builder call.
-    // Children can be generic (e.g. `children: C where C: Fn() -> bool`),
-    // so we run them through __check_children like other props.
-    let (children_pre_check, children_builder_call) =
-        if let Some(ref arg) = children_arg {
-            let pass_ident = Ident::new("__pass", children_span);
-            let pre_check = quote_spanned! {children_span=>
-                let __checked_children = #delinked_path
-                    ::__check_children(
-                        #[allow(unused_braces)] { #arg }
-                    ).#pass_ident();
-            };
-            let builder_call = quote_spanned! {children_span=>
-                let __props_builder =
-                    __props_builder.children(__checked_children);
-            };
-            (pre_check, builder_call)
-        } else {
-            (quote! {}, quote! {})
-        };
+    // Generate children builder call (no pre-check).
+    // Children are passed directly to the builder to preserve
+    // type inference — the builder's `.children()` method
+    // provides the type constraint needed to resolve generics
+    // like `TypedChildrenFn<C>`.
+    let children_builder_call = if let Some(ref arg) = children_arg {
+        quote_spanned! {children_span=>
+            let __props_builder =
+                __props_builder.children(
+                    #[allow(unused_braces)] { #arg }
+                );
+        }
+    } else {
+        quote! {}
+    };
 
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
@@ -305,17 +306,25 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
-    // Pre-check calls via companion struct.
+    // Pre-check calls via companion module UFCS.
     // For bounded generic props, E0277 fires with custom
-    // `on_unimplemented` message. The check returns a wrapper;
-    // calling `.__pass()` on it produces E0599 → `{error}` when
-    // bounds fail, suppressing all downstream errors.
-    let pre_checks = generate_pre_check_tokens(&pre_check_info, &delinked_path);
+    // `on_unimplemented` message and the expression type is
+    // `{error}`, suppressing all downstream errors.
+    let (check_infos, setter_pairs): (Vec<_>, Vec<_>) = prop_infos
+        .into_iter()
+        .map(|(info, setter_name, kv_span)| (info, (setter_name, kv_span)))
+        .unzip();
+    let pass_imports =
+        generate_component_pass_imports(&check_infos, &module_import_path);
+    let pre_checks =
+        generate_component_pre_check_tokens(&check_infos);
 
     // Builder setter calls using pre-checked values.
-    let builder_setters: Vec<TokenStream> = setter_info
+    let builder_setters: Vec<TokenStream> = check_infos
         .iter()
-        .map(|(checked_var, setter_name, kv_span)| {
+        .zip(setter_pairs.iter())
+        .map(|(info, (setter_name, kv_span))| {
+            let checked_var = &info.checked_var;
             quote_spanned! {*kv_span=>
                 let __props_builder = __props_builder
                     .#setter_name(#checked_var);
@@ -333,24 +342,26 @@ pub(crate) fn component_to_tokens(
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {name_span=>
         {
+            // Import pass traits from companion module to enable
+            // method syntax for pre-checks.
+            #(#pass_imports)*
+            #[allow(unused_imports)]
+            use #module_import_path::__CheckMissing as _;
+
             #[allow(unreachable_code)]
             #[allow(clippy::let_and_return)]
-            // Import __PropPass for method call syntax on
-            // check wrappers (enables .__pass() calls).
-            #[allow(unused_imports)]
-            use ::leptos::component::__PropPass as _;
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#component_path,
                 {
-                    // Pre-checks (E0277 with custom message
-                    // for bounded generic props, then
-                    // .__pass() for {error} propagation)
+                    // Pre-checks via pass-trait method calls.
+                    // For bounded generic props, E0599 fires with
+                    // custom on_unimplemented and the expression
+                    // type is {error}, suppressing downstream errors.
                     #(#pre_checks)*
-                    #children_pre_check
-                    // Build props via companion struct
+                    // Build props via companion module
                     let __props_builder =
-                        #delinked_path ::builder #generics ();
+                        #delinked_path ::__builder #generics ();
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call

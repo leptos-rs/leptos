@@ -208,7 +208,6 @@ impl ToTokens for Model {
 
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
-        let companion_name = format_ident!("{name}__");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
         #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
@@ -613,10 +612,10 @@ impl ToTokens for Model {
 
         let prop_pairs: Vec<(&Ident, &Type)> =
             props.iter().map(|p| (&p.name.ident, &p.ty)).collect();
-        let CompanionCheckTokens {
-            prop_traits,
-            check_methods,
-        } = generate_companion_checks(
+        let ModuleCheckTokens {
+            module_check_traits,
+            check_trait_impls,
+        } = generate_module_checks(
             original_generics,
             name,
             &prop_pairs,
@@ -633,22 +632,26 @@ impl ToTokens for Model {
                 (&p.name.ident, required)
             })
             .collect();
-        let RequiredCheckTokens {
+        let ModuleRequiredCheckTokens {
             marker_traits,
-            check_required_method,
-            check_required_fn,
-        } = generate_required_check(
+            module_items: module_required_items,
+            check_all_required_impl,
+            check_missing_impl,
+        } = generate_module_required_check(
             name,
             &props_builder_name,
             original_generics,
             &required_fields,
         );
 
-        // Builder method on the companion struct.
-        let builder_method = if no_props {
+        // Builder function inside the companion module. Uses
+        // `super::` to access the props struct defined in the
+        // parent scope. Only structural bounds — behavioral
+        // bounds are deferred to per-prop check traits.
+        let module_builder = if no_props {
             quote! {
                 #[doc(hidden)]
-                pub fn builder()
+                pub fn __builder()
                     -> ::leptos::component::EmptyPropsBuilder
                 {
                     ::leptos::component::EmptyPropsBuilder {}
@@ -657,12 +660,12 @@ impl ToTokens for Model {
         } else {
             quote! {
                 #[doc(hidden)]
-                pub fn builder #struct_impl_generics ()
-                    -> <#props_name #generics
+                pub fn __builder #struct_impl_generics ()
+                    -> <super::#props_name #generics
                         as ::leptos::component::Props>::Builder
                     #struct_where_clause
                 {
-                    <#props_name #generics
+                    <super::#props_name #generics
                         as ::leptos::component::Props>::builder()
                 }
             }
@@ -708,27 +711,25 @@ impl ToTokens for Model {
                 #body
             }
 
-            #(#prop_traits)*
             #marker_traits
-            #check_required_method
 
+            // Companion module — coexists with `fn #name` because
+            // modules live in the type namespace and functions in
+            // the value namespace.  `use path::Component as Alias`
+            // renames both, so the module follows renamed imports.
             #[doc(hidden)]
             #[allow(non_snake_case)]
-            #vis struct #companion_name {}
-
-            #[doc(hidden)]
-            impl #companion_name {
-                #builder_method
-                #(#check_methods)*
-                #check_required_fn
+            #vis mod #name {
+                #[allow(unused_imports)]
+                use super::*;
+                #module_builder
+                #(#module_check_traits)*
+                #module_required_items
             }
 
-            // Type alias so that `ComponentName::builder()` and renamed
-            // imports (`use path::Component as Alias; Alias::builder()`)
-            // resolve through the alias to the companion struct.
-            #[doc(hidden)]
-            #[allow(non_camel_case_types)]
-            #vis type #name = #companion_name;
+            #(#check_trait_impls)*
+            #check_all_required_impl
+            #check_missing_impl
         };
 
         tokens.append_all(output)
@@ -1850,30 +1851,14 @@ pub(crate) fn generate_companion_checks(
             // the setter name's span, producing one clean error.
             //
             // Case 3: Concrete / unbounded / multi-param generic.
-            // Identity wrapper with blanket __PropPass.
-            prop_traits.push(quote! {
-                #[doc(hidden)]
-                #[allow(non_camel_case_types)]
-                pub struct #wrap_name<__T>(pub __T);
-
-                #[diagnostic::do_not_recommend]
-                impl<__T>
-                    ::leptos::component::__PropPass for #wrap_name<__T>
-                {
-                    type Output = __T;
-                    fn __pass(self) -> __T {
-                        self.0
-                    }
-                }
-            });
-
+            // Uses the shared WrappedPropValue from leptos::component.
             check_methods.push(quote! {
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
                 pub fn #check_fn<__T>(
                     val: __T,
-                ) -> #wrap_name<__T> {
-                    #wrap_name(val)
+                ) -> ::leptos::component::WrappedPropValue<__T> {
+                    ::leptos::component::WrappedPropValue(val)
                 }
             });
         }
@@ -1882,6 +1867,382 @@ pub(crate) fn generate_companion_checks(
     CompanionCheckTokens {
         prop_traits,
         check_methods,
+    }
+}
+
+/// The generated token streams for module-based companion checks
+/// (used by components; slots use `CompanionCheckTokens` instead).
+pub(crate) struct ModuleCheckTokens {
+    /// Trait definitions for inside the companion module.
+    /// For bounded generic props: `__Check_*` (marker with
+    /// `on_unimplemented`) + `__Pass_*` (method trait).
+    /// For everything else: `__Check_*` (blanket identity).
+    pub module_check_traits: Vec<TokenStream>,
+    /// Trait implementations for outside the companion module.
+    /// For bounded generic props: bounded `__Check_*` impl +
+    /// blanket `__Pass_*` impl (bounded on `__Check_*`).
+    /// For everything else: blanket `__Check_*` impl.
+    pub check_trait_impls: Vec<TokenStream>,
+}
+
+/// Generates per-prop check traits and their implementations for
+/// the companion module pattern (components only).
+///
+/// For each prop:
+/// - **Bounded single-param generic**: `__Check_*` marker trait
+///   (with `on_unimplemented`) + `__Pass_*` method trait inside
+///   module; bounded `__Check_*` impl + blanket `__Pass_*` impl
+///   outside. View macro calls `value.__pass_*()` — when the
+///   bound fails, E0599 fires with the custom `on_unimplemented`
+///   message, and the expression type is `{error}` (suppresses
+///   downstream errors).
+/// - **Everything else**: `__Check_*` trait inside module with
+///   blanket impl outside. All types pass through via UFCS.
+pub(crate) fn generate_module_checks(
+    full_generics: &syn::Generics,
+    component_name: &Ident,
+    props: &[(&Ident, &Type)],
+    field_types: &[&Type],
+) -> ModuleCheckTokens {
+    if props.is_empty() {
+        return ModuleCheckTokens {
+            module_check_traits: vec![],
+            check_trait_impls: vec![],
+        };
+    }
+
+    let all_generic_idents: Vec<&Ident> = full_generics
+        .params
+        .iter()
+        .filter_map(|p| {
+            if let GenericParam::Type(tp) = p {
+                Some(&tp.ident)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let stripped_params: Vec<&Ident> = all_generic_idents
+        .iter()
+        .copied()
+        .filter(|ident| !param_needs_structural_bounds(ident, field_types))
+        .collect();
+
+    let mut module_check_traits = vec![];
+    let mut check_trait_impls = vec![];
+
+    for (prop_name, prop_ty) in props {
+        let name_str = prop_name.to_string();
+        let clean_name =
+            name_str.strip_prefix("r#").unwrap_or(&name_str);
+        let check_trait_name =
+            format_ident!("__Check_{}", clean_name);
+
+        let bounded_single_param = stripped_params
+            .iter()
+            .find(|ident| is_bare_generic_param(prop_ty, ident))
+            .and_then(|param_ident| {
+                let preds = collect_predicates_for_param(
+                    full_generics,
+                    param_ident,
+                );
+                if !preds.is_empty()
+                    && !bounds_reference_other_params(
+                        &preds,
+                        param_ident,
+                        &all_generic_idents,
+                    )
+                {
+                    Some(preds)
+                } else {
+                    None
+                }
+            });
+
+        if let Some(param_predicates) = bounded_single_param {
+            // Bounded single-param generic prop.
+            // Uses __Check_* (marker) + __Pass_* (method) pattern.
+            // Calling `value.__pass_*()` produces E0599 with
+            // custom `on_unimplemented` when bound fails, and the
+            // expression type is `{error}`.
+            let bounds = predicates_to_bounds(&param_predicates);
+            let bounds_note = bounds.to_string();
+            let message = format!(
+                "`{{Self}}` is not a valid type for prop \
+                 `{clean_name}` on component `{component_name}`",
+            );
+            let note = format!("required: `{bounds_note}`");
+
+            let pass_trait_name =
+                format_ident!("__Pass_{}", clean_name);
+            let pass_method_name =
+                format_ident!("__pass_{}", clean_name);
+
+            // Inside module: marker trait + pass trait
+            module_check_traits.push(quote! {
+                #[doc(hidden)]
+                #[diagnostic::on_unimplemented(
+                    message = #message,
+                    note = #note
+                )]
+                #[allow(non_camel_case_types)]
+                pub trait #check_trait_name {}
+
+                #[doc(hidden)]
+                #[diagnostic::on_unimplemented(
+                    message = #message,
+                    note = #note
+                )]
+                #[allow(non_camel_case_types)]
+                pub trait #pass_trait_name {
+                    fn #pass_method_name(self) -> Self;
+                }
+            });
+
+            // Outside module: bounded check impl +
+            // blanket pass impl (bounded on check)
+            check_trait_impls.push(quote! {
+                #[doc(hidden)]
+                impl<__T: #bounds>
+                    #component_name::#check_trait_name for __T
+                {
+                }
+
+                #[doc(hidden)]
+                impl<__T: #component_name::#check_trait_name>
+                    #component_name::#pass_trait_name for __T
+                {
+                    fn #pass_method_name(self) -> Self {
+                        self
+                    }
+                }
+            });
+        } else {
+            // Concrete / into / unbounded / multi-param generic.
+            // Blanket pass trait — all types pass through.
+            // View macro calls `value.__pass_*()` uniformly.
+            let pass_trait_name =
+                format_ident!("__Pass_{}", clean_name);
+            let pass_method_name =
+                format_ident!("__pass_{}", clean_name);
+
+            module_check_traits.push(quote! {
+                #[doc(hidden)]
+                #[allow(non_camel_case_types)]
+                pub trait #pass_trait_name {
+                    fn #pass_method_name(self) -> Self;
+                }
+            });
+
+            check_trait_impls.push(quote! {
+                #[doc(hidden)]
+                impl<__T> #component_name::#pass_trait_name
+                    for __T
+                {
+                    fn #pass_method_name(self) -> Self { self }
+                }
+            });
+        }
+    }
+
+    ModuleCheckTokens {
+        module_check_traits,
+        check_trait_impls,
+    }
+}
+
+/// The split output of `generate_module_required_check`.
+pub(crate) struct ModuleRequiredCheckTokens {
+    /// Marker trait definitions (with `on_unimplemented`) at module
+    /// scope, outside the companion module.
+    pub marker_traits: TokenStream,
+    /// Items inside the companion module: `__CheckAllRequired`
+    /// trait, `__CheckMissing` trait, `__require_props` fn.
+    pub module_items: TokenStream,
+    /// `impl __CheckAllRequired for PropsBuilder` outside module.
+    pub check_all_required_impl: TokenStream,
+    /// `impl __CheckMissing for PropsBuilder` outside module.
+    pub check_missing_impl: TokenStream,
+}
+
+/// Generates module-internal traits and outer impls for
+/// required-prop checking (components only).
+///
+/// `__require_props` triggers E0277 with custom `on_unimplemented`
+/// when required props are missing. `__CheckMissing` produces
+/// `{error}` via UFCS for downstream suppression.
+pub(crate) fn generate_module_required_check(
+    component_name: &Ident,
+    builder_name: &Ident,
+    generics: &syn::Generics,
+    fields: &[(&Ident, bool)],
+) -> ModuleRequiredCheckTokens {
+    if fields.is_empty() {
+        return ModuleRequiredCheckTokens {
+            marker_traits: quote! {},
+            module_items: quote! {
+                #[doc(hidden)]
+                pub trait __CheckAllRequired {}
+
+                #[doc(hidden)]
+                pub trait __CheckMissing {
+                    fn __check_missing(self) -> Self;
+                }
+
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub fn __require_props<__B: __CheckAllRequired>(
+                    _: &__B,
+                ) {
+                }
+            },
+            check_all_required_impl: quote! {
+                impl<__T>
+                    #component_name::__CheckAllRequired for __T
+                {
+                }
+            },
+            check_missing_impl: quote! {
+                impl<__T>
+                    #component_name::__CheckMissing for __T
+                {
+                    fn __check_missing(self) -> Self { self }
+                }
+            },
+        };
+    }
+
+    let (_, _, where_clause) = generics.split_for_impl();
+
+    let generic_params: Vec<&GenericParam> =
+        generics.params.iter().collect();
+
+    let type_args: Vec<TokenStream> = generics
+        .params
+        .iter()
+        .map(|p| match p {
+            GenericParam::Type(tp) => {
+                let i = &tp.ident;
+                quote! { #i }
+            }
+            GenericParam::Lifetime(lp) => {
+                let lt = &lp.lifetime;
+                quote! { #lt }
+            }
+            GenericParam::Const(cp) => {
+                let i = &cp.ident;
+                quote! { #i }
+            }
+        })
+        .collect();
+
+    let mut marker_traits = vec![];
+    let mut type_state_params = vec![];
+    let mut type_state_idents = vec![];
+
+    for (i, (name, required)) in fields.iter().enumerate() {
+        let param = format_ident!("__F{}", i);
+        type_state_idents.push(param.clone());
+
+        if *required {
+            let name_str = name.to_string();
+            let clean_name =
+                name_str.strip_prefix("r#").unwrap_or(&name_str);
+            let trait_name = Ident::new(
+                &format!(
+                    "__required_{component_name}_{clean_name}"
+                ),
+                Span::call_site(),
+            );
+
+            let message = format!(
+                "missing required prop `{clean_name}` on component \
+                 `{component_name}`"
+            );
+            let label = format!("missing prop `{clean_name}`");
+            let note = "all required props must be provided as \
+                        attributes on the component";
+
+            marker_traits.push(quote! {
+                #[doc(hidden)]
+                #[diagnostic::on_unimplemented(
+                    message = #message,
+                    label = #label,
+                    note = #note
+                )]
+                #[allow(non_camel_case_types)]
+                pub trait #trait_name {}
+
+                impl<__T> #trait_name for (__T,) {}
+            });
+
+            type_state_params
+                .push(quote! { #param: #trait_name });
+        } else {
+            type_state_params.push(quote! { #param });
+        }
+    }
+
+    let builder_type_args = if type_args.is_empty() {
+        quote! { (#(#type_state_idents,)*) }
+    } else {
+        quote! { #(#type_args,)* (#(#type_state_idents,)*) }
+    };
+
+    let impl_params = if generic_params.is_empty() {
+        quote! { #(#type_state_params),* }
+    } else {
+        quote! {
+            #(#generic_params,)* #(#type_state_params),*
+        }
+    };
+
+    let module_items = quote! {
+        #[doc(hidden)]
+        pub trait __CheckAllRequired {}
+
+        #[doc(hidden)]
+        pub trait __CheckMissing {
+            fn __check_missing(self) -> Self;
+        }
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub fn __require_props<__B: __CheckAllRequired>(
+            _: &__B,
+        ) {
+        }
+    };
+
+    let check_all_required_impl = quote! {
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        impl<#impl_params>
+            #component_name::__CheckAllRequired
+            for #builder_name<#builder_type_args>
+        #where_clause
+        {}
+    };
+
+    let check_missing_impl = quote! {
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        #[diagnostic::do_not_recommend]
+        impl<#impl_params>
+            #component_name::__CheckMissing
+            for #builder_name<#builder_type_args>
+        #where_clause
+        {
+            fn __check_missing(self) -> Self { self }
+        }
+    };
+
+    ModuleRequiredCheckTokens {
+        marker_traits: quote! { #(#marker_traits)* },
+        module_items,
+        check_all_required_impl,
+        check_missing_impl,
     }
 }
 
@@ -2098,9 +2459,13 @@ pub(crate) fn generate_required_check(
                 Span::call_site(),
             );
 
-            let message = format!("missing required prop `{clean_name}` on component `{component_name}`");
+            let message = format!(
+                "missing required prop `{clean_name}` on component \
+                 `{component_name}`"
+            );
             let label = format!("missing prop `{clean_name}`");
-            let note = "all required props must be provided as attributes on the component";
+            let note = "all required props must be provided as attributes on \
+                        the component";
 
             marker_traits.push(quote! {
                 #[doc(hidden)]

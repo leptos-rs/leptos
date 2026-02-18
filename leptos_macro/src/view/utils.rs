@@ -9,18 +9,22 @@ use syn::{spanned::Spanned, ExprPath};
 /// IDEs resolve ctrl+click targets by matching source spans to
 /// expanded spans. Because a component name exists in both the value
 /// namespace (the function) and the type namespace (the companion
-/// type alias), keeping the original span on both would force the
+/// module), keeping the original span on both would force the
 /// IDE to ask "which one?". By giving the type-namespace usage
 /// (builder / check calls) a `call_site` span, only the function
 /// reference remains linked to the source token, so ctrl+click
 /// navigates straight to the function.
-pub(crate) fn delinked_path_from_node_name(name: &NodeName) -> TokenStream {
+pub(crate) fn delinked_path_from_node_name(
+    name: &NodeName,
+) -> TokenStream {
     match name {
         NodeName::Path(expr_path) => {
             let mut new_path = expr_path.clone();
             if let Some(last) = new_path.path.segments.last_mut() {
-                last.ident =
-                    Ident::new(&last.ident.to_string(), Span::call_site());
+                last.ident = Ident::new(
+                    &last.ident.to_string(),
+                    Span::call_site(),
+                );
             }
             quote! { #new_path }
         }
@@ -28,7 +32,10 @@ pub(crate) fn delinked_path_from_node_name(name: &NodeName) -> TokenStream {
     }
 }
 
-pub fn filter_prefixed_attrs<'a, A>(attrs: A, prefix: &str) -> Vec<Ident>
+pub fn filter_prefixed_attrs<'a, A>(
+    attrs: A,
+    prefix: &str,
+) -> Vec<Ident>
 where
     A: IntoIterator<Item = &'a KeyedAttribute> + Clone,
 {
@@ -38,38 +45,45 @@ where
             attr.key
                 .to_string()
                 .strip_prefix(prefix)
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+                .map(|ident| {
+                    format_ident!("{ident}", span = attr.key.span())
+                })
         })
         .collect()
 }
 
 /// Handle nostrip: prefix:
 /// if there strip from the name, and return true to indicate that
-/// the prop should be an Option<T> and shouldn't be called on the builder if None,
-/// if Some(T) then T supplied to the builder.
-pub fn is_nostrip_optional_and_update_key(key: &mut NodeName) -> bool {
-    let maybe_cleaned_name_and_span = if let NodeName::Punctuated(punct) = &key
-    {
-        if punct.len() == 2 {
-            if let Some(cleaned_name) = key.to_string().strip_prefix("nostrip:")
-            {
-                punct
-                    .get(1)
-                    .map(|segment| (cleaned_name.to_string(), segment.span()))
+/// the prop should be an Option<T> and shouldn't be called on the
+/// builder if None, if Some(T) then T supplied to the builder.
+pub fn is_nostrip_optional_and_update_key(
+    key: &mut NodeName,
+) -> bool {
+    let maybe_cleaned_name_and_span =
+        if let NodeName::Punctuated(punct) = &key {
+            if punct.len() == 2 {
+                if let Some(cleaned_name) =
+                    key.to_string().strip_prefix("nostrip:")
+                {
+                    punct.get(1).map(|segment| {
+                        (cleaned_name.to_string(), segment.span())
+                    })
+                } else {
+                    None
+                }
             } else {
                 None
             }
         } else {
             None
-        }
-    } else {
-        None
-    };
-    if let Some((cleaned_name, span)) = maybe_cleaned_name_and_span {
+        };
+    if let Some((cleaned_name, span)) = maybe_cleaned_name_and_span
+    {
         *key = NodeName::Path(ExprPath {
             attrs: vec![],
             qself: None,
-            path: format_ident!("{}", cleaned_name, span = span).into(),
+            path: format_ident!("{}", cleaned_name, span = span)
+                .into(),
         });
         true
     } else {
@@ -93,14 +107,27 @@ fn attr_check_info(attr: &KeyedAttribute) -> (String, Span) {
     (clean_name, check_span)
 }
 
-/// Computes the `(check_fn, checked_var, check_span)` triple for a
-/// prop attribute. Wraps `attr_check_info` with ident construction.
-pub fn attr_check_idents(attr: &KeyedAttribute) -> (Ident, Ident, Span) {
+/// Computes the check identifiers for a prop attribute:
+/// - `check_fn`: `__check_foo` at value span (for slot wrapper
+///   pattern)
+/// - `pass_trait`: `__Pass_foo` at `call_site()` span (for
+///   component pass-trait import)
+/// - `pass_method`: `__pass_foo` at value span (for component
+///   pass-trait method call)
+/// - `checked_var`: `__checked_foo` at value span
+/// - `check_span`: value span (or key span if no value)
+pub fn attr_check_idents(
+    attr: &KeyedAttribute,
+) -> (Ident, Ident, Ident, Ident, Span) {
     let (clean_prop, check_span) = attr_check_info(attr);
-    let check_fn = Ident::new(&format!("__check_{}", clean_prop), check_span);
+    let check_fn =
+        Ident::new(&format!("__check_{}", clean_prop), check_span);
+    let pass_trait = format_ident!("__Pass_{}", clean_prop);
+    let pass_method =
+        Ident::new(&format!("__pass_{}", clean_prop), check_span);
     let checked_var =
         Ident::new(&format!("__checked_{clean_prop}"), check_span);
-    (check_fn, checked_var, check_span)
+    (check_fn, pass_trait, pass_method, checked_var, check_span)
 }
 
 /// Computes a span covering all children of a node.
@@ -122,33 +149,110 @@ pub fn children_span<C: CustomNode>(
     }
 }
 
-/// Returns a span covering the key–value pair of a prop assignment.
+/// Returns a span covering the key–value pair of a prop
+/// assignment.
 ///
-/// When a `value` span is available, joins it with `key`; otherwise
-/// falls back to `fallback` (typically the key span itself).
-pub fn key_value_span(key: Span, value: Option<Span>, fallback: Span) -> Span {
+/// When a `value` span is available, joins it with `key`;
+/// otherwise falls back to `fallback` (typically the key span
+/// itself).
+pub fn key_value_span(
+    key: Span,
+    value: Option<Span>,
+    fallback: Span,
+) -> Span {
     value
         .map(|value| key.join(value).unwrap_or(key))
         .unwrap_or(fallback)
 }
 
-/// Generates the pre-check `let` statements that call companion
-/// struct check methods and chain `.__pass()` for `{error}`
-/// propagation.
+/// Pre-check info for a single non-optional prop.
 ///
-/// Each entry is `(check_fn, checked_var, value, span)`.
-pub(crate) fn generate_pre_check_tokens(
-    checks: &[(Ident, Ident, TokenStream, Span)],
+/// Collects the identifiers and spans needed to generate both
+/// the pre-check `let` statement and the builder setter call.
+pub(crate) struct PropCheckInfo {
+    /// Check function ident (e.g. `__check_foo`) with value span.
+    /// Used by slot pre-checks (wrapper + `__PropPass` pattern).
+    pub check_fn: Ident,
+    /// Pass trait ident (e.g. `__Pass_foo`) at `call_site()` span.
+    /// Used by component pre-checks (import for method syntax).
+    pub pass_trait: Ident,
+    /// Pass method ident (e.g. `__pass_foo`) at value span.
+    /// Used by component pre-checks (method call).
+    pub pass_method: Ident,
+    /// Checked variable ident (e.g. `__checked_foo`) with value
+    /// span.
+    pub checked_var: Ident,
+    /// The value expression to check.
+    pub value: TokenStream,
+    /// Span of the value (or key if no value).
+    pub check_span: Span,
+}
+
+/// Generates pre-check `let` statements for **slots** using the
+/// wrapper + `.__pass()` pattern for `{error}` propagation.
+pub(crate) fn generate_slot_pre_check_tokens(
+    checks: &[PropCheckInfo],
     component_path: &TokenStream,
 ) -> Vec<TokenStream> {
     checks
         .iter()
-        .map(|(check_fn, checked_var, value, span)| {
-            let pass_ident = Ident::new("__pass", *span);
-            quote_spanned! {*span=>
-                let #checked_var = #component_path ::#check_fn(
-                    #[allow(unused_braces)] { #value }
-                ).#pass_ident();
+        .map(|info| {
+            let pass_ident =
+                Ident::new("__pass", info.check_span);
+            let check_fn = &info.check_fn;
+            let checked_var = &info.checked_var;
+            let value = &info.value;
+            let span = info.check_span;
+            quote_spanned! {span=>
+                let #checked_var =
+                    #component_path ::#check_fn(
+                        #[allow(unused_braces)] { #value }
+                    ).#pass_ident();
+            }
+        })
+        .collect()
+}
+
+/// Generates trait imports for component pass traits. Each prop
+/// gets `use Component::__Pass_foo as _;` to enable method syntax.
+pub(crate) fn generate_component_pass_imports(
+    checks: &[PropCheckInfo],
+    component_path: &TokenStream,
+) -> Vec<TokenStream> {
+    checks
+        .iter()
+        .map(|info| {
+            let pass_trait = &info.pass_trait;
+            quote! {
+                #[allow(unused_imports)]
+                use #component_path::#pass_trait as _;
+            }
+        })
+        .collect()
+}
+
+/// Generates pre-check `let` statements for **components** using
+/// pass-trait method calls through the companion module. Each
+/// call is `value.__pass_foo()`. For bounded generic props, when
+/// the trait bound fails, E0599 fires with the custom
+/// `on_unimplemented` message and the expression type is
+/// `{error}`, suppressing downstream errors. For unbounded props,
+/// the blanket pass-trait impl lets all types through.
+pub(crate) fn generate_component_pre_check_tokens(
+    checks: &[PropCheckInfo],
+) -> Vec<TokenStream> {
+    checks
+        .iter()
+        .map(|info| {
+            let pass_method = &info.pass_method;
+            let checked_var = &info.checked_var;
+            let value = &info.value;
+            let span = info.check_span;
+            quote_spanned! {span=>
+                let #checked_var = {
+                    #[allow(unused_braces)]
+                    { #value }
+                }.#pass_method();
             }
         })
         .collect()
