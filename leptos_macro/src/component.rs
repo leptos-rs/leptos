@@ -613,38 +613,77 @@ impl ToTokens for Model {
 
         let prop_pairs: Vec<(&Ident, &Type)> =
             props.iter().map(|p| (&p.name.ident, &p.ty)).collect();
-        let CheckImplTokens {
-            props_check_impl,
-            non_generic_check_impl,
-            generic_prop_impls,
-        } = generate_check_impls(
+        let CompanionCheckTokens {
+            prop_traits,
+            check_methods,
+        } = generate_companion_checks(
             original_generics,
-            &struct_generics,
-            &props_name,
+            name,
             &prop_pairs,
             &field_types,
         );
 
-        let builder_impl = if no_props {
+        let required_fields: Vec<(&Ident, bool)> = props
+            .iter()
+            .map(|p| {
+                let required = !p.prop_opts.optional
+                    && !p.prop_opts.optional_no_strip
+                    && !p.prop_opts.attrs
+                    && p.prop_opts.default.is_none();
+                (&p.name.ident, required)
+            })
+            .collect();
+        let RequiredCheckTokens {
+            marker_traits,
+            check_required_method,
+        } = generate_required_check(
+            name,
+            &props_builder_name,
+            &struct_generics,
+            &required_fields,
+            false,
+        );
+
+        // Builder method on the companion struct.
+        let builder_method = if no_props {
             quote! {
-                impl #name {
-                    #[doc(hidden)]
-                    pub fn builder()
-                        -> ::leptos::component::EmptyPropsBuilder
-                    {
-                        ::leptos::component::EmptyPropsBuilder {}
-                    }
+                #[doc(hidden)]
+                pub fn builder()
+                    -> ::leptos::component::EmptyPropsBuilder
+                {
+                    ::leptos::component::EmptyPropsBuilder {}
                 }
             }
         } else {
             quote! {
-                impl #name {
-                    #[doc(hidden)]
-                    pub fn builder #struct_impl_generics ()
-                        -> <#props_name #generics as ::leptos::component::Props>::Builder
-                        #struct_where_clause
-                    {
-                        <#props_name #generics as ::leptos::component::Props>::builder()
+                #[doc(hidden)]
+                pub fn builder #struct_impl_generics ()
+                    -> <#props_name #generics
+                        as ::leptos::component::Props>::Builder
+                    #struct_where_clause
+                {
+                    <#props_name #generics
+                        as ::leptos::component::Props>::builder()
+                }
+            }
+        };
+
+        // __finalize: conditional inherent impl on Props with
+        // ALL original bounds (structural + behavioral). When
+        // any behavioral bound fails, the method isn't found
+        // (E0599), making the expression `{error}` which
+        // absorbs downstream errors from component_view.
+        let finalize_impl = if no_props {
+            // NoProps has __finalize built-in.
+            quote! {}
+        } else {
+            quote! {
+                #[doc(hidden)]
+                impl #impl_generics #props_name #generics
+                    #where_clause
+                {
+                    pub fn __finalize(self) -> Self {
+                        self
                     }
                 }
             }
@@ -676,15 +715,20 @@ impl ToTokens for Model {
                 }
             }
 
-            #props_check_impl
-            #non_generic_check_impl
-            #(#generic_prop_impls)*
+            #(#prop_traits)*
+            #marker_traits
+            #check_required_method
+            #finalize_impl
 
             #[doc(hidden)]
             #[allow(non_snake_case)]
             #vis struct #name {}
 
-            #builder_impl
+            #[doc(hidden)]
+            impl #name {
+                #builder_method
+                #(#check_methods)*
+            }
 
             #unknown_attrs
             #docs_and_prop_docs
@@ -1655,53 +1699,44 @@ pub(crate) fn generate_phantom_field(
     }
 }
 
-/// The generated token streams for props-check impls.
-pub(crate) struct CheckImplTokens {
-    /// The `PropsCheck` trait impl (for `.__check()`).
-    pub props_check_impl: TokenStream,
-    /// The impl block for non-generic check methods.
-    pub non_generic_check_impl: TokenStream,
-    /// Separate impl blocks for generic prop check methods.
-    pub generic_prop_impls: Vec<TokenStream>,
+/// The generated token streams for companion check methods.
+pub(crate) struct CompanionCheckTokens {
+    /// Custom traits at module scope (for single-param generic props
+    /// with `on_unimplemented`).
+    pub prop_traits: Vec<TokenStream>,
+    /// Check functions for the companion impl block.
+    pub check_methods: Vec<TokenStream>,
 }
 
-/// Generates the `PropsCheck` impl and per-prop check methods for a
-/// props/slot struct.
+/// Generates per-prop check methods and associated custom traits for
+/// a component or slot.
+///
+/// For each prop, the classification determines the output:
+///
+/// - **Generic, single-param bounds**: Custom supertrait with
+///   `on_unimplemented` + bounded check method.
+/// - **Generic, multi-param bounds**: Identity check method (bounds
+///   reference other generic params, can't isolate).
+/// - **Concrete / non-generic**: Identity check method.
 ///
 /// - `full_generics`: the full generics from the original
 ///   function/struct (all bounds)
-/// - `struct_generics`: the stripped generics (structural bounds only)
-/// - `type_name`: the struct name (e.g. `FooProps` or slot name)
+/// - `component_name`: used as prefix in trait names to avoid
+///   collisions
 /// - `props`: (name, type) pairs for each prop
 /// - `field_types`: all field types (for structural bounds check)
-pub(crate) fn generate_check_impls(
+pub(crate) fn generate_companion_checks(
     full_generics: &syn::Generics,
-    struct_generics: &syn::Generics,
-    type_name: &Ident,
+    component_name: &Ident,
     props: &[(&Ident, &Type)],
     field_types: &[&Type],
-) -> CheckImplTokens {
+) -> CompanionCheckTokens {
     if props.is_empty() {
-        return CheckImplTokens {
-            props_check_impl: quote! {},
-            non_generic_check_impl: quote! {},
-            generic_prop_impls: vec![],
+        return CompanionCheckTokens {
+            prop_traits: vec![],
+            check_methods: vec![],
         };
     }
-
-    let (impl_generics, generics, where_clause) =
-        full_generics.split_for_impl();
-    let (struct_impl_generics, _, struct_where_clause) =
-        struct_generics.split_for_impl();
-
-    let props_check_impl = quote! {
-        impl #impl_generics ::leptos::component::PropsCheck
-            for #type_name #generics
-            #where_clause
-        {
-            fn __check(self) -> Self { self }
-        }
-    };
 
     let stripped_params: Vec<&Ident> = full_generics
         .params
@@ -1716,11 +1751,25 @@ pub(crate) fn generate_check_impls(
         .filter(|ident| !param_needs_structural_bounds(ident, field_types))
         .collect();
 
-    let mut non_generic_check_fns: Vec<Ident> = vec![];
-    let mut generic_impls: Vec<TokenStream> = vec![];
+    let all_generic_idents: Vec<&Ident> = full_generics
+        .params
+        .iter()
+        .filter_map(|p| {
+            if let GenericParam::Type(tp) = p {
+                Some(&tp.ident)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut prop_traits = vec![];
+    let mut check_methods = vec![];
 
     for (prop_name, prop_ty) in props {
-        let check_fn = format_ident!("__check_{}", prop_name);
+        let name_str = prop_name.to_string();
+        let clean_name = name_str.strip_prefix("r#").unwrap_or(&name_str);
+        let check_fn = format_ident!("__check_{}", clean_name);
 
         let stripped_param = stripped_params
             .iter()
@@ -1729,58 +1778,164 @@ pub(crate) fn generate_check_impls(
         if let Some(param_ident) = stripped_param {
             let param_predicates =
                 collect_predicates_for_param(full_generics, param_ident);
-            let combined_where = if param_predicates.is_empty() {
-                quote! { #struct_where_clause }
-            } else if let Some(swc) = &struct_where_clause {
-                quote! {
-                    #swc, #(#param_predicates),*
-                }
-            } else {
-                quote! {
-                    where #(#param_predicates),*
-                }
-            };
 
-            generic_impls.push(quote! {
-                impl #struct_impl_generics
-                    #type_name #generics
-                    #combined_where
-                {
+            if param_predicates.is_empty() {
+                // No bounds at all — identity check
+                check_methods.push(quote! {
                     #[doc(hidden)]
                     #[allow(non_snake_case)]
-                    pub fn #check_fn(self) -> Self {
-                        self
+                    pub fn #check_fn<__T>(val: __T) -> __T {
+                        val
                     }
+                });
+            } else {
+                let is_single_param = !bounds_reference_other_params(
+                    &param_predicates,
+                    param_ident,
+                    &all_generic_idents,
+                );
+
+                if is_single_param {
+                    // Single-param: custom trait with
+                    // on_unimplemented.
+                    let trait_name = format_ident!(
+                        "__{}_PropBound_{}",
+                        component_name,
+                        clean_name
+                    );
+                    let bounds = predicates_to_bounds(&param_predicates);
+                    let bounds_note = bounds.to_string();
+                    let message = format!(
+                        "`{{Self}}` is not a valid type for prop \
+                         `{clean_name}` on component `{component_name}`",
+                    );
+                    let note = format!("required: `{bounds_note}`");
+
+                    prop_traits.push(quote! {
+                        #[doc(hidden)]
+                        #[diagnostic::on_unimplemented(
+                            message = #message,
+                            note = #note
+                        )]
+                        #[allow(non_camel_case_types)]
+                        pub trait #trait_name: #bounds {}
+                        impl<__T: #bounds> #trait_name
+                            for __T
+                        {
+                        }
+                    });
+
+                    check_methods.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_snake_case)]
+                        pub fn #check_fn<
+                            __T: #trait_name,
+                        >(
+                            val: __T,
+                        ) -> __T {
+                            val
+                        }
+                    });
+                } else {
+                    // Multi-param: identity (bounds reference
+                    // other generic params, can't isolate)
+                    check_methods.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_snake_case)]
+                        pub fn #check_fn<__T>(
+                            val: __T,
+                        ) -> __T {
+                            val
+                        }
+                    });
+                }
+            }
+        } else {
+            // Concrete type — identity check
+            check_methods.push(quote! {
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub fn #check_fn<__T>(val: __T) -> __T {
+                    val
                 }
             });
-        } else {
-            non_generic_check_fns.push(check_fn);
         }
     }
 
-    let non_generic_check_impl = if non_generic_check_fns.is_empty() {
-        quote! {}
-    } else {
-        quote! {
-            impl #struct_impl_generics
-                #type_name #generics
-                #struct_where_clause
-            {
-                #(
-                    #[doc(hidden)]
-                    #[allow(non_snake_case)]
-                    pub fn #non_generic_check_fns(self) -> Self {
-                        self
-                    }
-                )*
+    CompanionCheckTokens {
+        prop_traits,
+        check_methods,
+    }
+}
+
+/// Checks if any of the bounds in the given predicates reference
+/// generic params other than `self_ident`.
+fn bounds_reference_other_params(
+    predicates: &[WherePredicate],
+    self_ident: &Ident,
+    all_generic_idents: &[&Ident],
+) -> bool {
+    use syn::visit::Visit;
+
+    struct Finder<'a> {
+        targets: Vec<&'a Ident>,
+        found: bool,
+    }
+
+    impl<'ast> Visit<'ast> for Finder<'_> {
+        fn visit_path_segment(&mut self, segment: &'ast syn::PathSegment) {
+            if self.targets.iter().any(|t| segment.ident == **t) {
+                self.found = true;
             }
+            syn::visit::visit_path_segment(self, segment);
         }
+    }
+
+    let other_idents: Vec<&Ident> = all_generic_idents
+        .iter()
+        .filter(|i| **i != self_ident)
+        .copied()
+        .collect();
+
+    if other_idents.is_empty() {
+        return false;
+    }
+
+    let mut finder = Finder {
+        targets: other_idents,
+        found: false,
     };
 
-    CheckImplTokens {
-        props_check_impl,
-        non_generic_check_impl,
-        generic_prop_impls: generic_impls,
+    for pred in predicates {
+        if let WherePredicate::Type(pt) = pred {
+            for bound in &pt.bounds {
+                finder.visit_type_param_bound(bound);
+            }
+        }
+    }
+
+    finder.found
+}
+
+/// Extracts all type-param bounds from a list of where predicates
+/// and combines them with `+`.
+fn predicates_to_bounds(predicates: &[WherePredicate]) -> TokenStream {
+    let all_bounds: Vec<&syn::TypeParamBound> = predicates
+        .iter()
+        .filter_map(|pred| {
+            if let WherePredicate::Type(pt) = pred {
+                Some(pt.bounds.iter())
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect();
+
+    if all_bounds.is_empty() {
+        quote! {}
+    } else {
+        quote! { #(#all_bounds)+* }
     }
 }
 
@@ -1835,6 +1990,163 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
             eq_token: None,
             default: None,
         }));
+    }
+}
+
+/// The split output of `generate_required_check`.
+pub(crate) struct RequiredCheckTokens {
+    /// Marker trait definitions (with `on_unimplemented`) to be
+    /// placed at module scope.
+    pub marker_traits: TokenStream,
+    /// The `__check_missing` associated function to be placed
+    /// inside the companion struct (or slot struct) impl block.
+    pub check_required_method: TokenStream,
+}
+
+/// Generates marker traits and a `__check_missing` associated
+/// function. When any required field is missing (its type-state
+/// slot is `()`), the marker trait bound fails and the compiler
+/// emits E0277 with a custom `on_unimplemented` message.
+///
+/// - `component_name`: used as prefix in trait names to avoid
+///   collisions
+/// - `builder_name`: the builder struct name (e.g.
+///   `InnerPropsBuilder`)
+/// - `struct_generics`: the struct's generics with structural bounds
+///   only
+/// - `fields`: `(name, is_required)` for each non-skipped field in
+///   declaration order
+/// - `struct_params_on_impl`: if true, the struct's generic params
+///   are already on the containing impl block (slot case), so the
+///   method only includes type-state params. If false (component
+///   companion struct), the method includes all params.
+pub(crate) fn generate_required_check(
+    component_name: &Ident,
+    builder_name: &Ident,
+    struct_generics: &syn::Generics,
+    fields: &[(&Ident, bool)],
+    struct_params_on_impl: bool,
+) -> RequiredCheckTokens {
+    if fields.is_empty() {
+        return RequiredCheckTokens {
+            marker_traits: quote! {},
+            check_required_method: quote! {},
+        };
+    }
+
+    let (_, _, struct_where_clause) = struct_generics.split_for_impl();
+
+    // Collect struct generic params for the impl header (with
+    // bounds).
+    let struct_impl_params: Vec<&GenericParam> =
+        struct_generics.params.iter().collect();
+
+    // Collect struct generic args for type position (idents /
+    // lifetimes only, no bounds).
+    let struct_type_args: Vec<TokenStream> = struct_generics
+        .params
+        .iter()
+        .map(|p| match p {
+            GenericParam::Type(tp) => {
+                let i = &tp.ident;
+                quote! { #i }
+            }
+            GenericParam::Lifetime(lp) => {
+                let lt = &lp.lifetime;
+                quote! { #lt }
+            }
+            GenericParam::Const(cp) => {
+                let i = &cp.ident;
+                quote! { #i }
+            }
+        })
+        .collect();
+
+    let mut marker_traits = vec![];
+    let mut type_state_params = vec![];
+    let mut type_state_idents = vec![];
+    let mut required_where_bounds = vec![];
+
+    for (i, (name, required)) in fields.iter().enumerate() {
+        let param = format_ident!("__F{}", i);
+        type_state_idents.push(param.clone());
+
+        if *required {
+            // Strip r# prefix for the trait name.
+            let name_str = name.to_string();
+            let clean_name = name_str.strip_prefix("r#").unwrap_or(&name_str);
+            let trait_name = Ident::new(
+                &format!("__required_{component_name}_{clean_name}"),
+                Span::call_site(),
+            );
+
+            let message = format!(
+                "missing required prop `{clean_name}` on component \
+                 `{component_name}`"
+            );
+
+            marker_traits.push(quote! {
+                #[doc(hidden)]
+                #[diagnostic::on_unimplemented(
+                    message = #message
+                )]
+                #[allow(non_camel_case_types)]
+                pub trait #trait_name {}
+                impl<__T> #trait_name for (__T,) {}
+            });
+
+            type_state_params.push(quote! { #param: #trait_name });
+            required_where_bounds.push(quote! { #param: #trait_name });
+        } else {
+            type_state_params.push(quote! { #param });
+        }
+    }
+
+    let builder_type_args = if struct_type_args.is_empty() {
+        quote! { (#(#type_state_idents,)*) }
+    } else {
+        quote! { #(#struct_type_args,)* (#(#type_state_idents,)*) }
+    };
+
+    let check_required_method = if struct_params_on_impl {
+        // Slots: struct params are on the enclosing impl block,
+        // method only needs type-state params.
+        let method_params = quote! { #(#type_state_params),* };
+
+        quote! {
+            #[doc(hidden)]
+            pub fn __check_missing<#method_params>(
+                builder: #builder_name<#builder_type_args>,
+            ) -> #builder_name<#builder_type_args>
+            { builder }
+        }
+    } else {
+        // Components: generate a standalone impl block on the
+        // PropsBuilder. Required bounds go on the IMPL block
+        // so when a required prop is missing, E0599 fires
+        // (method not found) → expression is `{error}` which
+        // absorbs the downstream `build()` errors.
+        let impl_params = if struct_impl_params.is_empty() {
+            quote! { #(#type_state_params),* }
+        } else {
+            quote! { #(#struct_impl_params,)* #(#type_state_params),* }
+        };
+
+        quote! {
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            impl<#impl_params> #builder_name<#builder_type_args>
+            #struct_where_clause
+            {
+                pub fn __check_missing(self) -> Self
+                { self }
+            }
+        }
+    };
+
+    RequiredCheckTokens {
+        marker_traits: quote! { #(#marker_traits)* },
+        check_required_method,
     }
 }
 

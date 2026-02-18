@@ -1,11 +1,12 @@
 use crate::component::{
     collect_phantom_type_params, convert_from_snake_case, drain_filter,
-    generate_check_impls, generate_phantom_field, is_option,
-    strip_non_structural_bounds, unwrap_option, CheckImplTokens, Docs,
+    generate_companion_checks, generate_phantom_field, generate_required_check,
+    is_option, strip_non_structural_bounds, unwrap_option,
+    CompanionCheckTokens, Docs, RequiredCheckTokens,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, Field, ItemStruct, LitStr, Meta, Type,
     Visibility,
@@ -68,6 +69,8 @@ impl ToTokens for Model {
         } = self;
 
         let (_, generics, _) = body.generics.split_for_impl();
+        let (original_impl_generics, _, original_where_clause) =
+            body.generics.split_for_impl();
 
         let original_generics = &body.generics;
 
@@ -90,16 +93,36 @@ impl ToTokens for Model {
 
         let prop_pairs: Vec<(&Ident, &Type)> =
             props.iter().map(|p| (&p.name, &p.ty)).collect();
-        let CheckImplTokens {
-            props_check_impl,
-            non_generic_check_impl,
-            generic_prop_impls,
-        } = generate_check_impls(
+        let CompanionCheckTokens {
+            prop_traits,
+            check_methods,
+        } = generate_companion_checks(
             original_generics,
-            &struct_generics,
             name,
             &prop_pairs,
             &field_types,
+        );
+
+        let slot_builder_name = format_ident!("{}Builder", name);
+        let required_fields: Vec<(&Ident, bool)> = props
+            .iter()
+            .map(|p| {
+                let required = !p.prop_opts.optional
+                    && !p.prop_opts.optional_no_strip
+                    && !p.prop_opts.attrs
+                    && p.prop_opts.default.is_none();
+                (&p.name, required)
+            })
+            .collect();
+        let RequiredCheckTokens {
+            marker_traits,
+            check_required_method,
+        } = generate_required_check(
+            name,
+            &slot_builder_name,
+            &struct_generics,
+            &required_fields,
+            true,
         );
 
         let output = quote! {
@@ -120,23 +143,26 @@ impl ToTokens for Model {
                 }
             }
 
-            #props_check_impl
-            #non_generic_check_impl
-            #(#generic_prop_impls)*
+            #(#prop_traits)*
+            #marker_traits
 
-            /*impl #impl_generics ::leptos::Props for #name #generics #where_clause {
-                type Builder = #builder_name #generics;
-                fn builder() -> Self::Builder {
-                    #name::builder()
-                }
+            impl #struct_impl_generics #name #generics #struct_where_clause {
+                #(#check_methods)*
+                #check_required_method
             }
 
-            impl #impl_generics ::leptos::DynAttrs for #name #generics #where_clause {
-                fn dyn_attrs(mut self, v: Vec<(&'static str, ::leptos::Attribute)>) -> Self {
-                    #dyn_attrs_props
+            // __finalize: conditional inherent impl with ALL original
+            // bounds. When any behavioral bound fails, the method
+            // isn't found (E0599), making the expression `{error}`
+            // which absorbs downstream errors.
+            #[doc(hidden)]
+            impl #original_impl_generics #name #generics
+                #original_where_clause
+            {
+                pub fn __finalize(self) -> Self {
                     self
                 }
-            }*/
+            }
         };
 
         tokens.append_all(output)

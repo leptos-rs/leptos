@@ -17,20 +17,16 @@ pub trait PropsOrNoPropsBuilder {
     fn builder_or_not() -> Self::Builder;
 }
 
-/// Compile-time validation trait for component props.
-///
-/// The `__check()` method is conditionally available only when generic
-/// bounds are satisfied, causing the compiler to emit E0599 errors
-/// pointing to the component invocation site when a type mismatch
-/// occurs.
+/// Placeholder props type for components that take no arguments.
 #[doc(hidden)]
-pub trait PropsCheck: Sized {
-    fn __check(self) -> Self;
-}
+#[derive(Copy, Clone, Debug, Default)]
+pub struct NoProps;
 
-/// Fallback for components with no props.
-impl PropsCheck for () {
-    fn __check(self) -> Self {}
+impl NoProps {
+    /// Identity finalize — always succeeds for no-props components.
+    pub fn __finalize(self) -> Self {
+        self
+    }
 }
 
 #[doc(hidden)]
@@ -38,7 +34,13 @@ impl PropsCheck for () {
 pub struct EmptyPropsBuilder {}
 
 impl EmptyPropsBuilder {
-    pub fn build(self) {}
+    pub fn build(self) -> NoProps {
+        NoProps
+    }
+
+    pub fn __check_missing(self) -> Self {
+        self
+    }
 }
 
 impl<P: Props> PropsOrNoPropsBuilder for P {
@@ -79,11 +81,11 @@ pub trait ComponentConstructor<P, T> {
     fn construct(self, props: P) -> T;
 }
 
-impl<Func, T> ComponentConstructor<(), T> for Func
+impl<Func, T> ComponentConstructor<NoProps, T> for Func
 where
     Func: FnOnce() -> T,
 {
-    fn construct(self, (): ()) -> T {
+    fn construct(self, _: NoProps) -> T {
         (self)()
     }
 }

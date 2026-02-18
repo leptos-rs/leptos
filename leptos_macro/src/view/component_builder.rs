@@ -10,7 +10,7 @@ use crate::view::{
     attribute_absolute, text_to_tokens,
     utils::{filter_prefixed_attrs, key_value_span},
 };
-use proc_macro2::{Ident, TokenStream, TokenTree};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
     CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
@@ -29,6 +29,13 @@ pub(crate) fn component_to_tokens(
     #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
     let component_name = super::ident_from_tag_name(node.name());
+
+    // Capture component name tokens and span before mutable borrows
+    let name_span = node.name().span();
+    let component_path: TokenStream = {
+        let n = node.name();
+        quote! { #n }
+    };
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
@@ -69,9 +76,23 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let mut required_props = vec![];
+    // Collect pre-check info and builder setter info.
+    //
+    // For each non-optional prop we:
+    // 1. Pre-check the value via companion struct method (E0277
+    //    with custom `on_unimplemented` for bounded generic props)
+    // 2. Pass the checked value to the builder setter
+    // 3. After build, call __finalize() on props (E0599 →
+    //    `{error}` absorbs downstream errors from component_view)
+    let mut pre_check_info: Vec<(
+        Ident,       // check_fn ident with check_span
+        Ident,       // checked_var ident with check_span
+        TokenStream, // value expression
+        Span,        // check_span (value's span)
+        Ident,       // setter_name (with value span for into props)
+        Span,        // key_value_span (for builder setter)
+    )> = vec![];
     let mut optional_props = vec![];
-    let mut prop_check_info: Vec<(Ident, proc_macro2::Span)> = vec![];
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
         idx < &spread_marker && {
             let attr_key = attr.key.to_string();
@@ -116,12 +137,24 @@ pub(crate) fn component_to_tokens(
                 props.#setter_name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            required_props.push(quote_spanned! {key_value_span=>
-                let __props_builder = __props_builder.#setter_name(#[allow(unused_braces)] { #value });
-            })
-        }
+            let (check_fn, check_span) = attr_check_info(attr);
+            let check_fn_name_str = check_fn.to_string();
+            let clean_prop = check_fn_name_str
+                .strip_prefix("__check_")
+                .unwrap_or(&check_fn_name_str);
+            let checked_var =
+                Ident::new(&format!("__checked_{clean_prop}"), check_span);
+            let check_fn_spanned = Ident::new(&check_fn_name_str, check_span);
 
-        prop_check_info.push(attr_check_info(attr));
+            pre_check_info.push((
+                check_fn_spanned,
+                checked_var,
+                value,
+                check_span,
+                setter_name,
+                key_value_span,
+            ));
+        }
     }
 
     // Drop the mutable reference to the node, go to an owned clone:
@@ -212,99 +245,68 @@ pub(crate) fn component_to_tokens(
         }
     });
 
-    /*let directives = attrs
-        .clone()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("use:")
-                .map(|ident| directive_call_from_attribute_node(attr, ident))
-        })
-        .collect::<Vec<_>>();
-
-    let events_and_directives =
-        events.into_iter().chain(directives).collect::<Vec<_>>(); */
-
-    let name_span = node.name().span();
-
     // Compute children span once, used for both the children arg
-    // and the per-prop check info.
+    // and the pre-check.
     let children_span = children_span(&node.children, name_span);
 
     let mut slots = HashMap::new();
-    let children = if node.children.is_empty() {
-        quote! {}
+    // Extract children arg expression (without builder call wrapper)
+    let children_arg: Option<TokenStream> = if node.children.is_empty() {
+        None
+    } else if let Some(children_arg) = maybe_optimised_component_children(
+        &node.children,
+        &items_to_bind,
+        &items_to_clone,
+    ) {
+        Some(children_arg)
     } else {
-        if let Some(children_fragment) = maybe_optimised_component_children(
-            &node.children,
-            &items_to_bind,
-            &items_to_clone,
-            name_span,
-        ) {
-            children_fragment
-        } else {
-            let children = fragment_to_tokens(
-                &mut node.children,
-                TagType::Unknown,
-                Some(&mut slots),
-                global_class,
-                None,
-                disable_inert_html,
-            );
+        let children = fragment_to_tokens(
+            &mut node.children,
+            TagType::Unknown,
+            Some(&mut slots),
+            global_class,
+            None,
+            disable_inert_html,
+        );
 
-            // TODO view marker for hot-reloading
-            /*
-            cfg_if::cfg_if! {
-                if #[cfg(debug_assertions)] {
-                    let marker = format!("<{component_name}/>-children");
-                    // For some reason spanning for `.children` breaks, unless `#view_marker`
-                    // is also covered by `children.span()`.
-                    let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
-                } else {
-                    let view_marker = quote! {};
-                }
-            }
-            */
+        if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
 
-            if let Some(children) = children {
-                let bindables =
-                    items_to_bind.iter().map(|ident| quote! { #ident, });
+            let clonables = items_to_clone_to_tokens(&items_to_clone);
 
-                let clonables = items_to_clone_to_tokens(&items_to_clone);
+            if bindables.len() > 0 {
+                Some(quote_spanned! {children_span=>
+                    {
+                        #(#clonables)*
 
-                if bindables.len() > 0 {
-                    let children_arg = quote_spanned! {children_span=>
-                        {
-                            #(#clonables)*
-
-                            move |#(#bindables)*| #children
-                        }
-                    };
-                    quote_spanned! {name_span=>
-                        let __props_builder = __props_builder.children(#children_arg);
+                        move |#(#bindables)*| #children
                     }
-                } else {
-                    let children_arg = quote_spanned! {children_span=>
-                        {
-                            #(#clonables)*
-
-                            ::leptos::children::ToChildren::to_children(move || #children)
-                        }
-                    };
-                    quote_spanned! {name_span=>
-                        let __props_builder = __props_builder.children(#children_arg);
-                    }
-                }
+                })
             } else {
-                quote! {}
+                Some(quote_spanned! {children_span=>
+                    {
+                        #(#clonables)*
+
+                        ::leptos::children::ToChildren::to_children(move || #children)
+                    }
+                })
             }
+        } else {
+            None
         }
     };
 
-    if !children.is_empty() {
-        prop_check_info
-            .push((format_ident!("__check_children"), children_span));
-    }
+    // Generate children builder call (no checker needed —
+    // children are always concrete types).
+    let children_builder_call = if let Some(ref arg) = children_arg {
+        quote_spanned! {children_span=>
+            #[allow(unused_braces)]
+            let __props_builder = __props_builder.children({ #arg });
+        }
+    } else {
+        quote! {}
+    };
 
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
@@ -334,11 +336,32 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
-    let name = node.name();
+    // Pre-check calls via companion struct.
+    // For bounded generic props, E0277 fires with custom
+    // `on_unimplemented` message.
+    let pre_checks: Vec<TokenStream> = pre_check_info
+        .iter()
+        .map(|(check_fn, checked_var, value, span, _, _)| {
+            quote_spanned! {*span=>
+                let #checked_var = #component_path ::#check_fn(
+                    #[allow(unused_braces)] { #value }
+                );
+            }
+        })
+        .collect();
+
+    // Builder setter calls using pre-checked values.
+    let builder_setters: Vec<TokenStream> = pre_check_info
+        .iter()
+        .map(|(_, checked_var, _, _, setter_name, kv_span)| {
+            quote_spanned! {*kv_span=>
+                let __props_builder = __props_builder
+                    .#setter_name(#checked_var);
+            }
+        })
+        .collect();
 
     let props_ident = Ident::new("props", name_span);
-    let per_prop_check_calls =
-        generate_per_prop_check_calls(&prop_check_info, &props_ident);
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {name_span=>
@@ -348,17 +371,27 @@ pub(crate) fn component_to_tokens(
             #[allow(clippy::let_and_return)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
-                &#name,
+                &#component_path,
                 {
-                    use ::leptos::component::PropsCheck as _;
-                    let __props_builder = #name ::builder #generics ();
-                    #(#required_props)*
+                    // Pre-checks (E0277 with custom message
+                    // for bounded generic props)
+                    #(#pre_checks)*
+                    // Build props via companion struct
+                    let __props_builder =
+                        #component_path ::builder #generics ();
+                    #(#builder_setters)*
                     #(#slots)*
-                    #children
-                    let mut #props_ident = __props_builder.build();
+                    #children_builder_call
+                    let __props_builder =
+                        __props_builder.__check_missing();
+                    let mut #props_ident =
+                        __props_builder.build();
                     #(#optional_props)*
-                    #(#per_prop_check_calls)*
-                    #props_ident.__check()
+                    // Finalize: conditional impl with all
+                    // original bounds. E0599 when any bound
+                    // fails → {error} absorbs downstream
+                    // errors from component_view.
+                    #props_ident.__finalize()
                 }
             )
             #spreads
@@ -383,31 +416,6 @@ fn is_attr_let(key: &NodeName) -> bool {
     }
 }
 
-/// Generates the per-prop `.__check_<name>()` calls from collected
-/// `(check_fn_ident, span)` info, binding to the given `receiver`
-/// variable name (e.g. `"props"` or `"slot"`).
-///
-/// Check calls are generated for ALL props, not just generic ones.
-/// For non-generic (concrete) props, the check method is a no-op
-/// identity function that always compiles. For generic props, the
-/// method is conditionally available based on trait bounds, so
-/// calling it triggers an E0599 error when bounds aren't satisfied.
-/// The view macro cannot distinguish generic from concrete props,
-/// so it emits checks uniformly.
-pub fn generate_per_prop_check_calls(
-    info: &[(Ident, proc_macro2::Span)],
-    receiver: &Ident,
-) -> Vec<TokenStream> {
-    info.iter()
-        .map(|(check_fn, span)| {
-            let check_fn = Ident::new(&check_fn.to_string(), *span);
-            quote_spanned! {*span=>
-                let #receiver = #receiver.#check_fn();
-            }
-        })
-        .collect()
-}
-
 pub fn items_to_clone_to_tokens(
     items_to_clone: &[Ident],
 ) -> impl Iterator<Item = TokenStream> + '_ {
@@ -420,11 +428,13 @@ pub fn items_to_clone_to_tokens(
 /// By default all children are placed in an outer closure || #children.
 /// This is to work with all the variants of the leptos::children::ToChildren::to_children trait.
 /// Strings are optimised to be passed without the wrapping closure, providing significant compile time and binary size improvements.
+///
+/// Returns just the children arg expression (not the full builder
+/// call), or `None` if the children cannot be optimised.
 pub fn maybe_optimised_component_children(
     children: &[Node<impl CustomNode>],
     items_to_bind: &[TokenStream],
     items_to_clone: &[Ident],
-    method_span: proc_macro2::Span,
 ) -> Option<TokenStream> {
     // If there are bindables will have to be in a closure:
     if !items_to_bind.is_empty() {
@@ -463,7 +473,6 @@ pub fn maybe_optimised_component_children(
                 } else if let Some(stmt) = block.stmts.first() {
                     match stmt {
                         Stmt::Macro(mac) => {
-                            // eprintln!("Macro: {:?}", mac.mac.path);
                             if is_supported(&mac.mac) {
                                 quote! { #block }
                             } else {
@@ -471,7 +480,6 @@ pub fn maybe_optimised_component_children(
                             }
                         }
                         Stmt::Item(Item::Macro(mac)) => {
-                            // eprintln!("Item Macro: {:?}", mac.mac.path);
                             if is_supported(&mac.mac) {
                                 quote! { #block }
                             } else {
@@ -479,7 +487,6 @@ pub fn maybe_optimised_component_children(
                             }
                         }
                         Stmt::Expr(Expr::Macro(mac), _) => {
-                            // eprintln!("Expr Macro: {:?}", mac.mac.path);
                             if is_supported(&mac.mac) {
                                 quote! { #block }
                             } else {
@@ -498,17 +505,8 @@ pub fn maybe_optimised_component_children(
         return None;
     };
 
-    // // Debug check to see how many use this optimisation:
-    // static COUNT: std::sync::atomic::AtomicUsize =
-    //     std::sync::atomic::AtomicUsize::new(0);
-    // COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    // eprintln!(
-    //     "Optimised children: {}",
-    //     COUNT.load(std::sync::atomic::Ordering::Relaxed)
-    // );
-
     let clonables = items_to_clone_to_tokens(items_to_clone);
-    let children_arg = quote_spanned! {children.span()=>
+    Some(quote_spanned! {children.span()=>
         {
             #(#clonables)*
 
@@ -516,8 +514,5 @@ pub fn maybe_optimised_component_children(
                 ::leptos::children::ChildrenOptContainer(#children),
             )
         }
-    };
-    Some(quote_spanned! {method_span=>
-        let __props_builder = __props_builder.children(#children_arg);
     })
 }

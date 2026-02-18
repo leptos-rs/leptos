@@ -1,13 +1,11 @@
 use super::{
-    component_builder::{
-        generate_per_prop_check_calls, maybe_optimised_component_children,
-    },
+    component_builder::maybe_optimised_component_children,
     convert_to_snake_case, full_path_from_tag_name,
     utils::{attr_check_info, children_span},
 };
 use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
-use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -54,8 +52,15 @@ pub(crate) fn slot_to_tokens(
         .cloned()
         .collect::<Vec<_>>();
 
-    let mut prop_check_info: Vec<(Ident, proc_macro2::Span)> = vec![];
-    let props: Vec<TokenStream> = attrs
+    // Collect pre-check info and builder setter info
+    let mut pre_check_info: Vec<(
+        Ident,       // check_fn ident with check_span
+        Ident,       // checked_var ident with check_span
+        TokenStream, // value expression
+        Span,        // check_span
+    )> = vec![];
+    let mut builder_setters: Vec<TokenStream> = vec![];
+    let props_with_checks: Vec<TokenStream> = attrs
         .iter()
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
@@ -63,22 +68,40 @@ pub(crate) fn slot_to_tokens(
                 && !attr.key.to_string().starts_with("attr:")
         })
         .map(|attr| {
-            let name = &attr.key;
+            let attr_name = &attr.key;
 
             let value = attr
                 .value()
                 .map(|v| {
                     quote! { #v }
                 })
-                .unwrap_or_else(|| quote! { #name });
+                .unwrap_or_else(|| quote! { #attr_name });
 
-            prop_check_info.push(attr_check_info(attr));
+            let (check_fn, check_span) = attr_check_info(attr);
+            let check_fn_name_str = check_fn.to_string();
+            let clean_prop = check_fn_name_str
+                .strip_prefix("__check_")
+                .unwrap_or(&check_fn_name_str);
+            let checked_var = Ident::new(
+                &format!("__checked_{clean_prop}"),
+                check_span,
+            );
+            let check_fn_spanned =
+                Ident::new(&check_fn_name_str, check_span);
+
+            pre_check_info.push((
+                check_fn_spanned,
+                checked_var.clone(),
+                value,
+                check_span,
+            ));
 
             quote! {
-                let __props_builder = __props_builder.#name(#[allow(unused_braces)] { #value });
+                let __props_builder = __props_builder.#attr_name(#[allow(unused_braces)] #checked_var);
             }
         })
         .collect();
+    builder_setters = props_with_checks;
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
         .into_iter()
@@ -107,19 +130,20 @@ pub(crate) fn slot_to_tokens(
     };
 
     // Compute children span once, used for both the children arg
-    // and the per-prop check info.
-    let children_span = children_span(&node.children, node.name().span());
+    // and the pre-check.
+    let name_span = node.name().span();
+    let children_span = children_span(&node.children, name_span);
 
     let mut slots = HashMap::new();
-    let children = if node.children.is_empty() {
-        quote! {}
-    } else if let Some(children) = maybe_optimised_component_children(
+    // Extract children arg expression (without builder call wrapper)
+    let children_arg: Option<TokenStream> = if node.children.is_empty() {
+        None
+    } else if let Some(children_arg) = maybe_optimised_component_children(
         &node.children,
         &items_to_bind,
         &items_to_clone,
-        node.name().span(),
     ) {
-        children
+        Some(children_arg)
     } else {
         let children = fragment_to_tokens(
             &mut node.children,
@@ -129,21 +153,6 @@ pub(crate) fn slot_to_tokens(
             None,
             disable_inert_html,
         );
-
-        // TODO view markers for hot-reloading
-        /*
-         cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                // For some reason spanning for `.children` breaks, unless `#view_marker`
-                // is also covered by `children.span()`.
-                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-        */
-        let view_marker = quote! {};
 
         if let Some(children) = children {
             let bindables =
@@ -155,33 +164,41 @@ pub(crate) fn slot_to_tokens(
                 }
             });
 
-            let name_span = node.name().span();
             if bindables.len() > 0 {
-                let children_arg = quote_spanned! {children_span=>
+                Some(quote_spanned! {children_span=>
                     {
                         #(#clonables)*
 
-                        move |#(#bindables)*| #children #view_marker
+                        move |#(#bindables)*| #children
                     }
-                };
-                quote_spanned! {name_span=>
-                    let __props_builder = __props_builder.children(#children_arg);
-                }
+                })
             } else {
-                let children_arg = quote_spanned! {children_span=>
+                Some(quote_spanned! {children_span=>
                     {
                         #(#clonables)*
 
-                        ::leptos::children::ToChildren::to_children(move || #children #view_marker)
+                        ::leptos::children::ToChildren::to_children(move || #children)
                     }
-                };
-                quote_spanned! {name_span=>
-                    let __props_builder = __props_builder.children(#children_arg);
-                }
+                })
             }
         } else {
-            quote! {}
+            None
         }
+    };
+
+    // Generate children pre-check and builder call
+    let (children_pre_check, children_builder_call) = if let Some(ref arg) =
+        children_arg
+    {
+        let pre_check = quote_spanned! {children_span=>
+            let __checked_children = #component_path ::__check_children(#arg);
+        };
+        let builder_call = quote_spanned! {name_span=>
+            let __props_builder = __props_builder.children(__checked_children);
+        };
+        (pre_check, builder_call)
+    } else {
+        (quote! {}, quote! {})
     };
 
     let slots = slots.drain().map(|(slot, mut values)| {
@@ -205,14 +222,17 @@ pub(crate) fn slot_to_tokens(
         }
     });
 
-    if !children.is_empty() {
-        prop_check_info
-            .push((format_ident!("__check_children"), children_span));
-    }
-
-    let slot_ident = Ident::new("slot", node.name().span());
-    let per_prop_check_calls =
-        generate_per_prop_check_calls(&prop_check_info, &slot_ident);
+    // Generate pre-check calls using slot struct
+    let pre_checks: Vec<TokenStream> = pre_check_info
+        .iter()
+        .map(|(check_fn, checked_var, value, span)| {
+            quote_spanned! {*span=>
+                let #checked_var = #component_path ::#check_fn(
+                    #[allow(unused_braces)] { #value }
+                );
+            }
+        })
+        .collect();
 
     let build = quote_spanned! {node.name().span()=>
         .build()
@@ -220,14 +240,15 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
-            use ::leptos::component::PropsCheck as _;
+            #(#pre_checks)*
+            #children_pre_check
             let __props_builder = #component_path::builder();
-            #(#props)*
+            #(#builder_setters)*
             #(#slots)*
-            #children
+            #children_builder_call
+            let __props_builder = #component_path ::__check_missing(__props_builder);
             let slot = __props_builder #build;
-            #(#per_prop_check_calls)*
-            let slot = slot.__check();
+            let slot = slot.__finalize();
             let slot = slot #dyn_attrs;
 
             #[allow(unreachable_code, clippy::useless_conversion)]

@@ -1,11 +1,40 @@
-error[E0599]: the method `__check_generic_fun` exists for struct `HelloSlot<bool>`, but its trait bounds were not satisfied
+error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `HelloSlot`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
- 7 | #[slot]
-   | ------- method `__check_generic_fun` not found for this struct
-...
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |                                                         ^^^^ method cannot be called on `HelloSlot<bool>` due to unsatisfied trait bounds
+   |              -------------------------------------------^^^^
+   |              |                                          |
+   |              |                                          the trait `Fn()` is not implemented for `bool`
+   |              required by a bound introduced by this call
+   |
+   = note: required: `Fn() -> bool`
+note: required for `bool` to implement `__HelloSlot_PropBound_generic_fun`
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
+   |
+ 7 | #[slot]
+   | ^^^^^^^
+ 8 | struct HelloSlot<F: Fn() -> bool> {
+   |        ^^^^^^^^^    ------------ unsatisfied trait bound introduced here
+note: required by a bound in `HelloSlot::<F>::__check_generic_fun`
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:8
+   |
+ 7 | #[slot]
+   | ------- required by a bound in this associated function
+ 8 | struct HelloSlot<F: Fn() -> bool> {
+   |        ^^^^^^^^^ required by this bound in `HelloSlot::<F>::__check_generic_fun`
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `__finalize` exists for struct `HelloSlot<bool>`, but its trait bounds were not satisfied
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:27:13
+   |
+ 7 |   #[slot]
+   |   ------- method `__finalize` not found for this struct
+...
+27 |               <HelloSlot slot concrete_i32=42 generic_fun=true>
+   |  _____________^
+28 | |                 "Hello, World!"
+29 | |             </HelloSlot>
+   | |________________________^ method cannot be called on `HelloSlot<bool>` due to unsatisfied trait bounds
    |
 note: the following trait bounds were not satisfied:
       `bool: Fn<()>`

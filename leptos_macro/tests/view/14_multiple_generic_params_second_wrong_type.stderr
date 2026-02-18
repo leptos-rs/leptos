@@ -1,19 +1,5 @@
-error[E0599]: the method `__check_fun_b` exists for struct `InnerProps<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:26: 11:28}, {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}>`, but its trait bounds were not satisfied
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40
+error[E0308]: mismatched types
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:43
    |
 11 |             <Inner fun_a=|| true fun_b=|| true/>
-   |                                        --^^^^^
-   |                                        |
-   |                                        doesn't satisfy `<_ as FnOnce<()>>::Output = i32`
-...
-16 | #[component]
-   | ------------ method `__check_fun_b` not found for this struct
-   |
-note: trait bound `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32` was not satisfied
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:16
-   |
-16 | #[component]
-   | ------------
-...
-20 |     G: Fn() -> i32,
-   |                ^^^ unsatisfied trait bound introduced here
+   |                                           ^^^^ expected `i32`, found `bool`
