@@ -521,7 +521,6 @@ pub(crate) fn generate_module_checks(
                 // blanket pass impl (bounded on check)
                 check_trait_impls.push(quote! {
                     #[doc(hidden)]
-                    #[diagnostic::do_not_recommend]
                     impl<__T: #bounds>
                         #module_name::#check_trait_name for __T
                     {
@@ -529,7 +528,6 @@ pub(crate) fn generate_module_checks(
                     }
 
                     #[doc(hidden)]
-                    #[diagnostic::do_not_recommend]
                     impl<__T: #module_name::#check_trait_name>
                         #module_name::#pass_trait_name for __T
                     {
@@ -639,14 +637,12 @@ pub(crate) fn generate_module_required_check(
                 }
             },
             check_all_required_impl: quote! {
-                #[diagnostic::do_not_recommend]
                 impl<__T>
                     #module_name::__CheckAllRequired for __T
                 {
                 }
             },
             check_missing_impl: quote! {
-                #[diagnostic::do_not_recommend]
                 impl<__T>
                     #module_name::__CheckMissing for __T
                 {
@@ -738,7 +734,6 @@ pub(crate) fn generate_module_required_check(
     let check_all_required_impl = quote! {
         #[doc(hidden)]
         #[allow(non_snake_case)]
-        #[diagnostic::do_not_recommend]
         impl<#impl_params>
             #module_name::__CheckAllRequired
             for #builder_name<#builder_type_args>
@@ -749,7 +744,6 @@ pub(crate) fn generate_module_required_check(
     let check_missing_impl = quote! {
         #[doc(hidden)]
         #[allow(non_snake_case)]
-        #[diagnostic::do_not_recommend]
         impl<#impl_params>
             #module_name::__CheckMissing
             for #builder_name<#builder_type_args>
