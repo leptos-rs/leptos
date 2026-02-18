@@ -69,8 +69,6 @@ impl ToTokens for Model {
         } = self;
 
         let (_, generics, _) = body.generics.split_for_impl();
-        let (original_impl_generics, _, original_where_clause) =
-            body.generics.split_for_impl();
 
         let original_generics = &body.generics;
 
@@ -120,9 +118,8 @@ impl ToTokens for Model {
         } = generate_required_check(
             name,
             &slot_builder_name,
-            &struct_generics,
+            original_generics,
             &required_fields,
-            true,
         );
 
         let output = quote! {
@@ -148,21 +145,9 @@ impl ToTokens for Model {
 
             impl #struct_impl_generics #name #generics #struct_where_clause {
                 #(#check_methods)*
-                #check_required_method
             }
 
-            // __finalize: conditional inherent impl with ALL original
-            // bounds. When any behavioral bound fails, the method
-            // isn't found (E0599), making the expression `{error}`
-            // which absorbs downstream errors.
-            #[doc(hidden)]
-            impl #original_impl_generics #name #generics
-                #original_where_clause
-            {
-                pub fn __finalize(self) -> Self {
-                    self
-                }
-            }
+            #check_required_method
         };
 
         tokens.append_all(output)

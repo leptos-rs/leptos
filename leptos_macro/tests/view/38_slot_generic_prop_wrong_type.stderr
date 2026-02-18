@@ -24,25 +24,22 @@ note: required by a bound in `HelloSlot::<F>::__check_generic_fun`
    |        ^^^^^^^^^ required by this bound in `HelloSlot::<F>::__check_generic_fun`
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__finalize` exists for struct `HelloSlot<bool>`, but its trait bounds were not satisfied
-  --> tests/view/38_slot_generic_prop_wrong_type.rs:27:13
+error[E0599]: the method `__pass` exists for struct `__HelloSlot_Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
- 7 |   #[slot]
-   |   ------- method `__finalize` not found for this struct
+ 7 | #[slot]
+   | ------- method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
 ...
-27 |               <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |  _____________^
-28 | |                 "Hello, World!"
-29 | |             </HelloSlot>
-   | |________________________^ method cannot be called on `HelloSlot<bool>` due to unsatisfied trait bounds
+27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
+   |                                                         ^^^^ method cannot be called on `__HelloSlot_Wrap_generic_fun<bool>` due to unsatisfied trait bounds
    |
-note: the following trait bounds were not satisfied:
-      `bool: Fn<()>`
-      `bool: FnOnce<()>`
-  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:21
+note: trait bound `bool: __HelloSlot_PropBound_generic_fun` was not satisfied
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:8
    |
+ 7 | #[slot]
+   | -------
  8 | struct HelloSlot<F: Fn() -> bool> {
-   |        -------------^^^^^^^^^^^^-
-   |                     |       |
-   |                     |       unsatisfied trait bound introduced here
-   |                     unsatisfied trait bound introduced here
+   |        ^^^^^^^^^ unsatisfied trait bound introduced here
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `__pass`, perhaps you need to implement it:
+           candidate #1: `leptos::prelude::__PropPass`

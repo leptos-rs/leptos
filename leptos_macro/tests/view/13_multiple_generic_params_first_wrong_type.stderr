@@ -27,25 +27,22 @@ note: required by a bound in `Inner::__check_fun_a`
    |    ^^^^^ required by this bound in `Inner::__check_fun_a`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__finalize` exists for struct `InnerProps<bool, {closure@$DIR/tests/view/13_multiple_generic_params_first_wrong_type.rs:11:37: 11:39}>`, but its trait bounds were not satisfied
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:14
+error[E0599]: the method `__pass` exists for struct `__Inner_Wrap_fun_a<bool>`, but its trait bounds were not satisfied
+  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:26
    |
 11 |             <Inner fun_a=true fun_b=|| 42/>
-   |              ^^^^^ method cannot be called due to unsatisfied trait bounds
+   |                          ^^^^ method cannot be called on `__Inner_Wrap_fun_a<bool>` due to unsatisfied trait bounds
 ...
 16 | #[component]
-   | ------------ method `__finalize` not found for this struct
+   | ------------ method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
    |
-note: the following trait bounds were not satisfied:
-      `bool: Fn<()>`
-      `bool: FnOnce<()>`
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:19:8
+note: trait bound `bool: __Inner_PropBound_fun_a` was not satisfied
+  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:17:4
    |
 16 | #[component]
    | ------------
-...
-19 |     F: Fn() -> bool,
-   |        ^^^^^^^^^^^^
-   |        |       |
-   |        |       unsatisfied trait bound introduced here
-   |        unsatisfied trait bound introduced here
+17 | fn Inner<F, G>(fun_a: F, fun_b: G) -> impl IntoView
+   |    ^^^^^ unsatisfied trait bound introduced here
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `__pass`, perhaps you need to implement it:
+           candidate #1: `leptos::prelude::__PropPass`

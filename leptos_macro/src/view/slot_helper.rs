@@ -1,9 +1,9 @@
 use super::{
-    component_builder::maybe_optimised_component_children,
+    component_builder::extract_children_arg,
     convert_to_snake_case, full_path_from_tag_name,
-    utils::{attr_check_info, children_span},
+    utils::{attr_check_idents, children_span, generate_pre_check_tokens},
 };
-use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
+use crate::view::utils::filter_prefixed_attrs;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
@@ -59,8 +59,7 @@ pub(crate) fn slot_to_tokens(
         TokenStream, // value expression
         Span,        // check_span
     )> = vec![];
-    let mut builder_setters: Vec<TokenStream> = vec![];
-    let props_with_checks: Vec<TokenStream> = attrs
+    let builder_setters: Vec<TokenStream> = attrs
         .iter()
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
@@ -77,17 +76,8 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #attr_name });
 
-            let (check_fn, check_span) = attr_check_info(attr);
-            let check_fn_name_str = check_fn.to_string();
-            let clean_prop = check_fn_name_str
-                .strip_prefix("__check_")
-                .unwrap_or(&check_fn_name_str);
-            let checked_var = Ident::new(
-                &format!("__checked_{clean_prop}"),
-                check_span,
-            );
-            let check_fn_spanned =
-                Ident::new(&check_fn_name_str, check_span);
+            let (check_fn_spanned, checked_var, check_span) =
+                attr_check_idents(attr);
 
             pre_check_info.push((
                 check_fn_spanned,
@@ -101,7 +91,6 @@ pub(crate) fn slot_to_tokens(
             }
         })
         .collect();
-    builder_setters = props_with_checks;
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
         .into_iter()
@@ -135,63 +124,23 @@ pub(crate) fn slot_to_tokens(
     let children_span = children_span(&node.children, name_span);
 
     let mut slots = HashMap::new();
-    // Extract children arg expression (without builder call wrapper)
-    let children_arg: Option<TokenStream> = if node.children.is_empty() {
-        None
-    } else if let Some(children_arg) = maybe_optimised_component_children(
-        &node.children,
+    let children_arg = extract_children_arg(
+        &mut node.children,
+        &mut slots,
         &items_to_bind,
         &items_to_clone,
-    ) {
-        Some(children_arg)
-    } else {
-        let children = fragment_to_tokens(
-            &mut node.children,
-            TagType::Unknown,
-            Some(&mut slots),
-            global_class,
-            None,
-            disable_inert_html,
-        );
-
-        if let Some(children) = children {
-            let bindables =
-                items_to_bind.iter().map(|ident| quote! { #ident, });
-
-            let clonables = items_to_clone.iter().map(|ident| {
-                quote_spanned! {ident.span()=>
-                    let #ident = ::core::clone::Clone::clone(&#ident);
-                }
-            });
-
-            if bindables.len() > 0 {
-                Some(quote_spanned! {children_span=>
-                    {
-                        #(#clonables)*
-
-                        move |#(#bindables)*| #children
-                    }
-                })
-            } else {
-                Some(quote_spanned! {children_span=>
-                    {
-                        #(#clonables)*
-
-                        ::leptos::children::ToChildren::to_children(move || #children)
-                    }
-                })
-            }
-        } else {
-            None
-        }
-    };
+        children_span,
+        global_class,
+        disable_inert_html,
+    );
 
     // Generate children pre-check and builder call
     let (children_pre_check, children_builder_call) = if let Some(ref arg) =
         children_arg
     {
+        let pass_ident = Ident::new("__pass", children_span);
         let pre_check = quote_spanned! {children_span=>
-            let __checked_children = #component_path ::__check_children(#arg);
+            let __checked_children = #component_path ::__check_children(#arg).#pass_ident();
         };
         let builder_call = quote_spanned! {name_span=>
             let __props_builder = __props_builder.children(__checked_children);
@@ -222,17 +171,11 @@ pub(crate) fn slot_to_tokens(
         }
     });
 
-    // Generate pre-check calls using slot struct
-    let pre_checks: Vec<TokenStream> = pre_check_info
-        .iter()
-        .map(|(check_fn, checked_var, value, span)| {
-            quote_spanned! {*span=>
-                let #checked_var = #component_path ::#check_fn(
-                    #[allow(unused_braces)] { #value }
-                );
-            }
-        })
-        .collect();
+    // Generate pre-check calls using slot struct.
+    // Chain .__pass() for {error} propagation on bound failure.
+    let component_path = quote! { #component_path };
+    let pre_checks =
+        generate_pre_check_tokens(&pre_check_info, &component_path);
 
     let build = quote_spanned! {node.name().span()=>
         .build()
@@ -240,15 +183,16 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
+            #[allow(unused_imports)]
+            use ::leptos::component::__PropPass as _;
             #(#pre_checks)*
             #children_pre_check
             let __props_builder = #component_path::builder();
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call
-            let __props_builder = #component_path ::__check_missing(__props_builder);
+            let __props_builder = __props_builder.__check_missing();
             let slot = __props_builder #build;
-            let slot = slot.__finalize();
             let slot = slot #dyn_attrs;
 
             #[allow(unreachable_code, clippy::useless_conversion)]

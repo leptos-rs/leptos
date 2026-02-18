@@ -1,5 +1,5 @@
-use proc_macro2::{Ident, Span};
-use quote::format_ident;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{format_ident, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};
 use syn::{spanned::Spanned, ExprPath};
 
@@ -52,26 +52,30 @@ pub fn is_nostrip_optional_and_update_key(key: &mut NodeName) -> bool {
     }
 }
 
-// struct AttrCheck {
-//     check_fn: Ident,
-//     span: Span,
-// }
-
-/// Computes the `(check_fn_ident, check_span)` pair for a prop
-/// attribute, used to generate per-prop `__check_*()` calls.
+/// Computes the `(clean_prop_name, check_span)` pair for a prop
+/// attribute, used to generate per-prop check calls.
 ///
-/// The check function name is `__check_{prop_name}` (with raw
-/// identifier prefix stripped). The span points to the value
-/// expression (or the key if there is no value).
-pub fn attr_check_info(attr: &KeyedAttribute) -> (Ident, Span) {
+/// The clean prop name has raw identifier prefix (`r#`) stripped.
+/// The span points to the value expression (or the key if there
+/// is no value).
+fn attr_check_info(attr: &KeyedAttribute) -> (String, Span) {
     let name = &attr.key;
-    let check_fn_name = name.to_string().replace("r#", "");
-    let check_fn = format_ident!("__check_{}", check_fn_name);
+    let clean_name = name.to_string().replace("r#", "");
     let check_span = attr
         .value()
         .map(|v| v.span())
         .unwrap_or_else(|| attr.key.span());
-    (check_fn, check_span)
+    (clean_name, check_span)
+}
+
+/// Computes the `(check_fn, checked_var, check_span)` triple for a
+/// prop attribute. Wraps `attr_check_info` with ident construction.
+pub fn attr_check_idents(attr: &KeyedAttribute) -> (Ident, Ident, Span) {
+    let (clean_prop, check_span) = attr_check_info(attr);
+    let check_fn = Ident::new(&format!("__check_{}", clean_prop), check_span);
+    let checked_var =
+        Ident::new(&format!("__checked_{clean_prop}"), check_span);
+    (check_fn, checked_var, check_span)
 }
 
 /// Computes a span covering all children of a node.
@@ -111,4 +115,26 @@ pub fn node_name_to_ident_with_span(name: &NodeName, span: Span) -> Ident {
     } else {
         Ident::new(&s, span)
     }
+}
+
+/// Generates the pre-check `let` statements that call companion
+/// struct check methods and chain `.__pass()` for `{error}`
+/// propagation.
+///
+/// Each entry is `(check_fn, checked_var, value, span)`.
+pub(crate) fn generate_pre_check_tokens(
+    checks: &[(Ident, Ident, TokenStream, Span)],
+    component_path: &TokenStream,
+) -> Vec<TokenStream> {
+    checks
+        .iter()
+        .map(|(check_fn, checked_var, value, span)| {
+            let pass_ident = Ident::new("__pass", *span);
+            quote_spanned! {*span=>
+                let #checked_var = #component_path ::#check_fn(
+                    #[allow(unused_braces)] { #value }
+                ).#pass_ident();
+            }
+        })
+        .collect()
 }
