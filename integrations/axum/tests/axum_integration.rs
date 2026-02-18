@@ -78,6 +78,22 @@ async fn fallback_with_context() -> anyhow::Result<()> {
             .get(HeaderName::from_static("cross-origin-embedder-policy")),
         Some(&HeaderValue::from_static("require-corp")),
     );
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    assert!(res.text().await?.contains("This is fallback rendering."));
     Ok(())
 }
 
@@ -409,8 +425,6 @@ async fn conf_with_context() -> anyhow::Result<()> {
         .send()
         .await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
-    // FIXME implement this
-    /*
     assert_eq!(
         res.headers()
             .get(HeaderName::from_static("cross-origin-opener-policy")),
@@ -421,7 +435,6 @@ async fn conf_with_context() -> anyhow::Result<()> {
             .get(HeaderName::from_static("cross-origin-embedder-policy")),
         Some(&HeaderValue::from_static("require-corp")),
     );
-    */
     assert!(res.text().await?.contains("This is fallback rendering."));
     Ok(())
 }

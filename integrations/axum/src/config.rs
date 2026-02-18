@@ -177,6 +177,40 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 }
 
+macro_rules! apply_common {
+    ($conf:expr, $router:expr, $error_handler:expr) => {{
+        let state = $conf.state.expect("a `state` should have been configured");
+        let router = $router;
+
+        #[cfg(feature = "default")]
+        let router = if $conf.serve_site_pkg {
+            let leptos_options = LeptosOptions::from_ref(&state);
+            if let Some(error_handler) = $error_handler.clone() {
+                router.route_service(
+                    &site_pkg_dir_service_route_path(&leptos_options),
+                    site_pkg_dir_service(&leptos_options)
+                        .fallback(error_handler),
+                )
+            } else {
+                router.route_service(
+                    &site_pkg_dir_service_route_path(&leptos_options),
+                    site_pkg_dir_service(&leptos_options),
+                )
+            }
+        } else {
+            router
+        };
+
+        let router = if let Some(error_handler) = $error_handler {
+            router.fallback_service(error_handler)
+        } else {
+            router
+        };
+
+        router.with_state(state)
+    }};
+}
+
 impl<APP, CX, SH, S, IV1, IV2> traits::RouterConfiguration<S>
     for RouterConfiguration<APP, CX, SH, S>
 where
@@ -210,7 +244,11 @@ where
                 move || shell(state.clone())
             });
 
-        self.apply_common(router)
+        let error_handler = self.error_handler.then(|| {
+            ErrorHandler::new_with_context(extra_cx, shell, state.clone())
+        });
+
+        apply_common!(self, router, error_handler)
     }
 }
 
@@ -242,50 +280,10 @@ where
             move || shell(state.clone())
         });
 
-        self.apply_common(router)
-    }
-}
+        let error_handler = self.error_handler.then(|| {
+            ErrorHandler::new_with_context(|| {}, shell, state.clone())
+        });
 
-impl<APP, CX, SH, S, IV> RouterConfiguration<APP, CX, SH, S>
-where
-    SH: Fn(S) -> IV + Clone + Copy + Send + Sync + 'static,
-    S: Clone + Send + Sync + 'static,
-    LeptosOptions: FromRef<S>,
-    IV: IntoView + 'static,
-{
-    fn apply_common(self, router: Router<S>) -> Router<()> {
-        let shell = self.shell.expect("a `shell` should have been configured");
-        let state = self.state.expect("a `state` should have been configured");
-
-        let error_handler = self
-            .error_handler
-            .then(|| ErrorHandler::new(shell, state.clone()));
-
-        #[cfg(feature = "default")]
-        let router = if self.serve_site_pkg {
-            let leptos_options = LeptosOptions::from_ref(&state);
-            if let Some(error_handler) = error_handler.clone() {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    site_pkg_dir_service(&leptos_options)
-                        .fallback(error_handler),
-                )
-            } else {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    site_pkg_dir_service(&leptos_options),
-                )
-            }
-        } else {
-            router
-        };
-
-        let router = if let Some(error_handler) = error_handler {
-            router.fallback_service(error_handler)
-        } else {
-            router
-        };
-
-        router.with_state(state)
+        apply_common!(self, router, error_handler)
     }
 }
