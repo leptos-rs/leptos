@@ -88,13 +88,18 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
-mod private {
+pub(crate) mod private {
+    use crate::RouterConfiguration;
+
     pub trait Sealed {}
 
     impl<S> Sealed for axum::Router<S> {}
+    impl<APP, CX, SH, S> Sealed for RouterConfiguration<APP, CX, SH, S> {}
 }
 
+mod config;
 mod service;
+pub use config::RouterConfiguration;
 pub use service::ErrorHandler;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -1838,6 +1843,11 @@ where
     where
         SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
         IV: IntoView + 'static;
+
+    /// With the provided [`RouterConfiguration`], add the routes and services to the Axum router.
+    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    where
+        C: config::traits::RouterConfiguration<S>;
 }
 
 trait AxumPath {
@@ -2126,6 +2136,17 @@ where
         let mut router = self;
         router = router.fallback_service(ErrorHandler::new(shell, options));
         router
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    where
+        C: config::traits::RouterConfiguration<S>,
+    {
+        conf.apply(self)
     }
 }
 
