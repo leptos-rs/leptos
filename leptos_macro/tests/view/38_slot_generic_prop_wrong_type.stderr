@@ -2,44 +2,37 @@ error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `He
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |              -------------------------------------------^^^^
-   |              |                                          |
-   |              |                                          the trait `Fn()` is not implemented for `bool`
-   |              required by a bound introduced by this call
+   |                                                         ^^^^ the trait `Fn()` is not implemented for `bool`
    |
    = note: required: `Fn() -> bool`
-note: required for `bool` to implement `__HelloSlot_PropBound_generic_fun`
+note: required for `bool` to implement `__Check_generic_fun`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
    |
  7 | #[slot]
    | ^^^^^^^
  8 | struct HelloSlot<F: Fn() -> bool> {
-   |        ^^^^^^^^^    ------------ unsatisfied trait bound introduced here
-note: required by a bound in `HelloSlot::<F>::__check_generic_fun`
-  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:8
-   |
- 7 | #[slot]
-   | ------- required by a bound in this associated function
- 8 | struct HelloSlot<F: Fn() -> bool> {
-   |        ^^^^^^^^^ required by this bound in `HelloSlot::<F>::__check_generic_fun`
+   |                     ------------ unsatisfied trait bound introduced here
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass` exists for struct `__HelloSlot_Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
+error[E0599]: `bool` is not a valid type for prop `generic_fun` on component `HelloSlot`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
- 7 | #[slot]
-   | ------- method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
-...
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
    |                                                         ^^^^
    |
-note: trait bound `bool: __HelloSlot_PropBound_generic_fun` was not satisfied
-  --> tests/view/38_slot_generic_prop_wrong_type.rs:8:8
+note: the following trait bounds were not satisfied:
+      `&bool: __Check_generic_fun`
+      `&mut bool: __Check_generic_fun`
+      `bool: __Check_generic_fun`
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
    |
  7 | #[slot]
-   | -------
- 8 | struct HelloSlot<F: Fn() -> bool> {
-   |        ^^^^^^^^^ unsatisfied trait bound introduced here
+   | ^^^^^^^
+   = note: required: `Fn() -> bool`
    = help: items from traits can only be used if the trait is implemented and in scope
-   = note: the following trait defines an item `__pass`, perhaps you need to implement it:
-           candidate #1: `leptos::component::__PropPass`
+note: `__Pass_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
+   |
+ 7 | #[slot]
+   | ^^^^^^^
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)

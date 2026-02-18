@@ -2,7 +2,7 @@ use super::{
     fragment_to_tokens,
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
-        generate_component_pass_imports, generate_component_pre_check_tokens,
+        generate_pass_imports, generate_pre_check_tokens,
         is_nostrip_optional_and_update_key, PropCheckInfo,
     },
     TagType,
@@ -140,19 +140,11 @@ pub(crate) fn component_to_tokens(
                 props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            let (check_fn, pass_trait, pass_method, checked_var, check_span) =
-                attr_check_idents(attr);
+            let idents = attr_check_idents(attr);
 
             let setter_name = quote! { #name };
             prop_infos.push((
-                PropCheckInfo {
-                    check_fn,
-                    pass_trait,
-                    pass_method,
-                    checked_var,
-                    value,
-                    check_span,
-                },
+                PropCheckInfo { idents, value },
                 setter_name,
                 key_value_span,
             ));
@@ -314,17 +306,16 @@ pub(crate) fn component_to_tokens(
         .into_iter()
         .map(|(info, setter_name, kv_span)| (info, (setter_name, kv_span)))
         .unzip();
-    let pass_imports =
-        generate_component_pass_imports(&check_infos, &module_import_path);
+    let pass_imports = generate_pass_imports(&check_infos, &module_import_path);
     let pre_checks =
-        generate_component_pre_check_tokens(&check_infos);
+        generate_pre_check_tokens(&check_infos, &module_import_path);
 
     // Builder setter calls using pre-checked values.
     let builder_setters: Vec<TokenStream> = check_infos
         .iter()
         .zip(setter_pairs.iter())
         .map(|(info, (setter_name, kv_span))| {
-            let checked_var = &info.checked_var;
+            let checked_var = &info.idents.checked_var;
             quote_spanned! {*kv_span=>
                 let __props_builder = __props_builder
                     .#setter_name(#checked_var);
@@ -342,8 +333,6 @@ pub(crate) fn component_to_tokens(
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {name_span=>
         {
-            // Import pass traits from companion module to enable
-            // method syntax for pre-checks.
             #(#pass_imports)*
             #[allow(unused_imports)]
             use #module_import_path::__CheckMissing as _;
@@ -354,12 +343,7 @@ pub(crate) fn component_to_tokens(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#component_path,
                 {
-                    // Pre-checks via pass-trait method calls.
-                    // For bounded generic props, E0599 fires with
-                    // custom on_unimplemented and the expression
-                    // type is {error}, suppressing downstream errors.
                     #(#pre_checks)*
-                    // Build props via companion module
                     let __props_builder =
                         #delinked_path ::__builder #generics ();
                     #(#builder_setters)*
@@ -537,7 +521,7 @@ pub(crate) fn extract_children_arg(
 
     let clonables = items_to_clone_to_tokens(items_to_clone);
 
-    if bindables.len() > 0 {
+    if !items_to_bind.is_empty() {
         Some(quote_spanned! {children_span=>
             {
                 #(#clonables)*

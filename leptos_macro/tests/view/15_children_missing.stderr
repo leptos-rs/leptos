@@ -33,7 +33,7 @@ error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<
   --> tests/view/15_children_missing.rs:10:14
    |
 10 |             <Inner concrete_i32=42 generic_fun=|| true>
-   |              ^^^^^ method cannot be called due to unsatisfied trait bounds
+   |              ^^^^^
 ...
 16 | #[component]
    | ------------ method `__check_missing` not found for this struct because it doesn't satisfy `_: __CheckMissing`

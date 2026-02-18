@@ -27,7 +27,7 @@ use syn::{
     punctuated::Pair::{End, Punctuated},
     spanned::Spanned,
     Expr::{self, Tuple},
-    ExprArray, ExprLit, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
+    ExprArray, ExprLit, ExprRange, Lit, LitStr, RangeLimits, Stmt,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1875,28 +1875,6 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             &tag_name.to_string().replace(['-', ':'], "_"),
             tag_name.span(),
         ),
-    }
-}
-
-pub(crate) fn full_path_from_tag_name(tag_name: &NodeName) -> Option<ExprPath> {
-    match tag_name {
-        NodeName::Path(path) => Some(path.clone()),
-        NodeName::Block(_) => {
-            let span = tag_name.span();
-            proc_macro_error2::emit_error!(
-                span,
-                "blocks not allowed in tag-name position"
-            );
-            None
-        }
-        _ => {
-            let span = tag_name.span();
-            proc_macro_error2::emit_error!(
-                span,
-                "punctuated names not allowed in slots"
-            );
-            None
-        }
     }
 }
 

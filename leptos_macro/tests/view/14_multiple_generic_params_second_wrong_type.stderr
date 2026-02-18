@@ -1,3 +1,21 @@
+error[E0271]: expected `{closure@14_multiple_generic_params_second_wrong_type.rs:11:40}` to return `i32`, but it returns `bool`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:43
+   |
+11 |             <Inner fun_a=|| true fun_b=|| true/>
+   |                                        -- ^^^^ expected `i32`, found `bool`
+   |                                        |
+   |                                        this closure
+   |
+note: required for `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}` to implement `__Check_fun_b`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^
+...
+20 |     G: Fn() -> i32,
+   |                --- unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0599]: the method `__pass_fun_b` exists for closure `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}`, but its trait bounds were not satisfied
   --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40
    |

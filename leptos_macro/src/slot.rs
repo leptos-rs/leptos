@@ -1,8 +1,13 @@
-use crate::component::{
-    collect_phantom_type_params, convert_from_snake_case, drain_filter,
-    generate_companion_checks, generate_phantom_field, generate_required_check,
-    is_option, strip_non_structural_bounds, unwrap_option,
-    CompanionCheckTokens, Docs, RequiredCheckTokens,
+use crate::{
+    component::{
+        convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
+    },
+    util::{
+        collect_phantom_type_params, generate_module_checks,
+        generate_module_required_check, generate_phantom_field,
+        strip_non_structural_bounds, ModuleCheckTokens,
+        ModuleRequiredCheckTokens,
+    },
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
@@ -73,10 +78,10 @@ impl ToTokens for Model {
         let original_generics = &body.generics;
 
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
-        let struct_generics =
+        let behavioral_bounds_stripped_generics =
             strip_non_structural_bounds(&body.generics, &field_types);
         let (struct_impl_generics, _, struct_where_clause) =
-            struct_generics.split_for_impl();
+            behavioral_bounds_stripped_generics.split_for_impl();
 
         let phantom_type_params =
             collect_phantom_type_params(&body.generics, &field_types);
@@ -89,13 +94,18 @@ impl ToTokens for Model {
             name.span(),
         );
 
+        // Module name for the companion module: prefixed with `__`
+        // to avoid namespace conflicts with the struct.
+        let module_name = format_ident!("__{}", name);
+
         let prop_pairs: Vec<(&Ident, &Type)> =
             props.iter().map(|p| (&p.name, &p.ty)).collect();
-        let CompanionCheckTokens {
-            prop_traits,
-            check_methods,
-        } = generate_companion_checks(
+        let ModuleCheckTokens {
+            module_check_traits,
+            check_trait_impls,
+        } = generate_module_checks(
             original_generics,
+            &module_name,
             name,
             &prop_pairs,
             &field_types,
@@ -112,16 +122,43 @@ impl ToTokens for Model {
                 (&p.name, required)
             })
             .collect();
-        let RequiredCheckTokens {
+        let ModuleRequiredCheckTokens {
             marker_traits,
-            check_required_method,
-            check_required_fn: _,
-        } = generate_required_check(
+            module_items: module_required_items,
+            check_all_required_impl,
+            check_missing_impl,
+        } = generate_module_required_check(
+            &module_name,
             name,
             &slot_builder_name,
-            original_generics,
+            &behavioral_bounds_stripped_generics,
             &required_fields,
         );
+
+        // Builder function inside the companion module.
+        let no_props = props.is_empty();
+        let module_builder = if no_props {
+            quote! {
+                #[doc(hidden)]
+                pub fn __builder()
+                    -> ::leptos::component::EmptyPropsBuilder
+                {
+                    ::leptos::component::EmptyPropsBuilder {}
+                }
+            }
+        } else {
+            quote! {
+                #[doc(hidden)]
+                pub fn __builder #struct_impl_generics ()
+                    -> <super::#name #generics
+                        as ::leptos::component::Props>::Builder
+                    #struct_where_clause
+                {
+                    <super::#name #generics
+                        as ::leptos::component::Props>::builder()
+                }
+            }
+        };
 
         let output = quote! {
             #[doc = #builder_name_doc]
@@ -135,20 +172,38 @@ impl ToTokens for Model {
                 #phantom_field
             }
 
+            #[diagnostic::do_not_recommend]
+            impl #struct_impl_generics ::leptos::component::Props for #name #generics #struct_where_clause {
+                type Builder = #slot_builder_name #generics;
+
+                fn builder() -> Self::Builder {
+                    #name::builder()
+                }
+            }
+
             impl #struct_impl_generics From<#name #generics> for Vec<#name #generics> #struct_where_clause {
                 fn from(value: #name #generics) -> Self {
                     vec![value]
                 }
             }
 
-            #(#prop_traits)*
             #marker_traits
 
-            impl #struct_impl_generics #name #generics #struct_where_clause {
-                #(#check_methods)*
+            // Companion module — uses `__` prefix since modules
+            // and structs share the type namespace.
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            #vis mod #module_name {
+                #[allow(unused_imports)]
+                use super::*;
+                #module_builder
+                #(#module_check_traits)*
+                #module_required_items
             }
 
-            #check_required_method
+            #(#check_trait_impls)*
+            #check_all_required_impl
+            #check_missing_impl
         };
 
         tokens.append_all(output)

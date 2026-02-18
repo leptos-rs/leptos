@@ -1,3 +1,20 @@
+error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:13:36
+   |
+13 |             <Inner concrete_i32=42 generic_fun>
+   |                                    ^^^^^^^^^^^ the trait `Fn()` is not implemented for `bool`
+   |
+   = note: required: `Fn() -> bool`
+note: required for `bool` to implement `__Check_generic_fun`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^
+...
+27 |     F: Fn() -> bool,
+   |        ------------ unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0599]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
   --> tests/view/10_generic_prop_wrong_type_short_form.rs:13:36
    |

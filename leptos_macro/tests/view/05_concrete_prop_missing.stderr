@@ -32,7 +32,7 @@ error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder`
   --> tests/view/05_concrete_prop_missing.rs:11:14
    |
 11 |             <Inner/>
-   |              ^^^^^ method cannot be called on `InnerPropsBuilder` due to unsatisfied trait bounds
+   |              ^^^^^
 ...
 16 | #[component]
    | ------------ method `__check_missing` not found for this struct because it doesn't satisfy `InnerPropsBuilder: Inner::__CheckMissing`

@@ -1,17 +1,55 @@
 use super::{
     component_builder::extract_children_arg,
-    convert_to_snake_case, full_path_from_tag_name,
+    convert_to_snake_case,
     utils::{
-        attr_check_idents, children_span, generate_slot_pre_check_tokens,
-        PropCheckInfo,
+        attr_check_idents, children_span, generate_pass_imports,
+        generate_pre_check_tokens, PropCheckInfo,
     },
 };
 use crate::view::utils::filter_prefixed_attrs;
-use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
-use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{format_ident, quote, quote_spanned};
+use rstml::node::{
+    CustomNode, KeyedAttribute, NodeAttribute, NodeElement, NodeName,
+};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
+
+/// Constructs the `__SlotName` module path from a tag name by
+/// prefixing the last segment with `__`.
+fn module_path_from_tag_name(name: &NodeName) -> TokenStream {
+    match name {
+        NodeName::Path(expr_path) => {
+            let mut new_path = expr_path.clone();
+            if let Some(last) = new_path.path.segments.last_mut() {
+                last.ident =
+                    Ident::new(&format!("__{}", last.ident), Span::call_site());
+            }
+            quote! { #new_path }
+        }
+        other => {
+            let s = other.to_string();
+            let module_ident =
+                format_ident!("__{}", s, span = Span::call_site());
+            quote! { #module_ident }
+        }
+    }
+}
+
+/// For trait imports from the companion module, we may need
+/// `self::__SlotName::__Pass_foo` for single-segment paths to
+/// disambiguate from glob-imported traits.
+fn module_import_path(
+    name: &NodeName,
+    module_path: &TokenStream,
+) -> TokenStream {
+    match name {
+        NodeName::Path(expr_path) if expr_path.path.segments.len() == 1 => {
+            quote! { self::#module_path }
+        }
+        _ => module_path.clone(),
+    }
+}
 
 pub(crate) fn slot_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
@@ -28,8 +66,9 @@ pub(crate) fn slot_to_tokens(
         node.name().to_string()
     });
 
-    let component_path = full_path_from_tag_name(node.name());
-    let component_path = quote! { #component_path };
+    // Build the module path (__SlotName) for check trait imports
+    let module_path = module_path_from_tag_name(node.name());
+    let module_import_path = module_import_path(node.name(), &module_path);
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error2::emit_error!(
@@ -73,22 +112,15 @@ pub(crate) fn slot_to_tokens(
             })
             .unwrap_or_else(|| quote! { #attr_name });
 
-        let (check_fn_spanned, pass_trait, pass_method, checked_var, check_span) =
-            attr_check_idents(attr);
+        let idents = attr_check_idents(attr);
+        let checked_var = &idents.checked_var;
 
-        builder_setters.push(quote_spanned! {check_span=>
+        builder_setters.push(quote_spanned! {idents.check_span=>
             let __props_builder = __props_builder
                 .#attr_name(#[allow(unused_braces)] #checked_var);
         });
 
-        prop_infos.push(PropCheckInfo {
-            check_fn: check_fn_spanned,
-            pass_trait,
-            pass_method,
-            checked_var,
-            value,
-            check_span,
-        });
+        prop_infos.push(PropCheckInfo { idents, value });
     }
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
@@ -133,22 +165,18 @@ pub(crate) fn slot_to_tokens(
         disable_inert_html,
     );
 
-    // Generate children pre-check and builder call
-    let (children_pre_check, children_builder_call) = if let Some(ref arg) =
-        children_arg
-    {
-        let pass_ident = Ident::new("__pass", children_span);
-        let pre_check = quote_spanned! {children_span=>
-            let __checked_children = #component_path ::__check_children(
-                #[allow(unused_braces)] { #arg }
-            ).#pass_ident();
-        };
-        let builder_call = quote_spanned! {name_span=>
-            let __props_builder = __props_builder.children(__checked_children);
-        };
-        (pre_check, builder_call)
+    // Generate children builder call (no pre-check, same as
+    // components — children are passed directly to preserve type
+    // inference).
+    let children_builder_call = if let Some(ref arg) = children_arg {
+        quote_spanned! {children_span=>
+            let __props_builder =
+                __props_builder.children(
+                    #[allow(unused_braces)] { #arg }
+                );
+        }
     } else {
-        (quote! {}, quote! {})
+        quote! {}
     };
 
     let slots = slots.drain().map(|(slot, mut values)| {
@@ -172,10 +200,10 @@ pub(crate) fn slot_to_tokens(
         }
     });
 
-    // Generate pre-check calls using slot struct.
-    // Chain .__pass() for {error} propagation on bound failure.
+    // Generate two-step pre-checks (same pattern as components).
+    let pass_imports = generate_pass_imports(&prop_infos, &module_import_path);
     let pre_checks =
-        generate_slot_pre_check_tokens(&prop_infos, &component_path);
+        generate_pre_check_tokens(&prop_infos, &module_import_path);
 
     let build = quote_spanned! {node.name().span()=>
         .build()
@@ -183,15 +211,20 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
+            #(#pass_imports)*
             #[allow(unused_imports)]
-            use ::leptos::component::__PropPass as _;
+            use #module_import_path::__CheckMissing as _;
+
             #(#pre_checks)*
-            #children_pre_check
-            let __props_builder = #component_path::builder();
+            let __props_builder =
+                #module_path ::__builder();
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call
-            let __props_builder = __props_builder.__check_missing();
+            #module_path ::__require_props(
+                &__props_builder);
+            let __props_builder =
+                __props_builder.__check_missing();
             let slot = __props_builder #build;
             let slot = slot #dyn_attrs;
 
