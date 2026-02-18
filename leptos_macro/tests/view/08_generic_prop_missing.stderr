@@ -4,18 +4,15 @@ error[E0277]: missing required prop `generic_fun` on component `Inner`
  8 | /     view! {
  9 | |         <div>
 10 | |             <Inner concrete_i32=42>
-   | |              ^^^^^ the trait `__required_Inner_generic_fun` is not implemented for `()`
+   | |              ^^^^^ missing prop `generic_fun`
 11 | |                 "foo"
 12 | |             </Inner>
 13 | |         </div>
 14 | |     }
    | |_____- required by a bound introduced by this call
    |
-help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
-  --> tests/view/08_generic_prop_missing.rs:17:1
-   |
-17 | #[component]
-   | ^^^^^^^^^^^^
+   = help: the trait `__required_Inner_generic_fun` is not implemented for `()`
+   = note: all required props must be provided as attributes on the component
 note: required by a bound in `Inner__::__require_props`
   --> tests/view/08_generic_prop_missing.rs:17:1
    |

@@ -686,6 +686,7 @@ impl ToTokens for Model {
             #[allow(missing_docs)]
             #binding
 
+            #[diagnostic::do_not_recommend]
             impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
                 type Builder = #props_builder_name #generics;
 
@@ -2097,18 +2098,20 @@ pub(crate) fn generate_required_check(
                 Span::call_site(),
             );
 
-            let message = format!(
-                "missing required prop `{clean_name}` on component \
-                 `{component_name}`"
-            );
+            let message = format!("missing required prop `{clean_name}` on component `{component_name}`");
+            let label = format!("missing prop `{clean_name}`");
+            let note = "all required props must be provided as attributes on the component";
 
             marker_traits.push(quote! {
                 #[doc(hidden)]
                 #[diagnostic::on_unimplemented(
-                    message = #message
+                    message = #message,
+                    label = #label,
+                    note = #note
                 )]
                 #[allow(non_camel_case_types)]
                 pub trait #trait_name {}
+
                 impl<__T> #trait_name for (__T,) {}
             });
 
