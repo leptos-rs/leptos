@@ -94,9 +94,9 @@ fn attr_check_info(attr: &KeyedAttribute) -> (String, Span) {
 }
 
 /// Computes the check identifiers for a prop attribute:
-/// - `check_trait`: `__Check_foo` at `call_site()` (UFCS path)
+/// - `check_trait`: `__Check_foo` at `call_site()` (UFCS path +
+///   import)
 /// - `check_method`: `__check_foo` at value span (UFCS method)
-/// - `pass_trait`: `__Pass_foo` at `call_site()` (import)
 /// - `pass_method`: `__pass_foo` at value span (method call)
 /// - `checked_var`: `__checked_foo` at value span
 /// - `check_span`: value span (or key span if no value)
@@ -108,7 +108,6 @@ pub fn attr_check_idents(attr: &KeyedAttribute) -> PropCheckIdents {
             &format!("__check_{}", clean_name),
             check_span,
         ),
-        pass_trait: format_ident!("__Pass_{}", clean_name),
         pass_method: Ident::new(&format!("__pass_{}", clean_name), check_span),
         checked_var: Ident::new(&format!("__checked_{clean_name}"), check_span),
         check_span,
@@ -120,7 +119,6 @@ pub fn attr_check_idents(attr: &KeyedAttribute) -> PropCheckIdents {
 pub struct PropCheckIdents {
     pub check_trait: Ident,
     pub check_method: Ident,
-    pub pass_trait: Ident,
     pub pass_method: Ident,
     pub checked_var: Ident,
     pub check_span: Span,
@@ -170,20 +168,20 @@ pub(crate) struct PropCheckInfo {
     pub value: TokenStream,
 }
 
-/// Generates trait imports for pass traits. Each bounded generic
-/// prop gets `use Module::__Pass_foo as _;` to enable method
-/// syntax for the `{error}` propagation step.
-pub(crate) fn generate_pass_imports(
+/// Generates trait imports for check traits. Each prop gets
+/// `use Module::__Check_foo as _;` to enable method syntax for
+/// the `__pass_foo()` call (`{error}` propagation step).
+pub(crate) fn generate_check_imports(
     checks: &[PropCheckInfo],
     module_path: &TokenStream,
 ) -> Vec<TokenStream> {
     checks
         .iter()
         .map(|info| {
-            let pass_trait = &info.idents.pass_trait;
+            let check_trait = &info.idents.check_trait;
             quote! {
                 #[allow(unused_imports)]
-                use #module_path::#pass_trait as _;
+                use #module_path::#check_trait as _;
             }
         })
         .collect()

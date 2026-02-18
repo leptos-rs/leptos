@@ -15,23 +15,31 @@ note: required for `bool` to implement `__Check_generic_fun`
    |        ------------ unsatisfied trait bound introduced here
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
+error[E0599]: the method `__pass_generic_fun` exists for type `bool`, but its trait bounds were not satisfied
   --> tests/view/10_generic_prop_wrong_type_short_form.rs:13:36
    |
 13 |             <Inner concrete_i32=42 generic_fun>
    |                                    ^^^^^^^^^^^
    |
 note: the following trait bounds were not satisfied:
-      `&bool: __Check_generic_fun`
-      `&mut bool: __Check_generic_fun`
-      `bool: __Check_generic_fun`
-  --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
+      `&bool: Fn<()>`
+      `&mut bool: Fn<()>`
+      `<&bool as FnOnce<()>>::Output = bool`
+      `<&mut bool as FnOnce<()>>::Output = bool`
+      `<bool as FnOnce<()>>::Output = bool`
+      `bool: Fn<()>`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:27:8
    |
 20 | #[component]
-   | ^^^^^^^^^^^^
-   = note: required: `Fn() -> bool`
+   | ------------
+...
+27 |     F: Fn() -> bool,
+   |        ^^^^^^^^^^^^
+   |        |       |
+   |        |       unsatisfied trait bound introduced here
+   |        unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Pass_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
+note: `__Check_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
   --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
    |
 20 | #[component]

@@ -2,7 +2,7 @@ use super::{
     component_builder::extract_children_arg,
     convert_to_snake_case,
     utils::{
-        attr_check_idents, children_span, generate_pass_imports,
+        attr_check_idents, children_span, generate_check_imports,
         generate_pre_check_tokens, PropCheckInfo,
     },
 };
@@ -37,7 +37,7 @@ fn module_path_from_tag_name(name: &NodeName) -> TokenStream {
 }
 
 /// For trait imports from the companion module, we may need
-/// `self::__SlotName::__Pass_foo` for single-segment paths to
+/// `self::__SlotName::__Check_foo` for single-segment paths to
 /// disambiguate from glob-imported traits.
 fn module_import_path(
     name: &NodeName,
@@ -201,7 +201,8 @@ pub(crate) fn slot_to_tokens(
     });
 
     // Generate two-step pre-checks (same pattern as components).
-    let pass_imports = generate_pass_imports(&prop_infos, &module_import_path);
+    let check_imports =
+        generate_check_imports(&prop_infos, &module_import_path);
     let pre_checks =
         generate_pre_check_tokens(&prop_infos, &module_import_path);
 
@@ -211,7 +212,7 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
-            #(#pass_imports)*
+            #(#check_imports)*
             #[allow(unused_imports)]
             use #module_import_path::__CheckMissing as _;
 
@@ -221,7 +222,7 @@ pub(crate) fn slot_to_tokens(
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call
-            #module_path ::__require_props(
+            <_ as #module_path ::__CheckMissing>::__require_props(
                 &__props_builder);
             let __props_builder =
                 __props_builder.__check_missing();

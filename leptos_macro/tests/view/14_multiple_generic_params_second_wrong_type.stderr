@@ -22,18 +22,25 @@ error[E0599]: the method `__pass_fun_b` exists for closure `{closure@$DIR/tests/
 11 |             <Inner fun_a=|| true fun_b=|| true/>
    |                                        --^^^^^
    |                                        |
-   |                                        doesn't satisfy `_: __Check_fun_b` or `_: __Pass_fun_b`
+   |                                        doesn't satisfy `<_ as FnOnce<()>>::Output = i32` or `_: __Check_fun_b`
    |
 note: the following trait bounds were not satisfied:
-      `&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}: __Check_fun_b`
-      `&{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}: __Check_fun_b`
-      `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}: __Check_fun_b`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:16:1
+      `&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}: Fn<()>`
+      `<&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
+      `<&{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
+      `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:8
    |
 16 | #[component]
-   | ^^^^^^^^^^^^
+   | ------------
+...
+20 |     G: Fn() -> i32,
+   |        ^^^^^^^^^^^
+   |        |       |
+   |        |       unsatisfied trait bound introduced here
+   |        unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Pass_fun_b` defines an item `__pass_fun_b`, perhaps you need to implement it
+note: `__Check_fun_b` defines an item `__pass_fun_b`, perhaps you need to implement it
   --> tests/view/14_multiple_generic_params_second_wrong_type.rs:16:1
    |
 16 | #[component]

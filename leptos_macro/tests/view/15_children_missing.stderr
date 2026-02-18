@@ -1,14 +1,8 @@
 error[E0277]: missing required prop `children` on component `Inner`
   --> tests/view/15_children_missing.rs:10:14
    |
- 8 | /     view! {
- 9 | |         <div>
-10 | |             <Inner concrete_i32=42 generic_fun=|| true>
-   | |              ^^^^^ missing prop `children`
-11 | |             </Inner>
-12 | |         </div>
-13 | |     }
-   | |_____- required by a bound introduced by this call
+10 |             <Inner concrete_i32=42 generic_fun=|| true>
+   |              ^^^^^ missing prop `children`
    |
    = help: the trait `__required_Inner_children` is not implemented for `()`
    = note: all required props must be provided as attributes on the component
@@ -17,16 +11,11 @@ help: the trait `__required_Inner_children` is implemented for `(__T,)`
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>` to implement `Inner::__CheckAllRequired`
+note: required for `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>` to implement `Inner::__CheckMissing`
   --> tests/view/15_children_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-note: required by a bound in `Inner::__require_props`
-  --> tests/view/15_children_missing.rs:16:1
-   |
-16 | #[component]
-   | ^^^^^^^^^^^^ required by this bound in `__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>`, but its trait bounds were not satisfied

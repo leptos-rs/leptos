@@ -15,23 +15,31 @@ note: required for `bool` to implement `__Check_fun_a`
    |        ------------ unsatisfied trait bound introduced here
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: `bool` is not a valid type for prop `fun_a` on component `Inner`
+error[E0599]: the method `__pass_fun_a` exists for type `bool`, but its trait bounds were not satisfied
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:26
    |
 11 |             <Inner fun_a=true fun_b=|| 42/>
    |                          ^^^^
    |
 note: the following trait bounds were not satisfied:
-      `&bool: __Check_fun_a`
-      `&mut bool: __Check_fun_a`
-      `bool: __Check_fun_a`
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
+      `&bool: Fn<()>`
+      `&mut bool: Fn<()>`
+      `<&bool as FnOnce<()>>::Output = bool`
+      `<&mut bool as FnOnce<()>>::Output = bool`
+      `<bool as FnOnce<()>>::Output = bool`
+      `bool: Fn<()>`
+  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:19:8
    |
 16 | #[component]
-   | ^^^^^^^^^^^^
-   = note: required: `Fn() -> bool`
+   | ------------
+...
+19 |     F: Fn() -> bool,
+   |        ^^^^^^^^^^^^
+   |        |       |
+   |        |       unsatisfied trait bound introduced here
+   |        unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Pass_fun_a` defines an item `__pass_fun_a`, perhaps you need to implement it
+note: `__Check_fun_a` defines an item `__pass_fun_a`, perhaps you need to implement it
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
    |
 16 | #[component]

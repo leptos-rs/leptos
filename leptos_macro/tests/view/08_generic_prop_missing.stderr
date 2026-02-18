@@ -1,15 +1,8 @@
 error[E0277]: missing required prop `generic_fun` on component `Inner`
   --> tests/view/08_generic_prop_missing.rs:10:14
    |
- 8 | /     view! {
- 9 | |         <div>
-10 | |             <Inner concrete_i32=42>
-   | |              ^^^^^ missing prop `generic_fun`
-11 | |                 "foo"
-12 | |             </Inner>
-13 | |         </div>
-14 | |     }
-   | |_____- required by a bound introduced by this call
+10 |             <Inner concrete_i32=42>
+   |              ^^^^^ missing prop `generic_fun`
    |
    = help: the trait `__required_Inner_generic_fun` is not implemented for `()`
    = note: all required props must be provided as attributes on the component
@@ -18,16 +11,11 @@ help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
    |
 17 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>` to implement `Inner::__CheckAllRequired`
+note: required for `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>` to implement `Inner::__CheckMissing`
   --> tests/view/08_generic_prop_missing.rs:17:1
    |
 17 | #[component]
    | ^^^^^^^^^^^^
-note: required by a bound in `Inner::__require_props`
-  --> tests/view/08_generic_prop_missing.rs:17:1
-   |
-17 | #[component]
-   | ^^^^^^^^^^^^ required by this bound in `__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>`, but its trait bounds were not satisfied

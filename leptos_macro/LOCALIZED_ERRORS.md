@@ -34,22 +34,21 @@ struct Bar { ... }    // the slot struct
 
 The companion module contains:
 
-- Per-prop **check traits** (`__Check_foo`) for clean UFCS error messages
-- Per-prop **pass traits** (`__Pass_foo`) for `{error}` propagation via method syntax
-- **`__CheckAllRequired`** trait for missing-prop detection
-- **`__CheckMissing`** trait for `{error}` propagation
-- **`__require_props()`** function as the entry point for required-prop checking
+- Per-prop **check traits** (`__Check_foo`) with both `__check_foo(&self)` for clean UFCS error messages
+  and `__pass_foo(self)` for `{error}` propagation via method syntax
+- **`__CheckMissing`** trait with `__require_props(&self)` for missing-prop detection and
+  `__check_missing(self)` for `{error}` propagation
 - **`__builder()`** function (slots only)
 
 ## The Two-Step Pre-Check + Required Check Mechanism
 
 Every prop usage in `view!` goes through two pre-check steps plus required-prop checking.
 
-### 1a. UFCS check trait (`__Check_foo`) — clean error message
+### 1a. UFCS check (`__check_foo`) — clean error message
 
 **Purpose**: E0277 with `on_unimplemented` — works for ALL types including closures.
 
-**Generated inside module**:
+**Generated inside module** (single trait with both methods):
 
 ```rust
 #[diagnostic::on_unimplemented(
@@ -58,6 +57,7 @@ Every prop usage in `view!` goes through two pre-check steps plus required-prop 
 )]
 pub trait __Check_foo {
     fn __check_foo(&self);
+    fn __pass_foo(self) -> Self;
 }
 ```
 
@@ -66,6 +66,7 @@ pub trait __Check_foo {
 ```rust
 impl<T: Fn() -> bool> Foo::__Check_foo for T {
     fn __check_foo(&self) {}
+    fn __pass_foo(self) -> Self { self }
 }
 ```
 
@@ -80,57 +81,40 @@ When the bound fails, E0277 fires with the custom `on_unimplemented` message. Fo
 the compiler produces its own targeted diagnostics (E0271: "expected closure to return X, but
 it returns Y") which are **more actionable** than our generic message.
 
-### 1b. Method call pass trait (`__Pass_foo`) — `{error}` propagation
+### 1b. Method call (`__pass_foo`) — `{error}` propagation
 
 **Purpose**: E0599 → `{error}` type that suppresses downstream errors.
 
-**Generated inside module**:
-
-```rust
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a valid type for prop `foo` ...",
-    note = "required: `Fn() -> bool`"
-)]
-pub trait __Pass_foo {
-    fn __pass_foo(self) -> Self;
-}
-```
-
-**Generated outside module** (bounded on `__Check_foo`):
-
-```rust
-impl<T: Foo::__Check_foo> Foo::__Pass_foo for T {
-    fn __pass_foo(self) -> Self { self }
-}
-```
-
-**Called in view expansion** via method syntax (requires `use Foo::__Pass_foo as _;`):
+**Called in view expansion** via method syntax (requires `use Foo::__Check_foo as _;`):
 
 ```rust
 let __checked_foo = __value_foo.__pass_foo();
 ```
 
-When the bound fails, E0599 fires and the expression type is `{error}`, which absorbs
-all downstream errors in the builder chain.
+Both `__check_foo` and `__pass_foo` live on the same `__Check_foo` trait. When the bound
+fails, the method call `__pass_foo()` produces E0599, and the expression type is `{error}`,
+which absorbs all downstream errors in the builder chain.
 
 **Why both steps are needed**: UFCS (step 1a) gives clean E0277 messages for all types
 including closures, but does NOT produce `{error}` (the return type is resolved via
 bidirectional type inference). Method syntax (step 1b) produces `{error}` for downstream
 suppression, but E0599 ignores `on_unimplemented` for anonymous types (closures).
 
-For **concrete/into/unbounded props**, blanket impls are generated for both traits
-(`impl<T> __Check_foo for T` and `impl<T> __Pass_foo for T`), letting all types through —
+For **concrete/into/unbounded props**, blanket impls are generated
+(`impl<T> __Check_foo for T { ... }`), letting all types through —
 the typed-builder setter handles type checking for these.
 
 ### 2. `__require_props()` (E0277 for missing props)
 
 **Purpose**: Clear "missing required prop" error message.
 
+`__require_props` is a `&self` method on the `__CheckMissing` trait, called via UFCS:
+
 ```rust
-pub fn __require_props<B: __CheckAllRequired>(_: &B) {}
+<_ as Foo::__CheckMissing>::__require_props(&builder);
 ```
 
-`__CheckAllRequired` is implemented for the builder type only when all required type-state slots are
+`__CheckMissing` is implemented for the builder type only when all required type-state slots are
 filled. Each required prop `foo` gets a marker trait `__required_Comp_foo`, implemented for `(T,)` but
 not `()`. When a required prop is missing, E0277 fires with:
 `missing required prop 'foo' on component 'Comp'`
@@ -139,7 +123,7 @@ not `()`. When a required prop is missing, E0277 fires with:
 
 **Purpose**: Suppress downstream errors when a required prop is missing.
 
-`__CheckMissing` is implemented under the same bounds as `__CheckAllRequired`. When bounds aren't met,
+`__check_missing` lives on the same `__CheckMissing` trait as `__require_props`. When bounds aren't met,
 `builder.__check_missing()` fails with E0599, producing `{error}` type that suppresses the final
 `component_view()` and `.build()` errors.
 
@@ -163,12 +147,12 @@ Examples:
 - `label: String` with `#[prop(into)]` → `PassThrough` (into)
 - `action: ServerAction<S>` where `S: ServerFn` → `PassThrough` (generic inside wrapper, needs structural bounds)
 
-### Why Blanket PassThrough Impls Are Necessary
+### Why Blanket Impls Are Necessary for `PassThrough`-Classified Props
 
 The `view!` macro expands without knowledge of the component's generics or prop classifications — it only
-sees attribute names and values. It generates `__Check_*` / `__Pass_*` calls for ALL props uniformly.
-Therefore, the `#[component]` macro must provide blanket impls for PassThrough props so these uniform
-pre-check calls compile. Skipping pre-check traits for PassThrough props is not possible without breaking
+sees attribute names and values. It generates `__check_*` / `__pass_*` calls for ALL props uniformly.
+Therefore, the `#[component]` macro must provide blanket impls for `PassThrough`-classified props so these
+uniform pre-check calls compile. Skipping pre-check traits for these props is not possible without breaking
 the separation between `#[component]` (knows prop types) and `view!` (doesn't).
 
 ## Structural vs Behavioral Bounds
@@ -189,9 +173,9 @@ produce better error messages.
 |---------------------------|-----------------|---------------------------|--------------------------|-------------------|
 | Concrete, expanded        | `count=42`      | E0308 (type mismatch)     | —                        | Value (`42`)      |
 | Concrete, short form      | `flag`          | E0308 (type mismatch)     | —                        | Key (`flag`)      |
-| Generic, bounded (named)  | `fun=true`      | E0277 (on_unimplemented)  | E0599 (on_unimplemented) | Value (`true`)    |
+| Generic, bounded (named)  | `fun=true`      | E0277 (on_unimplemented)  | E0599 (noisy)            | Value (`true`)    |
 | Generic, bounded (closure)| `fun=\|\| true` | E0271/E0593 (targeted)    | E0599 (noisy)            | Value (`\|\| true`)|
-| Generic, short form       | `fun`           | E0277 (on_unimplemented)  | E0599 (on_unimplemented) | Key (`fun`)       |
+| Generic, short form       | `fun`           | E0277 (on_unimplemented)  | E0599 (noisy)            | Key (`fun`)       |
 | `into` prop               | `label=vec![1]` | E0277 (From not impl)     | —                        | Value (`vec![1]`) |
 | Missing required          | `<Comp/>`       | E0277 (on_unimplemented)  | —                        | Component name    |
 
@@ -209,7 +193,7 @@ The two-step approach exploits this:
 1. `<_ as __Check_foo>::__check_foo(&value)` fails → E0277 with clean message (but NO `{error}`)
 2. `value.__pass_foo()` fails → E0599, expression is `{error}`
 3. `builder.foo(__checked_foo)` uses `{error}` → builder type propagates `{error}`
-4. `__require_props(&builder)` — absorbed by `{error}`
+4. `<_ as __CheckMissing>::__require_props(&builder)` — absorbed by `{error}`
 5. `builder.__check_missing()` — absorbed by `{error}`
 6. `component_view(Comp, props)` — absorbed by `{error}`
 
@@ -219,8 +203,7 @@ Result: 2 errors total (clean E0277 + noisy E0599), all downstream suppressed.
 
 - **Check/pass method names** (`__check_foo`, `__pass_foo`) are created with the **value span** (or
   key span for short-form). This localizes errors to the user's source code.
-- **Check/pass trait names** (`__Check_foo`, `__Pass_foo`) use `Span::call_site()` to avoid polluting
-  IDE navigation.
+- **Check trait names** (`__Check_foo`) use `Span::call_site()` to avoid polluting IDE navigation.
 - **Component/slot name** in `__require_props` and `__check_missing` uses the original name span for
   missing-prop errors.
 - **`delinked_path_from_node_name()`** replaces the last segment's span with `call_site()` for
@@ -232,8 +215,8 @@ Result: 2 errors total (clean E0277 + noisy E0599), all downstream suppressed.
 Shared logic lives in `leptos_macro/src/util.rs`:
 
 - `classify_prop()` — determines `BoundedSingleParam` vs `PassThrough`
-- `generate_module_checks()` — generates per-prop pass traits and impls
-- `generate_module_required_check()` — generates required-prop checking traits
+- `generate_module_checks()` — generates per-prop check traits and impls
+- `generate_module_required_check()` — generates required-prop checking trait
 - `strip_non_structural_bounds()` — separates structural from behavioral bounds
 - Various helpers: `type_contains_ident`, `collect_predicates_for_param`, `bounds_reference_other_params`, etc.
 
@@ -245,7 +228,7 @@ Call sites:
 View-side code in `view/utils.rs`:
 
 - `generate_pre_check_tokens()` — generates two-step UFCS check + method call
-- `generate_pass_imports()` — generates `use Module::__Pass_foo as _;` imports
+- `generate_check_imports()` — generates `use Module::__Check_foo as _;` imports
 - `attr_check_idents()` — computes per-prop check identifiers
 
 ## Approaches That Don't Work for `{error}` Propagation
@@ -266,8 +249,8 @@ View-side code in `view/utils.rs`:
 Two-step pre-check for bounded generic props:
 
 1. Strip behavioral bounds from the Props struct (deferred to check traits)
-2. UFCS check (`__Check_*`) for clean E0277 message (works for closures)
-3. Method call (`__Pass_*`) for E0599 → `{error}` propagation
+2. UFCS check (`__check_*`) for clean E0277 message (works for closures)
+3. Method call (`__pass_*`) for E0599 → `{error}` propagation
 
 This gives 2 errors for wrong-type bounded generic props (clean first + noisy second),
 with all downstream errors suppressed.
@@ -317,8 +300,8 @@ Neither approach alone is sufficient:
 - **Method only**: `{error}` propagation works, but ugly E0599 for closures
 - **Both**: UFCS gives clean first error, method gives `{error}` → 2 errors total
 
-The `__Check_*` trait (UFCS) is bounded directly on user bounds (`Fn() -> i32`).
-The `__Pass_*` trait (method) is bounded on `__Check_*`, creating the `on_unimplemented` chain.
+Both `__check_*` (UFCS) and `__pass_*` (method) live on the same `__Check_*` trait,
+bounded directly on user bounds (`Fn() -> i32`).
 
 #### Span behavior in UFCS
 

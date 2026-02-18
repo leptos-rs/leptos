@@ -435,15 +435,14 @@ pub(crate) struct ModuleCheckTokens {
 ///
 /// For each prop:
 /// - **Bounded single-param generic**: `__Check_*` trait (with
-///   `on_unimplemented` and `__check_*(&self)`) + `__Pass_*`
-///   method trait inside module; bounded `__Check_*` impl +
-///   blanket `__Pass_*` impl (bounded on `__Check_*`) outside.
+///   `on_unimplemented`, `__check_*(&self)` and `__pass_*(self)`)
+///   inside module; bounded impl outside.
 ///   View macro calls UFCS:
 ///   `<_ as Module::__Check_foo>::__check_foo(&value)` — E0277
 ///   with `on_unimplemented` (works for all types including
 ///   closures), then method: `value.__pass_foo()` — E0599
 ///   produces `{error}` for downstream suppression.
-/// - **Everything else**: blanket `__Pass_*` trait inside module
+/// - **Everything else**: blanket `__Check_*` trait inside module
 ///   with blanket impl outside. All types pass through.
 ///
 /// - `full_generics`: the full generics from the original
@@ -484,7 +483,6 @@ pub(crate) fn generate_module_checks(
 
         let check_trait_name = format_ident!("__Check_{}", clean_name);
         let check_method_name = format_ident!("__check_{}", clean_name);
-        let pass_trait_name = format_ident!("__Pass_{}", clean_name);
         let pass_method_name = format_ident!("__pass_{}", clean_name);
 
         match classification {
@@ -493,8 +491,8 @@ pub(crate) fn generate_module_checks(
                 message,
                 note,
             } => {
-                // Inside module: check trait (UFCS, E0277) +
-                // pass trait (method, E0599 → {error})
+                // Inside module: single trait with both check
+                // (UFCS, E0277) and pass (method, E0599 → {error})
                 module_check_traits.push(quote! {
                     #[doc(hidden)]
                     #[diagnostic::on_unimplemented(
@@ -504,33 +502,17 @@ pub(crate) fn generate_module_checks(
                     #[allow(non_camel_case_types)]
                     pub trait #check_trait_name {
                         fn #check_method_name(&self);
-                    }
-
-                    #[doc(hidden)]
-                    #[diagnostic::on_unimplemented(
-                        message = #message,
-                        note = #note
-                    )]
-                    #[allow(non_camel_case_types)]
-                    pub trait #pass_trait_name {
                         fn #pass_method_name(self) -> Self;
                     }
                 });
 
-                // Outside module: bounded check impl +
-                // blanket pass impl (bounded on check)
+                // Outside module: bounded impl
                 check_trait_impls.push(quote! {
                     #[doc(hidden)]
                     impl<__T: #bounds>
                         #module_name::#check_trait_name for __T
                     {
                         fn #check_method_name(&self) {}
-                    }
-
-                    #[doc(hidden)]
-                    impl<__T: #module_name::#check_trait_name>
-                        #module_name::#pass_trait_name for __T
-                    {
                         fn #pass_method_name(self) -> Self {
                             self
                         }
@@ -538,17 +520,12 @@ pub(crate) fn generate_module_checks(
                 });
             }
             PropClassification::PassThrough => {
-                // Blanket check + pass traits — all types pass.
+                // Blanket check trait — all types pass.
                 module_check_traits.push(quote! {
                     #[doc(hidden)]
                     #[allow(non_camel_case_types)]
                     pub trait #check_trait_name {
                         fn #check_method_name(&self);
-                    }
-
-                    #[doc(hidden)]
-                    #[allow(non_camel_case_types)]
-                    pub trait #pass_trait_name {
                         fn #pass_method_name(self) -> Self;
                     }
                 });
@@ -559,12 +536,6 @@ pub(crate) fn generate_module_checks(
                         for __T
                     {
                         fn #check_method_name(&self) {}
-                    }
-
-                    #[doc(hidden)]
-                    impl<__T> #module_name::#pass_trait_name
-                        for __T
-                    {
                         fn #pass_method_name(self) -> Self {
                             self
                         }
@@ -589,21 +560,19 @@ pub(crate) struct ModuleRequiredCheckTokens {
     /// Marker trait definitions (with `on_unimplemented`) at module
     /// scope, outside the companion module.
     pub marker_traits: TokenStream,
-    /// Items inside the companion module: `__CheckAllRequired`
-    /// trait, `__CheckMissing` trait, `__require_props` fn.
+    /// Items inside the companion module: `__CheckMissing` trait.
     pub module_items: TokenStream,
-    /// `impl __CheckAllRequired for PropsBuilder` outside module.
-    pub check_all_required_impl: TokenStream,
     /// `impl __CheckMissing for PropsBuilder` outside module.
     pub check_missing_impl: TokenStream,
 }
 
-/// Generates module-internal traits and outer impls for
+/// Generates module-internal trait and outer impl for
 /// required-prop checking.
 ///
-/// `__require_props` triggers E0277 with custom `on_unimplemented`
-/// when required props are missing. `__CheckMissing` produces
-/// `{error}` via UFCS for downstream suppression.
+/// `__require_props` (UFCS method on `__CheckMissing`) triggers
+/// E0277 with custom `on_unimplemented` when required props are
+/// missing. `__check_missing` (method call) produces `{error}`
+/// for downstream suppression.
 ///
 /// - `module_name`: name of the companion module
 /// - `display_name`: human-readable name for error messages
@@ -622,30 +591,16 @@ pub(crate) fn generate_module_required_check(
             marker_traits: quote! {},
             module_items: quote! {
                 #[doc(hidden)]
-                pub trait __CheckAllRequired {}
-
-                #[doc(hidden)]
                 pub trait __CheckMissing {
+                    fn __require_props(&self);
                     fn __check_missing(self) -> Self;
-                }
-
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub fn __require_props<__B: __CheckAllRequired>(
-                    _: &__B,
-                ) {
-                }
-            },
-            check_all_required_impl: quote! {
-                impl<__T>
-                    #module_name::__CheckAllRequired for __T
-                {
                 }
             },
             check_missing_impl: quote! {
                 impl<__T>
                     #module_name::__CheckMissing for __T
                 {
+                    fn __require_props(&self) {}
                     fn __check_missing(self) -> Self { self }
                 }
             },
@@ -716,29 +671,10 @@ pub(crate) fn generate_module_required_check(
 
     let module_items = quote! {
         #[doc(hidden)]
-        pub trait __CheckAllRequired {}
-
-        #[doc(hidden)]
         pub trait __CheckMissing {
+            fn __require_props(&self);
             fn __check_missing(self) -> Self;
         }
-
-        #[doc(hidden)]
-        #[allow(non_snake_case)]
-        pub fn __require_props<__B: __CheckAllRequired>(
-            _: &__B,
-        ) {
-        }
-    };
-
-    let check_all_required_impl = quote! {
-        #[doc(hidden)]
-        #[allow(non_snake_case)]
-        impl<#impl_params>
-            #module_name::__CheckAllRequired
-            for #builder_name<#builder_type_args>
-        #where_clause
-        {}
     };
 
     let check_missing_impl = quote! {
@@ -749,6 +685,7 @@ pub(crate) fn generate_module_required_check(
             for #builder_name<#builder_type_args>
         #where_clause
         {
+            fn __require_props(&self) {}
             fn __check_missing(self) -> Self { self }
         }
     };
@@ -756,7 +693,6 @@ pub(crate) fn generate_module_required_check(
     ModuleRequiredCheckTokens {
         marker_traits: quote! { #(#marker_traits)* },
         module_items,
-        check_all_required_impl,
         check_missing_impl,
     }
 }

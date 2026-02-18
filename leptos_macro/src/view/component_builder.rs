@@ -2,7 +2,7 @@ use super::{
     fragment_to_tokens,
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
-        generate_pass_imports, generate_pre_check_tokens,
+        generate_check_imports, generate_pre_check_tokens,
         is_nostrip_optional_and_update_key, PropCheckInfo,
     },
     TagType,
@@ -48,7 +48,7 @@ pub(crate) fn component_to_tokens(
 
     // For trait imports from the companion module, we need to
     // disambiguate from glob-imported traits of the same name.
-    // `self::Component::__Pass_foo` resolves the local module
+    // `self::Component::__Check_foo` resolves the local module
     // definition, not the glob-imported `trait Component`.
     // For qualified paths (e.g., `crate::foo::Inner`), this is
     // not needed since they already resolve unambiguously.
@@ -306,7 +306,8 @@ pub(crate) fn component_to_tokens(
         .into_iter()
         .map(|(info, setter_name, kv_span)| (info, (setter_name, kv_span)))
         .unzip();
-    let pass_imports = generate_pass_imports(&check_infos, &module_import_path);
+    let check_imports =
+        generate_check_imports(&check_infos, &module_import_path);
     let pre_checks =
         generate_pre_check_tokens(&check_infos, &module_import_path);
 
@@ -333,7 +334,7 @@ pub(crate) fn component_to_tokens(
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {name_span=>
         {
-            #(#pass_imports)*
+            #(#check_imports)*
             #[allow(unused_imports)]
             use #module_import_path::__CheckMissing as _;
 
@@ -349,7 +350,7 @@ pub(crate) fn component_to_tokens(
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call
-                    #delinked_path ::__require_props(
+                    <_ as #delinked_path ::__CheckMissing>::__require_props(
                         &__props_builder);
                     let __props_builder =
                         __props_builder.__check_missing();

@@ -125,7 +125,6 @@ impl ToTokens for Model {
         let ModuleRequiredCheckTokens {
             marker_traits,
             module_items: module_required_items,
-            check_all_required_impl,
             check_missing_impl,
         } = generate_module_required_check(
             &module_name,
@@ -202,7 +201,6 @@ impl ToTokens for Model {
             }
 
             #(#check_trait_impls)*
-            #check_all_required_impl
             #check_missing_impl
         };
 
