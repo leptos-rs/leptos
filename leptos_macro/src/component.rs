@@ -695,7 +695,6 @@ impl ToTokens for Model {
             #[allow(missing_docs)]
             #binding
 
-            #[diagnostic::do_not_recommend]
             impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
                 type Builder = #props_builder_name #generics;
 

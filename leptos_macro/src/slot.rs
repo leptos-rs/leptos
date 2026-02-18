@@ -171,7 +171,6 @@ impl ToTokens for Model {
                 #phantom_field
             }
 
-            #[diagnostic::do_not_recommend]
             impl #struct_impl_generics ::leptos::component::Props for #name #generics #struct_where_clause {
                 type Builder = #slot_builder_name #generics;
 

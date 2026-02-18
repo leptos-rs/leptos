@@ -244,6 +244,26 @@ View-side code in `view/utils.rs`:
 - **`on_unimplemented` on wrapper E0599**: When `impl<T: Bound> Trait for Wrapper<T>`, E0599 only
   mentions the unsatisfied bound as a note, NOT using `on_unimplemented` as the primary message.
 
+## Why `#[diagnostic::do_not_recommend]` Doesn't Help Here
+
+`#[diagnostic::do_not_recommend]` is designed for cases where **multiple trait impls compete** and
+you want to deprioritize one in favor of another (e.g., stdlib's
+`impl<T: Display> From<T> for String` is marked `do_not_recommend` so the compiler suggests more
+specific `From` impls first).
+
+In our generated code, this attribute doesn't help for several reasons:
+
+- **Each trait has exactly one impl per type.** There is no alternative impl to deprioritize in
+  favor of. `do_not_recommend` on a single impl just suppresses it with nothing better to show.
+- **On bounded `__Check_*` impls, it suppresses `on_unimplemented`.** The clean E0277 message
+  (from step 1a) is our primary user-facing error. Adding `do_not_recommend` hides it, leaving
+  only the noisy E0599 from step 1b as the first error.
+- **For closures, it suppresses Rust's native diagnostics.** E0271 ("expected closure to return X,
+  but it returns Y") and E0593 ("closure takes N arguments") are more actionable than any custom
+  message we could provide. `do_not_recommend` would suppress these too.
+- **On `impl Props for ...`, it has no effect.** Each generated props struct has exactly one `Props`
+  impl — there's nothing to deprioritize.
+
 ## Current Approach
 
 Two-step pre-check for bounded generic props:
