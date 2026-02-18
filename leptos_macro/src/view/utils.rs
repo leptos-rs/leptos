@@ -1,7 +1,32 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};
 use syn::{spanned::Spanned, ExprPath};
+
+/// Copies a `NodeName` path, replacing the last segment's span with
+/// `Span::call_site()`.
+///
+/// IDEs resolve ctrl+click targets by matching source spans to
+/// expanded spans. Because a component name exists in both the value
+/// namespace (the function) and the type namespace (the companion
+/// type alias), keeping the original span on both would force the
+/// IDE to ask "which one?". By giving the type-namespace usage
+/// (builder / check calls) a `call_site` span, only the function
+/// reference remains linked to the source token, so ctrl+click
+/// navigates straight to the function.
+pub(crate) fn delinked_path_from_node_name(name: &NodeName) -> TokenStream {
+    match name {
+        NodeName::Path(expr_path) => {
+            let mut new_path = expr_path.clone();
+            if let Some(last) = new_path.path.segments.last_mut() {
+                last.ident =
+                    Ident::new(&last.ident.to_string(), Span::call_site());
+            }
+            quote! { #new_path }
+        }
+        other => quote! { #other },
+    }
+}
 
 pub fn filter_prefixed_attrs<'a, A>(attrs: A, prefix: &str) -> Vec<Ident>
 where

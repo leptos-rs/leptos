@@ -1,8 +1,8 @@
 use super::{
     fragment_to_tokens,
     utils::{
-        attr_check_idents, children_span, generate_pre_check_tokens,
-        is_nostrip_optional_and_update_key,
+        attr_check_idents, children_span, delinked_path_from_node_name,
+        generate_pre_check_tokens, is_nostrip_optional_and_update_key,
     },
     TagType,
 };
@@ -36,6 +36,14 @@ pub(crate) fn component_to_tokens(
         let n = node.name();
         quote! { #n }
     };
+    // A span-delinked copy of the component path for builder and
+    // check calls.  The last segment gets `Span::call_site()` so
+    // that rust-analyzer does NOT map ctrl+click on the source
+    // `<Component />` to the type-alias usage (which would cause a
+    // "choose function vs type" disambiguation prompt).  Only the
+    // function reference (`&Component`) keeps the original span,
+    // giving the IDE a single, unambiguous navigation target.
+    let delinked_path = delinked_path_from_node_name(node.name());
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
@@ -255,7 +263,7 @@ pub(crate) fn component_to_tokens(
         if let Some(ref arg) = children_arg {
             let pass_ident = Ident::new("__pass", children_span);
             let pre_check = quote_spanned! {children_span=>
-                let __checked_children = #component_path
+                let __checked_children = #delinked_path
                     ::__check_children(
                         #[allow(unused_braces)] { #arg }
                     ).#pass_ident();
@@ -302,8 +310,7 @@ pub(crate) fn component_to_tokens(
     // `on_unimplemented` message. The check returns a wrapper;
     // calling `.__pass()` on it produces E0599 → `{error}` when
     // bounds fail, suppressing all downstream errors.
-    let pre_checks =
-        generate_pre_check_tokens(&pre_check_info, &component_path);
+    let pre_checks = generate_pre_check_tokens(&pre_check_info, &delinked_path);
 
     // Builder setter calls using pre-checked values.
     let builder_setters: Vec<TokenStream> = setter_info
@@ -343,7 +350,7 @@ pub(crate) fn component_to_tokens(
                     #children_pre_check
                     // Build props via companion struct
                     let __props_builder =
-                        #component_path ::builder #generics ();
+                        #delinked_path ::builder #generics ();
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call

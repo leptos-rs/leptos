@@ -1,11 +1,15 @@
 error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
   --> tests/view/09_generic_prop_wrong_type.rs:10:48
    |
-10 |             <Inner concrete_i32=42 generic_fun=true>
-   |              ----------------------------------^^^^
-   |              |                                 |
-   |              |                                 the trait `Fn()` is not implemented for `bool`
-   |              required by a bound introduced by this call
+ 8 | /     view! {
+ 9 | |         <div>
+10 | |             <Inner concrete_i32=42 generic_fun=true>
+   | |                                                ^^^^ the trait `Fn()` is not implemented for `bool`
+11 | |                 "foo"
+12 | |             </Inner>
+13 | |         </div>
+14 | |     }
+   | |_____- required by a bound introduced by this call
    |
    = note: required: `Fn() -> bool`
 note: required for `bool` to implement `__Inner_PropBound_generic_fun`
@@ -30,11 +34,15 @@ note: required by a bound in `Inner__::__check_generic_fun`
 error[E0599]: the method `__pass` exists for struct `__Inner_Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
   --> tests/view/09_generic_prop_wrong_type.rs:10:48
    |
-10 |             <Inner concrete_i32=42 generic_fun=true>
-   |                                                ^^^^ method cannot be called on `__Inner_Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+ 8 | /     view! {
+ 9 | |         <div>
+10 | |             <Inner concrete_i32=42 generic_fun=true>
+   | |                                               -^^^^ method cannot be called on `__Inner_Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+   | |_______________________________________________|
+   |
 ...
-17 | #[component]
-   | ------------ method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
+17 |   #[component]
+   |   ------------ method `__pass` not found for this struct because it doesn't satisfy `_: __PropPass`
    |
 note: trait bound `bool: __Inner_PropBound_generic_fun` was not satisfied
   --> tests/view/09_generic_prop_wrong_type.rs:18:4
