@@ -1,4 +1,4 @@
-error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `HelloSlot`
+error[E0277]: `bool` is not a valid type for prop `generic_fun` on slot `HelloSlot`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>

@@ -1,0 +1,47 @@
+error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:12:32
+   |
+12 |             <Inner generic_fun=true>
+   |                                ^^^^ the trait `Fn()` is not implemented for `bool`
+   |
+   = note: required: `Fn() -> bool`
+note: required for `bool` to implement `__Check_generic_fun`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:19:1
+   |
+19 | #[component]
+   | ^^^^^^^^^^^^
+...
+26 |     F: Fn() -> bool,
+   |        ------------ unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `__pass_generic_fun` exists for type `bool`, but its trait bounds were not satisfied
+  --> tests/view/44_wrong_type_and_missing_prop.rs:12:32
+   |
+12 |             <Inner generic_fun=true>
+   |                                ^^^^
+   |
+note: the following trait bounds were not satisfied:
+      `&bool: Fn<()>`
+      `&mut bool: Fn<()>`
+      `<&bool as FnOnce<()>>::Output = bool`
+      `<&mut bool as FnOnce<()>>::Output = bool`
+      `<bool as FnOnce<()>>::Output = bool`
+      `bool: Fn<()>`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:26:8
+   |
+19 | #[component]
+   | ------------
+...
+26 |     F: Fn() -> bool,
+   |        ^^^^^^^^^^^^
+   |        |       |
+   |        |       unsatisfied trait bound introduced here
+   |        unsatisfied trait bound introduced here
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `__Check_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
+  --> tests/view/44_wrong_type_and_missing_prop.rs:19:1
+   |
+19 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

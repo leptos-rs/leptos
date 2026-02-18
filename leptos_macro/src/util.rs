@@ -372,6 +372,7 @@ pub(crate) fn classify_prop(
     prop_name: &Ident,
     prop_ty: &Type,
     display_name: &Ident,
+    kind: &str,
     preamble: &PropCheckPreamble,
     full_generics: &syn::Generics,
 ) -> (String, PropClassification) {
@@ -401,8 +402,8 @@ pub(crate) fn classify_prop(
         let bounds = predicates_to_bounds(&param_predicates);
         let bounds_note = bounds.to_string();
         let message = format!(
-            "`{{Self}}` is not a valid type for prop `{clean_name}` on \
-             component `{display_name}`",
+            "`{{Self}}` is not a valid type for prop `{clean_name}` on {kind} \
+             `{display_name}`",
         );
         let note = format!("required: `{bounds_note}`");
 
@@ -457,6 +458,7 @@ pub(crate) fn generate_module_checks(
     full_generics: &syn::Generics,
     module_name: &Ident,
     display_name: &Ident,
+    kind: &str,
     props: &[(&Ident, &Type)],
     field_types: &[&Type],
 ) -> ModuleCheckTokens {
@@ -477,6 +479,7 @@ pub(crate) fn generate_module_checks(
             prop_name,
             prop_ty,
             display_name,
+            kind,
             &preamble,
             full_generics,
         );
@@ -582,6 +585,7 @@ pub(crate) struct ModuleRequiredCheckTokens {
 pub(crate) fn generate_module_required_check(
     module_name: &Ident,
     display_name: &Ident,
+    kind: &str,
     builder_name: &Ident,
     generics: &syn::Generics,
     fields: &[(&Ident, bool)],
@@ -629,7 +633,7 @@ pub(crate) fn generate_module_required_check(
             );
 
             let message = format!(
-                "missing required prop `{clean_name}` on component \
+                "missing required prop `{clean_name}` on {kind} \
                  `{display_name}`"
             );
             let label = format!("missing prop `{clean_name}`");

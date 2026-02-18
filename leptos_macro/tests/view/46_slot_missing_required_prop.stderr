@@ -1,0 +1,45 @@
+error[E0277]: missing required prop `concrete_i32` on slot `HelloSlot`
+  --> tests/view/46_slot_missing_required_prop.rs:24:13
+   |
+24 | /             <HelloSlot slot>
+25 | |                 "Hello, World!"
+26 | |             </HelloSlot>
+   | |________________________^ missing prop `concrete_i32`
+   |
+   = help: the trait `__required_HelloSlot_concrete_i32` is not implemented for `()`
+   = note: all required props must be provided as attributes on the component
+help: the trait `__required_HelloSlot_concrete_i32` is implemented for `(__T,)`
+  --> tests/view/46_slot_missing_required_prop.rs:6:1
+   |
+ 6 | #[slot]
+   | ^^^^^^^
+note: required for `HelloSlotBuilder<((), (std::option::Option<Box<dyn FnOnce() -> AnyView + Send>>,))>` to implement `__HelloSlot::__CheckMissing`
+  --> tests/view/46_slot_missing_required_prop.rs:6:1
+   |
+ 6 | #[slot]
+   | ^^^^^^^
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `__check_missing` exists for struct `HelloSlotBuilder<((), (std::option::Option<Box<dyn FnOnce() -> AnyView + Send>>,))>`, but its trait bounds were not satisfied
+  --> tests/view/46_slot_missing_required_prop.rs:24:13
+   |
+ 6 |   #[slot]
+   |   ------- method `__check_missing` not found for this struct because it doesn't satisfy `_: __CheckMissing`
+...
+24 |               <HelloSlot slot>
+   |  _____________^
+25 | |                 "Hello, World!"
+26 | |             </HelloSlot>
+   | |________________________^
+   |
+note: trait bound `(): __required_HelloSlot_concrete_i32` was not satisfied
+  --> tests/view/46_slot_missing_required_prop.rs:6:1
+   |
+ 6 | #[slot]
+   | ^^^^^^^
+   = help: items from traits can only be used if the trait is in scope
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: trait `__CheckMissing` which provides `__check_missing` is implemented but not in scope; perhaps you want to import it
+   |
+ 4 + use crate::App::__CheckMissing;
+   |

@@ -107,6 +107,7 @@ impl ToTokens for Model {
             original_generics,
             &module_name,
             name,
+            "slot",
             &prop_pairs,
             &field_types,
         );
@@ -129,6 +130,7 @@ impl ToTokens for Model {
         } = generate_module_required_check(
             &module_name,
             name,
+            "slot",
             &slot_builder_name,
             &behavioral_bounds_stripped_generics,
             &required_fields,

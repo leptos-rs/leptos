@@ -206,6 +206,13 @@ pub(crate) fn slot_to_tokens(
     let pre_checks =
         generate_pre_check_tokens(&prop_infos, &module_import_path);
 
+    let generics = &node.open_tag.generics;
+    let generics = if generics.lt_token.is_some() {
+        quote! { ::#generics }
+    } else {
+        quote! {}
+    };
+
     let build = quote_spanned! {node.name().span()=>
         .build()
     };
@@ -218,7 +225,7 @@ pub(crate) fn slot_to_tokens(
 
             #(#pre_checks)*
             let __props_builder =
-                #module_path ::__builder();
+                #module_path ::__builder #generics ();
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call

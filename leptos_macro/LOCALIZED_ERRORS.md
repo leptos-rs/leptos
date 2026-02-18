@@ -38,7 +38,7 @@ The companion module contains:
   and `__pass_foo(self)` for `{error}` propagation via method syntax
 - **`__CheckMissing`** trait with `__require_props(&self)` for missing-prop detection and
   `__check_missing(self)` for `{error}` propagation
-- **`__builder()`** function (slots only)
+- **`__builder()`** function that constructs the props builder
 
 ## The Two-Step Pre-Check + Required Check Mechanism
 
@@ -177,7 +177,7 @@ produce better error messages.
 | Generic, bounded (closure)| `fun=\|\| true` | E0271/E0593 (targeted)    | E0599 (noisy)            | Value (`\|\| true`)|
 | Generic, short form       | `fun`           | E0277 (on_unimplemented)  | E0599 (noisy)            | Key (`fun`)       |
 | `into` prop               | `label=vec![1]` | E0277 (From not impl)     | —                        | Value (`vec![1]`) |
-| Missing required          | `<Comp/>`       | E0277 (on_unimplemented)  | —                        | Component name    |
+| Missing required          | `<Comp/>`       | E0277 (on_unimplemented)  | E0599 (noisy)            | Component name    |
 
 ## `{error}` Type Propagation
 
@@ -198,6 +198,28 @@ The two-step approach exploits this:
 6. `component_view(Comp, props)` — absorbed by `{error}`
 
 Result: 2 errors total (clean E0277 + noisy E0599), all downstream suppressed.
+
+## Error Priority
+
+When **both** a wrong-type prop and a missing required prop are present, the wrong-type error takes
+priority and **suppresses** the missing-prop error. This happens because `{error}` from the
+wrong-type prop's `__pass_*()` call propagates through the builder, absorbing `__require_props()`
+and `__check_missing()`.
+
+For example, given `<Inner generic_fun=true>` where `concrete_i32` is also required:
+
+1. `true.__pass_generic_fun()` → E0599, expression is `{error}`
+2. `builder.generic_fun({error})` → builder is `{error}`
+3. `__require_props(&{error})` → absorbed (no missing-prop error)
+4. `{error}.__check_missing()` → absorbed
+
+The user sees only the wrong-type errors (E0277 + E0599). After fixing the type error, the
+missing-prop error will appear on the next compile. This is acceptable behavior — fixing errors
+one at a time is natural.
+
+When **multiple** wrong-type props are present simultaneously, each produces its own independent
+error pair (E0277 + E0599), since the pre-checks happen before the builder chain. Multiple
+missing props also produce independent E0277 errors.
 
 ## Span Strategy
 
@@ -222,8 +244,12 @@ Shared logic lives in `leptos_macro/src/util.rs`:
 
 Call sites:
 
-- `component.rs` calls with `module_name = display_name = ComponentName`
-- `slot.rs` calls with `module_name = __SlotName`, `display_name = SlotName`
+- `component.rs` calls with `module_name = display_name = ComponentName`, `kind = "component"`
+- `slot.rs` calls with `module_name = __SlotName`, `display_name = SlotName`, `kind = "slot"`
+
+Error messages use the `kind` parameter for context-appropriate wording:
+- Component errors: `"missing required prop 'foo' on component 'Bar'"`
+- Slot errors: `"missing required prop 'foo' on slot 'Bar'"`
 
 View-side code in `view/utils.rs`:
 
@@ -347,19 +373,31 @@ error localizes to the source value expression.
 
 Trybuild tests in `leptos_macro/tests/view/` with `.stderr` snapshots:
 
-| Test  | Scenario                                   |
-|-------|--------------------------------------------|
-| 02-04 | Concrete props (correct usage)             |
-| 05    | Missing required concrete prop             |
-| 06    | Concrete prop wrong type                   |
-| 07-08 | Generic props (correct usage)              |
-| 09    | Generic prop wrong type (expanded form)    |
-| 10    | Generic prop wrong type (short form)       |
-| 11-12 | Multiple generic params (correct)          |
-| 13    | Multiple generic params, first wrong type  |
-| 14    | Multiple generic params, second wrong type |
-| 37    | Slot (correct usage)                       |
-| 38    | Slot generic prop wrong type               |
+| Test  | Scenario                                       |
+|-------|------------------------------------------------|
+| 02-04 | Concrete props (correct, wrong type)           |
+| 05    | Missing required concrete prop                 |
+| 06    | Concrete prop wrong type (multiple props)      |
+| 07-08 | Generic props (correct, missing)               |
+| 09    | Generic prop wrong type (expanded form)        |
+| 10    | Generic prop wrong type (short form)           |
+| 11-12 | Multiple generic params (correct)              |
+| 13    | Multiple generic params, first wrong type      |
+| 14    | Multiple generic params, second wrong type     |
+| 15    | Children missing                               |
+| 16    | Children FnOnce instead of Fn                  |
+| 17-30 | Prop attributes (optional, default, into, etc) |
+| 31-33 | Builder syntax                                 |
+| 34-36 | Let syntax                                     |
+| 37    | Slot (correct usage)                           |
+| 38    | Slot generic prop wrong type                   |
+| 39    | Raw identifier                                 |
+| 40-41 | Renamed import of component                    |
+| 42    | Multiple missing required props                |
+| 43    | Multiple wrong-type props                      |
+| 44    | Wrong type + missing prop (priority test)      |
+| 45    | Only optional props (should compile)           |
+| 46    | Slot missing required prop                     |
 
 Run tests with:
 
@@ -372,3 +410,13 @@ Update `.stderr` snapshots with:
 ```bash
 TRYBUILD=overwrite cargo +nightly test -p leptos_macro --test view
 ```
+
+## Breaking Changes
+
+- **`component_props_builder` removed from public API**: The `view!` macro now uses
+  `ComponentName::__builder()` (resolves to the companion module) instead of
+  `component_props_builder(&ComponentName)`. If any user code called `component_props_builder`
+  directly, this is a breaking change.
+- **`component::*` restricted in prelude**: `leptos/src/lib.rs` changed from re-exporting
+  `component::*` to specific exports, preventing internal types (`NoProps`, `EmptyPropsBuilder`,
+  etc.) from leaking into user scope.

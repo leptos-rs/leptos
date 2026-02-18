@@ -68,4 +68,11 @@ fn test_view_macro() {
     // Rename imported components.
     t.pass("tests/view/40_renamed_import_of_no_props_comp.rs");
     t.pass("tests/view/41_renamed_import_of_comp_with_props.rs");
+
+    // Combined error scenarios.
+    t.compile_fail("tests/view/42_multiple_missing_required_props.rs");
+    t.compile_fail("tests/view/43_multiple_wrong_type_props.rs");
+    t.compile_fail("tests/view/44_wrong_type_and_missing_prop.rs");
+    t.pass("tests/view/45_only_optional_props.rs");
+    t.compile_fail("tests/view/46_slot_missing_required_prop.rs");
 }

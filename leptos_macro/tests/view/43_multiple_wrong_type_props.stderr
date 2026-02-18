@@ -1,0 +1,75 @@
+error[E0277]: `bool` is not a valid type for prop `fun_a` on component `Inner`
+  --> tests/view/43_multiple_wrong_type_props.rs:10:26
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                          ^^^^ the trait `Fn()` is not implemented for `bool`
+   |
+   = note: required: `Fn() -> bool`
+note: required for `bool` to implement `__Check_fun_a`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+...
+24 |     A: Fn() -> bool,
+   |        ------------ unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `__pass_fun_a` exists for type `bool`, but its trait bounds were not satisfied
+  --> tests/view/43_multiple_wrong_type_props.rs:10:26
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                          ^^^^
+   |
+note: the following trait bounds were not satisfied:
+      `&bool: Fn<()>`
+      `&mut bool: Fn<()>`
+      `<&bool as FnOnce<()>>::Output = bool`
+      `<&mut bool as FnOnce<()>>::Output = bool`
+      `<bool as FnOnce<()>>::Output = bool`
+      `bool: Fn<()>`
+  --> tests/view/43_multiple_wrong_type_props.rs:24:8
+   |
+17 | #[component]
+   | ------------
+...
+24 |     A: Fn() -> bool,
+   |        ^^^^^^^^^^^^
+   |        |       |
+   |        |       unsatisfied trait bound introduced here
+   |        unsatisfied trait bound introduced here
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `__Check_fun_a` defines an item `__pass_fun_a`, perhaps you need to implement it
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `{integer}` is not a valid type for prop `fun_b` on component `Inner`
+  --> tests/view/43_multiple_wrong_type_props.rs:10:37
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                                     ^^ the trait `Fn()` is not implemented for `{integer}`
+   |
+   = note: required: `Fn() -> i32`
+note: required for `{integer}` to implement `__Check_fun_b`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+...
+25 |     B: Fn() -> i32,
+   |        ----------- unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0689]: can't call method `__pass_fun_b` on ambiguous numeric type `{integer}`
+  --> tests/view/43_multiple_wrong_type_props.rs:10:37
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                                     ^^
+   |
+help: you must specify a type for this binding, like `i32`
+   |
+10 |             <Inner fun_a=true fun_b=42: i32>
+   |                                       +++++

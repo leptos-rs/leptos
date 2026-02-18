@@ -624,6 +624,7 @@ impl ToTokens for Model {
             original_generics,
             name,
             name,
+            "component",
             &prop_pairs,
             &field_types,
         );
@@ -645,6 +646,7 @@ impl ToTokens for Model {
         } = generate_module_required_check(
             name,
             name,
+            "component",
             &props_builder_name,
             &behavioral_bounds_stripped_generics,
             &required_fields,
