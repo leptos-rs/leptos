@@ -2,7 +2,9 @@ error[E0277]: the trait bound `std::string::String: From<Vec<{integer}>>` is not
   --> tests/view/30_into_strip_option_prop_wrong_type.rs:11:36
    |
 11 |             <Inner required=42 val=vec![1, 2, 3]/>
-   |                                    ^^^^^^^^^^^^^ the trait `From<Vec<{integer}>>` is not implemented for `std::string::String`
+   |                                --- ^^^^^^^^^^^^^ the trait `From<Vec<{integer}>>` is not implemented for `std::string::String`
+   |                                |
+   |                                required by a bound introduced by this call
    |
    = help: the following other types implement trait `From<T>`:
              `std::string::String` implements `From<&JsString>`

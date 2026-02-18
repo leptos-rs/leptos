@@ -2,10 +2,9 @@ error[E0308]: mismatched types
   --> tests/view/18_optional_prop_wrong_type.rs:10:46
    |
 10 |             <Inner required=42 optional_flag="not_a_bool"/>
-   |                                              ^^^^^^^^^^^^
-   |                                              |
-   |                                              expected `bool`, found `&str`
-   |                                              arguments to this method are incorrect
+   |                                ------------- ^^^^^^^^^^^^ expected `bool`, found `&str`
+   |                                |
+   |                                arguments to this method are incorrect
    |
 note: method defined here
   --> tests/view/18_optional_prop_wrong_type.rs:18:23

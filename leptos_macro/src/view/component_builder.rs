@@ -2,7 +2,7 @@ use super::{
     fragment_to_tokens,
     utils::{
         attr_check_idents, children_span, generate_pre_check_tokens,
-        is_nostrip_optional_and_update_key, node_name_to_ident_with_span,
+        is_nostrip_optional_and_update_key,
     },
     TagType,
 };
@@ -93,9 +93,9 @@ pub(crate) fn component_to_tokens(
         Span,        // check_span (value's span)
     )> = vec![];
     let mut setter_info: Vec<(
-        Ident, // checked_var ident with check_span
-        Ident, // setter_name (with value span for into props)
-        Span,  // key_value_span (for builder setter)
+        Ident,       // checked_var ident with check_span
+        TokenStream, // setter_name tokens (from NodeName)
+        Span,        // key_value_span (for builder setter)
     )> = vec![];
     let mut optional_props = vec![];
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
@@ -127,19 +127,9 @@ pub(crate) fn component_to_tokens(
             name.span(),
         );
 
-        // Create a setter name ident that carries the value's span.
-        // For `into` props, E0277 points to the method name, so
-        // this ensures the error points to the value expression.
-        let setter_name = node_name_to_ident_with_span(
-            name,
-            attr.value()
-                .map(|v| v.span())
-                .unwrap_or_else(|| name.span()),
-        );
-
         if optional {
             optional_props.push(quote_spanned! {key_value_span=>
-                props.#setter_name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
+                props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
             let (check_fn_spanned, checked_var, check_span) =
@@ -151,7 +141,7 @@ pub(crate) fn component_to_tokens(
                 value,
                 check_span,
             ));
-            setter_info.push((checked_var, setter_name, key_value_span));
+            setter_info.push((checked_var, quote! { #name }, key_value_span));
         }
     }
 
@@ -258,16 +248,26 @@ pub(crate) fn component_to_tokens(
         disable_inert_html,
     );
 
-    // Generate children builder call (no checker needed —
-    // children are always concrete types).
-    let children_builder_call = if let Some(ref arg) = children_arg {
-        quote_spanned! {children_span=>
-            #[allow(unused_braces)]
-            let __props_builder = __props_builder.children({ #arg });
-        }
-    } else {
-        quote! {}
-    };
+    // Generate children pre-check and builder call.
+    // Children can be generic (e.g. `children: C where C: Fn() -> bool`),
+    // so we run them through __check_children like other props.
+    let (children_pre_check, children_builder_call) =
+        if let Some(ref arg) = children_arg {
+            let pass_ident = Ident::new("__pass", children_span);
+            let pre_check = quote_spanned! {children_span=>
+                let __checked_children = #component_path
+                    ::__check_children(
+                        #[allow(unused_braces)] { #arg }
+                    ).#pass_ident();
+            };
+            let builder_call = quote_spanned! {children_span=>
+                let __props_builder =
+                    __props_builder.children(__checked_children);
+            };
+            (pre_check, builder_call)
+        } else {
+            (quote! {}, quote! {})
+        };
 
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
@@ -340,6 +340,7 @@ pub(crate) fn component_to_tokens(
                     // for bounded generic props, then
                     // .__pass() for {error} propagation)
                     #(#pre_checks)*
+                    #children_pre_check
                     // Build props via companion struct
                     let __props_builder =
                         #component_path ::builder #generics ();
@@ -357,11 +358,6 @@ pub(crate) fn component_to_tokens(
             #spreads
         }
     };
-
-    // (Temporarily?) removed
-    // See note on the function itself below.
-    /* #[cfg(debug_assertions)]
-    IdeTagHelper::add_component_completion(&mut component, node); */
 
     component
 }

@@ -26,6 +26,7 @@ pub(crate) fn slot_to_tokens(
     });
 
     let component_path = full_path_from_tag_name(node.name());
+    let component_path = quote! { #component_path };
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error2::emit_error!(
@@ -59,38 +60,36 @@ pub(crate) fn slot_to_tokens(
         TokenStream, // value expression
         Span,        // check_span
     )> = vec![];
-    let builder_setters: Vec<TokenStream> = attrs
-        .iter()
-        .filter(|attr| {
-            !attr.key.to_string().starts_with("let:")
-                && !attr.key.to_string().starts_with("clone:")
-                && !attr.key.to_string().starts_with("attr:")
-        })
-        .map(|attr| {
-            let attr_name = &attr.key;
+    let mut builder_setters: Vec<TokenStream> = vec![];
+    for attr in attrs.iter().filter(|attr| {
+        !attr.key.to_string().starts_with("let:")
+            && !attr.key.to_string().starts_with("clone:")
+            && !attr.key.to_string().starts_with("attr:")
+    }) {
+        let attr_name = &attr.key;
 
-            let value = attr
-                .value()
-                .map(|v| {
-                    quote! { #v }
-                })
-                .unwrap_or_else(|| quote! { #attr_name });
+        let value = attr
+            .value()
+            .map(|v| {
+                quote! { #v }
+            })
+            .unwrap_or_else(|| quote! { #attr_name });
 
-            let (check_fn_spanned, checked_var, check_span) =
-                attr_check_idents(attr);
+        let (check_fn_spanned, checked_var, check_span) =
+            attr_check_idents(attr);
 
-            pre_check_info.push((
-                check_fn_spanned,
-                checked_var.clone(),
-                value,
-                check_span,
-            ));
+        pre_check_info.push((
+            check_fn_spanned,
+            checked_var.clone(),
+            value,
+            check_span,
+        ));
 
-            quote! {
-                let __props_builder = __props_builder.#attr_name(#[allow(unused_braces)] #checked_var);
-            }
-        })
-        .collect();
+        builder_setters.push(quote_spanned! {check_span=>
+            let __props_builder = __props_builder
+                .#attr_name(#[allow(unused_braces)] #checked_var);
+        });
+    }
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
         .into_iter()
@@ -140,7 +139,9 @@ pub(crate) fn slot_to_tokens(
     {
         let pass_ident = Ident::new("__pass", children_span);
         let pre_check = quote_spanned! {children_span=>
-            let __checked_children = #component_path ::__check_children(#arg).#pass_ident();
+            let __checked_children = #component_path ::__check_children(
+                #[allow(unused_braces)] { #arg }
+            ).#pass_ident();
         };
         let builder_call = quote_spanned! {name_span=>
             let __props_builder = __props_builder.children(__checked_children);
@@ -157,7 +158,7 @@ pub(crate) fn slot_to_tokens(
             .span();
         let slot = Ident::new(&slot, span);
         let value = if values.len() > 1 {
-            quote! {
+            quote_spanned! {span=>
                 ::std::vec![
                     #(#values)*
                 ]
@@ -166,14 +167,13 @@ pub(crate) fn slot_to_tokens(
             values.remove(0)
         };
 
-        quote! {
+        quote_spanned! {span=>
             let __props_builder = __props_builder.#slot(#value);
         }
     });
 
     // Generate pre-check calls using slot struct.
     // Chain .__pass() for {error} propagation on bound failure.
-    let component_path = quote! { #component_path };
     let pre_checks =
         generate_pre_check_tokens(&pre_check_info, &component_path);
 

@@ -2,10 +2,9 @@ error[E0308]: mismatched types
   --> tests/view/24_strip_option_prop_wrong_type.rs:10:36
    |
 10 |             <Inner required=42 val="not_a_u8"/>
-   |                                    ^^^^^^^^^^
-   |                                    |
-   |                                    expected `u8`, found `&str`
-   |                                    arguments to this method are incorrect
+   |                                --- ^^^^^^^^^^ expected `u8`, found `&str`
+   |                                |
+   |                                arguments to this method are incorrect
    |
 note: method defined here
   --> tests/view/24_strip_option_prop_wrong_type.rs:18:27

@@ -176,7 +176,6 @@ impl ToTokens for Model {
             }
         }
 
-        //body.sig.ident = format_ident!("__{}", body.sig.ident);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
@@ -209,6 +208,7 @@ impl ToTokens for Model {
 
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
+        let companion_name = format_ident!("{name}__");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
         #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
@@ -693,20 +693,6 @@ impl ToTokens for Model {
                 }
             }
 
-            #(#prop_traits)*
-            #marker_traits
-            #check_required_method
-
-            #[doc(hidden)]
-            #[allow(non_snake_case)]
-            #vis struct #name {}
-
-            #[doc(hidden)]
-            impl #name {
-                #builder_method
-                #(#check_methods)*
-            }
-
             #unknown_attrs
             #docs_and_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -719,6 +705,27 @@ impl ToTokens for Model {
             {
                 #body
             }
+
+            #(#prop_traits)*
+            #marker_traits
+            #check_required_method
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            #vis struct #companion_name {}
+
+            #[doc(hidden)]
+            impl #companion_name {
+                #builder_method
+                #(#check_methods)*
+            }
+
+            // Type alias so that `ComponentName::builder()` and renamed
+            // imports (`use path::Component as Alias; Alias::builder()`)
+            // resolve through the alias to the companion struct.
+            #[doc(hidden)]
+            #[allow(non_camel_case_types)]
+            #vis type #name = #companion_name;
         };
 
         tokens.append_all(output)
@@ -1517,7 +1524,7 @@ pub(crate) fn strip_non_structural_bounds(
                     // are kept to be safe.
                     true
                 }
-                WherePredicate::Lifetime(_) => true,
+                // Keep lifetime bounds and any other predicates.
                 _ => true,
             })
             .cloned()
@@ -1598,6 +1605,11 @@ pub(crate) fn collect_predicates_for_param(
 
 /// Walks a syntax tree looking for path segments matching any of the
 /// given target identifiers.
+///
+/// Only `visit_path_segment` is overridden because generic type
+/// params always appear as path segments in type ASTs (e.g. `F`,
+/// `Vec<F>`, `Option<F>`). This is sufficient for detecting whether
+/// a generic param is referenced.
 struct IdentFinder<'a> {
     targets: &'a [&'a Ident],
     found: bool,
@@ -1696,8 +1708,11 @@ pub(crate) struct CompanionCheckTokens {
 /// - **Generic, single-param bounds**: Custom supertrait with
 ///   `on_unimplemented` + bounded check method returning wrapper +
 ///   bounded `__PropPass` impl on wrapper (E0599 → `{error}`).
-/// - **Generic, multi-param / unbounded / concrete**: Identity
-///   check method returning wrapper + blanket `__PropPass` impl.
+/// - **Everything else** (concrete, `into`, unbounded, multi-param
+///   generic): Identity check method returning wrapper + blanket
+///   `__PropPass` impl. For `into` props, the builder setter's
+///   `IntoReactiveValue` bound produces E0277 pointing to the
+///   value argument, so no pre-check bound is needed.
 ///
 /// - `full_generics`: the full generics from the original
 ///   function/struct (all bounds)
@@ -1730,8 +1745,9 @@ pub(crate) fn generate_companion_checks(
         })
         .collect();
 
-    let stripped_params: Vec<&&Ident> = all_generic_idents
+    let stripped_params: Vec<&Ident> = all_generic_idents
         .iter()
+        .copied()
         .filter(|ident| !param_needs_structural_bounds(ident, field_types))
         .collect();
 
@@ -1746,9 +1762,15 @@ pub(crate) fn generate_companion_checks(
             format_ident!("__{}_Wrap_{}", component_name, clean_name);
 
         // Determine if this is a bounded single-param generic prop.
-        // Only this case gets a custom trait with on_unimplemented;
-        // everything else (concrete, unbounded, multi-param) uses
-        // an identity wrapper with blanket __PropPass.
+        // This takes priority over `into` (case 1 in the doc comment).
+        //
+        // Three conditions must hold:
+        // 1. The prop type is a bare generic param from the
+        //    stripped set (not structurally needed).
+        // 2. That param has non-empty predicates (bounds).
+        // 3. None of those predicates reference other generic
+        //    params (which would make the check method unsound
+        //    in isolation).
         let bounded_single_param = stripped_params
             .iter()
             .find(|ident| is_bare_generic_param(prop_ty, ident))
@@ -1768,11 +1790,8 @@ pub(crate) fn generate_companion_checks(
                 }
             });
 
-        // Bounded case: generate trait, set bound token.
-        // Unbounded case: no trait, empty bound token.
-        let (trait_def, bound) = if let Some(param_predicates) =
-            bounded_single_param
-        {
+        if let Some(param_predicates) = bounded_single_param {
+            // Case 1: Bounded single-param generic prop.
             let trait_name =
                 format_ident!("__{}_PropBound_{}", component_name, clean_name);
             let bounds = predicates_to_bounds(&param_predicates);
@@ -1783,7 +1802,7 @@ pub(crate) fn generate_companion_checks(
             );
             let note = format!("required: `{bounds_note}`");
 
-            let trait_def = quote! {
+            prop_traits.push(quote! {
                 #[doc(hidden)]
                 #[diagnostic::on_unimplemented(
                     message = #message,
@@ -1795,39 +1814,66 @@ pub(crate) fn generate_companion_checks(
                     for __T
                 {
                 }
-            };
-            (trait_def, quote! { : #trait_name })
-        } else {
-            (quote! {}, quote! {})
-        };
 
-        prop_traits.push(quote! {
-            #trait_def
+                #[doc(hidden)]
+                #[allow(non_camel_case_types)]
+                pub struct #wrap_name<__T>(pub __T);
 
-            #[doc(hidden)]
-            #[allow(non_camel_case_types)]
-            pub struct #wrap_name<__T>(pub __T);
-
-            #[diagnostic::do_not_recommend]
-            impl<__T #bound>
-                ::leptos::component::__PropPass for #wrap_name<__T>
-            {
-                type Output = __T;
-                fn __pass(self) -> __T {
-                    self.0
+                #[diagnostic::do_not_recommend]
+                impl<__T: #trait_name>
+                    ::leptos::component::__PropPass for #wrap_name<__T>
+                {
+                    type Output = __T;
+                    fn __pass(self) -> __T {
+                        self.0
+                    }
                 }
-            }
-        });
+            });
 
-        check_methods.push(quote! {
-            #[doc(hidden)]
-            #[allow(non_snake_case)]
-            pub fn #check_fn<__T #bound>(
-                val: __T,
-            ) -> #wrap_name<__T> {
-                #wrap_name(val)
-            }
-        });
+            check_methods.push(quote! {
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub fn #check_fn<__T: #trait_name>(
+                    val: __T,
+                ) -> #wrap_name<__T> {
+                    #wrap_name(val)
+                }
+            });
+        } else {
+            // Case 2: `into` props. These don't need a bounded
+            // pre-check because the builder setter already carries
+            // the `IntoReactiveValue` bound. E0277 from the setter
+            // naturally points to the value argument regardless of
+            // the setter name's span, producing one clean error.
+            //
+            // Case 3: Concrete / unbounded / multi-param generic.
+            // Identity wrapper with blanket __PropPass.
+            prop_traits.push(quote! {
+                #[doc(hidden)]
+                #[allow(non_camel_case_types)]
+                pub struct #wrap_name<__T>(pub __T);
+
+                #[diagnostic::do_not_recommend]
+                impl<__T>
+                    ::leptos::component::__PropPass for #wrap_name<__T>
+                {
+                    type Output = __T;
+                    fn __pass(self) -> __T {
+                        self.0
+                    }
+                }
+            });
+
+            check_methods.push(quote! {
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub fn #check_fn<__T>(
+                    val: __T,
+                ) -> #wrap_name<__T> {
+                    #wrap_name(val)
+                }
+            });
+        }
     }
 
     CompanionCheckTokens {
@@ -1990,7 +2036,7 @@ pub(crate) fn generate_required_check(
     let (_, _, where_clause) = generics.split_for_impl();
 
     // Collect generic params for the impl header (with bounds).
-    let impl_params: Vec<&GenericParam> = generics.params.iter().collect();
+    let generic_params: Vec<&GenericParam> = generics.params.iter().collect();
 
     // Collect generic args for type position (idents / lifetimes
     // only, no bounds).
@@ -2014,9 +2060,13 @@ pub(crate) fn generate_required_check(
         .collect();
 
     let mut marker_traits = vec![];
+    // `type_state_params` carries bounded params (e.g. `__F0: __required_Foo_bar`)
+    // for the impl header, while `type_state_idents` holds bare idents (e.g.
+    // `__F0`) for the type position in `Builder<(F0, F1, ...)>`. The loop below
+    // builds both in tandem: required fields get a marker-trait bound on the
+    // param, optional fields get an unbounded param.
     let mut type_state_params = vec![];
     let mut type_state_idents = vec![];
-    let mut required_where_bounds = vec![];
 
     for (i, (name, required)) in fields.iter().enumerate() {
         let param = format_ident!("__F{}", i);
@@ -2047,7 +2097,6 @@ pub(crate) fn generate_required_check(
             });
 
             type_state_params.push(quote! { #param: #trait_name });
-            required_where_bounds.push(quote! { #param: #trait_name });
         } else {
             type_state_params.push(quote! { #param });
         }
@@ -2065,10 +2114,10 @@ pub(crate) fn generate_required_check(
     // missing or a behavioral bound fails, E0599 fires (method
     // not found) → expression is `{error}` which absorbs
     // downstream errors.
-    let impl_params = if impl_params.is_empty() {
+    let impl_params = if generic_params.is_empty() {
         quote! { #(#type_state_params),* }
     } else {
-        quote! { #(#impl_params,)* #(#type_state_params),* }
+        quote! { #(#generic_params,)* #(#type_state_params),* }
     };
 
     let check_required_method = quote! {

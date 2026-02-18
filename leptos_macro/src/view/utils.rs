@@ -97,24 +97,14 @@ pub fn children_span<C: CustomNode>(
     }
 }
 
+/// Returns a span covering the key–value pair of a prop assignment.
+///
+/// When a `value` span is available, joins it with `key`; otherwise
+/// falls back to `fallback` (typically the key span itself).
 pub fn key_value_span(key: Span, value: Option<Span>, fallback: Span) -> Span {
     value
-        .map(|value| key.join(value.span()).unwrap_or(key.span()))
+        .map(|value| key.join(value).unwrap_or(key))
         .unwrap_or(fallback)
-}
-
-/// Converts a `NodeName` to an `Ident` with the given span.
-///
-/// Uses `NodeName`'s `Display` impl, which preserves raw identifier
-/// prefixes (e.g. `r#type`), then reconstructs the `Ident` with the
-/// target span.
-pub fn node_name_to_ident_with_span(name: &NodeName, span: Span) -> Ident {
-    let s = name.to_string();
-    if let Some(raw) = s.strip_prefix("r#") {
-        Ident::new_raw(raw, span)
-    } else {
-        Ident::new(&s, span)
-    }
 }
 
 /// Generates the pre-check `let` statements that call companion

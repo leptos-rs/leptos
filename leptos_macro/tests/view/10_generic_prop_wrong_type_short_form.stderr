@@ -18,13 +18,13 @@ note: required for `bool` to implement `__Inner_PropBound_generic_fun`
 ...
 27 |     F: Fn() -> bool,
    |        ------------ unsatisfied trait bound introduced here
-note: required by a bound in `Inner::__check_generic_fun`
+note: required by a bound in `Inner__::__check_generic_fun`
   --> tests/view/10_generic_prop_wrong_type_short_form.rs:21:4
    |
 20 | #[component]
    | ------------ required by a bound in this associated function
 21 | fn Inner<F>(
-   |    ^^^^^ required by this bound in `Inner::__check_generic_fun`
+   |    ^^^^^ required by this bound in `Inner__::__check_generic_fun`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__pass` exists for struct `__Inner_Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
