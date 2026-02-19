@@ -630,7 +630,10 @@ pub(crate) fn generate_module_required_check(
                 )
             } else {
                 (
-                    format!("missing required prop `{clean_name}` on {kind} `{display_name}`"),
+                    format!(
+                        "missing required prop `{clean_name}` on {kind} \
+                         `{display_name}`"
+                    ),
                     format!("missing prop `{clean_name}`"),
                     format!("required props: [{names_of_required_props}]"),
                 )
