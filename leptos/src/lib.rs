@@ -169,16 +169,8 @@ pub mod prelude {
         #[cfg(feature = "nonce")]
         pub use crate::nonce::*;
         pub use crate::{
-            callback::*,
-            children::*,
-            component::{component_view, ComponentConstructor, Props},
-            control_flow::*,
-            error::*,
-            form::*,
-            hydration::*,
-            into_view::*,
-            mount::*,
-            suspense::*,
+            callback::*, children::*, component::*, control_flow::*, error::*,
+            form::*, hydration::*, into_view::*, mount::*, suspense::*,
             text_prop::*,
         };
         pub use leptos_config::*;
