@@ -1,12 +1,11 @@
 use crate::{
-    component::{
-        convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
-    },
+    component::{convert_from_snake_case, drain_filter, Docs},
     util::{
-        collect_phantom_type_params, generate_module_checks,
-        generate_module_required_check, generate_phantom_field,
-        strip_non_structural_bounds, ModuleCheckTokens,
-        ModuleRequiredCheckTokens,
+        collect_phantom_type_params, generate_module_builder,
+        generate_module_checks, generate_module_presence_check,
+        generate_module_required_check, generate_phantom_field, is_option,
+        strip_non_structural_bounds, unwrap_option, ModuleCheckTokens,
+        ModulePresenceTokens, ModuleRequiredCheckTokens, TypedBuilderOpts,
     },
 };
 use attribute_derive::FromAttr;
@@ -136,30 +135,21 @@ impl ToTokens for Model {
             &required_fields,
         );
 
-        // Builder function inside the companion module.
+        let ModulePresenceTokens {
+            module_items: module_presence_items,
+            check_presence_impl,
+        } = generate_module_presence_check(
+            &module_name,
+            name,
+            &required_fields,
+        );
+
         let no_props = props.is_empty();
-        let module_builder = if no_props {
-            quote! {
-                #[doc(hidden)]
-                pub fn __builder()
-                    -> ::leptos::component::EmptyPropsBuilder
-                {
-                    ::leptos::component::EmptyPropsBuilder {}
-                }
-            }
-        } else {
-            quote! {
-                #[doc(hidden)]
-                pub fn __builder #struct_impl_generics ()
-                    -> <super::#name #generics
-                        as ::leptos::component::Props>::Builder
-                    #struct_where_clause
-                {
-                    <super::#name #generics
-                        as ::leptos::component::Props>::builder()
-                }
-            }
-        };
+        let module_builder = generate_module_builder(
+            no_props,
+            &behavioral_bounds_stripped_generics,
+            name,
+        );
 
         let output = quote! {
             #[doc = #builder_name_doc]
@@ -199,10 +189,12 @@ impl ToTokens for Model {
                 #module_builder
                 #(#module_check_traits)*
                 #module_required_items
+                #module_presence_items
             }
 
             #(#check_trait_impls)*
             #check_missing_impl
+            #check_presence_impl
         };
 
         tokens.append_all(output)
@@ -258,77 +250,16 @@ struct PropOpt {
     pub attrs: bool,
 }
 
-struct TypedBuilderOpts<'a> {
-    default: bool,
-    default_with_value: Option<syn::Expr>,
-    strip_option: bool,
-    into: bool,
+fn typed_builder_opts<'a>(
+    opts: &PropOpt,
     ty: &'a Type,
-}
-
-impl<'a> TypedBuilderOpts<'a> {
-    pub fn from_opts(opts: &PropOpt, ty: &'a Type) -> Self {
-        Self {
-            default: opts.optional || opts.optional_no_strip || opts.attrs,
-            default_with_value: opts.default.clone(),
-            strip_option: opts.strip_option || opts.optional && is_option(ty),
-            into: opts.into,
-            ty,
-        }
-    }
-}
-
-impl ToTokens for TypedBuilderOpts<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let default = if let Some(v) = &self.default_with_value {
-            let v = v.to_token_stream().to_string();
-            quote! { default_code=#v, }
-        } else if self.default {
-            quote! { default, }
-        } else {
-            quote! {}
-        };
-
-        // If self.strip_option && self.into, then the strip_option will be represented as part of the transform closure.
-        let strip_option = if self.strip_option && !self.into {
-            quote! { strip_option, }
-        } else {
-            quote! {}
-        };
-
-        let into = if self.into {
-            if !self.strip_option {
-                let ty = &self.ty;
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> #ty {
-                        value.into_reactive_value()
-                    },
-                }
-            } else {
-                let ty = unwrap_option(self.ty);
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
-                        Some(value.into_reactive_value())
-                    },
-                }
-            }
-        } else {
-            quote! {}
-        };
-
-        let setter = if !strip_option.is_empty() || !into.is_empty() {
-            quote! { setter(#strip_option #into) }
-        } else {
-            quote! {}
-        };
-
-        let output = if !default.is_empty() || !setter.is_empty() {
-            quote! { #[builder(#default #setter)] }
-        } else {
-            quote! {}
-        };
-
-        tokens.append_all(output);
+) -> TypedBuilderOpts<'a> {
+    TypedBuilderOpts {
+        default: opts.optional || opts.optional_no_strip || opts.attrs,
+        default_with_value: opts.default.clone(),
+        strip_option: opts.strip_option || opts.optional && is_option(ty),
+        into: opts.into,
+        ty,
     }
 }
 
@@ -343,7 +274,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 ty,
             } = prop;
 
-            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
+            let builder_attrs = typed_builder_opts(prop_opts, ty);
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 

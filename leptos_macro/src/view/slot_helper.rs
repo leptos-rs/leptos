@@ -179,6 +179,9 @@ pub(crate) fn slot_to_tokens(
         quote! {}
     };
 
+    // Collect slot names before draining, for presence tracking.
+    let sub_slot_names: Vec<String> = slots.keys().cloned().collect();
+
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
             .last()
@@ -206,6 +209,30 @@ pub(crate) fn slot_to_tokens(
     let pre_checks =
         generate_pre_check_tokens(&prop_infos, &module_import_path);
 
+    // Presence tracking setters (independent of {error}).
+    let presence_setters: Vec<TokenStream> = prop_infos
+        .iter()
+        .map(|info| {
+            let setter =
+                Ident::new_raw(&info.idents.clean_name, Span::call_site());
+            quote! { let __presence = __presence.#setter(); }
+        })
+        .collect();
+
+    let presence_sub_slots: Vec<TokenStream> = sub_slot_names
+        .iter()
+        .map(|name| {
+            let setter = Ident::new(name, Span::call_site());
+            quote! { let __presence = __presence.#setter(); }
+        })
+        .collect();
+
+    let presence_children = if children_arg.is_some() {
+        quote! { let __presence = __presence.children(); }
+    } else {
+        quote! {}
+    };
+
     let generics = &node.open_tag.generics;
     let generics = if generics.lt_token.is_some() {
         quote! { ::#generics }
@@ -224,13 +251,21 @@ pub(crate) fn slot_to_tokens(
             use #module_import_path::__CheckMissing as _;
 
             #(#pre_checks)*
+
+            // Presence tracking (independent of {error})
+            let __presence =
+                #module_path ::__presence();
+            #(#presence_setters)*
+            #(#presence_sub_slots)*
+            #presence_children
+            <_ as #module_path ::__CheckPresence>
+                ::__require_props(&__presence);
+
             let __props_builder =
                 #module_path ::__builder #generics ();
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call
-            <_ as #module_path ::__CheckMissing>::__require_props(
-                &__props_builder);
             let __props_builder =
                 __props_builder.__check_missing();
             let slot = __props_builder #build;

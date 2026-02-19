@@ -6,7 +6,7 @@
 //! fields — all part of the localized error reporting machinery.
 
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use syn::{visit::Visit, GenericParam, Type, TypePath, WherePredicate};
 
 // -------------------------------------------------------------------
@@ -443,6 +443,11 @@ pub(crate) struct ModuleCheckTokens {
 ///   with `on_unimplemented` (works for all types including
 ///   closures), then method: `value.__pass_foo()` — E0599
 ///   produces `{error}` for downstream suppression.
+///
+///   NOTE: Two steps are needed because E0599 doesn't show
+///   `on_unimplemented` for anonymous types (closures). If rustc
+///   gains that capability, the UFCS step could be dropped to
+///   reduce bounded-generic prop errors from 2 to 1.
 /// - **Everything else**: blanket `__Check_*` trait inside module
 ///   with blanket impl outside. All types pass through.
 ///
@@ -484,6 +489,8 @@ pub(crate) fn generate_module_checks(
             full_generics,
         );
 
+        // Intentionally call_site span: these synthetic idents should
+        // not link back to any user source location.
         let check_trait_name = format_ident!("__Check_{}", clean_name);
         let check_method_name = format_ident!("__check_{}", clean_name);
         let pass_method_name = format_ident!("__pass_{}", clean_name);
@@ -555,6 +562,25 @@ pub(crate) fn generate_module_checks(
 }
 
 // -------------------------------------------------------------------
+// Shared helper for marker trait names
+// -------------------------------------------------------------------
+
+/// Returns the marker trait name for a required field, e.g.
+/// `__required_Inner_concrete_i32`. Used by both
+/// `generate_module_required_check` and
+/// `generate_module_presence_check` to ensure consistent naming.
+pub(crate) fn required_marker_trait_name(
+    display_name: &Ident,
+    prop_name: &Ident,
+) -> Ident {
+    let clean_name = clean_prop_name(prop_name);
+    Ident::new(
+        &format!("__required_{display_name}_{clean_name}"),
+        Span::call_site(),
+    )
+}
+
+// -------------------------------------------------------------------
 // Module-based required check generation
 // -------------------------------------------------------------------
 
@@ -572,10 +598,10 @@ pub(crate) struct ModuleRequiredCheckTokens {
 /// Generates module-internal trait and outer impl for
 /// required-prop checking.
 ///
-/// `__require_props` (UFCS method on `__CheckMissing`) triggers
-/// E0277 with custom `on_unimplemented` when required props are
-/// missing. `__check_missing` (method call) produces `{error}`
-/// for downstream suppression.
+/// `__check_missing` (method call) produces `{error}` for downstream
+/// suppression when required props are missing. The actual
+/// required-prop error reporting is handled by `__CheckPresence` on
+/// the presence builder (independent of `{error}` contamination).
 ///
 /// - `module_name`: name of the companion module
 /// - `display_name`: human-readable name for error messages
@@ -596,7 +622,6 @@ pub(crate) fn generate_module_required_check(
             module_items: quote! {
                 #[doc(hidden)]
                 pub trait __CheckMissing {
-                    fn __require_props(&self);
                     fn __check_missing(self) -> Self;
                 }
             },
@@ -604,7 +629,6 @@ pub(crate) fn generate_module_required_check(
                 impl<__T>
                     #module_name::__CheckMissing for __T
                 {
-                    fn __require_props(&self) {}
                     fn __check_missing(self) -> Self { self }
                 }
             },
@@ -621,16 +645,19 @@ pub(crate) fn generate_module_required_check(
     let mut type_state_params = vec![];
     let mut type_state_idents = vec![];
 
+    // NOTE: TypedBuilder represents its type-state as a single tuple
+    // (S0, S1, ..., Sn) where Si corresponds to the i-th field in
+    // declaration order. Fields with #[builder(setter(skip))] (like
+    // _phantom) are excluded from the type-state. If TypedBuilder's
+    // internal representation changes, this mapping will silently
+    // break.
     for (i, (name, required)) in fields.iter().enumerate() {
         let param = format_ident!("__F{}", i);
         type_state_idents.push(param.clone());
 
         if *required {
             let clean_name = clean_prop_name(name);
-            let trait_name = Ident::new(
-                &format!("__required_{display_name}_{clean_name}"),
-                Span::call_site(),
-            );
+            let trait_name = required_marker_trait_name(display_name, name);
 
             let message = format!(
                 "missing required prop `{clean_name}` on {kind} \
@@ -676,7 +703,6 @@ pub(crate) fn generate_module_required_check(
     let module_items = quote! {
         #[doc(hidden)]
         pub trait __CheckMissing {
-            fn __require_props(&self);
             fn __check_missing(self) -> Self;
         }
     };
@@ -689,7 +715,6 @@ pub(crate) fn generate_module_required_check(
             for #builder_name<#builder_type_args>
         #where_clause
         {
-            fn __require_props(&self) {}
             fn __check_missing(self) -> Self { self }
         }
     };
@@ -698,6 +723,349 @@ pub(crate) fn generate_module_required_check(
         marker_traits: quote! { #(#marker_traits)* },
         module_items,
         check_missing_impl,
+    }
+}
+
+// -------------------------------------------------------------------
+// Module builder generation (shared by components and slots)
+// -------------------------------------------------------------------
+
+/// Generates the `__builder()` function for inside a companion module.
+///
+/// For no-props components/slots, returns an `EmptyPropsBuilder`.
+/// Otherwise, delegates to the props struct's `Props::builder()`.
+pub(crate) fn generate_module_builder(
+    no_props: bool,
+    stripped_generics: &syn::Generics,
+    props_name: &Ident,
+) -> TokenStream {
+    if no_props {
+        quote! {
+            #[doc(hidden)]
+            pub fn __builder()
+                -> ::leptos::component::EmptyPropsBuilder
+            {
+                ::leptos::component::EmptyPropsBuilder {}
+            }
+        }
+    } else {
+        let (impl_generics, ty_generics, where_clause) =
+            stripped_generics.split_for_impl();
+        quote! {
+            #[doc(hidden)]
+            pub fn __builder #impl_generics ()
+                -> <super::#props_name #ty_generics
+                    as ::leptos::component::Props>::Builder
+                #where_clause
+            {
+                <super::#props_name #ty_generics
+                    as ::leptos::component::Props>::builder()
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------------
+// TypedBuilder attribute generation (shared by components and slots)
+// -------------------------------------------------------------------
+
+/// Options for generating `#[builder(...)]` attributes on prop fields.
+///
+/// Used by both components and slots to produce the correct
+/// TypedBuilder annotations for each prop.
+pub(crate) struct TypedBuilderOpts<'a> {
+    pub default: bool,
+    pub default_with_value: Option<syn::Expr>,
+    pub strip_option: bool,
+    pub into: bool,
+    pub ty: &'a syn::Type,
+}
+
+impl TypedBuilderOpts<'_> {
+    /// Generates `#[serde(...)]` attributes matching the builder
+    /// defaults. Only used by component props serialization.
+    pub fn to_serde_tokens(&self) -> TokenStream {
+        let default = if let Some(v) = &self.default_with_value {
+            let v = v.to_token_stream().to_string();
+            quote! { default=#v, }
+        } else if self.default {
+            quote! { default, }
+        } else {
+            quote! {}
+        };
+
+        if !default.is_empty() {
+            quote! { #[serde(#default)] }
+        } else {
+            quote! {}
+        }
+    }
+}
+
+impl quote::ToTokens for TypedBuilderOpts<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let default = if let Some(v) = &self.default_with_value {
+            let v = v.to_token_stream().to_string();
+            quote! { default_code=#v, }
+        } else if self.default {
+            quote! { default, }
+        } else {
+            quote! {}
+        };
+
+        // If self.strip_option && self.into, then the strip_option
+        // will be represented as part of the transform closure.
+        let strip_option = if self.strip_option && !self.into {
+            quote! { strip_option, }
+        } else {
+            quote! {}
+        };
+
+        let into = if self.into {
+            if !self.strip_option {
+                let ty = &self.ty;
+                quote! {
+                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> #ty {
+                        value.into_reactive_value()
+                    },
+                }
+            } else {
+                let ty = unwrap_option(self.ty);
+                quote! {
+                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
+                        Some(value.into_reactive_value())
+                    },
+                }
+            }
+        } else {
+            quote! {}
+        };
+
+        let setter = if !strip_option.is_empty() || !into.is_empty() {
+            quote! { setter(#strip_option #into) }
+        } else {
+            quote! {}
+        };
+
+        let output = if !default.is_empty() || !setter.is_empty() {
+            quote! { #[builder(#default #setter)] }
+        } else {
+            quote! {}
+        };
+
+        tokens.append_all(output);
+    }
+}
+
+/// Unwraps `Option<T>` to `T`. Aborts if the type is not
+/// `Option<T>`.
+pub(crate) fn unwrap_option(ty: &syn::Type) -> syn::Type {
+    const STD_OPTION_MSG: &str =
+        "make sure you're not shadowing the `std::option::Option` type that \
+         is automatically imported from the standard prelude";
+
+    if let syn::Type::Path(syn::TypePath {
+        path: syn::Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            if first.ident == "Option" {
+                if let syn::PathArguments::AngleBracketed(
+                    syn::AngleBracketedGenericArguments { args, .. },
+                ) = &first.arguments
+                {
+                    if let [syn::GenericArgument::Type(ty)] =
+                        &args.iter().collect::<Vec<_>>()[..]
+                    {
+                        return ty.clone();
+                    }
+                }
+            }
+        }
+    }
+
+    proc_macro_error2::abort!(
+        ty,
+        "`Option` must be `std::option::Option`";
+        help = STD_OPTION_MSG
+    );
+}
+
+/// Returns true if the type is `Option<_>`.
+pub(crate) fn is_option(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(syn::TypePath {
+        path: syn::Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            first.ident == "Option"
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+// -------------------------------------------------------------------
+// Module-based presence check generation
+// -------------------------------------------------------------------
+
+/// The split output of `generate_module_presence_check`.
+pub(crate) struct ModulePresenceTokens {
+    /// Items inside the companion module: `__PresenceBuilder` struct,
+    /// `__presence()` constructor, setter methods, `__CheckPresence`
+    /// trait.
+    pub module_items: TokenStream,
+    /// `impl __CheckPresence for __PresenceBuilder` outside module.
+    pub check_presence_impl: TokenStream,
+}
+
+/// Generates a lightweight presence-tracking builder that is
+/// independent of actual prop values (and thus immune to `{error}`
+/// type contamination from wrong-type props).
+///
+/// The presence builder tracks which props are present via
+/// type-state (PhantomData tuples). Its `__require_props` (via
+/// `__CheckPresence`) fires E0277 for missing required props
+/// regardless of whether the real builder is contaminated by
+/// `{error}`.
+///
+/// - `module_name`: name of the companion module
+/// - `display_name`: human-readable name for error messages
+/// - `fields`: `(name, is_required)` for each field (same as
+///   `generate_module_required_check`)
+pub(crate) fn generate_module_presence_check(
+    module_name: &Ident,
+    display_name: &Ident,
+    fields: &[(&Ident, bool)],
+) -> ModulePresenceTokens {
+    if fields.is_empty() {
+        return ModulePresenceTokens {
+            module_items: quote! {
+                #[doc(hidden)]
+                pub struct __PresenceBuilder<S>(
+                    ::core::marker::PhantomData<S>,
+                );
+
+                #[doc(hidden)]
+                pub fn __presence() -> __PresenceBuilder<()> {
+                    __PresenceBuilder(::core::marker::PhantomData)
+                }
+
+                #[doc(hidden)]
+                pub trait __CheckPresence {
+                    fn __require_props(&self);
+                }
+            },
+            check_presence_impl: quote! {
+                impl<__T>
+                    #module_name::__CheckPresence for __T
+                {
+                    fn __require_props(&self) {}
+                }
+            },
+        };
+    }
+
+    let n = fields.len();
+    let type_state_idents: Vec<Ident> =
+        (0..n).map(|i| format_ident!("__F{}", i)).collect();
+
+    // Initial type state: all ()
+    let initial_types: Vec<TokenStream> =
+        (0..n).map(|_| quote! { () }).collect();
+
+    // Setter methods: each one transitions its slot from __Fi to ((),)
+    let setter_methods: Vec<TokenStream> = fields
+        .iter()
+        .enumerate()
+        .map(|(i, (name, _required))| {
+            let clean = clean_prop_name(name);
+            let setter_name = Ident::new_raw(&clean, Span::call_site());
+
+            let return_types: Vec<TokenStream> = (0..n)
+                .map(|j| {
+                    if j == i {
+                        quote! { ((),) }
+                    } else {
+                        let param = &type_state_idents[j];
+                        quote! { #param }
+                    }
+                })
+                .collect();
+
+            quote! {
+                pub fn #setter_name(self)
+                    -> __PresenceBuilder<(#(#return_types,)*)>
+                {
+                    __PresenceBuilder(::core::marker::PhantomData)
+                }
+            }
+        })
+        .collect();
+
+    // Type-state params for __CheckPresence impl: required fields
+    // get marker trait bounds, optional fields are unconstrained.
+    let type_state_params: Vec<TokenStream> = fields
+        .iter()
+        .enumerate()
+        .map(|(i, (name, required))| {
+            let param = &type_state_idents[i];
+            if *required {
+                let trait_name = required_marker_trait_name(display_name, name);
+                quote! { #param: #trait_name }
+            } else {
+                quote! { #param }
+            }
+        })
+        .collect();
+
+    let module_items = quote! {
+        #[doc(hidden)]
+        pub struct __PresenceBuilder<S>(
+            ::core::marker::PhantomData<S>,
+        );
+
+        #[doc(hidden)]
+        pub fn __presence()
+            -> __PresenceBuilder<(#(#initial_types,)*)>
+        {
+            __PresenceBuilder(::core::marker::PhantomData)
+        }
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        impl<#(#type_state_idents),*>
+            __PresenceBuilder<(#(#type_state_idents,)*)>
+        {
+            #(#setter_methods)*
+        }
+
+        #[doc(hidden)]
+        pub trait __CheckPresence {
+            fn __require_props(&self);
+        }
+    };
+
+    let check_presence_impl = quote! {
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        impl<#(#type_state_params),*>
+            #module_name::__CheckPresence
+            for #module_name::__PresenceBuilder<(
+                #(#type_state_idents,)*
+            )>
+        {
+            fn __require_props(&self) {}
+        }
+    };
+
+    ModulePresenceTokens {
+        module_items,
+        check_presence_impl,
     }
 }
 

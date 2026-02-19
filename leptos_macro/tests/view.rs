@@ -75,4 +75,8 @@ fn test_view_macro() {
     t.compile_fail("tests/view/44_wrong_type_and_missing_prop.rs");
     t.pass("tests/view/45_only_optional_props.rs");
     t.compile_fail("tests/view/46_slot_missing_required_prop.rs");
+
+    // Robustness tests.
+    t.pass("tests/view/47_lifetime_parameterized_component.rs");
+    t.pass("tests/view/48_multiple_components_same_prop_names.rs");
 }

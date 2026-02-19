@@ -13,7 +13,7 @@ help: the trait `__required_HelloSlot_concrete_i32` is implemented for `(__T,)`
    |
  6 | #[slot]
    | ^^^^^^^
-note: required for `HelloSlotBuilder<((), (std::option::Option<Box<dyn FnOnce() -> AnyView + Send>>,))>` to implement `__HelloSlot::__CheckMissing`
+note: required for `__HelloSlot::__PresenceBuilder<((), ((),))>` to implement `__HelloSlot::__CheckPresence`
   --> tests/view/46_slot_missing_required_prop.rs:6:1
    |
  6 | #[slot]

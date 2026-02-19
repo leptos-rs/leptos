@@ -11,7 +11,7 @@ help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
    |
 17 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<_, ((i32,), (), (Arc<dyn Fn() -> AnyView + Send + std::marker::Sync>,))>` to implement `Inner::__CheckMissing`
+note: required for `Inner::__PresenceBuilder<(((),), (), ((),))>` to implement `Inner::__CheckPresence`
   --> tests/view/08_generic_prop_missing.rs:17:1
    |
 17 | #[component]

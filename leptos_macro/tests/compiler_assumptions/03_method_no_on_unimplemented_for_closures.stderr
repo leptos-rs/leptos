@@ -1,0 +1,26 @@
+error[E0599]: the method `pass` exists for closure `{closure@$DIR/tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:23:15: 23:17}`, but its trait bounds were not satisfied
+  --> tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:24:17
+   |
+23 |     let val = || true;
+   |               -- doesn't satisfy `<_ as FnOnce<(i32,)>>::Output = i32` or `_: Check`
+24 |     let _ = val.pass();
+   |                 ^^^^ method cannot be called due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `&mut {closure@$DIR/tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:23:15: 23:17}: Fn<(i32,)>`
+      `<&mut {closure@$DIR/tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:23:15: 23:17} as FnOnce<(i32,)>>::Output = i32`
+      `<&{closure@$DIR/tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:23:15: 23:17} as FnOnce<(i32,)>>::Output = i32`
+      `<{closure@$DIR/tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:23:15: 23:17} as FnOnce<(i32,)>>::Output = i32`
+  --> tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:16:9
+   |
+16 | impl<T: Fn(i32) -> i32> Check for T {
+   |         ^^^^^^^^^^^^^^  -----     -
+   |         |          |
+   |         |          unsatisfied trait bound introduced here
+   |         unsatisfied trait bound introduced here
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `Check` defines an item `pass`, perhaps you need to implement it
+  --> tests/compiler_assumptions/03_method_no_on_unimplemented_for_closures.rs:12:1
+   |
+12 | trait Check {
+   | ^^^^^^^^^^^

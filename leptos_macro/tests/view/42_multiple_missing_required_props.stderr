@@ -11,7 +11,7 @@ help: the trait `__required_Inner_concrete_i32` is implemented for `(__T,)`
    |
 15 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<_>` to implement `Inner::__CheckMissing`
+note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
@@ -31,7 +31,7 @@ help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
    |
 15 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<_>` to implement `Inner::__CheckMissing`
+note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
@@ -51,7 +51,7 @@ help: the trait `__required_Inner_children` is implemented for `(__T,)`
    |
 15 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<_>` to implement `Inner::__CheckMissing`
+note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]

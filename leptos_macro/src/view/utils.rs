@@ -1,3 +1,10 @@
+//! View-side utility helpers for ident/span manipulation.
+//!
+//! These helpers operate on `rstml` nodes and are used during view
+//! macro expansion. In contrast, `crate::util` contains type-analysis
+//! and companion-module generation logic shared by the `#[component]`
+//! and `#[slot]` proc macros.
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};

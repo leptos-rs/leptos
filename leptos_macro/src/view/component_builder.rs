@@ -270,6 +270,9 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
+    // Collect slot names before draining, for presence tracking.
+    let slot_names: Vec<String> = slots.keys().cloned().collect();
+
     let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
             .last()
@@ -324,6 +327,32 @@ pub(crate) fn component_to_tokens(
         })
         .collect();
 
+    // Presence tracking setters (independent of {error}).
+    // Each non-optional prop, slot, and children gets a presence
+    // setter call to transition the type-state.
+    let presence_setters: Vec<TokenStream> = check_infos
+        .iter()
+        .map(|info| {
+            let setter =
+                Ident::new_raw(&info.idents.clean_name, Span::call_site());
+            quote! { let __presence = __presence.#setter(); }
+        })
+        .collect();
+
+    let presence_slots: Vec<TokenStream> = slot_names
+        .iter()
+        .map(|name| {
+            let setter = Ident::new(name, Span::call_site());
+            quote! { let __presence = __presence.#setter(); }
+        })
+        .collect();
+
+    let presence_children = if children_arg.is_some() {
+        quote! { let __presence = __presence.children(); }
+    } else {
+        quote! {}
+    };
+
     let props_ident = Ident::new("props", name_span);
     let props_mut = if optional_props.is_empty() {
         quote! {}
@@ -345,13 +374,21 @@ pub(crate) fn component_to_tokens(
                 &#component_path,
                 {
                     #(#pre_checks)*
+
+                    // Presence tracking (independent of {error})
+                    let __presence =
+                        #delinked_path ::__presence();
+                    #(#presence_setters)*
+                    #(#presence_slots)*
+                    #presence_children
+                    <_ as #delinked_path ::__CheckPresence>
+                        ::__require_props(&__presence);
+
                     let __props_builder =
                         #delinked_path ::__builder #generics ();
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call
-                    <_ as #delinked_path ::__CheckMissing>::__require_props(
-                        &__props_builder);
                     let __props_builder =
                         __props_builder.__check_missing();
                     let #props_mut #props_ident =

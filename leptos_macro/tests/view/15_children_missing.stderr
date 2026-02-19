@@ -11,7 +11,7 @@ help: the trait `__required_Inner_children` is implemented for `(__T,)`
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-note: required for `InnerPropsBuilder<{closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50}, ((i32,), ({closure@$DIR/tests/view/15_children_missing.rs:10:48: 10:50},), ())>` to implement `Inner::__CheckMissing`
+note: required for `Inner::__PresenceBuilder<(((),), ((),), ())>` to implement `Inner::__CheckPresence`
   --> tests/view/15_children_missing.rs:16:1
    |
 16 | #[component]

@@ -1,9 +1,10 @@
 use leptos::prelude::*;
 
 // One prop has the wrong type and another required prop is missing.
-// The wrong-type prop produces E0277 + E0599 ({error}), which
-// suppresses the missing-prop error. This is expected behavior:
-// fix the type error first, then the missing-prop error appears.
+// The wrong-type prop produces E0277 + E0599 ({error}). Thanks to
+// the presence builder, the missing-prop error is reported
+// independently of {error} contamination. All three errors are
+// visible simultaneously.
 
 #[component]
 fn WrongTypeAndMissing() -> impl IntoView {
