@@ -4,7 +4,7 @@ error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `In
 10 |             <Inner concrete_i32=42 generic_fun=true>
    |                                                ^^^^ the trait `Fn()` is not implemented for `bool`
    |
-   = note: required: `Fn() -> bool`
+   = note: required: `Fn() -> bool` — a closure or function reference
 note: required for `bool` to implement `__Check_generic_fun`
   --> tests/view/09_generic_prop_wrong_type.rs:17:1
    |

@@ -17,7 +17,7 @@ use rstml::node::{
     CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
     NodeElement, NodeName,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syn::{
     spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
 };
@@ -106,6 +106,7 @@ pub(crate) fn component_to_tokens(
     // expression type is `{error}`, suppressing downstream errors.
     let mut prop_infos: Vec<(PropCheckInfo, TokenStream, Span)> = vec![];
     let mut optional_props = vec![];
+    let mut seen_prop_names = HashSet::new();
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
         idx < &spread_marker && {
             let attr_key = attr.key.to_string();
@@ -121,6 +122,17 @@ pub(crate) fn component_to_tokens(
     }) {
         let optional = is_nostrip_optional_and_update_key(&mut attr.key);
         let name = &attr.key;
+
+        let name_str = name.to_string();
+        if !seen_prop_names.insert(name_str.clone()) {
+            let msg = format!(
+                "duplicate prop `{}` — each prop can only be set once",
+                name_str
+            );
+            return quote_spanned! {attr.key.span()=>
+                compile_error!(#msg)
+            };
+        }
 
         let value = attr
             .value()

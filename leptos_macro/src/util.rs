@@ -5,6 +5,7 @@
 //! generate per-prop type checks, required-prop checks, and phantom
 //! fields — all part of the localized error reporting machinery.
 
+use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use syn::{visit::Visit, GenericParam, Type, TypePath, WherePredicate};
@@ -382,7 +383,16 @@ pub(crate) fn classify_prop(
             "`{{Self}}` is not a valid type for prop `{clean_name}` on {kind} \
              `{display_name}`",
         );
-        let note = format!("required: `{bounds_note}`");
+        let bounds_str = bounds_note.trim_start();
+        let hint = if bounds_str.starts_with("Fn")
+            || bounds_str.starts_with("FnMut")
+            || bounds_str.starts_with("FnOnce")
+        {
+            " — a closure or function reference"
+        } else {
+            ""
+        };
+        let note = format!("required: `{bounds_note}`{hint}");
 
         PropClassification::BoundedSingleParam {
             bounds,
@@ -595,6 +605,12 @@ pub(crate) fn generate_module_required_check(
         };
     }
 
+    let names_of_required_props = fields
+        .iter()
+        .filter(|(_, required)| *required)
+        .map(|(name, _)| format!("`{}`", name.to_string()))
+        .join(", ");
+
     let mut marker_traits = vec![];
 
     for (name, required) in fields.iter() {
@@ -607,17 +623,16 @@ pub(crate) fn generate_module_required_check(
                 (
                     format!("{kind} `{display_name}` requires children"),
                     String::from("children required"),
-                    "add child elements between the opening and closing tags",
+                    String::from(
+                        "add child elements between the opening and closing \
+                         tags",
+                    ),
                 )
             } else {
                 (
-                    format!(
-                        "missing required prop `{clean_name}` on {kind} \
-                         `{display_name}`"
-                    ),
+                    format!("missing required prop `{clean_name}` on {kind} `{display_name}`"),
                     format!("missing prop `{clean_name}`"),
-                    "all required props must be provided as attributes on the \
-                     component",
+                    format!("required props: [{names_of_required_props}]"),
                 )
             };
 

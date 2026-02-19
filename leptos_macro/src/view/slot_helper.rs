@@ -12,7 +12,7 @@ use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
     CustomNode, KeyedAttribute, NodeAttribute, NodeElement, NodeName,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syn::spanned::Spanned;
 
 /// Constructs the `__SlotName` module path from a tag name by
@@ -98,12 +98,23 @@ pub(crate) fn slot_to_tokens(
     // Collect pre-check info and builder setter info
     let mut prop_infos: Vec<PropCheckInfo> = vec![];
     let mut builder_setters: Vec<TokenStream> = vec![];
+    let mut seen_prop_names = HashSet::new();
     for attr in attrs.iter().filter(|attr| {
         !attr.key.to_string().starts_with("let:")
             && !attr.key.to_string().starts_with("clone:")
             && !attr.key.to_string().starts_with("attr:")
     }) {
         let attr_name = &attr.key;
+
+        let name_str = attr_name.to_string();
+        if !seen_prop_names.insert(name_str.clone()) {
+            proc_macro_error2::emit_error!(
+                attr_name.span(),
+                "duplicate prop `{}` — each prop can only be set once",
+                name_str
+            );
+            continue;
+        }
 
         let value = attr
             .value()

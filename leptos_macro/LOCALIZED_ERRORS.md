@@ -54,7 +54,7 @@ Every prop usage in `view!` goes through two pre-check steps plus required-prop 
 ```rust
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid type for prop `foo` ...",
-    note = "required: `Fn() -> bool`"
+    note = "required: `Fn() -> bool` — a closure or function reference"
 )]
 pub trait __Check_foo {
     fn __check_foo(&self);
@@ -272,6 +272,32 @@ produce better error messages.
 | Generic, short form        | `fun`           | E0277 (on_unimplemented) | E0599 (noisy)                         | Key (`fun`)         |
 | `into` prop                | `label=vec![1]` | E0277 (From not impl)    | —                                     | Value (`vec![1]`)   |
 | Missing required           | `<Comp/>`       | E0277 (on_unimplemented) | E0599 (noisy, on `__PresenceBuilder`) | Component name      |
+| Duplicate prop             | `foo=1 foo=2`   | rstml parse error        | —                                     | Second occurrence   |
+
+## Duplicate Prop Detection
+
+Duplicate props (e.g., `<Comp foo=1 foo=2>`) are caught at two levels:
+
+1. **rstml parser** (primary): The HTML parser detects duplicate attribute names and emits
+   `"This element already has a \`foo\` attribute."` This fires before the view macro processes
+   the attributes.
+
+2. **View macro expansion** (defense-in-depth): `component_builder.rs` and `slot_helper.rs`
+   maintain a `HashSet<String>` of seen prop names. If a duplicate slips through (e.g., after
+   `nostrip:` prefix transformation), the macro emits `compile_error!("duplicate prop \`foo\`
+   — each prop can only be set once")`.
+
+## Actionable Error Notes
+
+The `on_unimplemented` attributes include actionable guidance:
+
+- **Fn-bounded props**: The `note` includes a hint: `"required: \`Fn() -> bool\` — a closure
+  or function reference"`. This helps users unfamiliar with Rust's `Fn` traits understand what
+  type of value to provide.
+
+- **Missing required props**: The `note` lists all required props: `"required props:
+  \`concrete_i32\`, \`generic_fun\`, \`children\`"`. This helps users see at a glance which
+  props they need to add.
 
 ## `{error}` Type Propagation
 
@@ -512,6 +538,10 @@ Trybuild tests in `leptos_macro/tests/view/` with `.stderr` snapshots:
 | 46    | Slot missing required prop                       |
 | 47    | Lifetime parameterized component                 |
 | 48    | Multiple components same prop names              |
+| 49    | Children wrong return type                       |
+| 50    | Children wrong type + missing prop               |
+| 51    | Duplicate prop (caught at parse time)            |
+| 52    | Duplicate optional prop (caught at parse time)   |
 
 ### Compiler Assumption Tests
 

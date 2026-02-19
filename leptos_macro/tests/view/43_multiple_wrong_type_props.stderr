@@ -4,7 +4,7 @@ error[E0277]: `bool` is not a valid type for prop `fun_a` on component `Inner`
 10 |             <Inner fun_a=true fun_b=42>
    |                          ^^^^ the trait `Fn()` is not implemented for `bool`
    |
-   = note: required: `Fn() -> bool`
+   = note: required: `Fn() -> bool` — a closure or function reference
 note: required for `bool` to implement `__Check_fun_a`
   --> tests/view/43_multiple_wrong_type_props.rs:17:1
    |
@@ -52,7 +52,7 @@ error[E0277]: `{integer}` is not a valid type for prop `fun_b` on component `Inn
 10 |             <Inner fun_a=true fun_b=42>
    |                                     ^^ the trait `Fn()` is not implemented for `{integer}`
    |
-   = note: required: `Fn() -> i32`
+   = note: required: `Fn() -> i32` — a closure or function reference
 note: required for `{integer}` to implement `__Check_fun_b`
   --> tests/view/43_multiple_wrong_type_props.rs:17:1
    |

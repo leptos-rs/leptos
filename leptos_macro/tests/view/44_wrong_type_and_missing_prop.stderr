@@ -4,7 +4,7 @@ error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `In
 13 |             <Inner generic_fun=true>
    |                                ^^^^ the trait `Fn()` is not implemented for `bool`
    |
-   = note: required: `Fn() -> bool`
+   = note: required: `Fn() -> bool` — a closure or function reference
 note: required for `bool` to implement `__Check_generic_fun`
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
    |
@@ -53,7 +53,7 @@ error[E0277]: missing required prop `concrete_i32` on component `Inner`
    |              ^^^^^ missing prop `concrete_i32`
    |
    = help: the trait `__required_Inner_concrete_i32` is not implemented for `()`
-   = note: all required props must be provided as attributes on the component
+   = note: required props: [`concrete_i32`, `generic_fun`, `children`]
 help: the trait `__required_Inner_concrete_i32` is implemented for `(__T,)`
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
    |

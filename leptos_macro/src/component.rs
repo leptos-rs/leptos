@@ -640,6 +640,7 @@ impl ToTokens for Model {
                 (&p.name.ident, required)
             })
             .collect();
+
         let ModuleRequiredCheckTokens { marker_traits } =
             generate_module_required_check(name, "component", &required_fields);
 

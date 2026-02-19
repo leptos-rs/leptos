@@ -83,4 +83,8 @@ fn test_view_macro() {
     // Children error messages.
     t.compile_fail("tests/view/49_children_wrong_return_type.rs");
     t.compile_fail("tests/view/50_children_wrong_type_and_missing_prop.rs");
+
+    // Duplicate props.
+    t.compile_fail("tests/view/51_duplicate_prop.rs");
+    t.compile_fail("tests/view/52_duplicate_optional_prop.rs");
 }

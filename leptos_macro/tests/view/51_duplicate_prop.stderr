@@ -1,0 +1,5 @@
+error: This element already has a `concrete_bool` attribute.
+  --> tests/view/51_duplicate_prop.rs:10:39
+   |
+10 |             <Inner concrete_bool=true concrete_bool=false/>
+   |                                       ^^^^^^^^^^^^^^^^^^^
