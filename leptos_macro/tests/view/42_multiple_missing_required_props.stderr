@@ -38,14 +38,14 @@ note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner:
    | ^^^^^^^^^^^^
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: missing required prop `children` on component `Inner`
+error[E0277]: component `Inner` requires children
   --> tests/view/42_multiple_missing_required_props.rs:10:14
    |
 10 |             <Inner/>
-   |              ^^^^^ missing prop `children`
+   |              ^^^^^ children required
    |
    = help: the trait `__required_Inner_children` is not implemented for `()`
-   = note: all required props must be provided as attributes on the component
+   = note: add child elements between the opening and closing tags
 help: the trait `__required_Inner_children` is implemented for `(__T,)`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |

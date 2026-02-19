@@ -120,9 +120,9 @@ pub struct __PresenceBuilder<S>(PhantomData<S>);
 
 pub fn __presence() -> __PresenceBuilder<((), (), ...)> { ... }
 
-impl<F0, F1, ...> __PresenceBuilder<(F0, F1, ...)> {
-    pub fn foo(self) -> __PresenceBuilder<(((),), F1, ...)> { ... }
-    pub fn bar(self) -> __PresenceBuilder<(F0, ((),), ...)> { ... }
+impl < F0, F1,...> __PresenceBuilder<(F0, F1, ...) > {
+pub fn foo( self ) -> __PresenceBuilder < (((), ), F1, ...)> { ... }
+pub fn bar( self ) -> __PresenceBuilder < (F0, ((), ), ...)> { ... }
 }
 
 pub trait __CheckPresence {
@@ -133,10 +133,10 @@ pub trait __CheckPresence {
 **Generated outside module**:
 
 ```rust
-impl<F0: __required_Comp_foo, F1: __required_Comp_bar, ...>
-    __CheckPresence for Comp::__PresenceBuilder<(F0, F1, ...)>
+impl < F0: __required_Comp_foo, F1: __required_Comp_bar,...>
+__CheckPresence for Comp::__PresenceBuilder<(F0, F1, ...) >
 {
-    fn __require_props(&self) {}
+fn __require_props( & self ) {}
 }
 ```
 
@@ -146,7 +146,7 @@ impl<F0: __required_Comp_foo, F1: __required_Comp_bar, ...>
 let __presence = Foo::__presence();
 let __presence = __presence.foo();  // mark foo as present
 let __presence = __presence.children();  // mark children as present
-<_ as Foo::__CheckPresence>::__require_props(&__presence);
+< _ as Foo::__CheckPresence>::__require_props( & __presence);
 ```
 
 Each required prop `foo` gets a marker trait `__required_Comp_foo`, implemented for `(T,)` but
@@ -163,12 +163,12 @@ real builder. This eliminates the dependency on TypedBuilder's internal type-sta
 **Generated inside module** (bounded inherent impl):
 
 ```rust
-impl<__F0: __required_Comp_foo, __F1, ...>
-    __PresenceBuilder<(__F0, __F1, ...)>
+impl < __F0: __required_Comp_foo, __F1,...>
+__PresenceBuilder<(__F0, __F1, ...) >
 {
-    pub fn __check_missing<__B>(self, builder: __B) -> __B {
-        builder
-    }
+pub fn __check_missing < __B > ( self, builder: __B) -> __B {
+builder
+}
 }
 ```
 
@@ -188,6 +188,42 @@ internal implementation detail of TypedBuilder (undocumented tuple structure). B
 builder's type-state (which we fully control), we avoid depending on TypedBuilder internals. The
 presence builder is also immune to `{error}` contamination from wrong-type props, so its bounded
 inherent method works reliably regardless of type errors.
+
+#### Why the typed builder passes through `__check_missing`
+
+It may seem unnecessary for `__check_missing` to receive and return the typed builder — why not
+just check presence and let the builder flow independently? The reason is that `__check_missing`
+serves as a **firewall** against TypedBuilder's own missing-field errors:
+
+1. **TypedBuilder must enforce required fields for direct builder usage.** Users can build
+   components by hand using `Props::builder().field(val).build()`. TypedBuilder's compile-time
+   enforcement of required fields is essential for this API — it must remain a hard error when
+   a required setter isn't called.
+
+2. **Therefore `.build()` fails when a required setter isn't called.** In the view macro
+   expansion, when a prop is missing from the template, the corresponding builder setter is
+   never called. TypedBuilder's `.build()` then fails with E0061 and deprecation warnings
+   referencing internal types like `InnerPropsBuilder_Error_Missing_required_field_foo`.
+
+3. **The view macro must suppress this confusing `.build()` error.** The presence builder's
+   `__require_props` already produces a clean E0277 ("missing required prop `foo` on component
+   `Bar`"). The TypedBuilder error is redundant and confusing. It must be suppressed.
+
+4. **The only way to suppress it is `{error}` type contamination.** In Rust's type system, you
+   cannot conditionally skip type-checking an expression. The only mechanism to suppress errors
+   on `.build()` is to make the builder expression have type `{error}` (from E0599), which
+   absorbs all subsequent method calls. This requires the typed builder to pass through a
+   bounded method that fails when presence is unsatisfied.
+
+5. **Making all TypedBuilder fields have defaults (`unreachable!()`) is not viable.** This would
+   allow `.build()` to always succeed, eliminating the need for `__check_missing`. However, it
+   would remove TypedBuilder's compile-time enforcement of required fields for direct builder
+   usage — users calling `Props::builder().build()` directly would get a runtime panic instead
+   of a compile error.
+
+See also **Hypothesis B** (in the Tested Hypotheses section) for empirical evidence of what
+happens when `__check_missing` is removed — TypedBuilder's errors leak through as deprecation
+warnings and E0061 with ugly internal type names.
 
 ## Prop Classification
 
@@ -227,14 +263,14 @@ produce better error messages.
 
 ## Error Behavior by Prop Kind
 
-| Prop kind                  | Example         | Error 1 (clean)          | Error 2       | Points to           |
-|----------------------------|-----------------|--------------------------|---------------|---------------------|
-| Concrete, expanded         | `count=42`      | E0308 (type mismatch)    | —             | Value (`42`)        |
-| Concrete, short form       | `flag`          | E0308 (type mismatch)    | —             | Key (`flag`)        |
-| Generic, bounded (named)   | `fun=true`      | E0277 (on_unimplemented) | E0599 (noisy) | Value (`true`)      |
-| Generic, bounded (closure) | `fun=\|\| true` | E0271/E0593 (targeted)   | E0599 (noisy) | Value (`\|\| true`) |
-| Generic, short form        | `fun`           | E0277 (on_unimplemented) | E0599 (noisy) | Key (`fun`)         |
-| `into` prop                | `label=vec![1]` | E0277 (From not impl)    | —             | Value (`vec![1]`)   |
+| Prop kind                  | Example         | Error 1 (clean)          | Error 2                               | Points to           |
+|----------------------------|-----------------|--------------------------|---------------------------------------|---------------------|
+| Concrete, expanded         | `count=42`      | E0308 (type mismatch)    | —                                     | Value (`42`)        |
+| Concrete, short form       | `flag`          | E0308 (type mismatch)    | —                                     | Key (`flag`)        |
+| Generic, bounded (named)   | `fun=true`      | E0277 (on_unimplemented) | E0599 (noisy)                         | Value (`true`)      |
+| Generic, bounded (closure) | `fun=\|\| true` | E0271/E0593 (targeted)   | E0599 (noisy)                         | Value (`\|\| true`) |
+| Generic, short form        | `fun`           | E0277 (on_unimplemented) | E0599 (noisy)                         | Key (`fun`)         |
+| `into` prop                | `label=vec![1]` | E0277 (From not impl)    | —                                     | Value (`vec![1]`)   |
 | Missing required           | `<Comp/>`       | E0277 (on_unimplemented) | E0599 (noisy, on `__PresenceBuilder`) | Component name      |
 
 ## `{error}` Type Propagation
@@ -269,15 +305,18 @@ is immune to `{error}` contamination from wrong-type props.
 For example, given `<Inner generic_fun=true>` where `concrete_i32` is also required:
 
 **Pre-checks** (independent of builder):
+
 1. `<_ as __Check_generic_fun>::__check_generic_fun(&true)` → E0277 (clean wrong-type message)
 2. `true.__pass_generic_fun()` → E0599, expression is `{error}`
 
 **Presence tracking** (independent of {error}):
+
 3. `__presence.generic_fun()` → marks generic_fun present
 4. `__presence.children()` → marks children present
 5. `<_ as __CheckPresence>::__require_props(&__presence)` → E0277 for missing `concrete_i32`
 
 **Real builder** (contaminated by {error}):
+
 6. `builder.generic_fun({error})` → builder is `{error}`
 7. `__presence.__check_missing({error})` → E0599 because presence has missing field bounds
 8. `{error}.build()` → absorbed
@@ -406,10 +445,10 @@ cases.
 
 #### Method syntax `val.method()` when bound fails
 
-| Scenario               | Error code | `on_unimplemented` shown?                                                          | `{error}` propagation? |
-|------------------------|------------|------------------------------------------------------------------------------------|------------------------|
+| Scenario               | Error code | `on_unimplemented` shown?                                                              | `{error}` propagation? |
+|------------------------|------------|----------------------------------------------------------------------------------------|------------------------|
 | Named type (`bool`)    | E0599      | **No** — default: `"method pass exists for type bool, but trait bounds not satisfied"` | **Yes**                |
-| Closure (any mismatch) | E0599      | **No** — default: `"method pass exists for closure, but trait bounds not satisfied"` | **Yes**                |
+| Closure (any mismatch) | E0599      | **No** — default: `"method pass exists for closure, but trait bounds not satisfied"`   | **Yes**                |
 
 #### Why we need BOTH UFCS + method syntax (two-step approach)
 
@@ -446,28 +485,28 @@ error localizes to the source value expression.
 
 Trybuild tests in `leptos_macro/tests/view/` with `.stderr` snapshots:
 
-| Test  | Scenario                                       |
-|-------|------------------------------------------------|
-| 02-04 | Concrete props (correct, wrong type)           |
-| 05    | Missing required concrete prop                 |
-| 06    | Concrete prop wrong type (multiple props)      |
-| 07-08 | Generic props (correct, missing)               |
-| 09    | Generic prop wrong type (expanded form)        |
-| 10    | Generic prop wrong type (short form)           |
-| 11-12 | Multiple generic params (correct)              |
-| 13    | Multiple generic params, first wrong type      |
-| 14    | Multiple generic params, second wrong type     |
-| 15    | Children missing                               |
-| 16    | Children FnOnce instead of Fn                  |
-| 17-30 | Prop attributes (optional, default, into, etc) |
-| 31-33 | Builder syntax                                 |
-| 34-36 | Let syntax                                     |
-| 37    | Slot (correct usage)                           |
-| 38    | Slot generic prop wrong type                   |
-| 39    | Raw identifier                                 |
-| 40-41 | Renamed import of component                    |
-| 42    | Multiple missing required props                |
-| 43    | Multiple wrong-type props                      |
+| Test  | Scenario                                         |
+|-------|--------------------------------------------------|
+| 02-04 | Concrete props (correct, wrong type)             |
+| 05    | Missing required concrete prop                   |
+| 06    | Concrete prop wrong type (multiple props)        |
+| 07-08 | Generic props (correct, missing)                 |
+| 09    | Generic prop wrong type (expanded form)          |
+| 10    | Generic prop wrong type (short form)             |
+| 11-12 | Multiple generic params (correct)                |
+| 13    | Multiple generic params, first wrong type        |
+| 14    | Multiple generic params, second wrong type       |
+| 15    | Children missing                                 |
+| 16    | Children FnOnce instead of Fn                    |
+| 17-30 | Prop attributes (optional, default, into, etc)   |
+| 31-33 | Builder syntax                                   |
+| 34-36 | Let syntax                                       |
+| 37    | Slot (correct usage)                             |
+| 38    | Slot generic prop wrong type                     |
+| 39    | Raw identifier                                   |
+| 40-41 | Renamed import of component                      |
+| 42    | Multiple missing required props                  |
+| 43    | Multiple wrong-type props                        |
 | 44    | Wrong type + missing prop (shown simultaneously) |
 | 45    | Only optional props (should compile)             |
 | 46    | Slot missing required prop                       |
@@ -479,13 +518,13 @@ Trybuild tests in `leptos_macro/tests/view/` with `.stderr` snapshots:
 Trybuild tests in `leptos_macro/tests/compiler_assumptions/` pin the undocumented rustc
 behaviors that the two-step pre-check relies on:
 
-| Test | Assumption                                            | Verified by                        |
-|------|-------------------------------------------------------|------------------------------------|
-| 01   | UFCS does NOT produce `{error}` type                  | Both E0277 and E0308 appear        |
-| 02   | Method calls DO produce `{error}` type                | Only E0599 appears, no E0308       |
-| 03   | E0599 does NOT show `on_unimplemented` for closures   | No custom message in E0599 output  |
+| Test | Assumption                                                                       | Verified by                         |
+|------|----------------------------------------------------------------------------------|-------------------------------------|
+| 01   | UFCS does NOT produce `{error}` type                                             | Both E0277 and E0308 appear         |
+| 02   | Method calls DO produce `{error}` type                                           | Only E0599 appears, no E0308        |
+| 03   | E0599 does NOT show `on_unimplemented` for closures                              | No custom message in E0599 output   |
 | 04   | UFCS with concrete tuple pattern matching produces E0277 with `on_unimplemented` | Structural mismatch = 1 clean E0277 |
-| 05   | `{error}` from method call is absorbed by UFCS call   | No additional errors from UFCS     |
+| 05   | `{error}` from method call is absorbed by UFCS call                              | No additional errors from UFCS      |
 
 If any of these fail after a nightly update, the error localization strategy may need revision.
 

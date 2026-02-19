@@ -79,4 +79,8 @@ fn test_view_macro() {
     // Robustness tests.
     t.pass("tests/view/47_lifetime_parameterized_component.rs");
     t.pass("tests/view/48_multiple_components_same_prop_names.rs");
+
+    // Children error messages.
+    t.compile_fail("tests/view/49_children_wrong_return_type.rs");
+    t.compile_fail("tests/view/50_children_wrong_type_and_missing_prop.rs");
 }

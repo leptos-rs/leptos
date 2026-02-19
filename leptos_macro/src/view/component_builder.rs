@@ -382,17 +382,25 @@ pub(crate) fn component_to_tokens(
                     <_ as #delinked_path ::__CheckPresence>
                         ::__require_props(&__presence);
 
-                    let __props_builder =
-                        #delinked_path ::__builder #generics ();
+                    // Initialize the props builder.
+                    let __props_builder = #delinked_path ::__builder #generics ();
+
                     #(#builder_setters)*
                     #(#slots)*
                     #children_builder_call
-                    let __props_builder =
-                        __presence.__check_missing(
-                            __props_builder);
-                    let #props_mut #props_ident =
-                        __props_builder.build();
+
+                    // Pass the typed builder instance through the presence gate. When a required
+                    // prop is missing, `__check_missing` fails (E0599) → builder becomes `{error}`
+                    // → suppresses TypedBuilder's confusing `.build()` error.
+                    let __props_builder = __presence.__check_missing(__props_builder);
+
+                    // Build the final props value. `mut` keyword set if optional props must be set.
+                    let #props_mut #props_ident = __props_builder.build();
+
+                    // Call setters for optional props.
                     #(#optional_props)*
+
+                    // Return the props value.
                     #props_ident
                 }
             )

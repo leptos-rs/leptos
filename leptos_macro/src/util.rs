@@ -602,13 +602,24 @@ pub(crate) fn generate_module_required_check(
             let clean_name = clean_prop_name(name);
             let trait_name = required_marker_trait_name(display_name, name);
 
-            let message = format!(
-                "missing required prop `{clean_name}` on {kind} \
-                 `{display_name}`"
-            );
-            let label = format!("missing prop `{clean_name}`");
-            let note = "all required props must be provided as attributes on \
-                        the component";
+            // TODO: Improve "children" detection.
+            let (message, label, note) = if clean_name == "children" {
+                (
+                    format!("{kind} `{display_name}` requires children"),
+                    String::from("children required"),
+                    "add child elements between the opening and closing tags",
+                )
+            } else {
+                (
+                    format!(
+                        "missing required prop `{clean_name}` on {kind} \
+                         `{display_name}`"
+                    ),
+                    format!("missing prop `{clean_name}`"),
+                    "all required props must be provided as attributes on the \
+                     component",
+                )
+            };
 
             marker_traits.push(quote! {
                 #[doc(hidden)]
@@ -967,6 +978,28 @@ pub(crate) fn generate_module_presence_check(
         // This is an inherent method on `__PresenceBuilder`,
         // NOT a trait, so there is no ambiguity when multiple
         // component modules are in scope.
+        //
+        // Why `__check_missing` receives the typed builder:
+        //
+        // TypedBuilder enforces required fields for direct
+        // builder usage (`Props::builder().field(val).build()`).
+        // When the view macro omits a required prop, the builder
+        // setter is never called, so TypedBuilder's `.build()`
+        // fails with confusing internal errors (E0061,
+        // deprecation warnings with names like
+        // `PropsBuilder_Error_Missing_required_field_foo`).
+        //
+        // `__check_missing` suppresses these by converting the
+        // builder to `{error}` type (via E0599) when presence
+        // bounds fail. `__require_props` (E0277) already
+        // provides the clean error. The `{error}` builder
+        // absorbs `.build()` and all downstream errors.
+        //
+        // Making all TypedBuilder fields have defaults
+        // (`unreachable!()`) would eliminate the need for this,
+        // but would break direct builder usage — required fields
+        // would panic at runtime instead of failing at compile
+        // time.
         #[doc(hidden)]
         #[allow(non_snake_case)]
         impl<#(#type_state_params),*>

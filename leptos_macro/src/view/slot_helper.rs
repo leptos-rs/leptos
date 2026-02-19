@@ -259,14 +259,18 @@ pub(crate) fn slot_to_tokens(
             <_ as #module_path ::__CheckPresence>
                 ::__require_props(&__slot_pres);
 
-            let __props_builder =
-                #module_path ::__builder #generics ();
+            // Initialize the props builder.
+            let __props_builder = #module_path ::__builder #generics ();
+
             #(#builder_setters)*
             #(#slots)*
             #children_builder_call
-            let __props_builder =
-                __slot_pres.__check_missing(
-                    __props_builder);
+
+            // Pass the typed builder instance through the presence gate. When a required
+            // prop is missing, `__check_missing` fails (E0599) → builder becomes `{error}`
+            // → suppresses TypedBuilder's confusing `.build()` error.
+            let __props_builder = __slot_pres.__check_missing(__props_builder);
+
             let slot = __props_builder #build;
             let slot = slot #dyn_attrs;
 
