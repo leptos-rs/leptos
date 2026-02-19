@@ -1,23 +1,23 @@
 error[E0277]: `NotAView` cannot be rendered as a view element
-  --> tests/view/49_children_wrong_return_type.rs:13:17
+  --> tests/view/49_children_wrong_return_type.rs:14:17
    |
-10 | /     view! {
-11 | |         <div>
-12 | |             <Inner>
-13 | |                 {NotAView}
+11 | /     view! {
+12 | |         <div>
+13 | |             <Inner>
+14 | |                 {NotAView}
    | |                 ^--------^
    | |                 ||
    | |                 |this tail expression is of type `NotAView`
    | |                 `NotAView` cannot be rendered
-14 | |             </Inner>
-15 | |         </div>
-16 | |     }
+15 | |             </Inner>
+16 | |         </div>
+17 | |     }
    | |_____- required by a bound introduced by this call
    |
 help: the trait `FnMut()` is not implemented for `NotAView`
-  --> tests/view/49_children_wrong_return_type.rs:6:1
+  --> tests/view/49_children_wrong_return_type.rs:7:1
    |
- 6 | struct NotAView;
+ 7 | struct NotAView;
    | ^^^^^^^^^^^^^^^
    = note: types used in views must implement `Render`
    = note: required for `NotAView` to implement `ReactiveFunction`
@@ -25,5 +25,5 @@ help: the trait `FnMut()` is not implemented for `NotAView`
    = note: required for `NotAView` to implement `IntoRender`
 help: you might have meant to create the closure instead of a block
    |
-13 |                 |_| {NotAView}
+14 |                 |_| {NotAView}
    |                 +++
