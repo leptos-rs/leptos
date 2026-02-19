@@ -153,6 +153,37 @@
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 
+// Enforce mutual exclusivity of rendering mode features.
+//
+// Cargo feature unification can silently activate conflicting features when a
+// workspace dependency (e.g., `radix-leptos`) unconditionally enables `ssr`.
+// When both `csr` and `ssr` are active, tachys creates event handlers,
+// directives, and properties with `None` values, causing runtime panics like
+// "callback removed before attaching".
+//
+// These guards fail fast at compile time with actionable diagnostics.
+#[cfg(all(feature = "csr", feature = "ssr"))]
+compile_error!(
+    "The `csr` and `ssr` features are mutually exclusive, but both are active. \
+     This is usually caused by Cargo feature unification — a dependency in your \
+     workspace enables `leptos/ssr` (or `leptos/hydration`, which implies `ssr`). \
+     Run `cargo tree -e features -i leptos` to identify the culprit."
+);
+
+#[cfg(all(feature = "csr", feature = "hydrate"))]
+compile_error!(
+    "The `csr` and `hydrate` features are mutually exclusive, but both are active. \
+     This is usually caused by Cargo feature unification from a dependency. \
+     Run `cargo tree -e features -i leptos` to identify the culprit."
+);
+
+#[cfg(all(feature = "ssr", feature = "hydrate"))]
+compile_error!(
+    "The `ssr` and `hydrate` features are mutually exclusive, but both are active. \
+     This is usually caused by Cargo feature unification from a dependency. \
+     Run `cargo tree -e features -i leptos` to identify the culprit."
+);
+
 extern crate self as leptos;
 
 /// Exports all the core types of the library.
