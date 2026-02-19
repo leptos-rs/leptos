@@ -22,65 +22,63 @@ use std::{
     panic::Location,
 };
 
-/// Accesses an item form a collection.
-pub trait KeyedAccess {
-    /// Key used to access values.
-    type Key;
+/// Accesses an item from a keyed collection.
+///
+/// `K` is the identity key type used to uniquely identify entries. Collections
+/// that are indexed by position (like `Vec`) can implement this for any `K`,
+/// ignoring the key and using the `index` parameter instead. Collections that
+/// are indexed by key (like `HashMap`) use the `key` parameter.
+pub trait KeyedAccess<K> {
     /// Collection values.
     type Value;
-    /// Acquire mutable access to a value.
-    fn keyed_mut(&mut self, index: usize, key: Self::Key) -> &mut Self::Value;
     /// Acquire read-only access to a value.
-    fn keyed(&self, index: usize, key: Self::Key) -> &Self::Value;
+    fn keyed(&self, index: usize, key: &K) -> &Self::Value;
+    /// Acquire mutable access to a value.
+    fn keyed_mut(&mut self, index: usize, key: &K) -> &mut Self::Value;
 }
-impl<T> KeyedAccess for VecDeque<T> {
-    type Key = usize;
+impl<K, T> KeyedAccess<K> for VecDeque<T> {
     type Value = T;
-    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+    fn keyed(&self, index: usize, _key: &K) -> &Self::Value {
         self.index(index)
     }
-    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, index: usize, _key: &K) -> &mut Self::Value {
         self.index_mut(index)
     }
 }
-impl<T> KeyedAccess for Vec<T> {
-    type Key = usize;
+impl<K, T> KeyedAccess<K> for Vec<T> {
     type Value = T;
-    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+    fn keyed(&self, index: usize, _key: &K) -> &Self::Value {
         self.index(index)
     }
-    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, index: usize, _key: &K) -> &mut Self::Value {
         self.index_mut(index)
     }
 }
-impl<T> KeyedAccess for [T] {
-    type Key = usize;
+impl<K, T> KeyedAccess<K> for [T] {
     type Value = T;
-    fn keyed(&self, index: usize, _key: Self::Key) -> &Self::Value {
+    fn keyed(&self, index: usize, _key: &K) -> &Self::Value {
         self.index(index)
     }
-    fn keyed_mut(&mut self, index: usize, _key: Self::Key) -> &mut Self::Value {
+    fn keyed_mut(&mut self, index: usize, _key: &K) -> &mut Self::Value {
         self.index_mut(index)
     }
 }
-impl<K: Ord, V> KeyedAccess for std::collections::BTreeMap<K, V> {
-    type Key = K;
+impl<K: Ord, V> KeyedAccess<K> for std::collections::BTreeMap<K, V> {
     type Value = V;
-    fn keyed(&self, _index: usize, key: Self::Key) -> &Self::Value {
-        self.get(&key).expect("key does not exist")
+    fn keyed(&self, _index: usize, key: &K) -> &Self::Value {
+        self.get(key).expect("key does not exist")
     }
-    fn keyed_mut(&mut self, _index: usize, key: Self::Key) -> &mut Self::Value {
-        self.get_mut(&key).expect("key does not exist")
+    fn keyed_mut(&mut self, _index: usize, key: &K) -> &mut Self::Value {
+        self.get_mut(key).expect("key does not exist")
     }
 }
-impl<K: Hash + Eq, V> KeyedAccess for std::collections::HashMap<K, V> {
-    type Key = K;
+impl<K: Hash + Eq, V> KeyedAccess<K> for std::collections::HashMap<K, V> {
     type Value = V;
-    fn keyed(&self, _index: usize, key: Self::Key) -> &Self::Value {
-        self.get(&key).expect("key does not exist")
+    fn keyed(&self, _index: usize, key: &K) -> &Self::Value {
+        self.get(key).expect("key does not exist")
     }
-    fn keyed_mut(&mut self, _index: usize, key: Self::Key) -> &mut Self::Value {
-        self.get_mut(&key).expect("key does not exist")
+    fn keyed_mut(&mut self, _index: usize, key: &K) -> &mut Self::Value {
+        self.get_mut(key).expect("key does not exist")
     }
 }
 
@@ -517,7 +515,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized,
 {
     /// Attempt to resolve the inner index if is still exists.
@@ -541,7 +539,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized,
 {
     type Value = T::Value;
@@ -607,11 +605,11 @@ where
             inner,
             {
                 let key = self.key.clone();
-                move |n| n.keyed(index, key.clone())
+                move |n| n.keyed(index, &key)
             },
             {
                 let key = self.key.clone();
-                move |n| n.keyed_mut(index, key.clone())
+                move |n| n.keyed_mut(index, &key)
             },
         ))
     }
@@ -627,11 +625,11 @@ where
                 inner,
                 {
                     let key = self.key.clone();
-                    move |n| n.keyed(index, key.clone())
+                    move |n| n.keyed(index, &key)
                 },
                 {
                     let key = self.key.clone();
-                    move |n| n.keyed_mut(index, key.clone())
+                    move |n| n.keyed_mut(index, &key)
                 },
             ),
         ))
@@ -693,7 +691,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized,
 {
     fn notify(&self) {
@@ -710,7 +708,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized,
 {
     fn track(&self) {
@@ -725,7 +723,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized,
 {
     type Value = <Self as StoreField>::Reader;
@@ -742,7 +740,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
     T::Value: Sized + 'static,
 {
     type Value = T::Value;
@@ -797,7 +795,7 @@ where
     Inner: Clone + StoreField<Value = Prev> + 'static,
     Prev: 'static,
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
-    T: KeyedAccess<Key = K> + 'static,
+    T: KeyedAccess<K> + 'static,
     T::Value: Sized,
 {
     type Item = AtKeyed<Inner, Prev, K, T>;
@@ -829,7 +827,7 @@ where
 pub struct StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     for<'a> &'a T: IntoIterator,
-    T: KeyedAccess<Key = K>,
+    T: KeyedAccess<K>,
 {
     inner: KeyedSubfield<Inner, Prev, K, T>,
     keys: VecDeque<K>,
@@ -838,7 +836,7 @@ where
 impl<Inner, Prev, K, T> Iterator for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     Inner: StoreField<Value = Prev> + Clone + 'static,
-    T: KeyedAccess<Key = K> + 'static,
+    T: KeyedAccess<K> + 'static,
     for<'a> &'a T: IntoIterator,
 {
     type Item = AtKeyed<Inner, Prev, K, T>;
@@ -854,7 +852,7 @@ impl<Inner, Prev, K, T> DoubleEndedIterator
     for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
     Inner: StoreField<Value = Prev> + Clone + 'static,
-    T: KeyedAccess<Key = K> + 'static,
+    T: KeyedAccess<K> + 'static,
     T::Value: Sized + 'static,
     for<'a> &'a T: IntoIterator,
 {
@@ -1318,5 +1316,27 @@ mod tests {
         let at_faulty_key = AtKeyed::new(store.todos(), "faulty".to_string());
         let missing = at_faulty_key.try_get();
         assert!(missing.is_none(), "faulty key should return none.")
+    }
+
+    #[test]
+    fn non_usize_keys_work_for_vec() {
+        #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+        struct MyIdType(u32);
+
+        #[derive(Debug, Store)]
+        struct Item {
+            id: MyIdType,
+            _value: String,
+        }
+
+        #[derive(Debug, Store)]
+        struct MyStore {
+            #[store(key: MyIdType = |item| item.id.clone())]
+            items: Vec<Item>,
+        }
+
+        let store = Store::new(MyStore { items: Vec::new() });
+
+        let _fields = store.items().into_iter();
     }
 }
