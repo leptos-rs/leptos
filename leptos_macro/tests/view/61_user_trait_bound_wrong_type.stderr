@@ -1,0 +1,31 @@
+error[E0277]: `{integer}` is not a valid type for prop `value` on component `Inner`
+  --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
+   |
+20 |             <Inner value=42/>
+   |                          ^^ the trait `Greetable` is not implemented for `{integer}`
+   |
+   = note: required: `Greetable`
+help: this trait has no implementations, consider adding one
+  --> tests/view/61_user_trait_bound_wrong_type.rs:9:5
+   |
+ 9 |     pub trait Greetable {
+   |     ^^^^^^^^^^^^^^^^^^^
+note: required for `{integer}` to implement `__Check_value`
+  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
+   |
+25 | #[component]
+   | ^^^^^^^^^^^^
+26 | fn Inner<T: Greetable>(value: T) -> impl IntoView {
+   |             --------- unsatisfied trait bound introduced here
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0689]: can't call method `__pass_value` on ambiguous numeric type `{integer}`
+  --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
+   |
+20 |             <Inner value=42/>
+   |                          ^^
+   |
+help: you must specify a type for this binding, like `i32`
+   |
+20 |             <Inner value=42: i32/>
+   |                            +++++

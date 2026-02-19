@@ -1,48 +1,48 @@
-error[E0271]: expected `{closure@14_multiple_generic_params_second_wrong_type.rs:11:40}` to return `i32`, but it returns `bool`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:43
+error[E0271]: expected `{closure@14_multiple_generic_params_second_wrong_type.rs:15:40}` to return `i32`, but it returns `bool`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:15:43
    |
-11 |             <Inner fun_a=|| true fun_b=|| true/>
+15 |             <Inner fun_a=|| true fun_b=|| true/>
    |                                        -- ^^^^ expected `i32`, found `bool`
    |                                        |
    |                                        this closure
    |
-note: required for `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}` to implement `__Check_fun_b`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:16:1
+note: required for `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42}` to implement `__Check_fun_b`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:1
    |
-16 | #[component]
+20 | #[component]
    | ^^^^^^^^^^^^
 ...
-20 |     G: Fn() -> i32,
+24 |     G: Fn() -> i32,
    |                --- unsatisfied trait bound introduced here
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_fun_b` exists for closure `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}`, but its trait bounds were not satisfied
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40
+error[E0599]: the method `__pass_fun_b` exists for closure `{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42}`, but its trait bounds were not satisfied
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40
    |
-11 |             <Inner fun_a=|| true fun_b=|| true/>
+15 |             <Inner fun_a=|| true fun_b=|| true/>
    |                                        --^^^^^
    |                                        |
    |                                        doesn't satisfy `<_ as FnOnce<()>>::Output = i32` or `_: __Check_fun_b`
    |
 note: the following trait bounds were not satisfied:
-      `&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42}: Fn<()>`
-      `<&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
-      `<&{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
-      `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:11:40: 11:42} as FnOnce<()>>::Output = i32`
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:8
+      `&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42}: Fn<()>`
+      `<&mut {closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42} as FnOnce<()>>::Output = i32`
+      `<&{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42} as FnOnce<()>>::Output = i32`
+      `<{closure@$DIR/tests/view/14_multiple_generic_params_second_wrong_type.rs:15:40: 15:42} as FnOnce<()>>::Output = i32`
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:24:8
    |
-16 | #[component]
+20 | #[component]
    | ------------
 ...
-20 |     G: Fn() -> i32,
+24 |     G: Fn() -> i32,
    |        ^^^^^^^^^^^
    |        |       |
    |        |       unsatisfied trait bound introduced here
    |        unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
 note: `__Check_fun_b` defines an item `__pass_fun_b`, perhaps you need to implement it
-  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:16:1
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:20:1
    |
-16 | #[component]
+20 | #[component]
    | ^^^^^^^^^^^^
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

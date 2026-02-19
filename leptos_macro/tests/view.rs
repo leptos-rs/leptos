@@ -87,4 +87,21 @@ fn test_view_macro() {
     // Duplicate props.
     t.compile_fail("tests/view/51_duplicate_prop.rs");
     t.compile_fail("tests/view/52_duplicate_optional_prop.rs");
+    t.compile_fail("tests/view/53_slot_duplicate_prop.rs");
+    t.compile_fail("tests/view/54_duplicate_generic_prop.rs");
+    t.compile_fail("tests/view/58_duplicate_into_prop.rs");
+
+    // Non-Fn generic bounds.
+    t.compile_fail("tests/view/55_generic_non_fn_bound_wrong_type.rs");
+    t.compile_fail("tests/view/56_generic_clone_and_fn_wrong_type.rs");
+
+    // Children-only component.
+    t.compile_fail("tests/view/57_children_only_missing.rs");
+
+    // Error isolation between components.
+    t.compile_fail("tests/view/59_two_components_one_error.rs");
+
+    // User-defined trait bounds.
+    t.pass("tests/view/60_user_trait_bound_correct.rs");
+    t.compile_fail("tests/view/61_user_trait_bound_wrong_type.rs");
 }
