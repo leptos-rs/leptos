@@ -168,6 +168,7 @@ tokio = { features = [
   "rt",
   "macros",
 ], workspace = true, default-features = true }
+wasm-bindgen-test = { workspace = true, default-features = true }
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
