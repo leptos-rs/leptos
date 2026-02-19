@@ -100,7 +100,7 @@ pub(crate) mod private {
 mod config;
 mod service;
 pub use config::RouterConfiguration;
-pub use service::ErrorHandler;
+pub use service::{AdditionalContext, AdditionalContextLayer, ErrorHandler};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -169,6 +169,18 @@ impl ResponseOptions {
     }
 }
 
+pub(crate) fn extend_response<ResBody>(
+    res: &mut Response<ResBody>,
+    res_options: &ResponseOptions,
+) {
+    let mut res_options = res_options.0.write().or_poisoned();
+    if let Some(status) = res_options.status {
+        *res.status_mut() = status;
+    }
+    res.headers_mut()
+        .extend(std::mem::take(&mut res_options.headers));
+}
+
 struct AxumResponse(Response<Body>);
 
 impl ExtendResponse for AxumResponse {
@@ -186,13 +198,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write().or_poisoned();
-        if let Some(status) = res_options.status {
-            *self.0.status_mut() = status;
-        }
-        self.0
-            .headers_mut()
-            .extend(std::mem::take(&mut res_options.headers));
+        extend_response(&mut self.0, res_options);
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {

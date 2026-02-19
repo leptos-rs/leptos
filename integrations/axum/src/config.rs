@@ -2,9 +2,14 @@
 
 use crate::{generate_route_list, ErrorHandler, LeptosRoutes};
 #[cfg(feature = "default")]
-use crate::{site_pkg_dir_service, site_pkg_dir_service_route_path};
+use crate::{
+    site_pkg_dir_service, site_pkg_dir_service_route_path,
+    AdditionalContextLayer,
+};
 use axum::{extract::FromRef, Router};
 use leptos::{config::LeptosOptions, IntoView};
+#[cfg(feature = "default")]
+use tower::builder::ServiceBuilder;
 
 pub(crate) mod traits {
     //! Provides the trait for [`RouterConfiguration`].
@@ -178,23 +183,27 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
 }
 
 macro_rules! apply_common {
-    ($conf:expr, $router:expr, $error_handler:expr) => {{
+    ($conf:expr, $router:expr, $extra_cx:expr, $error_handler:expr) => {{
         let state = $conf.state.expect("a `state` should have been configured");
         let router = $router;
 
         #[cfg(feature = "default")]
         let router = if $conf.serve_site_pkg {
+            let builder = ServiceBuilder::new()
+                .option_layer($extra_cx.map(AdditionalContextLayer::new));
             let leptos_options = LeptosOptions::from_ref(&state);
             if let Some(error_handler) = $error_handler.clone() {
                 router.route_service(
                     &site_pkg_dir_service_route_path(&leptos_options),
-                    site_pkg_dir_service(&leptos_options)
-                        .fallback(error_handler),
+                    builder.service(
+                        site_pkg_dir_service(&leptos_options)
+                            .fallback(error_handler),
+                    ),
                 )
             } else {
                 router.route_service(
                     &site_pkg_dir_service_route_path(&leptos_options),
-                    site_pkg_dir_service(&leptos_options),
+                    builder.service(site_pkg_dir_service(&leptos_options)),
                 )
             }
         } else {
@@ -248,7 +257,7 @@ where
             ErrorHandler::new_with_context(extra_cx, shell, state.clone())
         });
 
-        apply_common!(self, router, error_handler)
+        apply_common!(self, router, Some(extra_cx), error_handler)
     }
 }
 
@@ -284,6 +293,6 @@ where
             ErrorHandler::new_with_context(|| {}, shell, state.clone())
         });
 
-        apply_common!(self, router, error_handler)
+        apply_common!(self, router, None::<fn()>, error_handler)
     }
 }

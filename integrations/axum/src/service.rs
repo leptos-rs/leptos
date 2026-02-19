@@ -1,16 +1,22 @@
-use crate::{handle_response_inner, PinnedStream};
+use crate::{
+    extend_response, handle_response_inner, PinnedStream, ResponseOptions,
+};
 use axum::{
     body::Body,
     http::{Request, Response, StatusCode},
 };
 use futures::{stream::once, Future, StreamExt};
-use leptos::{context::provide_context, IntoView};
+use leptos::{
+    context::{provide_context, use_context},
+    prelude::Owner,
+    IntoView,
+};
 use std::{
     convert::Infallible,
     pin::Pin,
     task::{Context, Poll},
 };
-use tower::Service;
+use tower::{Layer, Service};
 
 /// Service for serving error pages generated with the provided application shell.
 ///
@@ -221,4 +227,96 @@ where
 
         Ok(res)
     })
+}
+
+/// A layer for setting up a middleware for applying additional contexts to other tower/axum services.
+#[derive(Clone, Debug)]
+pub struct AdditionalContextLayer<CX> {
+    additional_context: CX,
+}
+
+impl<CX> AdditionalContextLayer<CX> {
+    /// Create the layer from the additional context.
+    pub fn new(additional_context: CX) -> Self {
+        Self { additional_context }
+    }
+}
+
+impl<S, CX> Layer<S> for AdditionalContextLayer<CX>
+where
+    CX: Clone,
+{
+    type Service = AdditionalContext<S, CX>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        AdditionalContext::new(service, self.additional_context.clone())
+    }
+}
+
+/// Middleware for applying additional contexts to other tower/axum services.
+#[derive(Clone, Debug)]
+pub struct AdditionalContext<S, CX> {
+    inner: S,
+    additional_context: CX,
+}
+
+impl<S, CX> AdditionalContext<S, CX> {
+    /// Create a new handler with an additional context along with the provided shell and state.
+    pub fn new(inner: S, additional_context: CX) -> Self {
+        Self {
+            inner,
+            additional_context,
+        }
+    }
+}
+
+impl<ReqBody, ResBody, S, CX> Service<Request<ReqBody>>
+    for AdditionalContext<S, CX>
+where
+    CX: Fn() + 'static + Clone + Send,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>
+        + Clone
+        + Send
+        + 'static,
+    S::Future: Send,
+    ReqBody: Send + 'static,
+    ResBody: Default + Send,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = Pin<
+        Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>,
+    >;
+
+    #[inline]
+    fn poll_ready(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+        // Because the inner service can panic until ready, we need to ensure we only
+        // use the ready service.
+        //
+        // See: https://docs.rs/tower/latest/tower/trait.Service.html#be-careful-when-cloning-inner-services
+        let clone = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, clone);
+
+        let additional_context = self.additional_context.clone();
+
+        Box::pin(async move {
+            let mut res = inner.call(req).await?;
+            let owner = Owner::new();
+            owner.with(|| {
+                additional_context();
+                if let Some(response_options) = use_context::<ResponseOptions>()
+                {
+                    extend_response(&mut res, &response_options);
+                }
+                Ok(res)
+            })
+        })
+    }
 }

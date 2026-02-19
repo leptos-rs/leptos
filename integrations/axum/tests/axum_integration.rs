@@ -397,8 +397,6 @@ async fn conf_with_context() -> anyhow::Result<()> {
         .await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    // FIXME implement this
-    /*
     assert_eq!(
         res.headers()
             .get(HeaderName::from_static("cross-origin-opener-policy")),
@@ -413,7 +411,7 @@ async fn conf_with_context() -> anyhow::Result<()> {
         .get(service.url("/pkg/service_mode.wasm")?)
         .send()
         .await?;
-    */
+
     assert_eq!(res.status(), StatusCode::OK);
     // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
     let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
