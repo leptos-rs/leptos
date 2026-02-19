@@ -503,7 +503,15 @@ pub(crate) fn generate_module_checks(
                     }
                 });
 
-                // Outside module: bounded impl
+                // Outside module: bounded impl.
+                //
+                // NOTE: `#[diagnostic::do_not_recommend]` was tested
+                // here to suppress the noisy E0599 from `.__pass_*()`.
+                // However, since the same impl serves BOTH the UFCS
+                // (clean E0277) and method (E0599) paths,
+                // `do_not_recommend` degrades the E0277 message — it
+                // shows `__Check_*` instead of the underlying bound
+                // (e.g. `Greetable`). Not worth the trade-off.
                 check_trait_impls.push(quote! {
                     #[doc(hidden)]
                     impl<__T: #bounds>

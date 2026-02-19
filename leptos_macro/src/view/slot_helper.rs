@@ -3,7 +3,7 @@ use super::{
     convert_to_snake_case,
     utils::{
         attr_check_idents, children_span, generate_check_imports,
-        generate_pre_check_tokens, PropCheckInfo,
+        generate_pre_check_tokens, module_import_path, PropCheckInfo,
     },
 };
 use crate::view::utils::filter_prefixed_attrs;
@@ -33,21 +33,6 @@ fn module_path_from_tag_name(name: &NodeName) -> TokenStream {
                 format_ident!("__{}", s, span = Span::call_site());
             quote! { #module_ident }
         }
-    }
-}
-
-/// For trait imports from the companion module, we may need
-/// `self::__SlotName::__Check_foo` for single-segment paths to
-/// disambiguate from glob-imported traits.
-fn module_import_path(
-    name: &NodeName,
-    module_path: &TokenStream,
-) -> TokenStream {
-    match name {
-        NodeName::Path(expr_path) if expr_path.path.segments.len() == 1 => {
-            quote! { self::#module_path }
-        }
-        _ => module_path.clone(),
     }
 }
 

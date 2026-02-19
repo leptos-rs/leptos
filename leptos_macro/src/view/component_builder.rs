@@ -3,7 +3,7 @@ use super::{
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
         generate_check_imports, generate_pre_check_tokens,
-        is_nostrip_optional_and_update_key, PropCheckInfo,
+        is_nostrip_optional_and_update_key, module_import_path, PropCheckInfo,
     },
     TagType,
 };
@@ -52,12 +52,7 @@ pub(crate) fn component_to_tokens(
     // definition, not the glob-imported `trait Component`.
     // For qualified paths (e.g., `crate::foo::Inner`), this is
     // not needed since they already resolve unambiguously.
-    let module_import_path = match node.name() {
-        NodeName::Path(expr_path) if expr_path.path.segments.len() == 1 => {
-            quote! { self::#delinked_path }
-        }
-        _ => delinked_path.clone(),
-    };
+    let module_import_path = module_import_path(node.name(), &delinked_path);
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes

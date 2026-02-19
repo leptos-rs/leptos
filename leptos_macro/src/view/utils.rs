@@ -194,6 +194,23 @@ pub(crate) fn generate_check_imports(
         .collect()
 }
 
+/// For trait imports from the companion module, we may need
+/// `self::Module::__Check_foo` for single-segment paths to
+/// disambiguate from glob-imported traits with the same name.
+///
+/// Used by both `component_builder.rs` and `slot_helper.rs`.
+pub(crate) fn module_import_path(
+    name: &NodeName,
+    module_path: &TokenStream,
+) -> TokenStream {
+    match name {
+        NodeName::Path(expr_path) if expr_path.path.segments.len() == 1 => {
+            quote! { self::#module_path }
+        }
+        _ => module_path.clone(),
+    }
+}
+
 /// Generates two-step pre-check statements for each prop:
 ///
 /// 1. UFCS check: `<_ as Module::__Check_foo>::__check_foo(&v)`
