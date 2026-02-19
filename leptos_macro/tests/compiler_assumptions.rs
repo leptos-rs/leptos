@@ -22,4 +22,7 @@ fn compiler_assumptions() {
         "tests/compiler_assumptions/04_ufcs_concrete_pattern_matching.rs",
     );
     t.compile_fail("tests/compiler_assumptions/05_error_absorbed_by_ufcs.rs");
+    t.compile_fail(
+        "tests/compiler_assumptions/06_ambiguous_numeric_method_call.rs",
+    );
 }
