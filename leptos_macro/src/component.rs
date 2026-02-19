@@ -633,10 +633,7 @@ impl ToTokens for Model {
         let required_fields: Vec<(&Ident, bool)> = props
             .iter()
             .map(|p| {
-                let required = !p.prop_opts.optional
-                    && !p.prop_opts.optional_no_strip
-                    && !p.prop_opts.attrs
-                    && p.prop_opts.default.is_none();
+                let required = !p.prop_opts.is_optional();
                 (&p.name.ident, required)
             })
             .collect();
@@ -1099,12 +1096,21 @@ struct PropOpt {
     name: Option<String>,
 }
 
+impl PropOpt {
+    fn is_optional(&self) -> bool {
+        self.optional
+            || self.optional_no_strip
+            || self.attrs
+            || self.default.is_some()
+    }
+}
+
 fn typed_builder_opts<'a>(
     opts: &PropOpt,
     ty: &'a Type,
 ) -> TypedBuilderOpts<'a> {
     TypedBuilderOpts {
-        default: opts.optional || opts.optional_no_strip || opts.attrs,
+        default: opts.is_optional() && opts.default.is_none(),
         default_with_value: opts.default.clone(),
         strip_option: opts.strip_option || opts.optional && is_option(ty),
         into: opts.into,
@@ -1202,21 +1208,13 @@ fn prop_names(props: &[Prop]) -> TokenStream {
 fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let required_prop_docs = props
         .iter()
-        .filter(|Prop { prop_opts, .. }| {
-            !(prop_opts.optional
-                || prop_opts.optional_no_strip
-                || prop_opts.default.is_some())
-        })
+        .filter(|Prop { prop_opts, .. }| !prop_opts.is_optional())
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
     let optional_prop_docs = props
         .iter()
-        .filter(|Prop { prop_opts, .. }| {
-            prop_opts.optional
-                || prop_opts.optional_no_strip
-                || prop_opts.default.is_some()
-        })
+        .filter(|Prop { prop_opts, .. }| prop_opts.is_optional())
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
