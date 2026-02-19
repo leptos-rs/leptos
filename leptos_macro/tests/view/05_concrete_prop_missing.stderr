@@ -21,11 +21,13 @@ note: required for `Inner::__PresenceBuilder<((),)>` to implement `Inner::__Chec
 error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((),)>`, but its trait bounds were not satisfied
   --> tests/view/05_concrete_prop_missing.rs:11:14
    |
-11 |             <Inner/>
-   |              ^^^^^
+ 9 | /     view! {
+10 | |         <div>
+11 | |             <Inner/>
+   | |_____________-^^^^^
 ...
-16 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+16 |   #[component]
+   |   ------------ method `__check_missing` not found for this struct
    |
 note: trait bound `(): __required_Inner_concrete_bool` was not satisfied
   --> tests/view/05_concrete_prop_missing.rs:16:1

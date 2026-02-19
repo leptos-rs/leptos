@@ -1,10 +1,14 @@
+use crate::util::documentation::Docs;
+use crate::util::property_documentation::{
+    generate_prop_documentation, prop_to_doc, PropDocumentationInput,
+    PropDocumentationStyle,
+};
+use crate::util::typed_builder_opts::TypedBuilderOpts;
 use crate::util::{
-    collect_phantom_type_params, generate_module_builder,
+    children::is_children_prop, generate_module_builder,
     generate_module_checks, generate_module_presence_check,
-    generate_module_required_check, generate_phantom_field, generate_prop_docs,
-    prop_to_doc, strip_non_structural_bounds, typed_builder_opts,
-    ModuleCheckTokens, ModulePresenceTokens, ModuleRequiredCheckTokens,
-    PropDocInput, PropDocStyle,
+    generate_module_required_check, type_analysis, ModuleCheckTokens,
+    ModulePresenceTokens, ModuleRequiredCheckTokens,
 };
 use attribute_derive::FromAttr;
 use convert_case::{
@@ -13,7 +17,6 @@ use convert_case::{
 };
 use convert_case_extras::is_case;
 use itertools::Itertools;
-use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error2::abort;
 use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
@@ -33,7 +36,7 @@ pub struct Model {
     unknown_attrs: UnknownAttrs,
     vis: Visibility,
     name: Ident,
-    props: Vec<Prop>,
+    props: Vec<ComponentProp>,
     body: ItemFn,
     ret: ReturnType,
 }
@@ -53,7 +56,7 @@ impl Parse for Model {
             .inputs
             .clone()
             .into_iter()
-            .map(Prop::new)
+            .map(ComponentProp::new)
             .collect::<Vec<_>>();
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
@@ -206,12 +209,17 @@ impl ToTokens for Model {
         // `ServFn: ServerFn`).
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
         let behavioral_bounds_stripped_generics =
-            strip_non_structural_bounds(&body.sig.generics, &field_types);
+            type_analysis::strip_non_structural_bounds(
+                &body.sig.generics,
+                &field_types,
+            );
         let (struct_impl_generics, _, struct_where_clause) =
             behavioral_bounds_stripped_generics.split_for_impl();
 
-        let phantom_type_params =
-            collect_phantom_type_params(&body.sig.generics, &field_types);
+        let phantom_type_params = type_analysis::collect_phantom_type_params(
+            &body.sig.generics,
+            &field_types,
+        );
 
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
@@ -219,8 +227,10 @@ impl ToTokens for Model {
         #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
 
-        let is_island_with_children =
-            is_island && props.iter().any(|prop| prop.name.ident == "children");
+        let is_island_with_children = is_island
+            && props
+                .iter()
+                .any(|prop| is_children_prop(&prop.name.ident, &prop.ty));
         let is_island_with_other_props = is_island
             && ((is_island_with_children && props.len() > 1)
                 || (!is_island_with_children && !props.is_empty()));
@@ -246,19 +256,19 @@ impl ToTokens for Model {
             name.span(),
         );
 
-        let doc_inputs: Vec<PropDocInput> = props
+        let doc_inputs: Vec<PropDocumentationInput> = props
             .iter()
-            .map(|p| PropDocInput {
+            .map(|p| PropDocumentationInput {
                 docs: &p.docs,
                 name: &p.name.ident,
                 ty: &p.ty,
-                is_optional: p.prop_opts.is_optional(),
-                optional: p.prop_opts.optional,
-                strip_option: p.prop_opts.strip_option,
-                into: p.prop_opts.into,
+                is_optional: p.options.is_optional(),
+                optional: p.options.optional,
+                strip_option: p.options.strip_option,
+                into: p.options.into,
             })
             .collect();
-        let component_fn_prop_docs = generate_prop_docs(&doc_inputs);
+        let component_fn_prop_docs = generate_prop_documentation(&doc_inputs);
         let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
             // Avoid generating an empty doc line in case the component has no doc and no props.
             quote! {
@@ -481,7 +491,8 @@ impl ToTokens for Model {
                         let prop_names = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children" {
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                {
                                     None
                                 } else {
                                     let name = &prop.name.ident;
@@ -497,8 +508,8 @@ impl ToTokens for Model {
                         let prop_builders = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children"
-                                    || prop.prop_opts.optional
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                    || prop.options.optional
                                 {
                                     None
                                 } else {
@@ -512,8 +523,8 @@ impl ToTokens for Model {
                         let optional_props = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children"
-                                    || !prop.prop_opts.optional
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                    || !prop.options.optional
                                 {
                                     None
                                 } else {
@@ -624,7 +635,7 @@ impl ToTokens for Model {
             quote! {}
         };
 
-        let phantom_field = generate_phantom_field(
+        let phantom_field = type_analysis::generate_phantom_field(
             &phantom_type_params,
             is_island_with_other_props,
         );
@@ -643,11 +654,11 @@ impl ToTokens for Model {
             &field_types,
         );
 
-        let required_fields: Vec<(&Ident, bool)> = props
+        let required_fields: Vec<(&Ident, bool, &Type)> = props
             .iter()
             .map(|p| {
-                let required = !p.prop_opts.is_optional();
-                (&p.name.ident, required)
+                let required = !p.options.is_optional();
+                (&p.name.ident, required, &p.ty)
             })
             .collect();
 
@@ -832,14 +843,14 @@ impl ToTokens for DummyModel {
     }
 }
 
-struct Prop {
+struct ComponentProp {
     docs: Docs,
-    prop_opts: PropOpt,
+    options: ComponentPropOptions,
     name: PatIdent,
     ty: Type,
 }
 
-impl Prop {
+impl ComponentProp {
     fn new(arg: FnArg) -> Self {
         let typed = if let FnArg::Typed(ty) = arg {
             ty
@@ -847,15 +858,15 @@ impl Prop {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
-        let prop_opts =
-            PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
+        let options = ComponentPropOptions::from_attributes(&typed.attrs)
+            .unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
                 abort!(e.span(), e.to_string());
             });
 
         let name = match *typed.pat {
             Pat::Ident(i) => {
-                if let Some(name) = &prop_opts.name {
+                if let Some(name) = &options.name {
                     PatIdent {
                         attrs: vec![],
                         by_ref: None,
@@ -868,7 +879,7 @@ impl Prop {
                 }
             }
             Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_) => {
-                if let Some(name) = &prop_opts.name {
+                if let Some(name) = &options.name {
                     PatIdent {
                         attrs: vec![],
                         by_ref: None,
@@ -895,156 +906,9 @@ impl Prop {
 
         Self {
             docs: Docs::new(&typed.attrs),
-            prop_opts,
+            options,
             name,
             ty: *typed.ty,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Docs(Vec<(String, Span)>);
-
-impl ToTokens for Docs {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let s = self
-            .0
-            .iter()
-            .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
-            .collect::<TokenStream>();
-
-        tokens.append_all(s);
-    }
-}
-
-impl Docs {
-    pub fn new(attrs: &[Attribute]) -> Self {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-        enum ViewCodeFenceState {
-            Outside,
-            Rust,
-            Rsx,
-        }
-        let mut quotes = "```".to_string();
-        let mut quote_ws = "".to_string();
-        let mut view_code_fence_state = ViewCodeFenceState::Outside;
-        // todo fix docs stuff
-        const RSX_START: &str = "# ::leptos::view! {";
-        const RSX_END: &str = "# };";
-
-        // Separated out of chain to allow rustfmt to work
-        let map = |(doc, span): (String, Span)| {
-            doc.split('\n')
-                .map(str::trim_end)
-                .flat_map(|doc| {
-                    let trimmed_doc = doc.trim_start();
-                    let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
-                    let trimmed_doc = trimmed_doc.trim_end();
-                    match view_code_fence_state {
-                        ViewCodeFenceState::Outside
-                            if trimmed_doc.starts_with("```")
-                                && trimmed_doc
-                                    .trim_start_matches('`')
-                                    .starts_with("view") =>
-                        {
-                            view_code_fence_state = ViewCodeFenceState::Rust;
-                            let view = trimmed_doc.find('v').unwrap();
-                            trimmed_doc[..view].clone_into(&mut quotes);
-                            leading_ws.clone_into(&mut quote_ws);
-                            let rust_options = &trimmed_doc
-                                [view + "view".len()..]
-                                .trim_start();
-                            vec![
-                                format!("{leading_ws}{quotes}{rust_options}"),
-                                format!("{leading_ws}"),
-                            ]
-                        }
-                        ViewCodeFenceState::Rust if trimmed_doc == quotes => {
-                            view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![format!("{leading_ws}"), doc.to_owned()]
-                        }
-                        ViewCodeFenceState::Rust
-                            if trimmed_doc.starts_with('<') =>
-                        {
-                            view_code_fence_state = ViewCodeFenceState::Rsx;
-                            vec![
-                                format!("{leading_ws}{RSX_START}"),
-                                doc.to_owned(),
-                            ]
-                        }
-                        ViewCodeFenceState::Rsx if trimmed_doc == quotes => {
-                            view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![
-                                format!("{leading_ws}{RSX_END}"),
-                                doc.to_owned(),
-                            ]
-                        }
-                        _ => vec![doc.to_string()],
-                    }
-                })
-                .map(|l| (l, span))
-                .collect_vec()
-        };
-
-        let mut attrs = attrs
-            .iter()
-            .filter_map(|attr| {
-                let Meta::NameValue(attr) = &attr.meta else {
-                    return None;
-                };
-                if !attr.path.is_ident("doc") {
-                    return None;
-                }
-
-                let Some(val) = value_to_string(&attr.value) else {
-                    abort!(
-                        attr,
-                        "expected string literal in value of doc comment"
-                    );
-                };
-
-                Some((val, attr.path.span()))
-            })
-            .flat_map(map)
-            .collect_vec();
-
-        if view_code_fence_state != ViewCodeFenceState::Outside {
-            if view_code_fence_state == ViewCodeFenceState::Rust {
-                attrs.push((quote_ws.clone(), Span::call_site()))
-            } else {
-                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
-            }
-            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
-        }
-
-        Self(attrs)
-    }
-
-    pub fn padded(&self) -> TokenStream {
-        self.0
-            .iter()
-            .enumerate()
-            .map(|(idx, (doc, span))| {
-                let doc = if idx == 0 {
-                    format!("    - {doc}")
-                } else {
-                    format!("      {doc}")
-                };
-
-                let doc = LitStr::new(&doc, *span);
-
-                quote! { #[doc = #doc] }
-            })
-            .collect()
-    }
-
-    pub fn typed_builder(&self) -> String {
-        let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
-
-        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
-            format!("\n\n{doc_str}")
-        } else {
-            String::new()
         }
     }
 }
@@ -1095,7 +959,7 @@ impl ToTokens for UnknownAttrs {
 
 #[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
-struct PropOpt {
+struct ComponentPropOptions {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
     optional: bool,
     #[attribute(conflicts = [optional, strip_option])]
@@ -1109,7 +973,7 @@ struct PropOpt {
     name: Option<String>,
 }
 
-impl PropOpt {
+impl ComponentPropOptions {
     fn is_optional(&self) -> bool {
         self.optional
             || self.optional_no_strip
@@ -1120,20 +984,20 @@ impl PropOpt {
 
 fn prop_builder_fields(
     vis: &Visibility,
-    props: &[Prop],
+    props: &[ComponentProp],
     is_island_with_other_props: bool,
 ) -> TokenStream {
     props
         .iter()
         .map(|prop| {
-            let Prop {
+            let ComponentProp {
                 docs,
                 name,
-                prop_opts,
+                options: prop_opts,
                 ty,
             } = prop;
 
-            let builder_attrs = typed_builder_opts(
+            let builder_attrs = TypedBuilderOpts::new(
                 prop_opts.is_optional(),
                 &prop_opts.default,
                 prop_opts.strip_option,
@@ -1142,7 +1006,7 @@ fn prop_builder_fields(
                 ty,
             );
 
-            let doc_input = PropDocInput {
+            let doc_input = PropDocumentationInput {
                 docs,
                 name: &name.ident,
                 ty,
@@ -1151,20 +1015,22 @@ fn prop_builder_fields(
                 strip_option: prop_opts.strip_option,
                 into: prop_opts.into,
             };
-            let builder_docs = prop_to_doc(&doc_input, PropDocStyle::Inline);
+            let builder_docs =
+                prop_to_doc(&doc_input, PropDocumentationStyle::Inline);
 
             // Children won't need documentation in many cases
-            let allow_missing_docs = if name.ident == "children" {
+            let allow_missing_docs = if is_children_prop(&name.ident, ty) {
                 quote!(#[allow(missing_docs)])
             } else {
                 quote!()
             };
-            let skip_children_serde =
-                if is_island_with_other_props && name.ident == "children" {
-                    quote!(#[serde(skip)])
-                } else {
-                    quote!()
-                };
+            let skip_children_serde = if is_island_with_other_props
+                && is_children_prop(&name.ident, ty)
+            {
+                quote!(#[serde(skip)])
+            } else {
+                quote!()
+            };
 
             let PatIdent { ident, by_ref, .. } = &name;
 
@@ -1180,21 +1046,24 @@ fn prop_builder_fields(
         .collect()
 }
 
-fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+fn prop_serializer_fields(
+    vis: &Visibility,
+    props: &[ComponentProp],
+) -> TokenStream {
     props
         .iter()
         .filter_map(|prop| {
-            if prop.name.ident == "children" {
+            if is_children_prop(&prop.name.ident, &prop.ty) {
                 None
             } else {
-                let Prop {
+                let ComponentProp {
                     docs,
                     name,
-                    prop_opts,
+                    options: prop_opts,
                     ty,
                 } = prop;
 
-                let builder_attrs = typed_builder_opts(
+                let builder_attrs = TypedBuilderOpts::new(
                     prop_opts.is_optional(),
                     &prop_opts.default,
                     prop_opts.strip_option,
@@ -1216,10 +1085,10 @@ fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
         .collect()
 }
 
-fn prop_names(props: &[Prop]) -> TokenStream {
+fn prop_names(props: &[ComponentProp]) -> TokenStream {
     props
         .iter()
-        .map(|Prop { name, .. }| {
+        .map(|ComponentProp { name, .. }| {
             // fields like mutability are removed because unneeded
             // in the contexts in which this is used
             let ident = &name.ident;

@@ -1,12 +1,16 @@
+use crate::util::documentation::Docs;
+use crate::util::property_documentation;
+use crate::util::property_documentation::{
+    prop_to_doc, PropDocumentationInput, PropDocumentationStyle,
+};
+use crate::util::typed_builder_opts::TypedBuilderOpts;
 use crate::{
-    component::{convert_from_snake_case, drain_filter, Docs},
+    component::{convert_from_snake_case, drain_filter},
     util::{
-        collect_phantom_type_params, generate_module_builder,
-        generate_module_checks, generate_module_presence_check,
-        generate_module_required_check, generate_phantom_field,
-        generate_prop_docs, prop_to_doc, strip_non_structural_bounds,
-        typed_builder_opts, ModuleCheckTokens, ModulePresenceTokens,
-        ModuleRequiredCheckTokens, PropDocInput, PropDocStyle,
+        generate_module_builder, generate_module_checks,
+        generate_module_presence_check, generate_module_required_check,
+        type_analysis, ModuleCheckTokens, ModulePresenceTokens,
+        ModuleRequiredCheckTokens,
     },
 };
 use attribute_derive::FromAttr;
@@ -21,7 +25,7 @@ pub struct Model {
     docs: Docs,
     vis: Visibility,
     name: Ident,
-    props: Vec<Prop>,
+    props: Vec<SlotProp>,
     body: ItemStruct,
 }
 
@@ -35,7 +39,7 @@ impl Parse for Model {
             .fields
             .clone()
             .into_iter()
-            .map(Prop::new)
+            .map(SlotProp::new)
             .collect::<Vec<_>>();
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
@@ -79,28 +83,35 @@ impl ToTokens for Model {
 
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
         let behavioral_bounds_stripped_generics =
-            strip_non_structural_bounds(&body.generics, &field_types);
+            type_analysis::strip_non_structural_bounds(
+                &body.generics,
+                &field_types,
+            );
         let (struct_impl_generics, _, struct_where_clause) =
             behavioral_bounds_stripped_generics.split_for_impl();
 
-        let phantom_type_params =
-            collect_phantom_type_params(&body.generics, &field_types);
-        let phantom_field = generate_phantom_field(&phantom_type_params, false);
+        let phantom_type_params = type_analysis::collect_phantom_type_params(
+            &body.generics,
+            &field_types,
+        );
+        let phantom_field =
+            type_analysis::generate_phantom_field(&phantom_type_params, false);
 
         let prop_builder_fields = prop_builder_fields(vis, props);
-        let doc_inputs: Vec<PropDocInput> = props
+        let doc_inputs: Vec<PropDocumentationInput> = props
             .iter()
-            .map(|p| PropDocInput {
+            .map(|p| PropDocumentationInput {
                 docs: &p.docs,
                 name: &p.name,
                 ty: &p.ty,
-                is_optional: p.prop_opts.is_optional(),
-                optional: p.prop_opts.optional,
-                strip_option: p.prop_opts.strip_option,
-                into: p.prop_opts.into,
+                is_optional: p.options.is_optional(),
+                optional: p.options.optional,
+                strip_option: p.options.strip_option,
+                into: p.options.into,
             })
             .collect();
-        let prop_docs = generate_prop_docs(&doc_inputs);
+        let prop_docs =
+            property_documentation::generate_prop_documentation(&doc_inputs);
         let builder_name_doc = LitStr::new(
             &format!("Props for the [`{name}`] slot."),
             name.span(),
@@ -126,11 +137,11 @@ impl ToTokens for Model {
 
         let no_props = props.is_empty();
         let slot_builder_name = format_ident!("{}Builder", name);
-        let required_fields: Vec<(&Ident, bool)> = props
+        let required_fields: Vec<(&Ident, bool, &Type)> = props
             .iter()
             .map(|p| {
-                let required = !p.prop_opts.is_optional();
-                (&p.name, required)
+                let required = !p.options.is_optional();
+                (&p.name, required, &p.ty)
             })
             .collect();
         let ModuleRequiredCheckTokens { marker_traits } =
@@ -179,8 +190,8 @@ impl ToTokens for Model {
 
             #marker_traits
 
-            // Companion module — uses `__` prefix since modules
-            // and structs share the type namespace.
+            // Companion module — uses `__` prefix since modules and structs share the `type`
+            // namespace.
             #[doc(hidden)]
             #[allow(non_snake_case)]
             #vis mod #module_name {
@@ -199,17 +210,17 @@ impl ToTokens for Model {
     }
 }
 
-struct Prop {
+struct SlotProp {
     docs: Docs,
-    prop_opts: PropOpt,
+    options: SlotPropOptions,
     name: Ident,
     ty: Type,
 }
 
-impl Prop {
+impl SlotProp {
     fn new(arg: Field) -> Self {
-        let prop_opts =
-            PropOpt::from_attributes(&arg.attrs).unwrap_or_else(|e| {
+        let prop_opts = SlotPropOptions::from_attributes(&arg.attrs)
+            .unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
                 abort!(e.span(), e.to_string());
             });
@@ -226,7 +237,7 @@ impl Prop {
 
         Self {
             docs: Docs::new(&arg.attrs),
-            prop_opts,
+            options: prop_opts,
             name,
             ty: arg.ty,
         }
@@ -235,7 +246,7 @@ impl Prop {
 
 #[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
-struct PropOpt {
+struct SlotPropOptions {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
     pub optional: bool,
     #[attribute(conflicts = [optional, strip_option])]
@@ -248,7 +259,7 @@ struct PropOpt {
     pub attrs: bool,
 }
 
-impl PropOpt {
+impl SlotPropOptions {
     fn is_optional(&self) -> bool {
         self.optional
             || self.optional_no_strip
@@ -257,40 +268,42 @@ impl PropOpt {
     }
 }
 
-fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+fn prop_builder_fields(vis: &Visibility, props: &[SlotProp]) -> TokenStream {
     props
         .iter()
         .map(|prop| {
-            let Prop {
+            let SlotProp {
                 docs,
                 name,
-                prop_opts,
+                options,
                 ty,
             } = prop;
 
-            let builder_attrs = typed_builder_opts(
-                prop_opts.is_optional(),
-                &prop_opts.default,
-                prop_opts.strip_option,
-                prop_opts.optional,
-                prop_opts.into,
+            let builder_attrs = TypedBuilderOpts::new(
+                options.is_optional(),
+                &options.default,
+                options.strip_option,
+                options.optional,
+                options.into,
                 ty,
             );
 
-            let doc_input = PropDocInput {
-                docs,
-                name,
-                ty,
-                is_optional: prop_opts.is_optional(),
-                optional: prop_opts.optional,
-                strip_option: prop_opts.strip_option,
-                into: prop_opts.into,
-            };
-            let builder_docs = prop_to_doc(&doc_input, PropDocStyle::Inline);
+            let builder_documentation = prop_to_doc(
+                &PropDocumentationInput {
+                    docs,
+                    name,
+                    ty,
+                    is_optional: options.is_optional(),
+                    optional: options.optional,
+                    strip_option: options.strip_option,
+                    into: options.into,
+                },
+                PropDocumentationStyle::Inline,
+            );
 
             quote! {
                 #docs
-                #builder_docs
+                #builder_documentation
                 #builder_attrs
                 #vis #name: #ty,
             }

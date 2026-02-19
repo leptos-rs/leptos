@@ -61,11 +61,13 @@ note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner:
 error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((), (), ())>`, but its trait bounds were not satisfied
   --> tests/view/42_multiple_missing_required_props.rs:10:14
    |
-10 |             <Inner/>
-   |              ^^^^^
+ 8 | /     view! {
+ 9 | |         <div>
+10 | |             <Inner/>
+   | |_____________-^^^^^
 ...
-15 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+15 |   #[component]
+   |   ------------ method `__check_missing` not found for this struct
    |
 note: the following trait bounds were not satisfied:
       `(): __required_Inner_children`

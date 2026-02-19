@@ -51,11 +51,13 @@ help: you might have meant to create the closure instead of a block
 error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((), ((),))>`, but its trait bounds were not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:12:14
    |
-12 |             <Inner>
-   |              ^^^^^
+10 | /     view! {
+11 | |         <div>
+12 | |             <Inner>
+   | |_____________-^^^^^
 ...
-19 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+19 |   #[component]
+   |   ------------ method `__check_missing` not found for this struct
    |
 note: trait bound `(): __required_Inner_some_prop` was not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1

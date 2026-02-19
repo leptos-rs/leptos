@@ -5,13 +5,17 @@
 //! and companion-module generation logic shared by the `#[component]`
 //! and `#[slot]` proc macros.
 
-use std::collections::HashMap;
+use crate::view::{
+    component_builder::{
+        items_to_clone_to_tokens, maybe_optimised_component_children,
+    },
+    fragment_to_tokens, TagType,
+};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};
+use std::collections::HashMap;
 use syn::{spanned::Spanned, ExprPath};
-use crate::view::component_builder::{items_to_clone_to_tokens, maybe_optimised_component_children};
-use crate::view::{fragment_to_tokens, TagType};
 
 /// Copies a `NodeName` path, optionally prepending `prefix` to
 /// the last segment's identifier, and replacing its span with
