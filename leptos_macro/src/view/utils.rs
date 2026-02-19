@@ -5,10 +5,13 @@
 //! and companion-module generation logic shared by the `#[component]`
 //! and `#[slot]` proc macros.
 
-use proc_macro2::{Ident, Span, TokenStream};
+use std::collections::HashMap;
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};
 use syn::{spanned::Spanned, ExprPath};
+use crate::view::component_builder::{items_to_clone_to_tokens, maybe_optimised_component_children};
+use crate::view::{fragment_to_tokens, TagType};
 
 /// Copies a `NodeName` path, optionally prepending `prefix` to
 /// the last segment's identifier, and replacing its span with
@@ -297,4 +300,67 @@ pub(crate) fn generate_presence_setters(
     };
 
     (prop_setters, slot_setters, children_setter)
+}
+
+/// Extracts the children argument expression for a component or
+/// slot, trying the optimised path first, then falling back to
+/// `fragment_to_tokens` wrapped with bindables and clonables.
+///
+/// Returns `None` when there are no children or when
+/// `fragment_to_tokens` produces nothing.
+pub(crate) fn extract_children_arg(
+    children: &mut [Node<impl CustomNode>],
+    slots: &mut HashMap<String, Vec<TokenStream>>,
+    items_to_bind: &[TokenStream],
+    items_to_clone: &[Ident],
+    children_span: Span,
+    global_class: Option<&TokenTree>,
+    disable_inert_html: bool,
+) -> Option<TokenStream> {
+    if children.is_empty() {
+        return None;
+    }
+
+    if let Some(children_arg) = maybe_optimised_component_children(
+        children,
+        items_to_bind,
+        items_to_clone,
+    ) {
+        return Some(children_arg);
+    }
+
+    let children = fragment_to_tokens(
+        children,
+        TagType::Unknown,
+        Some(slots),
+        global_class,
+        None,
+        disable_inert_html,
+    );
+
+    let Some(children) = children else {
+        return None;
+    };
+
+    let bindables = items_to_bind.iter().map(|ident| quote! { #ident, });
+
+    let clonables = items_to_clone_to_tokens(items_to_clone);
+
+    if !items_to_bind.is_empty() {
+        Some(quote_spanned! {children_span=>
+            {
+                #(#clonables)*
+
+                move |#(#bindables)*| #children
+            }
+        })
+    } else {
+        Some(quote_spanned! {children_span=>
+            {
+                #(#clonables)*
+
+                ::leptos::children::ToChildren::to_children(move || #children)
+            }
+        })
+    }
 }

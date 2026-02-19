@@ -1,12 +1,8 @@
-use super::{
-    fragment_to_tokens,
-    utils::{
-        attr_check_idents, children_span, delinked_path_from_node_name,
-        generate_check_imports, generate_pre_check_tokens,
-        generate_presence_setters, is_nostrip_optional_and_update_key,
-        module_import_path, PropCheckInfo,
-    },
-    TagType,
+use super::utils::{
+    attr_check_idents, children_span, delinked_path_from_node_name,
+    extract_children_arg, generate_check_imports, generate_pre_check_tokens,
+    generate_presence_setters, is_nostrip_optional_and_update_key,
+    module_import_path, PropCheckInfo,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens,
@@ -510,67 +506,4 @@ pub fn maybe_optimised_component_children(
             )
         }
     })
-}
-
-/// Extracts the children argument expression for a component or
-/// slot, trying the optimised path first, then falling back to
-/// `fragment_to_tokens` wrapped with bindables and clonables.
-///
-/// Returns `None` when there are no children or when
-/// `fragment_to_tokens` produces nothing.
-pub(crate) fn extract_children_arg(
-    children: &mut [Node<impl CustomNode>],
-    slots: &mut HashMap<String, Vec<TokenStream>>,
-    items_to_bind: &[TokenStream],
-    items_to_clone: &[Ident],
-    children_span: Span,
-    global_class: Option<&TokenTree>,
-    disable_inert_html: bool,
-) -> Option<TokenStream> {
-    if children.is_empty() {
-        return None;
-    }
-
-    if let Some(children_arg) = maybe_optimised_component_children(
-        children,
-        items_to_bind,
-        items_to_clone,
-    ) {
-        return Some(children_arg);
-    }
-
-    let children = fragment_to_tokens(
-        children,
-        TagType::Unknown,
-        Some(slots),
-        global_class,
-        None,
-        disable_inert_html,
-    );
-
-    let Some(children) = children else {
-        return None;
-    };
-
-    let bindables = items_to_bind.iter().map(|ident| quote! { #ident, });
-
-    let clonables = items_to_clone_to_tokens(items_to_clone);
-
-    if !items_to_bind.is_empty() {
-        Some(quote_spanned! {children_span=>
-            {
-                #(#clonables)*
-
-                move |#(#bindables)*| #children
-            }
-        })
-    } else {
-        Some(quote_spanned! {children_span=>
-            {
-                #(#clonables)*
-
-                ::leptos::children::ToChildren::to_children(move || #children)
-            }
-        })
-    }
 }

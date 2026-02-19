@@ -1,10 +1,10 @@
 use super::{
-    component_builder::extract_children_arg,
     convert_to_snake_case,
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
-        generate_check_imports, generate_pre_check_tokens,
-        generate_presence_setters, module_import_path, PropCheckInfo,
+        extract_children_arg, generate_check_imports,
+        generate_pre_check_tokens, generate_presence_setters,
+        module_import_path, PropCheckInfo,
     },
 };
 use crate::view::utils::filter_prefixed_attrs;
