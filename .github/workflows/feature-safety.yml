@@ -1,0 +1,87 @@
+# Feature Safety CI
+#
+# Verifies that mutually exclusive feature combinations are properly guarded
+# and that tachys works correctly regardless of which features are active.
+#
+# This catches regressions of the SSR feature unification bug where
+# cfg!(feature = "ssr") conditionally created event/directive/property values,
+# causing silent runtime panics in CSR apps.
+name: Feature Safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tachys/**"
+      - "leptos/src/lib.rs"
+      - "leptos/Cargo.toml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tachys/**"
+      - "leptos/src/lib.rs"
+      - "leptos/Cargo.toml"
+concurrency:
+  group: feature-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Verify tachys regression tests pass with SSR feature active (WASM)
+  tachys-ssr-wasm-tests:
+    name: "tachys WASM tests (features: ssr)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Run WASM tests with default features
+        working-directory: tachys
+        run: wasm-pack test --headless --chrome
+      - name: Run WASM tests with SSR feature enabled
+        working-directory: tachys
+        run: wasm-pack test --headless --chrome -- --features ssr
+
+  # Verify compile_error! guards fire for all mutually exclusive feature pairs
+  feature-conflict-guards:
+    name: "leptos compile_error! guards"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: "Guard: csr + ssr must fail"
+        run: |
+          if cargo check -p leptos --features csr,ssr 2>&1; then
+            echo "::error::cargo check with csr+ssr should have failed but succeeded"
+            exit 1
+          fi
+          echo "✅ csr+ssr correctly rejected"
+      - name: "Guard: csr + hydrate must fail"
+        run: |
+          if cargo check -p leptos --features csr,hydrate 2>&1; then
+            echo "::error::cargo check with csr+hydrate should have failed but succeeded"
+            exit 1
+          fi
+          echo "✅ csr+hydrate correctly rejected"
+      - name: "Guard: ssr + hydrate must fail"
+        run: |
+          if cargo check -p leptos --features ssr,hydrate 2>&1; then
+            echo "::error::cargo check with ssr+hydrate should have failed but succeeded"
+            exit 1
+          fi
+          echo "✅ ssr+hydrate correctly rejected"
+      - name: "Sanity: csr alone must succeed"
+        run: |
+          cargo check -p leptos --features csr
+          echo "✅ csr alone builds successfully"
+      - name: "Sanity: ssr alone must succeed"
+        run: |
+          cargo check -p leptos --features ssr
+          echo "✅ ssr alone builds successfully"
+      - name: "Sanity: hydrate alone must succeed"
+        run: |
+          cargo check -p leptos --features hydrate
+          echo "✅ hydrate alone builds successfully"
