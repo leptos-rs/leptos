@@ -18,4 +18,8 @@ fn compiler_assumptions() {
         "tests/compiler_assumptions/\
          03_method_no_on_unimplemented_for_closures.rs",
     );
+    t.compile_fail(
+        "tests/compiler_assumptions/04_ufcs_concrete_pattern_matching.rs",
+    );
+    t.compile_fail("tests/compiler_assumptions/05_error_absorbed_by_ufcs.rs");
 }

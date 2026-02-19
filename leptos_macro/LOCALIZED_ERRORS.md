@@ -37,9 +37,8 @@ The companion module contains:
 - Per-prop **check traits** (`__Check_foo`) with both `__check_foo(&self)` for clean UFCS error messages
   and `__pass_foo(self)` for `{error}` propagation via method syntax
 - **`__PresenceBuilder`** — lightweight type-state builder tracking which props are present, immune to
-  `{error}` contamination
+  `{error}` contamination. Also has a bounded inherent `__check_missing()` method for `{error}` propagation.
 - **`__CheckPresence`** trait with `__require_props(&self)` for missing-prop detection (on presence builder)
-- **`__CheckMissing`** trait with `__check_missing(self)` for `{error}` propagation (on real builder)
 - **`__builder()`** function that constructs the props builder
 
 ## The Two-Step Pre-Check + Required Check Mechanism
@@ -154,17 +153,41 @@ Each required prop `foo` gets a marker trait `__required_Comp_foo`, implemented 
 not `()`. When a required prop is missing (setter not called), its type-state stays at `()`, and
 E0277 fires with: `missing required prop 'foo' on component 'Comp'`
 
-### 3. `__check_missing()` (E0599 for `{error}` propagation)
+### 3. `__check_missing()` on `__PresenceBuilder` (E0599 for `{error}` propagation)
 
 **Purpose**: Suppress downstream errors when a required prop is missing.
 
-`__check_missing` is a method on the `__CheckMissing` trait, called on the **real** builder.
-When required prop bounds aren't met, `builder.__check_missing()` fails with E0599, producing
-`{error}` type that suppresses the final `component_view()` and `.build()` errors.
+`__check_missing` is a **bounded inherent method** on `__PresenceBuilder`, NOT a trait method on the
+real builder. This eliminates the dependency on TypedBuilder's internal type-state representation.
 
-**Important**: `__check_missing` must be called as a **method** (`builder.__check_missing()`), not via
-UFCS. Method calls produce `{error}` on failure; UFCS calls produce E0277 which does NOT suppress
-downstream errors.
+**Generated inside module** (bounded inherent impl):
+
+```rust
+impl<__F0: __required_Comp_foo, __F1, ...>
+    __PresenceBuilder<(__F0, __F1, ...)>
+{
+    pub fn __check_missing<__B>(self, builder: __B) -> __B {
+        builder
+    }
+}
+```
+
+The bounds use the same marker traits as `__CheckPresence`. When a required prop is missing, its
+type-state slot is `()` (which doesn't implement the marker trait), so `__check_missing` is unavailable
+→ E0599 → `{error}` on the builder, suppressing `.build()` and `component_view()`.
+
+**Called in view expansion**:
+
+```rust
+let __props_builder = __presence.__check_missing(__props_builder);
+let props = __props_builder.build();
+```
+
+**Why this is on `__PresenceBuilder` and not the real builder**: The real builder's type-state is an
+internal implementation detail of TypedBuilder (undocumented tuple structure). By using the presence
+builder's type-state (which we fully control), we avoid depending on TypedBuilder internals. The
+presence builder is also immune to `{error}` contamination from wrong-type props, so its bounded
+inherent method works reliably regardless of type errors.
 
 ## Prop Classification
 
@@ -212,7 +235,7 @@ produce better error messages.
 | Generic, bounded (closure) | `fun=\|\| true` | E0271/E0593 (targeted)   | E0599 (noisy) | Value (`\|\| true`) |
 | Generic, short form        | `fun`           | E0277 (on_unimplemented) | E0599 (noisy) | Key (`fun`)         |
 | `into` prop                | `label=vec![1]` | E0277 (From not impl)    | —             | Value (`vec![1]`)   |
-| Missing required           | `<Comp/>`       | E0277 (on_unimplemented) | E0599 (noisy) | Component name      |
+| Missing required           | `<Comp/>`       | E0277 (on_unimplemented) | E0599 (noisy, on `__PresenceBuilder`) | Component name      |
 
 ## `{error}` Type Propagation
 
@@ -228,7 +251,7 @@ The two-step approach exploits this:
 1. `<_ as __Check_foo>::__check_foo(&value)` fails → E0277 with clean message (but NO `{error}`)
 2. `value.__pass_foo()` fails → E0599, expression is `{error}`
 3. `builder.foo(__checked_foo)` uses `{error}` → builder type propagates `{error}`
-4. `builder.__check_missing()` — absorbed by `{error}`
+4. `__presence.__check_missing(__props_builder)` — absorbed because `{error}` builder is accepted
 5. `component_view(Comp, props)` — absorbed by `{error}`
 
 Meanwhile, `<_ as __CheckPresence>::__require_props(&__presence)` on the presence builder runs
@@ -256,14 +279,17 @@ For example, given `<Inner generic_fun=true>` where `concrete_i32` is also requi
 
 **Real builder** (contaminated by {error}):
 6. `builder.generic_fun({error})` → builder is `{error}`
-7. `{error}.__check_missing()` → absorbed
-8. `component_view(Comp, {error})` → absorbed
+7. `__presence.__check_missing({error})` → E0599 because presence has missing field bounds
+8. `{error}.build()` → absorbed
+9. `component_view(Comp, {error})` → absorbed
 
-The user sees **3 errors**: wrong-type (E0277 + E0599) and missing-prop (E0277), all at once.
+The user sees **4 errors**: wrong-type (E0277 + E0599), missing-prop from `__require_props` (E0277),
+and missing-prop from `__check_missing` (E0599), all at once. In the pure missing-prop case (no
+wrong-type), the user sees **2 errors**: clean E0277 + noisy E0599.
 
 When **multiple** wrong-type props are present simultaneously, each produces its own independent
 error pair (E0277 + E0599), since the pre-checks happen before the builder chain. Multiple
-missing props also produce independent E0277 errors.
+missing props also produce independent E0277 errors from `__require_props`.
 
 ## Span Strategy
 
@@ -282,8 +308,8 @@ Shared logic lives in `leptos_macro/src/util.rs`:
 
 - `classify_prop()` — determines `BoundedSingleParam` vs `PassThrough`
 - `generate_module_checks()` — generates per-prop check traits and impls
-- `generate_module_required_check()` — generates `__CheckMissing` trait and marker traits
-- `generate_module_presence_check()` — generates `__PresenceBuilder` and `__CheckPresence`
+- `generate_module_required_check()` — generates per-required-prop marker traits with `on_unimplemented`
+- `generate_module_presence_check()` — generates `__PresenceBuilder`, `__CheckPresence`, and bounded `__check_missing`
 - `strip_non_structural_bounds()` — separates structural from behavioral bounds
 - Various helpers: `type_contains_ident`, `collect_predicates_for_param`, `bounds_reference_other_params`, etc.
 
@@ -458,6 +484,8 @@ behaviors that the two-step pre-check relies on:
 | 01   | UFCS does NOT produce `{error}` type                  | Both E0277 and E0308 appear        |
 | 02   | Method calls DO produce `{error}` type                | Only E0599 appears, no E0308       |
 | 03   | E0599 does NOT show `on_unimplemented` for closures   | No custom message in E0599 output  |
+| 04   | UFCS with concrete tuple pattern matching produces E0277 with `on_unimplemented` | Structural mismatch = 1 clean E0277 |
+| 05   | `{error}` from method call is absorbed by UFCS call   | No additional errors from UFCS     |
 
 If any of these fail after a nightly update, the error localization strategy may need revision.
 
@@ -549,6 +577,11 @@ Key problems with the TypedBuilder `.build()` errors:
 **Conclusion**: `__check_missing()` serves as a **firewall** that prevents TypedBuilder's internal
 error mechanisms from leaking through. The E0599 from `__check_missing()` is noisy, but it's a single
 error and it suppresses all TypedBuilder errors. Removing it makes the output strictly worse.
+
+**Follow-up**: `__check_missing()` was later moved from a trait method on the real builder (`__CheckMissing`
+trait) to a **bounded inherent method** on `__PresenceBuilder`. This eliminates the dependency on
+TypedBuilder's internal type-state representation. The E0599 noise still occurs, but it now references
+`__PresenceBuilder<((), ...)>` types (which we control) instead of `PropsBuilder<(TypedBuilderInternals)>`.
 
 ## Breaking Changes
 

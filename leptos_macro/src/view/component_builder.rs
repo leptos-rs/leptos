@@ -364,8 +364,6 @@ pub(crate) fn component_to_tokens(
     let mut component = quote_spanned! {name_span=>
         {
             #(#check_imports)*
-            #[allow(unused_imports)]
-            use #module_import_path::__CheckMissing as _;
 
             #[allow(unreachable_code)]
             #[allow(clippy::let_and_return)]
@@ -390,7 +388,8 @@ pub(crate) fn component_to_tokens(
                     #(#slots)*
                     #children_builder_call
                     let __props_builder =
-                        __props_builder.__check_missing();
+                        __presence.__check_missing(
+                            __props_builder);
                     let #props_mut #props_ident =
                         __props_builder.build();
                     #(#optional_props)*

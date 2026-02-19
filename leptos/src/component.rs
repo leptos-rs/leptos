@@ -30,10 +30,6 @@ impl EmptyPropsBuilder {
     pub fn build(self) -> NoProps {
         NoProps
     }
-
-    pub fn __check_missing(self) -> Self {
-        self
-    }
 }
 
 impl<P: Props> PropsOrNoPropsBuilder for P {

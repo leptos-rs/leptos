@@ -20,11 +20,11 @@ note: required for `__HelloSlot::__PresenceBuilder<((), ((),))>` to implement `_
    | ^^^^^^^
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__check_missing` exists for struct `HelloSlotBuilder<((), (std::option::Option<Box<dyn FnOnce() -> AnyView + Send>>,))>`, but its trait bounds were not satisfied
+error[E0599]: the method `__check_missing` exists for struct `__HelloSlot::__PresenceBuilder<((), ((),))>`, but its trait bounds were not satisfied
   --> tests/view/46_slot_missing_required_prop.rs:24:13
    |
  6 |   #[slot]
-   |   ------- method `__check_missing` not found for this struct because it doesn't satisfy `_: __CheckMissing`
+   |   ------- method `__check_missing` not found for this struct
 ...
 24 |               <HelloSlot slot>
    |  _____________^
@@ -37,9 +37,4 @@ note: trait bound `(): __required_HelloSlot_concrete_i32` was not satisfied
    |
  6 | #[slot]
    | ^^^^^^^
-   = help: items from traits can only be used if the trait is in scope
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: trait `__CheckMissing` which provides `__check_missing` is implemented but not in scope; perhaps you want to import it
-   |
- 4 + use crate::App::__CheckMissing;
-   |

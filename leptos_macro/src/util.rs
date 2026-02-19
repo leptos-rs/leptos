@@ -19,29 +19,6 @@ pub(crate) fn clean_prop_name(ident: &Ident) -> String {
     s.strip_prefix("r#").unwrap_or(&s).to_owned()
 }
 
-/// Extracts generic arguments (idents / lifetimes / const idents)
-/// for type position (no bounds).
-pub(crate) fn generic_arg_tokens(generics: &syn::Generics) -> Vec<TokenStream> {
-    generics
-        .params
-        .iter()
-        .map(|p| match p {
-            GenericParam::Type(tp) => {
-                let i = &tp.ident;
-                quote! { #i }
-            }
-            GenericParam::Lifetime(lp) => {
-                let lt = &lp.lifetime;
-                quote! { #lt }
-            }
-            GenericParam::Const(cp) => {
-                let i = &cp.ident;
-                quote! { #i }
-            }
-        })
-        .collect()
-}
-
 // -------------------------------------------------------------------
 // Type analysis helpers
 // -------------------------------------------------------------------
@@ -584,77 +561,43 @@ pub(crate) fn required_marker_trait_name(
 // Module-based required check generation
 // -------------------------------------------------------------------
 
-/// The split output of `generate_module_required_check`.
+/// The output of `generate_module_required_check`.
 pub(crate) struct ModuleRequiredCheckTokens {
     /// Marker trait definitions (with `on_unimplemented`) at module
-    /// scope, outside the companion module.
+    /// scope, outside the companion module. Used by both
+    /// `__CheckPresence` (UFCS, clean E0277) and the
+    /// `__check_missing` inherent method on `__PresenceBuilder`
+    /// (E0599 → `{error}` propagation).
     pub marker_traits: TokenStream,
-    /// Items inside the companion module: `__CheckMissing` trait.
-    pub module_items: TokenStream,
-    /// `impl __CheckMissing for PropsBuilder` outside module.
-    pub check_missing_impl: TokenStream,
 }
 
-/// Generates module-internal trait and outer impl for
-/// required-prop checking.
+/// Generates marker traits for required-prop checking.
 ///
-/// `__check_missing` (method call) produces `{error}` for downstream
-/// suppression when required props are missing. The actual
-/// required-prop error reporting is handled by `__CheckPresence` on
-/// the presence builder (independent of `{error}` contamination).
+/// Each required field gets a marker trait with `on_unimplemented`
+/// that is implemented only for 1-tuples `(__T,)`. These markers
+/// are used by:
+/// - `__CheckPresence` on the presence builder (independent of
+///   `{error}` contamination) — produces clean E0277
+/// - `__check_missing` inherent method on `__PresenceBuilder` —
+///   produces `{error}` for downstream suppression via E0599
 ///
-/// - `module_name`: name of the companion module
 /// - `display_name`: human-readable name for error messages
-/// - `builder_name`: the builder struct name
-/// - `generics`: the full generics
+/// - `kind`: `"component"` or `"slot"`
 /// - `fields`: `(name, is_required)` for each field
 pub(crate) fn generate_module_required_check(
-    module_name: &Ident,
     display_name: &Ident,
     kind: &str,
-    builder_name: &Ident,
-    generics: &syn::Generics,
     fields: &[(&Ident, bool)],
 ) -> ModuleRequiredCheckTokens {
     if fields.is_empty() {
         return ModuleRequiredCheckTokens {
             marker_traits: quote! {},
-            module_items: quote! {
-                #[doc(hidden)]
-                pub trait __CheckMissing {
-                    fn __check_missing(self) -> Self;
-                }
-            },
-            check_missing_impl: quote! {
-                impl<__T>
-                    #module_name::__CheckMissing for __T
-                {
-                    fn __check_missing(self) -> Self { self }
-                }
-            },
         };
     }
 
-    let (_, _, where_clause) = generics.split_for_impl();
-
-    let generic_params: Vec<&GenericParam> = generics.params.iter().collect();
-
-    let type_args = generic_arg_tokens(generics);
-
     let mut marker_traits = vec![];
-    let mut type_state_params = vec![];
-    let mut type_state_idents = vec![];
 
-    // NOTE: TypedBuilder represents its type-state as a single tuple
-    // (S0, S1, ..., Sn) where Si corresponds to the i-th field in
-    // declaration order. Fields with #[builder(setter(skip))] (like
-    // _phantom) are excluded from the type-state. If TypedBuilder's
-    // internal representation changes, this mapping will silently
-    // break.
-    for (i, (name, required)) in fields.iter().enumerate() {
-        let param = format_ident!("__F{}", i);
-        type_state_idents.push(param.clone());
-
+    for (name, required) in fields.iter() {
         if *required {
             let clean_name = clean_prop_name(name);
             let trait_name = required_marker_trait_name(display_name, name);
@@ -679,50 +622,11 @@ pub(crate) fn generate_module_required_check(
 
                 impl<__T> #trait_name for (__T,) {}
             });
-
-            type_state_params.push(quote! { #param: #trait_name });
-        } else {
-            type_state_params.push(quote! { #param });
         }
     }
 
-    let builder_type_args = if type_args.is_empty() {
-        quote! { (#(#type_state_idents,)*) }
-    } else {
-        quote! { #(#type_args,)* (#(#type_state_idents,)*) }
-    };
-
-    let impl_params = if generic_params.is_empty() {
-        quote! { #(#type_state_params),* }
-    } else {
-        quote! {
-            #(#generic_params,)* #(#type_state_params),*
-        }
-    };
-
-    let module_items = quote! {
-        #[doc(hidden)]
-        pub trait __CheckMissing {
-            fn __check_missing(self) -> Self;
-        }
-    };
-
-    let check_missing_impl = quote! {
-        #[doc(hidden)]
-        #[allow(non_snake_case)]
-        impl<#impl_params>
-            #module_name::__CheckMissing
-            for #builder_name<#builder_type_args>
-        #where_clause
-        {
-            fn __check_missing(self) -> Self { self }
-        }
-    };
-
     ModuleRequiredCheckTokens {
         marker_traits: quote! { #(#marker_traits)* },
-        module_items,
-        check_missing_impl,
     }
 }
 
@@ -956,6 +860,16 @@ pub(crate) fn generate_module_presence_check(
                 }
 
                 #[doc(hidden)]
+                impl<S> __PresenceBuilder<S> {
+                    pub fn __check_missing<__B>(
+                        self,
+                        builder: __B,
+                    ) -> __B {
+                        builder
+                    }
+                }
+
+                #[doc(hidden)]
                 pub trait __CheckPresence {
                     fn __require_props(&self);
                 }
@@ -1042,6 +956,28 @@ pub(crate) fn generate_module_presence_check(
             __PresenceBuilder<(#(#type_state_idents,)*)>
         {
             #(#setter_methods)*
+        }
+
+        // Bounded inherent impl: `__check_missing` is only
+        // available when all required fields' marker traits are
+        // satisfied (i.e. their presence slots are `(T,)`, not
+        // `()`). When bounds fail → E0599 → `{error}` type →
+        // downstream `.build()` errors absorbed.
+        //
+        // This is an inherent method on `__PresenceBuilder`,
+        // NOT a trait, so there is no ambiguity when multiple
+        // component modules are in scope.
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        impl<#(#type_state_params),*>
+            __PresenceBuilder<(#(#type_state_idents,)*)>
+        {
+            pub fn __check_missing<__B>(
+                self,
+                builder: __B,
+            ) -> __B {
+                builder
+            }
         }
 
         #[doc(hidden)]

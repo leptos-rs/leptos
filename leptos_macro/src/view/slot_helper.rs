@@ -215,7 +215,7 @@ pub(crate) fn slot_to_tokens(
         .map(|info| {
             let setter =
                 Ident::new_raw(&info.idents.clean_name, Span::call_site());
-            quote! { let __presence = __presence.#setter(); }
+            quote! { let __slot_pres = __slot_pres.#setter(); }
         })
         .collect();
 
@@ -223,12 +223,12 @@ pub(crate) fn slot_to_tokens(
         .iter()
         .map(|name| {
             let setter = Ident::new(name, Span::call_site());
-            quote! { let __presence = __presence.#setter(); }
+            quote! { let __slot_pres = __slot_pres.#setter(); }
         })
         .collect();
 
     let presence_children = if children_arg.is_some() {
-        quote! { let __presence = __presence.children(); }
+        quote! { let __slot_pres = __slot_pres.children(); }
     } else {
         quote! {}
     };
@@ -247,19 +247,17 @@ pub(crate) fn slot_to_tokens(
     let slot = quote_spanned! {node.span()=>
         {
             #(#check_imports)*
-            #[allow(unused_imports)]
-            use #module_import_path::__CheckMissing as _;
 
             #(#pre_checks)*
 
             // Presence tracking (independent of {error})
-            let __presence =
+            let __slot_pres =
                 #module_path ::__presence();
             #(#presence_setters)*
             #(#presence_sub_slots)*
             #presence_children
             <_ as #module_path ::__CheckPresence>
-                ::__require_props(&__presence);
+                ::__require_props(&__slot_pres);
 
             let __props_builder =
                 #module_path ::__builder #generics ();
@@ -267,7 +265,8 @@ pub(crate) fn slot_to_tokens(
             #(#slots)*
             #children_builder_call
             let __props_builder =
-                __props_builder.__check_missing();
+                __slot_pres.__check_missing(
+                    __props_builder);
             let slot = __props_builder #build;
             let slot = slot #dyn_attrs;
 

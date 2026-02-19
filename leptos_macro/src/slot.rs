@@ -111,6 +111,7 @@ impl ToTokens for Model {
             &field_types,
         );
 
+        let no_props = props.is_empty();
         let slot_builder_name = format_ident!("{}Builder", name);
         let required_fields: Vec<(&Ident, bool)> = props
             .iter()
@@ -122,18 +123,8 @@ impl ToTokens for Model {
                 (&p.name, required)
             })
             .collect();
-        let ModuleRequiredCheckTokens {
-            marker_traits,
-            module_items: module_required_items,
-            check_missing_impl,
-        } = generate_module_required_check(
-            &module_name,
-            name,
-            "slot",
-            &slot_builder_name,
-            &behavioral_bounds_stripped_generics,
-            &required_fields,
-        );
+        let ModuleRequiredCheckTokens { marker_traits } =
+            generate_module_required_check(name, "slot", &required_fields);
 
         let ModulePresenceTokens {
             module_items: module_presence_items,
@@ -144,7 +135,6 @@ impl ToTokens for Model {
             &required_fields,
         );
 
-        let no_props = props.is_empty();
         let module_builder = generate_module_builder(
             no_props,
             &behavioral_bounds_stripped_generics,
@@ -188,12 +178,10 @@ impl ToTokens for Model {
                 use super::*;
                 #module_builder
                 #(#module_check_traits)*
-                #module_required_items
                 #module_presence_items
             }
 
             #(#check_trait_impls)*
-            #check_missing_impl
             #check_presence_impl
         };
 

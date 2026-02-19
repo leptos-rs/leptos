@@ -18,23 +18,18 @@ note: required for `Inner::__PresenceBuilder<((),)>` to implement `Inner::__Chec
    | ^^^^^^^^^^^^
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__check_missing` exists for struct `InnerPropsBuilder`, but its trait bounds were not satisfied
+error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((),)>`, but its trait bounds were not satisfied
   --> tests/view/05_concrete_prop_missing.rs:11:14
    |
 11 |             <Inner/>
    |              ^^^^^
 ...
 16 | #[component]
-   | ------------ method `__check_missing` not found for this struct because it doesn't satisfy `InnerPropsBuilder: Inner::__CheckMissing`
+   | ------------ method `__check_missing` not found for this struct
    |
 note: trait bound `(): __required_Inner_concrete_bool` was not satisfied
   --> tests/view/05_concrete_prop_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-   = help: items from traits can only be used if the trait is in scope
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: trait `__CheckMissing` which provides `__check_missing` is implemented but not in scope; perhaps you want to import it
-   |
- 1 + use crate::MissingRequiredProp::__CheckMissing;
-   |
