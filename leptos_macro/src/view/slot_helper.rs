@@ -2,39 +2,17 @@ use super::{
     component_builder::extract_children_arg,
     convert_to_snake_case,
     utils::{
-        attr_check_idents, children_span, generate_check_imports,
-        generate_pre_check_tokens, module_import_path, PropCheckInfo,
+        attr_check_idents, children_span, delinked_path_from_node_name,
+        generate_check_imports, generate_pre_check_tokens,
+        generate_presence_setters, module_import_path, PropCheckInfo,
     },
 };
 use crate::view::utils::filter_prefixed_attrs;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{
-    CustomNode, KeyedAttribute, NodeAttribute, NodeElement, NodeName,
-};
+use quote::{quote, quote_spanned};
+use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::{HashMap, HashSet};
 use syn::spanned::Spanned;
-
-/// Constructs the `__SlotName` module path from a tag name by
-/// prefixing the last segment with `__`.
-fn module_path_from_tag_name(name: &NodeName) -> TokenStream {
-    match name {
-        NodeName::Path(expr_path) => {
-            let mut new_path = expr_path.clone();
-            if let Some(last) = new_path.path.segments.last_mut() {
-                last.ident =
-                    Ident::new(&format!("__{}", last.ident), Span::call_site());
-            }
-            quote! { #new_path }
-        }
-        other => {
-            let s = other.to_string();
-            let module_ident =
-                format_ident!("__{}", s, span = Span::call_site());
-            quote! { #module_ident }
-        }
-    }
-}
 
 pub(crate) fn slot_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
@@ -52,7 +30,7 @@ pub(crate) fn slot_to_tokens(
     });
 
     // Build the module path (__SlotName) for check trait imports
-    let module_path = module_path_from_tag_name(node.name());
+    let module_path = delinked_path_from_node_name(node.name(), "__");
     let module_import_path = module_import_path(node.name(), &module_path);
 
     let Some(parent_slots) = parent_slots else {
@@ -206,28 +184,14 @@ pub(crate) fn slot_to_tokens(
         generate_pre_check_tokens(&prop_infos, &module_import_path);
 
     // Presence tracking setters (independent of {error}).
-    let presence_setters: Vec<TokenStream> = prop_infos
-        .iter()
-        .map(|info| {
-            let setter =
-                Ident::new_raw(&info.idents.clean_name, Span::call_site());
-            quote! { let __slot_pres = __slot_pres.#setter(); }
-        })
-        .collect();
-
-    let presence_sub_slots: Vec<TokenStream> = sub_slot_names
-        .iter()
-        .map(|name| {
-            let setter = Ident::new(name, Span::call_site());
-            quote! { let __slot_pres = __slot_pres.#setter(); }
-        })
-        .collect();
-
-    let presence_children = if children_arg.is_some() {
-        quote! { let __slot_pres = __slot_pres.children(); }
-    } else {
-        quote! {}
-    };
+    let slot_pres_var = Ident::new("__slot_pres", Span::call_site());
+    let (presence_setters, presence_sub_slots, presence_children) =
+        generate_presence_setters(
+            &prop_infos,
+            &sub_slot_names,
+            children_arg.is_some(),
+            &slot_pres_var,
+        );
 
     let generics = &node.open_tag.generics;
     let generics = if generics.lt_token.is_some() {

@@ -10,8 +10,12 @@ use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, Node, NodeName};
 use syn::{spanned::Spanned, ExprPath};
 
-/// Copies a `NodeName` path, replacing the last segment's span with
+/// Copies a `NodeName` path, optionally prepending `prefix` to
+/// the last segment's identifier, and replacing its span with
 /// `Span::call_site()`.
+///
+/// Pass `""` for components (delinks the span without renaming)
+/// or `"__"` for slots (produces the `__SlotName` module path).
 ///
 /// IDEs resolve ctrl+click targets by matching source spans to
 /// expanded spans. Because a component name exists in both the value
@@ -21,17 +25,31 @@ use syn::{spanned::Spanned, ExprPath};
 /// (builder / check calls) a `call_site` span, only the function
 /// reference remains linked to the source token, so ctrl+click
 /// navigates straight to the function.
-pub(crate) fn delinked_path_from_node_name(name: &NodeName) -> TokenStream {
+pub(crate) fn delinked_path_from_node_name(
+    name: &NodeName,
+    prefix: &str,
+) -> TokenStream {
     match name {
         NodeName::Path(expr_path) => {
             let mut new_path = expr_path.clone();
             if let Some(last) = new_path.path.segments.last_mut() {
-                last.ident =
-                    Ident::new(&last.ident.to_string(), Span::call_site());
+                last.ident = Ident::new(
+                    &format!("{prefix}{}", last.ident),
+                    Span::call_site(),
+                );
             }
             quote! { #new_path }
         }
-        other => quote! { #other },
+        other => {
+            if prefix.is_empty() {
+                quote! { #other }
+            } else {
+                let s = other.to_string();
+                let module_ident =
+                    format_ident!("{prefix}{s}", span = Span::call_site());
+                quote! { #module_ident }
+            }
+        }
     }
 }
 
@@ -84,22 +102,6 @@ pub fn is_nostrip_optional_and_update_key(key: &mut NodeName) -> bool {
     }
 }
 
-/// Computes the `(clean_prop_name, check_span)` pair for a prop
-/// attribute, used to generate per-prop check calls.
-///
-/// The clean prop name has raw identifier prefix (`r#`) stripped.
-/// The span points to the value expression (or the key if there
-/// is no value).
-fn attr_check_info(attr: &KeyedAttribute) -> (String, Span) {
-    let name = &attr.key;
-    let clean_name = name.to_string().replace("r#", "");
-    let check_span = attr
-        .value()
-        .map(|v| v.span())
-        .unwrap_or_else(|| attr.key.span());
-    (clean_name, check_span)
-}
-
 /// Computes the check identifiers for a prop attribute:
 /// - `check_trait`: `__Check_foo` at `call_site()` (UFCS path +
 ///   import)
@@ -108,7 +110,12 @@ fn attr_check_info(attr: &KeyedAttribute) -> (String, Span) {
 /// - `checked_var`: `__checked_foo` at value span
 /// - `check_span`: value span (or key span if no value)
 pub fn attr_check_idents(attr: &KeyedAttribute) -> PropCheckIdents {
-    let (clean_name, check_span) = attr_check_info(attr);
+    let name = &attr.key;
+    let clean_name = name.to_string().replace("r#", "");
+    let check_span = attr
+        .value()
+        .map(|v| v.span())
+        .unwrap_or_else(|| attr.key.span());
     PropCheckIdents {
         check_trait: format_ident!("__Check_{}", clean_name),
         check_method: Ident::new(
@@ -249,4 +256,45 @@ pub(crate) fn generate_pre_check_tokens(
             }
         })
         .collect()
+}
+
+/// Generates presence-tracking setter calls for props, slots, and
+/// children.
+///
+/// Each non-optional prop, slot, and children gets a setter call
+/// on the presence builder to transition the type-state. The
+/// `var_name` ident controls the variable name used (e.g.
+/// `__presence` for components, `__slot_pres` for slots).
+///
+/// Returns `(prop_setters, slot_setters, children_setter)`.
+pub(crate) fn generate_presence_setters(
+    prop_infos: &[PropCheckInfo],
+    slot_names: &[String],
+    has_children: bool,
+    var_name: &Ident,
+) -> (Vec<TokenStream>, Vec<TokenStream>, TokenStream) {
+    let prop_setters: Vec<TokenStream> = prop_infos
+        .iter()
+        .map(|info| {
+            let setter =
+                Ident::new_raw(&info.idents.clean_name, Span::call_site());
+            quote! { let #var_name = #var_name.#setter(); }
+        })
+        .collect();
+
+    let slot_setters: Vec<TokenStream> = slot_names
+        .iter()
+        .map(|name| {
+            let setter = Ident::new(name, Span::call_site());
+            quote! { let #var_name = #var_name.#setter(); }
+        })
+        .collect();
+
+    let children_setter = if has_children {
+        quote! { let #var_name = #var_name.children(); }
+    } else {
+        quote! {}
+    };
+
+    (prop_setters, slot_setters, children_setter)
 }

@@ -3,9 +3,10 @@ use crate::{
     util::{
         collect_phantom_type_params, generate_module_builder,
         generate_module_checks, generate_module_presence_check,
-        generate_module_required_check, generate_phantom_field, is_option,
-        strip_non_structural_bounds, unwrap_option, ModuleCheckTokens,
-        ModulePresenceTokens, ModuleRequiredCheckTokens, TypedBuilderOpts,
+        generate_module_required_check, generate_phantom_field,
+        generate_prop_docs, prop_to_doc, strip_non_structural_bounds,
+        typed_builder_opts, ModuleCheckTokens, ModulePresenceTokens,
+        ModuleRequiredCheckTokens, PropDocInput, PropDocStyle,
     },
 };
 use attribute_derive::FromAttr;
@@ -87,7 +88,19 @@ impl ToTokens for Model {
         let phantom_field = generate_phantom_field(&phantom_type_params, false);
 
         let prop_builder_fields = prop_builder_fields(vis, props);
-        let prop_docs = generate_prop_docs(props);
+        let doc_inputs: Vec<PropDocInput> = props
+            .iter()
+            .map(|p| PropDocInput {
+                docs: &p.docs,
+                name: &p.name,
+                ty: &p.ty,
+                is_optional: p.prop_opts.is_optional(),
+                optional: p.prop_opts.optional,
+                strip_option: p.prop_opts.strip_option,
+                into: p.prop_opts.into,
+            })
+            .collect();
+        let prop_docs = generate_prop_docs(&doc_inputs);
         let builder_name_doc = LitStr::new(
             &format!("Props for the [`{name}`] slot."),
             name.span(),
@@ -244,19 +257,6 @@ impl PropOpt {
     }
 }
 
-fn typed_builder_opts<'a>(
-    opts: &PropOpt,
-    ty: &'a Type,
-) -> TypedBuilderOpts<'a> {
-    TypedBuilderOpts {
-        default: opts.is_optional() && opts.default.is_none(),
-        default_with_value: opts.default.clone(),
-        strip_option: opts.strip_option || opts.optional && is_option(ty),
-        into: opts.into,
-        ty,
-    }
-}
-
 fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
@@ -268,9 +268,25 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 ty,
             } = prop;
 
-            let builder_attrs = typed_builder_opts(prop_opts, ty);
+            let builder_attrs = typed_builder_opts(
+                prop_opts.is_optional(),
+                &prop_opts.default,
+                prop_opts.strip_option,
+                prop_opts.optional,
+                prop_opts.into,
+                ty,
+            );
 
-            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
+            let doc_input = PropDocInput {
+                docs,
+                name,
+                ty,
+                is_optional: prop_opts.is_optional(),
+                optional: prop_opts.optional,
+                strip_option: prop_opts.strip_option,
+                into: prop_opts.into,
+            };
+            let builder_docs = prop_to_doc(&doc_input, PropDocStyle::Inline);
 
             quote! {
                 #docs
@@ -280,126 +296,4 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
             }
         })
         .collect()
-}
-
-fn generate_prop_docs(props: &[Prop]) -> TokenStream {
-    let required_prop_docs = props
-        .iter()
-        .filter(|Prop { prop_opts, .. }| !prop_opts.is_optional())
-        .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
-
-    let optional_prop_docs = props
-        .iter()
-        .filter(|Prop { prop_opts, .. }| prop_opts.is_optional())
-        .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
-
-    let required_prop_docs = if !required_prop_docs.is_empty() {
-        quote! {
-            #[doc = "# Required Props"]
-            #required_prop_docs
-        }
-    } else {
-        quote! {}
-    };
-
-    let optional_prop_docs = if !optional_prop_docs.is_empty() {
-        quote! {
-            #[doc = "# Optional Props"]
-            #optional_prop_docs
-        }
-    } else {
-        quote! {}
-    };
-
-    quote! {
-        #required_prop_docs
-        #optional_prop_docs
-    }
-}
-
-#[derive(Clone, Copy)]
-enum PropDocStyle {
-    List,
-    Inline,
-}
-
-fn prop_to_doc(
-    Prop {
-        docs,
-        name,
-        ty,
-        prop_opts,
-    }: &Prop,
-    style: PropDocStyle,
-) -> TokenStream {
-    let ty = if (prop_opts.optional || prop_opts.strip_option) && is_option(ty)
-    {
-        unwrap_option(ty)
-    } else {
-        ty.to_owned()
-    };
-
-    let type_item: syn::Item = parse_quote! {
-        type SomeType = #ty;
-    };
-
-    let file = syn::File {
-        shebang: None,
-        attrs: vec![],
-        items: vec![type_item],
-    };
-
-    let pretty_ty = prettyplease::unparse(&file);
-
-    let pretty_ty = &pretty_ty[16..&pretty_ty.len() - 2];
-
-    match style {
-        PropDocStyle::List => {
-            let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
-                } else {
-                    format!(
-                        "- **{}**: `impl`[`Into<{}>`]",
-                        quote!(#name),
-                        pretty_ty
-                    )
-                },
-                name.span(),
-            );
-
-            let arg_user_docs = docs.padded();
-
-            quote! {
-                #[doc = #arg_ty_doc]
-                #arg_user_docs
-            }
-        }
-        PropDocStyle::Inline => {
-            let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!(
-                        "**{}**: [`{}`]{}",
-                        quote!(#name),
-                        pretty_ty,
-                        docs.typed_builder()
-                    )
-                } else {
-                    format!(
-                        "**{}**: `impl`[`Into<{}>`]{}",
-                        quote!(#name),
-                        pretty_ty,
-                        docs.typed_builder()
-                    )
-                },
-                name.span(),
-            );
-
-            quote! {
-                #[builder(setter(doc = #arg_ty_doc))]
-            }
-        }
-    }
 }
