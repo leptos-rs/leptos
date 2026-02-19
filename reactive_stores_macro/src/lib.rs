@@ -792,7 +792,6 @@ impl ToTokens for PatchModel {
                             #library_path::PatchFieldKeyed::patch_field_keyed::<#ty>(
                                 &mut self.#locator,
                                 new.#locator,
-                                &new_path,
                                 notify,
                                 keys,
                                 #closure,

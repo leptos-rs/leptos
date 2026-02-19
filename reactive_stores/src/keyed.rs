@@ -1423,7 +1423,7 @@ mod tests {
         assert_eq!(b_count.load(Ordering::Relaxed), 1);
         assert_eq!(c_count.load(Ordering::Relaxed), 1);
 
-        // we can remove a key and add a new one
+        // regular writes to the collection notify all keyed children
         store.todos().write().pop();
         store.todos().write().push(Todo::new(13, "New"));
         let after = store.todos().get_untracked();
@@ -1433,8 +1433,8 @@ mod tests {
         );
         tick().await;
         assert_eq!(whole_count.load(Ordering::Relaxed), 4);
-        assert_eq!(a_count.load(Ordering::Relaxed), 2);
-        assert_eq!(b_count.load(Ordering::Relaxed), 1);
-        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
     }
 }

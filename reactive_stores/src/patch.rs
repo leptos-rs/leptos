@@ -67,7 +67,7 @@ where
         let path = self.path_unkeyed().into_iter().collect::<StorePath>();
         let keys = self.keys();
 
-        if let Some(mut writer) = self.writer() {
+        let structure_changed = if let Some(mut writer) = self.writer() {
             // don't track the writer for the whole store
             writer.untrack();
             let mut notify = |path: &StorePath| {
@@ -75,12 +75,28 @@ where
             };
             writer.patch_field_keyed(
                 new,
-                &path,
                 &mut notify,
                 keys.as_ref(),
                 self.key_fn,
                 |key| self.path_at_key(&path, key),
-            );
+            )
+        } else {
+            false
+        };
+
+        if structure_changed {
+            // Only notify `children` (not `this`) at the collection path, so that
+            // individual keyed items — which track `this` on all ancestor paths —
+            // are not spuriously notified when only the collection order has changed.
+            let trigger = self.get_trigger_unkeyed(path.clone());
+            trigger.children.notify();
+
+            let mut ancestor_path = path;
+            while !ancestor_path.is_empty() {
+                ancestor_path.pop();
+                let inner = self.get_trigger_unkeyed(ancestor_path.clone());
+                inner.children.notify();
+            }
         }
 
         self.update_keys();
@@ -115,15 +131,18 @@ where
     for<'a> &'a Self: IntoIterator,
 {
     /// Patches a collection with a new value.
+    ///
+    /// Returns `true` if the structure of the collection changed (items added, removed,
+    /// or reordered). Individual item changes are notified via the `notify` callback.
     fn patch_field_keyed<K>(
         &mut self,
         new: Self,
-        path: &StorePath,
         notify: &mut dyn FnMut(&StorePath),
         keys: Option<&KeyMap>,
         key_fn: impl Fn(<&Self as IntoIterator>::Item) -> K,
         path_at_key: impl Fn(&K) -> Option<StorePath>,
-    ) where
+    ) -> bool
+    where
         K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static;
 }
 
@@ -279,12 +298,12 @@ where
     fn patch_field_keyed<K>(
         &mut self,
         mut new: Self,
-        path: &StorePath,
         notify: &mut dyn FnMut(&StorePath),
         keys: Option<&KeyMap>,
         key_fn: impl Fn(<&Self as IntoIterator>::Item) -> K,
         path_at_key: impl Fn(&K) -> Option<StorePath>,
-    ) where
+    ) -> bool
+    where
         K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     {
         let mut has_changed = false;
@@ -361,11 +380,7 @@ where
         // update the value
         *self = new;
 
-        // if any items have moved in the vec, or any items have been added
-        // or removed, we need to notify on the vec itself
-        if has_changed {
-            notify(path);
-        }
+        has_changed
     }
 }
 
@@ -377,12 +392,12 @@ where
     fn patch_field_keyed<K>(
         &mut self,
         mut new: Self,
-        path: &StorePath,
         notify: &mut dyn FnMut(&StorePath),
         keys: Option<&KeyMap>,
         key_fn: impl Fn(<&Self as IntoIterator>::Item) -> K,
         path_at_key: impl Fn(&K) -> Option<StorePath>,
-    ) where
+    ) -> bool
+    where
         K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     {
         let mut has_changed = false;
@@ -450,11 +465,7 @@ where
         // update the value
         *self = new;
 
-        // if any items have moved in the vec, or any items have been added
-        // or removed, we need to notify on the vec itself
-        if has_changed {
-            notify(path);
-        }
+        has_changed
     }
 }
 
