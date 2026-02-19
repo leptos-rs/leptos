@@ -113,7 +113,7 @@ where
         event,
         #[cfg(feature = "reactive_graph")]
         owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
-        cb: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(cb)),
+        cb: Some(SendWrapper::new(cb)),
     }
 }
 

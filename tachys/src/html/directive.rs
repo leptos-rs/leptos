@@ -47,13 +47,11 @@ pub fn directive<T, P, D>(handler: D, param: P) -> Directive<T, D, P>
 where
     D: IntoDirective<T, P>,
 {
-    Directive((!cfg!(feature = "ssr")).then(|| {
-        SendWrapper::new(DirectiveInner {
-            handler,
-            param,
-            t: PhantomData,
-        })
-    }))
+    Directive(Some(SendWrapper::new(DirectiveInner {
+        handler,
+        param,
+        t: PhantomData,
+    })))
 }
 
 /// Custom logic that runs in the browser when the element is created or hydrated.

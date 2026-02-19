@@ -22,7 +22,7 @@ where
 {
     Property {
         key,
-        value: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(value)),
+        value: Some(SendWrapper::new(value)),
     }
 }
 
