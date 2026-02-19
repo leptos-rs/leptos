@@ -12,6 +12,16 @@ use crate::{
 use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
 
+/// Diagnostic message shared by event, directive, and property `.expect()` calls.
+///
+/// When both `csr` and `ssr` features are active (via Cargo feature unification),
+/// tachys previously created these values as `None`, causing panics with opaque
+/// messages. This constant provides a single, actionable diagnostic for all three cases.
+pub(crate) const FEATURE_CONFLICT_DIAGNOSTIC: &str =
+    "Value is None — this indicates both `csr` and `ssr` features are active due to \
+     Cargo feature unification. A dependency in your workspace unconditionally enables \
+     `leptos/ssr`. Run `cargo tree -e features -i tachys` to identify the culprit.";
+
 /// Types for HTML attributes.
 pub mod attribute;
 /// Types for manipulating the `class` attribute and `classList`.

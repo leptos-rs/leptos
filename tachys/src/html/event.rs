@@ -187,7 +187,7 @@ where
             }
         }
 
-        let mut cb = self.cb.expect("callback removed before attaching").take();
+        let mut cb = self.cb.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
 
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
