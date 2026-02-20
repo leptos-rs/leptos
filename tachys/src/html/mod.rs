@@ -12,6 +12,22 @@ use crate::{
 use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
 
+/// Diagnostic message shared by event, directive, and property `.expect()` calls.
+///
+/// When the `ssr` feature is active, tachys skips creating client-side values
+/// (event handlers, directives, properties) to avoid `SendWrapper` cross-thread
+/// panics on multithreaded servers. If these `.expect()` calls fire, it means
+/// the `ssr` feature was activated unintentionally via Cargo feature
+/// unification in a client-side (CSR or hydrate) build.
+pub(crate) const FEATURE_CONFLICT_DIAGNOSTIC: &str =
+    "Value is None because the `ssr` feature is active. When `ssr` is \
+     enabled, tachys skips creating client-side values (event handlers, \
+     directives, properties) to avoid cross-thread panics on multithreaded \
+     servers. If you are building a client-side (CSR or hydrate) target, this \
+     means the `ssr` feature is being activated unintentionally via Cargo \
+     feature unification; another dependency in your workspace is enabling \
+     it. Run `cargo tree -e features -i tachys` to identify the source.";
+
 /// Types for HTML attributes.
 pub mod attribute;
 /// Types for manipulating the `class` attribute and `classList`.
