@@ -332,7 +332,10 @@ pub(crate) fn component_to_tokens(
         .collect();
 
     // Presence tracking setters (independent of {error}).
-    let presence_ident = Ident::new("__presence", Span::call_site());
+    // Use `name_span` so that where-clause failures on
+    // `__require_props()` and E0599 on `__check_missing()` point
+    // to the component name, not the entire `view!` invocation.
+    let presence_ident = Ident::new("__presence", name_span);
     let (presence_setters, presence_slots, presence_children) =
         generate_presence_setters(
             &check_infos,
@@ -366,7 +369,7 @@ pub(crate) fn component_to_tokens(
                     #(#presence_setters)*
                     #(#presence_slots)*
                     #presence_children
-                    <_ as #delinked_path ::__CheckPresence> ::__require_props(&#presence_ident);
+                    #presence_ident.__require_props();
 
                     // Initialize the props builder.
                     let __props_builder = #delinked_path ::__builder #generics ();

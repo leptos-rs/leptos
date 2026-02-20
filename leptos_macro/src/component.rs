@@ -646,6 +646,7 @@ impl ToTokens for Model {
         let ModuleCheckTokens {
             module_check_traits,
             check_trait_impls,
+            ..
         } = generate_module_checks(
             original_generics,
             name,
@@ -653,6 +654,7 @@ impl ToTokens for Model {
             "component",
             &prop_pairs,
             &field_types,
+            false,
         );
 
         let required_fields: Vec<(&Ident, bool, &Type)> = props
@@ -668,8 +670,7 @@ impl ToTokens for Model {
 
         let ModulePresenceTokens {
             module_items: module_presence_items,
-            check_presence_impl,
-        } = generate_module_presence_check(name, name, &required_fields);
+        } = generate_module_presence_check(name, &required_fields);
 
         let module_builder = generate_module_builder(
             no_props,
@@ -733,7 +734,6 @@ impl ToTokens for Model {
             }
 
             #(#check_trait_impls)*
-            #check_presence_impl
         };
 
         tokens.append_all(output)

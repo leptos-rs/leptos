@@ -147,6 +147,14 @@ pub(crate) struct ModuleCheckTokens {
     pub module_check_traits: Vec<TokenStream>,
     /// Trait implementations for outside the companion module.
     pub check_trait_impls: Vec<TokenStream>,
+    /// Wrapper struct definitions for inside the companion module.
+    /// Only populated when `marker_only` is true (slots).
+    pub module_wrapper_structs: Vec<TokenStream>,
+    /// Check/wrap methods for the `__Helper` struct's impl block.
+    /// Only populated when `marker_only` is true (slots).
+    /// These take `&self` and use module-local paths (no module
+    /// prefix) since they live inside the companion module.
+    pub helper_check_methods: Vec<TokenStream>,
 }
 
 /// Generates per-prop check traits and their implementations for
@@ -169,6 +177,13 @@ pub(crate) struct ModuleCheckTokens {
 /// - **Everything else**: blanket `__Check_*` trait inside module
 ///   with blanket impl outside. All types pass through.
 ///
+/// When `marker_only` is true (for slots), the traits are
+/// marker-only (no methods). Instead, wrapper structs provide
+/// `{error}` propagation via bounded `__unwrap()`, and the
+/// caller (slot struct) gets inherent check/wrap methods. This
+/// allows the view macro to call `SlotName::__check_foo()`
+/// instead of UFCS through the module, so renamed imports work.
+///
 /// - `full_generics`: the full generics from the original
 ///   function/struct (all bounds)
 /// - `module_name`: name of the companion module (e.g.
@@ -177,6 +192,8 @@ pub(crate) struct ModuleCheckTokens {
 ///   `ComponentName` for components, `SlotName` for slots)
 /// - `props`: (name, type) pairs for each prop
 /// - `field_types`: all field types (for structural bounds check)
+/// - `marker_only`: when true, generate marker-only traits +
+///   wrapper structs + struct methods (for slots)
 pub(crate) fn generate_module_checks(
     full_generics: &syn::Generics,
     module_name: &Ident,
@@ -184,11 +201,14 @@ pub(crate) fn generate_module_checks(
     kind: &str,
     props: &[(&Ident, &Type)],
     field_types: &[&Type],
+    marker_only: bool,
 ) -> ModuleCheckTokens {
     if props.is_empty() {
         return ModuleCheckTokens {
             module_check_traits: vec![],
             check_trait_impls: vec![],
+            module_wrapper_structs: vec![],
+            helper_check_methods: vec![],
         };
     }
 
@@ -196,6 +216,8 @@ pub(crate) fn generate_module_checks(
 
     let mut module_check_traits = vec![];
     let mut check_trait_impls = vec![];
+    let mut module_wrapper_structs = vec![];
+    let mut helper_check_methods = vec![];
 
     for (prop_name, prop_ty) in props {
         let (clean_name, classification) = classify_prop(
@@ -211,6 +233,8 @@ pub(crate) fn generate_module_checks(
         // not link back to any user source location.
         let check_trait_name = format_ident!("__Check_{}", clean_name);
         let check_method_name = format_ident!("__check_{}", clean_name);
+        let wrap_struct_name = format_ident!("__Wrap_{}", clean_name);
+        let wrap_method_name = format_ident!("__wrap_{}", clean_name);
         let pass_method_name = format_ident!("__pass_{}", clean_name);
 
         match classification {
@@ -219,64 +243,146 @@ pub(crate) fn generate_module_checks(
                 message,
                 note,
             } => {
-                // Inside module: single trait with both check
-                // (UFCS, E0277) and pass (method, E0599 → {error})
-                module_check_traits.push(quote! {
-                    #[doc(hidden)]
-                    #[diagnostic::on_unimplemented(
-                        message = #message,
-                        note = #note
-                    )]
-                    #[allow(non_camel_case_types)]
-                    pub trait #check_trait_name {
-                        fn #check_method_name(&self);
-                        fn #pass_method_name(self) -> Self;
-                    }
-                });
+                if marker_only {
+                    // Marker-only trait (no methods) with
+                    // on_unimplemented.
+                    module_check_traits.push(quote! {
+                        #[doc(hidden)]
+                        #[diagnostic::on_unimplemented(
+                            message = #message,
+                            note = #note
+                        )]
+                        #[allow(non_camel_case_types)]
+                        pub trait #check_trait_name {}
+                    });
 
-                // Outside module: bounded impl.
-                //
-                // NOTE: `#[diagnostic::do_not_recommend]` was tested
-                // here to suppress the noisy E0599 from `.__pass_*()`.
-                // However, since the same impl serves BOTH the UFCS
-                // (clean E0277) and method (E0599) paths,
-                // `do_not_recommend` degrades the E0277 message — it
-                // shows `__Check_*` instead of the underlying bound
-                // (e.g. `Greetable`). Not worth the trade-off.
-                check_trait_impls.push(quote! {
-                    #[doc(hidden)]
-                    impl<__T: #bounds>
-                        #module_name::#check_trait_name for __T
-                    {
-                        fn #check_method_name(&self) {}
-                        fn #pass_method_name(self) -> Self {
-                            self
+                    // Outside module: bounded marker impl.
+                    check_trait_impls.push(quote! {
+                        #[doc(hidden)]
+                        impl<__T: #bounds>
+                            #module_name::#check_trait_name for __T
+                        {}
+                    });
+
+                    // Wrapper struct + bounded __unwrap() inside
+                    // module. When bounds fail → E0599 → {error}.
+                    module_wrapper_structs.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_camel_case_types)]
+                        pub struct #wrap_struct_name<__T>(pub __T);
+
+                        #[doc(hidden)]
+                        impl<__T: #bounds> #wrap_struct_name<__T> {
+                            pub fn __unwrap(self) -> __T { self.0 }
                         }
-                    }
-                });
+                    });
+
+                    // Helper methods: check (E0277) + wrap (returns
+                    // wrapper for {error} propagation). These take
+                    // `&self` and use module-local paths because
+                    // they live inside the helper impl block in the
+                    // companion module.
+                    helper_check_methods.push(quote! {
+                        #[doc(hidden)]
+                        pub fn #check_method_name<__T: #check_trait_name>(&self, _val: &__T) {}
+
+                        #[doc(hidden)]
+                        pub fn #wrap_method_name<__T>(&self, val: __T) -> #wrap_struct_name<__T> {
+                            #wrap_struct_name(val)
+                        }
+                    });
+                } else {
+                    // Inside module: single trait with both check
+                    // (UFCS, E0277) and pass (method, E0599 → {error})
+                    module_check_traits.push(quote! {
+                        #[doc(hidden)]
+                        #[diagnostic::on_unimplemented(
+                            message = #message,
+                            note = #note
+                        )]
+                        #[allow(non_camel_case_types)]
+                        pub trait #check_trait_name {
+                            fn #check_method_name(&self);
+                            fn #pass_method_name(self) -> Self;
+                        }
+                    });
+
+                    // Outside module: bounded impl.
+                    check_trait_impls.push(quote! {
+                        #[doc(hidden)]
+                        impl<__T: #bounds>
+                            #module_name::#check_trait_name for __T
+                        {
+                            fn #check_method_name(&self) {}
+                            fn #pass_method_name(self) -> Self {
+                                self
+                            }
+                        }
+                    });
+                }
             }
             PropClassification::PassThrough => {
-                // Blanket check trait — all types pass.
-                module_check_traits.push(quote! {
-                    #[doc(hidden)]
-                    #[allow(non_camel_case_types)]
-                    pub trait #check_trait_name {
-                        fn #check_method_name(&self);
-                        fn #pass_method_name(self) -> Self;
-                    }
-                });
+                if marker_only {
+                    // Blanket marker trait — all types pass.
+                    module_check_traits.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_camel_case_types)]
+                        pub trait #check_trait_name {}
+                    });
 
-                check_trait_impls.push(quote! {
-                    #[doc(hidden)]
-                    impl<__T> #module_name::#check_trait_name
-                        for __T
-                    {
-                        fn #check_method_name(&self) {}
-                        fn #pass_method_name(self) -> Self {
-                            self
+                    check_trait_impls.push(quote! {
+                        #[doc(hidden)]
+                        impl<__T> #module_name::#check_trait_name
+                            for __T
+                        {}
+                    });
+
+                    // Blanket wrapper — always unwraps.
+                    module_wrapper_structs.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_camel_case_types)]
+                        pub struct #wrap_struct_name<__T>(pub __T);
+
+                        #[doc(hidden)]
+                        impl<__T> #wrap_struct_name<__T> {
+                            pub fn __unwrap(self) -> __T { self.0 }
                         }
-                    }
-                });
+                    });
+
+                    // Helper methods — no bound needed but we add
+                    // it for consistency (blanket impl satisfies).
+                    helper_check_methods.push(quote! {
+                        #[doc(hidden)]
+                        pub fn #check_method_name<__T: #check_trait_name>(&self, _val: &__T) {}
+
+                        #[doc(hidden)]
+                        pub fn #wrap_method_name<__T>(&self, val: __T) -> #wrap_struct_name<__T> {
+                            #wrap_struct_name(val)
+                        }
+                    });
+                } else {
+                    // Blanket check trait — all types pass.
+                    module_check_traits.push(quote! {
+                        #[doc(hidden)]
+                        #[allow(non_camel_case_types)]
+                        pub trait #check_trait_name {
+                            fn #check_method_name(&self);
+                            fn #pass_method_name(self) -> Self;
+                        }
+                    });
+
+                    check_trait_impls.push(quote! {
+                        #[doc(hidden)]
+                        impl<__T> #module_name::#check_trait_name
+                            for __T
+                        {
+                            fn #check_method_name(&self) {}
+                            fn #pass_method_name(self) -> Self {
+                                self
+                            }
+                        }
+                    });
+                }
             }
         }
     }
@@ -284,6 +390,8 @@ pub(crate) fn generate_module_checks(
     ModuleCheckTokens {
         module_check_traits,
         check_trait_impls,
+        module_wrapper_structs,
+        helper_check_methods,
     }
 }
 
@@ -387,7 +495,7 @@ pub(crate) fn generate_module_required_check(
                 #[allow(non_camel_case_types)]
                 pub trait #trait_name {}
 
-                impl<__T> #trait_name for (__T,) {}
+                impl #trait_name for ::leptos::component::__Present {}
             });
         }
     }
@@ -496,14 +604,13 @@ pub(crate) fn is_option(ty: &Type) -> bool {
 // Module-based presence check generation
 // -------------------------------------------------------------------
 
-/// The split output of `generate_module_presence_check`.
+/// The output of `generate_module_presence_check`.
 pub(crate) struct ModulePresenceTokens {
     /// Items inside the companion module: `__PresenceBuilder` struct,
-    /// `__presence()` constructor, setter methods, `__CheckPresence`
-    /// trait.
+    /// `__presence()` constructor, setter methods, `__require_props`
+    /// inherent method with where-clause, and bounded
+    /// `__check_missing` inherent method.
     pub module_items: TokenStream,
-    /// `impl __CheckPresence for __PresenceBuilder` outside module.
-    pub check_presence_impl: TokenStream,
 }
 
 /// Generates a lightweight presence-tracking builder that is
@@ -511,17 +618,15 @@ pub(crate) struct ModulePresenceTokens {
 /// type contamination from wrong-type props).
 ///
 /// The presence builder tracks which props are present via
-/// type-state (PhantomData tuples). Its `__require_props` (via
-/// `__CheckPresence`) fires E0277 for missing required props
-/// regardless of whether the real builder is contaminated by
-/// `{error}`.
+/// type-state (PhantomData tuples). Its `__require_props`
+/// (an inherent method with a where-clause) fires E0277 for
+/// missing required props regardless of whether the real builder
+/// is contaminated by `{error}`.
 ///
-/// - `module_name`: name of the companion module
 /// - `display_name`: human-readable name for error messages
 /// - `fields`: `(name, is_required, type)` for each field (same as
 ///   `generate_module_required_check`)
 pub(crate) fn generate_module_presence_check(
-    module_name: &Ident,
     display_name: &Ident,
     fields: &[(&Ident, bool, &Type)],
 ) -> ModulePresenceTokens {
@@ -540,25 +645,14 @@ pub(crate) fn generate_module_presence_check(
 
                 #[doc(hidden)]
                 impl<S> __PresenceBuilder<S> {
+                    pub fn __require_props(&self) {}
+
                     pub fn __check_missing<__B>(
                         self,
                         builder: __B,
                     ) -> __B {
                         builder
                     }
-                }
-
-                #[doc(hidden)]
-                pub trait __CheckPresence {
-                    fn __require_props(&self);
-                }
-            },
-            check_presence_impl: quote! {
-                impl
-                    #module_name::__CheckPresence
-                    for #module_name::__PresenceBuilder<()>
-                {
-                    fn __require_props(&self) {}
                 }
             },
         };
@@ -568,11 +662,12 @@ pub(crate) fn generate_module_presence_check(
     let type_state_idents: Vec<Ident> =
         (0..n).map(|i| format_ident!("__F{}", i)).collect();
 
-    // Initial type state: all ()
-    let initial_types: Vec<TokenStream> =
-        (0..n).map(|_| quote! { () }).collect();
+    // Initial type state: all __Absent
+    let initial_types: Vec<TokenStream> = (0..n)
+        .map(|_| quote! { ::leptos::component::__Absent })
+        .collect();
 
-    // Setter methods: each one transitions its slot from __Fi to ((),)
+    // Setter methods: each one transitions its slot from __Fi to __Present
     let setter_methods: Vec<TokenStream> = fields
         .iter()
         .enumerate()
@@ -583,7 +678,7 @@ pub(crate) fn generate_module_presence_check(
             let return_types: Vec<TokenStream> = (0..n)
                 .map(|j| {
                     if j == i {
-                        quote! { ((),) }
+                        quote! { ::leptos::component::__Present }
                     } else {
                         let param = &type_state_idents[j];
                         quote! { #param }
@@ -601,8 +696,23 @@ pub(crate) fn generate_module_presence_check(
         })
         .collect();
 
-    // Type-state params for __CheckPresence impl: required fields
-    // get marker trait bounds, optional fields are unconstrained.
+    // Where-clause bounds for __require_props: only required fields.
+    let require_bounds: Vec<TokenStream> = fields
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (name, required, _ty))| {
+            if *required {
+                let param = &type_state_idents[i];
+                let trait_name = required_marker_trait_name(display_name, name);
+                Some(quote! { #param: #trait_name })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Type-state params for bounded __check_missing impl: required
+    // fields get marker trait bounds, optional fields unconstrained.
     let type_state_params: Vec<TokenStream> = fields
         .iter()
         .enumerate()
@@ -630,19 +740,28 @@ pub(crate) fn generate_module_presence_check(
             __PresenceBuilder(::core::marker::PhantomData)
         }
 
+        // Unbounded impl: setters + __require_props (with
+        // where-clause). The where-clause produces E0277 when
+        // required prop bounds are not satisfied, using the
+        // marker trait's on_unimplemented message.
         #[doc(hidden)]
         #[allow(non_snake_case)]
         impl<#(#type_state_idents),*>
             __PresenceBuilder<(#(#type_state_idents,)*)>
         {
             #(#setter_methods)*
+
+            pub fn __require_props(&self)
+            where
+                #(#require_bounds,)*
+            {}
         }
 
         // Bounded inherent impl: `__check_missing` is only
         // available when all required fields' marker traits are
-        // satisfied (i.e. their presence slots are `(T,)`, not
-        // `()`). When bounds fail → E0599 → `{error}` type →
-        // downstream `.build()` errors absorbed.
+        // satisfied (i.e. their presence slots are `__Present`,
+        // not `__Absent`). When bounds fail → E0599 → `{error}`
+        // type → downstream `.build()` errors absorbed.
         //
         // This is an inherent method on `__PresenceBuilder`,
         // NOT a trait, so there is no ambiguity when multiple
@@ -681,28 +800,7 @@ pub(crate) fn generate_module_presence_check(
                 builder
             }
         }
-
-        #[doc(hidden)]
-        pub trait __CheckPresence {
-            fn __require_props(&self);
-        }
     };
 
-    let check_presence_impl = quote! {
-        #[doc(hidden)]
-        #[allow(non_snake_case)]
-        impl<#(#type_state_params),*>
-            #module_name::__CheckPresence
-            for #module_name::__PresenceBuilder<(
-                #(#type_state_idents,)*
-            )>
-        {
-            fn __require_props(&self) {}
-        }
-    };
-
-    ModulePresenceTokens {
-        module_items,
-        check_presence_impl,
-    }
+    ModulePresenceTokens { module_items }
 }

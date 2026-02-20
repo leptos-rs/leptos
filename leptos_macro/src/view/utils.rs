@@ -237,7 +237,8 @@ pub(crate) fn module_import_path(
 /// For unbounded/concrete props, both traits have blanket impls
 /// so both calls succeed unconditionally.
 ///
-/// Used by both components and slots.
+/// Used by components.  Slots use `generate_struct_pre_check_tokens`
+/// (inherent methods on the struct path instead of UFCS).
 pub(crate) fn generate_pre_check_tokens(
     checks: &[PropCheckInfo],
     module_path: &TokenStream,
@@ -260,6 +261,49 @@ pub(crate) fn generate_pre_check_tokens(
                 <_ as #module_path::#check_trait>::#check_method(
                     &#value_var);
                 let #checked_var = #value_var.#pass_method();
+            }
+        })
+        .collect()
+}
+
+/// Generates helper-based pre-check statements for each prop (used
+/// by slots).
+///
+/// 1. `helper.__check_foo(&v)` — method with trait bound → E0277
+///    with `on_unimplemented`.
+/// 2. `let __checked = helper.__wrap_foo(v).__unwrap()` — bounded
+///    inherent `__unwrap()` → E0599 → `{error}` type.
+///
+/// Unlike `generate_pre_check_tokens` (which uses UFCS + trait
+/// imports), this goes through methods on the `__Helper` struct
+/// returned by `SlotName::__slot()`. Because the helper carries
+/// the slot's generic params, all calls share one set of type
+/// variables (constrained by the builder chain). And because the
+/// entry point is the slot struct's `__slot()` inherent method,
+/// renamed imports (`use path::Slot as Alias`) work.
+pub(crate) fn generate_helper_pre_check_tokens(
+    checks: &[PropCheckInfo],
+    helper_var: &Ident,
+) -> Vec<TokenStream> {
+    checks
+        .iter()
+        .map(|info| {
+            let idents = &info.idents;
+            let check_method = &idents.check_method;
+            let checked_var = &idents.checked_var;
+            let value = &info.value;
+            let span = idents.check_span;
+            let value_var =
+                Ident::new(&format!("__value_{}", idents.clean_name), span);
+            let wrap_method =
+                Ident::new(&format!("__wrap_{}", idents.clean_name), span);
+            quote_spanned! {span=>
+                #[allow(unused_braces)]
+                let #value_var = { #value };
+                #helper_var.#check_method(&#value_var);
+                let #checked_var =
+                    #helper_var.#wrap_method(#value_var)
+                        .__unwrap();
             }
         })
         .collect()

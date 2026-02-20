@@ -2,13 +2,12 @@ use super::{
     convert_to_snake_case,
     utils::{
         attr_check_idents, children_span, delinked_path_from_node_name,
-        extract_children_arg, generate_check_imports,
-        generate_pre_check_tokens, generate_presence_setters,
-        module_import_path, PropCheckInfo,
+        extract_children_arg, generate_helper_pre_check_tokens,
+        generate_presence_setters, PropCheckInfo,
     },
 };
 use crate::view::utils::filter_prefixed_attrs;
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::{HashMap, HashSet};
@@ -29,9 +28,10 @@ pub(crate) fn slot_to_tokens(
         node.name().to_string()
     });
 
-    // Build the module path (__SlotName) for check trait imports
-    let module_path = delinked_path_from_node_name(node.name(), "__");
-    let module_import_path = module_import_path(node.name(), &module_path);
+    // Build the struct path (SlotName) for inherent method calls.
+    // Uses call_site() span so IDE ctrl+click goes to the function,
+    // not the companion module.
+    let struct_path = delinked_path_from_node_name(node.name(), "");
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error2::emit_error!(
@@ -177,14 +177,24 @@ pub(crate) fn slot_to_tokens(
         }
     });
 
-    // Generate two-step pre-checks (same pattern as components).
-    let check_imports =
-        generate_check_imports(&prop_infos, &module_import_path);
-    let pre_checks =
-        generate_pre_check_tokens(&prop_infos, &module_import_path);
+    // Get the helper via `SlotName::__slot()`. The helper carries
+    // the slot's generic params and provides check/wrap/builder/
+    // presence methods. All calls share one set of type variables,
+    // so the builder chain can constrain generic params.
+    let generics = &node.open_tag.generics;
+    let generics = if generics.lt_token.is_some() {
+        quote! { ::#generics }
+    } else {
+        quote! {}
+    };
+    let helper_var = Ident::new("__sh", name_span);
+    let pre_checks = generate_helper_pre_check_tokens(&prop_infos, &helper_var);
 
     // Presence tracking setters (independent of {error}).
-    let slot_pres_var = Ident::new("__slot_pres", Span::call_site());
+    // Use `name_span` so that where-clause failures on
+    // `__require_props()` and E0599 on `__check_missing()` point
+    // to the slot name, not the entire `view!` invocation.
+    let slot_pres_var = Ident::new("__slot_pres", name_span);
     let (presence_setters, presence_sub_slots, presence_children) =
         generate_presence_setters(
             &prop_infos,
@@ -193,34 +203,26 @@ pub(crate) fn slot_to_tokens(
             &slot_pres_var,
         );
 
-    let generics = &node.open_tag.generics;
-    let generics = if generics.lt_token.is_some() {
-        quote! { ::#generics }
-    } else {
-        quote! {}
-    };
-
     let build = quote_spanned! {node.name().span()=>
         .build()
     };
 
     let slot = quote_spanned! {node.span()=>
         {
-            #(#check_imports)*
+            // Obtain the slot helper (carries generic params).
+            let #helper_var = #struct_path #generics ::__slot();
 
             #(#pre_checks)*
 
             // Presence tracking (independent of {error})
-            let __slot_pres =
-                #module_path ::__presence();
+            let __slot_pres = #helper_var.__presence();
             #(#presence_setters)*
             #(#presence_sub_slots)*
             #presence_children
-            <_ as #module_path ::__CheckPresence>
-                ::__require_props(&__slot_pres);
+            __slot_pres.__require_props();
 
             // Initialize the props builder.
-            let __props_builder = #module_path ::__builder #generics ();
+            let __props_builder = #helper_var.__builder();
 
             #(#builder_setters)*
             #(#slots)*

@@ -104,4 +104,7 @@ fn test_view_macro() {
     // User-defined trait bounds.
     t.pass("tests/view/60_user_trait_bound_correct.rs");
     t.compile_fail("tests/view/61_user_trait_bound_wrong_type.rs");
+
+    // Renamed slot imports.
+    t.pass("tests/view/62_renamed_slot_import.rs");
 }

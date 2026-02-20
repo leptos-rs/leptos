@@ -4,18 +4,13 @@ error[E0277]: missing required prop `concrete_i32` on component `Inner`
 10 |             <Inner/>
    |              ^^^^^ missing prop `concrete_i32`
    |
-   = help: the trait `__required_Inner_concrete_i32` is not implemented for `()`
+   = help: the trait `__required_Inner_concrete_i32` is not implemented for `leptos::prelude::__Absent`
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
-help: the trait `__required_Inner_concrete_i32` is implemented for `(__T,)`
+note: required by a bound in `Inner::__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
-   | ^^^^^^^^^^^^
-note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
-  --> tests/view/42_multiple_missing_required_props.rs:15:1
-   |
-15 | #[component]
-   | ^^^^^^^^^^^^
+   | ^^^^^^^^^^^^ required by this bound in `__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: missing required prop `generic_fun` on component `Inner`
@@ -24,18 +19,13 @@ error[E0277]: missing required prop `generic_fun` on component `Inner`
 10 |             <Inner/>
    |              ^^^^^ missing prop `generic_fun`
    |
-   = help: the trait `__required_Inner_generic_fun` is not implemented for `()`
+   = help: the trait `__required_Inner_generic_fun` is not implemented for `leptos::prelude::__Absent`
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
-help: the trait `__required_Inner_generic_fun` is implemented for `(__T,)`
+note: required by a bound in `Inner::__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
-   | ^^^^^^^^^^^^
-note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
-  --> tests/view/42_multiple_missing_required_props.rs:15:1
-   |
-15 | #[component]
-   | ^^^^^^^^^^^^
+   | ^^^^^^^^^^^^ required by this bound in `__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: component `Inner` requires children
@@ -44,35 +34,33 @@ error[E0277]: component `Inner` requires children
 10 |             <Inner/>
    |              ^^^^^ children required
    |
-   = help: the trait `__required_Inner_children` is not implemented for `()`
+   = help: the trait `__required_Inner_children` is not implemented for `leptos::prelude::__Absent`
    = note: add child elements between the opening and closing tags
-help: the trait `__required_Inner_children` is implemented for `(__T,)`
+note: required by a bound in `Inner::__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
-   | ^^^^^^^^^^^^
-note: required for `Inner::__PresenceBuilder<((), (), ())>` to implement `Inner::__CheckPresence`
-  --> tests/view/42_multiple_missing_required_props.rs:15:1
-   |
-15 | #[component]
-   | ^^^^^^^^^^^^
+   | ^^^^^^^^^^^^ required by this bound in `__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((), (), ())>`, but its trait bounds were not satisfied
+error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<(leptos::prelude::__Absent, leptos::prelude::__Absent, leptos::prelude::__Absent)>`, but its trait bounds were not satisfied
   --> tests/view/42_multiple_missing_required_props.rs:10:14
    |
- 8 | /     view! {
- 9 | |         <div>
-10 | |             <Inner/>
-   | |_____________-^^^^^
+10 |             <Inner/>
+   |              ^^^^^
 ...
-15 |   #[component]
-   |   ------------ method `__check_missing` not found for this struct
+15 | #[component]
+   | ------------ method `__check_missing` not found for this struct
+   |
+  ::: $WORKSPACE/leptos/src/component.rs
+   |
+   | pub struct __Absent;
+   | ------------------- doesn't satisfy `_: __required_Inner_children`, `_: __required_Inner_concrete_i32` or `_: __required_Inner_generic_fun`
    |
 note: the following trait bounds were not satisfied:
-      `(): __required_Inner_children`
-      `(): __required_Inner_concrete_i32`
-      `(): __required_Inner_generic_fun`
+      `leptos::prelude::__Absent: __required_Inner_children`
+      `leptos::prelude::__Absent: __required_Inner_concrete_i32`
+      `leptos::prelude::__Absent: __required_Inner_generic_fun`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]

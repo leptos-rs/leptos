@@ -4,32 +4,30 @@ error[E0277]: missing required prop `concrete_bool` on component `Inner`
 11 |             <Inner/>
    |              ^^^^^ missing prop `concrete_bool`
    |
-   = help: the trait `__required_Inner_concrete_bool` is not implemented for `()`
+   = help: the trait `__required_Inner_concrete_bool` is not implemented for `leptos::prelude::__Absent`
    = note: required props: [`concrete_bool`]
-help: the trait `__required_Inner_concrete_bool` is implemented for `(__T,)`
+note: required by a bound in `Inner::__PresenceBuilder::<(__F0,)>::__require_props`
   --> tests/view/05_concrete_prop_missing.rs:16:1
    |
 16 | #[component]
-   | ^^^^^^^^^^^^
-note: required for `Inner::__PresenceBuilder<((),)>` to implement `Inner::__CheckPresence`
-  --> tests/view/05_concrete_prop_missing.rs:16:1
-   |
-16 | #[component]
-   | ^^^^^^^^^^^^
+   | ^^^^^^^^^^^^ required by this bound in `__PresenceBuilder::<(__F0,)>::__require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<((),)>`, but its trait bounds were not satisfied
+error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<(leptos::prelude::__Absent,)>`, but its trait bounds were not satisfied
   --> tests/view/05_concrete_prop_missing.rs:11:14
    |
- 9 | /     view! {
-10 | |         <div>
-11 | |             <Inner/>
-   | |_____________-^^^^^
+11 |             <Inner/>
+   |              ^^^^^
 ...
-16 |   #[component]
-   |   ------------ method `__check_missing` not found for this struct
+16 | #[component]
+   | ------------ method `__check_missing` not found for this struct
    |
-note: trait bound `(): __required_Inner_concrete_bool` was not satisfied
+  ::: $WORKSPACE/leptos/src/component.rs
+   |
+   | pub struct __Absent;
+   | ------------------- doesn't satisfy `_: __required_Inner_concrete_bool`
+   |
+note: trait bound `leptos::prelude::__Absent: __required_Inner_concrete_bool` was not satisfied
   --> tests/view/05_concrete_prop_missing.rs:16:1
    |
 16 | #[component]

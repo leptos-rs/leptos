@@ -12,21 +12,25 @@ note: required for `bool` to implement `__Check_generic_fun`
    | ^^^^^^^
  8 | struct HelloSlot<F: Fn() -> bool> {
    |                     ------------ unsatisfied trait bound introduced here
+note: required by a bound in `__Helper::<F>::__check_generic_fun`
+  --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
+   |
+ 7 | #[slot]
+   | ^^^^^^^ required by this bound in `__Helper::<F>::__check_generic_fun`
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_generic_fun` exists for type `bool`, but its trait bounds were not satisfied
+error[E0599]: the method `__unwrap` exists for struct `__Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
+ 7 | #[slot]
+   | ------- method `__unwrap` not found for this struct
+...
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |                                                         ^^^^
+   |                                                         ^^^^ method cannot be called on `__Wrap_generic_fun<bool>` due to unsatisfied trait bounds
    |
 note: the following trait bounds were not satisfied:
-      `&bool: Fn<()>`
-      `&mut bool: Fn<()>`
-      `<&bool as FnOnce<()>>::Output = bool`
-      `<&mut bool as FnOnce<()>>::Output = bool`
-      `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
+      `bool: FnOnce<()>`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:8:21
    |
  7 | #[slot]
@@ -36,10 +40,3 @@ note: the following trait bounds were not satisfied:
    |                     |       |
    |                     |       unsatisfied trait bound introduced here
    |                     unsatisfied trait bound introduced here
-   = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Check_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
-  --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
-   |
- 7 | #[slot]
-   | ^^^^^^^
-   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
