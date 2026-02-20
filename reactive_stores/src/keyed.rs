@@ -94,7 +94,7 @@ where
     inner: Inner,
     read: fn(&Prev) -> &T,
     write: fn(&mut Prev) -> &mut T,
-    key_fn: fn(<&T as IntoIterator>::Item) -> K,
+    pub(crate) key_fn: fn(<&T as IntoIterator>::Item) -> K,
 }
 
 impl<Inner, Prev, K, T> Clone for KeyedSubfield<Inner, Prev, K, T>
@@ -229,6 +229,26 @@ where
         self.reader()
             .map(|r| r.deref().into_iter().map(|n| (self.key_fn)(n)).collect())
             .unwrap_or_default()
+    }
+
+    pub(crate) fn path_at_key(
+        &self,
+        base_path: &StorePath,
+        key: &K,
+    ) -> Option<StorePath> {
+        let keys = self.keys();
+        let keys = keys.as_ref()?;
+        let segment = keys
+            .with_field_keys(
+                base_path.clone(),
+                |keys| (keys.get(key), vec![]),
+                || self.latest_keys(),
+            )
+            .flatten()
+            .map(|(_, idx)| idx)?;
+        let mut path = base_path.clone();
+        path.push(segment);
+        Some(path)
     }
 }
 
@@ -1338,5 +1358,102 @@ mod tests {
         let store = Store::new(MyStore { items: Vec::new() });
 
         let _fields = store.items().into_iter();
+    }
+
+    #[tokio::test]
+    async fn patching_keyed_field_only_notifies_changed_keys() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(TodoVec::test_data());
+        assert_eq!(store.read_untracked().todos.len(), 3);
+
+        // create an effect to read from each keyed field
+        let whole_count = Arc::new(AtomicUsize::new(0));
+        let a_count = Arc::new(AtomicUsize::new(0));
+        let b_count = Arc::new(AtomicUsize::new(0));
+        let c_count = Arc::new(AtomicUsize::new(0));
+
+        let whole = store.todos();
+        let a = AtKeyed::new(store.todos(), 10);
+        let b = AtKeyed::new(store.todos(), 11);
+        let c = AtKeyed::new(store.todos(), 12);
+
+        Effect::new_sync({
+            let whole_count = Arc::clone(&whole_count);
+            move || {
+                whole.track();
+                whole_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let a_count = Arc::clone(&a_count);
+            move || {
+                a.track();
+                a_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let b_count = Arc::clone(&b_count);
+            move || {
+                b.track();
+                b_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let c_count = Arc::clone(&c_count);
+            move || {
+                c.track();
+                c_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(whole_count.load(Ordering::Relaxed), 1);
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // patching only notifies changed keys
+        let mut new_data = store.todos().get_untracked();
+        new_data.swap(0, 2);
+        store.todos().patch(new_data.clone());
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after,
+            vec![Todo::new(12, "C"), Todo::new(11, "B"), Todo::new(10, "A")]
+        );
+
+        tick().await;
+        assert_eq!(whole_count.load(Ordering::Relaxed), 2);
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // and after we move the keys around, they still update the moved items
+        a.label().set("Bar".into());
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after,
+            vec![Todo::new(12, "C"), Todo::new(11, "B"), Todo::new(10, "Bar")]
+        );
+        tick().await;
+        assert_eq!(whole_count.load(Ordering::Relaxed), 3);
+        assert_eq!(a_count.load(Ordering::Relaxed), 2);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+        assert_eq!(c_count.load(Ordering::Relaxed), 1);
+
+        // regular writes to the collection notify all keyed children
+        store.todos().write().pop();
+        store.todos().write().push(Todo::new(13, "New"));
+        let after = store.todos().get_untracked();
+        assert_eq!(
+            after,
+            vec![Todo::new(12, "C"), Todo::new(11, "B"), Todo::new(13, "New")]
+        );
+        tick().await;
+        assert_eq!(whole_count.load(Ordering::Relaxed), 4);
+        assert_eq!(a_count.load(Ordering::Relaxed), 3);
+        assert_eq!(b_count.load(Ordering::Relaxed), 2);
+        assert_eq!(c_count.load(Ordering::Relaxed), 2);
     }
 }

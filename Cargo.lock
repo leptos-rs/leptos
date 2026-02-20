@@ -2941,6 +2941,7 @@ version = "0.4.1"
 dependencies = [
  "any_spawner",
  "guardian",
+ "indexmap",
  "itertools",
  "leptos",
  "or_poisoned",
@@ -2957,7 +2958,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.2.6"
+version = "0.4.0"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-error2",
