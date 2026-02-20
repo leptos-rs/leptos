@@ -60,8 +60,6 @@ use tachys::either::Either;
 /// ```
 #[component]
 pub fn Show<C>(
-#[component(transparent)]
-pub fn Show<W, C>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
     children: TypedChildrenFn<C>,
     /// A signal of a bool that determines whether this thing runs. This also accepts a closure that returns a bool.
