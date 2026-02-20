@@ -200,7 +200,7 @@ where
     for<'a> &'a T: IntoIterator,
     Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: 'static,
-    T: KeyedAccess<Key = K> + 'static,
+    T: KeyedAccess<K> + 'static,
     T::Value: Sized,
 {
     #[track_caller]
