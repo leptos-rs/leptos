@@ -1079,7 +1079,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "either_of"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "paste",
  "pin-project-lite",
