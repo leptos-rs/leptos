@@ -180,10 +180,10 @@ impl ToTokens for Model {
             quote! {
                 #[doc(hidden)]
                 pub fn __builder(&self)
-                    -> <super::#name #generics
+                    -> <#name #generics
                         as ::leptos::component::Props>::Builder
                 {
-                    <super::#name #generics
+                    <#name #generics
                         as ::leptos::component::Props>::builder()
                 }
             }
@@ -240,36 +240,9 @@ impl ToTokens for Model {
         };
 
         let output = quote! {
-            #[doc = #builder_name_doc]
-            #[doc = ""]
-            #docs
-            #prop_docs
-            #[derive(::leptos::typed_builder_macro::TypedBuilder)]
-            #[builder(doc, crate_module_path=::leptos::typed_builder)]
-            #vis struct #name #struct_impl_generics #struct_where_clause {
-                #prop_builder_fields
-                #phantom_field
-            }
-
-            impl #struct_impl_generics ::leptos::component::Props for #name #generics #struct_where_clause {
-                type Builder = #slot_builder_name #generics;
-
-                fn builder() -> Self::Builder {
-                    #name::builder()
-                }
-            }
-
-            impl #struct_impl_generics From<#name #generics> for Vec<#name #generics> #struct_where_clause {
-                fn from(value: #name #generics) -> Self {
-                    vec![value]
-                }
-            }
-
-            #marker_traits
-
-            // Companion module — contains internal types and traits
-            // (wrapper structs, check marker traits, PresenceBuilder,
-            // and the `__Helper` struct).
+            // Companion module — contains the slot struct, internal
+            // types and traits (wrapper structs, check marker traits,
+            // PresenceBuilder, and the `__Helper` struct).
             //
             // INVARIANT: The view macro NEVER references this module by
             // name. All view-macro-generated code goes through
@@ -281,6 +254,34 @@ impl ToTokens for Model {
             #vis mod #module_name {
                 #[allow(unused_imports)]
                 use super::*;
+
+                #[doc = #builder_name_doc]
+                #[doc = ""]
+                #docs
+                #prop_docs
+                #[derive(::leptos::typed_builder_macro::TypedBuilder)]
+                #[builder(doc, crate_module_path=::leptos::typed_builder)]
+                pub struct #name #struct_impl_generics #struct_where_clause {
+                    #prop_builder_fields
+                    #phantom_field
+                }
+
+                impl #struct_impl_generics ::leptos::component::Props for #name #generics #struct_where_clause {
+                    type Builder = #slot_builder_name #generics;
+
+                    fn builder() -> Self::Builder {
+                        #name::builder()
+                    }
+                }
+
+                impl #struct_impl_generics From<#name #generics> for Vec<#name #generics> #struct_where_clause {
+                    fn from(value: #name #generics) -> Self {
+                        vec![value]
+                    }
+                }
+
+                #marker_traits
+
                 #module_builder
                 #(#module_check_traits)*
                 #(#module_wrapper_structs)*
@@ -305,6 +306,8 @@ impl ToTokens for Model {
                     #(#helper_check_methods)*
                 }
             }
+
+            #vis use #module_name::#name;
 
             #(#check_trait_impls)*
 
@@ -382,7 +385,7 @@ impl SlotPropOptions {
     }
 }
 
-fn prop_builder_fields(vis: &Visibility, props: &[SlotProp]) -> TokenStream {
+fn prop_builder_fields(_vis: &Visibility, props: &[SlotProp]) -> TokenStream {
     props
         .iter()
         .map(|prop| {
@@ -419,7 +422,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[SlotProp]) -> TokenStream {
                 #docs
                 #builder_documentation
                 #builder_attrs
-                #vis #name: #ty,
+                pub #name: #ty,
             }
         })
         .collect()

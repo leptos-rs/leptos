@@ -242,7 +242,7 @@ impl ToTokens for Model {
             let fields = prop_serializer_fields(vis, props);
             quote! {
                 #[derive(::leptos::serde::Deserialize)]
-                #vis struct #props_serialized_name {
+                pub struct #props_serialized_name {
                     #fields
                 }
             }
@@ -678,31 +678,15 @@ impl ToTokens for Model {
             &props_name,
         );
 
+        let props_serialized_reexport = if is_island_with_other_props {
+            quote! { #vis use #name::#props_serialized_name; }
+        } else {
+            quote! {}
+        };
+
         let output = quote! {
-            #[doc = #builder_name_doc]
-            #[doc = ""]
-            #docs_and_prop_docs
-            #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
-            //#[builder(doc)]
-            #[builder(crate_module_path=::leptos::typed_builder)]
-            #[allow(non_snake_case)]
-            #vis struct #props_name #struct_impl_generics #struct_where_clause {
-                #prop_builder_fields
-                #phantom_field
-            }
-
-            #props_serializer
-
             #[allow(missing_docs)]
             #binding
-
-            impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
-                type Builder = #props_builder_name #generics;
-
-                fn builder() -> Self::Builder {
-                    #props_name::builder()
-                }
-            }
 
             #unknown_attrs
             #docs_and_prop_docs
@@ -717,8 +701,6 @@ impl ToTokens for Model {
                 #body
             }
 
-            #marker_traits
-
             // Companion module — coexists with `fn #name` because
             // modules live in the type namespace and functions in
             // the value namespace.  `use path::Component as Alias`
@@ -728,10 +710,39 @@ impl ToTokens for Model {
             #vis mod #name {
                 #[allow(unused_imports)]
                 use super::*;
+
+                #[doc = #builder_name_doc]
+                #[doc = ""]
+                #docs_and_prop_docs
+                #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
+                //#[builder(doc)]
+                #[builder(crate_module_path=::leptos::typed_builder)]
+                #[allow(non_snake_case)]
+                pub struct #props_name #struct_impl_generics #struct_where_clause {
+                    #prop_builder_fields
+                    #phantom_field
+                }
+
+                #props_serializer
+
+                impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
+                    type Builder = #props_builder_name #generics;
+
+                    fn builder() -> Self::Builder {
+                        #props_name::builder()
+                    }
+                }
+
+                #marker_traits
+
                 #module_builder
                 #(#module_check_traits)*
                 #module_presence_items
             }
+
+            #vis use #name::#props_name;
+            #vis use #name::#props_builder_name;
+            #props_serialized_reexport
 
             #(#check_trait_impls)*
         };
@@ -984,7 +995,7 @@ impl ComponentPropOptions {
 }
 
 fn prop_builder_fields(
-    vis: &Visibility,
+    _vis: &Visibility,
     props: &[ComponentProp],
     is_island_with_other_props: bool,
 ) -> TokenStream {
@@ -1041,14 +1052,14 @@ fn prop_builder_fields(
                 #builder_attrs
                 #allow_missing_docs
                 #skip_children_serde
-                #vis #by_ref #ident: #ty,
+                pub #by_ref #ident: #ty,
             }
         })
         .collect()
 }
 
 fn prop_serializer_fields(
-    vis: &Visibility,
+    _vis: &Visibility,
     props: &[ComponentProp],
 ) -> TokenStream {
     props
@@ -1079,7 +1090,7 @@ fn prop_serializer_fields(
                 Some(quote! {
                     #docs
                     #serde_attrs
-                    #vis #by_ref #ident: #ty,
+                    pub #by_ref #ident: #ty,
                 })
             }
         })

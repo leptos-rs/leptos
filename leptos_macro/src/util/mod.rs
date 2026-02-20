@@ -533,11 +533,11 @@ pub(crate) fn generate_module_builder(
         quote! {
             #[doc(hidden)]
             pub fn __builder #impl_generics ()
-                -> <super::#props_name #ty_generics
+                -> <#props_name #ty_generics
                     as ::leptos::component::Props>::Builder
                 #where_clause
             {
-                <super::#props_name #ty_generics
+                <#props_name #ty_generics
                     as ::leptos::component::Props>::builder()
             }
         }

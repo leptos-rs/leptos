@@ -2,7 +2,7 @@ use super::utils::{
     attr_check_idents, children_span, delinked_path_from_node_name,
     extract_children_arg, generate_check_imports, generate_pre_check_tokens,
     generate_presence_setters, is_nostrip_optional_and_update_key,
-    module_import_path, PropCheckInfo,
+    PropCheckInfo,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens,
@@ -43,13 +43,11 @@ pub(crate) fn component_to_tokens(
     // giving the IDE a single, unambiguous navigation target.
     let delinked_path = delinked_path_from_node_name(node.name(), "");
 
-    // For trait imports from the companion module, we need to
-    // disambiguate from glob-imported traits of the same name.
-    // `self::Component::__Check_foo` resolves the local module
-    // definition, not the glob-imported `trait Component`.
-    // For qualified paths (e.g., `crate::foo::Inner`), this is
-    // not needed since they already resolve unambiguously.
-    let module_import_path = module_import_path(node.name(), &delinked_path);
+    // For trait imports from the companion module, we use the
+    // module path directly (e.g. `Component::__Check_foo`).
+    // We avoid `self::` because it breaks in function bodies
+    // (e.g. doc tests running inside `fn _doctest_main()`).
+    let module_import_path = delinked_path.clone();
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
