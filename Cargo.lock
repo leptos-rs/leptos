@@ -3808,7 +3808,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "any_spawner",
  "async-trait",

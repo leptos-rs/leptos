@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.2.12"
+version = "0.2.13"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"

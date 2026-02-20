@@ -90,6 +90,7 @@ ssr = [
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
 rkyv = ["server_fn/rkyv", "leptos_server/rkyv"]
 bitcode = ["server_fn/bitcode"]
+bitcode-serde = ["server_fn/bitcode-serde"]
 serde-lite = ["server_fn/serde-lite", "leptos_server/serde-lite"]
 cbor = ["server_fn/cbor"]
 msgpack = ["server_fn/msgpack"]
@@ -155,6 +156,7 @@ denylist = [
   "spin",
   "islands",
   "bitcode",
+  "bitcode-serde",
   "serde-lite",
   "cbor",
   "msgpack",

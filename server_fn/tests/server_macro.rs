@@ -12,6 +12,7 @@
         feature = "cbor",
         feature = "msgpack",
         feature = "bitcode",
+        feature = "bitcode-serde",
     ))
 ))]
 
