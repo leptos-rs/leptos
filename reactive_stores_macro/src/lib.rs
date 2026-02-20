@@ -765,7 +765,7 @@ impl ToTokens for PatchModel {
                                                 Err(e) => abort!(list, e),
                                             }.unwrap_or_default();
                                             subfields.into_iter().find_map(|subfield| match subfield {
-                                                SubfieldMode::Keyed(closure, ty) => Some((closure, ty)),
+                                                SubfieldMode::Keyed(closure, _ty) => Some(closure),
                                                 SubfieldMode::Skip => None,
                                             })
                                     }
@@ -787,9 +787,9 @@ impl ToTokens for PatchModel {
                             }
                             new_path.replace_last(#idx + 1);
                         }
-                    } else if let Some((closure, ty)) = keyed {
+                    } else if let Some(closure) = keyed {
                         quote! {
-                            #library_path::PatchFieldKeyed::patch_field_keyed::<#ty>(
+                            #library_path::PatchFieldKeyed::patch_field_keyed(
                                 &mut self.#locator,
                                 new.#locator,
                                 notify,

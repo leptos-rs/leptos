@@ -53,9 +53,9 @@ where
     Self: Clone,
     for<'a> &'a T: IntoIterator,
     Self: StoreField<Value = T>,
-    <Self as StoreField>::Value: PatchFieldKeyed,
+    <Self as StoreField>::Value: PatchFieldKeyed<K>,
     Inner: StoreField<Value = Prev>,
-    T: PatchFieldKeyed,
+    T: PatchFieldKeyed<K>,
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     Prev: 'static,
 {
@@ -125,16 +125,16 @@ pub trait PatchField {
 /// a vector or slice-like type should notify on the collection itself if the order of items changes.
 /// If all the same keys are present in the same order, however, the parent collection will not
 /// be notified; only the keyed items that have changed.
-pub trait PatchFieldKeyed
+pub trait PatchFieldKeyed<K>
 where
-    Self: Sized + KeyedAccess,
+    Self: Sized + KeyedAccess<K>,
     for<'a> &'a Self: IntoIterator,
 {
     /// Patches a collection with a new value.
     ///
     /// Returns `true` if the structure of the collection changed (items added, removed,
     /// or reordered). Individual item changes are notified via the `notify` callback.
-    fn patch_field_keyed<K>(
+    fn patch_field_keyed(
         &mut self,
         new: Self,
         notify: &mut dyn FnMut(&StorePath),
@@ -291,11 +291,11 @@ where
     }
 }
 
-impl<T> PatchFieldKeyed for Vec<T>
+impl<K, T> PatchFieldKeyed<K> for Vec<T>
 where
     T: PatchField,
 {
-    fn patch_field_keyed<K>(
+    fn patch_field_keyed(
         &mut self,
         mut new: Self,
         notify: &mut dyn FnMut(&StorePath),
@@ -384,12 +384,12 @@ where
     }
 }
 
-impl<HmK, V> PatchFieldKeyed for HashMap<HmK, V>
+impl<K, V> PatchFieldKeyed<K> for HashMap<K, V>
 where
     V: PatchField,
-    HmK: Eq + Hash,
+    K: Eq + Hash,
 {
-    fn patch_field_keyed<K>(
+    fn patch_field_keyed(
         &mut self,
         mut new: Self,
         notify: &mut dyn FnMut(&StorePath),
