@@ -1,10 +1,11 @@
-#![cfg_attr(feature = "no_std", no_std)]
+#![no_std]
 #![forbid(unsafe_code)]
 
 //! Utilities for working with enumerated types that contain one of `2..n` other types.
 
 use core::{
     cmp::Ordering,
+    error::Error,
     fmt::Display,
     future::Future,
     iter::{Product, Sum},
@@ -13,8 +14,6 @@ use core::{
 };
 use paste::paste;
 use pin_project_lite::pin_project;
-#[cfg(not(feature = "no_std"))]
-use std::error::Error; // TODO: replace with core::error::Error once MSRV is >= 1.81.0
 
 macro_rules! tuples {
     ($name:ident + $fut_name:ident + $fut_proj:ident {
@@ -113,7 +112,6 @@ macro_rules! tuples {
             }
         }
 
-        #[cfg(not(feature = "no_std"))]
         impl<$($ty),+> Error for $name<$($ty),+>
         where
             $($ty: Error,)+

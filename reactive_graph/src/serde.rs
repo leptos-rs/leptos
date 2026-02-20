@@ -154,3 +154,16 @@ where
         T::deserialize(deserializer).map(MaybeSignal::Static)
     }
 }
+
+#[allow(deprecated)]
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Signal<T>
+where
+    T: Send + Sync + Serialize + 'static,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        T::deserialize(deserializer).map(Signal::stored)
+    }
+}

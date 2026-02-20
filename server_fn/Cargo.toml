@@ -5,7 +5,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
-version = "0.8.9"
+version = "0.8.10"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -131,6 +131,7 @@ rkyv = ["dep:rkyv"]
 msgpack = ["dep:rmp-serde"]
 postcard = ["dep:postcard"]
 bitcode = ["dep:bitcode"]
+bitcode-serde = ["dep:bitcode", "bitcode?/serde"]
 default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls", "tokio-tungstenite?/rustls"]
 reqwest = ["dep:reqwest", "dep:tokio-tungstenite", "dep:tokio"]
