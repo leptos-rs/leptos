@@ -1,5 +1,5 @@
 // Note: run with `cargo +nightly test -p leptos_macro --test view`.
-// Note: run with `TRYBUILD=overwrite cargo +nightly test -p leptos_macro --test view`.
+// Note: update with `TRYBUILD=overwrite cargo +nightly test -p leptos_macro --test view`.
 #[test]
 fn test_view_macro() {
     let t = trybuild::TestCases::new();
