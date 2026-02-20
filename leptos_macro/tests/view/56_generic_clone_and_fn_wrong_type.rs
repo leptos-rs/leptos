@@ -1,8 +1,5 @@
 // Generic prop bounded by `Clone + Fn() -> bool`.
-// Tests whether the Fn hint appears when Fn is not the first bound.
-// The `starts_with("Fn")` check in `classify_prop` operates on
-// the token-stringified bounds, so if `Clone` comes first,
-// the hint might not trigger.
+// Tests that the Fn hint appears even when Fn is not the first bound.
 
 use leptos::prelude::*;
 

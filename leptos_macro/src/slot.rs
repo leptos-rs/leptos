@@ -1,16 +1,16 @@
-use crate::util::documentation::Docs;
-use crate::util::property_documentation;
-use crate::util::property_documentation::{
-    prop_to_doc, PropDocumentationInput, PropDocumentationStyle,
-};
-use crate::util::typed_builder_opts::TypedBuilderOpts;
 use crate::{
     component::{convert_from_snake_case, drain_filter},
     util::{
+        documentation::Docs,
         generate_module_builder, generate_module_checks,
         generate_module_presence_check, generate_module_required_check,
-        type_analysis, ModuleCheckTokens, ModulePresenceTokens,
-        ModuleRequiredCheckTokens,
+        property_documentation,
+        property_documentation::{
+            prop_to_doc, PropDocumentationInput, PropDocumentationStyle,
+        },
+        type_analysis,
+        typed_builder_opts::TypedBuilderOpts,
+        ModuleCheckTokens, ModulePresenceTokens, ModuleRequiredCheckTokens,
     },
 };
 use attribute_derive::FromAttr;

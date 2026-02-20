@@ -12,15 +12,18 @@ fn compiler_assumptions() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compiler_assumptions/01_universal_function_call_syntax_does_not_produce_error_type_but_uses_on_unimplemented.rs");
     t.compile_fail(
-        "tests/compiler_assumptions/02_method_call_produces_error_type_but_not_uses_on_unimplemented.rs",
+        "tests/compiler_assumptions/\
+         02_method_call_produces_error_type_but_not_uses_on_unimplemented.rs",
     );
     t.compile_fail(
-        "tests/compiler_assumptions/03_marker_trait_on_tuples_uses_on_unimplemented.rs",
+        "tests/compiler_assumptions/\
+         03_marker_trait_on_tuples_uses_on_unimplemented.rs",
     );
     t.compile_fail(
         "tests/compiler_assumptions/04_two_step_pre_check_ufcs_plus_method.rs",
     );
     t.compile_fail(
-        "tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs",
+        "tests/compiler_assumptions/\
+         05_presence_tracking_independent_of_error_type.rs",
     );
 }

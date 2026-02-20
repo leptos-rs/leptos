@@ -1,24 +1,24 @@
 error[E0277]: `bool` is not a valid type for prop `fun` on component `Inner`
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:13:24
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:10:24
    |
-13 |             <Inner fun=true/>
+10 |             <Inner fun=true/>
    |                        ^^^^ the trait `Fn()` is not implemented for `bool`
    |
-   = note: required: `Clone + Fn() -> bool`
+   = note: required: `Clone + Fn() -> bool` — a closure or function reference
 note: required for `bool` to implement `__Check_fun`
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:18:1
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
    |
-18 | #[component]
+15 | #[component]
    | ^^^^^^^^^^^^
 ...
-21 |     F: Clone + Fn() -> bool,
+18 |     F: Clone + Fn() -> bool,
    |                ------------ unsatisfied trait bound introduced here
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `__pass_fun` exists for type `bool`, but its trait bounds were not satisfied
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:13:24
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:10:24
    |
-13 |             <Inner fun=true/>
+10 |             <Inner fun=true/>
    |                        ^^^^
    |
 note: the following trait bounds were not satisfied:
@@ -29,12 +29,12 @@ note: the following trait bounds were not satisfied:
       `<&mut bool as FnOnce<()>>::Output = bool`
       `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:21:8
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:18:8
    |
-18 | #[component]
+15 | #[component]
    | ------------
 ...
-21 |     F: Clone + Fn() -> bool,
+18 |     F: Clone + Fn() -> bool,
    |        ^^^^^   ^^^^^^^^^^^^
    |        |       |       |
    |        |       |       unsatisfied trait bound introduced here
@@ -42,8 +42,8 @@ note: the following trait bounds were not satisfied:
    |        unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
 note: `__Check_fun` defines an item `__pass_fun`, perhaps you need to implement it
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:18:1
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
    |
-18 | #[component]
+15 | #[component]
    | ^^^^^^^^^^^^
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

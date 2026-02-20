@@ -2,8 +2,7 @@ use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::spanned::Spanned;
-use syn::{Attribute, LitStr, Meta};
+use syn::{spanned::Spanned, Attribute, LitStr, Meta};
 
 #[derive(Clone)]
 pub struct Docs(Vec<(String, Span)>);

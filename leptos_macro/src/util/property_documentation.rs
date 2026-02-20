@@ -1,5 +1,4 @@
-use crate::util::documentation::Docs;
-use crate::util::{is_option, unwrap_option};
+use crate::util::{documentation::Docs, is_option, unwrap_option};
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::Type;

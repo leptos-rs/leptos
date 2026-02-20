@@ -1,7 +1,8 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::visit::Visit;
-use syn::{GenericParam, Type, TypePath, WherePredicate};
+use syn::{
+    visit::Visit, GenericParam, Type, TypeParamBound, TypePath, WherePredicate,
+};
 
 /// Walks a syntax tree looking for path segments matching any of the
 /// given target identifiers.
@@ -244,23 +245,46 @@ pub(crate) fn bounds_reference_other_params(
     finder.found
 }
 
-/// Extracts all type-param bounds from a list of where predicates
-/// and combines them with `+`.
-pub(crate) fn predicates_to_bounds(
+fn all_bounds(
     predicates: &[WherePredicate],
-) -> TokenStream {
-    let all_bounds: Vec<&syn::TypeParamBound> = predicates
+) -> impl Iterator<Item = &TypeParamBound> {
+    predicates
         .iter()
-        .filter_map(|pred| {
-            if let WherePredicate::Type(pt) = pred {
+        .filter_map(|p| {
+            if let WherePredicate::Type(pt) = p {
                 Some(pt.bounds.iter())
             } else {
                 None
             }
         })
         .flatten()
-        .collect();
+}
 
+/// Returns true if any of the predicates contain an `Fn`, `FnMut`,
+/// or `FnOnce` bound (including HRTB forms like `for<'a> Fn(...)`).
+pub(crate) fn predicates_contain_fn_bound(
+    predicates: &[WherePredicate],
+) -> bool {
+    all_bounds(predicates).any(|bound| {
+        if let TypeParamBound::Trait(tb) = bound {
+            tb.path.segments.last().map_or(false, |seg| {
+                matches!(
+                    seg.ident.to_string().as_str(),
+                    "Fn" | "FnMut" | "FnOnce"
+                )
+            })
+        } else {
+            false
+        }
+    })
+}
+
+/// Extracts all type-param bounds from a list of where predicates
+/// and combines them with `+`.
+pub(crate) fn predicates_to_bounds(
+    predicates: &[WherePredicate],
+) -> TokenStream {
+    let all_bounds: Vec<&TypeParamBound> = all_bounds(predicates).collect();
     if all_bounds.is_empty() {
         quote! {}
     } else {
@@ -271,6 +295,7 @@ pub(crate) fn predicates_to_bounds(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proc_macro2::Span;
     use quote::ToTokens;
     use syn::{parse_quote, ItemFn};
 

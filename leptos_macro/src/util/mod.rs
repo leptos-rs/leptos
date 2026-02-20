@@ -117,15 +117,12 @@ pub(crate) fn classify_prop(
             "`{{Self}}` is not a valid type for prop `{clean_name}` on {kind} \
              `{display_name}`",
         );
-        let bounds_str = bounds_note.trim_start();
-        let hint = if bounds_str.starts_with("Fn")
-            || bounds_str.starts_with("FnMut")
-            || bounds_str.starts_with("FnOnce")
-        {
-            " — a closure or function reference"
-        } else {
-            ""
-        };
+        let hint =
+            if type_analysis::predicates_contain_fn_bound(&param_predicates) {
+                " — a closure or function reference"
+            } else {
+                ""
+            };
         let note = format!("required: `{bounds_note}`{hint}");
 
         PropClassification::BoundedSingleParam {
@@ -557,8 +554,9 @@ pub(crate) fn generate_module_presence_check(
                 }
             },
             check_presence_impl: quote! {
-                impl<__T>
-                    #module_name::__CheckPresence for __T
+                impl
+                    #module_name::__CheckPresence
+                    for #module_name::__PresenceBuilder<()>
                 {
                     fn __require_props(&self) {}
                 }

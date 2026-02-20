@@ -1,14 +1,15 @@
-use crate::util::documentation::Docs;
-use crate::util::property_documentation::{
-    generate_prop_documentation, prop_to_doc, PropDocumentationInput,
-    PropDocumentationStyle,
-};
-use crate::util::typed_builder_opts::TypedBuilderOpts;
 use crate::util::{
-    children::is_children_prop, generate_module_builder,
-    generate_module_checks, generate_module_presence_check,
-    generate_module_required_check, type_analysis, ModuleCheckTokens,
-    ModulePresenceTokens, ModuleRequiredCheckTokens,
+    children::is_children_prop,
+    documentation::Docs,
+    generate_module_builder, generate_module_checks,
+    generate_module_presence_check, generate_module_required_check,
+    property_documentation::{
+        generate_prop_documentation, prop_to_doc, PropDocumentationInput,
+        PropDocumentationStyle,
+    },
+    type_analysis,
+    typed_builder_opts::TypedBuilderOpts,
+    ModuleCheckTokens, ModulePresenceTokens, ModuleRequiredCheckTokens,
 };
 use attribute_derive::FromAttr;
 use convert_case::{
