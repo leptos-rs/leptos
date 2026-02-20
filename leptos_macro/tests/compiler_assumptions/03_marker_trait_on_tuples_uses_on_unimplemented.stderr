@@ -1,0 +1,16 @@
+error[E0277]: some required props are missing
+  --> tests/compiler_assumptions/03_marker_trait_on_tuples_uses_on_unimplemented.rs:21:21
+   |
+21 |     require_props::<((), (String,))>();
+   |                     ^^^^^^^^^^^^^^^ the trait `RequireProps` is not implemented for `((), (String,))`
+   |
+help: the trait `RequireProps` is implemented for `((__T0,), (__T1,))`
+  --> tests/compiler_assumptions/03_marker_trait_on_tuples_uses_on_unimplemented.rs:14:1
+   |
+14 | impl<__T0, __T1> RequireProps for ((__T0,), (__T1,)) {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `require_props`
+  --> tests/compiler_assumptions/03_marker_trait_on_tuples_uses_on_unimplemented.rs:16:21
+   |
+16 | fn require_props<S: RequireProps>() {}
+   |                     ^^^^^^^^^^^^ required by this bound in `require_props`

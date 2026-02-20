@@ -1,7 +1,7 @@
 error[E0599]: the method `pass` exists for type `bool`, but its trait bounds were not satisfied
-  --> tests/compiler_assumptions/02_method_produces_error_type.rs:26:22
+  --> tests/compiler_assumptions/02_method_call_produces_error_type_but_not_uses_on_unimplemented.rs:40:22
    |
-26 |     let result = val.pass();
+40 |     let result = val.pass();
    |                      ^^^^ method cannot be called on `bool` due to unsatisfied trait bounds
    |
 note: the following trait bounds were not satisfied:
@@ -11,16 +11,16 @@ note: the following trait bounds were not satisfied:
       `<&mut bool as FnOnce<()>>::Output = bool`
       `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
-  --> tests/compiler_assumptions/02_method_produces_error_type.rs:16:9
+  --> tests/compiler_assumptions/02_method_call_produces_error_type_but_not_uses_on_unimplemented.rs:18:9
    |
-16 | impl<T: Fn() -> bool> Check for T {
+18 | impl<T: Fn() -> bool> Check for T {
    |         ^^^^^^^^^^^^  -----     -
    |         |       |
    |         |       unsatisfied trait bound introduced here
    |         unsatisfied trait bound introduced here
    = help: items from traits can only be used if the trait is implemented and in scope
 note: `Check` defines an item `pass`, perhaps you need to implement it
-  --> tests/compiler_assumptions/02_method_produces_error_type.rs:12:1
+  --> tests/compiler_assumptions/02_method_call_produces_error_type_but_not_uses_on_unimplemented.rs:12:1
    |
 12 | trait Check {
    | ^^^^^^^^^^^
