@@ -6,7 +6,12 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use regex::Regex;
 use std::{
-    env::VarError, fs, net::SocketAddr, path::Path, str::FromStr, sync::Arc,
+    env::VarError,
+    fs,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
 };
 use typed_builder::TypedBuilder;
 
@@ -121,6 +126,15 @@ pub struct LeptosOptions {
 }
 
 impl LeptosOptions {
+    pub fn css_path(&self) -> PathBuf {
+        use std::path::MAIN_SEPARATOR_STR;
+
+        PathBuf::from(format!(
+            "{}{MAIN_SEPARATOR_STR}{}.css",
+            self.site_pkg_dir, self.output_name
+        ))
+    }
+
     fn try_from_env() -> Result<Self, LeptosConfigError> {
         let output_name = env_w_default(
             "LEPTOS_OUTPUT_NAME",
