@@ -942,36 +942,110 @@ macro_rules! either {
     };
 }
 
+/// Convenience macro for refering to `Either` types by listing their variants.
+///
+/// # Example
+///
+/// ```no_run
+/// use either_of::Either;
+///
+/// let _: either_of::EitherOf3<u8, i8, u32> = <Either!(u8, i8, u32)>::A(0);
+/// ```
+/// A single type parameter equates to its value:
+/// ```no_run
+/// # use either_of::Either;
+/// let a: Either!(i32) = 0;
+/// let _: i32 = a;
+/// ```
+#[macro_export]
+macro_rules! Either { // TODO: add `() => {!}` branch when the "never" type gets stabilized
+    ($A:ty$(,)?) => {
+        $A
+    };
+    ($A:ty, $B:ty$(,)?) => {
+        $crate::Either<$A, $B>
+    };
+    ($A:ty, $B:ty, $C:ty$(,)?) => {
+        $crate::EitherOf3<$A, $B, $C>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty$(,)?) => {
+        $crate::EitherOf4<$A, $B, $C, $D>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty$(,)?) => {
+        $crate::EitherOf5<$A, $B, $C, $D, $E>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty$(,)?) => {
+        $crate::EitherOf6<$A, $B, $C, $D, $E, $F>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty$(,)?) => {
+        $crate::EitherOf7<$A, $B, $C, $D, $E, $F, $G>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty$(,)?) => {
+        $crate::EitherOf8<$A, $B, $C, $D, $E, $F, $G, $H>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty$(,)?) => {
+        $crate::EitherOf9<$A, $B, $C, $D, $E, $F, $G, $H, $I>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty$(,)?) => {
+        $crate::EitherOf10<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty$(,)?) => {
+        $crate::EitherOf11<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty, $L:ty$(,)?) => {
+        $crate::EitherOf12<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty, $L:ty, $M:ty$(,)?) => {
+        $crate::EitherOf13<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L, $M>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty, $L:ty, $M:ty, $N:ty$(,)?) => {
+        $crate::EitherOf14<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L, $M, $N>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty, $L:ty, $M:ty, $N:ty, $O:ty$(,)?) => {
+        $crate::EitherOf15<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L, $M, $N, $O>
+    };
+    ($A:ty, $B:ty, $C:ty, $D:ty, $E:ty, $F:ty, $G:ty, $H:ty, $I:ty, $J:ty, $K:ty, $L:ty, $M:ty, $N:ty, $O:ty, $P:ty$(,)?) => {
+        $crate::EitherOf16<$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L, $M, $N, $O, $P>
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // compile time test
     #[test]
+    #[expect(clippy::type_complexity)]
     fn either_macro() {
-        let _: Either<&str, f64> = either!(12,
+        let a: f64 = 0.0;
+        let _: Either!(f64) = a;
+        let a: Either<&str, f64> = either!(12,
             12 => "12",
             _ => 0.0f64,
         );
-        let _: EitherOf3<&str, f64, i32> = either!(12,
+        let _: Either!(&str, f64) = a;
+        let a: EitherOf3<&str, f64, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             _ => 12i32,
         );
-        let _: EitherOf4<&str, f64, char, i32> = either!(12,
+        let _: Either!(&str, f64, i32) = a;
+        let a: EitherOf4<&str, f64, char, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
             _ => 12i32,
         );
-        let _: EitherOf5<&str, f64, char, f32, i32> = either!(12,
+        let _: Either!(&str, f64, char, i32) = a;
+        let a: EitherOf5<&str, f64, char, f32, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
             15 => 0.0f32,
             _ => 12i32,
         );
-        let _: EitherOf6<&str, f64, char, f32, u8, i32> = either!(12,
+        let _: Either!(&str, f64, char, f32, i32) = a;
+        let a: EitherOf6<&str, f64, char, f32, u8, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
@@ -979,7 +1053,8 @@ mod tests {
             16 => 24u8,
             _ => 12i32,
         );
-        let _: EitherOf7<&str, f64, char, f32, u8, i8, i32> = either!(12,
+        let _: Either!(&str, f64, char, f32, u8, i32) = a;
+        let a: EitherOf7<&str, f64, char, f32, u8, i8, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
@@ -988,7 +1063,8 @@ mod tests {
             17 => 2i8,
             _ => 12i32,
         );
-        let _: EitherOf8<&str, f64, char, f32, u8, i8, u16, i32> = either!(12,
+        let _: Either!(&str, f64, char, f32, u8, i8, i32) = a;
+        let a: EitherOf8<&str, f64, char, f32, u8, i8, u16, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
@@ -998,7 +1074,8 @@ mod tests {
             18 => 42u16,
             _ => 12i32,
         );
-        let _: EitherOf9<&str, f64, char, f32, u8, i8, u16, i16, i32> = either!(12,
+        let _: Either!(&str, f64, char, f32, u8, i8, u16, i32) = a;
+        let a: EitherOf9<&str, f64, char, f32, u8, i8, u16, i16, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
@@ -1009,7 +1086,8 @@ mod tests {
             19 => 64i16,
             _ => 12i32,
         );
-        let _: EitherOf10<&str, f64, char, f32, u8, i8, u16, i16, u32, i32> = either!(12,
+        let _: Either!(&str, f64, char, f32, u8, i8, u16, i16, i32) = a;
+        let a: EitherOf10<&str, f64, char, f32, u8, i8, u16, i16, u32, i32> = either!(12,
             12 => "12",
             13 => 0.0f64,
             14 => ' ',
@@ -1021,7 +1099,8 @@ mod tests {
             20 => 84u32,
             _ => 12i32,
         );
-        let _: EitherOf11<
+        let _: Either!(&str, f64, char, f32, u8, i8, u16, i16, u32, i32) = a;
+        let a: EitherOf11<
             &str,
             f64,
             char,
@@ -1046,7 +1125,9 @@ mod tests {
             21 => 12i32,
             _ => 13u64,
         );
-        let _: EitherOf12<
+        let _: Either!(&str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64,) =
+            a;
+        let a: EitherOf12<
             &str,
             f64,
             char,
@@ -1073,7 +1154,10 @@ mod tests {
             22 => 13u64,
             _ => 14i64,
         );
-        let _: EitherOf13<
+        let _: Either!(
+            &str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64, i64
+        ) = a;
+        let a: EitherOf13<
             &str,
             f64,
             char,
@@ -1102,7 +1186,10 @@ mod tests {
             23 => 14i64,
             _ => 15u128,
         );
-        let _: EitherOf14<
+        let _: Either!(
+            &str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64, i64, u128,
+        ) = a;
+        let a: EitherOf14<
             &str,
             f64,
             char,
@@ -1133,7 +1220,11 @@ mod tests {
             24 => 15u128,
             _ => 16i128,
         );
-        let _: EitherOf15<
+        let _: Either!(
+            &str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64, i64, u128,
+            i128,
+        ) = a;
+        let a: EitherOf15<
             &str,
             f64,
             char,
@@ -1166,7 +1257,11 @@ mod tests {
             25 => 16i128,
             _ => [1u8],
         );
-        let _: EitherOf16<
+        let _: Either!(
+            &str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64, i64, u128,
+            i128, [u8; 1],
+        ) = a;
+        let a: EitherOf16<
             &str,
             f64,
             char,
@@ -1201,6 +1296,10 @@ mod tests {
             26 => [1u8],
             _ => [1i8],
         );
+        let _: Either!(
+            &str, f64, char, f32, u8, i8, u16, i16, u32, i32, u64, i64, u128,
+            i128, [u8; 1], [i8; 1],
+        ) = a;
     }
 
     #[test]
