@@ -78,21 +78,21 @@ where
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .hydrate::<FROM_SERVER>(el, self.key.as_ref())
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .build(el, self.key.as_ref())
     }
 
     fn rebuild(self, state: &mut Self::State) {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .rebuild(state, self.key.as_ref())
     }
