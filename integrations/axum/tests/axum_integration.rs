@@ -78,6 +78,22 @@ async fn fallback_with_context() -> anyhow::Result<()> {
             .get(HeaderName::from_static("cross-origin-embedder-policy")),
         Some(&HeaderValue::from_static("require-corp")),
     );
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    assert!(res.text().await?.contains("This is fallback rendering."));
     Ok(())
 }
 
@@ -163,6 +179,261 @@ async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
         .text()
         .await?
         .contains("<title>Error from fallback</title>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn route_site_pkg_dir_method() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "route-site-pkg-dir-method").await;
+    let client = Client::new();
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_ne!(res.content_length(), Some(0));
+    assert!(res
+        .text()
+        .await?
+        .contains("<title>Error from fallback</title>"));
+    // gven the lack of a more generic fallback service, those other paths will not get a shell
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length(), Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn route_site_pkg_dir_fallback_method() -> anyhow::Result<()> {
+    let service = start_test_service(
+        "service_mode",
+        "route-site-pkg-dir-fallback-method",
+    )
+    .await;
+    let client = Client::new();
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("site_pkg_dir fallback"));
+    // the fallback service will also trigger for all other unrouted paths with a separate service
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("root fallback"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_default() -> anyhow::Result<()> {
+    let service = start_test_service("service_mode", "conf-default").await;
+    let client = Client::new();
+
+    let res = client.get(service.url("/")?).send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // this version has no fallbacks attached, so no other response, no error page.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length(), Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_default_with_site_pkg() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "conf-default-with-site-pkg").await;
+    let client = Client::new();
+    let res = client.get(service.url("/")?).send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // no fallback rendering anywhere
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length(), Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_default_with_error_handler() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "conf-default-with-error-handler")
+            .await;
+    let client = Client::new();
+    let res = client.get(service.url("/")?).send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // neither site artefacts will be found
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    // no fallback rendering anywhere
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_new() -> anyhow::Result<()> {
+    let service = start_test_service("service_mode", "conf-new").await;
+    let client = Client::new();
+    let res = client.get(service.url("/")?).send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    // the fallback service will also trigger for all other unrouted paths with a separate service
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_with_context() -> anyhow::Result<()> {
+    let service = start_test_service("service_mode", "conf-with-context").await;
+    let client = Client::new();
+    let res = client.get(service.url("/")?).send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = client
+        .get(service.url("/pkg/service_mode.js")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    let res = client
+        .get(service.url("/pkg/service_mode.wasm")?)
+        .send()
+        .await?;
+
+    assert_eq!(res.status(), StatusCode::OK);
+    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
+    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.text().await?.contains("This is fallback rendering."));
+    // the fallback service will also trigger for all other unrouted paths with a separate service
+    let res = client
+        .get(service.url("/no_such_path_elsewhere")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        res.headers()
+            .get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    assert!(res.text().await?.contains("This is fallback rendering."));
     Ok(())
 }
 
