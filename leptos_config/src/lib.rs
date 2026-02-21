@@ -6,7 +6,12 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use regex::Regex;
 use std::{
-    env::VarError, fs, net::SocketAddr, path::Path, str::FromStr, sync::Arc,
+    env::VarError,
+    fs,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
 };
 use typed_builder::TypedBuilder;
 
@@ -121,6 +126,29 @@ pub struct LeptosOptions {
 }
 
 impl LeptosOptions {
+    /// Returns the path to the generated CSS file.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use leptos_config::LeptosOptions;
+    /// use std::path::{PathBuf, MAIN_SEPARATOR};
+    ///
+    /// let options = LeptosOptions::builder().output_name("test").build();
+    /// let path: PathBuf = options.css_path();
+    ///
+    /// assert_eq!(path, PathBuf::from(format!("pkg{MAIN_SEPARATOR}test.css")));
+    /// ```
+    #[must_use = "allocates"]
+    pub fn css_path(&self) -> PathBuf {
+        use std::path::MAIN_SEPARATOR_STR;
+
+        PathBuf::from(format!(
+            "{}{MAIN_SEPARATOR_STR}{}.css",
+            self.site_pkg_dir, self.output_name
+        ))
+    }
+
     fn try_from_env() -> Result<Self, LeptosConfigError> {
         let output_name = env_w_default(
             "LEPTOS_OUTPUT_NAME",
