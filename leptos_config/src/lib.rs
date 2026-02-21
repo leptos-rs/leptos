@@ -126,6 +126,20 @@ pub struct LeptosOptions {
 }
 
 impl LeptosOptions {
+    /// Returns the path to the generated CSS file.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use leptos_config::LeptosOptions;
+    /// use std::path::{PathBuf, MAIN_SEPARATOR};
+    ///
+    /// let options = LeptosOptions::builder().output_name("test").build();
+    /// let path: PathBuf = options.css_path();
+    ///
+    /// assert_eq!(path, PathBuf::from(format!("pkg{MAIN_SEPARATOR}test.css")));
+    /// ```
+    #[must_use = "allocates"]
     pub fn css_path(&self) -> PathBuf {
         use std::path::MAIN_SEPARATOR_STR;
 
