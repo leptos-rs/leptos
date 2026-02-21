@@ -107,6 +107,7 @@ where
                     e.to_string(),
                 ))
                 .ser()
+                .body
             })
         });
         Ok(SendWrapper::new(stream))
@@ -143,7 +144,7 @@ where
                             break;
                         };
                                 if let Err(err) = session.binary(incoming).await {
-                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
+                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body));
                                 }
                     },
                     outgoing = msg_stream.next().fuse() => {
@@ -171,7 +172,7 @@ where
                             Ok(_other) => {
                             }
                             Err(e) => {
-                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
+                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body));
                             }
                         }
                     }

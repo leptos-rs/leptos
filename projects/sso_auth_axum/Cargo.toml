@@ -21,28 +21,28 @@ log = "0.4.17"
 simple_logger = "5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
-axum = { version = "0.7.0", optional = true, features = ["macros"] }
-tower = { version = "0.4.0", optional = true }
-tower-http = { version = "0.5.0", features = ["fs"], optional = true }
-tokio = { version = "1.22", features = ["full"], optional = true }
+axum = { version = "0.8", optional = true, features = ["macros"] }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.6", features = ["fs"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
 http = { version = "1" }
-sqlx = { version = "0.8.0", features = [
+sqlx = { version = "0.8", features = [
   "runtime-tokio-rustls",
   "sqlite",
 ], optional = true }
-thiserror = "1.0"
-wasm-bindgen = "0.2.0"
-axum_session_auth = { version = "0.14.0", features = [
-  "sqlite-rustls",
-], optional = true }
-axum_session = { version = "0.14.0", features = [
-  "sqlite-rustls",
-], optional = true }
-async-trait = { version = "0.1.64", optional = true }
-reqwest = { version = "0.12.0", optional = true, features = ["json"] }
+thiserror = "1"
+wasm-bindgen = "0.2"
+axum_session = { version = "0.17", optional = true }
+axum_session_auth = { version = "0.17", optional = true }
+axum_session_sqlx = { version = "0.6", optional = true, default-features = false, features = [
+  "sqlite",
+  "tls-rustls",
+] }
+async-trait = { version = "0.1", optional = true }
+reqwest = { version = "0.12", optional = true, features = ["json"] }
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = ["leptos/hydrate"]
 ssr = [
   "dep:serde_json",
   "dep:axum",
@@ -53,12 +53,11 @@ ssr = [
   "dep:oauth2",
   "dep:axum_session_auth",
   "dep:axum_session",
+  "dep:axum_session_sqlx",
   "dep:async-trait",
   "dep:sqlx",
   "dep:rand",
   "leptos/ssr",
-  "leptos_meta/ssr",
-  "leptos_router/ssr",
   "dep:leptos_axum",
 ]
 

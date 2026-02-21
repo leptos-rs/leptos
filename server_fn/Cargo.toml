@@ -25,6 +25,7 @@ send_wrapper = { features = [
   "futures",
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
+typed-builder = { workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
 
 # registration system

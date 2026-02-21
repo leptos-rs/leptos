@@ -608,7 +608,7 @@ generate_event_types! {
   animation start: AnimationEvent,
   aux click: MouseEvent,
   before input: InputEvent,
-  before toggle: Event, // web_sys does not include `ToggleEvent`
+  before toggle: ToggleEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
@@ -719,7 +719,7 @@ generate_event_types! {
   #[does_not_bubble]
   time update: Event,
   #[does_not_bubble]
-  toggle: Event,
+  toggle: ToggleEvent,
   touch cancel: TouchEvent,
   touch end: TouchEvent,
   touch move: TouchEvent,

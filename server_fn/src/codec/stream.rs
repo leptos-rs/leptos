@@ -120,7 +120,7 @@ where
     async fn into_res(self) -> Result<Response, E> {
         Response::try_from_stream(
             Streaming::CONTENT_TYPE,
-            self.into_inner().map_err(|e| e.ser()),
+            self.into_inner().map_err(|e| e.ser().body),
         )
     }
 }
@@ -255,7 +255,7 @@ where
         Response::try_from_stream(
             Streaming::CONTENT_TYPE,
             self.into_inner()
-                .map(|stream| stream.map(Into::into).map_err(|e| e.ser())),
+                .map(|stream| stream.map(Into::into).map_err(|e| e.ser().body)),
         )
     }
 }
