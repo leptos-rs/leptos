@@ -558,36 +558,6 @@ impl<A, B> EitherOr for Either<A, B> {
     }
 }
 
-#[test]
-fn test_either_or() {
-    let right = false.either_or(|_| 'a', |_| 12);
-    assert!(matches!(right, Either::Right(12)));
-
-    let left = true.either_or(|_| 'a', |_| 12);
-    assert!(matches!(left, Either::Left('a')));
-
-    let left = Some(12).either_or(|a| a, |_| 'a');
-    assert!(matches!(left, Either::Left(12)));
-    let right = None.either_or(|a: i32| a, |_| 'a');
-    assert!(matches!(right, Either::Right('a')));
-
-    let result: Result<_, ()> = Ok(1.2f32);
-    let left = result.either_or(|a| a * 2f32, |b| b);
-    assert!(matches!(left, Either::Left(2.4f32)));
-
-    let result: Result<i32, _> = Err("12");
-    let right = result.either_or(|a| a, |b| b.chars().next());
-    assert!(matches!(right, Either::Right(Some('1'))));
-
-    let either = Either::<i32, char>::Left(12);
-    let left = either.either_or(|a| a, |b| b);
-    assert!(matches!(left, Either::Left(12)));
-
-    let either = Either::<i32, char>::Right('a');
-    let right = either.either_or(|a| a, |b| b);
-    assert!(matches!(right, Either::Right('a')));
-}
-
 tuples!(EitherOf3 + EitherOf3Future + EitherOf3FutureProj {
     A => (B, C) + <A1, B, C>,
     B => (A, C) + <A, B1, C>,
@@ -1237,5 +1207,35 @@ mod tests {
     #[should_panic]
     fn unwrap_wrong_either() {
         Either::<i32, &str>::Left(0).unwrap_right();
+    }
+
+    #[test]
+    fn either_or() {
+        let right = false.either_or(|_| 'a', |_| 12);
+        assert!(matches!(right, Either::Right(12)));
+
+        let left = true.either_or(|_| 'a', |_| 12);
+        assert!(matches!(left, Either::Left('a')));
+
+        let left = Some(12).either_or(|a| a, |_| 'a');
+        assert!(matches!(left, Either::Left(12)));
+        let right = None.either_or(|a: i32| a, |_| 'a');
+        assert!(matches!(right, Either::Right('a')));
+
+        let result: Result<_, ()> = Ok(1.2f32);
+        let left = result.either_or(|a| a * 2f32, |b| b);
+        assert!(matches!(left, Either::Left(2.4f32)));
+
+        let result: Result<i32, _> = Err("12");
+        let right = result.either_or(|a| a, |b| b.chars().next());
+        assert!(matches!(right, Either::Right(Some('1'))));
+
+        let either = Either::<i32, char>::Left(12);
+        let left = either.either_or(|a| a, |b| b);
+        assert!(matches!(left, Either::Left(12)));
+
+        let either = Either::<i32, char>::Right('a');
+        let right = either.either_or(|a| a, |b| b);
+        assert!(matches!(right, Either::Right('a')));
     }
 }
