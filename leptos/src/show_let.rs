@@ -151,6 +151,10 @@ where
 /// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
 pub struct SignalMarker;
 
+/// On nightly, signals implement `Fn()` (via `reactive_graph/src/nightly.rs`), so the blanket
+/// `FunctionMarker` impl already covers them. Keeping this impl active would cause ambiguity
+/// because `ReadSignal` would match both `FunctionMarker` (via `Fn`) and `SignalMarker` (via `Get`).
+#[cfg(not(feature = "nightly"))]
 impl<T, S> IntoOptionGetter<T, SignalMarker> for S
 where
     S: Get<Value = Option<T>> + Clone + Send + Sync + 'static,
