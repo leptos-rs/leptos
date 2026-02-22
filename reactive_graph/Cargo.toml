@@ -42,6 +42,7 @@ tokio = { features = [
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 typed-builder.workspace = true
+serial_test = { workspace = true, default-features = true }
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }

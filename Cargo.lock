@@ -2925,6 +2925,7 @@ dependencies = [
  "rustc_version",
  "send_wrapper",
  "serde",
+ "serial_test",
  "slotmap",
  "subsecond",
  "thiserror 2.0.17",
