@@ -17,14 +17,14 @@ hydration_context = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, default-features = true }
 rustc-hash = { workspace = true, default-features = true }
 serde = { features = [
-  "derive",
+    "derive",
 ], optional = true, workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 guardian = { workspace = true, default-features = true }
 async-lock = { workspace = true, default-features = true }
 send_wrapper = { features = [
-  "futures",
+    "futures",
 ], workspace = true, default-features = true }
 subsecond = { workspace = true, default-features = true, optional = true }
 indexmap = { workspace = true, default-features = true }
@@ -35,8 +35,8 @@ web-sys = { workspace = true, features = ["console"] }
 
 [dev-dependencies]
 tokio = { features = [
-  "rt-multi-thread",
-  "macros",
+    "rt-multi-thread",
+    "macros",
 ], workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
@@ -51,8 +51,7 @@ nightly = []
 serde = ["dep:serde"]
 tracing = ["dep:tracing"]
 hydration = ["dep:hydration_context"]
-effects = [
-] # whether to run effects: should be disabled for something like server rendering
+effects = [] # whether to run effects: should be disabled for something like server rendering
 sandboxed-arenas = []
 subsecond = ["dep:subsecond"]
 
@@ -66,6 +65,6 @@ max_combination_size = 2
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(leptos_debuginfo)',
-  'cfg(rustc_nightly)',
+    'cfg(leptos_debuginfo)',
+    'cfg(rustc_nightly)',
 ] }
