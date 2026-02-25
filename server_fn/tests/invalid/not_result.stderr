@@ -4,26 +4,42 @@ error[E0277]: CustomError is not a `Result` or aliased `Result`. Server function
 25 | #[server]
    | ^^^^^^^^^ Must return a `Result` or aliased `Result`.
    |
-   = help: the trait `ServerFnMustReturnResult` is not implemented for `CustomError`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `CustomError`
+  --> tests/invalid/not_result.rs:10:1
+   |
+10 | pub enum CustomError {
+   | ^^^^^^^^^^^^^^^^^^^^
    = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-   = help: the trait `ServerFnMustReturnResult` is implemented for `Result<T, E>`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
+  --> src/error.rs
+   |
+   | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: CustomError is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
-  --> tests/invalid/not_result.rs:25:1
+  --> tests/invalid/not_result.rs:26:37
    |
-25 | #[server]
-   | ^^^^^^^^^ Must return a `Result` or aliased `Result`.
+26 | pub async fn full_alias_result() -> CustomError {
+   |                                     ^^^^^^^^^^^ Must return a `Result` or aliased `Result`.
    |
-   = help: the trait `ServerFnMustReturnResult` is not implemented for `CustomError`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `CustomError`
+  --> tests/invalid/not_result.rs:10:1
+   |
+10 | pub enum CustomError {
+   | ^^^^^^^^^^^^^^^^^^^^
    = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-   = help: the trait `ServerFnMustReturnResult` is implemented for `Result<T, E>`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
+  --> src/error.rs
+   |
+   | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0271]: expected `impl Future<Output = CustomError>` to be a future that resolves to `Result<_, _>`, but it resolves to `CustomError`
-  --> tests/invalid/not_result.rs:25:1
+  --> tests/invalid/not_result.rs:26:37
    |
-25 | #[server]
-   | ^^^^^^^^^ expected `Result<_, _>`, found `CustomError`
+26 | pub async fn full_alias_result() -> CustomError {
+   |                                     ^^^^^^^^^^^ expected `Result<_, _>`, found `CustomError`
    |
    = note: expected enum `Result<_, _>`
               found enum `CustomError`
@@ -39,9 +55,17 @@ error[E0277]: CustomError is not a `Result` or aliased `Result`. Server function
 25 | #[server]
    | ^^^^^^^^^ Must return a `Result` or aliased `Result`.
    |
-   = help: the trait `ServerFnMustReturnResult` is not implemented for `CustomError`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `CustomError`
+  --> tests/invalid/not_result.rs:10:1
+   |
+10 | pub enum CustomError {
+   | ^^^^^^^^^^^^^^^^^^^^
    = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-   = help: the trait `ServerFnMustReturnResult` is implemented for `Result<T, E>`
+help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
+  --> src/error.rs
+   |
+   | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0308]: mismatched types
   --> tests/invalid/not_result.rs:25:1

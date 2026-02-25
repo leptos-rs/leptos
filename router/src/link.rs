@@ -467,33 +467,25 @@ mod tests {
     #[test]
     fn normalize_path_test() {
         // Make sure it doesn't touch already normalized urls.
-        assert!(normalize_path("") == "".to_string());
-        assert!(normalize_path("/") == "/".to_string());
-        assert!(normalize_path("/some") == "/some".to_string());
-        assert!(normalize_path("/some/") == "/some/".to_string());
+        assert!(normalize_path("").is_empty());
+        assert!(normalize_path("/") == "/");
+        assert!(normalize_path("/some") == "/some");
+        assert!(normalize_path("/some/") == "/some/");
 
         // Correctly removes ".." segments.
-        assert!(normalize_path("/some/../another") == "/another".to_string());
-        assert!(
-            normalize_path("/one/two/../three/../../four")
-                == "/four".to_string()
-        );
+        assert!(normalize_path("/some/../another") == "/another");
+        assert!(normalize_path("/one/two/../three/../../four") == "/four");
 
         // Correctly sets trailing slash if last segement is "..".
-        assert!(normalize_path("/one/two/..") == "/one/".to_string());
-        assert!(normalize_path("/one/two/../") == "/one/".to_string());
+        assert!(normalize_path("/one/two/..") == "/one/");
+        assert!(normalize_path("/one/two/../") == "/one/");
 
         // Level outside of the url.
-        assert!(normalize_path("/..") == "/".to_string());
-        assert!(normalize_path("/../") == "/".to_string());
+        assert!(normalize_path("/..") == "/");
+        assert!(normalize_path("/../") == "/");
 
         // Going into negative levels and coming back into the positives.
-        assert!(
-            normalize_path("/one/../../two/three") == "/two/three".to_string()
-        );
-        assert!(
-            normalize_path("/one/../../two/three/")
-                == "/two/three/".to_string()
-        );
+        assert!(normalize_path("/one/../../two/three") == "/two/three");
+        assert!(normalize_path("/one/../../two/three/") == "/two/three/");
     }
 }
