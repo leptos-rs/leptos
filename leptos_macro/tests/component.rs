@@ -253,8 +253,8 @@ mod macro_hygiene {
         #[component]
         fn Component() -> impl IntoView {
             view! {
-                {()}
-                {()}
+                {}
+                {}
             }
         }
     }
@@ -270,7 +270,7 @@ mod macro_hygiene {
 
         #[component]
         fn Component() -> impl IntoView {
-            view! { <div>{().into_any()} {()}</div> }
+            view! { <div>{().into_any()} {}</div> }
         }
     }
 }
