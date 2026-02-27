@@ -100,7 +100,7 @@ pub(crate) mod private {
 mod config;
 mod service;
 pub use config::RouterConfiguration;
-pub use service::{AdditionalContext, AdditionalContextLayer, ErrorHandler};
+pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -292,9 +292,12 @@ pub fn redirect(path: &str) {
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
 /// original parts for further processing
-pub fn generate_request_and_parts(
-    req: Request<Body>,
-) -> (Request<Body>, Parts) {
+pub fn generate_request_and_parts<ReqBody>(
+    req: Request<ReqBody>,
+) -> (Request<ReqBody>, Parts)
+where
+    ReqBody: Send + 'static,
+{
     let (parts, body) = req.into_parts();
     let parts2 = parts.clone();
     (Request::from_parts(parts, body), parts2)

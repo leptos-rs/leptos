@@ -3,8 +3,7 @@
 use crate::{generate_route_list, ErrorHandler, LeptosRoutes};
 #[cfg(feature = "default")]
 use crate::{
-    site_pkg_dir_service, site_pkg_dir_service_route_path,
-    AdditionalContextLayer,
+    site_pkg_dir_service, site_pkg_dir_service_route_path, LeptosContextLayer,
 };
 use axum::{extract::FromRef, Router};
 use leptos::{config::LeptosOptions, IntoView};
@@ -190,7 +189,7 @@ macro_rules! apply_common {
         #[cfg(feature = "default")]
         let router = if $conf.serve_site_pkg {
             let builder = ServiceBuilder::new()
-                .option_layer($extra_cx.map(AdditionalContextLayer::new));
+                .option_layer($extra_cx.map(LeptosContextLayer::new));
             let leptos_options = LeptosOptions::from_ref(&state);
             if let Some(error_handler) = $error_handler.clone() {
                 router.route_service(

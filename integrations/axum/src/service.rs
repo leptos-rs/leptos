@@ -1,5 +1,6 @@
 use crate::{
-    extend_response, handle_response_inner, PinnedStream, ResponseOptions,
+    extend_response, generate_request_and_parts, handle_response_inner,
+    PinnedStream, ResponseOptions,
 };
 use axum::{
     body::Body,
@@ -7,8 +8,8 @@ use axum::{
 };
 use futures::{stream::once, Future, StreamExt};
 use leptos::{
-    context::{provide_context, use_context},
-    prelude::Owner,
+    context::provide_context,
+    reactive::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
 use std::{
@@ -231,47 +232,49 @@ where
 
 /// A layer for setting up a middleware for applying additional contexts to other tower/axum services.
 #[derive(Clone, Debug)]
-pub struct AdditionalContextLayer<CX> {
+pub struct LeptosContextLayer<CX> {
     additional_context: CX,
 }
 
-impl<CX> AdditionalContextLayer<CX> {
+impl<CX> LeptosContextLayer<CX> {
     /// Create the layer from the additional context.
     pub fn new(additional_context: CX) -> Self {
         Self { additional_context }
     }
 }
 
-impl<S, CX> Layer<S> for AdditionalContextLayer<CX>
+impl<S, CX> Layer<S> for LeptosContextLayer<CX>
 where
     CX: Clone,
 {
-    type Service = AdditionalContext<S, CX>;
+    type Service = LeptosContext<S, CX>;
 
     fn layer(&self, service: S) -> Self::Service {
-        AdditionalContext::new(service, self.additional_context.clone())
+        LeptosContext::new(service, self.additional_context.clone())
     }
 }
 
 /// Middleware for applying additional contexts to other tower/axum services.
 #[derive(Clone, Debug)]
-pub struct AdditionalContext<S, CX> {
+pub struct LeptosContext<S, CX> {
     inner: S,
+    owner: Owner,
     additional_context: CX,
 }
 
-impl<S, CX> AdditionalContext<S, CX> {
+impl<S, CX> LeptosContext<S, CX> {
     /// Create a new handler with an additional context along with the provided shell and state.
     pub fn new(inner: S, additional_context: CX) -> Self {
+        let owner = Owner::new();
         Self {
             inner,
+            owner,
             additional_context,
         }
     }
 }
 
-impl<ReqBody, ResBody, S, CX> Service<Request<ReqBody>>
-    for AdditionalContext<S, CX>
+impl<ReqBody, ResBody, S, CX> Service<Request<ReqBody>> for LeptosContext<S, CX>
 where
     CX: Fn() + 'static + Clone + Send,
     S: Service<Request<ReqBody>, Response = Response<ResBody>>
@@ -303,20 +306,19 @@ where
         // See: https://docs.rs/tower/latest/tower/trait.Service.html#be-careful-when-cloning-inner-services
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
-
+        let (req, parts) = generate_request_and_parts(req);
         let additional_context = self.additional_context.clone();
 
-        Box::pin(async move {
-            let mut res = inner.call(req).await?;
-            let owner = Owner::new();
-            owner.with(|| {
+        self.owner.with(|| {
+            Box::pin(ScopedFuture::new(async move {
+                provide_context(parts);
+                let res_options = ResponseOptions::default();
+                provide_context(res_options.clone());
                 additional_context();
-                if let Some(response_options) = use_context::<ResponseOptions>()
-                {
-                    extend_response(&mut res, &response_options);
-                }
+                let mut res = inner.call(req).await?;
+                extend_response(&mut res, &res_options);
                 Ok(res)
-            })
+            }))
         })
     }
 }

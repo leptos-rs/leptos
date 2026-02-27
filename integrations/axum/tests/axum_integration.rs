@@ -254,6 +254,25 @@ async fn route_site_pkg_dir_fallback_method() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn route_leptos_context() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "route-leptos-context").await;
+    let client = Client::new();
+    // the special route should have something that indicate the context are available
+    let res = client
+        .post(service.url("/test_leptos_context")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(
+        res.headers().get(HeaderName::from_static("x-foo")),
+        Some(&HeaderValue::from_static("bar")),
+    );
+    assert_eq!(res.text().await?, "POST foobar");
+    Ok(())
+}
+
+#[tokio::test]
 async fn conf_default() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "conf-default").await;
     let client = Client::new();

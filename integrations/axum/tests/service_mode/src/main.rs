@@ -2,12 +2,16 @@
 mod router {
     use axum::{
         Router,
-        http::{HeaderName, HeaderValue},
+        http::{HeaderName, HeaderValue, request::Parts},
+        response::IntoResponse,
     };
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
-    use leptos_axum::{ErrorHandler, LeptosRoutes, generate_route_list};
+    use leptos_axum::{
+        ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
+    };
     use service_mode::app::{App, shell};
+    use tower::builder::ServiceBuilder;
 
     #[derive(Parser)]
     pub struct Cli {
@@ -25,6 +29,7 @@ mod router {
         RouteSitePkgNoFallback,
         RouteSitePkgDirMethod,
         RouteSitePkgDirFallbackMethod,
+        RouteLeptosContext,
 
         ConfDefault,
         ConfDefaultWithSitePkg,
@@ -138,6 +143,35 @@ mod router {
                     )
                     .leptos_route_fallback(&leptos_options, |_| "root fallback")
                     .with_state(leptos_options),
+                Mode::RouteLeptosContext => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .route_service(
+                        "/test_leptos_context",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new(|| {
+                                provide_context(String::from("foobar"));
+                            }))
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let msg = use_context::<String>().unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} {msg}").into_response())
+                            }),
+                    )
+                    .with_state(leptos_options),
 
                 Mode::ConfDefault => Router::new().leptos_route_configure(
                     leptos_axum::RouterConfiguration::default()
@@ -175,7 +209,7 @@ mod router {
                         .with_context(move || {
                             let opts =
                                 use_context::<leptos_axum::ResponseOptions>()
-                                    .unwrap_or_default();
+                                    .unwrap();
                             opts.insert_header(
                                 HeaderName::from_static(
                                     "cross-origin-opener-policy",
@@ -188,7 +222,6 @@ mod router {
                                 ),
                                 HeaderValue::from_static("require-corp"),
                             );
-                            provide_context(opts);
                         }),
                 ),
             }
