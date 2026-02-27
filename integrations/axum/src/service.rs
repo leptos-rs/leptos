@@ -75,16 +75,16 @@ use tower::{Layer, Service};
 /// ```
 #[derive(Clone, Debug)]
 pub struct ErrorHandler<CX, SH, S> {
-    additional_context: CX,
+    additional_context: Option<CX>,
     shell: SH,
     state: S,
 }
 
-impl<SH, S> ErrorHandler<(), SH, S> {
+impl<SH, S> ErrorHandler<fn(), SH, S> {
     /// Create a new handler with the provided shell and state.
     pub fn new(shell: SH, state: S) -> Self {
         Self {
-            additional_context: (),
+            additional_context: None,
             shell,
             state,
         }
@@ -99,41 +99,10 @@ impl<CX, SH, S> ErrorHandler<CX, SH, S> {
         state: S,
     ) -> Self {
         Self {
-            additional_context,
+            additional_context: Some(additional_context),
             shell,
             state,
         }
-    }
-}
-
-impl<SH, IV, S> Service<Request<Body>> for ErrorHandler<(), SH, S>
-where
-    SH: Fn(S) -> IV + 'static + Clone + Send,
-    S: Clone + Send + Sync + 'static,
-    IV: IntoView + 'static,
-{
-    type Response = Response<Body>;
-    type Error = Infallible;
-    type Future = Pin<
-        Box<
-            dyn Future<Output = Result<Response<Body>, Infallible>>
-                + Send
-                + 'static,
-        >,
-    >;
-
-    #[inline]
-    fn poll_ready(
-        &mut self,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let state = self.state.clone();
-        let shell = self.shell.clone();
-        render_error_handler(|| {}, shell, state, req)
     }
 }
 
@@ -171,7 +140,7 @@ where
 }
 
 fn render_error_handler<IV, S>(
-    additional_context: impl Fn() + 'static + Clone + Send,
+    additional_context: Option<impl Fn() + 'static + Clone + Send>,
     shell: impl Fn(S) -> IV + 'static + Clone + Send,
     state: S,
     req: Request<Body>,
@@ -193,7 +162,9 @@ where
                 let additional_context = additional_context.clone();
                 move || {
                     provide_context(state.clone());
-                    additional_context();
+                    if let Some(additional_context) = &additional_context {
+                        additional_context();
+                    }
                 }
             },
             {
@@ -230,16 +201,36 @@ where
     })
 }
 
-/// A layer for setting up a middleware for applying additional contexts to other tower/axum services.
+/// Layer for providing the `LeptosContext` middleware.
 #[derive(Clone, Debug)]
 pub struct LeptosContextLayer<CX> {
-    additional_context: CX,
+    additional_context: Option<CX>,
+}
+
+impl Default for LeptosContextLayer<fn()> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LeptosContextLayer<fn()> {
+    /// Create a new layer with the additional context to be provided.
+    pub fn new() -> Self {
+        Self {
+            additional_context: None,
+        }
+    }
 }
 
 impl<CX> LeptosContextLayer<CX> {
-    /// Create the layer from the additional context.
-    pub fn new(additional_context: CX) -> Self {
-        Self { additional_context }
+    /// Create a new layer with the additional context to be provided.
+    pub fn new_with_context(additional_context: CX) -> Self
+    where
+        CX: Fn() + 'static + Clone + Send,
+    {
+        Self {
+            additional_context: Some(additional_context),
+        }
     }
 }
 
@@ -259,12 +250,12 @@ where
 pub struct LeptosContext<S, CX> {
     inner: S,
     owner: Owner,
-    additional_context: CX,
+    additional_context: Option<CX>,
 }
 
 impl<S, CX> LeptosContext<S, CX> {
     /// Create a new handler with an additional context along with the provided shell and state.
-    pub fn new(inner: S, additional_context: CX) -> Self {
+    pub fn new(inner: S, additional_context: Option<CX>) -> Self {
         let owner = Owner::new();
         Self {
             inner,
@@ -314,7 +305,9 @@ where
                 provide_context(parts);
                 let res_options = ResponseOptions::default();
                 provide_context(res_options.clone());
-                additional_context();
+                if let Some(additional_context) = additional_context {
+                    additional_context();
+                }
                 let mut res = inner.call(req).await?;
                 extend_response(&mut res, &res_options);
                 Ok(res)

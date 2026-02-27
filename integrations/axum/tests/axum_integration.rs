@@ -268,7 +268,19 @@ async fn route_leptos_context() -> anyhow::Result<()> {
         res.headers().get(HeaderName::from_static("x-foo")),
         Some(&HeaderValue::from_static("bar")),
     );
-    assert_eq!(res.text().await?, "POST foobar");
+    assert_eq!(res.text().await?, "POST basic");
+
+    let res = client
+        .post(service.url("/test_leptos_context_extra")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(
+        res.headers().get(HeaderName::from_static("x-foo")),
+        Some(&HeaderValue::from_static("bar")),
+    );
+    assert_eq!(res.text().await?, "POST extra");
+
     Ok(())
 }
 

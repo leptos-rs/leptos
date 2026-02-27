@@ -188,8 +188,9 @@ macro_rules! apply_common {
 
         #[cfg(feature = "default")]
         let router = if $conf.serve_site_pkg {
-            let builder = ServiceBuilder::new()
-                .option_layer($extra_cx.map(LeptosContextLayer::new));
+            let builder = ServiceBuilder::new().option_layer(
+                $extra_cx.map(LeptosContextLayer::new_with_context),
+            );
             let leptos_options = LeptosOptions::from_ref(&state);
             if let Some(error_handler) = $error_handler.clone() {
                 router.route_service(

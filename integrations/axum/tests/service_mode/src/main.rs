@@ -151,8 +151,28 @@ mod router {
                     .route_service(
                         "/test_leptos_context",
                         ServiceBuilder::new()
-                            .layer(LeptosContextLayer::new(|| {
-                                provide_context(String::from("foobar"));
+                            .layer(LeptosContextLayer::new())
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} basic").into_response())
+                            }),
+                    )
+                    .route_service(
+                        "/test_leptos_context_extra",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new_with_context(|| {
+                                provide_context(String::from("extra"));
                             }))
                             // With the above layer, the following service vibes like
                             // a Leptos server function with the available context.
