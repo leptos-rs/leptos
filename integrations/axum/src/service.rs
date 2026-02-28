@@ -214,7 +214,8 @@ where
     })
 }
 
-/// Layer for providing the `LeptosContext` middleware.
+/// Applies a reactive context similar to the one available to server functions via the
+/// [`LeptosContext`] service.
 #[derive(Clone, Debug)]
 pub struct LeptosContextLayer<CX> {
     additional_context: Option<CX>,

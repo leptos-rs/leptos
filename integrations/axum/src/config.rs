@@ -36,7 +36,7 @@ pub(crate) mod traits {
 
 /// A configuration builder to setup a Leptos app onto a [`axum::Router`].
 #[derive(Clone)]
-pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = LeptosOptions> {
+pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     pub(super) app_fn: Option<APP>,
     pub(super) shell: Option<SH>,
     pub(super) state: Option<S>,
@@ -46,7 +46,7 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = LeptosOptions> {
     pub(super) error_handler: bool,
 }
 
-impl<APP> Default for RouterConfiguration<APP, fn(), (), LeptosOptions> {
+impl<APP> Default for RouterConfiguration<APP> {
     fn default() -> Self {
         Self {
             app_fn: None,
@@ -101,11 +101,11 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         self
     }
 
-    /// Configure a new shell with a different type for state; this will reset the state parameter.
+    /// Configure a new shell with a different type for state.
     pub fn shell<SH2, S2, IV>(
         self,
         shell: SH2,
-    ) -> RouterConfiguration<APP, CX, SH2, S2>
+    ) -> RouterConfiguration<APP, CX, SH2, S>
     where
         SH2: Fn(S2) -> IV + Clone + Send + Sync + 'static,
         S2: Clone + Send + Sync + 'static,
@@ -115,7 +115,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         RouterConfiguration {
             app_fn: self.app_fn,
             shell: Some(shell),
-            state: None,
+            state: self.state,
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
             serve_site_pkg: self.serve_site_pkg,
@@ -159,15 +159,10 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 
     /// Provide the state
-    pub fn state<S2, IV>(
-        self,
-        state: S2,
-    ) -> RouterConfiguration<APP, CX, SH, S2>
+    pub fn state<S2>(self, state: S2) -> RouterConfiguration<APP, CX, SH, S2>
     where
-        SH: Fn(S2) -> IV + Clone + Send + Sync + 'static,
         S2: Clone + Send + Sync + 'static,
         LeptosOptions: FromRef<S2>,
-        IV: IntoView + 'static,
     {
         RouterConfiguration {
             app_fn: self.app_fn,

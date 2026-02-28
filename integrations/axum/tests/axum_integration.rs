@@ -468,6 +468,45 @@ async fn conf_with_context() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn conf_alternate_router_state() -> anyhow::Result<()> {
+    use leptos::prelude::*;
+    use leptos_axum::LeptosRoutes;
+
+    #[derive(Clone)]
+    struct Dummy;
+
+    #[derive(Clone, axum::extract::FromRef)]
+    struct MyState {
+        pub leptos_options: LeptosOptions,
+        pub dummy: Dummy,
+    }
+
+    fn shell(_state: MyState) -> impl IntoView {
+        "shell"
+    }
+
+    #[component]
+    fn App() -> impl IntoView {
+        "app"
+    }
+
+    let leptos_options = LeptosOptions::builder().output_name("dummy").build();
+    let dummy = Dummy;
+    let my_state = MyState {
+        leptos_options,
+        dummy,
+    };
+
+    let _ = axum::Router::new().leptos_route_configure(
+        leptos_axum::RouterConfiguration::new()
+            .app(App)
+            .state(my_state.clone())
+            .shell(shell),
+    );
+    Ok(())
+}
+
 // Killing `cargo leptos watch` may not necessarily kill the underlying server task, so rather
 // than running that, build and run the service in separate steps.  This also has the advantage
 // of avoiding parallel build issues with generating the site onto the same location.
