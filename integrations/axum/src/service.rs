@@ -104,6 +104,19 @@ impl<CX, SH, S> ErrorHandler<CX, SH, S> {
             state,
         }
     }
+
+    /// Create a new handler with an additional optional context along with the provided shell and state.
+    pub fn new_with_option_context(
+        additional_context: Option<CX>,
+        shell: SH,
+        state: S,
+    ) -> Self {
+        Self {
+            additional_context,
+            shell,
+            state,
+        }
+    }
 }
 
 impl<CX, SH, S, IV> Service<Request<Body>> for ErrorHandler<CX, SH, S>
@@ -231,6 +244,14 @@ impl<CX> LeptosContextLayer<CX> {
         Self {
             additional_context: Some(additional_context),
         }
+    }
+
+    /// Returns a new layer with a possible additional context to be provided.
+    pub fn new_with_option_context(additional_context: Option<CX>) -> Self
+    where
+        CX: Fn() + 'static + Clone + Send,
+    {
+        Self { additional_context }
     }
 }
 

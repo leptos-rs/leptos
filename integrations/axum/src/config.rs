@@ -36,7 +36,7 @@ pub(crate) mod traits {
 
 /// A configuration builder to setup a Leptos app onto a [`axum::Router`].
 #[derive(Clone)]
-pub struct RouterConfiguration<APP, CX = (), SH = (), S = LeptosOptions> {
+pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = LeptosOptions> {
     pub(super) app_fn: Option<APP>,
     pub(super) shell: Option<SH>,
     pub(super) state: Option<S>,
@@ -46,7 +46,7 @@ pub struct RouterConfiguration<APP, CX = (), SH = (), S = LeptosOptions> {
     pub(super) error_handler: bool,
 }
 
-impl<APP> Default for RouterConfiguration<APP, (), (), LeptosOptions> {
+impl<APP> Default for RouterConfiguration<APP, fn(), (), LeptosOptions> {
     fn default() -> Self {
         Self {
             app_fn: None,
@@ -181,45 +181,6 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 }
 
-macro_rules! apply_common {
-    ($conf:expr, $router:expr, $extra_cx:expr, $error_handler:expr) => {{
-        let state = $conf.state.expect("a `state` should have been configured");
-        let router = $router;
-
-        #[cfg(feature = "default")]
-        let router = if $conf.serve_site_pkg {
-            let builder = ServiceBuilder::new().option_layer(
-                $extra_cx.map(LeptosContextLayer::new_with_context),
-            );
-            let leptos_options = LeptosOptions::from_ref(&state);
-            if let Some(error_handler) = $error_handler.clone() {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    builder.service(
-                        site_pkg_dir_service(&leptos_options)
-                            .fallback(error_handler),
-                    ),
-                )
-            } else {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    builder.service(site_pkg_dir_service(&leptos_options)),
-                )
-            }
-        } else {
-            router
-        };
-
-        let router = if let Some(error_handler) = $error_handler {
-            router.fallback_service(error_handler)
-        } else {
-            router
-        };
-
-        router.with_state(state)
-    }};
-}
-
 impl<APP, CX, SH, S, IV1, IV2> traits::RouterConfiguration<S>
     for RouterConfiguration<APP, CX, SH, S>
 where
@@ -238,61 +199,60 @@ where
     fn apply(self, router: Router<S>) -> Router<()> {
         let app = self.app_fn.expect("an `App` should have been configured");
         let shell = self.shell.expect("a `shell` should have been configured");
-        let state = self
-            .state
-            .as_ref()
-            .expect("a `state` should have been configured");
-        let extra_cx = self
-            .extra_cx
-            .expect("an `extra_cx` should have been configured");
+        let state = self.state.expect("a `state` should have been configured");
+        let extra_cx = self.extra_cx;
 
         let routes = generate_route_list(app);
-        let router =
-            router.leptos_routes_with_context(state, routes, extra_cx, {
+        let router = if let Some(extra_cx) = extra_cx {
+            router.leptos_routes_with_context(&state, routes, extra_cx, {
                 let state = state.clone();
                 move || shell(state.clone())
-            });
+            })
+        } else {
+            router.leptos_routes(&state, routes, {
+                let state = state.clone();
+                move || shell(state.clone())
+            })
+        };
 
         let error_handler = self.error_handler.then(|| {
-            ErrorHandler::new_with_context(extra_cx, shell, state.clone())
+            ErrorHandler::new_with_option_context(
+                extra_cx,
+                shell,
+                state.clone(),
+            )
         });
 
-        apply_common!(self, router, Some(extra_cx), error_handler)
-    }
-}
+        #[cfg(feature = "default")]
+        let router = if self.serve_site_pkg {
+            let builder = ServiceBuilder::new().option_layer(
+                extra_cx.map(LeptosContextLayer::new_with_context),
+            );
+            let leptos_options = LeptosOptions::from_ref(&state);
+            if let Some(error_handler) = error_handler.clone() {
+                router.route_service(
+                    &site_pkg_dir_service_route_path(&leptos_options),
+                    builder.service(
+                        site_pkg_dir_service(&leptos_options)
+                            .fallback(error_handler),
+                    ),
+                )
+            } else {
+                router.route_service(
+                    &site_pkg_dir_service_route_path(&leptos_options),
+                    builder.service(site_pkg_dir_service(&leptos_options)),
+                )
+            }
+        } else {
+            router
+        };
 
-impl<APP, SH, S, IV1, IV2> traits::RouterConfiguration<S>
-    for RouterConfiguration<APP, (), SH, S>
-where
-    APP: Fn() -> IV1 + Clone + Copy + Send + Sync + 'static,
-    SH: Fn(S) -> IV2 + Clone + Copy + Send + Sync + 'static,
-    S: Clone + Send + Sync + 'static,
-    LeptosOptions: FromRef<S>,
-    IV1: IntoView + 'static,
-    IV2: IntoView + 'static,
-{
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", fields(error), skip_all)
-    )]
-    fn apply(self, router: Router<S>) -> Router<()> {
-        let app = self.app_fn.expect("an `App` should have been configured");
-        let shell = self.shell.expect("a `shell` should have been configured");
-        let state = self
-            .state
-            .as_ref()
-            .expect("a `state` should have been configured");
+        let router = if let Some(error_handler) = error_handler {
+            router.fallback_service(error_handler)
+        } else {
+            router
+        };
 
-        let routes = generate_route_list(app);
-        let router = router.leptos_routes(state, routes, {
-            let state = state.clone();
-            move || shell(state.clone())
-        });
-
-        let error_handler = self.error_handler.then(|| {
-            ErrorHandler::new_with_context(|| {}, shell, state.clone())
-        });
-
-        apply_common!(self, router, None::<fn()>, error_handler)
+        router.with_state(state)
     }
 }
