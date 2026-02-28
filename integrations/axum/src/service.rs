@@ -214,8 +214,8 @@ where
     })
 }
 
-/// Applies a reactive context similar to the one available to server functions via the
-/// [`LeptosContext`] service.
+/// Provide a reactive context that set up similarly to the one available to server functions to the inner
+/// service via the supplied middleware service.
 #[derive(Clone, Debug)]
 pub struct LeptosContextLayer<CX> {
     additional_context: Option<CX>,
@@ -228,7 +228,7 @@ impl Default for LeptosContextLayer<fn()> {
 }
 
 impl LeptosContextLayer<fn()> {
-    /// Create a new layer with the additional context to be provided.
+    /// Returns a new layer.
     pub fn new() -> Self {
         Self {
             additional_context: None,
@@ -237,7 +237,7 @@ impl LeptosContextLayer<fn()> {
 }
 
 impl<CX> LeptosContextLayer<CX> {
-    /// Create a new layer with the additional context to be provided.
+    /// Returns a new layer with the additional context to be provided.
     pub fn new_with_context(additional_context: CX) -> Self
     where
         CX: Fn() + 'static + Clone + Send,
@@ -267,7 +267,8 @@ where
     }
 }
 
-/// Middleware for applying additional contexts to other tower/axum services.
+/// Provide a reactive context that set up similarly to the one available to server functions to the inner
+/// service.
 #[derive(Clone, Debug)]
 pub struct LeptosContext<S, CX> {
     inner: S,
@@ -276,7 +277,7 @@ pub struct LeptosContext<S, CX> {
 }
 
 impl<S, CX> LeptosContext<S, CX> {
-    /// Create a new handler with an additional context along with the provided shell and state.
+    /// Create a new `LeptosContext`, optionally with an additional context.
     pub fn new(inner: S, additional_context: Option<CX>) -> Self {
         let owner = Owner::new();
         Self {

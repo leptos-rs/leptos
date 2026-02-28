@@ -1854,6 +1854,138 @@ where
         IV: IntoView + 'static;
 
     /// With the provided [`RouterConfiguration`], add the routes and services to the Axum router.
+    ///
+    /// This is useful for reducing the manual cloning of values across the different configurations using
+    /// the standard methods.  For example, a router with an additional context may be set up as follows:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .fallback(file_and_error_handler_with_context(extra_cx, shell))
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Instead, the above configuration is functionally similar to the following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let app = Router::new().leptos_route_configure(
+    ///     RouterConfiguration::new()
+    ///         .app(App)
+    ///         .shell(shell)
+    ///         .state(leptos_options)
+    ///         .with_context(extra_cx),
+    /// );
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// The above does not use the `file_and_error_handler_with_context`, but instead sets up separate
+    /// tower services for serving of site pkg and error handler, and is functionally equivalent to the
+    /// following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// let error_handler =
+    ///     ErrorHandler::new_with_context(extra_cx, shell, leptos_options.clone());
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .route_service(
+    ///         &site_pkg_dir_service_route_path(&leptos_options),
+    ///         ServiceBuilder::new()
+    ///             .layer(LeptosContextLayer::new_with_context(extra_cx))
+    ///             .service(
+    ///                 site_pkg_dir_service(&leptos_options)
+    ///                     .fallback(error_handler.clone()),
+    ///             ),
+    ///     )
+    ///     .fallback_service(error_handler)
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Note that both configuration with this method with a `RouterConfiguration` builder and the verbose
+    /// manner of setting up the router will allow an alternative fallback be specified without removing the
+    /// site pkg routes, as in the case with the combined fallback handler.
     fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
     where
         C: config::traits::RouterConfiguration<S>;
