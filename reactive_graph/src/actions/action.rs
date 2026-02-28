@@ -210,13 +210,11 @@ where
             action_fn: Arc::new(move |input| {
                 let fut = untrack(|| action_fn(input));
                 match weak_owner.as_ref().and_then(|w| w.upgrade()) {
-                    Some(owner) => Box::pin(owner.with(|| {
-                        ScopedFuture::new_untracked(fut)
-                    }))
+                    Some(owner) => Box::pin(
+                        owner.with(|| ScopedFuture::new_untracked(fut)),
+                    )
                         as Pin<Box<dyn Future<Output = O> + Send>>,
-                    None => {
-                        Box::pin(ScopedFuture::new_untracked(fut))
-                    }
+                    None => Box::pin(ScopedFuture::new_untracked(fut)),
                 }
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -394,14 +392,12 @@ where
             action_fn: Arc::new(move |input| {
                 let fut = untrack(|| action_fn(input));
                 match weak_owner.as_ref().and_then(|w| w.upgrade()) {
-                    Some(owner) => Box::pin(SendWrapper::new(owner.with(|| {
-                        ScopedFuture::new_untracked(fut)
-                    }))),
-                    None => {
-                        Box::pin(SendWrapper::new(
-                            ScopedFuture::new_untracked(fut),
-                        ))
-                    }
+                    Some(owner) => Box::pin(SendWrapper::new(
+                        owner.with(|| ScopedFuture::new_untracked(fut)),
+                    )),
+                    None => Box::pin(SendWrapper::new(
+                        ScopedFuture::new_untracked(fut),
+                    )),
                 }
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
