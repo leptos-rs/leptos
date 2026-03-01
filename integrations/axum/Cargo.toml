@@ -30,7 +30,7 @@ or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-axum = { workspace = true, default-features = true }
+axum = { workspace = true, default-features = true, features = ["macros"] }
 reqwest = { workspace = true }
 tokio = { features = [
   "io-util",

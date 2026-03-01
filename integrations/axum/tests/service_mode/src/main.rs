@@ -2,12 +2,16 @@
 mod router {
     use axum::{
         Router,
-        http::{HeaderName, HeaderValue},
+        http::{HeaderName, HeaderValue, request::Parts},
+        response::IntoResponse,
     };
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
-    use leptos_axum::{ErrorHandler, LeptosRoutes, generate_route_list};
+    use leptos_axum::{
+        ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
+    };
     use service_mode::app::{App, shell};
+    use tower::builder::ServiceBuilder;
 
     #[derive(Parser)]
     pub struct Cli {
@@ -23,6 +27,15 @@ mod router {
         ErrorHandlerService,
         ErrorHandlerServiceFallback,
         RouteSitePkgNoFallback,
+        RouteSitePkgDirMethod,
+        RouteSitePkgDirFallbackMethod,
+        RouteLeptosContext,
+
+        ConfDefault,
+        ConfDefaultWithSitePkg,
+        ConfDefaultWithErrorHandler,
+        ConfNew,
+        ConfWithContext,
     }
 
     impl From<Cli> for Router {
@@ -111,6 +124,126 @@ mod router {
                         leptos_options.clone(),
                     ))
                     .with_state(leptos_options),
+                Mode::RouteSitePkgDirMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .leptos_route_site_pkg_dir(&leptos_options, shell)
+                    .with_state(leptos_options),
+                Mode::RouteSitePkgDirFallbackMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    // to spice it up, different fallback "shells".
+                    .leptos_route_site_pkg_dir(
+                        &leptos_options,
+                        |_| "site_pkg_dir fallback",
+                    )
+                    .leptos_route_fallback(&leptos_options, |_| "root fallback")
+                    .with_state(leptos_options),
+                Mode::RouteLeptosContext => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .route_service(
+                        "/test_leptos_context",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new())
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} basic").into_response())
+                            }),
+                    )
+                    .route_service(
+                        "/test_leptos_context_extra",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new_with_context(|| {
+                                provide_context(String::from("extra"));
+                            }))
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let msg = use_context::<String>().unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} {msg}").into_response())
+                            }),
+                    )
+                    .with_state(leptos_options),
+
+                Mode::ConfDefault => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::default()
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfDefaultWithSitePkg => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .serve_site_pkg(true),
+                    ),
+                Mode::ConfDefaultWithErrorHandler => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .error_handler(true),
+                    ),
+                Mode::ConfNew => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::new()
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfWithContext => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::new()
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone())
+                        .with_context(move || {
+                            let opts =
+                                use_context::<leptos_axum::ResponseOptions>()
+                                    .unwrap();
+                            opts.insert_header(
+                                HeaderName::from_static(
+                                    "cross-origin-opener-policy",
+                                ),
+                                HeaderValue::from_static("same-origin"),
+                            );
+                            opts.insert_header(
+                                HeaderName::from_static(
+                                    "cross-origin-embedder-policy",
+                                ),
+                                HeaderValue::from_static("require-corp"),
+                            );
+                        }),
+                ),
             }
         }
     }
