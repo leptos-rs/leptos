@@ -235,7 +235,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     inner_html_reactive!(
@@ -246,7 +246,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     inner_html_reactive!(
