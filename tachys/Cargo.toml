@@ -164,6 +164,7 @@ serde = { optional = true, workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
+wasm-bindgen-test = { workspace = true, default-features = true }
 tokio-test = { workspace = true, default-features = true }
 tokio = { features = [
   "rt",

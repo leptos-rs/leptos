@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 //! See [`Renderer`](crate::renderer::Renderer) and [`Rndr`](crate::renderer::Rndr) for additional information.
 
 use super::{CastFrom, RemoveEventHandler};
@@ -22,17 +20,27 @@ use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 pub struct Dom;
 
 thread_local! {
+    /// A set of events that have already been delegated.
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
+    /// A cache of template elements.
     pub static TEMPLATE_CACHE: RefCell<Vec<(Cow<'static, str>, web_sys::Element)>> = Default::default();
 }
 
+/// A DOM node.
 pub type Node = web_sys::Node;
+/// A DOM text node.
 pub type Text = web_sys::Text;
+/// A DOM element.
 pub type Element = web_sys::Element;
+/// A placeholder node.
 pub type Placeholder = web_sys::Comment;
+/// A DOM event.
 pub type Event = wasm_bindgen::JsValue;
+/// A DOM token list.
 pub type ClassList = web_sys::DomTokenList;
+/// A DOM CSS style declaration.
 pub type CssStyleDeclaration = web_sys::CssStyleDeclaration;
+/// A DOM HTML template element.
 pub type TemplateElement = web_sys::HtmlTemplateElement;
 
 /// A microtask is a short function which will run after the current task has
@@ -76,52 +84,91 @@ fn queue(fun: Box<dyn FnOnce()>) {
 }
 
 impl Dom {
+    /// Interns a string in the JS engine.
     pub fn intern(text: &str) -> &str {
         intern(text)
     }
 
+    /// Creates a new element with the given tag name and optional namespace.
     pub fn create_element(tag: &str, namespace: Option<&str>) -> Element {
+        thread_local! {
+            static DIV: &'static str = Dom::intern("div");
+        }
         if let Some(namespace) = namespace {
             document()
                 .create_element_ns(
                     Some(Self::intern(namespace)),
                     Self::intern(tag),
                 )
-                .unwrap()
+                .unwrap_or_else(|_| {
+                    #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                    web_sys::console::error_2(
+                        &"Failed to create element with namespace:".into(),
+                        &tag.into(),
+                    );
+                    document()
+                        .create_element(DIV.with(|d| *d))
+                        .unwrap_or_else(|_| {
+                            unreachable!("Could not even create a <div>")
+                        })
+                })
         } else {
-            document().create_element(Self::intern(tag)).unwrap()
+            document().create_element(Self::intern(tag)).unwrap_or_else(|_| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_2(
+                    &"Failed to create element:".into(),
+                    &tag.into(),
+                );
+                document()
+                    .create_element(DIV.with(|d| *d))
+                    .unwrap_or_else(|_| {
+                        unreachable!("Could not even create a <div>")
+                    })
+            })
         }
     }
 
+    /// Creates a new text node with the given text.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn create_text_node(text: &str) -> Text {
         document().create_text_node(text)
     }
 
+    /// Creates a new placeholder node.
     pub fn create_placeholder() -> Placeholder {
         thread_local! {
             static COMMENT: LazyCell<Comment> = LazyCell::new(|| {
                 document().create_comment("")
             });
         }
-        COMMENT.with(|n| n.clone_node().unwrap().unchecked_into())
+        COMMENT.with(|n| {
+            n.clone_node().unwrap_or_else(|_| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(&"Failed to clone placeholder node".into());
+                document().create_comment("").unchecked_into()
+            }).unchecked_into()
+        })
     }
 
+    /// Sets the text content of a text node.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn set_text(node: &Text, text: &str) {
         node.set_node_value(Some(text));
     }
 
+    /// Sets an attribute on an element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn set_attribute(node: &Element, name: &str, value: &str) {
         or_debug!(node.set_attribute(name, value), node, "setAttribute");
     }
 
+    /// Removes an attribute from an element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn remove_attribute(node: &Element, name: &str) {
         or_debug!(node.remove_attribute(name), node, "removeAttribute");
     }
 
+    /// Inserts a node before an anchor node in a parent element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn insert_node(
         parent: &Element,
@@ -135,6 +182,7 @@ impl Dom {
         );
     }
 
+    /// Tries to insert a node before an anchor node in a parent element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn try_insert_node(
         parent: &Element,
@@ -144,20 +192,24 @@ impl Dom {
         parent.insert_before(new_child, anchor).is_ok()
     }
 
+    /// Removes a node from a parent element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn remove_node(parent: &Element, child: &Node) -> Option<Node> {
         ok_or_debug!(parent.remove_child(child), parent, "removeNode")
     }
 
+    /// Removes a node from its parent.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn remove(node: &Node) {
         node.unchecked_ref::<Element>().remove();
     }
 
+    /// Returns the parent of a node.
     pub fn get_parent(node: &Node) -> Option<Node> {
         node.parent_node()
     }
 
+    /// Returns the first child of a node.
     pub fn first_child(node: &Node) -> Option<Node> {
         #[cfg(debug_assertions)]
         {
@@ -183,6 +235,7 @@ impl Dom {
         }
     }
 
+    /// Returns the next sibling of a node.
     pub fn next_sibling(node: &Node) -> Option<Node> {
         #[cfg(debug_assertions)]
         {
@@ -208,28 +261,26 @@ impl Dom {
         }
     }
 
+    /// Logs a node to the console.
     pub fn log_node(node: &Node) {
         web_sys::console::log_1(node);
     }
 
+    /// Clears all children of a parent element.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn clear_children(parent: &Element) {
         parent.set_text_content(Some(""));
     }
 
     /// Mounts the new child before the marker as its sibling.
-    ///
-    /// ## Panics
-    /// The default implementation panics if `before` does not have a parent [`crate::renderer::types::Element`].
     pub fn mount_before<M>(new_child: &mut M, before: &Node)
     where
         M: Mountable,
     {
-        let parent = Element::cast_from(
-            Self::get_parent(before).expect("could not find parent element"),
-        )
-        .expect("placeholder parent should be Element");
-        new_child.mount(&parent, Some(before));
+        if !Self::try_mount_before(new_child, before) {
+            #[cfg(all(target_arch = "wasm32", debug_assertions))]
+            web_sys::console::error_1(&"could not find parent element to mount before".into());
+        }
     }
 
     /// Tries to mount the new child before the marker as its sibling.
@@ -250,6 +301,7 @@ impl Dom {
         }
     }
 
+    /// Sets a property or value on an element.
     pub fn set_property_or_value(el: &Element, key: &str, value: &JsValue) {
         if key == "value" {
             queue(Box::new({
@@ -264,6 +316,7 @@ impl Dom {
         }
     }
 
+    /// Sets a property on an element.
     pub fn set_property(el: &Element, key: &str, value: &JsValue) {
         or_debug!(
             js_sys::Reflect::set(
@@ -276,6 +329,7 @@ impl Dom {
         );
     }
 
+    /// Adds an event listener to an element.
     pub fn add_event_listener(
         el: &Element,
         name: &str,
@@ -312,6 +366,7 @@ impl Dom {
         })
     }
 
+    /// Adds an event listener to an element using capture.
     pub fn add_event_listener_use_capture(
         el: &Element,
         name: &str,
@@ -352,6 +407,7 @@ impl Dom {
         })
     }
 
+    /// Returns the target of an event.
     pub fn event_target<T>(ev: &Event) -> T
     where
         T: CastFrom<Element>,
@@ -359,11 +415,12 @@ impl Dom {
         let el = ev
             .unchecked_ref::<web_sys::Event>()
             .target()
-            .expect("event.target not found")
-            .unchecked_into::<Element>();
+            .and_then(|t| t.dyn_into::<Element>().ok())
+            .expect("event.target not found or not an element");
         T::cast_from(el).expect("incorrect element type")
     }
 
+    /// Adds a delegated event listener to an element.
     pub fn add_event_listener_delegated(
         el: &Element,
         name: Cow<'static, str>,
@@ -467,22 +524,27 @@ impl Dom {
         })
     }
 
+    /// Returns the class list of an element.
     pub fn class_list(el: &Element) -> ClassList {
         el.class_list()
     }
 
+    /// Adds a class to a class list.
     pub fn add_class(list: &ClassList, name: &str) {
         or_debug!(list.add_1(name), list.unchecked_ref(), "add()");
     }
 
+    /// Removes a class from a class list.
     pub fn remove_class(list: &ClassList, name: &str) {
         or_debug!(list.remove_1(name), list.unchecked_ref(), "remove()");
     }
 
+    /// Returns the style declaration of an element.
     pub fn style(el: &Element) -> CssStyleDeclaration {
         el.unchecked_ref::<web_sys::HtmlElement>().style()
     }
 
+    /// Sets a CSS property on a style declaration.
     pub fn set_css_property(
         style: &CssStyleDeclaration,
         name: &str,
@@ -495,6 +557,7 @@ impl Dom {
         );
     }
 
+    /// Removes a CSS property from a style declaration.
     pub fn remove_css_property(style: &CssStyleDeclaration, name: &str) {
         or_debug!(
             style.remove_property(name),
@@ -503,17 +566,21 @@ impl Dom {
         );
     }
 
+    /// Sets the inner HTML of an element.
     pub fn set_inner_html(el: &Element, html: &str) {
         el.set_inner_html(html);
     }
 
+    /// Returns a template element for a type.
     pub fn get_template<V>() -> TemplateElement
     where
         V: ToTemplate + 'static,
     {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
-                LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
+                LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap_or_else(|_| {
+                    unreachable!("Could not create a <template> element")
+                }).unchecked_into());
             static TEMPLATES: RefCell<Vec<(TypeId, HtmlTemplateElement)>> = Default::default();
         }
 
@@ -524,7 +591,12 @@ impl Dom {
                 .unwrap_or_else(|| {
                     let tpl = TEMPLATE_ELEMENT.with(|t| {
                         t.clone_node()
-                            .unwrap()
+                            .unwrap_or_else(|_| {
+                                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                                web_sys::console::error_1(&"Failed to clone template element".into());
+                                let t: &HtmlTemplateElement = &*t;
+                                t.clone().into()
+                            })
                             .unchecked_into::<HtmlTemplateElement>()
                     });
                     let mut buf = String::new();
@@ -542,13 +614,19 @@ impl Dom {
         })
     }
 
+    /// Clones a template element.
     pub fn clone_template(tpl: &TemplateElement) -> Element {
         tpl.content()
             .clone_node_with_deep(true)
-            .unwrap()
+            .unwrap_or_else(|_| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(&"Failed to clone template content".into());
+                tpl.content().into()
+            })
             .unchecked_into()
     }
 
+    /// Creates an element from HTML.
     pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
             if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
@@ -559,7 +637,9 @@ impl Dom {
             } else {
                 let tpl = document()
                     .create_element(Self::intern("template"))
-                    .unwrap();
+                    .unwrap_or_else(|_| {
+                        unreachable!("Could not create a <template> element")
+                    });
                 tpl.set_inner_html(&html);
                 let tpl_content = Self::clone_template(tpl.unchecked_ref());
                 cache.push((html, tpl));
@@ -569,6 +649,7 @@ impl Dom {
         tpl.first_element_child().unwrap_or(tpl)
     }
 
+    /// Creates an SVG element from HTML.
     pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
             if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
@@ -579,32 +660,41 @@ impl Dom {
             } else {
                 let tpl = document()
                     .create_element(Self::intern("template"))
-                    .unwrap();
+                    .unwrap_or_else(|_| {
+                        unreachable!("Could not create a <template> element")
+                    });
                 let svg = document()
                     .create_element_ns(
                         Some(Self::intern("http://www.w3.org/2000/svg")),
                         Self::intern("svg"),
                     )
-                    .unwrap();
+                    .unwrap_or_else(|_| {
+                        document().create_element(Self::intern("svg")).unwrap_or_else(|_| {
+                            unreachable!("Could not even create a non-namespaced <svg>")
+                        })
+                    });
                 let g = document()
                     .create_element_ns(
                         Some(Self::intern("http://www.w3.org/2000/svg")),
                         Self::intern("g"),
                     )
-                    .unwrap();
+                    .unwrap_or_else(|_| {
+                        document().create_element(Self::intern("g")).unwrap_or_else(|_| {
+                            unreachable!("Could not even create a non-namespaced <g>")
+                        })
+                    });
                 g.set_inner_html(&html);
-                svg.append_child(&g).unwrap();
-                tpl.unchecked_ref::<TemplateElement>()
+                _ = svg.append_child(&g);
+                _ = tpl.unchecked_ref::<TemplateElement>()
                     .content()
-                    .append_child(&svg)
-                    .unwrap();
+                    .append_child(&svg);
                 let tpl_content = Self::clone_template(tpl.unchecked_ref());
                 cache.push((html, tpl));
                 tpl_content
             }
         });
 
-        let svg = tpl.first_element_child().unwrap();
+        let svg = tpl.first_element_child().unwrap_or(tpl.clone());
         svg.first_element_child().unwrap_or(svg)
     }
 }

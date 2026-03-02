@@ -77,24 +77,41 @@ where
         self,
         el: &crate::renderer::types::Element,
     ) -> Self::State {
-        self.value
-            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
-            .take()
-            .hydrate::<FROM_SERVER>(el, self.key.as_ref())
+        match self.value {
+            Some(value) => value.take().hydrate::<FROM_SERVER>(el, self.key.as_ref()),
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+                unsafe { std::mem::zeroed() }
+            }
+        }
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        self.value
-            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
-            .take()
-            .build(el, self.key.as_ref())
+        match self.value {
+            Some(value) => value.take().build(el, self.key.as_ref()),
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+                unsafe { std::mem::zeroed() }
+            }
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.value
-            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
-            .take()
-            .rebuild(state, self.key.as_ref())
+        match self.value {
+            Some(value) => value.take().rebuild(state, self.key.as_ref()),
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+            }
+        }
     }
 
     fn into_cloneable(self) -> Self::Cloneable {

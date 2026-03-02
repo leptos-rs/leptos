@@ -187,7 +187,16 @@ where
             }
         }
 
-        let mut cb = self.cb.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
+        let mut cb = match self.cb {
+            Some(cb) => cb.take(),
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+                return RemoveEventHandler::new(|| {});
+            }
+        };
 
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
@@ -230,7 +239,16 @@ where
             Rndr::add_event_listener_use_capture(el, &name, cb)
         }
 
-        let mut cb = self.cb.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
+        let mut cb = match self.cb {
+            Some(cb) => cb.take(),
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+                return RemoveEventHandler::new(|| {});
+            }
+        };
 
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();

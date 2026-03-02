@@ -198,19 +198,38 @@ impl ToTokens for TypedBuilderOpts<'_> {
         };
 
         let into = if self.into {
+            let ty_str = self.ty.to_token_stream().to_string();
+            let is_signal = ty_str.contains("Signal") || ty_str.contains("Memo") || ty_str.contains("RwSignal");
+            
             if !self.strip_option {
                 let ty = &self.ty;
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> #ty {
-                        value.into_reactive_value()
-                    },
+                if is_signal {
+                    quote! {
+                        fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoSignal<#ty, __IntoReactiveValueMarker>) -> #ty {
+                            value.into_signal()
+                        },
+                    }
+                } else {
+                    quote! {
+                        fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValueTrait<#ty, __IntoReactiveValueMarker>) -> #ty {
+                            ::leptos::prelude::IntoReactiveValueTrait::<#ty, __IntoReactiveValueMarker>::into_reactive_value(value)
+                        },
+                    }
                 }
             } else {
                 let ty = unwrap_option(self.ty);
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
-                        Some(value.into_reactive_value())
-                    },
+                if is_signal {
+                    quote! {
+                        fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoSignal<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
+                            Some(value.into_signal())
+                        },
+                    }
+                } else {
+                    quote! {
+                        fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValueTrait<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
+                            Some(::leptos::prelude::IntoReactiveValueTrait::<#ty, __IntoReactiveValueMarker>::into_reactive_value(value))
+                        },
+                    }
                 }
             }
         } else {
