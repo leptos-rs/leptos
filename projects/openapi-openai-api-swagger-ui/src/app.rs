@@ -129,7 +129,7 @@ pub async fn ai_msg(msg:String) -> Result<AiServerCall,ServerFnError> {
 #[component]
 pub fn AiSayHello() -> impl IntoView {
     let ai_msg = Action::<AiMsg, _>::server();
-    let result = create_rw_signal(Vec::new());
+    let result = RwSignal::new(Vec::new());
     view!{
         <ActionForm action=ai_msg>
         <label> "Tell the AI what function to call."
