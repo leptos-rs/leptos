@@ -199,8 +199,10 @@ impl ToTokens for TypedBuilderOpts<'_> {
 
         let into = if self.into {
             let ty_str = self.ty.to_token_stream().to_string();
-            let is_signal = ty_str.contains("Signal") || ty_str.contains("Memo") || ty_str.contains("RwSignal");
-            
+            let is_signal = ty_str.contains("Signal")
+                || ty_str.contains("Memo")
+                || ty_str.contains("RwSignal");
+
             if !self.strip_option {
                 let ty = &self.ty;
                 if is_signal {

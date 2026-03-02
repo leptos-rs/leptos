@@ -78,7 +78,9 @@ where
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         match self.value {
-            Some(value) => value.take().hydrate::<FROM_SERVER>(el, self.key.as_ref()),
+            Some(value) => {
+                value.take().hydrate::<FROM_SERVER>(el, self.key.as_ref())
+            }
             None => {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
                 web_sys::console::error_1(

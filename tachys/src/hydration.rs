@@ -179,15 +179,16 @@ pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
                     .unwrap_or_else(|| "{unknown}".to_string());
                 web_sys::console::error_3(
                     &wasm_bindgen::JsValue::from_str(&format!(
-                        "A hydration error occurred while trying to hydrate an \
-                         element defined at {hydrating}.\n\nThe framework expected an \
-                         HTML <{tag_name}> element, but found this instead: ",
+                        "A hydration error occurred while trying to hydrate \
+                         an element defined at {hydrating}.\n\nThe framework \
+                         expected an HTML <{tag_name}> element, but found \
+                         this instead: ",
                     )),
                     &node,
                     &wasm_bindgen::JsValue::from_str(
-                        "\n\nThe hydration mismatch may have occurred slightly \
-                         earlier, but this is the first time the framework found a \
-                         node of an unexpected type.",
+                        "\n\nThe hydration mismatch may have occurred \
+                         slightly earlier, but this is the first time the \
+                         framework found a node of an unexpected type.",
                     ),
                 );
                 HYDRATION_ERROR_COUNT.set(count + 1);
@@ -223,15 +224,15 @@ pub(crate) fn failed_to_cast_marker_node(node: Node) -> Comment {
                     .unwrap_or_else(|| "{unknown}".to_string());
                 web_sys::console::error_3(
                     &wasm_bindgen::JsValue::from_str(&format!(
-                        "A hydration error occurred while trying to hydrate an \
-                         element defined at {hydrating}.\n\nThe framework expected a \
-                         marker node, but found this instead: ",
+                        "A hydration error occurred while trying to hydrate \
+                         an element defined at {hydrating}.\n\nThe framework \
+                         expected a marker node, but found this instead: ",
                     )),
                     &node,
                     &wasm_bindgen::JsValue::from_str(
-                        "\n\nThe hydration mismatch may have occurred slightly \
-                         earlier, but this is the first time the framework found a \
-                         node of an unexpected type.",
+                        "\n\nThe hydration mismatch may have occurred \
+                         slightly earlier, but this is the first time the \
+                         framework found a node of an unexpected type.",
                     ),
                 );
                 HYDRATION_ERROR_COUNT.set(count + 1);
@@ -266,15 +267,15 @@ pub(crate) fn failed_to_cast_text_node(node: Node) -> Text {
                     .unwrap_or_else(|| "{unknown}".to_string());
                 web_sys::console::error_3(
                     &wasm_bindgen::JsValue::from_str(&format!(
-                        "A hydration error occurred while trying to hydrate an \
-                         element defined at {hydrating}.\n\nThe framework expected a \
-                         text node, but found this instead: ",
+                        "A hydration error occurred while trying to hydrate \
+                         an element defined at {hydrating}.\n\nThe framework \
+                         expected a text node, but found this instead: ",
                     )),
                     &node,
                     &wasm_bindgen::JsValue::from_str(
-                        "\n\nThe hydration mismatch may have occurred slightly \
-                         earlier, but this is the first time the framework found a \
-                         node of an unexpected type.",
+                        "\n\nThe hydration mismatch may have occurred \
+                         slightly earlier, but this is the first time the \
+                         framework found a node of an unexpected type.",
                     ),
                 );
                 HYDRATION_ERROR_COUNT.set(count + 1);

@@ -598,7 +598,9 @@ where
                 );
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"rendering B to HTML without filling it".into());
+                web_sys::console::error_1(
+                    &"rendering B to HTML without filling it".into(),
+                );
             }
         } else {
             if let Some(a) = self.a {
@@ -611,7 +613,9 @@ where
                 );
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"rendering A to HTML without filling it".into());
+                web_sys::console::error_1(
+                    &"rendering A to HTML without filling it".into(),
+                );
             }
         }
     }
@@ -637,7 +641,9 @@ where
                 );
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"rendering B to HTML without filling it".into());
+                web_sys::console::error_1(
+                    &"rendering B to HTML without filling it".into(),
+                );
             }
         } else {
             if let Some(a) = self.a {
@@ -650,7 +656,9 @@ where
                 );
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"rendering A to HTML without filling it".into());
+                web_sys::console::error_1(
+                    &"rendering A to HTML without filling it".into(),
+                );
             }
         }
     }
@@ -727,14 +735,18 @@ where
                 b.unmount();
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"unmounting B, but it was not present".into());
+                web_sys::console::error_1(
+                    &"unmounting B, but it was not present".into(),
+                );
             }
         } else {
             if let Some(a) = self.a.as_mut() {
                 a.unmount();
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"unmounting A, but it was not present".into());
+                web_sys::console::error_1(
+                    &"unmounting A, but it was not present".into(),
+                );
             }
         }
     }
@@ -749,14 +761,18 @@ where
                 b.mount(parent, marker);
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"mounting B, but it was not present".into());
+                web_sys::console::error_1(
+                    &"mounting B, but it was not present".into(),
+                );
             }
         } else {
             if let Some(a) = self.a.as_mut() {
                 a.mount(parent, marker);
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"mounting A, but it was not present".into());
+                web_sys::console::error_1(
+                    &"mounting A, but it was not present".into(),
+                );
             }
         }
     }
@@ -767,7 +783,9 @@ where
                 b.insert_before_this(child)
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"insert_before_this on B, but it was not present".into());
+                web_sys::console::error_1(
+                    &"insert_before_this on B, but it was not present".into(),
+                );
                 false
             }
         } else {
@@ -775,7 +793,9 @@ where
                 a.insert_before_this(child)
             } else {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"insert_before_this on A, but it was not present".into());
+                web_sys::console::error_1(
+                    &"insert_before_this on A, but it was not present".into(),
+                );
                 false
             }
         }

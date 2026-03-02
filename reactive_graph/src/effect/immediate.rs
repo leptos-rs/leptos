@@ -300,7 +300,7 @@ mod inner {
 
         fn update_if_necessary(&self) -> bool {
             let mut did_update = false;
-            
+
             loop {
                 let state = {
                     let guard = self.read().or_poisoned();
@@ -351,7 +351,12 @@ mod inner {
                     }
 
                     guard.state = ReactiveNodeState::Clean;
-                    (guard.owner.clone(), any_subscriber, guard.fun.clone(), recursion_count)
+                    (
+                        guard.owner.clone(),
+                        any_subscriber,
+                        guard.fun.clone(),
+                        recursion_count,
+                    )
                 };
 
                 owner.with_cleanup(|| any_subscriber.with_observer(|| fun()));
@@ -360,7 +365,8 @@ mod inner {
                 let needs_re_run = {
                     let mut guard = self.write().or_poisoned();
                     guard.run_done_count += 1;
-                    guard.run_done_max = Ord::max(recursion_count, guard.run_done_max);
+                    guard.run_done_max =
+                        Ord::max(recursion_count, guard.run_done_max);
 
                     let needs_re_run = guard.state == ReactiveNodeState::Dirty;
 

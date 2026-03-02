@@ -42,7 +42,9 @@ where
     }
 }
 
-impl<T, S, I> IntoReactiveValueTrait<Signal<T, S>, __IntoReactiveValueMarkerIdentity> for I
+impl<T, S, I>
+    IntoReactiveValueTrait<Signal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for I
 where
     I: IntoReactiveValue<Signal<T, S>, __IntoReactiveValueMarkerIdentity>,
     S: Storage<T>,
@@ -52,7 +54,9 @@ where
     }
 }
 
-impl<T, S, I> IntoReactiveValueTrait<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity> for I
+impl<T, S, I>
+    IntoReactiveValueTrait<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for I
 where
     I: IntoReactiveValue<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity>,
     S: Storage<T>,
@@ -86,7 +90,8 @@ pub trait IntoSignal<T, M> {
 }
 
 // Implement for Signal itself (Identity)
-impl<T, S> IntoSignal<Signal<T, S>, __IntoReactiveValueMarkerIdentity> for Signal<T, S>
+impl<T, S> IntoSignal<Signal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for Signal<T, S>
 where
     S: Storage<T>,
 {
@@ -107,7 +112,8 @@ where
 }
 
 // ArcSignal Identity
-impl<T, S> IntoSignal<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity> for ArcSignal<T, S>
+impl<T, S> IntoSignal<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for ArcSignal<T, S>
 where
     S: Storage<T>,
 {
@@ -116,7 +122,8 @@ where
     }
 }
 
-impl<T, S, I> IntoSignal<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity> for I
+impl<T, S, I> IntoSignal<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for I
 where
     I: IntoReactiveValue<ArcSignal<T, S>, __IntoReactiveValueMarkerIdentity>,
     S: Storage<T>,
@@ -127,7 +134,8 @@ where
 }
 
 // Implement for specific signal types to allow identity conversion
-impl<T, S> IntoSignal<RwSignal<T, S>, __IntoReactiveValueMarkerIdentity> for RwSignal<T, S>
+impl<T, S> IntoSignal<RwSignal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for RwSignal<T, S>
 where
     S: Storage<ArcRwSignal<T>> + Storage<T>,
 {
@@ -136,7 +144,8 @@ where
     }
 }
 
-impl<T, S> IntoSignal<ReadSignal<T, S>, __IntoReactiveValueMarkerIdentity> for ReadSignal<T, S>
+impl<T, S> IntoSignal<ReadSignal<T, S>, __IntoReactiveValueMarkerIdentity>
+    for ReadSignal<T, S>
 where
     S: Storage<ArcReadSignal<T>> + Storage<T>,
 {
@@ -145,7 +154,8 @@ where
     }
 }
 
-impl<T, S> IntoSignal<Memo<T, S>, __IntoReactiveValueMarkerIdentity> for Memo<T, S>
+impl<T, S> IntoSignal<Memo<T, S>, __IntoReactiveValueMarkerIdentity>
+    for Memo<T, S>
 where
     S: Storage<ArcMemo<T, S>> + Storage<T>,
 {

@@ -41,7 +41,10 @@ pub fn event_target<T>(event: &web_sys::Event) -> T
 where
     T: JsCast,
 {
-    event.target().expect("event.target was not present").unchecked_into::<T>()
+    event
+        .target()
+        .expect("event.target was not present")
+        .unchecked_into::<T>()
 }
 
 /// Helper function to extract `event.target.value` from an event.

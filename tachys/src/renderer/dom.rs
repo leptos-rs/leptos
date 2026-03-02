@@ -106,25 +106,23 @@ impl Dom {
                         &"Failed to create element with namespace:".into(),
                         &tag.into(),
                     );
-                    document()
-                        .create_element(DIV.with(|d| *d))
-                        .unwrap_or_else(|_| {
-                            unreachable!("Could not even create a <div>")
-                        })
+                    document().create_element(DIV.with(|d| *d)).unwrap_or_else(
+                        |_| unreachable!("Could not even create a <div>"),
+                    )
                 })
         } else {
-            document().create_element(Self::intern(tag)).unwrap_or_else(|_| {
-                #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_2(
-                    &"Failed to create element:".into(),
-                    &tag.into(),
-                );
-                document()
-                    .create_element(DIV.with(|d| *d))
-                    .unwrap_or_else(|_| {
-                        unreachable!("Could not even create a <div>")
-                    })
-            })
+            document()
+                .create_element(Self::intern(tag))
+                .unwrap_or_else(|_| {
+                    #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                    web_sys::console::error_2(
+                        &"Failed to create element:".into(),
+                        &tag.into(),
+                    );
+                    document().create_element(DIV.with(|d| *d)).unwrap_or_else(
+                        |_| unreachable!("Could not even create a <div>"),
+                    )
+                })
         }
     }
 
@@ -142,11 +140,15 @@ impl Dom {
             });
         }
         COMMENT.with(|n| {
-            n.clone_node().unwrap_or_else(|_| {
-                #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"Failed to clone placeholder node".into());
-                document().create_comment("").unchecked_into()
-            }).unchecked_into()
+            n.clone_node()
+                .unwrap_or_else(|_| {
+                    #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                    web_sys::console::error_1(
+                        &"Failed to clone placeholder node".into(),
+                    );
+                    document().create_comment("").unchecked_into()
+                })
+                .unchecked_into()
         })
     }
 
@@ -279,7 +281,9 @@ impl Dom {
     {
         if !Self::try_mount_before(new_child, before) {
             #[cfg(all(target_arch = "wasm32", debug_assertions))]
-            web_sys::console::error_1(&"could not find parent element to mount before".into());
+            web_sys::console::error_1(
+                &"could not find parent element to mount before".into(),
+            );
         }
     }
 
@@ -592,8 +596,13 @@ impl Dom {
                     let tpl = TEMPLATE_ELEMENT.with(|t| {
                         t.clone_node()
                             .unwrap_or_else(|_| {
-                                #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                                web_sys::console::error_1(&"Failed to clone template element".into());
+                                #[cfg(all(
+                                    target_arch = "wasm32",
+                                    debug_assertions
+                                ))]
+                                web_sys::console::error_1(
+                                    &"Failed to clone template element".into(),
+                                );
                                 let t: &HtmlTemplateElement = &*t;
                                 t.clone().into()
                             })
@@ -620,7 +629,9 @@ impl Dom {
             .clone_node_with_deep(true)
             .unwrap_or_else(|_| {
                 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                web_sys::console::error_1(&"Failed to clone template content".into());
+                web_sys::console::error_1(
+                    &"Failed to clone template content".into(),
+                );
                 tpl.content().into()
             })
             .unchecked_into()
@@ -669,9 +680,14 @@ impl Dom {
                         Self::intern("svg"),
                     )
                     .unwrap_or_else(|_| {
-                        document().create_element(Self::intern("svg")).unwrap_or_else(|_| {
-                            unreachable!("Could not even create a non-namespaced <svg>")
-                        })
+                        document()
+                            .create_element(Self::intern("svg"))
+                            .unwrap_or_else(|_| {
+                                unreachable!(
+                                    "Could not even create a non-namespaced \
+                                     <svg>"
+                                )
+                            })
                     });
                 let g = document()
                     .create_element_ns(
@@ -679,13 +695,19 @@ impl Dom {
                         Self::intern("g"),
                     )
                     .unwrap_or_else(|_| {
-                        document().create_element(Self::intern("g")).unwrap_or_else(|_| {
-                            unreachable!("Could not even create a non-namespaced <g>")
-                        })
+                        document()
+                            .create_element(Self::intern("g"))
+                            .unwrap_or_else(|_| {
+                                unreachable!(
+                                    "Could not even create a non-namespaced \
+                                     <g>"
+                                )
+                            })
                     });
                 g.set_inner_html(&html);
                 _ = svg.append_child(&g);
-                _ = tpl.unchecked_ref::<TemplateElement>()
+                _ = tpl
+                    .unchecked_ref::<TemplateElement>()
                     .content()
                     .append_child(&svg);
                 let tpl_content = Self::clone_template(tpl.unchecked_ref());

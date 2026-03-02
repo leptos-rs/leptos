@@ -217,7 +217,10 @@ impl RenderHtml for InertElement {
         let marker = cursor.current();
         let el = crate::renderer::types::Element::cast_from(marker.clone())
             .unwrap_or_else(|| {
-                crate::hydration::failed_to_cast_element("unknown (InertElement)", marker)
+                crate::hydration::failed_to_cast_element(
+                    "unknown (InertElement)",
+                    marker,
+                )
             });
         position.set(Position::NextChild);
         InertElementState(self.html, el)

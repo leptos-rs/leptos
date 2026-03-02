@@ -371,16 +371,21 @@ where
         let parent = if position.get() == Position::FirstChild {
             current
         } else {
-            Rndr::get_parent(&current)
-                .unwrap_or_else(|| {
-                    #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                    web_sys::console::error_1(&"first child of keyed list has no parent during hydration".into());
-                    current
-                })
+            Rndr::get_parent(&current).unwrap_or_else(|| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"first child of keyed list has no parent during hydration"
+                        .into(),
+                );
+                current
+            })
         };
         let parent = crate::renderer::types::Element::cast_from(parent.clone())
             .unwrap_or_else(|| {
-                crate::hydration::failed_to_cast_element("unknown (Keyed parent)", parent)
+                crate::hydration::failed_to_cast_element(
+                    "unknown (Keyed parent)",
+                    parent,
+                )
             });
 
         // build list
@@ -416,16 +421,21 @@ where
         let parent = if position.get() == Position::FirstChild {
             current
         } else {
-            Rndr::get_parent(&current)
-                .unwrap_or_else(|| {
-                    #[cfg(all(target_arch = "wasm32", debug_assertions))]
-                    web_sys::console::error_1(&"first child of keyed list has no parent during hydration".into());
-                    current
-                })
+            Rndr::get_parent(&current).unwrap_or_else(|| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"first child of keyed list has no parent during hydration"
+                        .into(),
+                );
+                current
+            })
         };
         let parent = crate::renderer::types::Element::cast_from(parent.clone())
             .unwrap_or_else(|| {
-                crate::hydration::failed_to_cast_element("unknown (Keyed parent)", parent)
+                crate::hydration::failed_to_cast_element(
+                    "unknown (Keyed parent)",
+                    parent,
+                )
             });
 
         // build list
@@ -711,7 +721,13 @@ fn apply_diff<T, VFS, V>(
             item_to_remove.unmount();
         } else {
             #[cfg(all(target_arch = "wasm32", debug_assertions))]
-            web_sys::console::error_1(&format!("removing item at index {}, but it was not present", at).into());
+            web_sys::console::error_1(
+                &format!(
+                    "removing item at index {}, but it was not present",
+                    at
+                )
+                .into(),
+            );
         }
     }
 
@@ -730,7 +746,8 @@ fn apply_diff<T, VFS, V>(
         .filter(|(_, move_)| !move_.move_in_dom)
     {
         if let Some(child) = moved_children[i].take() {
-            children[*to] = Some(child).inspect(|(set_index, _)| set_index(*to));
+            children[*to] =
+                Some(child).inspect(|(set_index, _)| set_index(*to));
         }
     }
 
@@ -758,7 +775,10 @@ fn apply_diff<T, VFS, V>(
             children[to] = Some((set_index, each_item));
         } else {
             #[cfg(all(target_arch = "wasm32", debug_assertions))]
-            web_sys::console::error_1(&format!("moving item to index {}, but it was not present", to).into());
+            web_sys::console::error_1(
+                &format!("moving item to index {}, but it was not present", to)
+                    .into(),
+            );
         }
     }
 
