@@ -801,8 +801,8 @@ impl ToTokens for PatchModel {
                                     let segment = keys
                                         .with_field_keys(
                                             path.clone(),
-                                            |keys| (keys.get(key), vec![]), // Returns a tuple (path to key in element, )
-                                            || vec![],                      // initialize with empty vector
+                                            |keys| (keys.get(key), vec![]),
+                                            || vec![],
                                         )
                                         .flatten()
                                         .map(|(_, idx)| idx)?;
