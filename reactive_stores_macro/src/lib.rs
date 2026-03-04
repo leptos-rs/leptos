@@ -49,7 +49,7 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 ///
-/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
+/// For the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
 /// which will conceptually look like this
 ///
 /// ```text
@@ -744,7 +744,7 @@ impl ToTokens for PatchModel {
                                 },
                             )
                         });
-                        let keyed = attrs
+                    let keyed = attrs
                         .iter()
                         .find_map(|attr| {
                             attr.meta.path().is_ident("store").then(|| {
@@ -795,13 +795,14 @@ impl ToTokens for PatchModel {
                                 notify,
                                 keys,
                                 #closure,
-                                |key| {
+                                // callback returning a store path based on time key
+                                |key| { 
                                     let keys = keys.as_ref()?;
                                     let segment = keys
                                         .with_field_keys(
                                             path.clone(),
-                                            |keys| (keys.get(key), vec![]),
-                                            || vec![],
+                                            |keys| (keys.get(key), vec![]), // Returns a tuple (path to key in element, )
+                                            || vec![],                      // initialize with empty vector
                                         )
                                         .flatten()
                                         .map(|(_, idx)| idx)?;
