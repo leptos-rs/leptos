@@ -795,7 +795,6 @@ impl ToTokens for PatchModel {
                                 notify,
                                 keys,
                                 #closure,
-                                // callback returning a store path based on time key
                                 |key| { 
                                     let keys = keys.as_ref()?;
                                     let segment = keys

@@ -148,7 +148,7 @@ where
     /// - **notify** - callback to notify about the update
     /// - **keys** - ??
     /// - **key_fn** - callback returning the key from an item in the collection
-    /// - **path_at_key** - callback returning a store path based on time key
+    /// - **path_at_key** - callback returning a store path for the element in the collection identified by the key
     fn patch_field_keyed(
         &mut self,
         new: Self,
