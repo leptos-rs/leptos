@@ -70,6 +70,8 @@
 
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 #![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(auto_traits))]
+#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(negative_impls))]
 #![deny(missing_docs)]
 
 use std::{fmt::Arguments, future::Future};
