@@ -795,7 +795,7 @@ impl ToTokens for PatchModel {
                                 notify,
                                 keys,
                                 #closure,
-                                |key| { 
+                                |key| {
                                     let keys = keys.as_ref()?;
                                     let segment = keys
                                         .with_field_keys(

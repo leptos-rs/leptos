@@ -431,37 +431,36 @@ pub struct KeyMap(
 
 impl KeyMap {
     /// Transforms the keys related to the field identified by `path`
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// - **path** - path to the field with collection
     /// - **fun** - Transforms an instance of [FieldKeys] into the result
     ///   
-    ///   ## Return value 
-    /// 
+    ///   ## Return value
+    ///
     ///   callback should return a tuple ( result, new_keys)
     ///
     ///   - **result** - path segment pointing at the updated element in the collection
     ///   - **new_keys** - is a vector of new keys to be added into ??
     ///     
     ///     # Entries
-    /// 
+    ///
     ///     Entry in the vector is a tuple (idx, segment) where
-    /// 
+    ///
     ///     - **idx** - index of the field with a key
     ///     - **segment** - last segment of the path to the element identified by **idx**
     ///     
     /// - **initialize** - ??
-    /// 
+    ///
     ///   ## Returns
-    /// 
+    ///
     ///   A vector of keys
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// - [None] if path doesn't point to the keyed field
     /// - **result** value returned from `fun` callback
-    /// 
     pub fn with_field_keys<K, T>(
         &self,
         path: StorePath,
