@@ -2,7 +2,7 @@ use crate::{
     env_from_str, env_w_default, env_wo_default, ws_from_str, Env,
     LeptosOptions, ReloadWSProtocol,
 };
-use std::{net::SocketAddr, str::FromStr};
+use std::{net::SocketAddr, path::Ancestors, str::FromStr};
 
 #[test]
 fn env_from_str_test() {
@@ -87,4 +87,66 @@ fn try_from_env_test() {
     assert_eq!(config.reload_external_port, Some(8080));
     assert_eq!(config.env, Env::PROD);
     assert_eq!(config.reload_ws_protocol, ReloadWSProtocol::WSS)
+}
+
+#[test]
+fn leptos_options_css_file_path() {
+    fn next_file_name<'a>(a: &'a mut Ancestors) -> Option<&'a str> {
+        a.next()
+            .map(|p| p.file_name())
+            .flatten()
+            .map(|s| s.to_str())
+            .flatten()
+    }
+    let options = LeptosOptions::builder().output_name("test").build();
+    let path = options.css_file_path();
+    let mut ancestors = path.ancestors();
+    assert_eq!(next_file_name(&mut ancestors), Some("test.css"));
+    assert_eq!(next_file_name(&mut ancestors), Some("pkg"));
+    assert_eq!(next_file_name(&mut ancestors), None);
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("")
+        .build();
+    let path = options.css_file_path();
+    let mut ancestors = path.ancestors();
+    assert_eq!(next_file_name(&mut ancestors), Some("test.css"));
+    assert_eq!(next_file_name(&mut ancestors), None);
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("my_pkg")
+        .site_root("my_site")
+        .build();
+    let path = options.css_file_path();
+    let mut ancestors = path.ancestors();
+    assert_eq!(next_file_name(&mut ancestors), Some("test.css"));
+    assert_eq!(next_file_name(&mut ancestors), Some("my_pkg"));
+    assert_eq!(next_file_name(&mut ancestors), Some("my_site"));
+    assert_eq!(next_file_name(&mut ancestors), None);
+}
+
+#[test]
+fn leptos_options_css_path() {
+    let options = LeptosOptions::builder().output_name("test").build();
+    assert_eq!(options.css_path(), "/pkg/test.css");
+
+    let options = LeptosOptions::builder()
+        .output_name("test.css")
+        .site_pkg_dir("my/pkg")
+        .build();
+    assert_eq!(options.css_path(), "/my/pkg/test.css.css");
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("/pkg/")
+        .build();
+    assert_eq!(options.css_path(), "/pkg/test.css");
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("")
+        .build();
+    assert_eq!(options.css_path(), "/test.css");
 }
