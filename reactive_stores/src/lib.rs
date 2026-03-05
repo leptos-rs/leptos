@@ -425,7 +425,9 @@ type Map<K, V> = Arc<std::sync::RwLock<std::collections::HashMap<K, V>>>;
 /// A map of the keys for a keyed subfield.
 #[derive(Clone, Default)]
 pub struct KeyMap(
+    /// Path to subfield -> Keys in keyed subfield
     Map<StorePath, Box<dyn Any + Send + Sync>>,
+    /// Map index -> key
     Map<(StorePath, usize), StorePathSegment>,
 );
 
@@ -441,21 +443,24 @@ impl KeyMap {
     ///
     ///   callback should return a tuple ( result, new_keys)
     ///
-    ///   - **result** - path segment pointing at the updated element in the collection
-    ///   - **new_keys** - is a vector of new keys to be added into ??
+    ///   - **result** - this value will be passed as a result
+    ///   - **new_keys** - is a vector of new keys to be added into reverse mapping
+    ///     (path, idx) -> (path segment) map
     ///     
-    ///     # Entries
+    ///     
+    ///     ### Entries
     ///
     ///     Entry in the vector is a tuple (idx, segment) where
     ///
-    ///     - **idx** - index of the field with a key
-    ///     - **segment** - last segment of the path to the element identified by **idx**
+    ///     - **idx** - index of the element in the collection
+    ///     - **segment** - key of the element in the collection
     ///     
     /// - **initialize** - ??
     ///
     ///   ## Returns
     ///
-    ///   A vector of keys
+    ///   A vector of keys which will be used if KeyMap doesn't have an entry for
+    ///   given `path`
     ///
     /// # Returns
     ///
