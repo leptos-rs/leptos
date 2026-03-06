@@ -106,6 +106,13 @@ where
 /// Allows patching a store field with some new value.
 pub trait PatchField {
     /// Patches the field with some new value, only notifying if the value has changed.
+    ///
+    /// # Arguments
+    ///
+    /// - **new** - new value
+    /// - **path** - path to the field
+    /// - **notify** - callback to notify about update
+    /// - **keys** - ??
     fn patch_field(
         &mut self,
         new: Self,
@@ -134,6 +141,14 @@ where
     ///
     /// Returns `true` if the structure of the collection changed (items added, removed,
     /// or reordered). Individual item changes are notified via the `notify` callback.
+    ///
+    /// # Arguments
+    ///
+    /// - **new** - updated values
+    /// - **notify** - callback to notify about the update
+    /// - **keys** - ??
+    /// - **key_fn** - callback returning the key from an item in the collection
+    /// - **path_at_key** - callback returning a store path for the element in the collection identified by the key
     fn patch_field_keyed(
         &mut self,
         new: Self,
