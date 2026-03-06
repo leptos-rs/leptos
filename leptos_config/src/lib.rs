@@ -143,27 +143,57 @@ pub struct LeptosOptions {
 }
 
 impl LeptosOptions {
-    /// Returns the path to the generated CSS file.
+    /// Returns the path on disk to the generated CSS file.  This is done by joining `site_root`,
+    /// `site_pkg_dir`, and the `output_name` with `.css` appended to it.
     ///
     /// # Example
     ///
     /// ```
     /// use leptos_config::LeptosOptions;
-    /// use std::path::{PathBuf, MAIN_SEPARATOR};
     ///
     /// let options = LeptosOptions::builder().output_name("test").build();
-    /// let path: PathBuf = options.css_path();
+    /// let path = options.css_file_path();
+    /// let mut ancestors = path.ancestors();
     ///
-    /// assert_eq!(path, PathBuf::from(format!("pkg{MAIN_SEPARATOR}test.css")));
+    /// assert_eq!(path.file_name().unwrap(), "test.css");
     /// ```
-    #[must_use = "allocates"]
-    pub fn css_path(&self) -> PathBuf {
-        use std::path::MAIN_SEPARATOR_STR;
+    pub fn css_file_path(&self) -> PathBuf {
+        Path::new(&*self.site_root)
+            .join(&*self.site_pkg_dir)
+            .join(format!("{}.css", self.output_name))
+    }
 
-        PathBuf::from(format!(
-            "{}{MAIN_SEPARATOR_STR}{}.css",
-            self.site_pkg_dir, self.output_name
-        ))
+    /// Returns the path portion of the uri to the generated CSS file.  This is done by combining
+    /// `site_pkg_dir` and the `output_name` with `.css` appended to it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use leptos_config::LeptosOptions;
+    ///
+    /// let options = LeptosOptions::builder().output_name("test").build();
+    /// let path = options.css_path();
+    /// assert_eq!(path, "/pkg/test.css");
+    /// ```
+    pub fn css_path(&self) -> String {
+        let mut path = self.site_pkg_dir_route_base();
+        path.push_str(&self.output_name);
+        path.push_str(".css");
+        path
+    }
+
+    /// Returns the base route to the `site_pkg_dir` with a leading and trailing slash added as necessary.
+    pub fn site_pkg_dir_route_base(&self) -> String {
+        let mut path = String::new();
+        // While it shouldn't start with a '/', but check anyway.
+        if !self.site_pkg_dir.starts_with('/') {
+            path.push('/');
+        }
+        path.push_str(&self.site_pkg_dir);
+        if !path.ends_with('/') {
+            path.push('/');
+        }
+        path
     }
 
     fn try_from_env() -> Result<Self, LeptosConfigError> {
