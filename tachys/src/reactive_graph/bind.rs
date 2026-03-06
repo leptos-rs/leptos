@@ -395,8 +395,8 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, K, T> IntoSplitSignal for KeyedSubfield<Inner, Prev, K, T>
 where
+    T: reactive_stores::KeyedIterable,
     Self: Get<Value = T> + Set<Value = T> + Clone,
-    for<'a> &'a T: IntoIterator,
 {
     type Value = T;
     type Read = Self;
@@ -410,8 +410,8 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, K, T> IntoSplitSignal for AtKeyed<Inner, Prev, K, T>
 where
+    T: reactive_stores::KeyedIterable,
     Self: Get<Value = T> + Set<Value = T> + Clone,
-    for<'a> &'a T: IntoIterator,
 {
     type Value = T;
     type Read = Self;
