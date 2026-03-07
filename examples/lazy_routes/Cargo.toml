@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 axum = { version = "0.8.1", optional = true }
 console_error_panic_hook = "0.1.7"
 console_log = "1.0"
-leptos = { path = "../../leptos", features = ["tracing"] }
+leptos = { path = "../../leptos", features = ["tracing", "lazy"] }
 leptos_meta = { path = "../../meta" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_router = { path = "../../router" }

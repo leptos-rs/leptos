@@ -22,9 +22,11 @@
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
 //! disables features necessary to support the normal native/Tokio runtime environment we create. This can
 //! generate errors like the following, which don’t point to an obvious culprit:
-//! `
+//!
+//! ```text
 //! `spawn_local` called from outside of a `task::LocalSet`
-//! `
+//! ```
+//!
 //! If you are not using the `wasm` feature, do not set `default-features = false` on this package.
 //!
 //!
@@ -86,10 +88,19 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
-#[cfg(feature = "default")]
+pub(crate) mod private {
+    use crate::RouterConfiguration;
+
+    pub trait Sealed {}
+
+    impl<S> Sealed for axum::Router<S> {}
+    impl<APP, CX, SH, S> Sealed for RouterConfiguration<APP, CX, SH, S> {}
+}
+
+mod config;
 mod service;
-#[cfg(feature = "default")]
-pub use service::ErrorHandler;
+pub use config::RouterConfiguration;
+pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -158,6 +169,18 @@ impl ResponseOptions {
     }
 }
 
+pub(crate) fn extend_response<ResBody>(
+    res: &mut Response<ResBody>,
+    res_options: &ResponseOptions,
+) {
+    let mut res_options = res_options.0.write().or_poisoned();
+    if let Some(status) = res_options.status {
+        *res.status_mut() = status;
+    }
+    res.headers_mut()
+        .extend(std::mem::take(&mut res_options.headers));
+}
+
 struct AxumResponse(Response<Body>);
 
 impl ExtendResponse for AxumResponse {
@@ -175,13 +198,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write().or_poisoned();
-        if let Some(status) = res_options.status {
-            *self.0.status_mut() = status;
-        }
-        self.0
-            .headers_mut()
-            .extend(std::mem::take(&mut res_options.headers));
+        extend_response(&mut self.0, res_options);
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {
@@ -275,9 +292,12 @@ pub fn redirect(path: &str) {
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
 /// original parts for further processing
-pub fn generate_request_and_parts(
-    req: Request<Body>,
-) -> (Request<Body>, Parts) {
+pub fn generate_request_and_parts<ReqBody>(
+    req: Request<ReqBody>,
+) -> (Request<ReqBody>, Parts)
+where
+    ReqBody: Send + 'static,
+{
     let (parts, body) = req.into_parts();
     let parts2 = parts.clone();
     (Request::from_parts(parts, body), parts2)
@@ -693,7 +713,7 @@ where
         additional_context.clone(),
         app_fn.clone(),
     );
-    let asyn = render_app_async_stream_with_context(
+    let asyn = render_app_async_with_context(
         additional_context.clone(),
         app_fn.clone(),
     );
@@ -1026,73 +1046,6 @@ where
     IV: IntoView + 'static,
 {
     render_app_async_with_context(|| {}, app_fn)
-}
-
-/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` resources have loaded.
-///
-/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
-/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
-/// the data to leptos in a closure. An example is below
-/// ```
-/// use axum::{
-///     body::Body,
-///     extract::Path,
-///     http::Request,
-///     response::{IntoResponse, Response},
-/// };
-/// use leptos::context::provide_context;
-///
-/// async fn custom_handler(
-///     Path(id): Path<String>,
-///     req: Request<Body>,
-/// ) -> Response {
-///     let handler = leptos_axum::render_app_async_with_context(
-///         move || {
-///             provide_context(id.clone());
-///         },
-///         || { /* your application here */ },
-///     );
-///     handler(req).await.into_response()
-/// }
-/// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
-///
-/// ## Provided Context Types
-/// This function always provides context values including the following types:
-/// - [`Parts`]
-/// - [`ResponseOptions`]
-/// - [`ServerMetaContext`]
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(level = "trace", fields(error), skip_all)
-)]
-pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send + Sync,
-    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
-) -> impl Fn(
-    Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
-where
-    IV: IntoView + 'static,
-{
-    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
-        Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
-                app.to_html_stream_in_order_branching()
-            } else {
-                app.to_html_stream_in_order()
-            };
-            let app = app.collect::<String>().await;
-            let chunks = chunks();
-            Box::pin(once(async move { app }).chain(chunks))
-                as PinnedStream<String>
-        })
-    })
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1681,7 +1634,10 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<S>
+///
+/// This trait is sealed and cannot be implemented for callers to avoid breaking backwards compatibility when
+/// new methods are added.
+pub trait LeptosRoutes<S>: private::Sealed
 where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
@@ -1689,6 +1645,47 @@ where
     /// Adds routes to the Axum router that have either
     /// 1) been generated by `leptos_router`, or
     /// 2) handle a server function.
+    ///
+    /// These routes are typically produced by applying the [`generate_route_list`] function on the root
+    /// application.
+    ///
+    /// The `app_fn` argument is typically the full application shell, which is normally a function that
+    /// returns a complete HTML document, with `<head>` including at the very least the [`HydrationScripts`],
+    /// and the `<body>` containing the application itself.  Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// let routes = generate_route_list(App);
+    ///
+    /// fn shell(options: LeptosOptions) -> impl IntoView {
+    ///     view! {
+    ///         <html>
+    ///             <head>
+    ///                 <HydrationScripts options/>
+    ///             </head>
+    ///             <body>
+    ///                 <App/>
+    ///             </body>
+    ///         </html>
+    ///     }
+    /// }
+    ///
+    /// let app = Router::new().leptos_routes(&leptos_options, routes, {
+    ///     let leptos_options = leptos_options.clone();
+    ///     move || shell(leptos_options.clone())
+    /// });
+    /// ```
+    ///
+    /// [`HydrationScripts`]: leptos::hydration::HydrationScripts
     fn leptos_routes<IV>(
         self,
         options: &S,
@@ -1724,6 +1721,274 @@ where
     where
         H: axum::handler::Handler<T, S>,
         T: 'static;
+
+    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
+    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
+    /// that resides under `LEPTOS_SITE_ROOT`.
+    ///
+    /// The shell will be used to generate the error fallback page for the resources that are not found;
+    /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
+    /// Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .leptos_route_site_pkg_dir(&leptos_options, shell);
+    /// ```
+    ///
+    /// Should no fallback or some other alternative fallback service be desired, the setup may be achieved
+    /// using the underlying helpers [`site_pkg_dir_service_route_path`] and [`site_pkg_dir_service`].
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .route_service(
+    ///         &leptos_axum::site_pkg_dir_service_route_path(&leptos_options),
+    ///         // modify the following `ServeDir` to suit your specific needs.
+    ///         leptos_axum::site_pkg_dir_service(&leptos_options),
+    ///     );
+    /// ```
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// [`leptos_routes`]: LeptosRoutes::leptos_routes
+    #[cfg(feature = "default")]
+    fn leptos_route_site_pkg_dir<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static;
+
+    /// Apply a default fallback service using the [`ErrorHandler`] service.
+    ///
+    /// The shell will be used to generate the error fallback page for the resources that are not found;
+    /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
+    /// Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .leptos_route_fallback(&leptos_options, shell);
+    /// ```
+    ///
+    /// [`leptos_routes`]: LeptosRoutes::leptos_routes
+    fn leptos_route_fallback<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static;
+
+    /// With the provided [`RouterConfiguration`], add the routes and services to the Axum router.
+    ///
+    /// This is useful for reducing the manual cloning of values across the different configurations using
+    /// the standard methods.  For example, a router with an additional context may be set up as follows:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .fallback(file_and_error_handler_with_context(extra_cx, shell))
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Instead, the above configuration is functionally similar to the following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let app = Router::new().leptos_route_configure(
+    ///     RouterConfiguration::new()
+    ///         .app(App)
+    ///         .shell(shell)
+    ///         .state(leptos_options)
+    ///         .with_context(extra_cx),
+    /// );
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// The above does not use the `file_and_error_handler_with_context`, but instead sets up separate
+    /// tower services for serving of site pkg and error handler, and is functionally equivalent to the
+    /// following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// let error_handler =
+    ///     ErrorHandler::new_with_context(extra_cx, shell, leptos_options.clone());
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .route_service(
+    ///         &site_pkg_dir_service_route_path(&leptos_options),
+    ///         ServiceBuilder::new()
+    ///             .layer(LeptosContextLayer::new_with_context(extra_cx))
+    ///             .service(
+    ///                 site_pkg_dir_service(&leptos_options)
+    ///                     .fallback(error_handler.clone()),
+    ///             ),
+    ///     )
+    ///     .fallback_service(error_handler)
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Note that both configuration with this method with a `RouterConfiguration` builder and the verbose
+    /// manner of setting up the router will allow an alternative fallback be specified without removing the
+    /// site pkg routes, as in the case with the combined fallback handler.
+    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    where
+        C: config::traits::RouterConfiguration<S>;
 }
 
 trait AxumPath {
@@ -1977,6 +2242,53 @@ where
         }
         router
     }
+
+    #[cfg(feature = "default")]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_site_pkg_dir<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static,
+    {
+        // Note that this does not currently address the use case required by #4377(#4394) as
+        // `extend_response()` won't be called with the service as provided.
+        let options = LeptosOptions::from_ref(options);
+        let path = site_pkg_dir_service_route_path(&options);
+        let serve_dir = site_pkg_dir_service(&options)
+            .fallback(ErrorHandler::new(shell, options));
+        let mut router = self;
+        router = router.route_service(&path, serve_dir);
+        router
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_fallback<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static,
+    {
+        let options = LeptosOptions::from_ref(options);
+        let mut router = self;
+        router = router.fallback_service(ErrorHandler::new(shell, options));
+        router
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    where
+        C: config::traits::RouterConfiguration<S>,
+    {
+        conf.apply(self)
+    }
 }
 
 /// A helper to make it easier to use Axum extractors in server functions.
@@ -2090,19 +2402,7 @@ where
                         },
                         move || shell(options),
                         req,
-                        |app, chunks, _supports_ooo| {
-                            Box::pin(async move {
-                                let app = if cfg!(feature = "islands-router") {
-                                    app.to_html_stream_in_order_branching()
-                                } else {
-                                    app.to_html_stream_in_order()
-                                };
-                                let app = app.collect::<String>().await;
-                                let chunks = chunks();
-                                Box::pin(once(async move { app }).chain(chunks))
-                                    as PinnedStream<String>
-                            })
-                        },
+                        async_stream_builder,
                     )
                     .await;
 
@@ -2185,6 +2485,9 @@ async fn get_static_file(
 /// as the fallback service, or be attached as a service route on the router,
 /// typically with the path derived from [`site_pkg_dir_service_route_path`].
 ///
+/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]
 pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
@@ -2197,7 +2500,12 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
 /// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
 /// for setting up a routed site pkg service with [`Router::route_service`].
 ///
+/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
+///
+/// [`Router::route_service`]: axum::Router::route_service
 pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     // The path of the route being built will be constained to serve only the
     // contents of `site_pkg_dir` to avoid conflicts with the root routes.
