@@ -32,6 +32,7 @@ or_poisoned = { workspace = true, default-features = true }
 anyhow = { workspace = true }
 axum = { workspace = true, default-features = true, features = ["macros"] }
 reqwest = { workspace = true }
+tempfile = { workspace = true, default-features = true }
 tokio = { features = [
   "io-util",
   "net",

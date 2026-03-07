@@ -36,6 +36,8 @@ mod router {
         ConfDefaultWithErrorHandler,
         ConfNew,
         ConfWithContext,
+
+        LeptosOptionsCssBase,
     }
 
     impl From<Cli> for Router {
@@ -243,6 +245,16 @@ mod router {
                                 HeaderValue::from_static("require-corp"),
                             );
                         }),
+                ),
+
+                Mode::LeptosOptionsCssBase => Router::new().nest(
+                    &leptos_options.css_path(),
+                    Router::new().route_service(
+                        "/",
+                        tower_http::services::ServeFile::new(
+                            &leptos_options.css_file_path(),
+                        ),
+                    ),
                 ),
             }
         }
