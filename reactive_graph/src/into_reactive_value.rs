@@ -164,5 +164,11 @@ mod tests {
         let derived = move || rw.get() + s.get();
         let sig: Signal<usize> = derived.into_reactive_value();
         assert_eq!(sig.get_untracked(), 84);
+
+        // see https://github.com/leptos-rs/leptos/pull/4617#issuecomment-4014829699
+        let a: ArcSignal<usize> = (|| 2).into_reactive_value();
+        let b: ArcSignal<usize> = ArcSignal::stored(2).into_reactive_value();
+        let _: ArcSignal<usize> =
+            (move || a.get() + b.get()).into_reactive_value();
     }
 }

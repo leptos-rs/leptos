@@ -212,7 +212,6 @@ impl<T> !NotASignalType for ArcRwSignal<T> {}
 impl<T, S> !NotASignalType for ReadSignal<T, S> {}
 impl<T, S> !NotASignalType for RwSignal<T, S> {}
 impl<T, S> !NotASignalType for ArcMemo<T, S> {}
-impl<T, S> !NotASignalType for ArcSignal<T, S> {}
 #[allow(deprecated)]
 impl<T, S> !NotASignalType for MaybeSignal<T, S> {}
 impl<T, S> !NotASignalType for Memo<T, S> {}
