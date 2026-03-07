@@ -153,5 +153,10 @@ mod tests {
         let derived = Signal::derive(move || s.get() + s.get());
         let sig: Signal<usize> = derived.into_reactive_value();
         assert_eq!(sig.get_untracked(), 84);
+
+        // (Closure) derived signals can capture other signals and still be converted
+        let derived = move || s.get() + s.get();
+        let sig: Signal<usize> = derived.into_reactive_value();
+        assert_eq!(sig.get_untracked(), 84);
     }
 }
