@@ -1069,7 +1069,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "either_of"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "paste",
  "pin-project-lite",
@@ -1950,7 +1950,7 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "leptos"
-version = "0.8.16"
+version = "0.8.17"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2049,6 +2049,7 @@ dependencies = [
  "reqwest",
  "server_fn",
  "tachys",
+ "tempfile",
  "tokio",
  "tower",
  "tower-http",
@@ -2138,7 +2139,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "server_fn",
- "server_fn_macro 0.8.9",
+ "server_fn_macro 0.8.10",
  "syn 2.0.114",
  "tracing",
  "trybuild",
@@ -2926,7 +2927,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -2947,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-error2",
@@ -3471,7 +3472,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.8.10"
+version = "0.8.11"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3536,7 +3537,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.8.9"
+version = "0.8.10"
 dependencies = [
  "const_format",
  "convert_case 0.11.0",
@@ -3551,7 +3552,7 @@ dependencies = [
 name = "server_fn_macro_default"
 version = "0.8.5"
 dependencies = [
- "server_fn_macro 0.8.9",
+ "server_fn_macro 0.8.10",
  "syn 2.0.114",
 ]
 
@@ -3799,7 +3800,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "any_spawner",
  "async-trait",
