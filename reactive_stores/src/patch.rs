@@ -112,7 +112,7 @@ pub trait PatchField {
     /// - **new** - new value
     /// - **path** - path to the field
     /// - **notify** - callback to notify about update
-    /// - **keys** - ??
+    /// - **keys** - a reference to the KeyMap for the store that's being patched
     fn patch_field(
         &mut self,
         new: Self,
@@ -146,7 +146,7 @@ where
     ///
     /// - **new** - updated values
     /// - **notify** - callback to notify about the update
-    /// - **keys** - ??
+    /// - **keys** - a reference to the KeyMap for the store that's being patched
     /// - **key_fn** - callback returning the key from an item in the collection
     /// - **path_at_key** - callback returning a store path for the element in the collection identified by the key
     fn patch_field_keyed(
