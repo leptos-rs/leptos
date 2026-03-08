@@ -4,19 +4,17 @@ use super::utils::{
     prop_span_info, turbofish_generics, PropInfo,
 };
 use crate::view::{
-    attribute_absolute, text_to_tokens,
+    attribute_absolute,
     utils::{filter_prefixed_attrs, key_value_span},
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
-    CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
-    NodeElement, NodeName,
+    CustomNode, KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement,
+    NodeName,
 };
 use std::collections::{HashMap, HashSet};
-use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
-};
+use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
@@ -262,7 +260,7 @@ pub(crate) fn component_to_tokens(
         helper_init,
         &presence_ident,
         &prop_infos,
-        &mut slots,
+        slots,
         children_arg.as_ref(),
         children_span,
     );
@@ -310,108 +308,4 @@ fn is_attr_let(key: &NodeName) -> bool {
     } else {
         false
     }
-}
-
-pub fn items_to_clone_to_tokens(
-    items_to_clone: &[Ident],
-) -> impl Iterator<Item = TokenStream> + '_ {
-    items_to_clone.iter().map(|ident| {
-        let ident_ref = quote_spanned!(ident.span()=> &#ident);
-        quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
-    })
-}
-
-/// By default all children are placed in an outer closure || #children.
-/// This is to work with all the variants of the
-/// leptos::children::ToChildren::to_children trait. Strings are optimised to be
-/// passed without the wrapping closure, providing significant compile time and
-/// binary size improvements.
-///
-/// Returns just the children arg expression (not the full builder
-/// call), or `None` if the children cannot be optimised.
-pub fn maybe_optimised_component_children(
-    children: &[Node<impl CustomNode>],
-    items_to_bind: &[TokenStream],
-    items_to_clone: &[Ident],
-) -> Option<TokenStream> {
-    // If there are bindables will have to be in a closure:
-    if !items_to_bind.is_empty() {
-        return None;
-    }
-
-    // Filter out comments:
-    let mut children_iter = children
-        .iter()
-        .filter(|child| !matches!(child, Node::Comment(_)));
-
-    let children = if let Some(child) = children_iter.next() {
-        // If more than one child after filtering out comments, don't think we
-        // can optimise:
-        if children_iter.next().is_some() {
-            return None;
-        }
-        match child {
-            Node::Text(text) => text_to_tokens(&text.value),
-            Node::RawText(raw) => {
-                let text = raw.to_string_best();
-                let text = syn::LitStr::new(&text, raw.span());
-                text_to_tokens(&text)
-            }
-            // Specifically allow std macros that produce strings:
-            Node::Block(NodeBlock::ValidBlock(block)) => {
-                fn is_supported(mac: &syn::Macro) -> bool {
-                    for string_macro in ["format", "include_str"] {
-                        if mac.path.is_ident(string_macro) {
-                            return true;
-                        }
-                    }
-                    false
-                }
-                if block.stmts.len() > 1 {
-                    return None;
-                } else if let Some(stmt) = block.stmts.first() {
-                    match stmt {
-                        Stmt::Macro(mac) => {
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        Stmt::Item(Item::Macro(mac)) => {
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        Stmt::Expr(Expr::Macro(mac), _) => {
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        _ => return None,
-                    }
-                } else {
-                    return Some(quote! {});
-                }
-            }
-            _ => return None,
-        }
-    } else {
-        return None;
-    };
-
-    let clonables = items_to_clone_to_tokens(items_to_clone);
-    Some(quote_spanned! {children.span()=>
-        {
-            #(#clonables)*
-
-            ::leptos::children::ToChildren::to_children(
-                ::leptos::children::ChildrenOptContainer(#children),
-            )
-        }
-    })
 }

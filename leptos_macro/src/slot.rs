@@ -1,14 +1,13 @@
 use crate::{
     component::{convert_from_snake_case, drain_filter},
     util::{
-        documentation::Docs,
-        generate_companion_internals, property_documentation,
-        property_documentation::{
-            prop_to_doc, PropDocumentationInput, PropDocumentationStyle,
+        documentation::{
+            generate_prop_documentation, prop_to_doc, Docs,
+            PropDocumentationStyle,
         },
-        type_analysis,
+        generate_companion_internals, type_analysis,
         typed_builder_opts::TypedBuilderOpts,
-        CompanionConfig, CompanionModuleBody,
+        CompanionConfig, CompanionModuleBody, PropLike,
     },
 };
 use attribute_derive::FromAttr;
@@ -94,21 +93,8 @@ impl ToTokens for Model {
         let phantom_field =
             type_analysis::generate_phantom_field(&phantom_type_params, false);
 
-        let prop_builder_fields = prop_builder_fields(vis, props);
-        let doc_inputs: Vec<PropDocumentationInput> = props
-            .iter()
-            .map(|p| PropDocumentationInput {
-                docs: &p.docs,
-                name: &p.name,
-                ty: &p.ty,
-                is_optional: p.options.is_optional(),
-                optional: p.options.optional,
-                strip_option: p.options.strip_option,
-                into: p.options.into,
-            })
-            .collect();
-        let prop_docs =
-            property_documentation::generate_prop_documentation(&doc_inputs);
+        let prop_builder_fields = prop_builder_fields(props);
+        let prop_docs = generate_prop_documentation(props);
         let builder_name_doc = LitStr::new(
             &format!("Props for the [`{name}`] slot."),
             name.span(),
@@ -208,15 +194,30 @@ struct SlotProp {
     ty: Type,
 }
 
-impl crate::util::PropLike for SlotProp {
+impl PropLike for SlotProp {
     fn name(&self) -> &Ident {
         &self.name
     }
     fn ty(&self) -> &Type {
         &self.ty
     }
-    fn is_required(&self) -> bool {
-        !self.options.is_optional()
+    fn docs(&self) -> &Docs {
+        &self.docs
+    }
+    fn is_optional(&self) -> bool {
+        self.options.is_optional()
+    }
+    fn optional(&self) -> bool {
+        self.options.optional
+    }
+    fn strip_option(&self) -> bool {
+        self.options.strip_option
+    }
+    fn into_prop(&self) -> bool {
+        self.options.into
+    }
+    fn default(&self) -> Option<&syn::Expr> {
+        self.options.default.as_ref()
     }
 }
 
@@ -271,42 +272,21 @@ impl SlotPropOptions {
     }
 }
 
-fn prop_builder_fields(_vis: &Visibility, props: &[SlotProp]) -> TokenStream {
+fn prop_builder_fields(props: &[SlotProp]) -> TokenStream {
     props
         .iter()
         .map(|prop| {
-            let SlotProp {
-                docs,
-                name,
-                options,
-                ty,
-            } = prop;
+            let builder_attrs = TypedBuilderOpts::from_prop(prop);
+            let builder_docs =
+                prop_to_doc(prop, PropDocumentationStyle::Inline);
 
-            let builder_attrs = TypedBuilderOpts::new(
-                options.is_optional(),
-                &options.default,
-                options.strip_option,
-                options.optional,
-                options.into,
-                ty,
-            );
-
-            let builder_documentation = prop_to_doc(
-                &PropDocumentationInput {
-                    docs,
-                    name,
-                    ty,
-                    is_optional: options.is_optional(),
-                    optional: options.optional,
-                    strip_option: options.strip_option,
-                    into: options.into,
-                },
-                PropDocumentationStyle::Inline,
-            );
+            let docs = prop.docs();
+            let name = &prop.name;
+            let ty = prop.ty();
 
             quote! {
                 #docs
-                #builder_documentation
+                #builder_docs
                 #builder_attrs
                 pub #name: #ty,
             }

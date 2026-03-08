@@ -1,15 +1,11 @@
 use crate::util::{
-    check_component_name_against_prelude,
     children::is_children_prop,
-    documentation::Docs,
-    generate_companion_internals,
-    property_documentation::{
-        generate_prop_documentation, prop_to_doc, PropDocumentationInput,
-        PropDocumentationStyle,
+    documentation::{
+        generate_prop_documentation, prop_to_doc, Docs, PropDocumentationStyle,
     },
-    type_analysis,
+    generate_companion_internals, type_analysis,
     typed_builder_opts::TypedBuilderOpts,
-    CompanionConfig, CompanionModuleBody,
+    CompanionConfig, CompanionModuleBody, PropLike,
 };
 use attribute_derive::FromAttr;
 use convert_case::{
@@ -240,9 +236,9 @@ impl ToTokens for Model {
                 || (!is_island_with_children && !props.is_empty()));
 
         let prop_builder_fields =
-            prop_builder_fields(vis, props, is_island_with_other_props);
+            prop_builder_fields(props, is_island_with_other_props);
         let props_serializer = if is_island_with_other_props {
-            let fields = prop_serializer_fields(vis, props);
+            let fields = prop_serializer_fields(props);
             quote! {
                 #[derive(::leptos::serde::Deserialize)]
                 pub struct #props_serialized_name {
@@ -260,19 +256,7 @@ impl ToTokens for Model {
             name.span(),
         );
 
-        let doc_inputs: Vec<PropDocumentationInput> = props
-            .iter()
-            .map(|p| PropDocumentationInput {
-                docs: &p.docs,
-                name: &p.name.ident,
-                ty: &p.ty,
-                is_optional: p.options.is_optional(),
-                optional: p.options.optional,
-                strip_option: p.options.strip_option,
-                into: p.options.into,
-            })
-            .collect();
-        let component_fn_prop_docs = generate_prop_documentation(&doc_inputs);
+        let component_fn_prop_docs = generate_prop_documentation(props);
         let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
             // Avoid generating an empty doc line in case the component has no
             // doc and no props.
@@ -852,15 +836,30 @@ struct ComponentProp {
     ty: Type,
 }
 
-impl crate::util::PropLike for ComponentProp {
+impl PropLike for ComponentProp {
     fn name(&self) -> &Ident {
         &self.name.ident
     }
     fn ty(&self) -> &Type {
         &self.ty
     }
-    fn is_required(&self) -> bool {
-        !self.options.is_optional()
+    fn docs(&self) -> &Docs {
+        &self.docs
+    }
+    fn is_optional(&self) -> bool {
+        self.options.is_optional()
+    }
+    fn optional(&self) -> bool {
+        self.options.optional
+    }
+    fn strip_option(&self) -> bool {
+        self.options.strip_option
+    }
+    fn into_prop(&self) -> bool {
+        self.options.into
+    }
+    fn default(&self) -> Option<&syn::Expr> {
+        self.options.default.as_ref()
     }
 }
 
@@ -936,6 +935,54 @@ fn is_lint_attr(attr: &Attribute) -> bool {
         || path.is_ident("forbid")
 }
 
+/// A list of names which cannot be used by Leptos users to name their own
+/// components.
+const FORBIDDEN_TYPE_NAMES: &[&str] = &[
+    "Component",
+    "Props",
+    "Children",
+    "View",
+    "Fragment",
+    "Signal",
+    "Memo",
+    "Effect",
+    "Action",
+    "Resource",
+    "Callback",
+    "Owner",
+];
+
+/// Checks whether the component `name` is forbidden.
+///
+/// `#[component]` generates a companion module with the same name as the
+/// component function. Because modules live in the type namespace, they can
+/// conflict with structs, traits, enums, and type aliases imported through, for
+/// example, `leptos::prelude::*`, or other sources.
+///
+/// when a user tries to name a component the same way a leptos-provided item is
+/// already named, Rust would produce an unhelpful E0659 (ambiguous name) error.
+///
+/// We catch the most common collisions at compile-time and emit a clear error
+/// instead
+fn check_component_name_against_prelude(name: &Ident) {
+    // Skip the check when compiling the `leptos` crate itself, which
+    // defines some of the items in our list (e.g. `Component`, `View`).
+    if std::env::var("CARGO_PKG_NAME").as_deref() == Ok("leptos") {
+        return;
+    }
+
+    let name_str = name.to_string();
+    if FORBIDDEN_TYPE_NAMES.contains(&name_str.as_str()) {
+        abort!(
+            name.span(),
+            "component name `{}` conflicts with `leptos::prelude::{}`",
+            name_str, name_str;
+            help = "rename the component to avoid the conflict, e.g. `My{}` or `App{}`",
+            name_str, name_str
+        );
+    }
+}
+
 pub struct UnknownAttrs(Vec<(TokenStream, Span)>);
 
 impl UnknownAttrs {
@@ -997,40 +1044,19 @@ impl ComponentPropOptions {
 }
 
 fn prop_builder_fields(
-    _vis: &Visibility,
     props: &[ComponentProp],
     is_island_with_other_props: bool,
 ) -> TokenStream {
     props
         .iter()
         .map(|prop| {
-            let ComponentProp {
-                docs,
-                name,
-                options: prop_opts,
-                ty,
-            } = prop;
-
-            let builder_attrs = TypedBuilderOpts::new(
-                prop_opts.is_optional(),
-                &prop_opts.default,
-                prop_opts.strip_option,
-                prop_opts.optional,
-                prop_opts.into,
-                ty,
-            );
-
-            let doc_input = PropDocumentationInput {
-                docs,
-                name: &name.ident,
-                ty,
-                is_optional: prop_opts.is_optional(),
-                optional: prop_opts.optional,
-                strip_option: prop_opts.strip_option,
-                into: prop_opts.into,
-            };
+            let builder_attrs = TypedBuilderOpts::from_prop(prop);
             let builder_docs =
-                prop_to_doc(&doc_input, PropDocumentationStyle::Inline);
+                prop_to_doc(prop, PropDocumentationStyle::Inline);
+
+            let name = &prop.name;
+            let ty = prop.ty();
+            let docs = prop.docs();
 
             // Children won't need documentation in many cases
             let allow_missing_docs = if is_children_prop(&name.ident, ty) {
@@ -1046,7 +1072,7 @@ fn prop_builder_fields(
                 quote!()
             };
 
-            let PatIdent { ident, by_ref, .. } = &name;
+            let PatIdent { ident, by_ref, .. } = name;
 
             quote! {
                 #docs
@@ -1060,34 +1086,19 @@ fn prop_builder_fields(
         .collect()
 }
 
-fn prop_serializer_fields(
-    _vis: &Visibility,
-    props: &[ComponentProp],
-) -> TokenStream {
+fn prop_serializer_fields(props: &[ComponentProp]) -> TokenStream {
     props
         .iter()
         .filter_map(|prop| {
-            if is_children_prop(&prop.name.ident, &prop.ty) {
+            if is_children_prop(&prop.name.ident, prop.ty()) {
                 None
             } else {
-                let ComponentProp {
-                    docs,
-                    name,
-                    options: prop_opts,
-                    ty,
-                } = prop;
-
-                let builder_attrs = TypedBuilderOpts::new(
-                    prop_opts.is_optional(),
-                    &prop_opts.default,
-                    prop_opts.strip_option,
-                    prop_opts.optional,
-                    prop_opts.into,
-                    ty,
-                );
+                let builder_attrs = TypedBuilderOpts::from_prop(prop);
                 let serde_attrs = builder_attrs.to_serde_tokens();
 
-                let PatIdent { ident, by_ref, .. } = &name;
+                let docs = prop.docs();
+                let PatIdent { ident, by_ref, .. } = &prop.name;
+                let ty = prop.ty();
 
                 Some(quote! {
                     #docs

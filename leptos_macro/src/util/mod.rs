@@ -8,14 +8,13 @@
 pub mod children;
 pub mod companion_module;
 pub mod documentation;
-pub mod prop_checks;
-pub mod property_documentation;
 pub mod type_analysis;
 pub mod typed_builder_opts;
 
 pub(crate) use companion_module::{
     generate_companion_internals, CompanionConfig, CompanionModuleBody,
 };
+use documentation::Docs;
 use proc_macro2::Ident;
 use syn::{Type, TypePath};
 
@@ -27,7 +26,17 @@ use syn::{Type, TypePath};
 pub(crate) trait PropLike {
     fn name(&self) -> &Ident;
     fn ty(&self) -> &Type;
-    fn is_required(&self) -> bool;
+    fn docs(&self) -> &Docs;
+    fn is_optional(&self) -> bool;
+    /// Raw `#[prop(optional)]` flag.
+    fn optional(&self) -> bool;
+    fn strip_option(&self) -> bool;
+    fn into_prop(&self) -> bool;
+    fn default(&self) -> Option<&syn::Expr>;
+
+    fn is_required(&self) -> bool {
+        !self.is_optional()
+    }
 }
 
 /// Strips the raw identifier prefix (`r#`) from a prop name.
@@ -84,55 +93,5 @@ pub(crate) fn is_option(ty: &Type) -> bool {
         segments.len() == 1 && segments.first().unwrap().ident == "Option"
     } else {
         false
-    }
-}
-
-// ── Name validation ─────────────────────────────────────────────
-
-/// A list of names which cannot be used by Leptos users to name their own
-/// components.
-const FORBIDDEN_TYPE_NAMES: &[&str] = &[
-    "Component",
-    "Props",
-    "Children",
-    "View",
-    "Fragment",
-    "Signal",
-    "Memo",
-    "Effect",
-    "Action",
-    "Resource",
-    "Callback",
-    "Owner",
-];
-
-/// Checks whether the component `name` is forbidden.
-///
-/// `#[component]` generates a companion module with the same name as the
-/// component function. Because modules live in the type namespace, they can
-/// conflict with structs, traits, enums, and type aliases imported through, for
-/// example, `leptos::prelude::*`, or other sources.
-///
-/// when a user tries to name a component the same way a leptos-provided item is
-/// already named, Rust would produce an unhelpful E0659 (ambiguous name) error.
-///
-/// We catch the most common collisions at compile-time and emit a clear error
-/// instead
-pub(crate) fn check_component_name_against_prelude(name: &Ident) {
-    // Skip the check when compiling the `leptos` crate itself, which
-    // defines some of the items in our list (e.g. `Component`, `View`).
-    if std::env::var("CARGO_PKG_NAME").as_deref() == Ok("leptos") {
-        return;
-    }
-
-    let name_str = name.to_string();
-    if FORBIDDEN_TYPE_NAMES.contains(&name_str.as_str()) {
-        proc_macro_error2::abort!(
-            name.span(),
-            "component name `{}` conflicts with `leptos::prelude::{}`",
-            name_str, name_str;
-            help = "rename the component to avoid the conflict, e.g. `My{}` or `App{}`",
-            name_str, name_str
-        );
     }
 }

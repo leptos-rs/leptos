@@ -61,6 +61,10 @@ pub(crate) fn slot_to_tokens(
     // Collect pre-check info for each non-optional prop.
     let mut prop_infos: Vec<PropInfo> = vec![];
     let mut seen_prop_names = HashSet::new();
+    // Only `let:`, `clone:`, and `attr:` are filtered here. Unlike
+    // components, slots don't support HTML-level prefixes (`class:`,
+    // `style:`, `prop:`, `on:`, `use:`) because slots represent data
+    // passed to a parent component, not rendered DOM elements.
     for attr in attrs.iter().filter(|attr| {
         !attr.key.to_string().starts_with("let:")
             && !attr.key.to_string().starts_with("clone:")
@@ -105,10 +109,9 @@ pub(crate) fn slot_to_tokens(
 
     let dyn_attrs = attrs
         .iter()
-        .filter(|attr| attr.key.to_string().starts_with("attr:"))
         .filter_map(|attr| {
-            let name = &attr.key.to_string();
-            let name = name.strip_prefix("attr:");
+            let name = attr.key.to_string();
+            let name = name.strip_prefix("attr:")?;
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
@@ -152,7 +155,7 @@ pub(crate) fn slot_to_tokens(
         helper_init,
         &presence_ident,
         &prop_infos,
-        &mut slots,
+        slots,
         children_arg.as_ref(),
         children_span,
     );

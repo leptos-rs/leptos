@@ -28,7 +28,7 @@ impl<'ast> Visit<'ast> for IdentFinder<'_> {
 /// Checks whether a type AST contains a reference to the given
 /// identifier (used to detect which generic params appear in field
 /// types).
-pub(crate) fn type_contains_ident(ty: &Type, ident: &Ident) -> bool {
+pub(super) fn type_contains_ident(ty: &Type, ident: &Ident) -> bool {
     let mut finder = IdentFinder {
         targets: &[ident],
         found: false,
@@ -39,7 +39,7 @@ pub(crate) fn type_contains_ident(ty: &Type, ident: &Ident) -> bool {
 
 /// Returns true if the type is exactly the given type parameter
 /// with no wrapping (e.g. `F`, not `Vec<F>`).
-pub(crate) fn is_exact_type_param(ty: &Type, ident: &Ident) -> bool {
+pub(super) fn is_exact_type_param(ty: &Type, ident: &Ident) -> bool {
     if let Type::Path(TypePath { path, .. }) = ty {
         path.is_ident(ident)
     } else {
@@ -50,7 +50,7 @@ pub(crate) fn is_exact_type_param(ty: &Type, ident: &Ident) -> bool {
 /// Returns true if the given type param appears inside a wrapping
 /// type in any field (e.g. `ServerAction<ServFn>`) rather than as a
 /// exact type param (e.g. `fun: F`).
-pub(crate) fn param_appears_wrapped_in_fields(
+pub(super) fn param_appears_wrapped_in_fields(
     param_ident: &Ident,
     field_types: &[&Type],
 ) -> bool {
@@ -124,7 +124,7 @@ pub(crate) fn strip_non_structural_bounds(
 
 /// Collects where-clause predicates (both inline bounds and
 /// where-clause entries) for a specific generic type param.
-pub(crate) fn collect_predicates_for_param(
+pub(super) fn collect_predicates_for_param(
     generics: &syn::Generics,
     param_ident: &Ident,
 ) -> Vec<WherePredicate> {
@@ -162,7 +162,7 @@ pub(crate) fn collect_predicates_for_param(
 /// (e.g. `T: Clone` in `<T: Clone>`) and where-clause predicates —
 /// into a flat list of `TokenStream` fragments suitable for use in a
 /// `where` clause.
-pub(crate) fn collect_all_predicates(
+pub(super) fn collect_all_predicates(
     generics: &syn::Generics,
 ) -> Vec<TokenStream> {
     let mut preds = Vec::new();
@@ -233,7 +233,7 @@ pub(crate) fn generate_phantom_field(
 
 /// Checks if any of the bounds in the given predicates reference
 /// generic params other than `self_ident`.
-pub(crate) fn bounds_reference_other_params(
+pub(super) fn bounds_reference_other_params(
     predicates: &[WherePredicate],
     self_ident: &Ident,
     full_generics: &syn::Generics,
@@ -288,7 +288,7 @@ fn iter_bounds(
 
 /// Returns true if any of the predicates contain an `Fn`, `FnMut`,
 /// or `FnOnce` bound (including HRTB forms like `for<'a> Fn(...)`).
-pub(crate) fn predicates_contain_fn_bound(
+pub(super) fn predicates_contain_fn_bound(
     predicates: &[WherePredicate],
 ) -> bool {
     iter_bounds(predicates).any(|bound| {
@@ -307,7 +307,7 @@ pub(crate) fn predicates_contain_fn_bound(
 
 /// Merges all type-param bounds from a list of where predicates
 /// into a single `A + B + C` token stream.
-pub(crate) fn merge_predicate_bounds(
+pub(super) fn merge_predicate_bounds(
     predicates: &[WherePredicate],
 ) -> TokenStream {
     let bounds: Vec<&TypeParamBound> = iter_bounds(predicates).collect();

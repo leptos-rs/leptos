@@ -1,8 +1,9 @@
+use crate::util::{is_option, unwrap_option, PropLike};
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{spanned::Spanned, Attribute, LitStr, Meta};
+use syn::{spanned::Spanned, Attribute, LitStr, Meta, Type};
 
 #[derive(Clone)]
 pub struct Docs(Vec<(String, Span)>);
@@ -143,10 +144,145 @@ impl Docs {
     pub fn typed_builder(&self) -> String {
         let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
 
-        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
+        if doc_str.chars().any(|c| c != '\n') {
             format!("\n\n{doc_str}")
         } else {
             String::new()
         }
     }
+}
+
+/// Controls the output format of prop documentation.
+#[derive(Clone, Copy)]
+pub(crate) enum PropDocumentationStyle {
+    /// Markdown list item (used in component/slot doc comments).
+    List,
+    /// Inline builder-setter documentation.
+    Inline,
+}
+
+/// Generates grouped prop documentation with required and optional sections.
+pub(crate) fn generate_prop_documentation(
+    props: &[impl PropLike],
+) -> TokenStream {
+    let required_prop_docs = props
+        .iter()
+        .filter(|p| !p.is_optional())
+        .map(|p| prop_to_doc(p, PropDocumentationStyle::List))
+        .collect::<TokenStream>();
+
+    let optional_prop_docs = props
+        .iter()
+        .filter(|p| p.is_optional())
+        .map(|p| prop_to_doc(p, PropDocumentationStyle::List))
+        .collect::<TokenStream>();
+
+    let required_prop_docs = if !required_prop_docs.is_empty() {
+        quote! {
+            #[doc = " # Required Props"]
+            #required_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
+    let optional_prop_docs = if !optional_prop_docs.is_empty() {
+        quote! {
+            #[doc = " # Optional Props"]
+            #optional_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        #required_prop_docs
+        #optional_prop_docs
+    }
+}
+
+/// Generates a documentation token stream for a single prop.
+pub(crate) fn prop_to_doc(
+    prop: &impl PropLike,
+    style: PropDocumentationStyle,
+) -> TokenStream {
+    let ty = if (prop.optional() || prop.strip_option()) && is_option(prop.ty())
+    {
+        unwrap_option(prop.ty())
+    } else {
+        prop.ty().to_owned()
+    };
+    let pretty_ty = pretty_print_type(&ty);
+
+    let name = prop.name();
+    let into = prop.into_prop();
+    let docs = prop.docs();
+
+    match style {
+        PropDocumentationStyle::List => {
+            let arg_ty_doc = LitStr::new(
+                &if !into {
+                    format!(" - **{name}**: [`{pretty_ty}`]")
+                } else {
+                    format!(
+                        " - **{name}**: [`impl \
+                         Into<{pretty_ty}>`]({pretty_ty})",
+                    )
+                },
+                name.span(),
+            );
+
+            let arg_user_docs = docs.padded();
+
+            quote! {
+                #[doc = #arg_ty_doc]
+                #arg_user_docs
+            }
+        }
+        PropDocumentationStyle::Inline => {
+            let arg_ty_doc = LitStr::new(
+                &if !into {
+                    format!(
+                        "**{name}**: [`{pretty_ty}`]{}",
+                        docs.typed_builder()
+                    )
+                } else {
+                    format!(
+                        "**{name}**: `impl`[`Into<{pretty_ty}>`]{}",
+                        docs.typed_builder()
+                    )
+                },
+                name.span(),
+            );
+
+            quote! {
+                #[builder(setter(doc = #arg_ty_doc))]
+            }
+        }
+    }
+}
+
+/// Pretty-prints a [`Type`] using `prettyplease` for readable documentation.
+///
+/// Wraps the type in a synthetic `type SomeType = <ty>;` item,
+/// formats the file, then strips the wrapper to recover just the type.
+fn pretty_print_type(ty: &Type) -> String {
+    const PREFIX: &str = "type SomeType = ";
+    const SUFFIX: &str = ";\n";
+
+    let type_item: syn::Item = syn::parse_quote! {
+        type SomeType = #ty;
+    };
+    let file = syn::File {
+        shebang: None,
+        attrs: vec![],
+        items: vec![type_item],
+    };
+    let formatted = prettyplease::unparse(&file);
+
+    formatted
+        .strip_prefix(PREFIX)
+        .and_then(|s| s.strip_suffix(SUFFIX))
+        .unwrap_or(&formatted)
+        .to_owned()
 }

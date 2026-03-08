@@ -1,15 +1,142 @@
 use super::props::PropInfo;
-use crate::view::{
-    component_builder::{
-        items_to_clone_to_tokens, maybe_optimised_component_children,
-    },
-    fragment_to_tokens, TagType,
-};
+use crate::view::{fragment_to_tokens, text_to_tokens, TagType};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use rstml::node::{CustomNode, Node};
+use rstml::node::{CustomNode, Node, NodeBlock};
 use std::collections::HashMap;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Expr, Item, Stmt};
+
+/// Generates the full "checked builder block" — the shared sequence
+/// of helper init, presence tracking, pre-checks, builder setters,
+/// and presence gate used by both component and slot code generation.
+///
+/// The caller provides the helper init expression and presence
+/// variable name (which differ between components and slots), then
+/// appends its own finalization (`.build()`, optional props, etc.)
+/// after the returned block.
+pub(crate) fn generate_checked_builder_block(
+    helper_init: TokenStream,
+    presence_ident: &Ident,
+    prop_infos: &[PropInfo],
+    slots: HashMap<String, Vec<TokenStream>>,
+    children_arg: Option<&TokenStream>,
+    children_span: Span,
+) -> TokenStream {
+    // Generate children pre-check and builder call.
+    let (children_check_stmt, children_builder_call) =
+        generate_children_check_and_builder(children_arg, children_span);
+
+    // Collect slot names before draining, for presence tracking.
+    let slot_names: Vec<String> = slots.keys().cloned().collect();
+    let slot_setters = drain_slot_setters(slots);
+
+    // Separate pre-check statements from builder setter calls.
+    let prop_check_result = generate_prop_check_statements(prop_infos);
+    let check_stmts = &prop_check_result.stmts;
+
+    // Builder setter calls referencing pre-checked variables.
+    let builder_setters =
+        generate_builder_setters(&prop_check_result, prop_infos);
+
+    // Presence tracking setters.
+    let presence_setters = generate_presence_setters(
+        prop_infos,
+        &slot_names,
+        children_arg.is_some(),
+        presence_ident,
+    );
+
+    // Use the presence ident's span (= component/slot name span)
+    // so that errors from `require_props()` and `check_missing()`
+    // point to the component/slot name, not the `view!` invocation.
+    let span = presence_ident.span();
+
+    quote_spanned! {span=>
+        // Obtain the helper (carries generic params).
+        let __helper = #helper_init;
+
+        // Check presence of required elements.
+        let #presence_ident = __helper.presence();
+        #presence_setters
+        #presence_ident.require_props();
+
+        // Pre-check prop types (independent of builder).
+        #(#check_stmts)*
+        #children_check_stmt
+
+        // Initialize the props builder.
+        let __props_builder = __helper.builder();
+
+        #(#builder_setters)*
+        #(#slot_setters)*
+        #children_builder_call
+
+        // Pass the typed builder instance through the presence gate.
+        // When a required prop is missing, `check_missing` fails
+        // (E0599) → builder becomes `{error}` → suppresses
+        // TypedBuilder's confusing `.build()` error.
+        let __props_builder = #presence_ident.check_missing(__props_builder);
+    }
+}
+
+/// Extracts the children argument expression for a component or
+/// slot, trying the optimised path first, then falling back to
+/// `fragment_to_tokens` wrapped with bindables and clonables.
+///
+/// Returns `None` when there are no children or when
+/// `fragment_to_tokens` produces nothing.
+pub(crate) fn extract_children_arg(
+    children: &mut [Node<impl CustomNode>],
+    slots: &mut HashMap<String, Vec<TokenStream>>,
+    items_to_bind: &[TokenStream],
+    items_to_clone: &[Ident],
+    children_span: Span,
+    global_class: Option<&TokenTree>,
+    disable_inert_html: bool,
+) -> Option<TokenStream> {
+    if children.is_empty() {
+        return None;
+    }
+
+    if let Some(children_arg) = maybe_optimised_component_children(
+        children,
+        items_to_bind,
+        items_to_clone,
+    ) {
+        return Some(children_arg);
+    }
+
+    let children = fragment_to_tokens(
+        children,
+        TagType::Unknown,
+        Some(slots),
+        global_class,
+        None,
+        disable_inert_html,
+    );
+
+    let Some(children) = children else {
+        return None;
+    };
+
+    let clonables = items_to_clone_to_tokens(items_to_clone);
+
+    let children_expr = if !items_to_bind.is_empty() {
+        let bindables = items_to_bind.iter().map(|ident| quote! { #ident, });
+        quote_spanned! {children_span=> move |#(#bindables)*| #children }
+    } else {
+        quote_spanned! {children_span=>
+            ::leptos::children::ToChildren::to_children(move || #children)
+        }
+    };
+
+    Some(quote_spanned! {children_span=>
+        {
+            #(#clonables)*
+            #children_expr
+        }
+    })
+}
 
 /// The output of `generate_prop_check_statements`.
 struct CheckedPropBindings {
@@ -106,32 +233,22 @@ fn generate_children_check_and_builder(
 /// on the presence builder to transition the type-state. The
 /// `var_name` ident controls the variable name used (e.g.
 /// `__presence` for components, `__slot_pres` for slots).
-///
-/// Returns `(prop_setters, slot_setters, children_setter)`.
 fn generate_presence_setters(
     prop_infos: &[PropInfo],
     slot_names: &[String],
     has_children: bool,
     var_name: &Ident,
-) -> (Vec<TokenStream>, Vec<TokenStream>, TokenStream) {
-    let prop_setters: Vec<TokenStream> = prop_infos
-        .iter()
-        .map(|info| {
-            let setter = Ident::new_raw(
-                &info.span_info.stripped_name,
-                Span::call_site(),
-            );
-            quote! { let #var_name = #var_name.#setter(); }
-        })
-        .collect();
+) -> TokenStream {
+    let prop_setters = prop_infos.iter().map(|info| {
+        let setter =
+            Ident::new_raw(&info.span_info.stripped_name, Span::call_site());
+        quote! { let #var_name = #var_name.#setter(); }
+    });
 
-    let slot_setters: Vec<TokenStream> = slot_names
-        .iter()
-        .map(|name| {
-            let setter = Ident::new(name, Span::call_site());
-            quote! { let #var_name = #var_name.#setter(); }
-        })
-        .collect();
+    let slot_setters = slot_names.iter().map(|name| {
+        let setter = Ident::new(name, Span::call_site());
+        quote! { let #var_name = #var_name.#setter(); }
+    });
 
     let children_setter = if has_children {
         quote! { let #var_name = #var_name.children(); }
@@ -139,7 +256,11 @@ fn generate_presence_setters(
         quote! {}
     };
 
-    (prop_setters, slot_setters, children_setter)
+    quote! {
+        #(#prop_setters)*
+        #(#slot_setters)*
+        #children_setter
+    }
 }
 
 /// Generates builder setter calls for pre-checked prop values.
@@ -167,16 +288,16 @@ fn generate_builder_setters(
         .collect()
 }
 
-/// Drains a slot map into builder setter calls.
+/// Consumes a slot map into builder setter calls.
 ///
 /// Each slot entry becomes a `let __props_builder =
 /// __props_builder.slot_name(value);` statement. Multi-valued
 /// slots are collected into a `Vec`.
 fn drain_slot_setters(
-    slots: &mut HashMap<String, Vec<TokenStream>>,
+    slots: HashMap<String, Vec<TokenStream>>,
 ) -> Vec<TokenStream> {
     slots
-        .drain()
+        .into_iter()
         .map(|(slot, mut values)| {
             let span = values
                 .last()
@@ -200,141 +321,92 @@ fn drain_slot_setters(
         .collect()
 }
 
-/// Generates the full "checked builder block" — the shared sequence
-/// of helper init, presence tracking, pre-checks, builder setters,
-/// and presence gate used by both component and slot code generation.
-///
-/// The caller provides the helper init expression and presence
-/// variable name (which differ between components and slots), then
-/// appends its own finalization (`.build()`, optional props, etc.)
-/// after the returned block.
-pub(crate) fn generate_checked_builder_block(
-    helper_init: TokenStream,
-    presence_ident: &Ident,
-    prop_infos: &[PropInfo],
-    slots: &mut HashMap<String, Vec<TokenStream>>,
-    children_arg: Option<&TokenStream>,
-    children_span: Span,
-) -> TokenStream {
-    // Generate children pre-check and builder call.
-    let (children_check_stmt, children_builder_call) =
-        generate_children_check_and_builder(children_arg, children_span);
-
-    // Collect slot names before draining, for presence tracking.
-    let slot_names: Vec<String> = slots.keys().cloned().collect();
-    let slot_setters = drain_slot_setters(slots);
-
-    // Separate pre-check statements from builder setter calls.
-    let prop_check_result = generate_prop_check_statements(prop_infos);
-    let check_stmts = &prop_check_result.stmts;
-
-    // Builder setter calls referencing pre-checked variables.
-    let builder_setters =
-        generate_builder_setters(&prop_check_result, prop_infos);
-
-    // Presence tracking setters.
-    let (presence_setters, presence_slots, presence_children) =
-        generate_presence_setters(
-            prop_infos,
-            &slot_names,
-            children_arg.is_some(),
-            presence_ident,
-        );
-
-    // Use the presence ident's span (= component/slot name span)
-    // so that errors from `require_props()` and `check_missing()`
-    // point to the component/slot name, not the `view!` invocation.
-    let span = presence_ident.span();
-
-    quote_spanned! {span=>
-        // Obtain the helper (carries generic params).
-        let __helper = #helper_init;
-
-        // Check presence of required elements.
-        let #presence_ident = __helper.presence();
-        #(#presence_setters)*
-        #(#presence_slots)*
-        #presence_children
-        #presence_ident.require_props();
-
-        // Pre-check prop types (independent of builder).
-        #(#check_stmts)*
-        #children_check_stmt
-
-        // Initialize the props builder.
-        let __props_builder = __helper.builder();
-
-        #(#builder_setters)*
-        #(#slot_setters)*
-        #children_builder_call
-
-        // Pass the typed builder instance through the presence gate.
-        // When a required prop is missing, `check_missing` fails
-        // (E0599) → builder becomes `{error}` → suppresses
-        // TypedBuilder's confusing `.build()` error.
-        let __props_builder = #presence_ident.check_missing(__props_builder);
-    }
+fn items_to_clone_to_tokens(
+    items_to_clone: &[Ident],
+) -> impl Iterator<Item = TokenStream> + '_ {
+    items_to_clone.iter().map(|ident| {
+        let ident_ref = quote_spanned!(ident.span()=> &#ident);
+        quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
+    })
 }
 
-/// Extracts the children argument expression for a component or
-/// slot, trying the optimised path first, then falling back to
-/// `fragment_to_tokens` wrapped with bindables and clonables.
+/// By default all children are placed in an outer closure || #children.
+/// This is to work with all the variants of the
+/// leptos::children::ToChildren::to_children trait. Strings are optimised to be
+/// passed without the wrapping closure, providing significant compile time and
+/// binary size improvements.
 ///
-/// Returns `None` when there are no children or when
-/// `fragment_to_tokens` produces nothing.
-pub(crate) fn extract_children_arg(
-    children: &mut [Node<impl CustomNode>],
-    slots: &mut HashMap<String, Vec<TokenStream>>,
+/// Returns just the children arg expression (not the full builder
+/// call), or `None` if the children cannot be optimised.
+fn maybe_optimised_component_children(
+    children: &[Node<impl CustomNode>],
     items_to_bind: &[TokenStream],
     items_to_clone: &[Ident],
-    children_span: Span,
-    global_class: Option<&TokenTree>,
-    disable_inert_html: bool,
 ) -> Option<TokenStream> {
-    if children.is_empty() {
+    // If there are bindables will have to be in a closure:
+    if !items_to_bind.is_empty() {
         return None;
     }
 
-    if let Some(children_arg) = maybe_optimised_component_children(
-        children,
-        items_to_bind,
-        items_to_clone,
-    ) {
-        return Some(children_arg);
-    }
+    // Filter out comments:
+    let mut children_iter = children
+        .iter()
+        .filter(|child| !matches!(child, Node::Comment(_)));
 
-    let children = fragment_to_tokens(
-        children,
-        TagType::Unknown,
-        Some(slots),
-        global_class,
-        None,
-        disable_inert_html,
-    );
-
-    let Some(children) = children else {
+    let children = if let Some(child) = children_iter.next() {
+        // If more than one child after filtering out comments, don't think we
+        // can optimise:
+        if children_iter.next().is_some() {
+            return None;
+        }
+        match child {
+            Node::Text(text) => text_to_tokens(&text.value),
+            Node::RawText(raw) => {
+                let text = raw.to_string_best();
+                let text = syn::LitStr::new(&text, raw.span());
+                text_to_tokens(&text)
+            }
+            // Specifically allow std macros that produce strings:
+            Node::Block(NodeBlock::ValidBlock(block)) => {
+                fn is_supported(mac: &syn::Macro) -> bool {
+                    for string_macro in ["format", "include_str"] {
+                        if mac.path.is_ident(string_macro) {
+                            return true;
+                        }
+                    }
+                    false
+                }
+                if block.stmts.len() > 1 {
+                    return None;
+                } else if let Some(stmt) = block.stmts.first() {
+                    let mac = match stmt {
+                        Stmt::Macro(m) => &m.mac,
+                        Stmt::Item(Item::Macro(m)) => &m.mac,
+                        Stmt::Expr(Expr::Macro(m), _) => &m.mac,
+                        _ => return None,
+                    };
+                    if !is_supported(mac) {
+                        return None;
+                    }
+                    quote! { #block }
+                } else {
+                    return Some(quote! {});
+                }
+            }
+            _ => return None,
+        }
+    } else {
         return None;
     };
 
-    let bindables = items_to_bind.iter().map(|ident| quote! { #ident, });
-
     let clonables = items_to_clone_to_tokens(items_to_clone);
+    Some(quote_spanned! {children.span()=>
+        {
+            #(#clonables)*
 
-    if !items_to_bind.is_empty() {
-        Some(quote_spanned! {children_span=>
-            {
-                #(#clonables)*
-
-                move |#(#bindables)*| #children
-            }
-        })
-    } else {
-        Some(quote_spanned! {children_span=>
-            {
-                #(#clonables)*
-
-                ::leptos::children::ToChildren::to_children(move || #children)
-            }
-        })
-    }
+            ::leptos::children::ToChildren::to_children(
+                ::leptos::children::ChildrenOptContainer(#children),
+            )
+        }
+    })
 }

@@ -1,4 +1,11 @@
-use crate::util::{is_option, unwrap_option};
+//! Options for generating `#[builder(...)]` and `#[serde(...)]`
+//! attributes on prop fields.
+//!
+//! [`TypedBuilderOpts`] is constructed via [`TypedBuilderOpts::from_prop`]
+//! and consumed through its [`ToTokens`] impl (for builder attributes) or
+//! [`TypedBuilderOpts::to_serde_tokens`] (for serialization attributes).
+
+use crate::util::{is_option, unwrap_option, PropLike};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::Type;
@@ -8,32 +15,26 @@ use syn::Type;
 /// Used by both components and slots to produce the correct
 /// TypedBuilder annotations for each prop.
 pub(crate) struct TypedBuilderOpts<'a> {
-    pub default: bool,
-    pub default_with_value: Option<syn::Expr>,
-    pub strip_option: bool,
-    pub into: bool,
-    pub ty: &'a Type,
+    default: bool,
+    default_with_value: Option<syn::Expr>,
+    strip_option: bool,
+    into: bool,
+    ty: &'a Type,
 }
 
 impl<'a> TypedBuilderOpts<'a> {
     /// Computes the `TypedBuilderOpts` for a prop field from its
-    /// raw option flags.
+    /// `PropLike` implementation.
     ///
-    /// Used by both components and slots. Each caller passes the
-    /// relevant fields from their own `PropOpt` type.
-    pub(crate) fn new(
-        is_optional: bool,
-        default: &Option<syn::Expr>,
-        strip_option: bool,
-        optional: bool,
-        into: bool,
-        ty: &'a Type,
-    ) -> Self {
+    /// Used by both components and slots.
+    pub(crate) fn from_prop<P: PropLike>(prop: &'a P) -> Self {
+        let ty = prop.ty();
         Self {
-            default: is_optional && default.is_none(),
-            default_with_value: default.clone(),
-            strip_option: strip_option || optional && is_option(ty),
-            into,
+            default: prop.is_optional() && prop.default().is_none(),
+            default_with_value: prop.default().cloned(),
+            strip_option: prop.strip_option()
+                || prop.optional() && is_option(ty),
+            into: prop.into_prop(),
             ty,
         }
     }
