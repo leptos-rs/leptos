@@ -13,7 +13,7 @@ use std::{
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
 struct Todos {
     /// Current user.
     user: User,
