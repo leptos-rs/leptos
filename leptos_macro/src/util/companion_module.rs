@@ -284,7 +284,8 @@ fn generate_presence_and_required_checks<P: PropLike>(
                 #[allow(non_camel_case_types)]
                 pub trait #trait_name {}
 
-                impl #trait_name for ::leptos::component::Present {}
+                #[diagnostic::do_not_recommend]
+                impl #trait_name for Present {}
             });
 
             let bound = quote! { #param: #trait_name };
@@ -296,9 +297,8 @@ fn generate_presence_and_required_checks<P: PropLike>(
     }
 
     // Initial type state: all Absent
-    let initial_types: Vec<TokenStream> = (0..n)
-        .map(|_| quote! { ::leptos::component::Absent })
-        .collect();
+    let initial_types: Vec<TokenStream> =
+        (0..n).map(|_| quote! { Absent }).collect();
 
     let initial_return_type = if n == 0 {
         quote! { PresenceBuilder<()> }
@@ -318,7 +318,7 @@ fn generate_presence_and_required_checks<P: PropLike>(
             let return_types: Vec<TokenStream> = (0..n)
                 .map(|j| {
                     if j == i {
-                        quote! { ::leptos::component::Present }
+                        quote! { Present }
                     } else {
                         let param = &type_state_idents[j];
                         quote! { #param }
@@ -337,6 +337,14 @@ fn generate_presence_and_required_checks<P: PropLike>(
         .collect();
 
     let items = quote! {
+        /// Presence type-state marker: prop has NOT been provided.
+        #[doc(hidden)]
+        pub struct Absent;
+
+        /// Presence type-state marker: prop has been provided.
+        #[doc(hidden)]
+        pub struct Present;
+
         #(#marker_traits)*
 
         #[doc(hidden)]

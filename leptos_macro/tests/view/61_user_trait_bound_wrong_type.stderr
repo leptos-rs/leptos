@@ -15,8 +15,6 @@ note: required for `{integer}` to implement `Check_value`
    |
 25 | #[component]
    | ^^^^^^^^^^^^
-26 | fn Inner<T: Greetable>(value: T) -> impl IntoView {
-   |             --------- unsatisfied trait bound introduced here
 note: required by a bound in `Inner::Helper::<T>::check_and_wrap_value`
   --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
    |
@@ -34,9 +32,8 @@ error[E0599]: the method `extract_value` exists for struct `Wrap_value<{integer}
    | ------------ method `extract_value` not found for this struct
    |
 note: trait bound `{integer}: my_traits::Greetable` was not satisfied
-  --> tests/view/61_user_trait_bound_wrong_type.rs:26:13
+  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
-   | ------------
-26 | fn Inner<T: Greetable>(value: T) -> impl IntoView {
-   |             ^^^^^^^^^ unsatisfied trait bound introduced here
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

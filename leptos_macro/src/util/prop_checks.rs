@@ -7,7 +7,7 @@
 //! strategies and [`generate_prop_checks`] for the entry point.
 
 use super::{clean_prop_name, type_analysis, PropLike};
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Group, Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use syn::{GenericParam, Generics, Type};
 
@@ -114,6 +114,12 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
                 };
                 let note = format!("required: `{bounds_note}`{hint}");
 
+                // Despan bounds to call_site so compiler notes don't
+                // produce multi-line spans back to the original
+                // function signature. The bound info is already in
+                // our custom on_unimplemented note text.
+                let bounds_despanned = despan(bounds.clone());
+
                 // Marker-only trait with on_unimplemented and supertraits.
                 output.check_traits.push(quote! {
                     #[doc(hidden)]
@@ -128,7 +134,7 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
                 // Outside module: bounded marker impl.
                 output.trait_impls.push(quote! {
                     #[doc(hidden)]
-                    impl<__T: #bounds>
+                    impl<__T: #bounds_despanned>
                         #module_name::#check_trait_name for __T
                     {}
                 });
@@ -137,7 +143,7 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
                 // E0599 → {error}.
                 output.wrapper_items.push(quote! {
                     #[doc(hidden)]
-                    impl<__T: #bounds> #wrap_struct_name<__T> {
+                    impl<__T: #bounds_despanned> #wrap_struct_name<__T> {
                         pub fn extract_value(self) -> __T { self.0 }
                     }
                 });
@@ -320,4 +326,20 @@ impl PropClassification {
 
         classification
     }
+}
+
+/// Resets all spans in a token stream to `Span::call_site()`.
+fn despan(ts: TokenStream) -> TokenStream {
+    ts.into_iter()
+        .map(|mut tt| {
+            if let TokenTree::Group(g) = tt {
+                let mut new = Group::new(g.delimiter(), despan(g.stream()));
+                new.set_span(Span::call_site());
+                tt = TokenTree::Group(new);
+            } else {
+                tt.set_span(Span::call_site());
+            }
+            tt
+        })
+        .collect()
 }

@@ -10,9 +10,6 @@ note: required for `bool` to implement `Check_generic_fun`
    |
 17 | #[component]
    | ^^^^^^^^^^^^
-...
-24 |     F: Fn() -> bool,
-   |        ------------ unsatisfied trait bound introduced here
 note: required by a bound in `Inner::Helper::<F>::check_and_wrap_generic_fun`
   --> tests/view/09_generic_prop_wrong_type.rs:17:1
    |
@@ -32,13 +29,8 @@ error[E0599]: the method `extract_value` exists for struct `Wrap_generic_fun<boo
 note: the following trait bounds were not satisfied:
       `bool: Fn<()>`
       `bool: FnOnce<()>`
-  --> tests/view/09_generic_prop_wrong_type.rs:24:8
+  --> tests/view/09_generic_prop_wrong_type.rs:17:1
    |
 17 | #[component]
-   | ------------
-...
-24 |     F: Fn() -> bool,
-   |        ^^^^^^^^^^^^
-   |        |       |
-   |        |       unsatisfied trait bound introduced here
-   |        unsatisfied trait bound introduced here
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

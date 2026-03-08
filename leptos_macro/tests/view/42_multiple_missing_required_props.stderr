@@ -4,7 +4,11 @@ error[E0277]: missing required prop `concrete_i32` on component `Inner`
 10 |             <Inner/>
    |              ^^^^^ missing prop `concrete_i32`
    |
-   = help: the trait `required_Inner_concrete_i32` is not implemented for `leptos::component::Absent`
+help: the trait `required_Inner_concrete_i32` is not implemented for `Inner::Absent`
+  --> tests/view/42_multiple_missing_required_props.rs:15:1
+   |
+15 | #[component]
+   | ^^^^^^^^^^^^
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
 note: required by a bound in `Inner::PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
@@ -19,7 +23,11 @@ error[E0277]: missing required prop `generic_fun` on component `Inner`
 10 |             <Inner/>
    |              ^^^^^ missing prop `generic_fun`
    |
-   = help: the trait `required_Inner_generic_fun` is not implemented for `leptos::component::Absent`
+help: the trait `required_Inner_generic_fun` is not implemented for `Inner::Absent`
+  --> tests/view/42_multiple_missing_required_props.rs:15:1
+   |
+15 | #[component]
+   | ^^^^^^^^^^^^
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
 note: required by a bound in `Inner::PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
@@ -34,7 +42,11 @@ error[E0277]: component `Inner` requires children
 10 |             <Inner/>
    |              ^^^^^ children required
    |
-   = help: the trait `required_Inner_children` is not implemented for `leptos::component::Absent`
+help: the trait `required_Inner_children` is not implemented for `Inner::Absent`
+  --> tests/view/42_multiple_missing_required_props.rs:15:1
+   |
+15 | #[component]
+   | ^^^^^^^^^^^^
    = note: add child elements between the opening and closing tags
 note: required by a bound in `Inner::PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/42_multiple_missing_required_props.rs:15:1
@@ -43,24 +55,24 @@ note: required by a bound in `Inner::PresenceBuilder::<(__F0, __F1, __F2)>::requ
    | ^^^^^^^^^^^^ required by this bound in `PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `Inner::PresenceBuilder<(leptos::component::Absent, leptos::component::Absent, leptos::component::Absent)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `Inner::PresenceBuilder<(Inner::Absent, Inner::Absent, Inner::Absent)>`, but its trait bounds were not satisfied
   --> tests/view/42_multiple_missing_required_props.rs:10:14
    |
 10 |             <Inner/>
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 15 | #[component]
-   | ------------ method `check_missing` not found for this struct
-   |
-  ::: $WORKSPACE/leptos/src/component.rs
-   |
-   | pub struct Absent;
-   | ----------------- doesn't satisfy `_: required_Inner_concrete_i32`, `_: required_Inner_generic_fun` or `leptos::component::Absent: required_Inner_children`
+   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `Inner::Absent: required_Inner_children`, `Inner::Absent: required_Inner_concrete_i32` or `Inner::Absent: required_Inner_generic_fun`
    |
 note: the following trait bounds were not satisfied:
-      `leptos::component::Absent: required_Inner_children`
-      `leptos::component::Absent: required_Inner_concrete_i32`
-      `leptos::component::Absent: required_Inner_generic_fun`
+      `Inner::Absent: required_Inner_children`
+      `Inner::Absent: required_Inner_concrete_i32`
+      `Inner::Absent: required_Inner_generic_fun`
+  --> tests/view/42_multiple_missing_required_props.rs:15:1
+   |
+15 | #[component]
+   | ^^^^^^^^^^^^
+note: the traits `required_Inner_children`, `required_Inner_concrete_i32`,  and `required_Inner_generic_fun` must be implemented
   --> tests/view/42_multiple_missing_required_props.rs:15:1
    |
 15 | #[component]
