@@ -8,6 +8,7 @@ use std::{
     sync::Once,
     time::{Duration, Instant},
 };
+use tempfile::TempDir;
 use tokio::{
     io::AsyncReadExt,
     process::{Child, Command},
@@ -166,6 +167,65 @@ async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn leptos_options_css_base() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "leptos-options-css-base").await;
+    let client = Client::new();
+    // should route the css file that was setup using `LeptosOptions`.
+    let res = client
+        .get(service.url("/pkg/service_mode.css")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("font-family: sans-serif;"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn leptos_options_css_moved() -> anyhow::Result<()> {
+    build_services();
+    // Note: this test does not test the behavior of `cargo-leptos` but instead will test how the
+    // end user might configure the files on the server and how they might set the environment variables
+    // to reflect their configuration before starting their axum based service, where those variables will
+    // influence values provided by `LeptosOptions`.
+    let working_dir = Path::new("tests").join("service_mode");
+    let site_root = TempDir::new()?;
+    let my_pkg = Path::new("my").join("pkg");
+    let dest = site_root.path().join(my_pkg);
+    std::fs::create_dir_all(&dest)?;
+    std::fs::copy(
+        working_dir
+            .join("target")
+            .join("site")
+            .join("pkg")
+            .join("service_mode.css"),
+        dest.join("service_mode.css"),
+    )?;
+
+    let service = start_test_service_with_envs(
+        "service_mode",
+        "leptos-options-css-base",
+        vec![
+            (
+                "LEPTOS_SITE_ROOT",
+                site_root.path().to_str().expect("valid utf8"),
+            ),
+            ("LEPTOS_SITE_PKG_DIR", "my/pkg"),
+        ],
+    )
+    .await;
+    let client = Client::new();
+    // should route the css file that was setup using `LeptosOptions`.
+    let res = client
+        .get(service.url("/my/pkg/service_mode.css")?)
+        .send()
+        .await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("font-family: sans-serif;"));
+    Ok(())
+}
+
 // Killing `cargo leptos watch` may not necessarily kill the underlying server task, so rather
 // than running that, build and run the service in separate steps.  This also has the advantage
 // of avoiding parallel build issues with generating the site onto the same location.
@@ -216,8 +276,22 @@ impl Service {
 
 static BUILDER: Once = Once::new();
 
-async fn start_test_service(name: &str, mode: &str) -> Service {
+fn build_services() {
+    // Note that it should build every single services that may be started
+    // ANOTHER_BUILDER.call_once(|| build_test_service("another_service"));
     BUILDER.call_once(|| build_test_service("service_mode"));
+}
+
+async fn start_test_service(name: &str, mode: &str) -> Service {
+    start_test_service_with_envs(name, mode, vec![]).await
+}
+
+async fn start_test_service_with_envs(
+    name: &str,
+    mode: &str,
+    vars: Vec<(&str, &str)>,
+) -> Service {
+    build_services();
     // the time limit to wait for service to start and listen
     let ttl = Duration::from_secs(5);
     // this assumes the current working dir is at the root of this crate, i.e. `integration/axum`.
@@ -231,6 +305,7 @@ async fn start_test_service(name: &str, mode: &str) -> Service {
         // need to manually specify this to avoid mismatch between this value that may be set (e.g.
         // during CI) and the `output-name` defined in Cargo.toml for this relevant project.
         .env("LEPTOS_OUTPUT_NAME", name)
+        .envs(vars)
         .stdout(Stdio::piped())
         .spawn()
         .expect("the service should have been built and can start");

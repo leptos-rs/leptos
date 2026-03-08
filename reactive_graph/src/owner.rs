@@ -61,7 +61,8 @@ pub struct Owner {
 }
 
 impl Owner {
-    fn downgrade(&self) -> WeakOwner {
+    /// Creates a [`WeakOwner`] reference to this owner that does not prevent cleanup.
+    pub fn downgrade(&self) -> WeakOwner {
         WeakOwner {
             inner: Arc::downgrade(&self.inner),
             #[cfg(feature = "hydration")]
@@ -70,15 +71,22 @@ impl Owner {
     }
 }
 
+/// A weak reference to an [`Owner`] that does not prevent cleanup.
+///
+/// This is useful for capturing an owner reference without creating reference
+/// cycles that would prevent the owner from being dropped and cleaned up.
 #[derive(Clone)]
-struct WeakOwner {
+pub struct WeakOwner {
     inner: Weak<RwLock<OwnerInner>>,
     #[cfg(feature = "hydration")]
     shared_context: Option<Weak<dyn SharedContext + Send + Sync>>,
 }
 
 impl WeakOwner {
-    fn upgrade(&self) -> Option<Owner> {
+    /// Attempts to upgrade this weak reference to a strong [`Owner`].
+    ///
+    /// Returns `None` if the owner has already been dropped.
+    pub fn upgrade(&self) -> Option<Owner> {
         self.inner.upgrade().map(|inner| {
             #[cfg(feature = "hydration")]
             let shared_context =
