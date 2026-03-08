@@ -186,6 +186,9 @@ pub mod prelude {
             owner::*,
             signal::*,
             wrappers::{read::*, write::*},
+            IntoReactiveValueTrait, IntoSignal,
+            __IntoReactiveValueMarkerBaseCase,
+            __IntoReactiveValueMarkerIdentity,
         };
         pub use server_fn::{
             self,

@@ -19,6 +19,7 @@ use std::borrow::Cow;
 /// panics on multithreaded servers. If these `.expect()` calls fire, it means
 /// the `ssr` feature was activated unintentionally via Cargo feature
 /// unification in a client-side (CSR or hydrate) build.
+#[allow(dead_code)]
 pub(crate) const FEATURE_CONFLICT_DIAGNOSTIC: &str =
     "Value is None because the `ssr` feature is active. When `ssr` is \
      enabled, tachys skips creating client-side values (event handlers, \
@@ -213,8 +214,14 @@ impl RenderHtml for InertElement {
         } else if curr_position != Position::Current {
             cursor.sibling();
         }
-        let el = crate::renderer::types::Element::cast_from(cursor.current())
-            .unwrap();
+        let marker = cursor.current();
+        let el = crate::renderer::types::Element::cast_from(marker.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_element(
+                    "unknown (InertElement)",
+                    marker,
+                )
+            });
         position.set(Position::NextChild);
         InertElementState(self.html, el)
     }

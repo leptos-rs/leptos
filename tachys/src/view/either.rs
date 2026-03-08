@@ -588,25 +588,35 @@ where
         extra_attrs: Vec<AnyAttribute>,
     ) {
         if self.show_b {
-            self.b
-                .expect("rendering B to HTML without filling it")
-                .to_html_with_buf(
+            if let Some(b) = self.b {
+                b.to_html_with_buf(
                     buf,
                     position,
                     escape,
                     mark_branches,
                     extra_attrs,
                 );
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"rendering B to HTML without filling it".into(),
+                );
+            }
         } else {
-            self.a
-                .expect("rendering A to HTML without filling it")
-                .to_html_with_buf(
+            if let Some(a) = self.a {
+                a.to_html_with_buf(
                     buf,
                     position,
                     escape,
                     mark_branches,
                     extra_attrs,
                 );
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"rendering A to HTML without filling it".into(),
+                );
+            }
         }
     }
 
@@ -621,25 +631,35 @@ where
         Self: Sized,
     {
         if self.show_b {
-            self.b
-                .expect("rendering B to HTML without filling it")
-                .to_html_async_with_buf::<OUT_OF_ORDER>(
+            if let Some(b) = self.b {
+                b.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
                     escape,
                     mark_branches,
                     extra_attrs,
                 );
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"rendering B to HTML without filling it".into(),
+                );
+            }
         } else {
-            self.a
-                .expect("rendering A to HTML without filling it")
-                .to_html_async_with_buf::<OUT_OF_ORDER>(
+            if let Some(a) = self.a {
+                a.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
                     escape,
                     mark_branches,
                     extra_attrs,
                 );
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"rendering A to HTML without filling it".into(),
+                );
+            }
         }
     }
 
@@ -711,9 +731,23 @@ where
 {
     fn unmount(&mut self) {
         if self.showing_b {
-            self.b.as_mut().expect("B was not present").unmount();
+            if let Some(b) = self.b.as_mut() {
+                b.unmount();
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"unmounting B, but it was not present".into(),
+                );
+            }
         } else {
-            self.a.as_mut().expect("A was not present").unmount();
+            if let Some(a) = self.a.as_mut() {
+                a.unmount();
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"unmounting A, but it was not present".into(),
+                );
+            }
         }
     }
 
@@ -723,29 +757,47 @@ where
         marker: Option<&crate::renderer::types::Node>,
     ) {
         if self.showing_b {
-            self.b
-                .as_mut()
-                .expect("B was not present")
-                .mount(parent, marker);
+            if let Some(b) = self.b.as_mut() {
+                b.mount(parent, marker);
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"mounting B, but it was not present".into(),
+                );
+            }
         } else {
-            self.a
-                .as_mut()
-                .expect("A was not present")
-                .mount(parent, marker);
+            if let Some(a) = self.a.as_mut() {
+                a.mount(parent, marker);
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"mounting A, but it was not present".into(),
+                );
+            }
         }
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
         if self.showing_b {
-            self.b
-                .as_ref()
-                .expect("B was not present")
-                .insert_before_this(child)
+            if let Some(b) = self.b.as_ref() {
+                b.insert_before_this(child)
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"insert_before_this on B, but it was not present".into(),
+                );
+                false
+            }
         } else {
-            self.a
-                .as_ref()
-                .expect("A was not present")
-                .insert_before_this(child)
+            if let Some(a) = self.a.as_ref() {
+                a.insert_before_this(child)
+            } else {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"insert_before_this on A, but it was not present".into(),
+                );
+                false
+            }
         }
     }
 
