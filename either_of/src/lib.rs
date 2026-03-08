@@ -1,10 +1,11 @@
-#![cfg_attr(feature = "no_std", no_std)]
+#![no_std]
 #![forbid(unsafe_code)]
 
 //! Utilities for working with enumerated types that contain one of `2..n` other types.
 
 use core::{
     cmp::Ordering,
+    error::Error,
     fmt::Display,
     future::Future,
     iter::{Product, Sum},
@@ -13,8 +14,6 @@ use core::{
 };
 use paste::paste;
 use pin_project_lite::pin_project;
-#[cfg(not(feature = "no_std"))]
-use std::error::Error; // TODO: replace with core::error::Error once MSRV is >= 1.81.0
 
 macro_rules! tuples {
     ($name:ident + $fut_name:ident + $fut_proj:ident {
@@ -113,7 +112,6 @@ macro_rules! tuples {
             }
         }
 
-        #[cfg(not(feature = "no_std"))]
         impl<$($ty),+> Error for $name<$($ty),+>
         where
             $($ty: Error,)+
@@ -751,6 +749,7 @@ tuples!(EitherOf16 + EitherOf16Future + EitherOf16FutureProj {
     O => (A, B, C, D, E, F, G, H, I, J, K, L, M, N, P) + <A, B, C, D, E, F, G, H, I, J, K, L, M, N, O1, P>,
     P => (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O) + <A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P1>,
 });
+// if you need more eithers feel free to open a PR ;-)
 
 /// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf8`])
 /// composed of the values returned by the match arms.
@@ -838,7 +837,139 @@ macro_rules! either {
             $g_pattern => $crate::EitherOf8::G($g_expression),
             $h_pattern => $crate::EitherOf8::H($h_expression),
         }
-    }; // if you need more eithers feel free to open a PR ;-)
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf9::A($a_expression),
+            $b_pattern => $crate::EitherOf9::B($b_expression),
+            $c_pattern => $crate::EitherOf9::C($c_expression),
+            $d_pattern => $crate::EitherOf9::D($d_expression),
+            $e_pattern => $crate::EitherOf9::E($e_expression),
+            $f_pattern => $crate::EitherOf9::F($f_expression),
+            $g_pattern => $crate::EitherOf9::G($g_expression),
+            $h_pattern => $crate::EitherOf9::H($h_expression),
+            $i_pattern => $crate::EitherOf9::I($i_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf10::A($a_expression),
+            $b_pattern => $crate::EitherOf10::B($b_expression),
+            $c_pattern => $crate::EitherOf10::C($c_expression),
+            $d_pattern => $crate::EitherOf10::D($d_expression),
+            $e_pattern => $crate::EitherOf10::E($e_expression),
+            $f_pattern => $crate::EitherOf10::F($f_expression),
+            $g_pattern => $crate::EitherOf10::G($g_expression),
+            $h_pattern => $crate::EitherOf10::H($h_expression),
+            $i_pattern => $crate::EitherOf10::I($i_expression),
+            $j_pattern => $crate::EitherOf10::J($j_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf11::A($a_expression),
+            $b_pattern => $crate::EitherOf11::B($b_expression),
+            $c_pattern => $crate::EitherOf11::C($c_expression),
+            $d_pattern => $crate::EitherOf11::D($d_expression),
+            $e_pattern => $crate::EitherOf11::E($e_expression),
+            $f_pattern => $crate::EitherOf11::F($f_expression),
+            $g_pattern => $crate::EitherOf11::G($g_expression),
+            $h_pattern => $crate::EitherOf11::H($h_expression),
+            $i_pattern => $crate::EitherOf11::I($i_expression),
+            $j_pattern => $crate::EitherOf11::J($j_expression),
+            $k_pattern => $crate::EitherOf11::K($k_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr, $l_pattern:pat => $l_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf12::A($a_expression),
+            $b_pattern => $crate::EitherOf12::B($b_expression),
+            $c_pattern => $crate::EitherOf12::C($c_expression),
+            $d_pattern => $crate::EitherOf12::D($d_expression),
+            $e_pattern => $crate::EitherOf12::E($e_expression),
+            $f_pattern => $crate::EitherOf12::F($f_expression),
+            $g_pattern => $crate::EitherOf12::G($g_expression),
+            $h_pattern => $crate::EitherOf12::H($h_expression),
+            $i_pattern => $crate::EitherOf12::I($i_expression),
+            $j_pattern => $crate::EitherOf12::J($j_expression),
+            $k_pattern => $crate::EitherOf12::K($k_expression),
+            $l_pattern => $crate::EitherOf12::L($l_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr, $l_pattern:pat => $l_expression:expr, $m_pattern:pat => $m_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf13::A($a_expression),
+            $b_pattern => $crate::EitherOf13::B($b_expression),
+            $c_pattern => $crate::EitherOf13::C($c_expression),
+            $d_pattern => $crate::EitherOf13::D($d_expression),
+            $e_pattern => $crate::EitherOf13::E($e_expression),
+            $f_pattern => $crate::EitherOf13::F($f_expression),
+            $g_pattern => $crate::EitherOf13::G($g_expression),
+            $h_pattern => $crate::EitherOf13::H($h_expression),
+            $i_pattern => $crate::EitherOf13::I($i_expression),
+            $j_pattern => $crate::EitherOf13::J($j_expression),
+            $k_pattern => $crate::EitherOf13::K($k_expression),
+            $l_pattern => $crate::EitherOf13::L($l_expression),
+            $m_pattern => $crate::EitherOf13::M($m_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr, $l_pattern:pat => $l_expression:expr, $m_pattern:pat => $m_expression:expr, $n_pattern:pat => $n_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf14::A($a_expression),
+            $b_pattern => $crate::EitherOf14::B($b_expression),
+            $c_pattern => $crate::EitherOf14::C($c_expression),
+            $d_pattern => $crate::EitherOf14::D($d_expression),
+            $e_pattern => $crate::EitherOf14::E($e_expression),
+            $f_pattern => $crate::EitherOf14::F($f_expression),
+            $g_pattern => $crate::EitherOf14::G($g_expression),
+            $h_pattern => $crate::EitherOf14::H($h_expression),
+            $i_pattern => $crate::EitherOf14::I($i_expression),
+            $j_pattern => $crate::EitherOf14::J($j_expression),
+            $k_pattern => $crate::EitherOf14::K($k_expression),
+            $l_pattern => $crate::EitherOf14::L($l_expression),
+            $m_pattern => $crate::EitherOf14::M($m_expression),
+            $n_pattern => $crate::EitherOf14::N($n_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr, $l_pattern:pat => $l_expression:expr, $m_pattern:pat => $m_expression:expr, $n_pattern:pat => $n_expression:expr, $o_pattern:pat => $o_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf15::A($a_expression),
+            $b_pattern => $crate::EitherOf15::B($b_expression),
+            $c_pattern => $crate::EitherOf15::C($c_expression),
+            $d_pattern => $crate::EitherOf15::D($d_expression),
+            $e_pattern => $crate::EitherOf15::E($e_expression),
+            $f_pattern => $crate::EitherOf15::F($f_expression),
+            $g_pattern => $crate::EitherOf15::G($g_expression),
+            $h_pattern => $crate::EitherOf15::H($h_expression),
+            $i_pattern => $crate::EitherOf15::I($i_expression),
+            $j_pattern => $crate::EitherOf15::J($j_expression),
+            $k_pattern => $crate::EitherOf15::K($k_expression),
+            $l_pattern => $crate::EitherOf15::L($l_expression),
+            $m_pattern => $crate::EitherOf15::M($m_expression),
+            $n_pattern => $crate::EitherOf15::N($n_expression),
+            $o_pattern => $crate::EitherOf15::O($o_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr, $g_pattern:pat => $g_expression:expr, $h_pattern:pat => $h_expression:expr, $i_pattern:pat => $i_expression:expr, $j_pattern:pat => $j_expression:expr, $k_pattern:pat => $k_expression:expr, $l_pattern:pat => $l_expression:expr, $m_pattern:pat => $m_expression:expr, $n_pattern:pat => $n_expression:expr, $o_pattern:pat => $o_expression:expr, $p_pattern:pat => $p_expression:expr$(,)?) => {
+        match $match {
+            $a_pattern => $crate::EitherOf16::A($a_expression),
+            $b_pattern => $crate::EitherOf16::B($b_expression),
+            $c_pattern => $crate::EitherOf16::C($c_expression),
+            $d_pattern => $crate::EitherOf16::D($d_expression),
+            $e_pattern => $crate::EitherOf16::E($e_expression),
+            $f_pattern => $crate::EitherOf16::F($f_expression),
+            $g_pattern => $crate::EitherOf16::G($g_expression),
+            $h_pattern => $crate::EitherOf16::H($h_expression),
+            $i_pattern => $crate::EitherOf16::I($i_expression),
+            $j_pattern => $crate::EitherOf16::J($j_expression),
+            $k_pattern => $crate::EitherOf16::K($k_expression),
+            $l_pattern => $crate::EitherOf16::L($l_expression),
+            $m_pattern => $crate::EitherOf16::M($m_expression),
+            $n_pattern => $crate::EitherOf16::N($n_expression),
+            $o_pattern => $crate::EitherOf16::O($o_expression),
+            $p_pattern => $crate::EitherOf16::P($p_expression),
+        }
+    };
 }
 
 #[cfg(test)]
@@ -850,52 +981,255 @@ mod tests {
     fn either_macro() {
         let _: Either<&str, f64> = either!(12,
             12 => "12",
-            _ => 0.0,
+            _ => 0.0f64,
         );
         let _: EitherOf3<&str, f64, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
-            _ => 12,
+            13 => 0.0f64,
+            _ => 12i32,
         );
         let _: EitherOf4<&str, f64, char, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
+            13 => 0.0f64,
             14 => ' ',
-            _ => 12,
+            _ => 12i32,
         );
         let _: EitherOf5<&str, f64, char, f32, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
+            13 => 0.0f64,
             14 => ' ',
             15 => 0.0f32,
-            _ => 12,
+            _ => 12i32,
         );
         let _: EitherOf6<&str, f64, char, f32, u8, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
+            13 => 0.0f64,
             14 => ' ',
             15 => 0.0f32,
             16 => 24u8,
-            _ => 12,
+            _ => 12i32,
         );
         let _: EitherOf7<&str, f64, char, f32, u8, i8, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
+            13 => 0.0f64,
             14 => ' ',
             15 => 0.0f32,
             16 => 24u8,
             17 => 2i8,
-            _ => 12,
+            _ => 12i32,
         );
-        let _: EitherOf8<&str, f64, char, f32, u8, i8, u32, i32> = either!(12,
+        let _: EitherOf8<&str, f64, char, f32, u8, i8, u16, i32> = either!(12,
             12 => "12",
-            13 => 0.0,
+            13 => 0.0f64,
             14 => ' ',
             15 => 0.0f32,
             16 => 24u8,
             17 => 2i8,
-            18 => 42u32,
-            _ => 12,
+            18 => 42u16,
+            _ => 12i32,
+        );
+        let _: EitherOf9<&str, f64, char, f32, u8, i8, u16, i16, i32> = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            _ => 12i32,
+        );
+        let _: EitherOf10<&str, f64, char, f32, u8, i8, u16, i16, u32, i32> = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            _ => 12i32,
+        );
+        let _: EitherOf11<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            _ => 13u64,
+        );
+        let _: EitherOf12<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+            i64,
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            22 => 13u64,
+            _ => 14i64,
+        );
+        let _: EitherOf13<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+            i64,
+            u128,
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            22 => 13u64,
+            23 => 14i64,
+            _ => 15u128,
+        );
+        let _: EitherOf14<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+            i64,
+            u128,
+            i128,
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            22 => 13u64,
+            23 => 14i64,
+            24 => 15u128,
+            _ => 16i128,
+        );
+        let _: EitherOf15<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+            i64,
+            u128,
+            i128,
+            [u8; 1],
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            22 => 13u64,
+            23 => 14i64,
+            24 => 15u128,
+            25 => 16i128,
+            _ => [1u8],
+        );
+        let _: EitherOf16<
+            &str,
+            f64,
+            char,
+            f32,
+            u8,
+            i8,
+            u16,
+            i16,
+            u32,
+            i32,
+            u64,
+            i64,
+            u128,
+            i128,
+            [u8; 1],
+            [i8; 1],
+        > = either!(12,
+            12 => "12",
+            13 => 0.0f64,
+            14 => ' ',
+            15 => 0.0f32,
+            16 => 24u8,
+            17 => 2i8,
+            18 => 42u16,
+            19 => 64i16,
+            20 => 84u32,
+            21 => 12i32,
+            22 => 13u64,
+            23 => 14i64,
+            24 => 15u128,
+            25 => 16i128,
+            26 => [1u8],
+            _ => [1i8],
         );
     }
 

@@ -309,16 +309,6 @@ impl ServerFnCall {
             .collect::<TokenStream2>()
     }
 
-    /// Get the lint attributes for the server function.
-    pub fn lint_attrs(&self) -> TokenStream2 {
-        // pass through lint attributes from the function body
-        self.body
-            .lint_attrs
-            .iter()
-            .map(|lint_attr| quote!(#lint_attr))
-            .collect::<TokenStream2>()
-    }
-
     fn fn_name_as_str(&self) -> String {
         self.body.ident.to_string()
     }
@@ -398,7 +388,7 @@ impl ServerFnCall {
             PathInfo::None => quote! {},
         };
 
-        let lint_attrs = self.lint_attrs();
+        let lint_attrs = &self.body.lint_attrs;
 
         let vis = &self.body.vis;
         let struct_name = self.struct_name();
@@ -422,7 +412,7 @@ impl ServerFnCall {
             #docs
             #[derive(Debug, #derives)]
             #addl_path
-            #lint_attrs
+            #(#lint_attrs)*
             #vis struct #struct_name {
                 #(#fields),*
             }
@@ -773,6 +763,7 @@ impl ServerFnCall {
         // build struct for type
         let fn_name = &body.ident;
         let attrs = &body.attrs;
+        let lint_attrs = &body.lint_attrs;
 
         let fn_args = body.inputs.iter().map(|f| &f.arg).collect::<Vec<_>>();
 
@@ -792,6 +783,7 @@ impl ServerFnCall {
             quote! {
                 #docs
                 #(#attrs)*
+                #(#lint_attrs)*
                 #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
                     #dummy_name(#(#field_names),*).await
                 }
@@ -1598,11 +1590,13 @@ impl ServerFnBody {
             output_arrow,
             return_ty,
             block,
+            lint_attrs,
             ..
         } = &self;
         quote! {
             #[doc(hidden)]
             #(#attrs)*
+            #(#lint_attrs)*
             #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty
             #block
         }

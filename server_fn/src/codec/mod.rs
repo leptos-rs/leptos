@@ -55,6 +55,11 @@ mod bitcode;
 #[cfg(feature = "bitcode")]
 pub use bitcode::*;
 
+#[cfg(feature = "bitcode-serde")]
+mod bitcode_serde;
+#[cfg(feature = "bitcode-serde")]
+pub use bitcode_serde::*;
+
 mod patch;
 pub use patch::*;
 mod post;

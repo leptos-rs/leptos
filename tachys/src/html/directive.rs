@@ -121,19 +121,19 @@ where
         self,
         el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(state.clone(), inner.param);
     }
 
