@@ -11,7 +11,7 @@ struct UserInfo {
 struct Admin(bool);
 
 #[component]
-fn Component(
+fn TestComponent(
     #[prop(optional)] optional: bool,
     #[prop(optional, into)] optional_into: Option<String>,
     #[prop(optional_no_strip)] optional_no_strip: Option<String>,
@@ -41,7 +41,7 @@ fn Component(
 
 #[test]
 fn component() {
-    let cp = ComponentProps::builder()
+    let cp = TestComponentProps::builder()
         .into("")
         .strip_option(9)
         .impl_trait(|| 42)
@@ -74,9 +74,9 @@ fn component() {
 
 #[test]
 fn component_nostrip() {
-    // Should compile (using nostrip:optional_into in second <Component />)
+    // Should compile (using nostrip:optional_into in second <TestComponent />)
     view! {
-        <Component
+        <TestComponent
             optional_into="foo"
             strip_option=9
             into=""
@@ -89,7 +89,7 @@ fn component_nostrip() {
             tuple_struct=Admin(true)
             outside_name=1
         />
-        <Component
+        <TestComponent
             nostrip:optional_into=Some("foo")
             strip_option=9
             into=""
@@ -251,7 +251,7 @@ mod macro_hygiene {
         use ::leptos_macro::{component, view};
 
         #[component]
-        fn Component() -> impl IntoView {
+        fn HygieneTest() -> impl IntoView {
             view! {
                 {()}
                 {()}
@@ -269,7 +269,7 @@ mod macro_hygiene {
         use ::leptos_macro::{component, view};
 
         #[component]
-        fn Component() -> impl IntoView {
+        fn HygieneTest() -> impl IntoView {
             view! { <div>{().into_any()} {()}</div> }
         }
     }

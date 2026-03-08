@@ -2,15 +2,13 @@ use crate::{
     component::{convert_from_snake_case, drain_filter},
     util::{
         documentation::Docs,
-        generate_module_builder, generate_module_checks,
-        generate_module_presence_check, generate_module_required_check,
-        property_documentation,
+        generate_companion_internals, property_documentation,
         property_documentation::{
             prop_to_doc, PropDocumentationInput, PropDocumentationStyle,
         },
         type_analysis,
         typed_builder_opts::TypedBuilderOpts,
-        ModuleCheckTokens, ModulePresenceTokens, ModuleRequiredCheckTokens,
+        CompanionConfig, CompanionModuleBody,
     },
 };
 use attribute_derive::FromAttr;
@@ -119,139 +117,37 @@ impl ToTokens for Model {
 
         // Module name for the companion module: prefixed with `__`
         // to avoid namespace conflicts with the struct.
-        let module_name = format_ident!("__{}", name);
+        let companion_name = format_ident!("__{}", name);
 
-        let prop_pairs: Vec<(&Ident, &Type)> =
-            props.iter().map(|p| (&p.name, &p.ty)).collect();
-        let ModuleCheckTokens {
-            module_check_traits,
-            check_trait_impls,
-            module_wrapper_structs,
-            helper_check_methods,
-        } = generate_module_checks(
-            original_generics,
-            &module_name,
-            name,
-            "slot",
-            &prop_pairs,
-            &field_types,
-            true,
-        );
-
-        let no_props = props.is_empty();
         let slot_builder_name = format_ident!("{}Builder", name);
-        let required_fields: Vec<(&Ident, bool, &Type)> = props
-            .iter()
-            .map(|p| {
-                let required = !p.options.is_optional();
-                (&p.name, required, &p.ty)
-            })
-            .collect();
-        let ModuleRequiredCheckTokens { marker_traits } =
-            generate_module_required_check(name, "slot", &required_fields);
 
-        let ModulePresenceTokens {
-            module_items: module_presence_items,
-        } = generate_module_presence_check(name, &required_fields);
-
-        let module_builder = generate_module_builder(
-            no_props,
-            &behavioral_bounds_stripped_generics,
-            name,
-        );
-
-        // Helper struct inside the companion module. The view macro
-        // calls `SlotName::__slot()` (inherent method, follows renamed
-        // imports) which returns a `__Helper` that carries the slot's
-        // generic params. All subsequent calls go through the helper,
-        // sharing a single set of type variables. The builder chain
-        // constrains the type variables, so even generic slots work
-        // without requiring explicit type annotations.
-        let helper_builder_method = if no_props {
-            quote! {
-                #[doc(hidden)]
-                pub fn __builder(&self)
-                    -> ::leptos::component::EmptyPropsBuilder
-                {
-                    ::leptos::component::EmptyPropsBuilder {}
-                }
-            }
-        } else {
-            quote! {
-                #[doc(hidden)]
-                pub fn __builder(&self)
-                    -> <#name #generics
-                        as ::leptos::component::Props>::Builder
-                {
-                    <#name #generics
-                        as ::leptos::component::Props>::builder()
-                }
-            }
-        };
-
-        let helper_presence_return_type = if required_fields.is_empty() {
-            quote! { __PresenceBuilder<()> }
-        } else {
-            let initial_types: Vec<TokenStream> = (0..required_fields.len())
-                .map(|_| quote! { ::leptos::component::__Absent })
-                .collect();
-            quote! { __PresenceBuilder<(#(#initial_types,)*)> }
-        };
-        let helper_presence_method = quote! {
-            #[doc(hidden)]
-            pub fn __presence(&self)
-                -> #helper_presence_return_type
-            {
-                __presence()
-            }
-        };
-
-        // Collect the slot's generic type param idents for the
-        // helper's PhantomData.
-        let helper_type_params: Vec<&Ident> =
-            behavioral_bounds_stripped_generics
-                .params
-                .iter()
-                .filter_map(|p| {
-                    if let syn::GenericParam::Type(tp) = p {
-                        Some(&tp.ident)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-        let has_type_params = !helper_type_params.is_empty();
-        let helper_phantom_field = if has_type_params {
-            quote! {
-                pub ::core::marker::PhantomData<
-                    fn() -> (#(#helper_type_params,)*)
-                >
-            }
-        } else {
-            quote! {}
-        };
-        let helper_constructor_arg = if has_type_params {
-            quote! {
-                #[allow(clippy::default_constructed_unit_structs)]
-                ::core::marker::PhantomData::default()
-            }
-        } else {
-            quote! {}
-        };
+        let CompanionModuleBody {
+            module_items,
+            trait_impls,
+            helper_constructor_arg,
+        } = generate_companion_internals(&CompanionConfig {
+            original_generics,
+            stripped_generics: &behavioral_bounds_stripped_generics,
+            module_name: &companion_name,
+            display_name: name,
+            kind: "slot",
+            props_name: name,
+            props: &props,
+        });
 
         let output = quote! {
             // Companion module — contains the slot struct, internal
             // types and traits (wrapper structs, check marker traits,
-            // PresenceBuilder, and the `__Helper` struct).
+            // PresenceBuilder, and the `Helper` struct).
             //
             // INVARIANT: The view macro NEVER references this module by
             // name. All view-macro-generated code goes through
-            // `SlotName::__slot()` (which returns a `__Helper`). This
+            // `SlotName::__slot()` (which returns a `Helper`). This
             // means the module name (`__SlotName`) does not need to
             // follow renamed imports — only the struct does.
             #[doc(hidden)]
             #[allow(non_snake_case)]
-            #vis mod #module_name {
+            #vis mod #companion_name {
                 #[allow(unused_imports)]
                 use super::*;
 
@@ -280,45 +176,24 @@ impl ToTokens for Model {
                     }
                 }
 
-                #marker_traits
-
-                #module_builder
-                #(#module_check_traits)*
-                #(#module_wrapper_structs)*
-                #module_presence_items
-
-                // Helper struct for view-macro access. Routes all
-                // calls through a single object so that the slot's
-                // generic params share one type variable (constrained
-                // by the builder chain).
-                #[doc(hidden)]
-                pub struct __Helper #struct_impl_generics (
-                    #helper_phantom_field
-                ) #struct_where_clause;
-
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                impl #struct_impl_generics __Helper #generics
-                    #struct_where_clause
-                {
-                    #helper_builder_method
-                    #helper_presence_method
-                    #(#helper_check_methods)*
-                }
+                #module_items
             }
 
-            #vis use #module_name::#name;
+            #[allow(unused_imports)]
+            #vis use #companion_name::#name;
+            #[allow(unused_imports)]
+            #vis use #companion_name::#slot_builder_name;
 
-            #(#check_trait_impls)*
+            #trait_impls
 
             // Single inherent method on the slot struct. The view
-            // macro calls `SlotName::__slot()` to get a `__Helper`
+            // macro calls `SlotName::__slot()` to get a `Helper`
             // that provides builder, presence, and check methods.
             // This follows renamed imports because `SlotName::` does.
             #[doc(hidden)]
             impl #struct_impl_generics #name #generics #struct_where_clause {
-                pub fn __slot() -> #module_name::__Helper #generics {
-                    #module_name::__Helper(#helper_constructor_arg)
+                pub fn __slot() -> #companion_name::Helper #generics {
+                    #companion_name::Helper(#helper_constructor_arg)
                 }
             }
         };
@@ -332,6 +207,18 @@ struct SlotProp {
     options: SlotPropOptions,
     name: Ident,
     ty: Type,
+}
+
+impl crate::util::PropLike for SlotProp {
+    fn name(&self) -> &Ident {
+        &self.name
+    }
+    fn ty(&self) -> &Type {
+        &self.ty
+    }
+    fn is_required(&self) -> bool {
+        !self.options.is_optional()
+    }
 }
 
 impl SlotProp {

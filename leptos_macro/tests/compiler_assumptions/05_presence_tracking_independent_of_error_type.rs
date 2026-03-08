@@ -1,61 +1,82 @@
-// Assumption: Type-level checks are independent of {error} contamination.
+// Assumption: Combining the two-step pre-check (test 04) with sentinel-based presence
+// tracking (test 03), errors fire independently. The `{error}` from `.extract_value()` does
+// NOT suppress the E0277 from `.require_props()`, because they share no values.
 //
-// Combining the two-step pre-check (04) with a type-level presence check (03)
-// produces errors from both independently. The {error} from the method call does
-// NOT suppress the E0277 from the presence check, because they share no values.
+// This is the assumption behind the complete flow in `component_builder.rs` —
+// `require_props()` + `check_and_wrap_*` + `check_missing` all fire independently.
 //
-// Expected errors:
-// - E0277 (with our custom on_unimplemented message from the UFCS check).
-// - E0599 (method cannot be called due to unsatisfied trait bounds).
-// - E0277 (with our custom on_unimplemented message from the presence check).
+// Expected: 4 errors firing independently:
+// 1. E0277 — missing `bar` (from `require_props` where-clause)
+// 2. E0277 — wrong type for `foo` (from `check_and_wrap_foo` trait bound)
+// 3. E0599 — `extract_value` bounds not satisfied (from bounded inherent on `WrapFoo`)
+// 4. E0599 — `check_missing` bounds not satisfied (from bounded inherent on `PresenceBuilder`)
+// No downstream errors (all absorbed by `{error}`).
 
+struct Present;
+struct Absent;
+
+struct Helper;
+
+// -- Wrong-type check (like test 04) --
 #[diagnostic::on_unimplemented(
-    message = "wrong type: `{Self}` is not of type 'i32'"
+    message = "wrong type: `{Self}` is not of type 'Fn() -> bool'"
 )]
-trait IsI32 {
-    fn check(_val: &Self) {}
-    fn pass(self) -> Self
-    where
-        Self: Sized,
-    {
-        self
+trait CheckFoo: Fn() -> bool {}
+impl<T: Fn() -> bool> CheckFoo for T {}
+
+struct WrapFoo<T>(T);
+impl<T: Fn() -> bool> WrapFoo<T> {
+    fn extract_value(self) -> T {
+        self.0
     }
 }
 
-impl IsI32 for i32 {}
+impl Helper {
+    fn check_and_wrap_foo<T: CheckFoo>(&self, val: T) -> WrapFoo<T> {
+        WrapFoo(val)
+    }
+}
 
-#[diagnostic::on_unimplemented(message = "some required props are missing")]
-trait RequireProps {}
+// -- Presence tracking (like test 03) --
+#[diagnostic::on_unimplemented(
+    message = "missing required prop `bar`",
+    label = "missing prop `bar`"
+)]
+trait RequiredBar {}
+impl RequiredBar for Present {}
 
-// This do_not_recommend removes a (useless to the user) hint from the last error produced by the
-// `require_props` call.
-#[diagnostic::do_not_recommend]
-impl<__T0, __T1> RequireProps for ((__T0,), (__T1,)) {}
+struct PresenceBuilder<S>(std::marker::PhantomData<S>);
 
-fn require_props<S: RequireProps>() {}
+// Unbounded impl: require_props with where-clause (borrows &self)
+impl<F0, F1> PresenceBuilder<(F0, F1)> {
+    fn require_props(&self)
+    where
+        F1: RequiredBar,
+    {
+    }
+}
+
+// Bounded impl: check_missing only available when all required present (takes self)
+impl<F0, F1: RequiredBar> PresenceBuilder<(F0, F1)> {
+    fn check_missing<B>(self, builder: B) -> B {
+        builder
+    }
+}
 
 fn needs_string(_: String) {}
 
 fn main() {
-    let val: bool = true;
+    let helper = Helper;
 
-    // Pre-check step 1: Type system resolves `_` to `bool`. But `bool` doesn't implement `IsI32`,
-    // so E0277 is produced, showing our custom (clean) error message.
-    <_ as IsI32>::check(&val);
+    // foo present (wrong type) + bar absent
+    let presence = PresenceBuilder::<(Present, Absent)>(std::marker::PhantomData);
+    presence.require_props(); // E0277 (missing bar)
 
-    // Pre-check step 2: Method resolution fails, so the return type becomes {error} and E0599 is
-    // produced. `let val = ...` shadows our previous `val`, so {error} is later passed to
-    // `needs_string`, not leading to any additional error.
-    let val = val.pass();
+    let checked_foo = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599 (wrong type)
 
-    // Presence builder: slot 0 present, slot 1 missing.
-    // This is independent of {error} above — E0277 (missing prop, clean)
-    require_props::<((String,), ())>();
+    let builder = 42i32;
+    let builder = presence.check_missing(builder); // E0599 (missing bar -> {error})
 
-    // The key point is: The `require_props` (type-level only) call and the check/pass combo
-    // (operating on `val`) SHARE NO VALUES with each other. That's why the {error} resolved for
-    // the second `let val ...` doesn't contaminate.
-
-    // Downstream usage of {error}-resolved type produces no errors.
-    needs_string(val);
+    needs_string(builder); // absorbed by {error}
+    needs_string(checked_foo); // absorbed by {error}
 }

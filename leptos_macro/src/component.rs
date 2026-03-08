@@ -1,15 +1,15 @@
 use crate::util::{
+    check_component_name_against_prelude,
     children::is_children_prop,
     documentation::Docs,
-    generate_module_builder, generate_module_checks,
-    generate_module_presence_check, generate_module_required_check,
+    generate_companion_internals,
     property_documentation::{
         generate_prop_documentation, prop_to_doc, PropDocumentationInput,
         PropDocumentationStyle,
     },
     type_analysis,
     typed_builder_opts::TypedBuilderOpts,
-    ModuleCheckTokens, ModulePresenceTokens, ModuleRequiredCheckTokens,
+    CompanionConfig, CompanionModuleBody,
 };
 use attribute_derive::FromAttr;
 use convert_case::{
@@ -93,13 +93,15 @@ impl Parse for Model {
 }
 
 /// Exists to fix nested routes defined in a separate component in erased mode,
-/// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
+/// by replacing the return type with AnyNestedRoute, which is what it'll be,
+/// but is required as the return type for compiler inference.
 fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(feature = "__internal_erase_components")]
     {
         if let ReturnType::Type(_, ty) = ret {
             if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
-                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+                // If one of the bounds is MatchNestedRoutes, we need to replace
+                // the return type with AnyNestedRoute:
                 if bounds.iter().any(|bound| {
                     if let syn::TypeParamBound::Trait(trait_bound) = bound {
                         if trait_bound.path.segments.iter().any(
@@ -166,6 +168,8 @@ impl ToTokens for Model {
         } = self;
         let is_island = island.is_some();
 
+        check_component_name_against_prelude(name);
+
         let no_props = props.is_empty();
 
         // check for components that end ;
@@ -190,12 +194,12 @@ impl ToTokens for Model {
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
-        let (impl_generics, generics, where_clause) =
-            body.sig.generics.split_for_impl();
-
-        // Keep a reference to the full original generics before
-        // `body` is shadowed later by a quote! block.
+        // Keep a reference to the full original generics before `body` is
+        // shadowed later by a quote! block.
         let original_generics = &body.sig.generics;
+
+        let (impl_generics, generics, where_clause) =
+            original_generics.split_for_impl();
 
         // --- Generic bounds strategy ---
         // Separate structural bounds (needed for field types like
@@ -211,14 +215,14 @@ impl ToTokens for Model {
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
         let behavioral_bounds_stripped_generics =
             type_analysis::strip_non_structural_bounds(
-                &body.sig.generics,
+                original_generics,
                 &field_types,
             );
         let (struct_impl_generics, _, struct_where_clause) =
             behavioral_bounds_stripped_generics.split_for_impl();
 
         let phantom_type_params = type_analysis::collect_phantom_type_params(
-            &body.sig.generics,
+            original_generics,
             &field_types,
         );
 
@@ -271,7 +275,8 @@ impl ToTokens for Model {
             .collect();
         let component_fn_prop_docs = generate_prop_documentation(&doc_inputs);
         let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
-            // Avoid generating an empty doc line in case the component has no doc and no props.
+            // Avoid generating an empty doc line in case the component has no
+            // doc and no props.
             quote! {
                 #docs
             }
@@ -293,19 +298,22 @@ impl ToTokens for Model {
             {
                 /* TODO for 0.8: fix this
                  *
-                 * The problem is that cargo now warns about an expected "tracing" cfg if
-                 * you don't have a "tracing" feature in your actual crate
+                 * The problem is that cargo now warns about an expected
+                 * "tracing" cfg if you don't have a
+                 * "tracing" feature in your actual crate
                  *
                  * However, until https://github.com/tokio-rs/tracing/pull/1819 is merged
-                 * (?), you can't provide an alternate path for `tracing` (for example,
-                 * ::leptos::tracing), which means that if you're going to use the macro
+                 * (?), you can't provide an alternate path for `tracing`
+                 * (for example, ::leptos::tracing), which
+                 * means that if you're going to use the macro
                  * you *must* have `tracing` in your Cargo.toml.
                  *
                  * Including the feature-check here causes cargo warnings on
                  * previously-working projects.
                  *
-                 * Removing the feature-check here breaks any project that uses leptos with
-                 * the tracing feature turned on, but without a tracing dependency in its
+                 * Removing the feature-check here breaks any project that
+                 * uses leptos with the tracing feature
+                 * turned on, but without a tracing dependency in its
                  * Cargo.toml.
                  * /
                  */
@@ -424,14 +432,6 @@ impl ToTokens for Model {
             }
         } else {
             component
-        };
-
-        let props_arg = if no_props {
-            quote! {}
-        } else {
-            quote! {
-                props: #props_name #generics
-            }
         };
 
         let destructure_props = if no_props {
@@ -641,48 +641,35 @@ impl ToTokens for Model {
             is_island_with_other_props,
         );
 
-        let prop_pairs: Vec<(&Ident, &Type)> =
-            props.iter().map(|p| (&p.name.ident, &p.ty)).collect();
-        let ModuleCheckTokens {
-            module_check_traits,
-            check_trait_impls,
-            ..
-        } = generate_module_checks(
+        let CompanionModuleBody {
+            module_items,
+            trait_impls,
+            helper_constructor_arg,
+        } = generate_companion_internals(&CompanionConfig {
             original_generics,
-            name,
-            name,
-            "component",
-            &prop_pairs,
-            &field_types,
-            false,
-        );
-
-        let required_fields: Vec<(&Ident, bool, &Type)> = props
-            .iter()
-            .map(|p| {
-                let required = !p.options.is_optional();
-                (&p.name.ident, required, &p.ty)
-            })
-            .collect();
-
-        let ModuleRequiredCheckTokens { marker_traits } =
-            generate_module_required_check(name, "component", &required_fields);
-
-        let ModulePresenceTokens {
-            module_items: module_presence_items,
-        } = generate_module_presence_check(name, &required_fields);
-
-        let module_builder = generate_module_builder(
-            no_props,
-            &behavioral_bounds_stripped_generics,
-            &props_name,
-        );
+            stripped_generics: &behavioral_bounds_stripped_generics,
+            module_name: name,
+            display_name: name,
+            kind: "component",
+            props_name: &props_name,
+            props: &props,
+        });
 
         let props_serialized_reexport = if is_island_with_other_props {
             quote! { #vis use #name::#props_serialized_name; }
         } else {
             quote! {}
         };
+
+        let props_arg = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                props: #props_name #generics
+            }
+        };
+
+        let companion_name = name.clone();
 
         let output = quote! {
             #[allow(missing_docs)]
@@ -707,7 +694,7 @@ impl ToTokens for Model {
             // renames both, so the module follows renamed imports.
             #[doc(hidden)]
             #[allow(non_snake_case)]
-            #vis mod #name {
+            #vis mod #companion_name {
                 #[allow(unused_imports)]
                 use super::*;
 
@@ -733,18 +720,22 @@ impl ToTokens for Model {
                     }
                 }
 
-                #marker_traits
+                #module_items
 
-                #module_builder
-                #(#module_check_traits)*
-                #module_presence_items
+                #[doc(hidden)]
+                pub fn __helper #struct_impl_generics ()
+                    -> Helper #generics
+                    #struct_where_clause
+                {
+                    Helper(#helper_constructor_arg)
+                }
             }
 
-            #vis use #name::#props_name;
-            #vis use #name::#props_builder_name;
+            #vis use #companion_name::#props_name;
+            #vis use #companion_name::#props_builder_name;
             #props_serialized_reexport
 
-            #(#check_trait_impls)*
+            #trait_impls
         };
 
         tokens.append_all(output)
@@ -860,6 +851,18 @@ struct ComponentProp {
     options: ComponentPropOptions,
     name: PatIdent,
     ty: Type,
+}
+
+impl crate::util::PropLike for ComponentProp {
+    fn name(&self) -> &Ident {
+        &self.name.ident
+    }
+    fn ty(&self) -> &Type {
+        &self.ty
+    }
+    fn is_required(&self) -> bool {
+        !self.options.is_optional()
+    }
 }
 
 impl ComponentProp {
@@ -1116,7 +1119,8 @@ pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
     )
 }
 
-/// Converts all `impl Trait`s in a function signature to use generic params instead.
+/// Converts all `impl Trait`s in a function signature to use generic params
+/// instead.
 fn convert_impl_trait_to_generic(sig: &mut Signature) {
     fn new_generic_ident(i: usize, span: Span) -> Ident {
         Ident::new(&format!("__ImplTrait{i}"), span)
@@ -1158,7 +1162,8 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
         let span = impl_trait.span();
         let ident = new_generic_ident(i, span);
         // We can simply append to the end (only lifetime params must be first).
-        // Note currently default generics are not allowed in `fn`, so not a concern.
+        // Note currently default generics are not allowed in `fn`, so not a
+        // concern.
         sig.generics.params.push(GenericParam::Type(TypeParam {
             attrs: vec![],
             ident,

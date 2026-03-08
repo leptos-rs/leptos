@@ -5,7 +5,7 @@ error[E0277]: `Vec<{integer}>` is not a valid type for prop `value` on component
    |                          ^^^^^^^^^^^^^ the trait `std::fmt::Display` is not implemented for `Vec<{integer}>`
    |
    = note: required: `Clone + std :: fmt :: Display`
-note: required for `Vec<{integer}>` to implement `__Check_value`
+note: required for `Vec<{integer}>` to implement `Check_value`
   --> tests/view/55_generic_non_fn_bound_wrong_type.rs:16:1
    |
 16 | #[component]
@@ -13,46 +13,32 @@ note: required for `Vec<{integer}>` to implement `__Check_value`
 ...
 19 |     T: Clone + std::fmt::Display,
    |                ----------------- unsatisfied trait bound introduced here
+note: required by a bound in `Inner::Helper::<T>::check_and_wrap_value`
+  --> tests/view/55_generic_non_fn_bound_wrong_type.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<T>::check_and_wrap_value`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_value` exists for struct `Vec<{integer}>`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `Wrap_value<Vec<{integer}>>`, but its trait bounds were not satisfied
   --> tests/view/55_generic_non_fn_bound_wrong_type.rs:11:26
    |
 11 |             <Inner value=vec![1, 2, 3]/>
-   |                          ^^^^^^^^^^^^^
+   |                          ^^^^^^^^^^^^^ method cannot be called on `Wrap_value<Vec<{integer}>>` due to unsatisfied trait bounds
+...
+16 | #[component]
+   | ------------ method `extract_value` not found for this struct
    |
   ::: $RUST/alloc/src/vec/mod.rs
    |
    | pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
-   | ------------------------------------------------------------------------------------------------ doesn't satisfy `Vec<{integer}>: __Check_value` or `Vec<{integer}>: std::fmt::Display`
+   | ------------------------------------------------------------------------------------------------ doesn't satisfy `Vec<{integer}>: std::fmt::Display`
    |
-note: the following trait bounds were not satisfied:
-      `&Vec<{integer}>: std::fmt::Display`
-      `&[{integer}]: std::fmt::Display`
-      `&mut Vec<{integer}>: Clone`
-      `&mut Vec<{integer}>: std::fmt::Display`
-      `&mut [{integer}]: Clone`
-      `&mut [{integer}]: std::fmt::Display`
-      `Vec<{integer}>: std::fmt::Display`
-      `[{integer}]: Clone`
-      `[{integer}]: Sized`
-      `[{integer}]: std::fmt::Display`
-  --> tests/view/55_generic_non_fn_bound_wrong_type.rs:16:1
+note: trait bound `Vec<{integer}>: std::fmt::Display` was not satisfied
+  --> tests/view/55_generic_non_fn_bound_wrong_type.rs:19:16
    |
 16 | #[component]
-   | ^^^^^^^^^^^^
+   | ------------
 ...
 19 |     T: Clone + std::fmt::Display,
-   |        ^^^^^   ^^^^^^^^^^^^^^^^^ unsatisfied trait bound introduced here
-   |        |
-   |        unsatisfied trait bound introduced here
-   = help: items from traits can only be used if the trait is in scope
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: consider relaxing the type parameter's implicit `Sized` bound
-   |
-16 | #[component] ?Sized +
-   |              ++++++++
-help: trait `__Check_value` which provides `__pass_value` is implemented but not in scope; perhaps you want to import it
-   |
- 5 + use leptos::context::Provider::__Check_value;
-   |
+   |                ^^^^^^^^^^^^^^^^^ unsatisfied trait bound introduced here

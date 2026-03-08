@@ -1,5 +1,5 @@
 // Multiple components with the same prop names defined in the same module.
-// Ensures marker traits (__required_Comp_foo) don't collide across
+// Ensures marker traits (required_Comp_foo) don't collide across
 // components. Should compile without errors.
 
 use leptos::prelude::*;

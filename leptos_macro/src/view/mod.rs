@@ -445,7 +445,8 @@ fn inert_svg_element_to_tokens(
                     Node::Element(node) => {
                         let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
-                        // strip trailing underscores, for identifiers such as SVG use_
+                        // strip trailing underscores, for identifiers such as
+                        // SVG use_
                         let el_name = el_name
                             .strip_suffix('_')
                             .map(str::to_string)
@@ -553,9 +554,10 @@ fn element_children_to_tokens(
             )
         })
     } else if children.len() > 16 {
-        // implementations of various traits used in routing and rendering are implemented for
-        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
-        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // implementations of various traits used in routing and rendering are
+        // implemented for tuples of sizes 0, 1, 2, 3, ... N. N varies
+        // but is > 16. The traits are also implemented for tuples of
+        // tuples, so if we have more than 16 items, we can split them out into
         // multiple tuples.
         let chunks = children.chunks(16).map(|children| {
             quote! {
@@ -604,9 +606,10 @@ fn fragment_to_tokens(
             ),*])
         })
     } else if children.len() > 16 {
-        // implementations of various traits used in routing and rendering are implemented for
-        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
-        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // implementations of various traits used in routing and rendering are
+        // implemented for tuples of sizes 0, 1, 2, 3, ... N. N varies
+        // but is > 16. The traits are also implemented for tuples of
+        // tuples, so if we have more than 16 items, we can split them out into
         // multiple tuples.
         let chunks = children.chunks(16).map(|children| {
             quote! {
@@ -762,12 +765,14 @@ pub(crate) fn element_to_tokens(
 ) -> Option<TokenStream> {
     // attribute sorting:
     //
-    // the `class` and `style` attributes overwrite individual `class:` and `style:` attributes
-    // when they are set. as a result, we're going to sort the attributes so that `class` and
-    // `style` always come before all other attributes.
+    // the `class` and `style` attributes overwrite individual `class:` and
+    // `style:` attributes when they are set. as a result, we're going to
+    // sort the attributes so that `class` and `style` always come before
+    // all other attributes.
 
-    // if there's a spread marker, we don't want to move `class` or `style` before it
-    // so let's only sort attributes that come *before* a spread marker
+    // if there's a spread marker, we don't want to move `class` or `style`
+    // before it so let's only sort attributes that come *before* a spread
+    // marker
     let spread_position = node
         .attributes()
         .iter()
@@ -819,7 +824,8 @@ pub(crate) fn element_to_tokens(
         }
     });
 
-    // check for duplicate attribute names and emit an error for all subsequent ones
+    // check for duplicate attribute names and emit an error for all subsequent
+    // ones
     let mut names = HashSet::new();
 
     // allow multiple class=(...) or style=(...) attributes
@@ -942,7 +948,8 @@ pub(crate) fn element_to_tokens(
         } else if is_ambiguous_element(&tag) {
             match parent_type {
                 TagType::Unknown => {
-                    // We decided this warning was too aggressive, but I'll leave it here in case we want it later
+                    // We decided this warning was too aggressive, but I'll
+                    // leave it here in case we want it later
                     /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote_spanned! { node.name().span() =>
@@ -1131,7 +1138,8 @@ fn attribute_to_tokens(
             }
             // circumstances in which we just do unchecked attributes
             // 1) custom elements, which can have any attributes
-            // 2) custom attributes and data attributes (so, anything with - in it)
+            // 2) custom attributes and data attributes (so, anything with - in
+            //    it)
             else if is_custom ||
                 (name.contains('-') && !name.starts_with("aria-"))
                 // TODO check: do we actually provide SVG attributes?

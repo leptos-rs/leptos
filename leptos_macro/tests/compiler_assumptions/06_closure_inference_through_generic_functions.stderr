@@ -1,0 +1,10 @@
+error[E0282]: type annotations needed
+  --> tests/compiler_assumptions/06_closure_inference_through_generic_functions.rs:86:24
+   |
+86 |         .key(identity(|counter| counter.id)); //~ ERROR type annotations needed
+   |                        ^^^^^^^  ------- type must be known at this point
+   |
+help: consider giving this closure parameter an explicit type
+   |
+86 |         .key(identity(|counter: /* Type */| counter.id)); //~ ERROR type annotations needed
+   |                               ++++++++++++

@@ -5,7 +5,7 @@ error[E0277]: `bool` is not a valid type for prop `fun_a` on component `Inner`
    |                          ^^^^ the trait `Fn()` is not implemented for `bool`
    |
    = note: required: `Fn() -> bool` — a closure or function reference
-note: required for `bool` to implement `__Check_fun_a`
+note: required for `bool` to implement `Check_fun_a`
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
    |
 16 | #[component]
@@ -13,21 +13,25 @@ note: required for `bool` to implement `__Check_fun_a`
 ...
 19 |     F: Fn() -> bool,
    |        ------------ unsatisfied trait bound introduced here
+note: required by a bound in `Inner::Helper::<F, G>::check_and_wrap_fun_a`
+  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<F, G>::check_and_wrap_fun_a`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_fun_a` exists for type `bool`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `Wrap_fun_a<bool>`, but its trait bounds were not satisfied
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:11:26
    |
 11 |             <Inner fun_a=true fun_b=|| 42/>
-   |                          ^^^^
+   |                          ^^^^ method cannot be called on `Wrap_fun_a<bool>` due to unsatisfied trait bounds
+...
+16 | #[component]
+   | ------------ method `extract_value` not found for this struct
    |
 note: the following trait bounds were not satisfied:
-      `&bool: Fn<()>`
-      `&mut bool: Fn<()>`
-      `<&bool as FnOnce<()>>::Output = bool`
-      `<&mut bool as FnOnce<()>>::Output = bool`
-      `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
+      `bool: FnOnce<()>`
   --> tests/view/13_multiple_generic_params_first_wrong_type.rs:19:8
    |
 16 | #[component]
@@ -38,10 +42,3 @@ note: the following trait bounds were not satisfied:
    |        |       |
    |        |       unsatisfied trait bound introduced here
    |        unsatisfied trait bound introduced here
-   = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Check_fun_a` defines an item `__pass_fun_a`, perhaps you need to implement it
-  --> tests/view/13_multiple_generic_params_first_wrong_type.rs:16:1
-   |
-16 | #[component]
-   | ^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

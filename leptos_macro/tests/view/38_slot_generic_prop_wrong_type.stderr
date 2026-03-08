@@ -5,28 +5,28 @@ error[E0277]: `bool` is not a valid type for prop `generic_fun` on slot `HelloSl
    |                                                         ^^^^ the trait `Fn()` is not implemented for `bool`
    |
    = note: required: `Fn() -> bool` — a closure or function reference
-note: required for `bool` to implement `__Check_generic_fun`
+note: required for `bool` to implement `Check_generic_fun`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
    |
  7 | #[slot]
    | ^^^^^^^
  8 | struct HelloSlot<F: Fn() -> bool> {
    |                     ------------ unsatisfied trait bound introduced here
-note: required by a bound in `__Helper::<F>::__check_generic_fun`
+note: required by a bound in `__HelloSlot::Helper::<F>::check_and_wrap_generic_fun`
   --> tests/view/38_slot_generic_prop_wrong_type.rs:7:1
    |
  7 | #[slot]
-   | ^^^^^^^ required by this bound in `__Helper::<F>::__check_generic_fun`
+   | ^^^^^^^ required by this bound in `Helper::<F>::check_and_wrap_generic_fun`
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__unwrap` exists for struct `__Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
   --> tests/view/38_slot_generic_prop_wrong_type.rs:27:57
    |
  7 | #[slot]
-   | ------- method `__unwrap` not found for this struct
+   | ------- method `extract_value` not found for this struct
 ...
 27 |             <HelloSlot slot concrete_i32=42 generic_fun=true>
-   |                                                         ^^^^ method cannot be called on `__Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+   |                                                         ^^^^ method cannot be called on `Wrap_generic_fun<bool>` due to unsatisfied trait bounds
    |
 note: the following trait bounds were not satisfied:
       `bool: Fn<()>`

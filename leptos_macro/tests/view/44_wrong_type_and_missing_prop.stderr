@@ -1,3 +1,18 @@
+error[E0277]: missing required prop `concrete_i32` on component `Inner`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:13:14
+   |
+13 |             <Inner generic_fun=true>
+   |              ^^^^^ missing prop `concrete_i32`
+   |
+   = help: the trait `required_Inner_concrete_i32` is not implemented for `leptos::component::Absent`
+   = note: required props: [`concrete_i32`, `generic_fun`, `children`]
+note: required by a bound in `Inner::PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `PresenceBuilder::<(__F0, __F1, __F2)>::require_props`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
   --> tests/view/44_wrong_type_and_missing_prop.rs:13:32
    |
@@ -5,7 +20,7 @@ error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `In
    |                                ^^^^ the trait `Fn()` is not implemented for `bool`
    |
    = note: required: `Fn() -> bool` — a closure or function reference
-note: required for `bool` to implement `__Check_generic_fun`
+note: required for `bool` to implement `Check_generic_fun`
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
    |
 20 | #[component]
@@ -13,21 +28,25 @@ note: required for `bool` to implement `__Check_generic_fun`
 ...
 27 |     F: Fn() -> bool,
    |        ------------ unsatisfied trait bound introduced here
+note: required by a bound in `Inner::Helper::<F>::check_and_wrap_generic_fun`
+  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<F>::check_and_wrap_generic_fun`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_generic_fun` exists for type `bool`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
   --> tests/view/44_wrong_type_and_missing_prop.rs:13:32
    |
 13 |             <Inner generic_fun=true>
-   |                                ^^^^
+   |                                ^^^^ method cannot be called on `Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+...
+20 | #[component]
+   | ------------ method `extract_value` not found for this struct
    |
 note: the following trait bounds were not satisfied:
-      `&bool: Fn<()>`
-      `&mut bool: Fn<()>`
-      `<&bool as FnOnce<()>>::Output = bool`
-      `<&mut bool as FnOnce<()>>::Output = bool`
-      `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
+      `bool: FnOnce<()>`
   --> tests/view/44_wrong_type_and_missing_prop.rs:27:8
    |
 20 | #[component]
@@ -38,44 +57,22 @@ note: the following trait bounds were not satisfied:
    |        |       |
    |        |       unsatisfied trait bound introduced here
    |        unsatisfied trait bound introduced here
-   = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Check_generic_fun` defines an item `__pass_generic_fun`, perhaps you need to implement it
-  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
-   |
-20 | #[component]
-   | ^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: missing required prop `concrete_i32` on component `Inner`
+error[E0599]: the method `check_missing` exists for struct `Inner::PresenceBuilder<(leptos::component::Absent, leptos::component::Present, leptos::component::Present)>`, but its trait bounds were not satisfied
   --> tests/view/44_wrong_type_and_missing_prop.rs:13:14
    |
 13 |             <Inner generic_fun=true>
-   |              ^^^^^ missing prop `concrete_i32`
-   |
-   = help: the trait `__required_Inner_concrete_i32` is not implemented for `leptos::prelude::__Absent`
-   = note: required props: [`concrete_i32`, `generic_fun`, `children`]
-note: required by a bound in `Inner::__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
-  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
-   |
-20 | #[component]
-   | ^^^^^^^^^^^^ required by this bound in `__PresenceBuilder::<(__F0, __F1, __F2)>::__require_props`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0599]: the method `__check_missing` exists for struct `Inner::__PresenceBuilder<(leptos::prelude::__Absent, leptos::prelude::__Present, leptos::prelude::__Present)>`, but its trait bounds were not satisfied
-  --> tests/view/44_wrong_type_and_missing_prop.rs:13:14
-   |
-13 |             <Inner generic_fun=true>
-   |              ^^^^^
+   |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 20 | #[component]
-   | ------------ method `__check_missing` not found for this struct
+   | ------------ method `check_missing` not found for this struct
    |
   ::: $WORKSPACE/leptos/src/component.rs
    |
-   | pub struct __Absent;
-   | ------------------- doesn't satisfy `_: __required_Inner_concrete_i32`
+   | pub struct Absent;
+   | ----------------- doesn't satisfy `_: required_Inner_concrete_i32`
    |
-note: trait bound `leptos::prelude::__Absent: __required_Inner_concrete_i32` was not satisfied
+note: trait bound `leptos::component::Absent: required_Inner_concrete_i32` was not satisfied
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
    |
 20 | #[component]

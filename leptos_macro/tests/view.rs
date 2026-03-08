@@ -1,5 +1,6 @@
 // Note: run with `cargo +nightly test -p leptos_macro --test view`.
-// Note: update with `TRYBUILD=overwrite cargo +nightly test -p leptos_macro --test view`.
+// Note: update with `TRYBUILD=overwrite cargo +nightly test -p leptos_macro
+// --test view`.
 #[test]
 fn test_view_macro() {
     let t = trybuild::TestCases::new();
@@ -107,4 +108,7 @@ fn test_view_macro() {
 
     // Renamed slot imports.
     t.pass("tests/view/62_renamed_slot_import.rs");
+
+    // Closure parameter type inference.
+    t.pass("tests/view/63_generic_closure_with_params.rs");
 }

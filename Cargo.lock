@@ -2928,7 +2928,6 @@ dependencies = [
  "serial_test",
  "slotmap",
  "subsecond",
- "thiserror 2.0.17",
  "tokio",
  "tokio-test",
  "tracing",

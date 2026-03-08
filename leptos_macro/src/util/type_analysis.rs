@@ -37,9 +37,9 @@ pub(crate) fn type_contains_ident(ty: &Type, ident: &Ident) -> bool {
     finder.found
 }
 
-/// Returns true if the type is exactly the given generic param name
-/// with no wrapping.
-pub(crate) fn is_bare_generic_param(ty: &Type, ident: &Ident) -> bool {
+/// Returns true if the type is exactly the given type parameter
+/// with no wrapping (e.g. `F`, not `Vec<F>`).
+pub(crate) fn is_plain_type_param(ty: &Type, ident: &Ident) -> bool {
     if let Type::Path(TypePath { path, .. }) = ty {
         path.is_ident(ident)
     } else {
@@ -47,29 +47,25 @@ pub(crate) fn is_bare_generic_param(ty: &Type, ident: &Ident) -> bool {
     }
 }
 
-/// A generic param needs structural bounds if it appears in a field
-/// type but NOT as a bare type param — meaning it is wrapped inside
-/// another generic type (e.g. `ServerAction<ServFn>`).
-pub(crate) fn param_needs_structural_bounds(
+/// Returns true if the given type param appears inside a wrapping
+/// type in any field (e.g. `ServerAction<ServFn>`) rather than as a
+/// plain type param (e.g. `fun: F`).
+pub(crate) fn param_appears_wrapped_in_fields(
     param_ident: &Ident,
     field_types: &[&Type],
 ) -> bool {
-    for ty in field_types {
-        if type_contains_ident(ty, param_ident)
-            && !is_bare_generic_param(ty, param_ident)
-        {
-            return true;
-        }
-    }
-    false
+    field_types.iter().any(|ty| {
+        type_contains_ident(ty, param_ident)
+            && !is_plain_type_param(ty, param_ident)
+    })
 }
 
 /// Creates a copy of the generics keeping only the bounds that are
 /// structurally required by field types.
 ///
-/// A generic param needs structural bounds when it appears inside
-/// another generic type in a field (e.g. `ServerAction<ServFn>` needs
-/// `ServFn: ServerFn`). Bare type params (e.g. `fun: F`) do not
+/// A generic param needs structural bounds when it appears wrapped
+/// inside another type in a field (e.g. `ServerAction<ServFn>` needs
+/// `ServFn: ServerFn`). Plain type params (e.g. `fun: F`) do not
 /// need their bounds on the struct definition.
 pub(crate) fn strip_non_structural_bounds(
     generics: &syn::Generics,
@@ -81,7 +77,7 @@ pub(crate) fn strip_non_structural_bounds(
     // bounds.
     for param in &mut g.params {
         if let GenericParam::Type(tp) = param {
-            if !param_needs_structural_bounds(&tp.ident, field_types) {
+            if !param_appears_wrapped_in_fields(&tp.ident, field_types) {
                 tp.bounds.clear();
                 tp.colon_token = None;
             }
@@ -100,7 +96,7 @@ pub(crate) fn strip_non_structural_bounds(
                     }) = &pt.bounded_ty
                     {
                         if let Some(ident) = path.get_ident() {
-                            return param_needs_structural_bounds(
+                            return param_appears_wrapped_in_fields(
                                 ident,
                                 field_types,
                             );
@@ -162,6 +158,29 @@ pub(crate) fn collect_predicates_for_param(
     preds
 }
 
+/// Collects ALL predicates from a `Generics` — both inline bounds
+/// (e.g. `T: Clone` in `<T: Clone>`) and where-clause predicates —
+/// into a flat list of `TokenStream` fragments suitable for use in a
+/// `where` clause.
+pub(crate) fn collect_all_predicates(
+    generics: &syn::Generics,
+) -> Vec<TokenStream> {
+    let mut preds = Vec::new();
+    for param in &generics.params {
+        if let GenericParam::Type(tp) = param {
+            if !tp.bounds.is_empty() {
+                let ident = &tp.ident;
+                let bounds = &tp.bounds;
+                preds.push(quote! { #ident: #bounds });
+            }
+        }
+    }
+    if let Some(wc) = &generics.where_clause {
+        preds.extend(wc.predicates.iter().map(|p| quote! { #p }));
+    }
+    preds
+}
+
 /// Collects generic type params that are NOT used in any field type.
 /// These need `PhantomData` so the struct compiles without their
 /// where-clause bounds.
@@ -217,12 +236,19 @@ pub(crate) fn generate_phantom_field(
 pub(crate) fn bounds_reference_other_params(
     predicates: &[WherePredicate],
     self_ident: &Ident,
-    all_generic_idents: &[&Ident],
+    full_generics: &syn::Generics,
 ) -> bool {
-    let other_idents: Vec<&Ident> = all_generic_idents
+    let other_idents: Vec<&Ident> = full_generics
+        .params
         .iter()
-        .filter(|i| **i != self_ident)
-        .copied()
+        .filter_map(|p| {
+            if let GenericParam::Type(tp) = p {
+                if tp.ident != *self_ident {
+                    return Some(&tp.ident);
+                }
+            }
+            None
+        })
         .collect();
 
     if other_idents.is_empty() {
@@ -245,7 +271,7 @@ pub(crate) fn bounds_reference_other_params(
     finder.found
 }
 
-fn all_bounds(
+fn iter_bounds(
     predicates: &[WherePredicate],
 ) -> impl Iterator<Item = &TypeParamBound> {
     predicates
@@ -265,7 +291,7 @@ fn all_bounds(
 pub(crate) fn predicates_contain_fn_bound(
     predicates: &[WherePredicate],
 ) -> bool {
-    all_bounds(predicates).any(|bound| {
+    iter_bounds(predicates).any(|bound| {
         if let TypeParamBound::Trait(tb) = bound {
             tb.path.segments.last().map_or(false, |seg| {
                 matches!(
@@ -279,16 +305,16 @@ pub(crate) fn predicates_contain_fn_bound(
     })
 }
 
-/// Extracts all type-param bounds from a list of where predicates
-/// and combines them with `+`.
-pub(crate) fn predicates_to_bounds(
+/// Merges all type-param bounds from a list of where predicates
+/// into a single `A + B + C` token stream.
+pub(crate) fn merge_predicate_bounds(
     predicates: &[WherePredicate],
 ) -> TokenStream {
-    let all_bounds: Vec<&TypeParamBound> = all_bounds(predicates).collect();
-    if all_bounds.is_empty() {
+    let bounds: Vec<&TypeParamBound> = iter_bounds(predicates).collect();
+    if bounds.is_empty() {
         quote! {}
     } else {
-        quote! { #(#all_bounds)+* }
+        quote! { #(#bounds)+* }
     }
 }
 
@@ -359,26 +385,26 @@ mod tests {
         ));
     }
 
-    // --- is_bare_generic_param ---
+    // --- is_plain_type_param ---
 
     #[test]
-    fn bare_generic_exact() {
-        assert!(is_bare_generic_param(&parse_ty("F"), &ident("F")));
+    fn plain_type_param_exact() {
+        assert!(is_plain_type_param(&parse_ty("F"), &ident("F")));
     }
 
     #[test]
-    fn bare_generic_wrapped() {
-        assert!(!is_bare_generic_param(&parse_ty("Vec<F>"), &ident("F")));
+    fn plain_type_param_wrapped() {
+        assert!(!is_plain_type_param(&parse_ty("Vec<F>"), &ident("F")));
     }
 
     #[test]
-    fn bare_generic_different_name() {
-        assert!(!is_bare_generic_param(&parse_ty("G"), &ident("F")));
+    fn plain_type_param_different_name() {
+        assert!(!is_plain_type_param(&parse_ty("G"), &ident("F")));
     }
 
     #[test]
-    fn bare_generic_option() {
-        assert!(!is_bare_generic_param(&parse_ty("Option<F>"), &ident("F")));
+    fn plain_type_param_option() {
+        assert!(!is_plain_type_param(&parse_ty("Option<F>"), &ident("F")));
     }
 
     // --- collect_predicates_for_param ---
@@ -418,30 +444,68 @@ mod tests {
         assert_eq!(preds.len(), 0);
     }
 
-    // --- param_needs_structural_bounds ---
+    // --- collect_all_predicates ---
 
     #[test]
-    fn structural_bare_generic_no() {
+    fn all_preds_empty_generics() {
+        let generics: syn::Generics = parse_quote! { <F> };
+        let preds = collect_all_predicates(&generics);
+        assert!(preds.is_empty());
+    }
+
+    #[test]
+    fn all_preds_inline_only() {
+        let generics: syn::Generics = parse_quote! { <F: Clone, G: Send> };
+        let preds = collect_all_predicates(&generics);
+        assert_eq!(preds.len(), 2);
+    }
+
+    #[test]
+    fn all_preds_where_clause_only() {
+        let generics = parse_generics("<F> where F: Clone, F: Send");
+        let preds = collect_all_predicates(&generics);
+        assert_eq!(preds.len(), 2);
+    }
+
+    #[test]
+    fn all_preds_inline_and_where() {
+        let generics =
+            parse_generics("<F: Clone, G: Send> where F: Fn() -> bool");
+        let preds = collect_all_predicates(&generics);
+        assert_eq!(preds.len(), 3);
+    }
+
+    #[test]
+    fn all_preds_skips_lifetimes() {
+        let generics: syn::Generics = parse_quote! { <'a, F: Clone> };
+        let preds = collect_all_predicates(&generics);
+        assert_eq!(preds.len(), 1);
+    }
+
+    // --- param_appears_wrapped_in_fields ---
+
+    #[test]
+    fn wrapped_plain_param_no() {
         let ty = parse_ty("F");
-        assert!(!param_needs_structural_bounds(&ident("F"), &[&ty]));
+        assert!(!param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
     }
 
     #[test]
-    fn structural_wrapped_generic_yes() {
+    fn wrapped_in_vec_yes() {
         let ty = parse_ty("Vec<F>");
-        assert!(param_needs_structural_bounds(&ident("F"), &[&ty]));
+        assert!(param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
     }
 
     #[test]
-    fn structural_concrete_no() {
+    fn wrapped_concrete_no() {
         let ty = parse_ty("i32");
-        assert!(!param_needs_structural_bounds(&ident("F"), &[&ty]));
+        assert!(!param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
     }
 
     #[test]
-    fn structural_inside_wrapper_yes() {
+    fn wrapped_in_server_action_yes() {
         let ty = parse_ty("ServerAction<F>");
-        assert!(param_needs_structural_bounds(&ident("F"), &[&ty]));
+        assert!(param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
     }
 
     // --- strip_non_structural_bounds ---

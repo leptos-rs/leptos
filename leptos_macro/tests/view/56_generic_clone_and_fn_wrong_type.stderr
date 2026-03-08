@@ -5,7 +5,7 @@ error[E0277]: `bool` is not a valid type for prop `fun` on component `Inner`
    |                        ^^^^ the trait `Fn()` is not implemented for `bool`
    |
    = note: required: `Clone + Fn() -> bool` — a closure or function reference
-note: required for `bool` to implement `__Check_fun`
+note: required for `bool` to implement `Check_fun`
   --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
    |
 15 | #[component]
@@ -13,37 +13,32 @@ note: required for `bool` to implement `__Check_fun`
 ...
 18 |     F: Clone + Fn() -> bool,
    |                ------------ unsatisfied trait bound introduced here
+note: required by a bound in `Inner::Helper::<F>::check_and_wrap_fun`
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
+   |
+15 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<F>::check_and_wrap_fun`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `__pass_fun` exists for type `bool`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `Wrap_fun<bool>`, but its trait bounds were not satisfied
   --> tests/view/56_generic_clone_and_fn_wrong_type.rs:10:24
    |
 10 |             <Inner fun=true/>
-   |                        ^^^^
+   |                        ^^^^ method cannot be called on `Wrap_fun<bool>` due to unsatisfied trait bounds
+...
+15 | #[component]
+   | ------------ method `extract_value` not found for this struct
    |
 note: the following trait bounds were not satisfied:
-      `&bool: Fn<()>`
-      `&mut bool: Clone`
-      `&mut bool: Fn<()>`
-      `<&bool as FnOnce<()>>::Output = bool`
-      `<&mut bool as FnOnce<()>>::Output = bool`
-      `<bool as FnOnce<()>>::Output = bool`
       `bool: Fn<()>`
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:18:8
+      `bool: FnOnce<()>`
+  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:18:16
    |
 15 | #[component]
    | ------------
 ...
 18 |     F: Clone + Fn() -> bool,
-   |        ^^^^^   ^^^^^^^^^^^^
-   |        |       |       |
-   |        |       |       unsatisfied trait bound introduced here
-   |        |       unsatisfied trait bound introduced here
-   |        unsatisfied trait bound introduced here
-   = help: items from traits can only be used if the trait is implemented and in scope
-note: `__Check_fun` defines an item `__pass_fun`, perhaps you need to implement it
-  --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
-   |
-15 | #[component]
-   | ^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+   |                ^^^^^^^^^^^^
+   |                |       |
+   |                |       unsatisfied trait bound introduced here
+   |                unsatisfied trait bound introduced here

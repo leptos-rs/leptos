@@ -19,22 +19,22 @@ pub trait PropsOrNoPropsBuilder {
 
 /// Presence type-state marker: prop has NOT been provided.
 ///
-/// Used by the `__PresenceBuilder` generated in companion modules
+/// Used by the `PresenceBuilder` generated in companion modules
 /// to track which required props are still missing. The marker
-/// trait `__required_*` is NOT implemented for `__Absent`, so
+/// trait `required_*` is NOT implemented for `Absent`, so
 /// where-clause checks fire E0277 when a required prop is missing.
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
-pub struct __Absent;
+pub struct Absent;
 
 /// Presence type-state marker: prop HAS been provided.
 ///
-/// Used by the `__PresenceBuilder` generated in companion modules.
-/// The marker trait `__required_*` IS implemented for `__Present`,
+/// Used by the `PresenceBuilder` generated in companion modules.
+/// The marker trait `required_*` IS implemented for `Present`,
 /// so where-clause checks pass when the prop is provided.
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
-pub struct __Present;
+pub struct Present;
 
 /// Placeholder props type for components that take no arguments.
 #[doc(hidden)]

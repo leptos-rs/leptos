@@ -2,7 +2,7 @@ error[E0277]: `{integer}` is not a valid type for prop `value` on component `Inn
   --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
    |
 20 |             <Inner value=42/>
-   |                          ^^ the trait `Greetable` is not implemented for `{integer}`
+   |                          ^^ the trait `my_traits::Greetable` is not implemented for `{integer}`
    |
    = note: required: `Greetable`
 help: this trait has no implementations, consider adding one
@@ -10,22 +10,33 @@ help: this trait has no implementations, consider adding one
    |
  9 |     pub trait Greetable {
    |     ^^^^^^^^^^^^^^^^^^^
-note: required for `{integer}` to implement `__Check_value`
+note: required for `{integer}` to implement `Check_value`
   --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
    | ^^^^^^^^^^^^
 26 | fn Inner<T: Greetable>(value: T) -> impl IntoView {
    |             --------- unsatisfied trait bound introduced here
+note: required by a bound in `Inner::Helper::<T>::check_and_wrap_value`
+  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
+   |
+25 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<T>::check_and_wrap_value`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0689]: can't call method `__pass_value` on ambiguous numeric type `{integer}`
+error[E0599]: the method `extract_value` exists for struct `Wrap_value<{integer}>`, but its trait bounds were not satisfied
   --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
    |
 20 |             <Inner value=42/>
-   |                          ^^
+   |                          ^^ method cannot be called on `Wrap_value<{integer}>` due to unsatisfied trait bounds
+...
+25 | #[component]
+   | ------------ method `extract_value` not found for this struct
    |
-help: you must specify a type for this binding, like `i32`
+note: trait bound `{integer}: my_traits::Greetable` was not satisfied
+  --> tests/view/61_user_trait_bound_wrong_type.rs:26:13
    |
-20 |             <Inner value=42: i32/>
-   |                            +++++
+25 | #[component]
+   | ------------
+26 | fn Inner<T: Greetable>(value: T) -> impl IntoView {
+   |             ^^^^^^^^^ unsatisfied trait bound introduced here

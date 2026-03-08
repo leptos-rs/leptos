@@ -1,0 +1,51 @@
+error[E0277]: missing required prop `foo`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:43:7
+   |
+43 |     p.require_props(); // E0277 for foo + E0277 for bar
+   |       ^^^^^^^^^^^^^ missing prop `foo`
+   |
+help: the trait `RequiredFoo` is not implemented for `Absent`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:12:1
+   |
+12 | struct Absent;
+   | ^^^^^^^^^^^^^
+   = note: required props: [`foo`, `bar`]
+help: the trait `RequiredFoo` is implemented for `Present`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:20:1
+   |
+20 | impl RequiredFoo for Present {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `PresenceBuilder::<(F0, F1)>::require_props`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:35:13
+   |
+33 |     fn require_props(&self)
+   |        ------------- required by a bound in this associated function
+34 |     where
+35 |         F0: RequiredFoo,
+   |             ^^^^^^^^^^^ required by this bound in `PresenceBuilder::<(F0, F1)>::require_props`
+
+error[E0277]: missing required prop `bar`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:43:7
+   |
+43 |     p.require_props(); // E0277 for foo + E0277 for bar
+   |       ^^^^^^^^^^^^^ missing prop `bar`
+   |
+help: the trait `RequiredBar` is not implemented for `Absent`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:12:1
+   |
+12 | struct Absent;
+   | ^^^^^^^^^^^^^
+   = note: required props: [`foo`, `bar`]
+help: the trait `RequiredBar` is implemented for `Present`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:28:1
+   |
+28 | impl RequiredBar for Present {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `PresenceBuilder::<(F0, F1)>::require_props`
+  --> tests/compiler_assumptions/03_where_clause_inherent_method_per_bound_e0277_with_on_unimplemented.rs:36:13
+   |
+33 |     fn require_props(&self)
+   |        ------------- required by a bound in this associated function
+...
+36 |         F1: RequiredBar,
+   |             ^^^^^^^^^^^ required by this bound in `PresenceBuilder::<(F0, F1)>::require_props`

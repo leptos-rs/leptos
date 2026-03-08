@@ -20,8 +20,8 @@ pub(crate) fn is_children_prop(name: &Ident, ty: &Type) -> bool {
     name == "children" || is_children_type(ty)
 }
 
-/// Returns `true` if `ty` is a known children type (e.g. `Children`, `TypedChildrenFn<C>`) or
-/// `Option<ChildrenFn>`.
+/// Returns `true` if `ty` is a known children type (e.g. `Children`,
+/// `TypedChildrenFn<C>`) or `Option<ChildrenFn>`.
 fn is_children_type(ty: &Type) -> bool {
     is_children_type_inner(ty, true)
 }

@@ -1,14 +1,13 @@
 use super::utils::{
-    attr_check_idents, children_span, delinked_path_from_node_name,
-    extract_children_arg, generate_check_imports, generate_pre_check_tokens,
-    generate_presence_setters, is_nostrip_optional_and_update_key,
-    PropCheckInfo,
+    children_span, delinked_path_from_node_name, extract_children_arg,
+    generate_checked_builder_block, is_nostrip_optional_and_update_key,
+    prop_span_info, turbofish_generics, PropInfo,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens,
     utils::{filter_prefixed_attrs, key_value_span},
 };
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
     CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
@@ -34,24 +33,18 @@ pub(crate) fn component_to_tokens(
         let n = node.name();
         quote! { #n }
     };
-    // A span-delinked copy of the component path for builder and
-    // check calls.  The last segment gets `Span::call_site()` so
-    // that rust-analyzer does NOT map ctrl+click on the source
-    // `<Component />` to the module usage (which would cause a
-    // "choose function vs type" disambiguation prompt).  Only the
-    // function reference (`&Component`) keeps the original span,
-    // giving the IDE a single, unambiguous navigation target.
+
+    // A span-delinked copy of the component path for builder and check calls.
+    // The last segment gets `Span::call_site()` so that rust-analyzer does
+    // NOT map ctrl+click on the source `<Component />` to the module usage
+    // (which would cause a "choose function vs type" disambiguation
+    // prompt).  Only the function reference (`&Component`) keeps the original
+    // span, giving the IDE a single, unambiguous navigation target.
     let delinked_path = delinked_path_from_node_name(node.name(), "");
 
-    // For trait imports from the companion module, we use the
-    // module path directly (e.g. `Component::__Check_foo`).
-    // We avoid `self::` because it breaks in function bodies
-    // (e.g. doc tests running inside `fn _doctest_main()`).
-    let module_import_path = delinked_path.clone();
-
-    // an attribute that contains {..} can be used to split props from attributes
-    // anything before it is a prop, unless it uses the special attribute syntaxes
-    // (attr:, style:, on:, prop:, etc.)
+    // an attribute that contains {..} can be used to split props from
+    // attributes anything before it is a prop, unless it uses the special
+    // attribute syntaxes (attr:, style:, on:, prop:, etc.)
     // anything after it is a plain HTML attribute to be spread onto the prop
     let spread_marker = node
         .attributes()
@@ -75,7 +68,8 @@ pub(crate) fn component_to_tokens(
         })
         .unwrap_or_else(|| node.attributes().len());
 
-    // Initially using uncloned mutable reference, as the node.key might be mutated during prop extraction (for nostrip:)
+    // Initially using uncloned mutable reference, as the node.key might be
+    // mutated during prop extraction (for nostrip:)
     let mut attrs = node
         .attributes_mut()
         .iter_mut()
@@ -94,7 +88,7 @@ pub(crate) fn component_to_tokens(
     // trait call through the companion module. For bounded generic
     // props, E0277 fires with custom `on_unimplemented` and the
     // expression type is `{error}`, suppressing downstream errors.
-    let mut prop_infos: Vec<(PropCheckInfo, TokenStream, Span)> = vec![];
+    let mut prop_infos: Vec<PropInfo> = vec![];
     let mut optional_props = vec![];
     let mut seen_prop_names = HashSet::new();
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
@@ -142,14 +136,15 @@ pub(crate) fn component_to_tokens(
                 props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            let idents = attr_check_idents(attr);
+            let span_info = prop_span_info(attr);
 
             let setter_name = quote! { #name };
-            prop_infos.push((
-                PropCheckInfo { idents, value },
+            prop_infos.push(PropInfo {
+                span_info,
+                value,
                 setter_name,
-                key_value_span,
-            ));
+                setter_span: key_value_span,
+            });
         }
     }
 
@@ -256,91 +251,21 @@ pub(crate) fn component_to_tokens(
         disable_inert_html,
     );
 
-    // Generate children builder call (no pre-check).
-    // Children are passed directly to the builder to preserve
-    // type inference — the builder's `.children()` method
-    // provides the type constraint needed to resolve generics
-    // like `TypedChildrenFn<C>`.
-    let children_builder_call = if let Some(ref arg) = children_arg {
-        quote_spanned! {children_span=>
-            let __props_builder =
-                __props_builder.children(
-                    #[allow(unused_braces)] { #arg }
-                );
-        }
-    } else {
-        quote! {}
-    };
-
-    // Collect slot names before draining, for presence tracking.
-    let slot_names: Vec<String> = slots.keys().cloned().collect();
-
-    let slots = slots.drain().map(|(slot, mut values)| {
-        let span = values
-            .last()
-            .expect("List of slots must not be empty")
-            .span();
-        let slot = Ident::new(&slot, span);
-        let value = if values.len() > 1 {
-            quote_spanned! {span=>
-                ::std::vec![
-                    #(#values)*
-                ]
-            }
-        } else {
-            values.remove(0)
-        };
-
-        quote_spanned! {span=>
-            let __props_builder = __props_builder.#slot(#value);
-        }
-    });
-
-    let generics = &node.open_tag.generics;
-    let generics = if generics.lt_token.is_some() {
-        quote! { ::#generics }
-    } else {
-        quote! {}
-    };
-
-    // Pre-check calls via companion module UFCS.
-    // For bounded generic props, E0277 fires with custom
-    // `on_unimplemented` message and the expression type is
-    // `{error}`, suppressing all downstream errors.
-    let (check_infos, setter_pairs): (Vec<_>, Vec<_>) = prop_infos
-        .into_iter()
-        .map(|(info, setter_name, kv_span)| (info, (setter_name, kv_span)))
-        .unzip();
-    let check_imports =
-        generate_check_imports(&check_infos, &module_import_path);
-    let pre_checks =
-        generate_pre_check_tokens(&check_infos, &module_import_path);
-
-    // Builder setter calls using pre-checked values.
-    let builder_setters: Vec<TokenStream> = check_infos
-        .iter()
-        .zip(setter_pairs.iter())
-        .map(|(info, (setter_name, kv_span))| {
-            let checked_var = &info.idents.checked_var;
-            quote_spanned! {*kv_span=>
-                let __props_builder = __props_builder
-                    .#setter_name(#checked_var);
-            }
-        })
-        .collect();
-
-    // Presence tracking setters (independent of {error}).
+    let generics = turbofish_generics(&node.open_tag.generics);
+    let helper_init = quote! { #delinked_path ::__helper #generics () };
     // Use `name_span` so that where-clause failures on
-    // `__require_props()` and E0599 on `__check_missing()` point
+    // `require_props()` and E0599 on `check_missing()` point
     // to the component name, not the entire `view!` invocation.
     let presence_ident = Ident::new("__presence", name_span);
-    let (presence_setters, presence_slots, presence_children) =
-        generate_presence_setters(
-            &check_infos,
-            &slot_names,
-            children_arg.is_some(),
-            &presence_ident,
-        );
+
+    let builder_block = generate_checked_builder_block(
+        helper_init,
+        &presence_ident,
+        &prop_infos,
+        &mut slots,
+        children_arg.as_ref(),
+        children_span,
+    );
 
     let props_ident = Ident::new("props", name_span);
     let props_mut = if optional_props.is_empty() {
@@ -352,34 +277,13 @@ pub(crate) fn component_to_tokens(
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {name_span=>
         {
-            #(#check_imports)*
-
             #[allow(unreachable_code)]
             #[allow(clippy::let_and_return)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 &#component_path,
                 {
-                    #(#pre_checks)*
-
-                    // Check presence of required elements.
-                    let #presence_ident = #delinked_path ::__presence();
-                    #(#presence_setters)*
-                    #(#presence_slots)*
-                    #presence_children
-                    #presence_ident.__require_props();
-
-                    // Initialize the props builder.
-                    let __props_builder = #delinked_path ::__builder #generics ();
-
-                    #(#builder_setters)*
-                    #(#slots)*
-                    #children_builder_call
-
-                    // Pass the typed builder instance through the presence gate. When a required
-                    // prop is missing, `__check_missing` fails (E0599) → builder becomes `{error}`
-                    // → suppresses TypedBuilder's confusing `.build()` error.
-                    let __props_builder = #presence_ident.__check_missing(__props_builder);
+                    #builder_block
 
                     // Build the final props value. `mut` keyword set if optional props must be set.
                     let #props_mut #props_ident = __props_builder.build();
@@ -418,8 +322,10 @@ pub fn items_to_clone_to_tokens(
 }
 
 /// By default all children are placed in an outer closure || #children.
-/// This is to work with all the variants of the leptos::children::ToChildren::to_children trait.
-/// Strings are optimised to be passed without the wrapping closure, providing significant compile time and binary size improvements.
+/// This is to work with all the variants of the
+/// leptos::children::ToChildren::to_children trait. Strings are optimised to be
+/// passed without the wrapping closure, providing significant compile time and
+/// binary size improvements.
 ///
 /// Returns just the children arg expression (not the full builder
 /// call), or `None` if the children cannot be optimised.
@@ -439,7 +345,8 @@ pub fn maybe_optimised_component_children(
         .filter(|child| !matches!(child, Node::Comment(_)));
 
     let children = if let Some(child) = children_iter.next() {
-        // If more than one child after filtering out comments, don't think we can optimise:
+        // If more than one child after filtering out comments, don't think we
+        // can optimise:
         if children_iter.next().is_some() {
             return None;
         }
