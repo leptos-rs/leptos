@@ -9,7 +9,7 @@
 // 1. E0277 — missing `bar` (from `require_props` where-clause)
 // 2. E0277 — wrong type for `foo` (from `check_and_wrap_foo` trait bound)
 // 3. E0599 — `extract_value` bounds not satisfied (from bounded inherent on `WrapFoo`)
-// 4. E0599 — `check_missing` bounds not satisfied (from bounded inherent on `PresenceBuilder`)
+// 4. E0599 — `check_missing` bounds not satisfied (from bounded inherent on `PropPresence`)
 // No downstream errors (all absorbed by `{error}`).
 
 struct Present;
@@ -45,10 +45,10 @@ impl Helper {
 trait RequiredBar {}
 impl RequiredBar for Present {}
 
-struct PresenceBuilder<S>(std::marker::PhantomData<S>);
+struct PropPresence<S>(std::marker::PhantomData<S>);
 
 // Unbounded impl: require_props with where-clause (borrows &self)
-impl<F0, F1> PresenceBuilder<(F0, F1)> {
+impl<F0, F1> PropPresence<(F0, F1)> {
     fn require_props(&self)
     where
         F1: RequiredBar,
@@ -57,7 +57,7 @@ impl<F0, F1> PresenceBuilder<(F0, F1)> {
 }
 
 // Bounded impl: check_missing only available when all required present (takes self)
-impl<F0, F1: RequiredBar> PresenceBuilder<(F0, F1)> {
+impl<F0, F1: RequiredBar> PropPresence<(F0, F1)> {
     fn check_missing<B>(self, builder: B) -> B {
         builder
     }
@@ -69,7 +69,7 @@ fn main() {
     let helper = Helper;
 
     // foo present (wrong type) + bar absent
-    let presence = PresenceBuilder::<(Present, Absent)>(std::marker::PhantomData);
+    let presence = PropPresence::<(Present, Absent)>(std::marker::PhantomData);
     presence.require_props(); // E0277 (missing bar)
 
     let checked_foo = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599 (wrong type)

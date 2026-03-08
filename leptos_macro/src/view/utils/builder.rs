@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 /// The output of `generate_prop_check_statements`.
-struct PropCheckStatements {
+struct CheckedPropBindings {
     /// Independent `let` bindings for pre-checking each prop value.
     pub stmts: Vec<TokenStream>,
     /// The `__checked_foo` idents for use in builder setter calls.
@@ -26,25 +26,25 @@ struct PropCheckStatements {
 /// variable — other checks still evaluate independently and produce
 /// their own errors.
 ///
-/// Each statement creates a local `__helper` ident with `check_span`
+/// Each statement creates a local `__helper` ident with `error_span`
 /// so that error messages point to the prop value, not the component
 /// name.
-fn generate_prop_check_statements(checks: &[PropInfo]) -> PropCheckStatements {
+fn generate_prop_check_statements(checks: &[PropInfo]) -> CheckedPropBindings {
     let mut stmts = Vec::with_capacity(checks.len());
     let mut checked_vars = Vec::with_capacity(checks.len());
 
     for info in checks {
         let span_info = &info.span_info;
         let value = &info.value;
-        let span = span_info.check_span;
+        let span = span_info.error_span;
 
         let helper_local = Ident::new("__helper", span);
         let check_and_wrap = Ident::new(
-            &format!("check_and_wrap_{}", span_info.clean_name),
+            &format!("check_and_wrap_{}", span_info.stripped_name),
             span,
         );
         let checked_var =
-            Ident::new(&format!("__checked_{}", span_info.clean_name), span);
+            Ident::new(&format!("__checked_{}", span_info.stripped_name), span);
 
         stmts.push(quote_spanned! {span=>
             let #checked_var =
@@ -55,7 +55,7 @@ fn generate_prop_check_statements(checks: &[PropInfo]) -> PropCheckStatements {
         checked_vars.push(checked_var);
     }
 
-    PropCheckStatements {
+    CheckedPropBindings {
         stmts,
         checked_vars,
     }
@@ -117,8 +117,10 @@ fn generate_presence_setters(
     let prop_setters: Vec<TokenStream> = prop_infos
         .iter()
         .map(|info| {
-            let setter =
-                Ident::new_raw(&info.span_info.clean_name, Span::call_site());
+            let setter = Ident::new_raw(
+                &info.span_info.stripped_name,
+                Span::call_site(),
+            );
             quote! { let #var_name = #var_name.#setter(); }
         })
         .collect();
@@ -146,7 +148,7 @@ fn generate_presence_setters(
 /// error messages point to the prop assignment, not the component
 /// name.
 fn generate_builder_setters(
-    check_result: &PropCheckStatements,
+    check_result: &CheckedPropBindings,
     prop_infos: &[PropInfo],
 ) -> Vec<TokenStream> {
     check_result

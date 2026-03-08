@@ -10,14 +10,14 @@ help: the trait `required_HelloSlot_concrete_i32` is not implemented for `__Hell
  6 | #[slot]
    | ^^^^^^^
    = note: required props: [`concrete_i32`]
-note: required by a bound in `__HelloSlot::PresenceBuilder::<(__F0, __F1)>::require_props`
+note: required by a bound in `__HelloSlot::PropPresence::<(__F0, __F1)>::require_props`
   --> tests/view/46_slot_missing_required_prop.rs:6:1
    |
  6 | #[slot]
-   | ^^^^^^^ required by this bound in `PresenceBuilder::<(__F0, __F1)>::require_props`
+   | ^^^^^^^ required by this bound in `PropPresence::<(__F0, __F1)>::require_props`
    = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `__HelloSlot::PresenceBuilder<(__HelloSlot::Absent, __HelloSlot::Present)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__HelloSlot::PropPresence<(__HelloSlot::Absent, __HelloSlot::Present)>`, but its trait bounds were not satisfied
   --> tests/view/46_slot_missing_required_prop.rs:24:14
    |
  6 | #[slot]

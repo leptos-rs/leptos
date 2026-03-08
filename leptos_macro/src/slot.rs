@@ -80,15 +80,14 @@ impl ToTokens for Model {
         let original_generics = &body.generics;
 
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
-        let behavioral_bounds_stripped_generics =
-            type_analysis::strip_non_structural_bounds(
-                &body.generics,
-                &field_types,
-            );
+        let struct_generics = type_analysis::strip_non_structural_bounds(
+            &body.generics,
+            &field_types,
+        );
         let (struct_impl_generics, _, struct_where_clause) =
-            behavioral_bounds_stripped_generics.split_for_impl();
+            struct_generics.split_for_impl();
 
-        let phantom_type_params = type_analysis::collect_phantom_type_params(
+        let phantom_type_params = type_analysis::find_unused_type_params(
             &body.generics,
             &field_types,
         );
@@ -127,7 +126,7 @@ impl ToTokens for Model {
             helper_constructor_arg,
         } = generate_companion_internals(&CompanionConfig {
             original_generics,
-            stripped_generics: &behavioral_bounds_stripped_generics,
+            stripped_generics: &struct_generics,
             module_name: &companion_name,
             display_name: name,
             kind: "slot",
@@ -138,7 +137,7 @@ impl ToTokens for Model {
         let output = quote! {
             // Companion module — contains the slot struct, internal
             // types and traits (wrapper structs, check marker traits,
-            // PresenceBuilder, and the `Helper` struct).
+            // prop presence tracker, and the `Helper` struct).
             //
             // INVARIANT: The view macro NEVER references this module by
             // name. All view-macro-generated code goes through

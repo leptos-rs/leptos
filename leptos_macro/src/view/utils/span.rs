@@ -46,18 +46,18 @@ pub(crate) fn delinked_path_from_node_name(
 }
 
 /// Computes the span info for a prop attribute:
-/// - `check_span`: value span (or key span if no value)
-/// - `clean_name`: prop name with `r#` prefix stripped
+/// - `error_span`: value span (or key span if no value)
+/// - `stripped_name`: prop name with `r#` prefix stripped
 pub fn prop_span_info(attr: &KeyedAttribute) -> PropSpanInfo {
     let name = &attr.key;
-    let clean_name = name.to_string().replace("r#", "");
-    let check_span = attr
+    let stripped_name = name.to_string().replace("r#", "");
+    let error_span = attr
         .value()
         .map(|v| v.span())
         .unwrap_or_else(|| attr.key.span());
     PropSpanInfo {
-        check_span,
-        clean_name,
+        error_span,
+        stripped_name,
     }
 }
 
@@ -65,9 +65,9 @@ pub fn prop_span_info(attr: &KeyedAttribute) -> PropSpanInfo {
 pub struct PropSpanInfo {
     /// The span to use for error reporting (value span, or key span
     /// for short-form props).
-    pub check_span: Span,
+    pub error_span: Span,
     /// The clean prop name (raw identifier prefix stripped).
-    pub clean_name: String,
+    pub stripped_name: String,
 }
 
 /// Computes a span covering all children of a node.

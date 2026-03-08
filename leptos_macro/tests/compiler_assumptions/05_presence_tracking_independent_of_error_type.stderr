@@ -14,14 +14,14 @@ help: the trait `RequiredBar` is implemented for `Present`
    |
 46 | impl RequiredBar for Present {}
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-note: required by a bound in `PresenceBuilder::<(F0, F1)>::require_props`
+note: required by a bound in `PropPresence::<(F0, F1)>::require_props`
   --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:54:13
    |
 52 |     fn require_props(&self)
    |        ------------- required by a bound in this associated function
 53 |     where
 54 |         F1: RequiredBar,
-   |             ^^^^^^^^^^^ required by this bound in `PresenceBuilder::<(F0, F1)>::require_props`
+   |             ^^^^^^^^^^^ required by this bound in `PropPresence::<(F0, F1)>::require_props`
 
 error[E0277]: wrong type: `bool` is not of type 'Fn() -> bool'
   --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:75:49
@@ -64,23 +64,23 @@ note: the following trait bounds were not satisfied:
    |         |       unsatisfied trait bound introduced here
    |         unsatisfied trait bound introduced here
 
-error[E0599]: the method `check_missing` exists for struct `PresenceBuilder<(Present, Absent)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `PropPresence<(Present, Absent)>`, but its trait bounds were not satisfied
   --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:78:28
    |
 16 | struct Absent;
    | ------------- doesn't satisfy `Absent: RequiredBar`
 ...
-48 | struct PresenceBuilder<S>(std::marker::PhantomData<S>);
-   | ------------------------- method `check_missing` not found for this struct
+48 | struct PropPresence<S>(std::marker::PhantomData<S>);
+   | ---------------------- method `check_missing` not found for this struct
 ...
 78 |     let builder = presence.check_missing(builder); // E0599 (missing bar -> {error})
-   |                            ^^^^^^^^^^^^^ method cannot be called on `PresenceBuilder<(Present, Absent)>` due to unsatisfied trait bounds
+   |                            ^^^^^^^^^^^^^ method cannot be called on `PropPresence<(Present, Absent)>` due to unsatisfied trait bounds
    |
 note: trait bound `Absent: RequiredBar` was not satisfied
   --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:60:14
    |
-60 | impl<F0, F1: RequiredBar> PresenceBuilder<(F0, F1)> {
-   |              ^^^^^^^^^^^  -------------------------
+60 | impl<F0, F1: RequiredBar> PropPresence<(F0, F1)> {
+   |              ^^^^^^^^^^^  ----------------------
    |              |
    |              unsatisfied trait bound introduced here
 note: the trait `RequiredBar` must be implemented

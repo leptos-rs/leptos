@@ -24,7 +24,7 @@ mod __FooSlot { ... }  // companion module (prefixed to avoid type-namespace col
 
 The companion module contains a `Helper` struct — the central access point for the view macro — which provides
 `builder()`, `presence()`, and per-prop `check_and_wrap_*()` methods. It also contains per-prop check traits, wrapper
-structs, and the `PresenceBuilder` for missing-prop detection.
+structs, and the `PropPresence` for missing-prop detection.
 
 ### Why a Helper Struct?
 
@@ -45,7 +45,7 @@ block on one type.
 
 A struct is also the only Rust construct that supports **two impl blocks with different where
 clauses** on the same generic parameters — the unbounded impl (structural bounds only, for
-`IndependentBounds`/`Unchecked` props) and the bounded impl (all original predicates, for
+`IndependentBounds`/`DeferredToBuilder` props) and the bounded impl (all original predicates, for
 `DependentBounds` props).
 
 
@@ -85,10 +85,10 @@ reference other component type params). Two other classifications exist:
   method lives in a bounded `Helper` impl with ALL original where-clause predicates, giving
   the compiler the full predicate chain for cross-param closure inference. Uses a blanket
   `extract_value()` (no additional type gate).
-- **Unchecked** (concrete types, `into` props, wrapped generics): Blanket impls throughout;
+- **DeferredToBuilder** (concrete types, `into` props, wrapped generics): Blanket impls throughout;
   type checking is deferred entirely to the TypedBuilder setter.
 
-### Missing-Prop Detection (Presence Builder)
+### Missing-Prop Detection (Prop Presence)
 
 The per-prop type check (`check_and_wrap_*`) validates prop **values** — but for a missing
 prop, no value exists, so the view macro never emits a `check_and_wrap_*` call for it. Without
@@ -96,7 +96,7 @@ a separate mechanism, missing required props would only be caught by TypedBuilde
 error types (e.g. `PropsBuilder_Error_Missing_required_field_foo`), which are confusing and
 not under our control.
 
-The `PresenceBuilder` fills this gap. It tracks which prop setters were called via type-state
+The `PropPresence` fills this gap. It tracks which prop setters were called via type-state
 (`PhantomData` tuples), completely independent of actual prop values. Since it never receives
 `{error}` values, its checks work regardless of type errors elsewhere.
 

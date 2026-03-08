@@ -79,6 +79,6 @@ pub(crate) struct PropInfo {
     /// The span for the builder setter call.
     ///
     /// Components use `key_value_span()` (joined key+value),
-    /// slots use `check_span` (value only).
+    /// slots use `error_span` (value only).
     pub setter_span: Span,
 }

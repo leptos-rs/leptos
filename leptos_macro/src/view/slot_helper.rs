@@ -86,7 +86,7 @@ pub(crate) fn slot_to_tokens(
             .unwrap_or_else(|| quote! { #attr_name });
 
         let span_info = prop_span_info(attr);
-        let setter_span = span_info.check_span;
+        let setter_span = span_info.error_span;
 
         prop_infos.push(PropInfo {
             span_info,

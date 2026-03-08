@@ -6,7 +6,7 @@
 //! custom error messages. See [`PropClassification`] for the three
 //! strategies and [`generate_prop_checks`] for the entry point.
 
-use super::{clean_prop_name, type_analysis, PropLike};
+use super::{strip_raw_prefix, type_analysis, PropLike};
 use proc_macro2::{Group, Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use syn::{GenericParam, Generics, Type};
@@ -51,7 +51,7 @@ pub(crate) struct PropCheckOutput {
 ///   `extract_value()`. Helper method takes the value as the struct's type
 ///   parameter directly (not a fresh generic), preserving closure parameter
 ///   inference for closures with untyped params.
-/// - **`Unchecked`**: no trait generated. Wrapper struct with blanket
+/// - **`DeferredToBuilder`**: no trait generated. Wrapper struct with blanket
 ///   `extract_value()`. Helper method takes any type with no bound.
 ///
 ///  # Parameters
@@ -79,7 +79,7 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
     let mut output = PropCheckOutput::default();
 
     for (prop_name, prop_ty) in props.iter().map(|p| (p.name(), p.ty())) {
-        let clean_name = clean_prop_name(prop_name);
+        let clean_name = strip_raw_prefix(prop_name);
         let classification =
             PropClassification::classify(prop_ty, field_types, full_generics);
 
@@ -160,7 +160,9 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
                 });
             }
             PropClassification::DependentBounds { type_param } => {
-                output.wrapper_items.push(blanket_unwrap(&wrap_struct_name));
+                output
+                    .wrapper_items
+                    .push(blanket_extract_value(&wrap_struct_name));
 
                 // No trait needed. The helper method takes the value
                 // as the struct's type parameter directly, preserving
@@ -174,8 +176,10 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
                     }
                 });
             }
-            PropClassification::Unchecked => {
-                output.wrapper_items.push(blanket_unwrap(&wrap_struct_name));
+            PropClassification::DeferredToBuilder => {
+                output
+                    .wrapper_items
+                    .push(blanket_extract_value(&wrap_struct_name));
 
                 // No trait needed — accept any type. Actual type
                 // checking is deferred to TypedBuilder's setter.
@@ -196,8 +200,8 @@ pub(crate) fn generate_prop_checks<'a, P: PropLike>(
 
 /// Generates a blanket `extract_value()` impl that passes all types through.
 ///
-/// Used by both `DependentBounds` and `Unchecked` classifications.
-fn blanket_unwrap(wrap_struct_name: &Ident) -> TokenStream {
+/// Used by both `DependentBounds` and `DeferredToBuilder` classifications.
+fn blanket_extract_value(wrap_struct_name: &Ident) -> TokenStream {
     quote! {
         #[doc(hidden)]
         impl<__T> #wrap_struct_name<__T> {
@@ -267,7 +271,7 @@ enum PropClassification {
     /// No custom type checking is performed at the helper level —
     /// the helper method simply accepts any type. Actual type checking
     /// is deferred to TypedBuilder's setter method.
-    Unchecked,
+    DeferredToBuilder,
 }
 
 impl PropClassification {
@@ -281,10 +285,10 @@ impl PropClassification {
         // prop's type (not wrapped in another type like `Vec<T>`), and
         // whose bounds have not been kept on the struct (i.e. it was
         // stripped because it doesn't appear wrapped in any field).
-        let bare_param = full_generics.params.iter().find_map(|p| {
+        let stripped_param = full_generics.params.iter().find_map(|p| {
             if let GenericParam::Type(tp) = p {
                 let ident = &tp.ident;
-                if type_analysis::is_plain_type_param(prop_type, ident)
+                if type_analysis::is_exact_type_param(prop_type, ident)
                     && !type_analysis::param_appears_wrapped_in_fields(
                         ident,
                         field_types,
@@ -296,7 +300,7 @@ impl PropClassification {
             None
         });
 
-        let classification = if let Some(param_ident) = bare_param {
+        let classification = if let Some(param_ident) = stripped_param {
             let preds = type_analysis::collect_predicates_for_param(
                 full_generics,
                 param_ident,
@@ -321,7 +325,7 @@ impl PropClassification {
                 }
             }
         } else {
-            PropClassification::Unchecked
+            PropClassification::DeferredToBuilder
         };
 
         classification

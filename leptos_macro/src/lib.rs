@@ -12,6 +12,7 @@
 #[macro_use]
 extern crate proc_macro_error2;
 
+use crate::component::component_inner_fn_name;
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
@@ -19,15 +20,14 @@ use quote::{quote, ToTokens};
 use std::str::FromStr;
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
-mod params;
-mod view;
-use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
 mod lazy;
 mod memo;
+mod params;
 mod slice;
 mod slot;
 mod util;
+mod view;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -723,7 +723,7 @@ fn component_macro(
             })
         }
         unexpanded.sig.ident =
-            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+            component_inner_fn_name(&unexpanded.sig.ident);
 
         quote! {
             #expanded
@@ -735,7 +735,7 @@ fn component_macro(
     } else {
         match dummy {
             Ok(mut dummy) => {
-                dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+                dummy.sig.ident = component_inner_fn_name(&dummy.sig.ident);
                 quote! {
                     #[doc(hidden)]
                     #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]

@@ -46,7 +46,7 @@ pub(crate) fn component_to_tokens(
     // attributes anything before it is a prop, unless it uses the special
     // attribute syntaxes (attr:, style:, on:, prop:, etc.)
     // anything after it is a plain HTML attribute to be spread onto the prop
-    let spread_marker = node
+    let spread_boundary = node
         .attributes()
         .iter()
         .position(|node| match node {
@@ -92,7 +92,7 @@ pub(crate) fn component_to_tokens(
     let mut optional_props = vec![];
     let mut seen_prop_names = HashSet::new();
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
-        idx < &spread_marker && {
+        idx < &spread_boundary && {
             let attr_key = attr.key.to_string();
             !is_attr_let(&attr.key)
                 && !attr_key.starts_with("clone:")
@@ -188,12 +188,12 @@ pub(crate) fn component_to_tokens(
         .iter()
         .enumerate()
         .filter_map(|(idx, attr)| {
-            if idx == spread_marker {
+            if idx == spread_boundary {
                 return None;
             }
 
             if let NodeAttribute::Block(block) = attr {
-                let dotted = if let NodeBlock::ValidBlock(block) = block {
+                let spread_expr = if let NodeBlock::ValidBlock(block) = block {
                     match block.stmts.first() {
                         Some(Stmt::Expr(
                             Expr::Range(ExprRange {
@@ -209,13 +209,13 @@ pub(crate) fn component_to_tokens(
                 } else {
                     None
                 };
-                Some(dotted.unwrap_or_else(|| {
+                Some(spread_expr.unwrap_or_else(|| {
                     quote! {
                         #node
                     }
                 }))
             } else if let NodeAttribute::Attribute(node) = attr {
-                attribute_absolute(node, idx >= spread_marker)
+                attribute_absolute(node, idx >= spread_boundary)
             } else {
                 None
             }

@@ -2,7 +2,7 @@
 // fires a separate E0277 with custom `on_unimplemented` for each unsatisfied bound.
 // Uses `Present`/`Absent` sentinel types (not tuples).
 //
-// This is the assumption behind `PresenceBuilder::require_props(&self) where
+// This is the assumption behind `PropPresence::require_props(&self) where
 // F0: required_foo, F1: required_bar`. Each missing required prop fires an
 // independent E0277.
 //
@@ -27,9 +27,9 @@ impl RequiredFoo for Present {}
 trait RequiredBar {}
 impl RequiredBar for Present {}
 
-struct PresenceBuilder<S>(std::marker::PhantomData<S>);
+struct PropPresence<S>(std::marker::PhantomData<S>);
 
-impl<F0, F1> PresenceBuilder<(F0, F1)> {
+impl<F0, F1> PropPresence<(F0, F1)> {
     fn require_props(&self)
     where
         F0: RequiredFoo,
@@ -39,6 +39,6 @@ impl<F0, F1> PresenceBuilder<(F0, F1)> {
 }
 
 fn main() {
-    let p = PresenceBuilder::<(Absent, Absent)>(std::marker::PhantomData);
+    let p = PropPresence::<(Absent, Absent)>(std::marker::PhantomData);
     p.require_props(); // E0277 for foo + E0277 for bar
 }

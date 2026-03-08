@@ -1,8 +1,7 @@
 use super::{
     children::is_children_prop,
-    clean_prop_name,
     prop_checks::{generate_prop_checks, PropCheckOutput},
-    type_analysis, PropLike,
+    strip_raw_prefix, type_analysis, PropLike,
 };
 use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -41,7 +40,7 @@ pub(crate) struct CompanionConfig<'a, P: PropLike> {
 /// template.
 pub(crate) struct CompanionModuleBody {
     /// Shared items for inside the companion module: marker traits,
-    /// module builder, check traits/wrappers, presence builder,
+    /// module builder, check traits/wrappers, prop presence tracker,
     /// Helper struct and its impl blocks.
     pub module_items: TokenStream,
     /// Trait implementations for outside the companion module.
@@ -82,7 +81,7 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
     );
 
     let PresenceOutput {
-        items: presence_and_required_items,
+        items: presence_items,
         initial_return_type: presence_return_type,
     } = generate_presence_and_required_checks(
         config.display_name,
@@ -144,7 +143,7 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
     };
 
     let module_items = quote! {
-        #presence_and_required_items
+        #presence_items
 
         #builder_fn
         #(#check_traits)*
@@ -188,11 +187,12 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
 
 /// Output from [`generate_presence_and_required_checks`].
 struct PresenceOutput {
-    /// Token stream containing marker traits, `PresenceBuilder`
+    /// Token stream containing marker traits, `PropPresence`
     /// struct, `presence()` function, and impl blocks.
     items: TokenStream,
+
     /// The initial return type of `presence()`, e.g.
-    /// `PresenceBuilder<(Absent, Absent, ...)>`.
+    /// `PropPresence<(Absent, Absent, ...)>`.
     initial_return_type: TokenStream,
 }
 
@@ -205,7 +205,7 @@ struct PresenceOutput {
 /// (PhantomData tuples) and uses these marker traits for its
 /// `require_props` where-clause.
 ///
-/// Two inherent impl blocks on `PresenceBuilder`:
+/// Two inherent impl blocks on `PropPresence`:
 ///
 /// 1. **Unbounded**: setters + `require_props` (where-clause produces E0277 via
 ///    marker trait `on_unimplemented` when required props are missing).
@@ -248,7 +248,7 @@ fn generate_presence_and_required_checks<P: PropLike>(
         let ty = prop.ty();
         let param = &type_state_idents[i];
         if required {
-            let clean_name = clean_prop_name(name);
+            let clean_name = strip_raw_prefix(name);
             let trait_name = Ident::new(
                 &format!("required_{display_name}_{clean_name}"),
                 Span::call_site(),
@@ -301,9 +301,9 @@ fn generate_presence_and_required_checks<P: PropLike>(
         (0..n).map(|_| quote! { Absent }).collect();
 
     let initial_return_type = if n == 0 {
-        quote! { PresenceBuilder<()> }
+        quote! { PropPresence<()> }
     } else {
-        quote! { PresenceBuilder<(#(#initial_types,)*)> }
+        quote! { PropPresence<(#(#initial_types,)*)> }
     };
 
     // Setter methods: each one transitions its slot from __Fi to
@@ -312,7 +312,7 @@ fn generate_presence_and_required_checks<P: PropLike>(
         .iter()
         .enumerate()
         .map(|(i, prop)| {
-            let clean = clean_prop_name(prop.name());
+            let clean = strip_raw_prefix(prop.name());
             let setter_name = Ident::new_raw(&clean, Span::call_site());
 
             let return_types: Vec<TokenStream> = (0..n)
@@ -328,9 +328,9 @@ fn generate_presence_and_required_checks<P: PropLike>(
 
             quote! {
                 pub fn #setter_name(self)
-                    -> PresenceBuilder<(#(#return_types,)*)>
+                    -> PropPresence<(#(#return_types,)*)>
                 {
-                    PresenceBuilder(::core::marker::PhantomData)
+                    PropPresence(::core::marker::PhantomData)
                 }
             }
         })
@@ -348,21 +348,17 @@ fn generate_presence_and_required_checks<P: PropLike>(
         #(#marker_traits)*
 
         #[doc(hidden)]
-        pub struct PresenceBuilder<S>(
-            ::core::marker::PhantomData<S>,
-        );
+        pub struct PropPresence<S>(::core::marker::PhantomData<S>);
 
         #[doc(hidden)]
-        pub fn presence()
-            -> #initial_return_type
+        pub fn presence() -> #initial_return_type
         {
-            PresenceBuilder(::core::marker::PhantomData)
+            PropPresence(::core::marker::PhantomData)
         }
 
         #[doc(hidden)]
         #[allow(non_snake_case)]
-        impl<#(#type_state_idents),*>
-            PresenceBuilder<(#(#type_state_idents,)*)>
+        impl<#(#type_state_idents),*> PropPresence<(#(#type_state_idents,)*)>
         {
             #(#setter_methods)*
 
@@ -374,8 +370,7 @@ fn generate_presence_and_required_checks<P: PropLike>(
 
         #[doc(hidden)]
         #[allow(non_snake_case)]
-        impl<#(#type_state_params),*>
-            PresenceBuilder<(#(#type_state_idents,)*)>
+        impl<#(#type_state_params),*> PropPresence<(#(#type_state_idents,)*)>
         {
             pub fn check_missing<__B>(
                 self,

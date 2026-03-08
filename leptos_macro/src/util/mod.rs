@@ -31,7 +31,7 @@ pub(crate) trait PropLike {
 }
 
 /// Strips the raw identifier prefix (`r#`) from a prop name.
-pub(crate) fn clean_prop_name(ident: &Ident) -> String {
+pub(crate) fn strip_raw_prefix(ident: &Ident) -> String {
     let s = ident.to_string();
     s.strip_prefix("r#").unwrap_or(&s).to_owned()
 }

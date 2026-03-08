@@ -39,7 +39,7 @@ pub(crate) fn type_contains_ident(ty: &Type, ident: &Ident) -> bool {
 
 /// Returns true if the type is exactly the given type parameter
 /// with no wrapping (e.g. `F`, not `Vec<F>`).
-pub(crate) fn is_plain_type_param(ty: &Type, ident: &Ident) -> bool {
+pub(crate) fn is_exact_type_param(ty: &Type, ident: &Ident) -> bool {
     if let Type::Path(TypePath { path, .. }) = ty {
         path.is_ident(ident)
     } else {
@@ -49,14 +49,14 @@ pub(crate) fn is_plain_type_param(ty: &Type, ident: &Ident) -> bool {
 
 /// Returns true if the given type param appears inside a wrapping
 /// type in any field (e.g. `ServerAction<ServFn>`) rather than as a
-/// plain type param (e.g. `fun: F`).
+/// exact type param (e.g. `fun: F`).
 pub(crate) fn param_appears_wrapped_in_fields(
     param_ident: &Ident,
     field_types: &[&Type],
 ) -> bool {
     field_types.iter().any(|ty| {
         type_contains_ident(ty, param_ident)
-            && !is_plain_type_param(ty, param_ident)
+            && !is_exact_type_param(ty, param_ident)
     })
 }
 
@@ -184,7 +184,7 @@ pub(crate) fn collect_all_predicates(
 /// Collects generic type params that are NOT used in any field type.
 /// These need `PhantomData` so the struct compiles without their
 /// where-clause bounds.
-pub(crate) fn collect_phantom_type_params<'a>(
+pub(crate) fn find_unused_type_params<'a>(
     generics: &'a syn::Generics,
     field_types: &[&Type],
 ) -> Vec<&'a Ident> {
@@ -385,26 +385,26 @@ mod tests {
         ));
     }
 
-    // --- is_plain_type_param ---
+    // --- is_exact_type_param ---
 
     #[test]
-    fn plain_type_param_exact() {
-        assert!(is_plain_type_param(&parse_ty("F"), &ident("F")));
+    fn exact_type_param_exact() {
+        assert!(is_exact_type_param(&parse_ty("F"), &ident("F")));
     }
 
     #[test]
-    fn plain_type_param_wrapped() {
-        assert!(!is_plain_type_param(&parse_ty("Vec<F>"), &ident("F")));
+    fn exact_type_param_wrapped() {
+        assert!(!is_exact_type_param(&parse_ty("Vec<F>"), &ident("F")));
     }
 
     #[test]
-    fn plain_type_param_different_name() {
-        assert!(!is_plain_type_param(&parse_ty("G"), &ident("F")));
+    fn exact_type_param_different_name() {
+        assert!(!is_exact_type_param(&parse_ty("G"), &ident("F")));
     }
 
     #[test]
-    fn plain_type_param_option() {
-        assert!(!is_plain_type_param(&parse_ty("Option<F>"), &ident("F")));
+    fn exact_type_param_option() {
+        assert!(!is_exact_type_param(&parse_ty("Option<F>"), &ident("F")));
     }
 
     // --- collect_predicates_for_param ---

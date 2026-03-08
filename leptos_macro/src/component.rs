@@ -213,15 +213,14 @@ impl ToTokens for Model {
         // needed by field types (e.g. `ServerAction<ServFn>` needs
         // `ServFn: ServerFn`).
         let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
-        let behavioral_bounds_stripped_generics =
-            type_analysis::strip_non_structural_bounds(
-                original_generics,
-                &field_types,
-            );
+        let struct_generics = type_analysis::strip_non_structural_bounds(
+            original_generics,
+            &field_types,
+        );
         let (struct_impl_generics, _, struct_where_clause) =
-            behavioral_bounds_stripped_generics.split_for_impl();
+            struct_generics.split_for_impl();
 
-        let phantom_type_params = type_analysis::collect_phantom_type_params(
+        let phantom_type_params = type_analysis::find_unused_type_params(
             original_generics,
             &field_types,
         );
@@ -377,7 +376,7 @@ impl ToTokens for Model {
             quote! {}
         };
 
-        let body_name = unmodified_fn_name_from_fn_name(&body_name);
+        let body_name = component_inner_fn_name(&body_name);
         let body_expr = if is_island {
             quote! {
                 ::leptos::reactive::owner::Owner::new().with(|| {
@@ -647,7 +646,7 @@ impl ToTokens for Model {
             helper_constructor_arg,
         } = generate_companion_internals(&CompanionConfig {
             original_generics,
-            stripped_generics: &behavioral_bounds_stripped_generics,
+            stripped_generics: &struct_generics,
             module_name: name,
             display_name: name,
             kind: "component",
@@ -1112,7 +1111,7 @@ fn prop_names(props: &[ComponentProp]) -> TokenStream {
         .collect()
 }
 
-pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
+pub fn component_inner_fn_name(ident: &Ident) -> Ident {
     Ident::new(
         &format!("__component_{}", ident.to_string().to_case(Snake)),
         ident.span(),
@@ -1128,8 +1127,8 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
 
     // First: visit all `impl Trait`s and replace them with new generic params.
     #[derive(Default)]
-    struct RemoveImplTrait(Vec<TypeImplTrait>);
-    impl VisitMut for RemoveImplTrait {
+    struct ReplaceImplTraitWithGeneric(Vec<TypeImplTrait>);
+    impl VisitMut for ReplaceImplTraitWithGeneric {
         fn visit_type_mut(&mut self, ty: &mut Type) {
             syn::visit_mut::visit_type_mut(self, ty);
             if matches!(ty, Type::ImplTrait(_)) {
@@ -1151,11 +1150,11 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
         fn visit_attribute_mut(&mut self, _: &mut Attribute) {}
         fn visit_pat_mut(&mut self, _: &mut Pat) {}
     }
-    let mut visitor = RemoveImplTrait::default();
+    let mut visitor = ReplaceImplTraitWithGeneric::default();
     for fn_arg in sig.inputs.iter_mut() {
         visitor.visit_fn_arg_mut(fn_arg);
     }
-    let RemoveImplTrait(impl_traits) = visitor;
+    let ReplaceImplTraitWithGeneric(impl_traits) = visitor;
 
     // Second: Add the new generic params into the signature.
     for (i, impl_trait) in impl_traits.into_iter().enumerate() {
