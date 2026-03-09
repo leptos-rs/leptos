@@ -717,8 +717,6 @@ impl PropClassification {
             None
         });
 
-        
-
         if let Some(param_ident) = stripped_param {
             let preds = type_analysis::collect_predicates_for_param(
                 full_generics,
