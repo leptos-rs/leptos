@@ -219,8 +219,13 @@ impl<T, S> !NotASignalType for Memo<T, S> {}
 impl<T, S> !NotASignalType for MaybeProp<T, S> {}
 
 // Types that do NOT need negative impls:
-// - Signal, ArcSignal: use Deref to dyn Fn() -> T, don't directly impl Fn traits
+// - Signal: wraps ArenaItem (an index), so auto trait propagation preserves NotASignalType
 // - WriteSignal, ArcWriteSignal, SignalSetter: only impl Fn(T) -> (), not Fn() -> T
+
+// ArcSignal contains SignalTypes directly (which holds ArcReadSignal, ArcMemo, etc.),
+// so auto trait propagation would remove NotASignalType. We add an explicit positive
+// impl because ArcSignal uses Deref (not direct Fn impls), so there's no ambiguity.
+impl<T, S> NotASignalType for ArcSignal<T, S> where S: Storage<T> {}
 
 mod readable_deref_impl {
     /// Derived from the implementation and original creaters at dioxus
