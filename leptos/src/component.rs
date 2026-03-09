@@ -2,6 +2,15 @@
 //! as either functions of their props or functions with no arguments,
 //! without knowing the name of the props struct.
 
+/// Presence type-state markers for the companion-module pattern.
+#[doc(hidden)]
+pub mod presence {
+    /// Prop has NOT been provided.
+    pub struct Absent;
+    /// Prop has been provided.
+    pub struct Present;
+}
+
 pub trait Component<P> {}
 
 pub trait Props {

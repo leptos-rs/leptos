@@ -284,7 +284,7 @@ fn generate_prop_presence<P: PropLike>(
                 pub trait #trait_name {}
 
                 #[diagnostic::do_not_recommend]
-                impl #trait_name for Present {}
+                impl #trait_name for ::leptos::component::presence::Present {}
             });
 
             let bound = quote! { #param: #trait_name };
@@ -296,8 +296,9 @@ fn generate_prop_presence<P: PropLike>(
     }
 
     // Initial type state: all Absent
-    let initial_types: Vec<TokenStream> =
-        (0..n).map(|_| quote! { Absent }).collect();
+    let initial_types: Vec<TokenStream> = (0..n)
+        .map(|_| quote! { ::leptos::component::presence::Absent })
+        .collect();
 
     let initial_return_type = if n == 0 {
         quote! { PropPresence<()> }
@@ -317,7 +318,7 @@ fn generate_prop_presence<P: PropLike>(
             let return_types: Vec<TokenStream> = (0..n)
                 .map(|j| {
                     if j == i {
-                        quote! { Present }
+                        quote! { ::leptos::component::presence::Present }
                     } else {
                         let param = &type_state_idents[j];
                         quote! { #param }
@@ -337,14 +338,6 @@ fn generate_prop_presence<P: PropLike>(
         .collect();
 
     let items = quote! {
-        /// Presence type-state marker: prop has NOT been provided.
-        #[doc(hidden)]
-        pub struct Absent;
-
-        /// Presence type-state marker: prop has been provided.
-        #[doc(hidden)]
-        pub struct Present;
-
         #(#marker_traits)*
 
         #[doc(hidden)]

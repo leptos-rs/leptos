@@ -4,11 +4,7 @@ error[E0277]: missing required prop `generic_fun` on component `Inner`
 10 |             <Inner concrete_i32=42>
    |              ^^^^^ missing prop `generic_fun`
    |
-help: the trait `required_Inner_generic_fun` is not implemented for `__Inner::Absent`
-  --> tests/view/08_generic_prop_missing.rs:17:1
-   |
-17 | #[component]
-   | ^^^^^^^^^^^^
+   = help: the trait `required_Inner_generic_fun` is not implemented for `leptos::prelude::presence::Absent`
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
 note: required by a bound in `__Inner::PropPresence::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/08_generic_prop_missing.rs:17:1
@@ -17,21 +13,21 @@ note: required by a bound in `__Inner::PropPresence::<(__F0, __F1, __F2)>::requi
    | ^^^^^^^^^^^^ required by this bound in `PropPresence::<(__F0, __F1, __F2)>::require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(__Inner::Present, __Inner::Absent, __Inner::Present)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(leptos::prelude::presence::Present, leptos::prelude::presence::Absent, leptos::prelude::presence::Present)>`, but its trait bounds were not satisfied
   --> tests/view/08_generic_prop_missing.rs:10:14
    |
 10 |             <Inner concrete_i32=42>
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 17 | #[component]
-   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `__Inner::Absent: required_Inner_generic_fun`
+   | ------------ method `check_missing` not found for this struct
    |
-note: trait bound `__Inner::Absent: required_Inner_generic_fun` was not satisfied
-  --> tests/view/08_generic_prop_missing.rs:17:1
+  ::: $WORKSPACE/leptos/src/component.rs
    |
-17 | #[component]
-   | ^^^^^^^^^^^^
-note: the trait `required_Inner_generic_fun` must be implemented
+   |     pub struct Absent;
+   |     ----------------- doesn't satisfy `_: required_Inner_generic_fun`
+   |
+note: trait bound `leptos::prelude::presence::Absent: required_Inner_generic_fun` was not satisfied
   --> tests/view/08_generic_prop_missing.rs:17:1
    |
 17 | #[component]

@@ -4,11 +4,7 @@ error[E0277]: component `Inner` requires children
 10 |             <Inner concrete_i32=42 generic_fun=|| true>
    |              ^^^^^ children required
    |
-help: the trait `required_Inner_children` is not implemented for `__Inner::Absent`
-  --> tests/view/15_children_missing.rs:16:1
-   |
-16 | #[component]
-   | ^^^^^^^^^^^^
+   = help: the trait `required_Inner_children` is not implemented for `leptos::prelude::presence::Absent`
    = note: add child elements between the opening and closing tags
 note: required by a bound in `__Inner::PropPresence::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/15_children_missing.rs:16:1
@@ -17,21 +13,21 @@ note: required by a bound in `__Inner::PropPresence::<(__F0, __F1, __F2)>::requi
    | ^^^^^^^^^^^^ required by this bound in `PropPresence::<(__F0, __F1, __F2)>::require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(__Inner::Present, __Inner::Present, __Inner::Absent)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(leptos::prelude::presence::Present, leptos::prelude::presence::Present, leptos::prelude::presence::Absent)>`, but its trait bounds were not satisfied
   --> tests/view/15_children_missing.rs:10:14
    |
 10 |             <Inner concrete_i32=42 generic_fun=|| true>
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 16 | #[component]
-   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `__Inner::Absent: required_Inner_children`
+   | ------------ method `check_missing` not found for this struct
    |
-note: trait bound `__Inner::Absent: required_Inner_children` was not satisfied
-  --> tests/view/15_children_missing.rs:16:1
+  ::: $WORKSPACE/leptos/src/component.rs
    |
-16 | #[component]
-   | ^^^^^^^^^^^^
-note: the trait `required_Inner_children` must be implemented
+   |     pub struct Absent;
+   |     ----------------- doesn't satisfy `_: required_Inner_children`
+   |
+note: trait bound `leptos::prelude::presence::Absent: required_Inner_children` was not satisfied
   --> tests/view/15_children_missing.rs:16:1
    |
 16 | #[component]

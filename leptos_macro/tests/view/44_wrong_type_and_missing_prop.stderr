@@ -4,11 +4,7 @@ error[E0277]: missing required prop `concrete_i32` on component `Inner`
 13 |             <Inner generic_fun=true>
    |              ^^^^^ missing prop `concrete_i32`
    |
-help: the trait `required_Inner_concrete_i32` is not implemented for `__Inner::Absent`
-  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
-   |
-20 | #[component]
-   | ^^^^^^^^^^^^
+   = help: the trait `required_Inner_concrete_i32` is not implemented for `leptos::prelude::presence::Absent`
    = note: required props: [`concrete_i32`, `generic_fun`, `children`]
 note: required by a bound in `__Inner::PropPresence::<(__F0, __F1, __F2)>::require_props`
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
@@ -54,21 +50,21 @@ note: the following trait bounds were not satisfied:
    | ^^^^^^^^^^^^
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(__Inner::Absent, __Inner::Present, __Inner::Present)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(leptos::prelude::presence::Absent, leptos::prelude::presence::Present, leptos::prelude::presence::Present)>`, but its trait bounds were not satisfied
   --> tests/view/44_wrong_type_and_missing_prop.rs:13:14
    |
 13 |             <Inner generic_fun=true>
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 20 | #[component]
-   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `__Inner::Absent: required_Inner_concrete_i32`
+   | ------------ method `check_missing` not found for this struct
    |
-note: trait bound `__Inner::Absent: required_Inner_concrete_i32` was not satisfied
-  --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
+  ::: $WORKSPACE/leptos/src/component.rs
    |
-20 | #[component]
-   | ^^^^^^^^^^^^
-note: the trait `required_Inner_concrete_i32` must be implemented
+   |     pub struct Absent;
+   |     ----------------- doesn't satisfy `_: required_Inner_concrete_i32`
+   |
+note: trait bound `leptos::prelude::presence::Absent: required_Inner_concrete_i32` was not satisfied
   --> tests/view/44_wrong_type_and_missing_prop.rs:20:1
    |
 20 | #[component]
