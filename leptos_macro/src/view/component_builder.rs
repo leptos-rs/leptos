@@ -1,7 +1,7 @@
 use super::utils::{
-    children_span, delinked_path_from_node_name, extract_children_arg,
-    generate_checked_builder_block, is_nostrip_optional_and_update_key,
-    prop_span_info, turbofish_generics, PropInfo,
+    children_span, extract_children_arg, generate_checked_builder_block,
+    is_nostrip_optional_and_update_key, prop_span_info, turbofish_generics,
+    PropInfo,
 };
 use crate::view::{
     attribute_absolute,
@@ -31,14 +31,6 @@ pub(crate) fn component_to_tokens(
         let n = node.name();
         quote! { #n }
     };
-
-    // A span-delinked copy of the component path for builder and check calls.
-    // The last segment gets `Span::call_site()` so that rust-analyzer does
-    // NOT map ctrl+click on the source `<Component />` to the module usage
-    // (which would cause a "choose function vs type" disambiguation
-    // prompt).  Only the function reference (`&Component`) keeps the original
-    // span, giving the IDE a single, unambiguous navigation target.
-    let delinked_path = delinked_path_from_node_name(node.name(), "");
 
     // an attribute that contains {..} can be used to split props from
     // attributes anything before it is a prop, unless it uses the special
@@ -250,7 +242,7 @@ pub(crate) fn component_to_tokens(
     );
 
     let generics = turbofish_generics(&node.open_tag.generics);
-    let helper_init = quote! { #delinked_path ::__helper #generics () };
+    let helper_init = quote! { ::leptos::component::component_helper(&#component_path #generics) };
     // Use `name_span` so that where-clause failures on
     // `require_props()` and E0599 on `check_missing()` point
     // to the component name, not the entire `view!` invocation.

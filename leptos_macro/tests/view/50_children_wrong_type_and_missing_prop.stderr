@@ -4,13 +4,13 @@ error[E0277]: missing required prop `some_prop` on component `Inner`
 12 |             <Inner>
    |              ^^^^^ missing prop `some_prop`
    |
-help: the trait `required_Inner_some_prop` is not implemented for `Inner::Absent`
+help: the trait `required_Inner_some_prop` is not implemented for `__Inner::Absent`
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1
    |
 19 | #[component]
    | ^^^^^^^^^^^^
    = note: required props: [`some_prop`, `children`]
-note: required by a bound in `Inner::PropPresence::<(__F0, __F1)>::require_props`
+note: required by a bound in `__Inner::PropPresence::<(__F0, __F1)>::require_props`
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1
    |
 19 | #[component]
@@ -47,16 +47,16 @@ help: you might have meant to create the closure instead of a block
 13 |                 |_| {NotAView}
    |                 +++
 
-error[E0599]: the method `check_missing` exists for struct `Inner::PropPresence<(Inner::Absent, Inner::Present)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(__Inner::Absent, __Inner::Present)>`, but its trait bounds were not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:12:14
    |
 12 |             <Inner>
    |              ^^^^^ method cannot be called due to unsatisfied trait bounds
 ...
 19 | #[component]
-   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `Inner::Absent: required_Inner_some_prop`
+   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `__Inner::Absent: required_Inner_some_prop`
    |
-note: trait bound `Inner::Absent: required_Inner_some_prop` was not satisfied
+note: trait bound `__Inner::Absent: required_Inner_some_prop` was not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1
    |
 19 | #[component]

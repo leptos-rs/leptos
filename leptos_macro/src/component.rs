@@ -624,6 +624,19 @@ impl ToTokens for Model {
             is_island_with_other_props,
         );
 
+        // Prefixed to avoid type-namespace collisions with user defined types
+        // from the same scope. Allows users to write
+        // ```
+        // struct Foo;
+        // #[component]
+        // fn Foo(_foo: Foo) -> impl IntoView { () }
+        // ```
+        // without resulting in both module and struct named equally.
+        // Using the `::leptos::component::component_helper` inference bridge
+        // in view! macros stil allows for renamed imports of component fns,
+        // as no direct (named) access to this companion module is required.
+        let companion_name = format_ident!("__{}", name);
+
         let CompanionModuleBody {
             module_items,
             trait_impls,
@@ -631,7 +644,7 @@ impl ToTokens for Model {
         } = generate_companion_internals(&CompanionConfig {
             original_generics,
             stripped_generics: &struct_generics,
-            module_name: name,
+            module_name: &companion_name,
             display_name: name,
             kind: "component",
             props_name: &props_name,
@@ -639,7 +652,7 @@ impl ToTokens for Model {
         });
 
         let props_serialized_reexport = if is_island_with_other_props {
-            quote! { #vis use #name::#props_serialized_name; }
+            quote! { #vis use #companion_name::#props_serialized_name; }
         } else {
             quote! {}
         };
@@ -651,8 +664,6 @@ impl ToTokens for Model {
                 props: #props_name #generics
             }
         };
-
-        let companion_name = name.clone();
 
         let output = quote! {
             #[allow(missing_docs)]
@@ -671,10 +682,6 @@ impl ToTokens for Model {
                 #body
             }
 
-            // Companion module — coexists with `fn #name` because
-            // modules live in the type namespace and functions in
-            // the value namespace.  `use path::Component as Alias`
-            // renames both, so the module follows renamed imports.
             #[doc(hidden)]
             #[allow(non_snake_case)]
             #vis mod #companion_name {
@@ -697,9 +704,14 @@ impl ToTokens for Model {
 
                 impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
                     type Builder = #props_builder_name #generics;
+                    type Helper = Helper #generics;
 
                     fn builder() -> Self::Builder {
                         #props_name::builder()
+                    }
+
+                    fn helper() -> Self::Helper {
+                        __helper()
                     }
                 }
 

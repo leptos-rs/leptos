@@ -149,9 +149,14 @@ impl ToTokens for Model {
 
                 impl #struct_impl_generics ::leptos::component::Props for #name #generics #struct_where_clause {
                     type Builder = #slot_builder_name #generics;
+                    type Helper = Helper #generics;
 
                     fn builder() -> Self::Builder {
                         #name::builder()
+                    }
+
+                    fn helper() -> Self::Helper {
+                        Helper(#helper_constructor_arg)
                     }
                 }
 

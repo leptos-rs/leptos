@@ -111,4 +111,7 @@ fn test_view_macro() {
 
     // Closure parameter type inference.
     t.pass("tests/view/63_generic_closure_with_params.rs");
+
+    // Component and struct name coexistence.
+    t.pass("tests/view/64_component_and_struct_same_name.rs");
 }

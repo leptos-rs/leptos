@@ -10,7 +10,7 @@ note: required for `Vec<{integer}>` to implement `Check_value`
    |
 16 | #[component]
    | ^^^^^^^^^^^^
-note: required by a bound in `Inner::Helper::<T>::check_and_wrap_value`
+note: required by a bound in `__Inner::Helper::<T>::check_and_wrap_value`
   --> tests/view/55_generic_non_fn_bound_wrong_type.rs:16:1
    |
 16 | #[component]

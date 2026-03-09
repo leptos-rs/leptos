@@ -10,7 +10,7 @@ note: required for `bool` to implement `Check_fun`
    |
 15 | #[component]
    | ^^^^^^^^^^^^
-note: required by a bound in `Inner::Helper::<F>::check_and_wrap_fun`
+note: required by a bound in `__Inner::Helper::<F>::check_and_wrap_fun`
   --> tests/view/56_generic_clone_and_fn_wrong_type.rs:15:1
    |
 15 | #[component]

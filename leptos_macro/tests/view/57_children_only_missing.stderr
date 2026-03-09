@@ -4,29 +4,29 @@ error[E0277]: component `Inner` requires children
 11 |             <Inner></Inner>
    |              ^^^^^ children required
    |
-help: the trait `required_Inner_children` is not implemented for `Inner::Absent`
+help: the trait `required_Inner_children` is not implemented for `__Inner::Absent`
   --> tests/view/57_children_only_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^
    = note: add child elements between the opening and closing tags
-note: required by a bound in `Inner::PropPresence::<(__F0,)>::require_props`
+note: required by a bound in `__Inner::PropPresence::<(__F0,)>::require_props`
   --> tests/view/57_children_only_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^ required by this bound in `PropPresence::<(__F0,)>::require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `check_missing` exists for struct `Inner::PropPresence<(Inner::Absent,)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(__Inner::Absent,)>`, but its trait bounds were not satisfied
   --> tests/view/57_children_only_missing.rs:11:14
    |
 11 |             <Inner></Inner>
-   |              ^^^^^ method cannot be called on `Inner::PropPresence<(Inner::Absent,)>` due to unsatisfied trait bounds
+   |              ^^^^^ method cannot be called on `__Inner::PropPresence<(__Inner::Absent,)>` due to unsatisfied trait bounds
 ...
 16 | #[component]
-   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `Inner::Absent: required_Inner_children`
+   | ------------ method `check_missing` not found for this struct because it doesn't satisfy `__Inner::Absent: required_Inner_children`
    |
-note: trait bound `Inner::Absent: required_Inner_children` was not satisfied
+note: trait bound `__Inner::Absent: required_Inner_children` was not satisfied
   --> tests/view/57_children_only_missing.rs:16:1
    |
 16 | #[component]
