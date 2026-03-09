@@ -93,6 +93,7 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
         let ret = quote! { ::leptos::component::EmptyPropsBuilder };
         let func = quote! {
             /// Creates a builder for this component's props.
+            #[inline(always)]
             pub fn builder() -> #ret {
                 ::leptos::component::EmptyPropsBuilder {}
             }
@@ -105,6 +106,7 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
         };
         let func = quote! {
             /// Creates a builder for this component's props.
+            #[inline(always)]
             pub fn builder #stripped_impl ()
                 -> #ret
                 #stripped_where
@@ -158,11 +160,13 @@ pub(crate) fn generate_companion_internals<P: PropLike>(
             #stripped_where
         {
             #[doc(hidden)]
+            #[inline(always)]
             pub fn builder(&self) -> #builder_ret {
                 builder()
             }
 
             #[doc(hidden)]
+            #[inline(always)]
             pub fn presence(&self) -> #presence_return_type {
                 presence()
             }
@@ -322,6 +326,7 @@ fn generate_prop_presence<P: PropLike>(
                 .collect();
 
             quote! {
+                #[inline(always)]
                 pub fn #setter_name(self)
                     -> PropPresence<(#(#return_types,)*)>
                 {
@@ -346,6 +351,7 @@ fn generate_prop_presence<P: PropLike>(
         pub struct PropPresence<S>(::core::marker::PhantomData<S>);
 
         #[doc(hidden)]
+        #[inline(always)]
         pub fn presence() -> #initial_return_type
         {
             PropPresence(::core::marker::PhantomData)
@@ -357,6 +363,7 @@ fn generate_prop_presence<P: PropLike>(
         {
             #(#setter_methods)*
 
+            #[inline(always)]
             pub fn require_props(&self)
             where
                 #(#require_bounds,)*
@@ -367,6 +374,7 @@ fn generate_prop_presence<P: PropLike>(
         #[allow(non_snake_case)]
         impl<#(#type_state_params),*> PropPresence<(#(#type_state_idents,)*)>
         {
+            #[inline(always)]
             pub fn check_missing<__B>(
                 self,
                 builder: __B,
@@ -555,6 +563,7 @@ fn generate_prop_checks<'a, P: PropLike>(
                 output.wrapper_items.push(quote! {
                     #[doc(hidden)]
                     impl<__T: #bounds_despanned> #wrap_struct_name<__T> {
+                        #[inline(always)]
                         pub fn extract_value(self) -> __T { self.0 }
                     }
                 });
@@ -563,6 +572,7 @@ fn generate_prop_checks<'a, P: PropLike>(
                 // is satisfied by supertraits on Check_*.
                 output.unbounded_helper_methods.push(quote! {
                     #[doc(hidden)]
+                    #[inline(always)]
                     pub fn #check_and_wrap_name<__T: #check_trait_name>(
                         &self, val: __T,
                     ) -> #wrap_struct_name<__T> {
@@ -580,6 +590,7 @@ fn generate_prop_checks<'a, P: PropLike>(
                 // closure parameter inference.
                 output.bounded_helper_methods.push(quote! {
                     #[doc(hidden)]
+                    #[inline(always)]
                     pub fn #check_and_wrap_name(
                         &self, val: #type_param,
                     ) -> #wrap_struct_name<#type_param> {
@@ -596,6 +607,7 @@ fn generate_prop_checks<'a, P: PropLike>(
                 // checking is deferred to TypedBuilder's setter.
                 output.unbounded_helper_methods.push(quote! {
                     #[doc(hidden)]
+                    #[inline(always)]
                     pub fn #check_and_wrap_name<__T>(
                         &self, val: __T,
                     ) -> #wrap_struct_name<__T> {
@@ -616,6 +628,7 @@ fn blanket_extract_value(wrap_struct_name: &Ident) -> TokenStream {
     quote! {
         #[doc(hidden)]
         impl<__T> #wrap_struct_name<__T> {
+            #[inline(always)]
             pub fn extract_value(self) -> __T { self.0 }
         }
     }
