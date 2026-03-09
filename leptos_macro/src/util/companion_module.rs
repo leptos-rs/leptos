@@ -476,12 +476,12 @@ struct PropCheckOutput {
 ///   `ComponentName` for components, `SlotName` for slots)
 /// - `props`: (name, type) pairs for each prop
 /// - `field_types`: all field types (for structural bounds check)
-fn generate_prop_checks<'a, P: PropLike>(
+fn generate_prop_checks<P: PropLike>(
     full_generics: &Generics,
     module_name: &Ident,
     display_name: &Ident,
     kind: &str,
-    props: &'a [P],
+    props: &[P],
     field_types: &[&Type],
 ) -> PropCheckOutput {
     if props.is_empty() {
@@ -717,7 +717,9 @@ impl PropClassification {
             None
         });
 
-        let classification = if let Some(param_ident) = stripped_param {
+        
+
+        if let Some(param_ident) = stripped_param {
             let preds = type_analysis::collect_predicates_for_param(
                 full_generics,
                 param_ident,
@@ -743,9 +745,7 @@ impl PropClassification {
             }
         } else {
             PropClassification::DeferredToBuilder
-        };
-
-        classification
+        }
     }
 }
 

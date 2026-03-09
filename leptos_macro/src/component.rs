@@ -648,7 +648,7 @@ impl ToTokens for Model {
             display_name: name,
             kind: "component",
             props_name: &props_name,
-            props: &props,
+            props,
         });
 
         let props_serialized_reexport = if is_island_with_other_props {

@@ -117,7 +117,7 @@ impl ToTokens for Model {
             display_name: name,
             kind: "slot",
             props_name: name,
-            props: &props,
+            props,
         });
 
         let output = quote! {

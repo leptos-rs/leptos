@@ -293,7 +293,7 @@ pub(super) fn predicates_contain_fn_bound(
 ) -> bool {
     iter_bounds(predicates).any(|bound| {
         if let TypeParamBound::Trait(tb) = bound {
-            tb.path.segments.last().map_or(false, |seg| {
+            tb.path.segments.last().is_some_and(|seg| {
                 matches!(
                     seg.ident.to_string().as_str(),
                     "Fn" | "FnMut" | "FnOnce"
