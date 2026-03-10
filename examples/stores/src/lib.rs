@@ -100,11 +100,11 @@ impl Status {
 
 impl PatchField for Status {
     fn patch_field(
-        &mut self, 
-        new: Self, 
-        path: &StorePath, 
-        notify: &mut dyn FnMut(&StorePath), 
-        _keys: Option<&KeyMap>
+        &mut self,
+        new: Self,
+        path: &StorePath,
+        notify: &mut dyn FnMut(&StorePath),
+        _keys: Option<&KeyMap>,
     ) {
         if *self != new {
             *self = new;
