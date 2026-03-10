@@ -115,9 +115,7 @@ pub(crate) fn extract_children_arg(
         disable_inert_html,
     );
 
-    let Some(children) = children else {
-        return None;
-    };
+    let children = children?;
 
     let clonables = items_to_clone_to_tokens(items_to_clone);
 
