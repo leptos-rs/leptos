@@ -212,13 +212,13 @@ impl PropLike for SlotProp {
     fn is_optional(&self) -> bool {
         self.options.is_optional()
     }
-    fn optional(&self) -> bool {
+    fn has_optional_flag(&self) -> bool {
         self.options.optional
     }
-    fn strip_option(&self) -> bool {
+    fn has_strip_option_flag(&self) -> bool {
         self.options.strip_option
     }
-    fn into_prop(&self) -> bool {
+    fn has_into_flag(&self) -> bool {
         self.options.into
     }
     fn default(&self) -> Option<&syn::Expr> {

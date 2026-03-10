@@ -706,7 +706,7 @@ impl PropClassification {
             if let GenericParam::Type(tp) = p {
                 let ident = &tp.ident;
                 if type_analysis::is_exact_type_param(prop_type, ident)
-                    && !type_analysis::param_appears_wrapped_in_fields(
+                    && !type_analysis::any_type_references_ident(
                         ident,
                         field_types,
                     )

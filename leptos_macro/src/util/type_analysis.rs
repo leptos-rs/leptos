@@ -47,16 +47,39 @@ pub(super) fn is_exact_type_param(ty: &Type, ident: &Ident) -> bool {
     }
 }
 
-/// Returns true if the given type param appears inside a wrapping
-/// type in any field (e.g. `ServerAction<ServFn>`) rather than as a
-/// exact type param (e.g. `fun: F`).
-pub(super) fn param_appears_wrapped_in_fields(
-    param_ident: &Ident,
-    field_types: &[&Type],
+/// Returns true if the type is `Option<...>`.
+///
+/// Recognizes unqualified `Option<T>`, `std::option::Option<T>`,
+/// and `::std::option::Option<T>`.
+pub(super) fn is_option(ty: &Type) -> bool {
+    if let Type::Path(TypePath {
+        path: syn::Path { segments, .. },
+        ..
+    }) = ty
+    {
+        match segments.len() {
+            1 => segments.first().unwrap().ident == "Option",
+            3 => {
+                segments[0].ident == "std"
+                    && segments[1].ident == "option"
+                    && segments[2].ident == "Option"
+            }
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
+/// Returns true if the given `ident` is references by any
+/// type in `types`. Ident `F` is not references by type `F`,
+/// but is referenced by `Vec<F>`.
+pub(super) fn any_type_references_ident(
+    ident: &Ident,
+    types: &[&Type],
 ) -> bool {
-    field_types.iter().any(|ty| {
-        type_contains_ident(ty, param_ident)
-            && !is_exact_type_param(ty, param_ident)
+    types.iter().any(|ty| {
+        type_contains_ident(ty, ident) && !is_exact_type_param(ty, ident)
     })
 }
 
@@ -64,7 +87,7 @@ pub(super) fn param_appears_wrapped_in_fields(
 /// structurally required by field types.
 ///
 /// A generic param needs structural bounds when it appears wrapped
-/// inside another type in a field (e.g. `ServerAction<ServFn>` needs
+/// inside another field-type (e.g. `ServerAction<ServFn>` needs
 /// `ServFn: ServerFn`). Plain type params (e.g. `fun: F`) do not
 /// need their bounds on the struct definition.
 pub(crate) fn strip_non_structural_bounds(
@@ -77,7 +100,7 @@ pub(crate) fn strip_non_structural_bounds(
     // bounds.
     for param in &mut g.params {
         if let GenericParam::Type(tp) = param {
-            if !param_appears_wrapped_in_fields(&tp.ident, field_types) {
+            if !any_type_references_ident(&tp.ident, field_types) {
                 tp.bounds.clear();
                 tp.colon_token = None;
             }
@@ -96,7 +119,7 @@ pub(crate) fn strip_non_structural_bounds(
                     }) = &pt.bounded_ty
                     {
                         if let Some(ident) = path.get_ident() {
-                            return param_appears_wrapped_in_fields(
+                            return any_type_references_ident(
                                 ident,
                                 field_types,
                             );
@@ -336,6 +359,15 @@ mod tests {
     /// Parse generics (including where clause) by wrapping in a
     /// function signature, since `syn::Generics` alone doesn't
     /// parse where clauses.
+    ///
+    /// Call this instead of
+    /// `let generics: syn::Generics = parse_quote! { <F> };`
+    /// when additional extra where clause is needed.
+    ///
+    /// # Example
+    /// ```
+    /// let generics = parse_generics("<F: Clone, G: Send> where F: Fn() -> bool");
+    /// ```
     fn parse_generics(s: &str) -> syn::Generics {
         let (angle_part, where_part) = if let Some(idx) = s.find("where") {
             (&s[..idx], &s[idx..])
@@ -347,213 +379,238 @@ mod tests {
         item_fn.sig.generics
     }
 
-    // --- type_contains_ident ---
+    mod type_contains_ident {
+        use super::*;
 
-    #[test]
-    fn type_contains_ident_bare() {
-        assert!(type_contains_ident(&parse_ty("F"), &ident("F")));
-    }
-
-    #[test]
-    fn type_contains_ident_different() {
-        assert!(!type_contains_ident(&parse_ty("F"), &ident("G")));
-    }
-
-    #[test]
-    fn type_contains_ident_in_vec() {
-        assert!(type_contains_ident(&parse_ty("Vec<F>"), &ident("F")));
-    }
-
-    #[test]
-    fn type_contains_ident_nested() {
-        assert!(type_contains_ident(
-            &parse_ty("Option<Vec<F>>"),
-            &ident("F")
-        ));
-    }
-
-    #[test]
-    fn type_contains_ident_absent() {
-        assert!(!type_contains_ident(&parse_ty("Vec<i32>"), &ident("F")));
-    }
-
-    #[test]
-    fn type_contains_ident_in_hashmap() {
-        assert!(type_contains_ident(
-            &parse_ty("std::collections::HashMap<String, F>"),
-            &ident("F")
-        ));
-    }
-
-    // --- is_exact_type_param ---
-
-    #[test]
-    fn exact_type_param_exact() {
-        assert!(is_exact_type_param(&parse_ty("F"), &ident("F")));
-    }
-
-    #[test]
-    fn exact_type_param_wrapped() {
-        assert!(!is_exact_type_param(&parse_ty("Vec<F>"), &ident("F")));
-    }
-
-    #[test]
-    fn exact_type_param_different_name() {
-        assert!(!is_exact_type_param(&parse_ty("G"), &ident("F")));
-    }
-
-    #[test]
-    fn exact_type_param_option() {
-        assert!(!is_exact_type_param(&parse_ty("Option<F>"), &ident("F")));
-    }
-
-    // --- collect_predicates_for_param ---
-
-    #[test]
-    fn collect_inline_bound() {
-        let generics: syn::Generics = parse_quote! { <F: Clone> };
-        let preds = collect_predicates_for_param(&generics, &ident("F"));
-        assert_eq!(preds.len(), 1);
-    }
-
-    #[test]
-    fn collect_where_clause_bound() {
-        let generics = parse_generics("<F> where F: Fn() -> bool");
-        let preds = collect_predicates_for_param(&generics, &ident("F"));
-        assert_eq!(preds.len(), 1);
-    }
-
-    #[test]
-    fn collect_inline_and_where() {
-        let generics = parse_generics("<F: Clone> where F: Send");
-        let preds = collect_predicates_for_param(&generics, &ident("F"));
-        assert_eq!(preds.len(), 2);
-    }
-
-    #[test]
-    fn collect_different_param() {
-        let generics = parse_generics("<F: Clone> where G: Send");
-        let preds = collect_predicates_for_param(&generics, &ident("G"));
-        assert_eq!(preds.len(), 1);
-    }
-
-    #[test]
-    fn collect_no_bounds() {
-        let generics: syn::Generics = parse_quote! { <F> };
-        let preds = collect_predicates_for_param(&generics, &ident("F"));
-        assert_eq!(preds.len(), 0);
-    }
-
-    // --- collect_all_predicates ---
-
-    #[test]
-    fn all_preds_empty_generics() {
-        let generics: syn::Generics = parse_quote! { <F> };
-        let preds = collect_all_predicates(&generics);
-        assert!(preds.is_empty());
-    }
-
-    #[test]
-    fn all_preds_inline_only() {
-        let generics: syn::Generics = parse_quote! { <F: Clone, G: Send> };
-        let preds = collect_all_predicates(&generics);
-        assert_eq!(preds.len(), 2);
-    }
-
-    #[test]
-    fn all_preds_where_clause_only() {
-        let generics = parse_generics("<F> where F: Clone, F: Send");
-        let preds = collect_all_predicates(&generics);
-        assert_eq!(preds.len(), 2);
-    }
-
-    #[test]
-    fn all_preds_inline_and_where() {
-        let generics =
-            parse_generics("<F: Clone, G: Send> where F: Fn() -> bool");
-        let preds = collect_all_predicates(&generics);
-        assert_eq!(preds.len(), 3);
-    }
-
-    #[test]
-    fn all_preds_skips_lifetimes() {
-        let generics: syn::Generics = parse_quote! { <'a, F: Clone> };
-        let preds = collect_all_predicates(&generics);
-        assert_eq!(preds.len(), 1);
-    }
-
-    // --- param_appears_wrapped_in_fields ---
-
-    #[test]
-    fn wrapped_plain_param_no() {
-        let ty = parse_ty("F");
-        assert!(!param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
-    }
-
-    #[test]
-    fn wrapped_in_vec_yes() {
-        let ty = parse_ty("Vec<F>");
-        assert!(param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
-    }
-
-    #[test]
-    fn wrapped_concrete_no() {
-        let ty = parse_ty("i32");
-        assert!(!param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
-    }
-
-    #[test]
-    fn wrapped_in_server_action_yes() {
-        let ty = parse_ty("ServerAction<F>");
-        assert!(param_appears_wrapped_in_fields(&ident("F"), &[&ty]));
-    }
-
-    // --- strip_non_structural_bounds ---
-
-    #[test]
-    fn strip_bare_generic() {
-        let generics = parse_generics("<F: Fn()> where F: Fn()");
-        let ty = parse_ty("F");
-        let stripped = strip_non_structural_bounds(&generics, &[&ty]);
-        if let GenericParam::Type(tp) = &stripped.params[0] {
-            assert!(tp.bounds.is_empty());
-        } else {
-            panic!("expected type param");
+        #[test]
+        fn bare() {
+            assert!(type_contains_ident(&parse_ty("F"), &ident("F")));
         }
-        assert!(stripped.where_clause.is_none());
+
+        #[test]
+        fn different() {
+            assert!(!type_contains_ident(&parse_ty("F"), &ident("G")));
+        }
+
+        #[test]
+        fn nested() {
+            assert!(type_contains_ident(&parse_ty("Vec<F>"), &ident("F")));
+        }
+
+        #[test]
+        fn deeply_nested() {
+            assert!(type_contains_ident(
+                &parse_ty("Option<Vec<F>>"),
+                &ident("F")
+            ));
+        }
     }
 
-    #[test]
-    fn strip_keeps_structural() {
-        let generics = parse_generics("<F: Clone> where F: Clone");
-        let ty = parse_ty("Vec<F>");
-        let stripped = strip_non_structural_bounds(&generics, &[&ty]);
-        if let GenericParam::Type(tp) = &stripped.params[0] {
-            assert!(!tp.bounds.is_empty());
-        } else {
-            panic!("expected type param");
+    mod is_exact_type_param {
+        use super::*;
+
+        #[test]
+        fn true_when_exact_match() {
+            assert!(is_exact_type_param(&parse_ty("F"), &ident("F")));
         }
-        assert!(stripped.where_clause.is_some());
+
+        #[test]
+        fn false_when_different() {
+            assert!(!is_exact_type_param(&parse_ty("G"), &ident("F")));
+        }
+
+        #[test]
+        fn false_contained_but_wrapped() {
+            assert!(!is_exact_type_param(&parse_ty("Vec<F>"), &ident("F")));
+        }
     }
 
-    #[test]
-    fn strip_mixed() {
-        let generics = parse_generics("<F: Fn(), S: Clone> where S: Clone");
-        let ty_f = parse_ty("F");
-        let ty_s = parse_ty("ServerAction<S>");
-        let stripped = strip_non_structural_bounds(&generics, &[&ty_f, &ty_s]);
-        if let GenericParam::Type(tp) = &stripped.params[0] {
-            assert!(tp.bounds.is_empty(), "F bounds should be stripped");
+    mod is_option {
+        use super::*;
+
+        #[test]
+        fn true_when_unqualified() {
+            assert!(is_option(&parse_ty("Option<i32>")));
         }
-        if let GenericParam::Type(tp) = &stripped.params[1] {
-            assert!(!tp.bounds.is_empty(), "S bounds should be kept");
+
+        #[test]
+        fn true_when_fully_qualified() {
+            assert!(is_option(&parse_ty("std::option::Option<i32>")));
         }
-        let wc = stripped.where_clause.as_ref().unwrap();
-        assert_eq!(wc.predicates.len(), 1);
-        let pred_str = wc.predicates[0].to_token_stream().to_string();
-        assert!(
-            pred_str.contains("S"),
-            "kept predicate should be for S, got: {pred_str}"
-        );
+
+        #[test]
+        fn true_when_fully_qualified_absolute() {
+            assert!(is_option(&parse_ty("::std::option::Option<i32>")));
+        }
+
+        #[test]
+        fn true_when_reference_to_option() {
+            assert!(!is_option(&parse_ty("&Option<i32>")));
+        }
+
+        #[test]
+        fn false_when_different_non_option_type() {
+            assert!(!is_option(&parse_ty("i32")));
+            assert!(!is_option(&parse_ty("Vec<i32>")));
+        }
+    }
+
+    mod collect_predicates_for_param {
+        use super::*;
+
+        #[test]
+        fn no_bounds() {
+            let generics: syn::Generics = parse_quote! { <F> };
+            let preds = collect_predicates_for_param(&generics, &ident("F"));
+            assert_eq!(preds.len(), 0);
+        }
+
+        #[test]
+        fn inline_bound() {
+            let generics: syn::Generics = parse_quote! { <F: Clone> };
+            let preds = collect_predicates_for_param(&generics, &ident("F"));
+            assert_eq!(preds.len(), 1);
+        }
+
+        #[test]
+        fn where_clause_bound() {
+            let generics = parse_generics("<F> where F: Fn() -> bool");
+            let preds = collect_predicates_for_param(&generics, &ident("F"));
+            assert_eq!(preds.len(), 1);
+        }
+
+        #[test]
+        fn inline_and_where() {
+            let generics = parse_generics("<F: Clone> where F: Send");
+            let preds = collect_predicates_for_param(&generics, &ident("F"));
+            assert_eq!(preds.len(), 2);
+        }
+
+        #[test]
+        fn different_param() {
+            let generics = parse_generics("<F: Clone> where G: Send");
+            let preds = collect_predicates_for_param(&generics, &ident("G"));
+            assert_eq!(preds.len(), 1);
+        }
+    }
+
+    mod collect_all_predicates {
+        use super::*;
+
+        #[test]
+        fn empty_generics() {
+            let generics = parse_generics("<F>");
+            let preds = collect_all_predicates(&generics);
+            assert!(preds.is_empty());
+        }
+
+        #[test]
+        fn inline_only() {
+            let generics = parse_generics("<F: Clone, G: Send>");
+            let preds = collect_all_predicates(&generics);
+            assert_eq!(preds.len(), 2);
+        }
+
+        #[test]
+        fn where_clause_only() {
+            let generics = parse_generics("<F> where F: Clone, F: Send");
+            let preds = collect_all_predicates(&generics);
+            assert_eq!(preds.len(), 2);
+        }
+
+        #[test]
+        fn inline_and_where() {
+            let generics =
+                parse_generics("<F: Clone, G: Send> where F: Fn() -> bool");
+            let preds = collect_all_predicates(&generics);
+            assert_eq!(preds.len(), 3);
+        }
+
+        #[test]
+        fn skips_lifetimes() {
+            let generics = parse_generics("<'a, F: Clone>");
+            let preds = collect_all_predicates(&generics);
+            assert_eq!(preds.len(), 1);
+        }
+    }
+
+    mod any_type_references_ident {
+        use super::*;
+
+        #[test]
+        fn false_when_plain() {
+            let ty = parse_ty("F");
+            assert!(!any_type_references_ident(&ident("F"), &[&ty]));
+        }
+
+        #[test]
+        fn true_when_wrapped() {
+            let ty = parse_ty("Vec<F>");
+            assert!(any_type_references_ident(&ident("F"), &[&ty]));
+        }
+
+        #[test]
+        fn true_when_deeply_wrapped() {
+            let ty = parse_ty("Option<Vec<F>>");
+            assert!(any_type_references_ident(&ident("F"), &[&ty]));
+        }
+    }
+
+    mod strip_non_structural_bounds {
+        use super::*;
+
+        #[test]
+        fn bare_generic() {
+            let generics = parse_generics("<F: Fn()> where F: Fn()");
+            let ty = parse_ty("F");
+
+            let stripped = strip_non_structural_bounds(&generics, &[&ty]);
+
+            if let GenericParam::Type(tp) = &stripped.params[0] {
+                assert!(tp.bounds.is_empty());
+            } else {
+                panic!("expected type param");
+            }
+            assert!(stripped.where_clause.is_none());
+        }
+
+        #[test]
+        fn keeps_structural() {
+            let generics = parse_generics("<F: Clone> where F: Clone");
+            let ty = parse_ty("Vec<F>");
+
+            let stripped = strip_non_structural_bounds(&generics, &[&ty]);
+
+            if let GenericParam::Type(tp) = &stripped.params[0] {
+                assert!(!tp.bounds.is_empty());
+            } else {
+                panic!("expected type param");
+            }
+            assert!(stripped.where_clause.is_some());
+        }
+
+        #[test]
+        fn mixed() {
+            let generics = parse_generics("<F: Fn(), S: Clone> where S: Clone");
+            let ty_f = parse_ty("F");
+            let ty_s = parse_ty("ServerAction<S>");
+
+            let stripped =
+                strip_non_structural_bounds(&generics, &[&ty_f, &ty_s]);
+
+            if let GenericParam::Type(tp) = &stripped.params[0] {
+                assert!(tp.bounds.is_empty(), "F bounds should be stripped");
+            }
+            if let GenericParam::Type(tp) = &stripped.params[1] {
+                assert!(!tp.bounds.is_empty(), "S bounds should be kept");
+            }
+            let wc = stripped.where_clause.as_ref().unwrap();
+            assert_eq!(wc.predicates.len(), 1);
+            let pred_str = wc.predicates[0].to_token_stream().to_string();
+            assert!(
+                pred_str.contains("S"),
+                "kept predicate should be for S, got: {pred_str}"
+            );
+        }
     }
 }

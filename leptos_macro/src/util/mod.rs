@@ -25,18 +25,32 @@ use syn::{Type, TypePath};
 /// both.
 pub(crate) trait PropLike {
     fn name(&self) -> &Ident;
-    fn ty(&self) -> &Type;
-    fn docs(&self) -> &Docs;
-    fn is_optional(&self) -> bool;
-    /// Raw `#[prop(optional)]` flag.
-    fn optional(&self) -> bool;
-    fn strip_option(&self) -> bool;
-    fn into_prop(&self) -> bool;
-    fn default(&self) -> Option<&syn::Expr>;
 
+    fn ty(&self) -> &Type;
+
+    fn docs(&self) -> &Docs;
+
+    /// Determines whether this prop should be considered optional.
+    /// Multiple user settings can lead to the prop being optional.
+    /// Do not conflate with `optional`, which just provides info
+    /// whether the raw `#[prop(optional)]` flag was specified.
+    fn is_optional(&self) -> bool;
     fn is_required(&self) -> bool {
         !self.is_optional()
     }
+
+    /// Whether the `#[prop(optional)]` flag was specified.
+    fn has_optional_flag(&self) -> bool;
+
+    /// Whether the `#[prop(strip_option)]` flag was specified.
+    fn has_strip_option_flag(&self) -> bool;
+
+    /// Whether the `#[prop(into)]` flag was specified.
+    fn has_into_flag(&self) -> bool;
+
+    /// Optional user-provided expression creating a
+    /// default value of this prop.
+    fn default(&self) -> Option<&syn::Expr>;
 }
 
 /// Strips the raw identifier prefix (`r#`) from a prop name.
@@ -81,17 +95,4 @@ pub(crate) fn unwrap_option(ty: &Type) -> Type {
         "`Option` must be `std::option::Option`";
         help = STD_OPTION_MSG
     );
-}
-
-/// Returns true if the type is `Option<_>`.
-pub(crate) fn is_option(ty: &Type) -> bool {
-    if let Type::Path(TypePath {
-        path: syn::Path { segments, .. },
-        ..
-    }) = ty
-    {
-        segments.len() == 1 && segments.first().unwrap().ident == "Option"
-    } else {
-        false
-    }
 }

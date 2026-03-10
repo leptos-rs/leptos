@@ -857,15 +857,15 @@ impl PropLike for ComponentProp {
         &self.docs
     }
     fn is_optional(&self) -> bool {
-        self.options.is_optional()
+        self.options.is_optional_prop()
     }
-    fn optional(&self) -> bool {
+    fn has_optional_flag(&self) -> bool {
         self.options.optional
     }
-    fn strip_option(&self) -> bool {
+    fn has_strip_option_flag(&self) -> bool {
         self.options.strip_option
     }
-    fn into_prop(&self) -> bool {
+    fn has_into_flag(&self) -> bool {
         self.options.into
     }
     fn default(&self) -> Option<&syn::Expr> {
@@ -997,7 +997,7 @@ struct ComponentPropOptions {
 }
 
 impl ComponentPropOptions {
-    fn is_optional(&self) -> bool {
+    fn is_optional_prop(&self) -> bool {
         self.optional
             || self.optional_no_strip
             || self.attrs

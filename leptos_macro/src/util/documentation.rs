@@ -1,4 +1,4 @@
-use crate::util::{is_option, unwrap_option, PropLike};
+use crate::util::{type_analysis, unwrap_option, PropLike};
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Span, TokenStream};
@@ -206,7 +206,8 @@ pub(crate) fn prop_to_doc(
     prop: &impl PropLike,
     style: PropDocumentationStyle,
 ) -> TokenStream {
-    let ty = if (prop.optional() || prop.strip_option()) && is_option(prop.ty())
+    let ty = if (prop.has_optional_flag() || prop.has_strip_option_flag())
+        && type_analysis::is_option(prop.ty())
     {
         unwrap_option(prop.ty())
     } else {
@@ -215,7 +216,7 @@ pub(crate) fn prop_to_doc(
     let pretty_ty = pretty_print_type(&ty);
 
     let name = prop.name();
-    let into = prop.into_prop();
+    let into = prop.has_into_flag();
     let docs = prop.docs();
 
     match style {
@@ -263,9 +264,6 @@ pub(crate) fn prop_to_doc(
 }
 
 /// Pretty-prints a [`Type`] using `prettyplease` for readable documentation.
-///
-/// Wraps the type in a synthetic `type SomeType = <ty>;` item,
-/// formats the file, then strips the wrapper to recover just the type.
 fn pretty_print_type(ty: &Type) -> String {
     const PREFIX: &str = "type SomeType = ";
     const SUFFIX: &str = ";\n";
@@ -285,4 +283,84 @@ fn pretty_print_type(ty: &Type) -> String {
         .and_then(|s| s.strip_suffix(SUFFIX))
         .unwrap_or(&formatted)
         .to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_ty(s: &str) -> Type {
+        syn::parse_str(s).unwrap()
+    }
+
+    fn pretty_print(s: &str) -> String {
+        pretty_print_type(&parse_ty(s))
+    }
+
+    mod pretty_print_type_tests {
+        use super::*;
+
+        #[test]
+        fn simple_type() {
+            assert_eq!(pretty_print("i32"), "i32");
+        }
+
+        #[test]
+        fn unit_type() {
+            assert_eq!(pretty_print("()"), "()");
+        }
+
+        #[test]
+        fn reference_type() {
+            assert_eq!(pretty_print("&str"), "&str");
+        }
+
+        #[test]
+        fn reference_with_lifetime() {
+            assert_eq!(pretty_print("&'a str"), "&'a str");
+        }
+
+        #[test]
+        fn generic_type() {
+            assert_eq!(pretty_print("Vec<String>"), "Vec<String>");
+        }
+
+        #[test]
+        fn nested_generic() {
+            assert_eq!(pretty_print("Option<Vec<u8>>"), "Option<Vec<u8>>");
+        }
+
+        #[test]
+        fn tuple_type() {
+            assert_eq!(pretty_print("(i32, String)"), "(i32, String)");
+        }
+
+        #[test]
+        fn function_pointer() {
+            assert_eq!(pretty_print("fn(i32) -> bool"), "fn(i32) -> bool");
+        }
+
+        #[test]
+        fn impl_trait() {
+            assert_eq!(
+                pretty_print("impl Fn(i32) -> String"),
+                "impl Fn(i32) -> String"
+            );
+        }
+
+        #[test]
+        fn long_type_is_reformatted() {
+            let result = pretty_print(
+                "dyn Fn(String, Vec<u8>, Option<i32>, HashMap<String, \
+                 Vec<u8>>) -> Result<String, Box<dyn std::error::Error>>",
+            );
+            // prettyplease should break this across multiple lines
+            assert!(
+                result.contains('\n'),
+                "expected multi-line output for long type, got: {result}"
+            );
+            assert!(result.contains("dyn Fn"));
+            assert!(result.contains("Result"));
+        }
+    }
 }

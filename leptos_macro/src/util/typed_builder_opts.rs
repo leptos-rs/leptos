@@ -5,7 +5,7 @@
 //! and consumed through its [`ToTokens`] impl (for builder attributes) or
 //! [`TypedBuilderOpts::to_serde_tokens`] (for serialization attributes).
 
-use crate::util::{is_option, unwrap_option, PropLike};
+use crate::util::{type_analysis, unwrap_option, PropLike};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::Type;
@@ -32,9 +32,9 @@ impl<'a> TypedBuilderOpts<'a> {
         Self {
             default: prop.is_optional() && prop.default().is_none(),
             default_with_value: prop.default().cloned(),
-            strip_option: prop.strip_option()
-                || prop.optional() && is_option(ty),
-            into: prop.into_prop(),
+            strip_option: prop.has_strip_option_flag()
+                || prop.has_optional_flag() && type_analysis::is_option(ty),
+            into: prop.has_into_flag(),
             ty,
         }
     }
