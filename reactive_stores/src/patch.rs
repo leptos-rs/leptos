@@ -505,13 +505,17 @@ where
         let mut new_keyed = BTreeMap::new();
 
         // first, calculate keys for all the old values
-        for item in self.iter() { // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        //
+        // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        for item in self.iter() {
             let key = key_fn(item);
             old_keyed.insert(key, (item.0.clone(), item.1.clone()));
         }
 
         // then, calculate keys and indices for all the new values
-        for item in new { // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        //
+        // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        for item in new {
             let key = key_fn((&item.0, &item.1));
             new_keyed.insert(key, item);
         }
