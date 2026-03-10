@@ -945,7 +945,6 @@ fn is_lint_attr(attr: &Attribute) -> bool {
         || path.is_ident("forbid")
 }
 
-
 pub struct UnknownAttrs(Vec<(TokenStream, Span)>);
 
 impl UnknownAttrs {
