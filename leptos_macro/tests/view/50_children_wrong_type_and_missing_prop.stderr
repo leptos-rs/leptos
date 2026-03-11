@@ -4,7 +4,7 @@ error[E0277]: missing required prop `some_prop` on component `Inner`
 12 |             <Inner>
    |              ^^^^^ missing prop `some_prop`
    |
-   = help: the trait `required_Inner_some_prop` is not implemented for `leptos::prelude::presence::Absent`
+   = help: the trait `required_Inner_some_prop` is not implemented for `Absent`
    = note: required props: [`some_prop`, `children`]
 note: required by a bound in `__Inner::PropPresence::<(__F0, __F1)>::require_props`
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1
@@ -43,11 +43,11 @@ help: you might have meant to create the closure instead of a block
 13 |                 |_| {NotAView}
    |                 +++
 
-error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(leptos::prelude::presence::Absent, leptos::prelude::presence::Present)>`, but its trait bounds were not satisfied
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(Absent, Present)>`, but its trait bounds were not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:12:14
    |
 12 |             <Inner>
-   |              ^^^^^ method cannot be called due to unsatisfied trait bounds
+   |              ^^^^^ method cannot be called on `__Inner::PropPresence<(Absent, Present)>` due to unsatisfied trait bounds
 ...
 19 | #[component]
    | ------------ method `check_missing` not found for this struct
@@ -55,9 +55,9 @@ error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresenc
   ::: $WORKSPACE/leptos/src/component.rs
    |
    |     pub struct Absent;
-   |     ----------------- doesn't satisfy `_: required_Inner_some_prop`
+   |     ----------------- doesn't satisfy `Absent: required_Inner_some_prop`
    |
-note: trait bound `leptos::prelude::presence::Absent: required_Inner_some_prop` was not satisfied
+note: trait bound `Absent: required_Inner_some_prop` was not satisfied
   --> tests/view/50_children_wrong_type_and_missing_prop.rs:19:1
    |
 19 | #[component]

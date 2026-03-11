@@ -2,4 +2,4 @@ error: This element already has a `generic_fun` attribute.
   --> tests/view/54_duplicate_generic_prop.rs:11:42
    |
 11 |             <Inner generic_fun={|| true} generic_fun={|| false}/>
-   |                                          ^^^^^^^^^^^^^^^^^^^^^^
+   |                                          ^^^^^^^^^^^

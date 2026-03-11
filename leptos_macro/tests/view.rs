@@ -1,5 +1,13 @@
-// Note: run with `cargo +nightly test -p leptos_macro --test view`.
-// Note: update with `TRYBUILD=overwrite cargo +nightly test -p leptos_macro --test view`.
+/// Run tests with `cargo test -p leptos_macro --test view`.
+///
+/// Update tests with `TRYBUILD=overwrite cargo test -p leptos_macro --test view`.
+///
+/// CI runs tests on both the stable and nightly toolchains,
+/// whose exact compiler output may differ in these tests.
+/// `trybuild` does have support for multiple .stderr files
+/// taken into account depending on the toolchain being used.
+/// Therefore, we let the tests only run on stable.
+#[rustversion::stable]
 #[test]
 fn test_view_macro() {
     let t = trybuild::TestCases::new();

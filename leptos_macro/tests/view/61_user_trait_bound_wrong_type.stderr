@@ -10,7 +10,7 @@ help: this trait has no implementations, consider adding one
    |
  9 |     pub trait Greetable {
    |     ^^^^^^^^^^^^^^^^^^^
-note: required for `{integer}` to implement `Check_value`
+note: required for `{integer}` to implement `__Inner::Check_value`
   --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
@@ -22,11 +22,11 @@ note: required by a bound in `__Inner::Helper::<T>::check_and_wrap_value`
    | ^^^^^^^^^^^^ required by this bound in `Helper::<T>::check_and_wrap_value`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `extract_value` exists for struct `Wrap_value<{integer}>`, but its trait bounds were not satisfied
+error[E0599]: the method `extract_value` exists for struct `__Inner::Wrap_value<{integer}>`, but its trait bounds were not satisfied
   --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
    |
 20 |             <Inner value=42/>
-   |                          ^^ method cannot be called on `Wrap_value<{integer}>` due to unsatisfied trait bounds
+   |                          ^^ method cannot be called on `__Inner::Wrap_value<{integer}>` due to unsatisfied trait bounds
 ...
 25 | #[component]
    | ------------ method `extract_value` not found for this struct

@@ -1,14 +1,22 @@
-// Trybuild tests that verify rustc compiler behavior assumptions relied upon by
-// the way we implemented localized view! macro errors.
-//
-// These tests don't use any Leptos code.
-// The .stderr snapshots may slightly diverge due to changes in the rust
-// compiler. As long as the main assumptions stated in the .rs files are not
-// violated, this is fine.
-//
-// Note: run with `cargo +nightly test -p leptos_macro --test
-// compiler_assumptions`. Note: update with `TRYBUILD=overwrite cargo +nightly
-// test -p leptos_macro --test compiler_assumptions`.
+/// Trybuild tests that verify rustc compiler behavior assumptions
+/// relied upon by the way we implemented localized view! macro
+/// errors.
+///
+/// These tests don't use any Leptos code.
+/// The .stderr snapshots may slightly diverge due to changes
+/// in the rust compiler. As long as the main assumptions
+/// stated in the .rs files are not violated, this is fine.
+///
+/// Run tests with `cargo test -p leptos_macro --test compiler_assumptions`.
+///
+/// Update tests with `TRYBUILD=overwrite cargo test -p leptos_macro --test compiler_assumptions`.
+///
+/// CI runs tests on both the stable and nightly toolchains,
+/// whose exact compiler output may differ in these tests.
+/// `trybuild` does have support for multiple .stderr files
+/// taken into account depending on the toolchain being used.
+/// Therefore, we let the tests only run on stable.
+#[rustversion::stable]
 #[test]
 fn compiler_assumptions() {
     let t = trybuild::TestCases::new();
