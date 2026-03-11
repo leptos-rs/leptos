@@ -100,7 +100,10 @@ pub fn AnimatedShow(
     });
 
     view! {
-        <Show when=show>
+        // NOTE (OrdoLMS patch, 2026-03-11):
+        // Use a closure for `when` to avoid IntoReactiveValue ambiguity between
+        // RwSignal<bool> and closure-based implementations on newer nightly + reactive_graph.
+        <Show when=move || show.get()>
             <div class=move || cls.get()>{children()}</div>
         </Show>
     }
