@@ -299,100 +299,110 @@ mod inner {
         fn mark_subscribers_check(&self) {}
 
         fn update_if_necessary(&self) -> bool {
-            let state = {
-                let guard = self.read().or_poisoned();
+            let mut did_update = false;
 
-                if guard.owner.paused() {
-                    return false;
+            loop {
+                let state = {
+                    let guard = self.read().or_poisoned();
+                    if guard.owner.paused() {
+                        return did_update;
+                    }
+                    guard.state
+                };
+
+                let needs_update = match state {
+                    ReactiveNodeState::Clean => false,
+                    ReactiveNodeState::Check => {
+                        let sources = self.read().or_poisoned().sources.clone();
+                        sources
+                            .into_iter()
+                            .any(|source| source.update_if_necessary())
+                    }
+                    ReactiveNodeState::Dirty => true,
+                };
+
+                if !needs_update {
+                    break;
                 }
 
-                guard.state
-            };
+                {
+                    if let Some(batch) = &*BATCH.read().or_poisoned() {
+                        let mut batch = batch.write().or_poisoned();
+                        let subscriber =
+                            self.read().or_poisoned().any_subscriber.clone();
 
-            let needs_update = match state {
-                ReactiveNodeState::Clean => false,
-                ReactiveNodeState::Check => {
-                    let sources = self.read().or_poisoned().sources.clone();
-                    sources
-                        .into_iter()
-                        .any(|source| source.update_if_necessary())
-                }
-                ReactiveNodeState::Dirty => true,
-            };
-
-            {
-                if let Some(batch) = &*BATCH.read().or_poisoned() {
-                    let mut batch = batch.write().or_poisoned();
-                    let subscriber =
-                        self.read().or_poisoned().any_subscriber.clone();
-
-                    batch.insert(subscriber);
-                    return needs_update;
-                }
-            }
-
-            if needs_update {
-                let mut guard = self.write().or_poisoned();
-
-                let owner = guard.owner.clone();
-                let any_subscriber = guard.any_subscriber.clone();
-                let fun = guard.fun.clone();
-
-                // New run has started.
-                guard.run_count_start += 1;
-                // We get a value for this run, the highest value will be what we keep the sources from.
-                let recursion_count = guard.run_count_start;
-                // We clear the sources before running the effect.
-                // Note that this is tied to the ordering of the initial write lock acquisition
-                // to ensure the last run is also the last to clear them.
-                guard.sources.clear_sources(&any_subscriber);
-                // Only this thread will be able to subscribe.
-                guard.last_run_thread_id = thread::current().id();
-
-                if recursion_count > 2 {
-                    warn_excessive_recursion(&guard);
+                        batch.insert(subscriber);
+                        self.write().or_poisoned().state =
+                            ReactiveNodeState::Dirty;
+                        return true;
+                    }
                 }
 
-                drop(guard);
+                let (owner, any_subscriber, fun, recursion_count) = {
+                    let mut guard = self.write().or_poisoned();
+                    guard.run_count_start += 1;
+                    let recursion_count = guard.run_count_start;
+                    let any_subscriber = guard.any_subscriber.clone();
+                    guard.sources.clear_sources(&any_subscriber);
+                    guard.last_run_thread_id = thread::current().id();
+
+                    if recursion_count > 2 {
+                        warn_excessive_recursion(&guard);
+                    }
+
+                    guard.state = ReactiveNodeState::Clean;
+                    (
+                        guard.owner.clone(),
+                        any_subscriber,
+                        guard.fun.clone(),
+                        recursion_count,
+                    )
+                };
 
                 // We execute the effect.
                 // Note that *this could happen in parallel across threads*.
                 owner.with_cleanup(|| any_subscriber.with_observer(|| fun()));
+                did_update = true;
 
-                let mut guard = self.write().or_poisoned();
+                let needs_re_run = {
+                    let mut guard = self.write().or_poisoned();
+                    guard.run_done_count += 1;
+                    guard.run_done_max =
+                        Ord::max(recursion_count, guard.run_done_max);
 
-                // This run has completed.
-                guard.run_done_count += 1;
+                    let needs_re_run = guard.state == ReactiveNodeState::Dirty;
 
-                // We update the done count.
-                // Sources will only be added if recursion_done_max < recursion_count_start.
-                // (Meaning the last run is not done yet.)
-                guard.run_done_max =
-                    Ord::max(recursion_count, guard.run_done_max);
+                    if guard.run_count_start == guard.run_done_count {
+                        guard.run_count_start = 0;
+                        guard.run_done_count = 0;
+                        guard.run_done_max = 0;
+                    }
+                    needs_re_run
+                };
 
-                // The same amount of runs has started and completed,
-                // so we can clear everything up for next time.
-                if guard.run_count_start == guard.run_done_count {
-                    guard.run_count_start = 0;
-                    guard.run_done_count = 0;
-                    guard.run_done_max = 0;
-                    // Can be left unchanged, it'll be set again next time.
-                    // guard.last_run_thread_id = thread::current().id();
+                if !needs_re_run {
+                    break;
                 }
-
-                guard.state = ReactiveNodeState::Clean;
             }
 
-            needs_update
+            did_update
         }
 
         fn mark_check(&self) {
-            self.write().or_poisoned().state = ReactiveNodeState::Check;
+            {
+                let mut guard = self.write().or_poisoned();
+                if guard.state != ReactiveNodeState::Dirty {
+                    guard.state = ReactiveNodeState::Check;
+                }
+            }
             self.update_if_necessary();
         }
 
         fn mark_dirty(&self) {
-            self.write().or_poisoned().state = ReactiveNodeState::Dirty;
+            {
+                let mut guard = self.write().or_poisoned();
+                guard.state = ReactiveNodeState::Dirty;
+            }
             self.update_if_necessary();
         }
     }
