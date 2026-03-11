@@ -26,3 +26,6 @@ This example shows how to add breakpoints within the browser or visual studio co
 
 ### bevy3d_ui
 This example uses the bevy 3d game engine with leptos within webassembly.
+
+### webview2-callback-panic-repro
+Minimal reproduction for [leptos#4610](https://github.com/leptos-rs/leptos/issues/4610): "callback removed before attaching" panic in WebView2/Tauri when rapidly toggling `<Show>` with `on:click` handlers. Leptos CSR + Tauri 2.x + Wry/WebView2 on Windows.

@@ -1,0 +1,3 @@
+# Override global rustflags for wasm - -fuse-ld=lld breaks rust-lld
+[target.wasm32-unknown-unknown]
+rustflags = []

@@ -1,0 +1,10 @@
+/target
+/frontend/dist
+*.log
+test_run.log
+run_log.txt
+autonomous_test_log.txt
+test_output.txt
+tauri_stdout.txt
+tauri_stderr.txt
+panic_log_run*.txt
