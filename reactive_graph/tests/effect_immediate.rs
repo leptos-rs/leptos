@@ -8,6 +8,36 @@ pub mod imports {
     pub use tokio::task;
 }
 
+/// Regression test for #4609: ImmediateEffect should re-run to stability when it
+/// updates a signal it depends on (recursive self-triggered update).
+#[cfg(feature = "effects")]
+#[test]
+fn immediate_effect_recursive_updates_should_stabilize() {
+    use imports::*;
+
+    let owner = Owner::new();
+    owner.set();
+
+    let s = RwSignal::new(0);
+    let log = Arc::new(RwLock::new(Vec::new()));
+
+    let _guard = ImmediateEffect::new({
+        let log = log.clone();
+        move || {
+            let v = s.get();
+            log.write().unwrap().push(v);
+            // Self-triggered update: effect depends on `s`, then mutates `s`.
+            if v < 2 {
+                s.set(v + 1);
+            }
+        }
+    });
+
+    // EXPECTED: runs until stable: 0 -> 1 -> 2
+    assert_eq!(&*log.read().unwrap(), &[0, 1, 2]);
+    assert_eq!(s.get_untracked(), 2);
+}
+
 #[cfg(feature = "effects")]
 #[test]
 fn effect_runs() {
