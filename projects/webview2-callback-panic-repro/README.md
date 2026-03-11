@@ -1,6 +1,7 @@
 # Minimal Reproduction: "callback removed before attaching" in WebView2/Tauri
 
-Standalone reproduction for [leptos-rs/leptos#4610](https://github.com/leptos-rs/leptos/issues/4610).
+Reproduction for [leptos-rs/leptos#4610](https://github.com/leptos-rs/leptos/issues/4610).  
+Located at `projects/webview2-callback-panic-repro/` in the leptos repo.
 
 ## Prerequisites
 

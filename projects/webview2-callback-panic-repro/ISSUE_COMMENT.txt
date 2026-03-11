@@ -1,10 +1,6 @@
-# Comment to post on https://github.com/leptos-rs/leptos/issues/4610
-
----
-
 I've added a minimal reproduction for the "callback removed before attaching" panic in WebView2/Tauri.
 
-**Branch:** [`4610-webview2-callback-panic-repro`](https://github.com/ordokr/leptos/tree/4610-webview2-callback-panic-repro)  
+**Branch:** [4610-webview2-callback-panic-repro](https://github.com/ordokr/leptos/tree/4610-webview2-callback-panic-repro)  
 **Location:** `projects/webview2-callback-panic-repro/`
 
 ### How to recreate
@@ -35,5 +31,3 @@ cd ../..
 - `<Show>` boundary with rapid mount/unmount via staggered `gloo_timers::Timeout` callbacks
 - Child content has `on:click` handlers
 - The race in `tachys` where `self.cb` is `None` during attach causes the panic
-
----
