@@ -1,5 +1,6 @@
 use crate::{children::ViewFn, IntoView};
 use leptos_macro::component;
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 use reactive_graph::traits::Get;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::either::Either;
