@@ -186,6 +186,47 @@ impl_get_fn_traits_get_arena_with_readable_deref_impl![ArcSignal, Signal];
 impl_set_fn_traits![ArcRwSignal, ArcWriteSignal];
 impl_set_fn_traits_arena![RwSignal, WriteSignal, SignalSetter];
 
+// ---------------------------------------------------------------------------
+// NotASignalType: auto trait used on the Into-based base case of
+// IntoReactiveValue on nightly. Signal types that implement Fn() -> T
+// opt out, forcing them through the Fn-based impls instead of the
+// Into-based base case. This avoids ambiguity.
+//
+// Note: "set" signal types (WriteSignal, etc.) only implement Fn(T) -> (),
+// NOT Fn() -> T, so they can't cause ambiguity with the Fn-based
+// IntoReactiveValue impls. They keep NotASignalType so they can still
+// use the Into-based base case for conversions like WriteSignal → SignalSetter.
+// ---------------------------------------------------------------------------
+
+/// Marker auto trait implemented by all types EXCEPT "get" signal types on nightly.
+/// Used as an additional bound on the `Into`-based base case of `IntoReactiveValue`
+/// to prevent ambiguity with the `Fn`-based impls.
+#[doc(hidden)]
+pub auto trait NotASignalType {}
+
+// Negative impls for signal types that directly implement Fn() -> T on nightly.
+// These types would otherwise ambiguously match both the Into-based base case
+// and the Fn-based IntoReactiveValue impls.
+impl<T> !NotASignalType for ArcReadSignal<T> {}
+impl<T> !NotASignalType for ArcRwSignal<T> {}
+impl<T, S> !NotASignalType for ReadSignal<T, S> {}
+impl<T, S> !NotASignalType for RwSignal<T, S> {}
+impl<T, S> !NotASignalType for ArcMemo<T, S> {}
+#[allow(deprecated)]
+impl<T, S> !NotASignalType for MaybeSignal<T, S> {}
+impl<T, S> !NotASignalType for Memo<T, S> {}
+#[allow(deprecated)]
+impl<T, S> !NotASignalType for MaybeProp<T, S> {}
+
+// Types that do NOT need negative impls:
+// - Signal: wraps ArenaItem (an index), so auto trait propagation preserves NotASignalType
+// - WriteSignal, ArcWriteSignal, SignalSetter: only impl Fn(T) -> (), not Fn() -> T
+
+// ArcSignal contains SignalTypes directly (which holds ArcReadSignal, ArcMemo, etc.),
+// so auto trait propagation would remove NotASignalType. We add an explicit positive
+// impl because ArcSignal uses Deref (not direct Fn impls), so there's no ambiguity.
+impl<T, S> NotASignalType for ArcSignal<T, S> where S: Storage<T> {}
+
 mod readable_deref_impl {
     /// Derived from the implementation and original creaters at dioxus
     /// https://docs.rs/dioxus-signals/0.6.3/src/dioxus_signals/signal.rs.html#485-494
