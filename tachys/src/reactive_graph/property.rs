@@ -124,7 +124,7 @@ macro_rules! property_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use crate::html::property::IntoProperty;
     #[allow(deprecated)]

@@ -101,7 +101,7 @@ macro_rules! textprop_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use super::TextProp;
     use oco_ref::Oco;
