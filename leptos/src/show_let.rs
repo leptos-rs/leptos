@@ -1,5 +1,6 @@
 use crate::{children::ViewFn, IntoView};
 use leptos_macro::component;
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 use reactive_graph::traits::Get;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::either::Either;
@@ -149,12 +150,13 @@ where
 
 /// Marker type for creating an `OptionGetter` from a signal.
 /// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
+///
+/// On nightly, signal types implement `Fn() -> T` directly, so they go through
+/// the `FunctionMarker` impl instead. This impl is only needed on stable where
+/// signals don't implement `Fn()`.
 pub struct SignalMarker;
 
-/// On nightly, signals implement `Fn()` (via `reactive_graph/src/nightly.rs`), so the blanket
-/// `FunctionMarker` impl already covers them. Keeping this impl active would cause ambiguity
-/// because `ReadSignal` would match both `FunctionMarker` (via `Fn`) and `SignalMarker` (via `Get`).
-#[cfg(not(feature = "nightly"))]
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 impl<T, S> IntoOptionGetter<T, SignalMarker> for S
 where
     S: Get<Value = Option<T>> + Clone + Send + Sync + 'static,
