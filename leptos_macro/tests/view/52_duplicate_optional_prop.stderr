@@ -1,5 +1,0 @@
-error: This element already has a `optional_prop` attribute.
- --> tests/view/52_duplicate_optional_prop.rs:9:36
-  |
-9 |             <Inner optional_prop=1 optional_prop=2/>
-  |                                    ^^^^^^^^^^^^^

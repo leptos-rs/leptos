@@ -1,29 +1,29 @@
 error[E0277]: `{integer}` is not a valid type for prop `value` on component `Inner`
-  --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
+  --> tests/view/58_user_trait_bound_wrong_type.rs:20:26
    |
 20 |             <Inner value=42/>
    |                          ^^ the trait `my_traits::Greetable` is not implemented for `{integer}`
    |
    = note: required: `Greetable`
 help: this trait has no implementations, consider adding one
-  --> tests/view/61_user_trait_bound_wrong_type.rs:9:5
+  --> tests/view/58_user_trait_bound_wrong_type.rs:9:5
    |
  9 |     pub trait Greetable {
    |     ^^^^^^^^^^^^^^^^^^^
 note: required for `{integer}` to implement `__Inner::Check_value`
-  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
+  --> tests/view/58_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
    | ^^^^^^^^^^^^
 note: required by a bound in `__Inner::Helper::<T>::check_and_wrap_value`
-  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
+  --> tests/view/58_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
    | ^^^^^^^^^^^^ required by this bound in `Helper::<T>::check_and_wrap_value`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `extract_value` exists for struct `__Inner::Wrap_value<{integer}>`, but its trait bounds were not satisfied
-  --> tests/view/61_user_trait_bound_wrong_type.rs:20:26
+  --> tests/view/58_user_trait_bound_wrong_type.rs:20:26
    |
 20 |             <Inner value=42/>
    |                          ^^ method cannot be called on `__Inner::Wrap_value<{integer}>` due to unsatisfied trait bounds
@@ -32,7 +32,7 @@ error[E0599]: the method `extract_value` exists for struct `__Inner::Wrap_value<
    | ------------ method `extract_value` not found for this struct
    |
 note: trait bound `{integer}: my_traits::Greetable` was not satisfied
-  --> tests/view/61_user_trait_bound_wrong_type.rs:25:1
+  --> tests/view/58_user_trait_bound_wrong_type.rs:25:1
    |
 25 | #[component]
    | ^^^^^^^^^^^^

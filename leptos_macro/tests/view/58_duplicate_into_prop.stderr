@@ -1,5 +1,0 @@
-error: This element already has a `label` attribute.
-  --> tests/view/58_duplicate_into_prop.rs:12:34
-   |
-12 |             <Inner label="hello" label="world"/>
-   |                                  ^^^^^

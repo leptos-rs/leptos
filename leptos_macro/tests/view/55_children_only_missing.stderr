@@ -1,5 +1,5 @@
 error[E0277]: component `Inner` requires children
-  --> tests/view/57_children_only_missing.rs:11:14
+  --> tests/view/55_children_only_missing.rs:11:14
    |
 11 |             <Inner></Inner>
    |              ^^^^^ children required
@@ -7,14 +7,14 @@ error[E0277]: component `Inner` requires children
    = help: the trait `required_Inner_children` is not implemented for `Absent`
    = note: add child elements between the opening and closing tags
 note: required by a bound in `__Inner::PropPresence::<(__F0,)>::require_props`
-  --> tests/view/57_children_only_missing.rs:16:1
+  --> tests/view/55_children_only_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^ required by this bound in `PropPresence::<(__F0,)>::require_props`
    = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(Absent,)>`, but its trait bounds were not satisfied
-  --> tests/view/57_children_only_missing.rs:11:14
+  --> tests/view/55_children_only_missing.rs:11:14
    |
 11 |             <Inner></Inner>
    |              ^^^^^ method cannot be called on `__Inner::PropPresence<(Absent,)>` due to unsatisfied trait bounds
@@ -28,7 +28,7 @@ error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresenc
    |     ----------------- doesn't satisfy `Absent: required_Inner_children`
    |
 note: trait bound `Absent: required_Inner_children` was not satisfied
-  --> tests/view/57_children_only_missing.rs:16:1
+  --> tests/view/55_children_only_missing.rs:16:1
    |
 16 | #[component]
    | ^^^^^^^^^^^^

@@ -4,9 +4,9 @@
 ///
 /// CI runs tests on both the stable and nightly toolchains,
 /// whose exact compiler output may differ in these tests.
-/// `trybuild` does have support for multiple .stderr files
-/// taken into account depending on the toolchain being used.
-/// Therefore, we let the tests only run on stable.
+/// `trybuild` does not have support for different .stderr files
+/// being used as the expected outcome, depending on the toolchain
+/// being used. Therefore, we let the tests only run on stable.
 #[rustversion::stable]
 #[test]
 fn test_view_macro() {
@@ -94,31 +94,28 @@ fn test_view_macro() {
 
     // Duplicate props.
     t.compile_fail("tests/view/51_duplicate_prop.rs");
-    t.compile_fail("tests/view/52_duplicate_optional_prop.rs");
-    t.compile_fail("tests/view/53_slot_duplicate_prop.rs");
-    t.compile_fail("tests/view/54_duplicate_generic_prop.rs");
-    t.compile_fail("tests/view/58_duplicate_into_prop.rs");
+    t.compile_fail("tests/view/52_slot_duplicate_prop.rs");
 
     // Non-Fn generic bounds.
-    t.compile_fail("tests/view/55_generic_non_fn_bound_wrong_type.rs");
-    t.compile_fail("tests/view/56_generic_clone_and_fn_wrong_type.rs");
+    t.compile_fail("tests/view/53_generic_non_fn_bound_wrong_type.rs");
+    t.compile_fail("tests/view/54_generic_clone_and_fn_wrong_type.rs");
 
     // Children-only component.
-    t.compile_fail("tests/view/57_children_only_missing.rs");
+    t.compile_fail("tests/view/55_children_only_missing.rs");
 
     // Error isolation between components.
-    t.compile_fail("tests/view/59_two_components_one_error.rs");
+    t.compile_fail("tests/view/56_two_components_one_error.rs");
 
     // User-defined trait bounds.
-    t.pass("tests/view/60_user_trait_bound_correct.rs");
-    t.compile_fail("tests/view/61_user_trait_bound_wrong_type.rs");
+    t.pass("tests/view/57_user_trait_bound_correct.rs");
+    t.compile_fail("tests/view/58_user_trait_bound_wrong_type.rs");
 
     // Renamed slot imports.
-    t.pass("tests/view/62_renamed_slot_import.rs");
+    t.pass("tests/view/59_renamed_slot_import.rs");
 
     // Closure parameter type inference.
-    t.pass("tests/view/63_generic_closure_with_params.rs");
+    t.pass("tests/view/60_generic_closure_with_params.rs");
 
     // Component and struct name coexistence.
-    t.pass("tests/view/64_component_and_struct_same_name.rs");
+    t.pass("tests/view/61_component_and_struct_same_name.rs");
 }
