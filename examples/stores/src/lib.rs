@@ -1,6 +1,6 @@
 use chrono::{Local, NaiveDate};
 use leptos::{logging::warn, prelude::*};
-use reactive_stores::{Field, Patch, Store};
+use reactive_stores::{Field, KeyMap, Patch, PatchField, Store, StorePath};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -13,7 +13,7 @@ use std::{
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
 struct Todos {
     /// Current user.
     user: User,
@@ -60,7 +60,7 @@ struct User {
     email: String,
 }
 
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
 struct Todo {
     id: usize,
     label: String,
@@ -76,7 +76,7 @@ impl Todo {
     }
 }
 
-#[derive(Debug, Default, Clone, Store, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Store, Serialize, Deserialize, PartialEq)]
 enum Status {
     #[default]
     Pending,
@@ -95,6 +95,21 @@ impl Status {
             Status::Scheduled | Status::ScheduledFor { .. } => Status::Done,
             Status::Done => Status::Done,
         };
+    }
+}
+
+impl PatchField for Status {
+    fn patch_field(
+        &mut self,
+        new: Self,
+        path: &StorePath,
+        notify: &mut dyn FnMut(&StorePath),
+        _keys: Option<&KeyMap>,
+    ) {
+        if *self != new {
+            *self = new;
+            notify(path);
+        }
     }
 }
 
