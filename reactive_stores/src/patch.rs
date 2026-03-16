@@ -417,8 +417,8 @@ where
     {
         let mut has_changed = false;
 
-        let mut old_keyed = HashMap::new();
-        let mut new_keyed = HashMap::new();
+        let mut old_keyed = HashMap::with_capacity(self.len());
+        let mut new_keyed = HashMap::with_capacity(new.len());
 
         // first, calculate keys for all the old values
         for item in self.drain() {
