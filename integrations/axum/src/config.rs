@@ -30,7 +30,7 @@ pub(crate) mod traits {
         LeptosOptions: FromRef<S>,
     {
         /// Apply the configuration onto the [`Router`].
-        fn apply(self, router: Router<S>) -> Router<()>;
+        fn apply<S2>(self, router: Router<S>) -> Router<S2>;
     }
 }
 
@@ -211,7 +211,7 @@ where
         feature = "tracing",
         tracing::instrument(level = "trace", fields(error), skip_all)
     )]
-    fn apply(self, router: Router<S>) -> Router<()> {
+    fn apply<S2>(self, router: Router<S>) -> Router<S2> {
         let app = self.app_fn.expect("an `App` should have been configured");
         let shell = self.shell.expect("a `shell` should have been configured");
         let state = self.state.expect("a `state` should have been configured");

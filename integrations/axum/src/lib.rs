@@ -1986,7 +1986,7 @@ where
     /// Note that both configuration with this method with a `RouterConfiguration` builder and the verbose
     /// manner of setting up the router will allow an alternative fallback be specified without removing the
     /// site pkg routes, as in the case with the combined fallback handler.
-    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    fn leptos_route_configure<C, S2>(self, conf: C) -> axum::Router<S2>
     where
         C: config::traits::RouterConfiguration<S>;
 }
@@ -2283,7 +2283,7 @@ where
         feature = "tracing",
         tracing::instrument(level = "trace", fields(error), skip_all)
     )]
-    fn leptos_route_configure<C>(self, conf: C) -> axum::Router<()>
+    fn leptos_route_configure<C, S2>(self, conf: C) -> axum::Router<S2>
     where
         C: config::traits::RouterConfiguration<S>,
     {

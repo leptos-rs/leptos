@@ -530,6 +530,7 @@ async fn leptos_options_css_moved() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn conf_alternate_router_state() -> anyhow::Result<()> {
+    use axum::{extract::State, routing::get, Router};
     use leptos::prelude::*;
     use leptos_axum::LeptosRoutes;
 
@@ -558,12 +559,20 @@ async fn conf_alternate_router_state() -> anyhow::Result<()> {
         dummy,
     };
 
-    let _ = axum::Router::new().leptos_route_configure(
+    let router /*: Router<Dummy>*/ = Router::new().leptos_route_configure(
         leptos_axum::RouterConfiguration::new()
             .app(App)
             .state(my_state.clone())
             .shell(shell),
     );
+    let router = router
+        .route(
+            "/somewhere/else",
+            get(|State(_dummy): State<Dummy>| async {}),
+        )
+        .with_state(Dummy);
+    let _ = router.into_make_service();
+
     Ok(())
 }
 
