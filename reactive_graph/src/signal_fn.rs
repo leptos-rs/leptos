@@ -177,7 +177,13 @@ macro_rules! impl_readable_deref_arena_signal_types {
 
 impl_readable_deref_arc![ArcReadSignal, ArcRwSignal];
 impl_readable_deref_arena![ReadSignal, RwSignal, Memo];
-impl_readable_deref_arena_signal_types![Signal, ArcSignal, ArcMemo, MaybeSignal, MaybeProp];
+impl_readable_deref_arena_signal_types![
+    Signal,
+    ArcSignal,
+    ArcMemo,
+    MaybeSignal,
+    MaybeProp
+];
 
 // =============================================================================
 // Write-side Deref impls: Deref<Target = dyn Fn(T)>
@@ -210,7 +216,8 @@ macro_rules! impl_writable_deref_arc {
 impl_writable_deref_arc![ArcWriteSignal];
 
 // WriteSignal: needs Storage<ArcWriteSignal<T>>
-impl<T: 'static, S: Storage<ArcWriteSignal<T>> + 'static> std::ops::Deref for WriteSignal<T, S>
+impl<T: 'static, S: Storage<ArcWriteSignal<T>> + 'static> std::ops::Deref
+    for WriteSignal<T, S>
 where
     WriteSignal<T, S>: crate::traits::Set<Value = T>,
 {
@@ -221,14 +228,20 @@ where
     }
 }
 
-impl<T: 'static, S: Storage<ArcWriteSignal<T>> + 'static> writable_deref_impl::WritableDerefImpl for WriteSignal<T, S>
+impl<T: 'static, S: Storage<ArcWriteSignal<T>> + 'static>
+    writable_deref_impl::WritableDerefImpl for WriteSignal<T, S>
 where
     WriteSignal<T, S>: crate::traits::Set<Value = T>,
 {
 }
 
 // SignalSetter: needs Storage<ArcWriteSignal<T>> + Storage<Box<dyn Fn(T) + Send + Sync>>
-impl<T: 'static, S: Storage<ArcWriteSignal<T>> + Storage<Box<dyn Fn(T) + Send + Sync>> + 'static> std::ops::Deref for SignalSetter<T, S>
+impl<
+        T: 'static,
+        S: Storage<ArcWriteSignal<T>>
+            + Storage<Box<dyn Fn(T) + Send + Sync>>
+            + 'static,
+    > std::ops::Deref for SignalSetter<T, S>
 where
     SignalSetter<T, S>: crate::traits::Set<Value = T>,
 {
@@ -239,7 +252,12 @@ where
     }
 }
 
-impl<T: 'static, S: Storage<ArcWriteSignal<T>> + Storage<Box<dyn Fn(T) + Send + Sync>> + 'static> writable_deref_impl::WritableDerefImpl for SignalSetter<T, S>
+impl<
+        T: 'static,
+        S: Storage<ArcWriteSignal<T>>
+            + Storage<Box<dyn Fn(T) + Send + Sync>>
+            + 'static,
+    > writable_deref_impl::WritableDerefImpl for SignalSetter<T, S>
 where
     SignalSetter<T, S>: crate::traits::Set<Value = T>,
 {

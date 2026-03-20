@@ -149,7 +149,6 @@
 //! }
 //! ```
 
-
 extern crate self as leptos;
 
 /// Exports all the core types of the library.
