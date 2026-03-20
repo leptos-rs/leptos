@@ -1,6 +1,6 @@
 use chrono::{Local, NaiveDate};
 use leptos::{logging::warn, prelude::*};
-use reactive_stores::{Field, KeyMap, Patch, PatchField, Store, StorePath};
+use reactive_stores::{Field, Patch, Store};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -64,6 +64,9 @@ struct User {
 struct Todo {
     id: usize,
     label: String,
+    /// the `#[patch] attribute allows you to indicate how a particular field should be patch
+    /// this expands to `if this != new { *this = new; notify(path); }`
+    #[patch(|this, new| *this = new)]
     status: Status,
 }
 impl Todo {
@@ -95,21 +98,6 @@ impl Status {
             Status::Scheduled | Status::ScheduledFor { .. } => Status::Done,
             Status::Done => Status::Done,
         };
-    }
-}
-
-impl PatchField for Status {
-    fn patch_field(
-        &mut self,
-        new: Self,
-        path: &StorePath,
-        notify: &mut dyn FnMut(&StorePath),
-        _keys: Option<&KeyMap>,
-    ) {
-        if *self != new {
-            *self = new;
-            notify(path);
-        }
     }
 }
 
