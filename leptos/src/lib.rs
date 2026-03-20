@@ -83,9 +83,8 @@
 //!
 //! # Feature Flags
 //!
-//! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
-//!   Also enables some experimental optimizations that improve the handling of static strings and
-//!   the performance of the `template! {}` macro.
+//! - **`nightly`**: On `nightly` Rust, enables some experimental optimizations that improve the
+//!   handling of static strings and the performance of the `template! {}` macro.
 //! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
 //! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
 //! - **`islands`** Activates “islands mode,” in which components are not made interactive on the
@@ -150,8 +149,6 @@
 //! }
 //! ```
 
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
 
 extern crate self as leptos;
 

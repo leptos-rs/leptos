@@ -335,7 +335,6 @@ macro_rules! style_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
 mod stable {
     use super::RenderEffect;
     use crate::html::style::{IntoStyle, IntoStyleValue};

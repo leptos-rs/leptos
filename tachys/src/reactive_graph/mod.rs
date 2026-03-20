@@ -810,7 +810,6 @@ macro_rules! reactive_impl {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
 mod stable {
     use super::RenderEffectState;
     use crate::{
