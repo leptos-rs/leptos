@@ -521,7 +521,7 @@ pub fn get_configuration(
 /// # Errors
 ///
 /// This function will return an error if either:
-/// - path was not found, or other I/O error has occured;
+/// - path was not found, or other I/O error has occurred;
 /// - [`get_config_from_str`] returned an error.
 pub fn get_config_from_file<P: AsRef<Path>>(
     path: P,
