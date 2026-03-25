@@ -198,3 +198,5 @@ pub fn create_rw_signal<T: Send + Sync + 'static>(value: T) -> RwSignal<T> {
 pub fn create_trigger() -> ArcTrigger {
     ArcTrigger::new()
 }
+
+// trigger CI
