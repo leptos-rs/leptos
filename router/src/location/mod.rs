@@ -140,8 +140,7 @@ impl Url {
         #[cfg(feature = "ssr")]
         {
             percent_encoding::percent_decode_str(s)
-                .decode_utf8()
-                .unwrap()
+                .decode_utf8_lossy()
                 .to_string()
         }
 
