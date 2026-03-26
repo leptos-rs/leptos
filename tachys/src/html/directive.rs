@@ -121,20 +121,50 @@ where
         self,
         el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
-        inner.handler.run(el.clone(), inner.param);
+        match self.0 {
+            Some(inner) => {
+                let inner = inner.take();
+                inner.handler.run(el.clone(), inner.param);
+            }
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+            }
+        }
         el.clone()
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
-        inner.handler.run(el.clone(), inner.param);
+        match self.0 {
+            Some(inner) => {
+                let inner = inner.take();
+                inner.handler.run(el.clone(), inner.param);
+            }
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+            }
+        }
         el.clone()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
-        inner.handler.run(state.clone(), inner.param);
+        match self.0 {
+            Some(inner) => {
+                let inner = inner.take();
+                inner.handler.run(state.clone(), inner.param);
+            }
+            None => {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &super::FEATURE_CONFLICT_DIAGNOSTIC.into(),
+                );
+            }
+        }
     }
 
     fn into_cloneable(self) -> Self::Cloneable {

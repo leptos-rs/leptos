@@ -371,11 +371,22 @@ where
         let parent = if position.get() == Position::FirstChild {
             current
         } else {
-            Rndr::get_parent(&current)
-                .expect("first child of keyed list has no parent")
+            Rndr::get_parent(&current).unwrap_or_else(|| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"first child of keyed list has no parent during hydration"
+                        .into(),
+                );
+                current
+            })
         };
-        let parent = crate::renderer::types::Element::cast_from(parent)
-            .expect("parent of keyed list should be an element");
+        let parent = crate::renderer::types::Element::cast_from(parent.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_element(
+                    "unknown (Keyed parent)",
+                    parent,
+                )
+            });
 
         // build list
         let items = self.items.into_iter().flatten();
@@ -410,11 +421,22 @@ where
         let parent = if position.get() == Position::FirstChild {
             current
         } else {
-            Rndr::get_parent(&current)
-                .expect("first child of keyed list has no parent")
+            Rndr::get_parent(&current).unwrap_or_else(|| {
+                #[cfg(all(target_arch = "wasm32", debug_assertions))]
+                web_sys::console::error_1(
+                    &"first child of keyed list has no parent during hydration"
+                        .into(),
+                );
+                current
+            })
         };
-        let parent = crate::renderer::types::Element::cast_from(parent)
-            .expect("parent of keyed list should be an element");
+        let parent = crate::renderer::types::Element::cast_from(parent.clone())
+            .unwrap_or_else(|| {
+                crate::hydration::failed_to_cast_element(
+                    "unknown (Keyed parent)",
+                    parent,
+                )
+            });
 
         // build list
         let items = self.items.into_iter().flatten();
@@ -695,9 +717,18 @@ fn apply_diff<T, VFS, V>(
     }
 
     for DiffOpRemove { at } in &diff.removed {
-        let (_, mut item_to_remove) = children[*at].take().unwrap();
-
-        item_to_remove.unmount();
+        if let Some((_, mut item_to_remove)) = children[*at].take() {
+            item_to_remove.unmount();
+        } else {
+            #[cfg(all(target_arch = "wasm32", debug_assertions))]
+            web_sys::console::error_1(
+                &format!(
+                    "removing item at index {}, but it was not present",
+                    at
+                )
+                .into(),
+            );
+        }
     }
 
     let (move_cmds, add_cmds) = unpack_moves(&diff);
@@ -714,9 +745,10 @@ fn apply_diff<T, VFS, V>(
         .enumerate()
         .filter(|(_, move_)| !move_.move_in_dom)
     {
-        children[*to] = moved_children[i]
-            .take()
-            .inspect(|(set_index, _)| set_index(*to));
+        if let Some(child) = moved_children[i].take() {
+            children[*to] =
+                Some(child).inspect(|(set_index, _)| set_index(*to));
+        }
     }
 
     for (i, DiffOpMove { to, .. }) in move_cmds
@@ -724,53 +756,60 @@ fn apply_diff<T, VFS, V>(
         .enumerate()
         .filter(|(_, move_)| move_.move_in_dom)
     {
-        let (set_index, mut each_item) = moved_children[i].take().unwrap();
-
-        if let Some(parent) = parent {
-            if let Some(Some((_, state))) =
-                children.get_next_closest_mounted_sibling(to)
-            {
-                state.insert_before_this_or_marker(
-                    parent,
-                    &mut each_item,
-                    Some(marker.as_ref()),
-                )
-            } else {
-                each_item.try_mount(parent, Some(marker.as_ref()));
+        if let Some((set_index, mut each_item)) = moved_children[i].take() {
+            if let Some(parent) = parent {
+                if let Some(Some((_, state))) =
+                    children.get_next_closest_mounted_sibling(to)
+                {
+                    state.insert_before_this_or_marker(
+                        parent,
+                        &mut each_item,
+                        Some(marker.as_ref()),
+                    )
+                } else {
+                    each_item.try_mount(parent, Some(marker.as_ref()));
+                }
             }
-        }
 
-        set_index(to);
-        children[to] = Some((set_index, each_item));
+            set_index(to);
+            children[to] = Some((set_index, each_item));
+        } else {
+            #[cfg(all(target_arch = "wasm32", debug_assertions))]
+            web_sys::console::error_1(
+                &format!("moving item to index {}, but it was not present", to)
+                    .into(),
+            );
+        }
     }
 
     for DiffOpAdd { at, mode } in add_cmds {
-        let item = items[at].take().unwrap();
-        let (set_index, item) = view_fn(at, item);
-        let mut item = item.build();
+        if let Some(item) = items[at].take() {
+            let (set_index, item) = view_fn(at, item);
+            let mut item = item.build();
 
-        if let Some(parent) = parent {
-            match mode {
-                DiffOpAddMode::Normal => {
-                    if let Some(Some((_, state))) =
-                        children.get_next_closest_mounted_sibling(at)
-                    {
-                        state.insert_before_this_or_marker(
-                            parent,
-                            &mut item,
-                            Some(marker.as_ref()),
-                        )
-                    } else {
+            if let Some(parent) = parent {
+                match mode {
+                    DiffOpAddMode::Normal => {
+                        if let Some(Some((_, state))) =
+                            children.get_next_closest_mounted_sibling(at)
+                        {
+                            state.insert_before_this_or_marker(
+                                parent,
+                                &mut item,
+                                Some(marker.as_ref()),
+                            )
+                        } else {
+                            item.try_mount(parent, Some(marker.as_ref()));
+                        }
+                    }
+                    DiffOpAddMode::Append => {
                         item.try_mount(parent, Some(marker.as_ref()));
                     }
                 }
-                DiffOpAddMode::Append => {
-                    item.try_mount(parent, Some(marker.as_ref()));
-                }
             }
-        }
 
-        children[at] = Some((set_index, item));
+            children[at] = Some((set_index, item));
+        }
     }
 
     #[allow(unstable_name_collisions)]

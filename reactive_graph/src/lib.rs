@@ -89,7 +89,10 @@ pub mod transition;
 pub mod wrappers;
 
 mod into_reactive_value;
-pub use into_reactive_value::*;
+pub use into_reactive_value::{
+    IntoReactiveValue, IntoReactiveValueTrait, IntoSignal,
+    __IntoReactiveValueMarkerBaseCase, __IntoReactiveValueMarkerIdentity,
+};
 
 /// A standard way to wrap functions and closures to pass them to components.
 pub mod callback;
