@@ -67,11 +67,11 @@ use std::{
 /// let count = ArcRwSignal::new(0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// //    this can be `count()` on nightly
+/// //    this can also be called as `count()`
 /// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// //    this can be `set_count(1)` on nightly
+/// //    this can also be called as `count.set(1)`
 /// count.set(1);
 /// assert_eq!(count.get(), 1);
 ///

@@ -682,7 +682,6 @@ macro_rules!  class_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
 mod stable {
     use super::{RenderEffect, RenderEffectWithClassName};
     use crate::{html::class::IntoClass, renderer::Rndr};

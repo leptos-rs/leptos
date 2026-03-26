@@ -147,7 +147,6 @@ macro_rules! inner_html_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
 mod stable {
     use crate::html::element::InnerHtmlValue;
     #[allow(deprecated)]

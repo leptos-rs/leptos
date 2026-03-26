@@ -124,7 +124,6 @@ macro_rules! property_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
 mod stable {
     use crate::html::property::IntoProperty;
     #[allow(deprecated)]

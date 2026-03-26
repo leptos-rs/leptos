@@ -68,10 +68,6 @@
 //! [Reactively](https://github.com/modderme123/reactively), as described
 //! [in this article](https://dev.to/modderme123/super-charging-fine-grained-reactive-performance-47ph).
 
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(auto_traits))]
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(negative_impls))]
 #![deny(missing_docs)]
 
 use std::{fmt::Arguments, future::Future};
@@ -100,8 +96,7 @@ pub mod callback;
 
 use computed::ScopedFuture;
 
-#[cfg(all(feature = "nightly", rustc_nightly))]
-mod nightly;
+mod signal_fn;
 
 /// Reexports frequently-used traits.
 pub mod prelude {

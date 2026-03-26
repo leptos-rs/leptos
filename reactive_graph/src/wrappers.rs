@@ -2154,7 +2154,7 @@ pub mod write {
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///     // ✅ calling the signal sets the value
-    ///     //    can be `setter(4)` on nightly
+    ///     //    this can also be called as `setter(4)`
     ///     setter.set(4);
     /// }
     ///
