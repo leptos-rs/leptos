@@ -1,0 +1,33 @@
+I've added a minimal reproduction for the "callback removed before attaching" panic in WebView2/Tauri.
+
+**Branch:** [4610-webview2-callback-panic-repro](https://github.com/ordokr/leptos/tree/4610-webview2-callback-panic-repro)  
+**Location:** `projects/webview2-callback-panic-repro/`
+
+### How to recreate
+
+**Prerequisites:** Rust, [Trunk](https://trunkrs.dev/) (`cargo install trunk`), [Tauri CLI](https://tauri.app/) (`cargo install tauri-cli --version "^2"`)
+
+**Build** (if your `~/.cargo/config` has `-fuse-ld=lld`, override for wasm):
+```powershell
+$env:RUSTFLAGS=''
+cd projects/webview2-callback-panic-repro/frontend
+cargo build --release --target wasm32-unknown-unknown --config 'target.wasm32-unknown-unknown.rustflags=[]'
+trunk build --release
+cd ../..
+```
+
+**Run:**
+1. Terminal 1: `cd projects/webview2-callback-panic-repro/frontend && trunk serve`
+2. Terminal 2: `cd projects/webview2-callback-panic-repro && cargo tauri dev`
+
+**Trigger the panic:**
+- App auto-triggers 10 cycles of rapid toggles on load
+- Or click **"Toggle rapidly (30x @ 5ms)"** repeatedly
+- Open WebView DevTools (Ctrl+Shift+I → Console) to see the panic when it occurs
+
+**What it reproduces:**
+- Leptos CSR (no SSR/hydrate)
+- Tauri 2.x + Wry/WebView2 on Windows
+- `<Show>` boundary with rapid mount/unmount via staggered `gloo_timers::Timeout` callbacks
+- Child content has `on:click` handlers
+- The race in `tachys` where `self.cb` is `None` during attach causes the panic

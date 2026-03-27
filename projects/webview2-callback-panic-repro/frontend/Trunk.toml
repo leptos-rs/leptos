@@ -1,0 +1,9 @@
+[build]
+target = "index.html"
+dist = "dist"
+public_url = ""
+
+[serve]
+port = 1420
+
+# wasm_bindgen version auto-detected from Cargo.toml; explicit "0.2" causes 404
