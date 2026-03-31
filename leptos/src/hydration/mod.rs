@@ -175,11 +175,25 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
+
+    // If `LEPTOS_SITE_BASE` exists, script import paths should be
+    // made path-relative (i.e. without the leading `/`).
+    let has_base = options.site_base.is_empty();
+    
+    let root_prefix = if has_base && root.is_empty() {
+        ""
+    } else if has_base {
+        // Remove all leading `/` to make href path-relative
+        root.trim_start_matches("/")
+    } else {
+        &root
+    };
+
     view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
+        <link rel="modulepreload" href=format!("{root_prefix}{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link
             rel="preload"
-            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
+            href=format!("{root_prefix}{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
             crossorigin=nonce.clone().unwrap_or_default()

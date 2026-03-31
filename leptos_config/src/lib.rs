@@ -59,6 +59,12 @@ pub struct LeptosOptions {
     #[builder(setter(into), default=default_env())]
     #[serde(default = "default_env")]
     pub env: Env,
+    /// The location where the site's root is. Behind the scenes, if
+    /// this variable is set, a <base> tag will be injected into every
+    /// <head>. Only used for SSG.
+    #[builder(default)]
+    #[serde(default)]
+    pub site_base: Arc<str>,
     /// Provides a way to control the address leptos is served from.
     /// Using an env variable here would allow you to run the same code in dev and prod.
     ///
@@ -217,6 +223,7 @@ impl LeptosOptions {
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?.into(),
             env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
+            site_base: env_w_default("LEPTOS_SITE_BASE", "")?.into(),
             site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
             reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
