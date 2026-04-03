@@ -199,7 +199,7 @@ pub fn HydrationScripts(
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
+            {format!("{script}({root_prefix:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
         </script>
     }
 }
