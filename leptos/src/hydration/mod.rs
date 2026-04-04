@@ -196,7 +196,7 @@ pub fn HydrationScripts(
         .map(|(_, after_http)| after_http.split_once("/").map(|(_, path)| path))
         .flatten()
         .unwrap_or_default();
-    let base_and_root_js = format!("{site_base_path}{root}")
+    let base_and_root_js = format!("/{site_base_path}{root}")
         .trim_end_matches("/")
         .to_string();
 
