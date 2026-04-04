@@ -177,7 +177,8 @@ pub fn HydrationScripts(
     let root = root.unwrap_or_default();
 
     let site_base = options.site_base.clone();
-    let has_base = site_base.is_empty();
+    leptos::logging::debug_log!("site_base: {site_base}");
+    let has_base = !site_base.is_empty();
 
     // Prefix for HTML hrefs, which are path-absolute (with leading `/`)
     // or path-relative (without) depending on whether LEPTOS_SITE_BASE is set.
@@ -193,12 +194,19 @@ pub fn HydrationScripts(
     // JS import base
     let site_base_path = site_base
         .split_once("//")
-        .map(|(_, after_http)| after_http.split_once("/").map(|(_, path)| path))
+        .map(|(_, after_http)| {
+            leptos::logging::debug_log!("after_http: {after_http}");
+            after_http.split_once("/").map(|(_, path)| {
+                leptos::logging::debug_log!("site_base_path: {path}");
+                path
+            })
+        })
         .flatten()
         .unwrap_or_default();
     let base_and_root_js = format!("{site_base_path}{root}")
         .trim_end_matches("/")
         .to_string();
+    leptos::logging::debug_log!("base_and_root_js: {base_and_root_js}");
 
     view! {
         <link rel="modulepreload" href=format!("{base_and_root_prefix}{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
