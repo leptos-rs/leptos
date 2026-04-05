@@ -99,7 +99,7 @@ pub(crate) mod private {
 
 mod config;
 mod service;
-pub use config::RouterConfiguration;
+pub use config::{RouterConfiguration, SitePkgMode};
 pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function

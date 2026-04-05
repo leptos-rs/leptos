@@ -8,7 +8,8 @@ mod router {
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
     use leptos_axum::{
-        ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
+        ErrorHandler, LeptosContextLayer, LeptosRoutes, SitePkgMode,
+        generate_route_list,
     };
     use service_mode::app::{App, shell};
     use tower::builder::ServiceBuilder;
@@ -207,7 +208,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .serve_site_pkg(true),
+                            .serve_site_pkg(SitePkgMode::ServeDir),
                     ),
                 Mode::ConfDefaultWithErrorHandler => Router::new()
                     .leptos_route_configure(
@@ -252,7 +253,7 @@ mod router {
                     Router::new().route_service(
                         "/",
                         tower_http::services::ServeFile::new(
-                            &leptos_options.css_file_path(),
+                            leptos_options.css_file_path(),
                         ),
                     ),
                 ),
