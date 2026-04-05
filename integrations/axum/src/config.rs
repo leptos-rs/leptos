@@ -34,6 +34,21 @@ pub(crate) mod traits {
     }
 }
 
+/// The possible modes for serving the site pkg dir for a [`RouterConfiguration`].
+#[cfg(feature = "default")]
+#[derive(Clone, Default)]
+pub enum SitePkgMode {
+    /// Disables the serving of site pkg dir.
+    #[default]
+    Disable,
+    /// Serves the site pkg dir using the [`ServeDir`] service.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    ServeDir,
+    /// Build the compiled site pkg dir into the server binary.
+    BuiltIn,
+}
+
 /// A configuration builder that simplifies the set up of a Leptos application onto an Axum router.
 ///
 /// This builder is used in conjunction with [`LeptosRoutes::leptos_route_configure`], please refer to it for
@@ -43,13 +58,13 @@ pub(crate) mod traits {
 /// to the trait bounds.  The required fields are `app`, `shell`, and `state`.
 #[derive(Clone)]
 pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
-    pub(super) app_fn: Option<APP>,
-    pub(super) shell: Option<SH>,
-    pub(super) state: Option<S>,
-    pub(super) extra_cx: Option<CX>,
+    app_fn: Option<APP>,
+    shell: Option<SH>,
+    state: Option<S>,
+    extra_cx: Option<CX>,
     #[cfg(feature = "default")]
-    pub(super) serve_site_pkg: bool,
-    pub(super) error_handler: bool,
+    serve_site_pkg: SitePkgMode,
+    error_handler: bool,
 }
 
 /// Create a new configuration with all toggles disabled.
@@ -61,7 +76,7 @@ impl<APP> Default for RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            serve_site_pkg: false,
+            serve_site_pkg: SitePkgMode::default(),
             error_handler: false,
         }
     }
@@ -85,7 +100,7 @@ impl<APP> RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            serve_site_pkg: true,
+            serve_site_pkg: SitePkgMode::ServeDir,
             error_handler: true,
         }
     }
@@ -102,14 +117,13 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         self
     }
 
-    /// Toggle for the site pkg [`ServeDir`] service; set to `true` to enable.
+    /// Configure the [`SitePkgMode`] to seve the site pkg with.
     ///
-    /// When enabled, the underlying `LeptosOptions` will be referenced to create the route to the `ServeDir`
-    /// service that will serve the JS/WASM bundle such that the application will be activated on the client.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
+    /// provide the relevant routes to serve the JS/WASM bundle such that the application will be activated
+    /// on the client.
     #[cfg(feature = "default")]
-    pub fn serve_site_pkg(mut self, v: bool) -> Self {
+    pub fn serve_site_pkg(mut self, v: SitePkgMode) -> Self {
         self.serve_site_pkg = v;
         self
     }
@@ -239,27 +253,31 @@ where
         });
 
         #[cfg(feature = "default")]
-        let router = if self.serve_site_pkg {
-            let builder = ServiceBuilder::new().option_layer(
-                extra_cx.map(LeptosContextLayer::new_with_context),
-            );
-            let leptos_options = LeptosOptions::from_ref(&state);
-            if let Some(error_handler) = error_handler.clone() {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    builder.service(
-                        site_pkg_dir_service(&leptos_options)
-                            .fallback(error_handler),
-                    ),
-                )
-            } else {
-                router.route_service(
-                    &site_pkg_dir_service_route_path(&leptos_options),
-                    builder.service(site_pkg_dir_service(&leptos_options)),
-                )
+        let router = match self.serve_site_pkg {
+            SitePkgMode::Disable => router,
+            SitePkgMode::ServeDir => {
+                let builder = ServiceBuilder::new().option_layer(
+                    extra_cx.map(LeptosContextLayer::new_with_context),
+                );
+                let leptos_options = LeptosOptions::from_ref(&state);
+                if let Some(error_handler) = error_handler.clone() {
+                    router.route_service(
+                        &site_pkg_dir_service_route_path(&leptos_options),
+                        builder.service(
+                            site_pkg_dir_service(&leptos_options)
+                                .fallback(error_handler),
+                        ),
+                    )
+                } else {
+                    router.route_service(
+                        &site_pkg_dir_service_route_path(&leptos_options),
+                        builder.service(site_pkg_dir_service(&leptos_options)),
+                    )
+                }
             }
-        } else {
-            router
+            SitePkgMode::BuiltIn => {
+                todo!()
+            }
         };
 
         let router = if let Some(error_handler) = error_handler {
