@@ -8,7 +8,7 @@ mod router {
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
     use leptos_axum::{
-        ErrorHandler, LeptosContextLayer, LeptosRoutes, SitePkgMode,
+        AssetMode, ErrorHandler, LeptosContextLayer, LeptosRoutes, SitePkgMode,
         generate_route_list,
     };
     use service_mode::app::{App, shell};
@@ -36,6 +36,7 @@ mod router {
         ConfDefaultWithSitePkg,
         ConfDefaultWithErrorHandler,
         ConfNew,
+        ConfNewServeAssetServeDir,
         ConfWithContext,
 
         LeptosOptionsCssBase,
@@ -222,6 +223,13 @@ mod router {
                     leptos_axum::RouterConfiguration::new()
                         .app(App)
                         .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfNewServeAssetServeDir => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::new()
+                        .app(App)
+                        .shell(shell)
+                        .serve_asset(AssetMode::ServeDir("/assets".into()))
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfWithContext => Router::new().leptos_route_configure(
