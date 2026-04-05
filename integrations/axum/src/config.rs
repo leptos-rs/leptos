@@ -8,6 +8,8 @@ use crate::{
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
 #[cfg(feature = "default")]
+use std::borrow::Cow;
+#[cfg(feature = "default")]
 use tower::builder::ServiceBuilder;
 
 pub(crate) mod traits {
@@ -49,6 +51,23 @@ pub enum SitePkgMode {
     BuiltIn,
 }
 
+/// The possible modes for serving of the assets for a [`RouterConfiguration`].
+///
+/// Assets are files copied to `LEPTOS_SITE_ROOT` if `LEPTOS_ASSETS_DIR` is configured.
+#[cfg(feature = "default")]
+#[derive(Clone, Default)]
+pub enum AssetMode {
+    /// Disables the serving of assets.
+    #[default]
+    Disable,
+    /// Serves the assets directory by using the [`ServeDir`] service created by [`site_pkg_dir_service`].
+    /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
+    /// will be created to serve this.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    ServeDir(Cow<'static, str>),
+}
+
 /// A configuration builder that simplifies the set up of a Leptos application onto an Axum router.
 ///
 /// This builder is used in conjunction with [`LeptosRoutes::leptos_route_configure`], please refer to it for
@@ -64,6 +83,9 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     extra_cx: Option<CX>,
     #[cfg(feature = "default")]
     serve_site_pkg: SitePkgMode,
+    #[cfg(feature = "default")]
+    serve_asset: AssetMode,
+    // TODO favicon embed?
     error_handler: bool,
 }
 
@@ -77,20 +99,25 @@ impl<APP> Default for RouterConfiguration<APP> {
             extra_cx: None,
             #[cfg(feature = "default")]
             serve_site_pkg: SitePkgMode::default(),
+            #[cfg(feature = "default")]
+            serve_asset: AssetMode::default(),
             error_handler: false,
         }
     }
 }
 
 impl<APP> RouterConfiguration<APP> {
+    // TODO this should be new_with_assets, `new` should only provide favicon
     /// Create a new configuration with all toggles set to the recommended value.
     ///
-    /// This enables route to the site pkg [`ServeDir`] service and the [`ErrorHandler`] service as the
-    /// fallback handler; also refer to [`.serve_site_pkg`] and [`.error_handler`] for details.
+    /// This enables route to the site pkg [`ServeDir`] service and the default fallback being the assets
+    /// `ServeDir` service with an [`ErrorHandler`] service as the ultimate fallback handler; refer to
+    /// [`.serve_asset`], [`.serve_site_pkg`], and [`.error_handler`] for details.
     ///
     /// Use of `RouterConfiguration::default()` disables these by default.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
+    /// [`.serve_asset`]: RouterConfiguration::serve_asset
     /// [`.serve_site_pkg`]: RouterConfiguration::serve_site_pkg
     /// [`.error_handler`]: RouterConfiguration::error_handler
     pub fn new() -> Self {
@@ -101,6 +128,8 @@ impl<APP> RouterConfiguration<APP> {
             extra_cx: None,
             #[cfg(feature = "default")]
             serve_site_pkg: SitePkgMode::ServeDir,
+            #[cfg(feature = "default")]
+            serve_asset: AssetMode::ServeDir("/".into()),
             error_handler: true,
         }
     }
@@ -114,6 +143,16 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         IV: IntoView + 'static,
     {
         self.app_fn = Some(app);
+        self
+    }
+
+    /// Configure the [`AssetMode`] to seve the assets with.
+    ///
+    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
+    /// provide the relevant route or configure the appropriate fallback service to serve the assets.
+    #[cfg(feature = "default")]
+    pub fn serve_asset(mut self, v: AssetMode) -> Self {
+        self.serve_asset = v;
         self
     }
 
@@ -163,6 +202,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
             serve_site_pkg: self.serve_site_pkg,
+            #[cfg(feature = "default")]
+            serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
     }
@@ -184,6 +225,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             extra_cx: Some(extra_cx),
             #[cfg(feature = "default")]
             serve_site_pkg: self.serve_site_pkg,
+            #[cfg(feature = "default")]
+            serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
     }
@@ -205,6 +248,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
             serve_site_pkg: self.serve_site_pkg,
+            #[cfg(feature = "default")]
+            serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
     }
@@ -280,6 +325,59 @@ where
             }
         };
 
+        #[cfg(feature = "default")]
+        let router = if let Some(error_handler) = error_handler {
+            let leptos_options = LeptosOptions::from_ref(&state);
+            // While the one set up for `serve_site_pkg` may be used, it might not be configured and so
+            // reusing that clone may be problematic; much easier to create one just for here; maybe refactor
+            // this later when implementation is more settled.
+            let builder = ServiceBuilder::new().option_layer(
+                extra_cx.map(LeptosContextLayer::new_with_context),
+            );
+            match self.serve_asset {
+                AssetMode::ServeDir(path) if path == "/" => router
+                    .fallback_service(
+                        builder.service(
+                            site_pkg_dir_service(&leptos_options)
+                                .fallback(error_handler),
+                        ),
+                    ),
+                AssetMode::ServeDir(path) => router
+                    .nest(
+                        &path,
+                        Router::new().route_service(
+                            "/{*path}",
+                            builder.service(
+                                site_pkg_dir_service(&leptos_options)
+                                    .fallback(error_handler.clone()),
+                            ),
+                        ),
+                    )
+                    .fallback_service(error_handler),
+                AssetMode::Disable => router.fallback_service(error_handler),
+            }
+        } else {
+            let leptos_options = LeptosOptions::from_ref(&state);
+            let builder = ServiceBuilder::new().option_layer(
+                extra_cx.map(LeptosContextLayer::new_with_context),
+            );
+            match self.serve_asset {
+                AssetMode::ServeDir(path) if path == "/" => router
+                    .fallback_service(
+                        builder.service(site_pkg_dir_service(&leptos_options)),
+                    ),
+                AssetMode::ServeDir(path) => router.nest(
+                    &path,
+                    Router::new().route_service(
+                        "/{*path}",
+                        builder.service(site_pkg_dir_service(&leptos_options)),
+                    ),
+                ),
+                AssetMode::Disable => router,
+            }
+        };
+
+        #[cfg(not(feature = "default"))]
         let router = if let Some(error_handler) = error_handler {
             router.fallback_service(error_handler)
         } else {

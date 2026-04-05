@@ -1,6 +1,6 @@
 use reqwest::{
-    Client, StatusCode, Url,
-    header::{HeaderName, HeaderValue},
+    Client, RequestBuilder, StatusCode, Url,
+    header::{HeaderMap, HeaderName, HeaderValue},
 };
 use std::{
     path::Path,
@@ -18,12 +18,8 @@ use tokio::{
 #[tokio::test]
 async fn bare_no_fallback() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "bare").await;
-    let client = Client::new();
     // this version has no fallbacks attached, so no other response, no error page.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length(), Some(0));
     Ok(())
@@ -32,22 +28,15 @@ async fn bare_no_fallback() -> anyhow::Result<()> {
 #[tokio::test]
 async fn fallback() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "fallback").await;
-    let client = Client::new();
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // the basic fallback will also have a shell to render the 404 Not Found
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
     assert!(
@@ -63,11 +52,7 @@ async fn fallback_with_context() -> anyhow::Result<()> {
     // ensure fixes implemented in #4394 for the headers to show up actually do show up.
     let service =
         start_test_service("service_mode", "fallback-with-context").await;
-    let client = Client::new();
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     assert_eq!(
@@ -80,10 +65,7 @@ async fn fallback_with_context() -> anyhow::Result<()> {
             .get(HeaderName::from_static("cross-origin-embedder-policy")),
         Some(&HeaderValue::from_static("require-corp")),
     );
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(
         res.headers()
@@ -103,12 +85,8 @@ async fn fallback_with_context() -> anyhow::Result<()> {
 async fn error_handler_service() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "error-handler-service").await;
-    let client = Client::new();
     // no site artifact, but has the error page as only the error handler is applied
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
     assert!(
@@ -124,22 +102,15 @@ async fn error_handler_service_fallback() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "error-handler-service-fallback")
             .await;
-    let client = Client::new();
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // this composed service falback setup is similar to the basic non-service fallback setup.
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
     assert!(
@@ -154,29 +125,19 @@ async fn error_handler_service_fallback() -> anyhow::Result<()> {
 async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "route-site-pkg-no-fallback").await;
-    let client = Client::new();
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // there is no fallback assigned to the routes under /pkg/ under this setup, so no error page
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length(), Some(0));
     // however, the fallback service will trigger for all other unrouted paths.
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
     assert!(
@@ -191,22 +152,15 @@ async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
 async fn route_site_pkg_dir_method() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "route-site-pkg-dir-method").await;
-    let client = Client::new();
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
     assert!(
@@ -215,10 +169,7 @@ async fn route_site_pkg_dir_method() -> anyhow::Result<()> {
             .contains("<title>Error from fallback</title>")
     );
     // gven the lack of a more generic fallback service, those other paths will not get a shell
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length(), Some(0));
     Ok(())
@@ -231,29 +182,19 @@ async fn route_site_pkg_dir_fallback_method() -> anyhow::Result<()> {
         "route-site-pkg-dir-fallback-method",
     )
     .await;
-    let client = Client::new();
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("site_pkg_dir fallback"));
     // the fallback service will also trigger for all other unrouted paths with a separate service
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("root fallback"));
     Ok(())
@@ -263,8 +204,8 @@ async fn route_site_pkg_dir_fallback_method() -> anyhow::Result<()> {
 async fn route_leptos_context() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "route-leptos-context").await;
-    let client = Client::new();
     // the special route should have something that indicate the context are available
+    let client = Client::new();
     let res = client
         .post(service.url("/test_leptos_context")?)
         .send()
@@ -293,18 +234,17 @@ async fn route_leptos_context() -> anyhow::Result<()> {
 #[tokio::test]
 async fn conf_default() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "conf-default").await;
-    let client = Client::new();
 
-    let res = client.get(service.url("/")?).send().await?;
+    let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
-    // this version has no fallbacks attached, so no other response, no error page.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
-    assert_eq!(res.status(), StatusCode::NOT_FOUND);
-    assert_eq!(res.content_length(), Some(0));
+    // this version has no fallbacks attached, so no other response, no error page, for all of
+    // site pkg, favicon and robots.txt.
+    for path in ["/pkg/service_mode.js", "/favicon.ico", "robots.txt"] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        assert_eq!(res.content_length(), Some(0));
+    }
     Ok(())
 }
 
@@ -312,33 +252,29 @@ async fn conf_default() -> anyhow::Result<()> {
 async fn conf_default_with_site_pkg() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "conf-default-with-site-pkg").await;
-    let client = Client::new();
-    let res = client.get(service.url("/")?).send().await?;
+    let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // no fallback rendering anywhere
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length(), Some(0));
+
+    for path in ["/favicon.ico", "robots.txt"] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        assert_eq!(res.content_length(), Some(0));
+    }
     Ok(())
 }
 
@@ -347,74 +283,107 @@ async fn conf_default_with_error_handler() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "conf-default-with-error-handler")
             .await;
-    let client = Client::new();
-    let res = client.get(service.url("/")?).send().await?;
+    let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // neither site artefacts will be found
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
     // no fallback rendering anywhere
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
+
+    for path in ["/favicon.ico", "robots.txt"] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        assert_ne!(res.content_length(), Some(0));
+    }
     Ok(())
 }
 
 #[tokio::test]
 async fn conf_new() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "conf-new").await;
-    let client = Client::new();
-    let res = client.get(service.url("/")?).send().await?;
+    let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
-    // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+
+    // Both the favicon.ico and robots.txt should be available as the `ServeDir` service is attached as the
+    // immediate fallback service (with a fallback that will be triggered below when the resource is not
+    // found.
+    assert_favicon_ico(&service).await?;
+    assert_robots_txt(&service).await?;
+
+    // There is a fallback assigned to the routes under /pkg/ under this setup, fallback rendering works.
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
-    // the fallback service will also trigger for all other unrouted paths with a separate service
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    // The fallback service will also trigger for all other unrouted paths with a separate service.
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
     Ok(())
 }
 
 #[tokio::test]
+async fn conf_new_serve_asset_serve_dir() -> anyhow::Result<()> {
+    let service =
+        start_test_service("service_mode", "conf-new-serve-asset-serve-dir")
+            .await;
+    let res = service.get("/")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    for path in ["/pkg/service_mode.js", "/pkg/service_mode.wasm"] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_ne!(res.content_length(), Some(0));
+    }
+
+    // Both the favicon.ico and robots.txt should be available as the `ServeDir` service is routed under
+    // `/assets`.
+    let res = service.get("/assets/favicon.ico")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.content_length(), Some(15406));
+    let res = service.get("/assets/robots.txt")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.text().await?, "User-agent: *\nDisallow: /\n");
+
+    // The other paths won't be found but will have the standard fallback error page.
+    for path in [
+        "/pkg/no_such_path",
+        "/no_such_path",
+        "/favicon.ico",
+        "robots.txt",
+    ] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+        assert!(
+            res.text().await?.contains("This is fallback rendering."),
+            "{path} failed to provide correct fallback rendering",
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn conf_with_context() -> anyhow::Result<()> {
     let service = start_test_service("service_mode", "conf-with-context").await;
-    let client = Client::new();
-    let res = client.get(service.url("/")?).send().await?;
+    let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_eq!(
         res.headers()
@@ -428,10 +397,7 @@ async fn conf_with_context() -> anyhow::Result<()> {
     );
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    let res = client
-        .get(service.url("/pkg/service_mode.js")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     assert_eq!(
@@ -444,21 +410,37 @@ async fn conf_with_context() -> anyhow::Result<()> {
             .get(HeaderName::from_static("cross-origin-embedder-policy")),
         Some(&HeaderValue::from_static("require-corp")),
     );
-    let res = client
-        .get(service.url("/pkg/service_mode.wasm")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+
+    // Both the favicon.ico and robots.txt should be available as the `ServeDir` service is attached as the
+    // immediate fallback service (with a fallback that will be triggered below when the resource is not
+    // found.
+    let headers = assert_favicon_ico(&service).await?;
+    assert_eq!(
+        headers.get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        headers.get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
+    assert_robots_txt(&service).await?;
+    assert_eq!(
+        headers.get(HeaderName::from_static("cross-origin-opener-policy")),
+        Some(&HeaderValue::from_static("same-origin")),
+    );
+    assert_eq!(
+        headers.get(HeaderName::from_static("cross-origin-embedder-policy")),
+        Some(&HeaderValue::from_static("require-corp")),
+    );
 
     assert_eq!(res.status(), StatusCode::OK);
     // there is fallback assigned to the routes under /pkg/ under this setup, so no error page
-    let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
+    let res = service.get("/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(res.text().await?.contains("This is fallback rendering."));
     // the fallback service will also trigger for all other unrouted paths with a separate service
-    let res = client
-        .get(service.url("/no_such_path_elsewhere")?)
-        .send()
-        .await?;
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(
         res.headers()
@@ -478,12 +460,8 @@ async fn conf_with_context() -> anyhow::Result<()> {
 async fn leptos_options_css_base() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "leptos-options-css-base").await;
-    let client = Client::new();
     // should route the css file that was setup using `LeptosOptions`.
-    let res = client
-        .get(service.url("/pkg/service_mode.css")?)
-        .send()
-        .await?;
+    let res = service.get("/pkg/service_mode.css")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("font-family: sans-serif;"));
     Ok(())
@@ -522,12 +500,8 @@ async fn leptos_options_css_moved() -> anyhow::Result<()> {
         ],
     )
     .await;
-    let client = Client::new();
     // should route the css file that was setup using `LeptosOptions`.
-    let res = client
-        .get(service.url("/my/pkg/service_mode.css")?)
-        .send()
-        .await?;
+    let res = service.get("/my/pkg/service_mode.css")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("font-family: sans-serif;"));
     Ok(())
@@ -619,6 +593,7 @@ fn build_test_service(name: &str) {
 struct Service {
     _child: Child,
     port: u16,
+    client: Client,
 }
 
 impl Service {
@@ -626,6 +601,10 @@ impl Service {
         Ok(format!("http://127.0.0.1:{}/", self.port)
             .parse::<Url>()?
             .join(path)?)
+    }
+
+    fn get(&self, path: &str) -> anyhow::Result<RequestBuilder> {
+        Ok(self.client.get(self.url(path)?))
     }
 }
 
@@ -684,20 +663,33 @@ async fn start_test_service_with_envs(
         .unwrap();
 
     let _child = child;
-    let service = Service { _child, port };
     let client = Client::new();
+    let service = Service {
+        _child,
+        port,
+        client,
+    };
 
     while start_time.elapsed() < ttl {
-        if client
-            .get(service.url("/").unwrap())
-            .timeout(ttl)
-            .send()
-            .await
-            .is_ok()
-        {
+        if service.get("/").unwrap().timeout(ttl).send().await.is_ok() {
             return service;
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
     panic!("The web server did not become ready within the expected time.");
+}
+
+async fn assert_favicon_ico(service: &Service) -> anyhow::Result<HeaderMap> {
+    let res = service.get("/favicon.ico")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.content_length(), Some(15406));
+    Ok(res.headers().to_owned())
+}
+
+async fn assert_robots_txt(service: &Service) -> anyhow::Result<HeaderMap> {
+    let res = service.get("/robots.txt")?.send().await?;
+    let headers = res.headers().to_owned();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.text().await?, "User-agent: *\nDisallow: /\n");
+    Ok(headers)
 }
