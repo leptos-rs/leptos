@@ -101,8 +101,6 @@ pub(crate) mod private {
 mod config;
 mod service;
 pub use config::RouterConfiguration;
-#[cfg(feature = "default")]
-pub use config::{AssetMode, SitePkgMode};
 pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
