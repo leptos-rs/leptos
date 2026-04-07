@@ -44,7 +44,7 @@ enum ResourceMode {
     #[default]
     Disable,
     /// Use the files found on the filesystem at runtime.
-    ServeDir,
+    Filesystem,
     /// Build the compiled site pkg dir into the server binary.
     BuiltIn,
 }
@@ -82,6 +82,8 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     #[cfg(feature = "default")]
     site_pkg_mode: ResourceMode,
     #[cfg(feature = "default")]
+    favicon_mode: ResourceMode,
+    #[cfg(feature = "default")]
     serve_asset: AssetMode,
     // TODO favicon embed?
     error_handler: bool,
@@ -97,6 +99,8 @@ impl<APP> Default for RouterConfiguration<APP> {
             extra_cx: None,
             #[cfg(feature = "default")]
             site_pkg_mode: ResourceMode::default(),
+            #[cfg(feature = "default")]
+            favicon_mode: ResourceMode::default(),
             #[cfg(feature = "default")]
             serve_asset: AssetMode::default(),
             error_handler: false,
@@ -123,7 +127,9 @@ impl<APP> RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            site_pkg_mode: ResourceMode::ServeDir,
+            site_pkg_mode: ResourceMode::Filesystem,
+            #[cfg(feature = "default")]
+            favicon_mode: ResourceMode::Filesystem,
             #[cfg(feature = "default")]
             serve_asset: AssetMode::Disable,
             error_handler: true,
@@ -151,7 +157,11 @@ impl<APP> RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            site_pkg_mode: ResourceMode::ServeDir,
+            site_pkg_mode: ResourceMode::Filesystem,
+            // TODO verify how this value may conflict with the setting defined in `serve_asset` as it may
+            // remain in `"/"` but also be configured to something else.
+            #[cfg(feature = "default")]
+            favicon_mode: ResourceMode::Filesystem,
             #[cfg(feature = "default")]
             serve_asset: AssetMode::ServeDir("/".into()),
             error_handler: true,
@@ -206,6 +216,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             #[cfg(feature = "default")]
             site_pkg_mode: self.site_pkg_mode,
             #[cfg(feature = "default")]
+            favicon_mode: self.favicon_mode,
+            #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
@@ -229,6 +241,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             #[cfg(feature = "default")]
             site_pkg_mode: self.site_pkg_mode,
             #[cfg(feature = "default")]
+            favicon_mode: self.favicon_mode,
+            #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
@@ -251,6 +265,8 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
             site_pkg_mode: self.site_pkg_mode,
+            #[cfg(feature = "default")]
+            favicon_mode: self.favicon_mode,
             #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
@@ -302,7 +318,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     ///
     /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
     pub fn enable_fs_site_pkg(self) -> Self {
-        self.site_pkg_mode(ResourceMode::ServeDir)
+        self.site_pkg_mode(ResourceMode::Filesystem)
     }
 
     /// Compile the files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` found during compile
@@ -316,6 +332,27 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     /// Disables the routing of `LEPTOS_SITE_PKG` files.
     pub fn disable_site_pkg(self) -> Self {
         self.site_pkg_mode(ResourceMode::Disable)
+    }
+
+    /// Configure how the `favicon.ico` is served.
+    fn favicon_mode(mut self, v: ResourceMode) -> Self {
+        self.favicon_mode = v;
+        self
+    }
+
+    /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` on the filesystem.
+    pub fn enable_fs_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::Filesystem)
+    }
+
+    /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` by building it into the target binary.
+    pub fn enable_builtin_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::BuiltIn)
+    }
+
+    /// Disables the routing of `favicon.ico`
+    pub fn disable_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::Disable)
     }
 }
 
@@ -364,7 +401,7 @@ where
         #[cfg(feature = "default")]
         let router = match self.site_pkg_mode {
             ResourceMode::Disable => router,
-            ResourceMode::ServeDir => {
+            ResourceMode::Filesystem => {
                 let builder = ServiceBuilder::new().option_layer(
                     extra_cx.map(LeptosContextLayer::new_with_context),
                 );
@@ -380,6 +417,34 @@ where
                 } else {
                     router.route_service(
                         &site_pkg_dir_service_route_path(&leptos_options),
+                        builder.service(site_pkg_dir_service(&leptos_options)),
+                    )
+                }
+            }
+            ResourceMode::BuiltIn => {
+                todo!()
+            }
+        };
+
+        #[cfg(feature = "default")]
+        let router = match self.favicon_mode {
+            ResourceMode::Disable => router,
+            ResourceMode::Filesystem => {
+                let builder = ServiceBuilder::new().option_layer(
+                    extra_cx.map(LeptosContextLayer::new_with_context),
+                );
+                let leptos_options = LeptosOptions::from_ref(&state);
+                if let Some(error_handler) = error_handler.clone() {
+                    router.route_service(
+                        "/favicon.ico",
+                        builder.service(
+                            site_pkg_dir_service(&leptos_options)
+                                .fallback(error_handler),
+                        ),
+                    )
+                } else {
+                    router.route_service(
+                        "/favicon.ico",
                         builder.service(site_pkg_dir_service(&leptos_options)),
                     )
                 }
