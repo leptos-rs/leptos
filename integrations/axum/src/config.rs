@@ -36,16 +36,14 @@ pub(crate) mod traits {
     }
 }
 
-/// The possible modes for serving the site pkg dir for a [`RouterConfiguration`].
+/// The possible modes for serving resources for a [`RouterConfiguration`].
 #[cfg(feature = "default")]
 #[derive(Clone, Default)]
-pub enum SitePkgMode {
+enum ResourceMode {
     /// Disables the serving of site pkg dir.
     #[default]
     Disable,
-    /// Serves the site pkg dir using the [`ServeDir`] service.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// Use the files found on the filesystem at runtime.
     ServeDir,
     /// Build the compiled site pkg dir into the server binary.
     BuiltIn,
@@ -56,7 +54,7 @@ pub enum SitePkgMode {
 /// Assets are files copied to `LEPTOS_SITE_ROOT` if `LEPTOS_ASSETS_DIR` is configured.
 #[cfg(feature = "default")]
 #[derive(Clone, Default)]
-pub enum AssetMode {
+enum AssetMode {
     /// Disables the serving of assets.
     #[default]
     Disable,
@@ -82,7 +80,7 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     state: Option<S>,
     extra_cx: Option<CX>,
     #[cfg(feature = "default")]
-    serve_site_pkg: SitePkgMode,
+    site_pkg_mode: ResourceMode,
     #[cfg(feature = "default")]
     serve_asset: AssetMode,
     // TODO favicon embed?
@@ -98,7 +96,7 @@ impl<APP> Default for RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            serve_site_pkg: SitePkgMode::default(),
+            site_pkg_mode: ResourceMode::default(),
             #[cfg(feature = "default")]
             serve_asset: AssetMode::default(),
             error_handler: false,
@@ -107,18 +105,16 @@ impl<APP> Default for RouterConfiguration<APP> {
 }
 
 impl<APP> RouterConfiguration<APP> {
-    // TODO this should be new_with_assets, `new` should only provide favicon
     /// Create a new configuration with all toggles set to the recommended value.
     ///
-    /// This enables route to the site pkg [`ServeDir`] service and the default fallback being the assets
-    /// `ServeDir` service with an [`ErrorHandler`] service as the ultimate fallback handler; refer to
-    /// [`.serve_asset`], [`.serve_site_pkg`], and [`.error_handler`] for details.
+    /// This enables route to the site pkg [`ServeDir`] service and the [`ErrorHandler`] service as the
+    /// fallback handler, along with a route to `/favicon.ico` under assets; refer to [`.site_pkg_mode`]
+    /// and [`.error_handler`] for further details.
     ///
     /// Use of `RouterConfiguration::default()` disables these by default.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
-    /// [`.serve_asset`]: RouterConfiguration::serve_asset
-    /// [`.serve_site_pkg`]: RouterConfiguration::serve_site_pkg
+    /// [`.site_pkg_mode`]: RouterConfiguration::site_pkg_mode
     /// [`.error_handler`]: RouterConfiguration::error_handler
     pub fn new() -> Self {
         Self {
@@ -127,7 +123,35 @@ impl<APP> RouterConfiguration<APP> {
             state: None,
             extra_cx: None,
             #[cfg(feature = "default")]
-            serve_site_pkg: SitePkgMode::ServeDir,
+            site_pkg_mode: ResourceMode::ServeDir,
+            #[cfg(feature = "default")]
+            serve_asset: AssetMode::Disable,
+            error_handler: true,
+        }
+    }
+
+    /// Create a new configuration with all toggles set to the recommended value.
+    ///
+    /// This enables route to the site pkg [`ServeDir`] service and the default fallback being the assets
+    /// `ServeDir` service with an [`ErrorHandler`] service as the ultimate fallback handler.  This should
+    /// fully replicate the `file_and_error_handler_with_context` fallback handler.
+    ///
+    /// Refer to [`.serve_asset`], [`.site_pkg_mode`], and [`.error_handler`] for further details.
+    ///
+    /// Use of `RouterConfiguration::default()` disables these by default.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// [`.serve_asset`]: RouterConfiguration::serve_asset
+    /// [`.site_pkg_mode`]: RouterConfiguration::site_pkg_mode
+    /// [`.error_handler`]: RouterConfiguration::error_handler
+    pub fn new_with_assets() -> Self {
+        Self {
+            app_fn: None,
+            shell: None,
+            state: None,
+            extra_cx: None,
+            #[cfg(feature = "default")]
+            site_pkg_mode: ResourceMode::ServeDir,
             #[cfg(feature = "default")]
             serve_asset: AssetMode::ServeDir("/".into()),
             error_handler: true,
@@ -143,27 +167,6 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         IV: IntoView + 'static,
     {
         self.app_fn = Some(app);
-        self
-    }
-
-    /// Configure the [`AssetMode`] to seve the assets with.
-    ///
-    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
-    /// provide the relevant route or configure the appropriate fallback service to serve the assets.
-    #[cfg(feature = "default")]
-    pub fn serve_asset(mut self, v: AssetMode) -> Self {
-        self.serve_asset = v;
-        self
-    }
-
-    /// Configure the [`SitePkgMode`] to seve the site pkg with.
-    ///
-    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
-    /// provide the relevant routes to serve the JS/WASM bundle such that the application will be activated
-    /// on the client.
-    #[cfg(feature = "default")]
-    pub fn serve_site_pkg(mut self, v: SitePkgMode) -> Self {
-        self.serve_site_pkg = v;
         self
     }
 
@@ -201,7 +204,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             state: self.state,
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
-            serve_site_pkg: self.serve_site_pkg,
+            site_pkg_mode: self.site_pkg_mode,
             #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
@@ -224,7 +227,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             state: self.state,
             extra_cx: Some(extra_cx),
             #[cfg(feature = "default")]
-            serve_site_pkg: self.serve_site_pkg,
+            site_pkg_mode: self.site_pkg_mode,
             #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
@@ -247,11 +250,72 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             state: Some(state),
             extra_cx: self.extra_cx,
             #[cfg(feature = "default")]
-            serve_site_pkg: self.serve_site_pkg,
+            site_pkg_mode: self.site_pkg_mode,
             #[cfg(feature = "default")]
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
         }
+    }
+}
+
+#[cfg(feature = "default")]
+impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
+    /// Configure the [`AssetMode`] to seve the assets with.
+    ///
+    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
+    /// provide the relevant route or configure the appropriate fallback service to serve the assets.
+    fn serve_asset(mut self, v: AssetMode) -> Self {
+        self.serve_asset = v;
+        self
+    }
+
+    /// Configure the base route for the `ServeDir` service that will provide the files found in
+    /// `LEPTOS_SITE_ROOT` defined at runtime.
+    ///
+    /// If the provided path is `"/"`, the fallback service will be used instead, in conjunction with the
+    /// [`ErrorHandler`] service if it is also availabled.  Otherwise [`Router::route_service`] will be used
+    /// to set this service up.
+    pub fn enable_fs_leptos_site_root(
+        self,
+        path: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        self.serve_asset(AssetMode::ServeDir(path.into()))
+    }
+
+    /// Disable the routing of `LEPTOS_SITE_ROOT`.
+    pub fn disable_leptos_site_root(self) -> Self {
+        self.serve_asset(AssetMode::Disable)
+    }
+
+    /// Configure the [`ResourceMode`] to seve the site pkg with.
+    ///
+    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
+    /// provide the relevant routes to serve the JS/WASM bundle such that the application will be activated
+    /// on the client.
+    fn site_pkg_mode(mut self, v: ResourceMode) -> Self {
+        self.site_pkg_mode = v;
+        self
+    }
+
+    /// Enable the routing of files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` by the
+    /// [`ServeDir`] service set up at runtime on the relevant path on the filesystem.
+    ///
+    /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
+    pub fn enable_fs_site_pkg(self) -> Self {
+        self.site_pkg_mode(ResourceMode::ServeDir)
+    }
+
+    /// Compile the files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` found during compile
+    /// time.  At runtime the routes will be created to serve these builtin files.
+    ///
+    /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
+    pub fn enable_builtin_site_pkg(self) -> Self {
+        self.site_pkg_mode(ResourceMode::BuiltIn)
+    }
+
+    /// Disables the routing of `LEPTOS_SITE_PKG` files.
+    pub fn disable_site_pkg(self) -> Self {
+        self.site_pkg_mode(ResourceMode::Disable)
     }
 }
 
@@ -298,9 +362,9 @@ where
         });
 
         #[cfg(feature = "default")]
-        let router = match self.serve_site_pkg {
-            SitePkgMode::Disable => router,
-            SitePkgMode::ServeDir => {
+        let router = match self.site_pkg_mode {
+            ResourceMode::Disable => router,
+            ResourceMode::ServeDir => {
                 let builder = ServiceBuilder::new().option_layer(
                     extra_cx.map(LeptosContextLayer::new_with_context),
                 );
@@ -320,7 +384,7 @@ where
                     )
                 }
             }
-            SitePkgMode::BuiltIn => {
+            ResourceMode::BuiltIn => {
                 todo!()
             }
         };
@@ -328,7 +392,7 @@ where
         #[cfg(feature = "default")]
         let router = if let Some(error_handler) = error_handler {
             let leptos_options = LeptosOptions::from_ref(&state);
-            // While the one set up for `serve_site_pkg` may be used, it might not be configured and so
+            // While the one set up for `site_pkg_mode` may be used, it might not be configured and so
             // reusing that clone may be problematic; much easier to create one just for here; maybe refactor
             // this later when implementation is more settled.
             let builder = ServiceBuilder::new().option_layer(
