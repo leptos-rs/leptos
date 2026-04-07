@@ -8,8 +8,7 @@ mod router {
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
     use leptos_axum::{
-        AssetMode, ErrorHandler, LeptosContextLayer, LeptosRoutes, SitePkgMode,
-        generate_route_list,
+        ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
     };
     use service_mode::app::{App, shell};
     use tower::builder::ServiceBuilder;
@@ -36,8 +35,9 @@ mod router {
         ConfDefaultWithSitePkg,
         ConfDefaultWithErrorHandler,
         ConfNew,
+        ConfNewWithAssets,
         ConfNewServeAssetServeDir,
-        ConfWithContext,
+        ConfNewWithAssetsWithContext,
 
         LeptosOptionsCssBase,
     }
@@ -209,7 +209,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .serve_site_pkg(SitePkgMode::ServeDir),
+                            .enable_fs_site_pkg(),
                     ),
                 Mode::ConfDefaultWithErrorHandler => Router::new()
                     .leptos_route_configure(
@@ -225,36 +225,46 @@ mod router {
                         .shell(shell)
                         .state(leptos_options.clone()),
                 ),
-                Mode::ConfNewServeAssetServeDir => Router::new().leptos_route_configure(
-                    leptos_axum::RouterConfiguration::new()
-                        .app(App)
-                        .shell(shell)
-                        .serve_asset(AssetMode::ServeDir("/assets".into()))
-                        .state(leptos_options.clone()),
-                ),
-                Mode::ConfWithContext => Router::new().leptos_route_configure(
-                    leptos_axum::RouterConfiguration::new()
-                        .app(App)
-                        .shell(shell)
-                        .state(leptos_options.clone())
-                        .with_context(move || {
-                            let opts =
-                                use_context::<leptos_axum::ResponseOptions>()
-                                    .unwrap();
-                            opts.insert_header(
-                                HeaderName::from_static(
-                                    "cross-origin-opener-policy",
-                                ),
-                                HeaderValue::from_static("same-origin"),
-                            );
-                            opts.insert_header(
-                                HeaderName::from_static(
-                                    "cross-origin-embedder-policy",
-                                ),
-                                HeaderValue::from_static("require-corp"),
-                            );
-                        }),
-                ),
+                Mode::ConfNewWithAssets => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new_with_assets()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone()),
+                    ),
+                Mode::ConfNewServeAssetServeDir => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new()
+                            .app(App)
+                            .shell(shell)
+                            .enable_fs_leptos_site_root("/assets")
+                            .state(leptos_options.clone()),
+                    ),
+                Mode::ConfNewWithAssetsWithContext => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new_with_assets()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .with_context(move || {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                opts.insert_header(
+                                    HeaderName::from_static(
+                                        "cross-origin-opener-policy",
+                                    ),
+                                    HeaderValue::from_static("same-origin"),
+                                );
+                                opts.insert_header(
+                                    HeaderName::from_static(
+                                        "cross-origin-embedder-policy",
+                                    ),
+                                    HeaderValue::from_static("require-corp"),
+                                );
+                            }),
+                    ),
 
                 Mode::LeptosOptionsCssBase => Router::new().nest(
                     &leptos_options.css_path(),
