@@ -13,7 +13,7 @@ use std::{
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
 struct Todos {
     /// Current user.
     user: User,
@@ -60,10 +60,13 @@ struct User {
     email: String,
 }
 
-#[derive(Debug, Store, Serialize, Deserialize)]
+#[derive(Debug, Store, Patch, Serialize, Deserialize)]
 struct Todo {
     id: usize,
     label: String,
+    /// the `#[patch] attribute allows you to indicate how a particular field should be patch
+    /// this expands to `if this != new { *this = new; notify(path); }`
+    #[patch(|this, new| *this = new)]
     status: Status,
 }
 impl Todo {
@@ -76,7 +79,7 @@ impl Todo {
     }
 }
 
-#[derive(Debug, Default, Clone, Store, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Store, Serialize, Deserialize, PartialEq)]
 enum Status {
     #[default]
     Pending,

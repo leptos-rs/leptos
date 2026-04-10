@@ -83,6 +83,7 @@ impl IntoAttributeValue for TextProp {
     }
 }
 
+#[allow(unused)]
 macro_rules! textprop_reactive {
     ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
     {

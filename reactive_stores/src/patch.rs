@@ -4,7 +4,7 @@ use itertools::{EitherOrBoth, Itertools};
 use reactive_graph::traits::{Notify, UntrackableGuard};
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fmt::Debug,
     hash::Hash,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -106,6 +106,13 @@ where
 /// Allows patching a store field with some new value.
 pub trait PatchField {
     /// Patches the field with some new value, only notifying if the value has changed.
+    ///
+    /// # Arguments
+    ///
+    /// - **new** - new value
+    /// - **path** - path to the field
+    /// - **notify** - callback to notify about update
+    /// - **keys** - a reference to the KeyMap for the store that's being patched
     fn patch_field(
         &mut self,
         new: Self,
@@ -134,6 +141,14 @@ where
     ///
     /// Returns `true` if the structure of the collection changed (items added, removed,
     /// or reordered). Individual item changes are notified via the `notify` callback.
+    ///
+    /// # Arguments
+    ///
+    /// - **new** - updated values
+    /// - **notify** - callback to notify about the update
+    /// - **keys** - a reference to the KeyMap for the store that's being patched
+    /// - **key_fn** - callback returning the key from an item in the collection
+    /// - **path_at_key** - callback returning a store path for the element in the collection identified by the key
     fn patch_field_keyed(
         &mut self,
         new: Self,
@@ -402,8 +417,8 @@ where
     {
         let mut has_changed = false;
 
-        let mut old_keyed = HashMap::new();
-        let mut new_keyed = HashMap::new();
+        let mut old_keyed = HashMap::with_capacity(self.len());
+        let mut new_keyed = HashMap::with_capacity(new.len());
 
         // first, calculate keys for all the old values
         for item in self.drain() {
@@ -416,6 +431,96 @@ where
             let key = key_fn((&item.0, &item.1));
             new_keyed.insert(key, item);
         }
+
+        // if there are any old keys not included in the new keys, the map has changed
+        for old_key in old_keyed.keys() {
+            if !new_keyed.contains_key(old_key) {
+                has_changed = true;
+            }
+        }
+
+        // iterate over the new entries, rebuilding the `new` map (which we emptied with `drain` above)
+        //
+        // for each entry, either
+        // 1) push it directly into the `new` map again, or
+        // 2) take the old value and patch it
+        for (key, new_value) in new_keyed {
+            let old_at_key = old_keyed.remove(&key);
+
+            match old_at_key {
+                None => {
+                    // add this item into the new map
+                    new.insert(new_value.0, new_value.1);
+
+                    // not found in old map, list has changed and will trigger
+                    has_changed = true;
+                }
+                // found in old map
+                Some(mut old_value) => {
+                    // now we need to actually patch the old item with this key with the new item
+                    // we do this by calling patch_field(); to get the correct path, we need to get the
+                    // path to the field at this key
+                    if let Some(path) = path_at_key(&key) {
+                        old_value.1.patch_field(
+                            new_value.1,
+                            &path,
+                            notify,
+                            keys,
+                        );
+                    } else {
+                        has_changed = true;
+                    }
+
+                    // and we'll insert it into the new map
+                    new.insert(new_value.0, old_value.1);
+                }
+            }
+        }
+
+        // update the value
+        *self = new;
+
+        has_changed
+    }
+}
+
+impl<K, V> PatchFieldKeyed<K> for BTreeMap<K, V>
+where
+    V: PatchField + Clone,
+    K: Eq + Ord + Clone,
+{
+    fn patch_field_keyed(
+        &mut self,
+        new: Self,
+        notify: &mut dyn FnMut(&StorePath),
+        keys: Option<&KeyMap>,
+        key_fn: impl Fn(<&Self as IntoIterator>::Item) -> K,
+        path_at_key: impl Fn(&K) -> Option<StorePath>,
+    ) -> bool
+    where
+        K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    {
+        let mut has_changed = false;
+        let mut old_keyed = BTreeMap::new();
+        let mut new_keyed = BTreeMap::new();
+
+        // first, calculate keys for all the old values
+        //
+        // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        for item in self.iter() {
+            let key = key_fn(item);
+            old_keyed.insert(key, (item.0.clone(), item.1.clone()));
+        }
+
+        // then, calculate keys and indices for all the new values
+        //
+        // BTreeMap doesn't have a drain method - https://github.com/rust-lang/rust/issues/81074
+        for item in new {
+            let key = key_fn((&item.0, &item.1));
+            new_keyed.insert(key, item);
+        }
+
+        let mut new = BTreeMap::new();
 
         // if there are any old keys not included in the new keys, the map has changed
         for old_key in old_keyed.keys() {

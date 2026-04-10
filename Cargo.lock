@@ -2163,7 +2163,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.8.12"
+version = "0.8.13"
 dependencies = [
  "any_spawner",
  "either_of",
