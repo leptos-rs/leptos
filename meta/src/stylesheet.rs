@@ -80,13 +80,13 @@ pub fn HashedStylesheet(
     }
     css_file_name.push_str(".css");
     let pkg_path = &options.site_pkg_dir;
-    
+
     let root = root.unwrap_or_default();
 
     // If `LEPTOS_SITE_BASE` exists, script import paths should be
     // made path-relative (i.e. without the leading `/`).
     let has_base = !options.site_base.is_empty();
-    
+
     let base_and_root_prefix = if has_base && root.is_empty() {
         ""
     } else if has_base {

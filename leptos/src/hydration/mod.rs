@@ -193,8 +193,7 @@ pub fn HydrationScripts(
     // JS import base
     let site_base_path = site_base
         .split_once("//")
-        .map(|(_, after_http)| after_http.split_once("/").map(|(_, path)| path))
-        .flatten()
+        .and_then(|(_, after_http)| after_http.split_once("/").map(|(_, path)| path))
         .unwrap_or_default();
     let base_and_root_js = format!("/{site_base_path}{root}")
         .trim_end_matches("/")
