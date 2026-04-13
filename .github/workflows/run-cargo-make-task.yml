@@ -91,7 +91,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         if: contains(inputs.directory, 'examples')
         id: pnpm-install
