@@ -388,7 +388,8 @@ mod inner {
 
         fn mark_check(&self) {
             self.write().or_poisoned().state = ReactiveNodeState::Check;
-            let any_subscriber = self.read().or_poisoned().any_subscriber.clone();
+            let any_subscriber =
+                self.read().or_poisoned().any_subscriber.clone();
             any_subscriber.with_observer(|| self.update_if_necessary());
         }
 
