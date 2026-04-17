@@ -1,3 +1,8 @@
+// These tests must run serially because they use `Owner::set()` which mutates thread-local state,
+// causing races when tests run in parallel.
+#[cfg(feature = "effects")]
+use serial_test::serial;
+
 #[cfg(feature = "effects")]
 pub mod imports {
     pub use any_spawner::Executor;
@@ -10,6 +15,7 @@ pub mod imports {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 fn effect_runs() {
     use imports::*;
 
@@ -37,6 +43,7 @@ fn effect_runs() {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 fn dynamic_dependencies() {
     use imports::*;
 
@@ -94,6 +101,7 @@ fn dynamic_dependencies() {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 fn recursive_effect_runs_recursively() {
     use imports::*;
 
@@ -127,6 +135,7 @@ fn recursive_effect_runs_recursively() {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 fn paused_effect_pauses() {
     use imports::*;
     use reactive_graph::owner::StoredValue;
@@ -177,6 +186,7 @@ fn paused_effect_pauses() {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 #[ignore = "Parallel signal access can panic."]
 fn threaded_chaos_effect() {
     use imports::*;
@@ -228,6 +238,7 @@ fn threaded_chaos_effect() {
 
 #[cfg(feature = "effects")]
 #[test]
+#[serial]
 fn test_batch() {
     use imports::*;
     use reactive_graph::{effect::batch, owner::StoredValue};

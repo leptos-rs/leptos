@@ -1,0 +1,36 @@
+error[E0277]: custom: `bool` does not implement `Check`
+  --> tests/compiler_assumptions/01_trait_bounded_generic_param_produces_e0277_with_on_unimplemented.rs:35:40
+   |
+35 |     let result = helper.check_and_wrap(true).extract_value(); // E0277 (custom message)
+   |                         -------------- ^^^^ the trait `Check` is not implemented for `bool`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+help: the trait `Check` is implemented for `i32`
+  --> tests/compiler_assumptions/01_trait_bounded_generic_param_produces_e0277_with_on_unimplemented.rs:16:1
+   |
+16 | impl Check for i32 {}
+   | ^^^^^^^^^^^^^^^^^^
+note: required by a bound in `Helper::check_and_wrap`
+  --> tests/compiler_assumptions/01_trait_bounded_generic_param_produces_e0277_with_on_unimplemented.rs:26:26
+   |
+26 |     fn check_and_wrap<T: Check>(&self, val: T) -> Wrap<T> {
+   |                          ^^^^^ required by this bound in `Helper::check_and_wrap`
+
+error[E0308]: mismatched types
+  --> tests/compiler_assumptions/01_trait_bounded_generic_param_produces_e0277_with_on_unimplemented.rs:36:18
+   |
+36 |     needs_string(result); // E0308 (NOT absorbed — proves no `{error}`)
+   |     ------------ ^^^^^^ expected `String`, found `bool`
+   |     |
+   |     arguments to this function are incorrect
+   |
+note: function defined here
+  --> tests/compiler_assumptions/01_trait_bounded_generic_param_produces_e0277_with_on_unimplemented.rs:31:4
+   |
+31 | fn needs_string(_: String) {}
+   |    ^^^^^^^^^^^^ ---------
+help: try using a conversion method
+   |
+36 |     needs_string(result.to_string()); // E0308 (NOT absorbed — proves no `{error}`)
+   |                        ++++++++++++

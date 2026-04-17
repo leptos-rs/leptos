@@ -41,6 +41,7 @@ leptos_router = { path = "../router", features = ["ssr"] }
 server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
+rustversion = { workspace = true }
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }

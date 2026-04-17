@@ -1,0 +1,14 @@
+error[E0308]: mismatched types
+  --> tests/view/04_concrete_prop_wrong_type_short_form.rs:15:20
+   |
+15 |             <Inner concrete_bool/>
+   |                    ^^^^^^^^^^^^^
+   |                    |
+   |                    expected `bool`, found integer
+   |                    arguments to this method are incorrect
+   |
+note: method defined here
+  --> tests/view/04_concrete_prop_wrong_type_short_form.rs:21:10
+   |
+21 | fn Inner(concrete_bool: bool) -> impl IntoView {
+   |          ^^^^^^^^^^^^^------

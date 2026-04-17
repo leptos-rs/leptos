@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/view/22_optional_no_strip_prop_wrong_type.rs:11:36
+   |
+11 |             <Inner required=42 val="hello"/>
+   |                                --- ^^^^^^^ expected `Option<String>`, found `&str`
+   |                                |
+   |                                arguments to this method are incorrect
+   |
+   = note:   expected enum `std::option::Option<std::string::String>`
+           found reference `&str`
+note: method defined here
+  --> tests/view/22_optional_no_strip_prop_wrong_type.rs:19:32
+   |
+19 |     #[prop(optional_no_strip)] val: Option<String>,
+   |                                ^^^----------------

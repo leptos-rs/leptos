@@ -1,19 +1,20 @@
-use super::{
-    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+use super::utils::{
+    children_span, extract_children_arg, generate_checked_builder_block,
+    is_nostrip_optional_and_update_key, prop_span_info, turbofish_generics,
+    PropInfo,
 };
 use crate::view::{
-    attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
+    attribute_absolute,
+    utils::{filter_prefixed_attrs, key_value_span},
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
-    CustomNode, KeyedAttributeValue, Node, NodeAttribute, NodeBlock,
-    NodeElement, NodeName,
+    CustomNode, KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement,
+    NodeName,
 };
-use std::collections::HashMap;
-use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
-};
+use std::collections::{HashMap, HashSet};
+use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
@@ -24,11 +25,18 @@ pub(crate) fn component_to_tokens(
     #[cfg(debug_assertions)]
     let component_name = super::ident_from_tag_name(node.name());
 
-    // an attribute that contains {..} can be used to split props from attributes
-    // anything before it is a prop, unless it uses the special attribute syntaxes
-    // (attr:, style:, on:, prop:, etc.)
+    // Capture component name tokens and span before mutable borrows
+    let name_span = node.name().span();
+    let component_path: TokenStream = {
+        let n = node.name();
+        quote! { #n }
+    };
+
+    // an attribute that contains {..} can be used to split props from
+    // attributes anything before it is a prop, unless it uses the special
+    // attribute syntaxes (attr:, style:, on:, prop:, etc.)
     // anything after it is a plain HTML attribute to be spread onto the prop
-    let spread_marker = node
+    let spread_boundary = node
         .attributes()
         .iter()
         .position(|node| match node {
@@ -50,7 +58,8 @@ pub(crate) fn component_to_tokens(
         })
         .unwrap_or_else(|| node.attributes().len());
 
-    // Initially using uncloned mutable reference, as the node.key might be mutated during prop extraction (for nostrip:)
+    // Initially using uncloned mutable reference, as the node.key might be
+    // mutated during prop extraction (for nostrip:)
     let mut attrs = node
         .attributes_mut()
         .iter_mut()
@@ -63,10 +72,17 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let mut required_props = vec![];
+    // Collect pre-check info and builder setter info.
+    //
+    // For each non-optional prop we pre-check the value via UFCS
+    // trait call through the companion module. For bounded generic
+    // props, E0277 fires with custom `on_unimplemented` and the
+    // expression type is `{error}`, suppressing downstream errors.
+    let mut prop_infos: Vec<PropInfo> = vec![];
     let mut optional_props = vec![];
+    let mut seen_prop_names = HashSet::new();
     for (_, attr) in attrs.iter_mut().enumerate().filter(|(idx, attr)| {
-        idx < &spread_marker && {
+        idx < &spread_boundary && {
             let attr_key = attr.key.to_string();
             !is_attr_let(&attr.key)
                 && !attr_key.starts_with("clone:")
@@ -81,6 +97,17 @@ pub(crate) fn component_to_tokens(
         let optional = is_nostrip_optional_and_update_key(&mut attr.key);
         let name = &attr.key;
 
+        let name_str = name.to_string();
+        if !seen_prop_names.insert(name_str.clone()) {
+            let msg = format!(
+                "duplicate prop `{}` — each prop can only be set once",
+                name_str
+            );
+            return quote_spanned! {attr.key.span()=>
+                compile_error!(#msg)
+            };
+        }
+
         let value = attr
             .value()
             .map(|v| {
@@ -88,14 +115,26 @@ pub(crate) fn component_to_tokens(
             })
             .unwrap_or_else(|| quote! { #name });
 
+        let key_value_span = key_value_span(
+            attr.key.span(),
+            attr.value().map(|it| it.span()),
+            name.span(),
+        );
+
         if optional {
-            optional_props.push(quote! {
+            optional_props.push(quote_spanned! {key_value_span=>
                 props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
-            required_props.push(quote! {
-                .#name(#[allow(unused_braces)] { #value })
-            })
+            let span_info = prop_span_info(attr);
+
+            let setter_name = quote! { #name };
+            prop_infos.push(PropInfo {
+                span_info,
+                value,
+                setter_name,
+                setter_span: key_value_span,
+            });
         }
     }
 
@@ -139,12 +178,12 @@ pub(crate) fn component_to_tokens(
         .iter()
         .enumerate()
         .filter_map(|(idx, attr)| {
-            if idx == spread_marker {
+            if idx == spread_boundary {
                 return None;
             }
 
             if let NodeAttribute::Block(block) = attr {
-                let dotted = if let NodeBlock::ValidBlock(block) = block {
+                let spread_expr = if let NodeBlock::ValidBlock(block) = block {
                     match block.stmts.first() {
                         Some(Stmt::Expr(
                             Expr::Range(ExprRange {
@@ -160,13 +199,13 @@ pub(crate) fn component_to_tokens(
                 } else {
                     None
                 };
-                Some(dotted.unwrap_or_else(|| {
+                Some(spread_expr.unwrap_or_else(|| {
                     quote! {
                         #node
                     }
                 }))
             } else if let NodeAttribute::Attribute(node) = attr {
-                attribute_absolute(node, idx >= spread_marker)
+                attribute_absolute(node, idx >= spread_boundary)
             } else {
                 None
             }
@@ -187,134 +226,68 @@ pub(crate) fn component_to_tokens(
         }
     });
 
-    /*let directives = attrs
-        .clone()
-        .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("use:")
-                .map(|ident| directive_call_from_attribute_node(attr, ident))
-        })
-        .collect::<Vec<_>>();
-
-    let events_and_directives =
-        events.into_iter().chain(directives).collect::<Vec<_>>(); */
+    // Compute children span once, used for both the children arg
+    // and the pre-check.
+    let children_span = children_span(&node.children, name_span);
 
     let mut slots = HashMap::new();
-    let children = if node.children.is_empty() {
-        quote! {}
-    } else if let Some(children) = maybe_optimised_component_children(
-        &node.children,
+    let children_arg = extract_children_arg(
+        &mut node.children,
+        &mut slots,
         &items_to_bind,
         &items_to_clone,
-    ) {
-        children
-    } else {
-        let children = fragment_to_tokens(
-            &mut node.children,
-            TagType::Unknown,
-            Some(&mut slots),
-            global_class,
-            None,
-            disable_inert_html,
-        );
+        children_span,
+        global_class,
+        disable_inert_html,
+    );
 
-        // TODO view marker for hot-reloading
-        /*
-        cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                // For some reason spanning for `.children` breaks, unless `#view_marker`
-                // is also covered by `children.span()`.
-                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-        */
+    let generics = turbofish_generics(&node.open_tag.generics);
+    let helper_init = quote! { ::leptos::component::component_helper(&#component_path #generics) };
+    // Use `name_span` so that where-clause failures on
+    // `require_props()` and E0599 on `check_missing()` point
+    // to the component name, not the entire `view!` invocation.
+    let presence_ident = Ident::new("__presence", name_span);
 
-        if let Some(children) = children {
-            let bindables =
-                items_to_bind.iter().map(|ident| quote! { #ident, });
+    let builder_block = generate_checked_builder_block(
+        helper_init,
+        &presence_ident,
+        &prop_infos,
+        slots,
+        children_arg.as_ref(),
+        children_span,
+    );
 
-            let clonables = items_to_clone_to_tokens(&items_to_clone);
-
-            if bindables.len() > 0 {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        move |#(#bindables)*| #children
-                    })
-                }
-            } else {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        ::leptos::children::ToChildren::to_children(move || #children)
-                    })
-                }
-            }
-        } else {
-            quote! {}
-        }
-    };
-
-    let slots = slots.drain().map(|(slot, mut values)| {
-        let span = values
-            .last()
-            .expect("List of slots must not be empty")
-            .span();
-        let slot = Ident::new(&slot, span);
-        let value = if values.len() > 1 {
-            quote_spanned! {span=>
-                ::std::vec![
-                    #(#values)*
-                ]
-            }
-        } else {
-            values.remove(0)
-        };
-
-        quote! { .#slot(#value) }
-    });
-
-    let generics = &node.open_tag.generics;
-    let generics = if generics.lt_token.is_some() {
-        quote! { ::#generics }
-    } else {
+    let props_ident = Ident::new("props", name_span);
+    let props_mut = if optional_props.is_empty() {
         quote! {}
+    } else {
+        quote! { mut }
     };
 
-    let name = node.name();
     #[allow(unused_mut)] // used in debug
-    let mut component = quote! {
+    let mut component = quote_spanned! {name_span=>
         {
             #[allow(unreachable_code)]
-            #[allow(unused_mut)]
             #[allow(clippy::let_and_return)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
-                &#name,
+                &#component_path,
                 {
-                    let mut props = ::leptos::component::component_props_builder(&#name #generics)
-                        #(#required_props)*
-                        #(#slots)*
-                        #children
-                        .build();
+                    #builder_block
+
+                    // Build the final props value. `mut` keyword set if optional props must be set.
+                    let #props_mut #props_ident = __props_builder.build();
+
+                    // Call setters for optional props.
                     #(#optional_props)*
-                    props
+
+                    // Return the props value.
+                    #props_ident
                 }
             )
             #spreads
         }
     };
-
-    // (Temporarily?) removed
-    // See note on the function itself below.
-    /* #[cfg(debug_assertions)]
-    IdeTagHelper::add_component_completion(&mut component, node); */
 
     component
 }
@@ -327,112 +300,4 @@ fn is_attr_let(key: &NodeName) -> bool {
     } else {
         false
     }
-}
-
-pub fn items_to_clone_to_tokens(
-    items_to_clone: &[Ident],
-) -> impl Iterator<Item = TokenStream> + '_ {
-    items_to_clone.iter().map(|ident| {
-        let ident_ref = quote_spanned!(ident.span()=> &#ident);
-        quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
-    })
-}
-
-/// By default all children are placed in an outer closure || #children.
-/// This is to work with all the variants of the leptos::children::ToChildren::to_children trait.
-/// Strings are optimised to be passed without the wrapping closure, providing significant compile time and binary size improvements.
-pub fn maybe_optimised_component_children(
-    children: &[Node<impl CustomNode>],
-    items_to_bind: &[TokenStream],
-    items_to_clone: &[Ident],
-) -> Option<TokenStream> {
-    // If there are bindables will have to be in a closure:
-    if !items_to_bind.is_empty() {
-        return None;
-    }
-
-    // Filter out comments:
-    let mut children_iter = children
-        .iter()
-        .filter(|child| !matches!(child, Node::Comment(_)));
-
-    let children = if let Some(child) = children_iter.next() {
-        // If more than one child after filtering out comments, don't think we can optimise:
-        if children_iter.next().is_some() {
-            return None;
-        }
-        match child {
-            Node::Text(text) => text_to_tokens(&text.value),
-            Node::RawText(raw) => {
-                let text = raw.to_string_best();
-                let text = syn::LitStr::new(&text, raw.span());
-                text_to_tokens(&text)
-            }
-            // Specifically allow std macros that produce strings:
-            Node::Block(NodeBlock::ValidBlock(block)) => {
-                fn is_supported(mac: &syn::Macro) -> bool {
-                    for string_macro in ["format", "include_str"] {
-                        if mac.path.is_ident(string_macro) {
-                            return true;
-                        }
-                    }
-                    false
-                }
-                if block.stmts.len() > 1 {
-                    return None;
-                } else if let Some(stmt) = block.stmts.first() {
-                    match stmt {
-                        Stmt::Macro(mac) => {
-                            // eprintln!("Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        Stmt::Item(Item::Macro(mac)) => {
-                            // eprintln!("Item Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        Stmt::Expr(Expr::Macro(mac), _) => {
-                            // eprintln!("Expr Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
-                        }
-                        _ => return None,
-                    }
-                } else {
-                    return Some(quote! {});
-                }
-            }
-            _ => return None,
-        }
-    } else {
-        return None;
-    };
-
-    // // Debug check to see how many use this optimisation:
-    // static COUNT: std::sync::atomic::AtomicUsize =
-    //     std::sync::atomic::AtomicUsize::new(0);
-    // COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    // eprintln!(
-    //     "Optimised children: {}",
-    //     COUNT.load(std::sync::atomic::Ordering::Relaxed)
-    // );
-
-    let clonables = items_to_clone_to_tokens(items_to_clone);
-    Some(quote_spanned! {children.span()=>
-        .children({
-            #(#clonables)*
-
-            ::leptos::children::ToChildren::to_children(::leptos::children::ChildrenOptContainer(#children))
-        })
-    })
 }

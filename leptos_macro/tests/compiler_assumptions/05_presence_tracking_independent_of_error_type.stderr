@@ -1,0 +1,90 @@
+error[E0277]: missing required prop `bar`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:73:14
+   |
+73 |     presence.require_props(); // E0277 (missing bar)
+   |              ^^^^^^^^^^^^^ missing prop `bar`
+   |
+help: the trait `RequiredBar` is not implemented for `Absent`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:16:1
+   |
+16 | struct Absent;
+   | ^^^^^^^^^^^^^
+help: the trait `RequiredBar` is implemented for `Present`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:46:1
+   |
+46 | impl RequiredBar for Present {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `PropPresence::<(F0, F1)>::require_props`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:54:13
+   |
+52 |     fn require_props(&self)
+   |        ------------- required by a bound in this associated function
+53 |     where
+54 |         F1: RequiredBar,
+   |             ^^^^^^^^^^^ required by this bound in `PropPresence::<(F0, F1)>::require_props`
+
+error[E0277]: wrong type: `bool` is not of type 'Fn() -> bool'
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:75:49
+   |
+75 |     let checked_foo = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599 (wrong type)
+   |                              ------------------ ^^^^ the trait `Fn()` is not implemented for `bool`
+   |                              |
+   |                              required by a bound introduced by this call
+   |
+note: required for `bool` to implement `CheckFoo`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:25:23
+   |
+25 | impl<T: Fn() -> bool> CheckFoo for T {}
+   |         ------------  ^^^^^^^^     ^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `Helper::check_and_wrap_foo`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:35:30
+   |
+35 |     fn check_and_wrap_foo<T: CheckFoo>(&self, val: T) -> WrapFoo<T> {
+   |                              ^^^^^^^^ required by this bound in `Helper::check_and_wrap_foo`
+
+error[E0599]: the method `extract_value` exists for struct `WrapFoo<bool>`, but its trait bounds were not satisfied
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:75:55
+   |
+27 | struct WrapFoo<T>(T);
+   | ----------------- method `extract_value` not found for this struct
+...
+75 |     let checked_foo = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599 (wrong type)
+   |                                                       ^^^^^^^^^^^^^ method cannot be called on `WrapFoo<bool>` due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `bool: Fn<()>`
+      `bool: FnOnce<()>`
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:28:9
+   |
+28 | impl<T: Fn() -> bool> WrapFoo<T> {
+   |         ^^^^^^^^^^^^  ----------
+   |         |       |
+   |         |       unsatisfied trait bound introduced here
+   |         unsatisfied trait bound introduced here
+
+error[E0599]: the method `check_missing` exists for struct `PropPresence<(Present, Absent)>`, but its trait bounds were not satisfied
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:78:28
+   |
+16 | struct Absent;
+   | ------------- doesn't satisfy `Absent: RequiredBar`
+...
+48 | struct PropPresence<S>(std::marker::PhantomData<S>);
+   | ---------------------- method `check_missing` not found for this struct
+...
+78 |     let builder = presence.check_missing(builder); // E0599 (missing bar -> {error})
+   |                            ^^^^^^^^^^^^^ method cannot be called on `PropPresence<(Present, Absent)>` due to unsatisfied trait bounds
+   |
+note: trait bound `Absent: RequiredBar` was not satisfied
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:60:14
+   |
+60 | impl<F0, F1: RequiredBar> PropPresence<(F0, F1)> {
+   |              ^^^^^^^^^^^  ----------------------
+   |              |
+   |              unsatisfied trait bound introduced here
+note: the trait `RequiredBar` must be implemented
+  --> tests/compiler_assumptions/05_presence_tracking_independent_of_error_type.rs:45:1
+   |
+45 | trait RequiredBar {}
+   | ^^^^^^^^^^^^^^^^^

@@ -1,12 +1,16 @@
 use super::{
-    component_builder::maybe_optimised_component_children,
-    convert_to_snake_case, full_path_from_tag_name,
+    convert_to_snake_case,
+    utils::{
+        children_span, delinked_path_from_node_name, extract_children_arg,
+        generate_checked_builder_block, prop_span_info, turbofish_generics,
+        PropInfo,
+    },
 };
-use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
+use crate::view::utils::filter_prefixed_attrs;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syn::spanned::Spanned;
 
 pub(crate) fn slot_to_tokens(
@@ -24,7 +28,10 @@ pub(crate) fn slot_to_tokens(
         node.name().to_string()
     });
 
-    let component_path = full_path_from_tag_name(node.name());
+    // Build the struct path (SlotName) for inherent method calls.
+    // Uses call_site() span so IDE ctrl+click goes to the function,
+    // not the companion module.
+    let struct_path = delinked_path_from_node_name(node.name(), "");
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error2::emit_error!(
@@ -51,27 +58,47 @@ pub(crate) fn slot_to_tokens(
         .cloned()
         .collect::<Vec<_>>();
 
-    let props = attrs
-        .iter()
-        .filter(|attr| {
-            !attr.key.to_string().starts_with("let:")
-                && !attr.key.to_string().starts_with("clone:")
-                && !attr.key.to_string().starts_with("attr:")
-        })
-        .map(|attr| {
-            let name = &attr.key;
+    // Collect pre-check info for each non-optional prop.
+    let mut prop_infos: Vec<PropInfo> = vec![];
+    let mut seen_prop_names = HashSet::new();
+    // Only `let:`, `clone:`, and `attr:` are filtered here. Unlike
+    // components, slots don't support HTML-level prefixes (`class:`,
+    // `style:`, `prop:`, `on:`, `use:`) because slots represent data
+    // passed to a parent component, not rendered DOM elements.
+    for attr in attrs.iter().filter(|attr| {
+        !attr.key.to_string().starts_with("let:")
+            && !attr.key.to_string().starts_with("clone:")
+            && !attr.key.to_string().starts_with("attr:")
+    }) {
+        let attr_name = &attr.key;
 
-            let value = attr
-                .value()
-                .map(|v| {
-                    quote! { #v }
-                })
-                .unwrap_or_else(|| quote! { #name });
+        let name_str = attr_name.to_string();
+        if !seen_prop_names.insert(name_str.clone()) {
+            proc_macro_error2::emit_error!(
+                attr_name.span(),
+                "duplicate prop `{}` — each prop can only be set once",
+                name_str
+            );
+            continue;
+        }
 
-            quote! {
-                .#name(#[allow(unused_braces)] { #value })
-            }
+        let value = attr
+            .value()
+            .map(|v| {
+                quote! { #v }
+            })
+            .unwrap_or_else(|| quote! { #attr_name });
+
+        let span_info = prop_span_info(attr);
+        let setter_span = span_info.error_span;
+
+        prop_infos.push(PropInfo {
+            span_info,
+            value,
+            setter_name: quote! { #attr_name },
+            setter_span,
         });
+    }
 
     let items_to_bind = filter_prefixed_attrs(attrs.iter(), "let:")
         .into_iter()
@@ -82,10 +109,9 @@ pub(crate) fn slot_to_tokens(
 
     let dyn_attrs = attrs
         .iter()
-        .filter(|attr| attr.key.to_string().starts_with("attr:"))
         .filter_map(|attr| {
-            let name = &attr.key.to_string();
-            let name = name.strip_prefix("attr:");
+            let name = attr.key.to_string();
+            let name = name.strip_prefix("attr:")?;
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
@@ -99,90 +125,40 @@ pub(crate) fn slot_to_tokens(
         quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
     };
 
+    // Compute children span once, used for both the children arg
+    // and the pre-check.
+    let name_span = node.name().span();
+    let children_span = children_span(&node.children, name_span);
+
     let mut slots = HashMap::new();
-    let children = if node.children.is_empty() {
-        quote! {}
-    } else if let Some(children) = maybe_optimised_component_children(
-        &node.children,
+    let children_arg = extract_children_arg(
+        &mut node.children,
+        &mut slots,
         &items_to_bind,
         &items_to_clone,
-    ) {
-        children
-    } else {
-        let children = fragment_to_tokens(
-            &mut node.children,
-            TagType::Unknown,
-            Some(&mut slots),
-            global_class,
-            None,
-            disable_inert_html,
-        );
+        children_span,
+        global_class,
+        disable_inert_html,
+    );
 
-        // TODO view markers for hot-reloading
-        /*
-         cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                // For some reason spanning for `.children` breaks, unless `#view_marker`
-                // is also covered by `children.span()`.
-                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-        */
-        let view_marker = quote! {};
+    let generics = turbofish_generics(&node.open_tag.generics);
+    let helper_init = quote! { #struct_path #generics ::__slot() };
+    // Use `name_span` so that where-clause failures on
+    // `require_props()` and E0599 on `check_missing()` point
+    // to the slot name, not the entire `view!` invocation.
+    // Use `__slot_pres` (not `__presence`) to avoid shadowing the
+    // parent component's `__presence` when a slot is nested inside
+    // a component's view.
+    let presence_ident = Ident::new("__slot_pres", name_span);
 
-        if let Some(children) = children {
-            let bindables =
-                items_to_bind.iter().map(|ident| quote! { #ident, });
-
-            let clonables = items_to_clone.iter().map(|ident| {
-                quote_spanned! {ident.span()=>
-                    let #ident = ::core::clone::Clone::clone(&#ident);
-                }
-            });
-
-            if bindables.len() > 0 {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        move |#(#bindables)*| #children #view_marker
-                    })
-                }
-            } else {
-                quote_spanned! {children.span()=>
-                    .children({
-                        #(#clonables)*
-
-                        ::leptos::children::ToChildren::to_children(move || #children #view_marker)
-                    })
-                }
-            }
-        } else {
-            quote! {}
-        }
-    };
-
-    let slots = slots.drain().map(|(slot, mut values)| {
-        let span = values
-            .last()
-            .expect("List of slots must not be empty")
-            .span();
-        let slot = Ident::new(&slot, span);
-        let value = if values.len() > 1 {
-            quote! {
-                ::std::vec![
-                    #(#values)*
-                ]
-            }
-        } else {
-            values.remove(0)
-        };
-
-        quote! { .#slot(#value) }
-    });
+    let builder_block = generate_checked_builder_block(
+        helper_init,
+        &presence_ident,
+        &prop_infos,
+        slots,
+        children_arg.as_ref(),
+        children_span,
+    );
 
     let build = quote_spanned! {node.name().span()=>
         .build()
@@ -190,19 +166,18 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
-            let slot = #component_path::builder()
-                #(#props)*
-                #(#slots)*
-                #children
-                #build
-                #dyn_attrs;
+            #builder_block
+
+            let slot = __props_builder #build;
+            let slot = slot #dyn_attrs;
 
             #[allow(unreachable_code, clippy::useless_conversion)]
             slot.into()
         },
     };
 
-    // We need to move "allow" out of "quote_spanned" because it breaks hovering in rust-analyzer
+    // We need to move "allow" out of "quote_spanned" because it breaks hovering
+    // in rust-analyzer
     let slot = quote!(#[allow(unused_braces)] #slot);
 
     parent_slots

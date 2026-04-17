@@ -1,0 +1,11 @@
+error: This element already has a `concrete_i32` attribute.
+  --> tests/view/52_slot_duplicate_prop.rs:26:44
+   |
+26 |             <HelloSlot slot concrete_i32=1 concrete_i32=2>
+   |                                            ^^^^^^^^^^^^
+
+error: duplicate prop `concrete_i32` — each prop can only be set once
+  --> tests/view/52_slot_duplicate_prop.rs:26:44
+   |
+26 |             <HelloSlot slot concrete_i32=1 concrete_i32=2>
+   |                                            ^^^^^^^^^^^^

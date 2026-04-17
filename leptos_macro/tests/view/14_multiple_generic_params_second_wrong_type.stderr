@@ -1,0 +1,5 @@
+error[E0308]: mismatched types
+  --> tests/view/14_multiple_generic_params_second_wrong_type.rs:15:43
+   |
+15 |             <Inner fun_a=|| true fun_b=|| true/>
+   |                                           ^^^^ expected `i32`, found `bool`

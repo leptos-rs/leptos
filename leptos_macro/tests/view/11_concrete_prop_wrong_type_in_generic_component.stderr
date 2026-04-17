@@ -1,0 +1,13 @@
+error[E0308]: mismatched types
+  --> tests/view/11_concrete_prop_wrong_type_in_generic_component.rs:10:29
+   |
+10 |             <Inner concrete=true fun=|| true>
+   |                    -------- ^^^^ expected `i32`, found `bool`
+   |                    |
+   |                    arguments to this method are incorrect
+   |
+note: method defined here
+  --> tests/view/11_concrete_prop_wrong_type_in_generic_component.rs:18:13
+   |
+18 | fn Inner<F>(concrete: i32, fun: F, children: ChildrenFn) -> impl IntoView
+   |             ^^^^^^^^-----

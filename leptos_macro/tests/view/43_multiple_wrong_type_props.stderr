@@ -1,0 +1,73 @@
+error[E0277]: `bool` is not a valid type for prop `fun_a` on component `Inner`
+  --> tests/view/43_multiple_wrong_type_props.rs:10:26
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                          ^^^^ the trait `Fn()` is not implemented for `bool`
+   |
+   = note: required: `Fn() -> bool` — a closure or function reference
+note: required for `bool` to implement `Check_fun_a`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `__Inner::Helper::<A, B>::check_and_wrap_fun_a`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<A, B>::check_and_wrap_fun_a`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `extract_value` exists for struct `Wrap_fun_a<bool>`, but its trait bounds were not satisfied
+  --> tests/view/43_multiple_wrong_type_props.rs:10:26
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                          ^^^^ method cannot be called on `Wrap_fun_a<bool>` due to unsatisfied trait bounds
+...
+17 | #[component]
+   | ------------ method `extract_value` not found for this struct
+   |
+note: the following trait bounds were not satisfied:
+      `bool: Fn<()>`
+      `bool: FnOnce<()>`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `{integer}` is not a valid type for prop `fun_b` on component `Inner`
+  --> tests/view/43_multiple_wrong_type_props.rs:10:37
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                                     ^^ the trait `Fn()` is not implemented for `{integer}`
+   |
+   = note: required: `Fn() -> i32` — a closure or function reference
+note: required for `{integer}` to implement `Check_fun_b`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `__Inner::Helper::<A, B>::check_and_wrap_fun_b`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<A, B>::check_and_wrap_fun_b`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `extract_value` exists for struct `Wrap_fun_b<{integer}>`, but its trait bounds were not satisfied
+  --> tests/view/43_multiple_wrong_type_props.rs:10:37
+   |
+10 |             <Inner fun_a=true fun_b=42>
+   |                                     ^^ method cannot be called on `Wrap_fun_b<{integer}>` due to unsatisfied trait bounds
+...
+17 | #[component]
+   | ------------ method `extract_value` not found for this struct
+   |
+note: the following trait bounds were not satisfied:
+      `{integer}: Fn<()>`
+      `{integer}: FnOnce<()>`
+  --> tests/view/43_multiple_wrong_type_props.rs:17:1
+   |
+17 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

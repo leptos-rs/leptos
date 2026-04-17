@@ -1,0 +1,13 @@
+error[E0308]: mismatched types
+  --> tests/view/20_default_prop_wrong_type.rs:10:42
+   |
+10 |             <Inner required=42 defaulted="not_an_i32"/>
+   |                                --------- ^^^^^^^^^^^^ expected `i32`, found `&str`
+   |                                |
+   |                                arguments to this method are incorrect
+   |
+note: method defined here
+  --> tests/view/20_default_prop_wrong_type.rs:18:27
+   |
+18 |     #[prop(default = 10)] defaulted: i32,
+   |                           ^^^^^^^^^-----

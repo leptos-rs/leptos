@@ -1,0 +1,13 @@
+error[E0308]: mismatched types
+  --> tests/view/56_two_components_one_error.rs:11:25
+   |
+11 |             <Beta count="wrong"/>
+   |                   ----- ^^^^^^^ expected `i32`, found `&str`
+   |                   |
+   |                   arguments to this method are incorrect
+   |
+note: method defined here
+  --> tests/view/56_two_components_one_error.rs:23:9
+   |
+23 | fn Beta(count: i32) -> impl IntoView {
+   |         ^^^^^-----

@@ -1,0 +1,36 @@
+error[E0277]: `bool` is not a valid type for prop `generic_fun` on component `Inner`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:13:36
+   |
+13 |             <Inner concrete_i32=42 generic_fun>
+   |                                    ^^^^^^^^^^^ the trait `Fn()` is not implemented for `bool`
+   |
+   = note: required: `Fn() -> bool` — a closure or function reference
+note: required for `bool` to implement `Check_generic_fun`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^
+note: required by a bound in `__Inner::Helper::<F>::check_and_wrap_generic_fun`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `Helper::<F>::check_and_wrap_generic_fun`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `extract_value` exists for struct `Wrap_generic_fun<bool>`, but its trait bounds were not satisfied
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:13:36
+   |
+13 |             <Inner concrete_i32=42 generic_fun>
+   |                                    ^^^^^^^^^^^ method cannot be called on `Wrap_generic_fun<bool>` due to unsatisfied trait bounds
+...
+20 | #[component]
+   | ------------ method `extract_value` not found for this struct
+   |
+note: the following trait bounds were not satisfied:
+      `bool: Fn<()>`
+      `bool: FnOnce<()>`
+  --> tests/view/10_generic_prop_wrong_type_short_form.rs:20:1
+   |
+20 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

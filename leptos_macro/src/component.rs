@@ -1,3 +1,12 @@
+use crate::util::{
+    children::is_children_prop,
+    documentation::{
+        generate_prop_documentation, prop_to_doc, Docs, PropDocumentationStyle,
+    },
+    generate_companion_internals, type_analysis,
+    typed_builder_opts::TypedBuilderOpts,
+    CompanionConfig, CompanionModuleBody, PropLike,
+};
 use attribute_derive::FromAttr;
 use convert_case::{
     Case::{Pascal, Snake},
@@ -5,17 +14,15 @@ use convert_case::{
 };
 use convert_case_extras::is_case;
 use itertools::Itertools;
-use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error2::abort;
 use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
 use std::hash::DefaultHasher;
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned, token::Colon,
-    visit_mut::VisitMut, AngleBracketedGenericArguments, Attribute, FnArg,
-    GenericArgument, GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait,
-    TypeParam, TypePath, Visibility,
+    visit_mut::VisitMut, Attribute, FnArg, GenericParam, Item, ItemFn, LitStr,
+    Meta, Pat, PatIdent, Path, ReturnType, Signature, Stmt, Type,
+    TypeImplTrait, TypeParam, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -26,7 +33,7 @@ pub struct Model {
     unknown_attrs: UnknownAttrs,
     vis: Visibility,
     name: Ident,
-    props: Vec<Prop>,
+    props: Vec<ComponentProp>,
     body: ItemFn,
     ret: ReturnType,
 }
@@ -46,7 +53,7 @@ impl Parse for Model {
             .inputs
             .clone()
             .into_iter()
-            .map(Prop::new)
+            .map(ComponentProp::new)
             .collect::<Vec<_>>();
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
@@ -82,13 +89,15 @@ impl Parse for Model {
 }
 
 /// Exists to fix nested routes defined in a separate component in erased mode,
-/// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
+/// by replacing the return type with AnyNestedRoute, which is what it'll be,
+/// but is required as the return type for compiler inference.
 fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(feature = "__internal_erase_components")]
     {
         if let ReturnType::Type(_, ty) = ret {
             if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
-                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+                // If one of the bounds is MatchNestedRoutes, we need to replace
+                // the return type with AnyNestedRoute:
                 if bounds.iter().any(|bound| {
                     if let syn::TypeParamBound::Trait(trait_bound) = bound {
                         if trait_bound.path.segments.iter().any(
@@ -176,12 +185,39 @@ impl ToTokens for Model {
             }
         }
 
-        //body.sig.ident = format_ident!("__{}", body.sig.ident);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
+        // Keep a reference to the full original generics before `body` is
+        // shadowed later by a quote! block.
+        let original_generics = &body.sig.generics;
+
         let (impl_generics, generics, where_clause) =
-            body.sig.generics.split_for_impl();
+            original_generics.split_for_impl();
+
+        // --- Generic bounds strategy ---
+        // Separate structural bounds (needed for field types like
+        // `ServerAction<ServFn>`) from behavioral bounds (like
+        // `F: Fn() -> bool` for bare generic fields). The struct
+        // only carries structural bounds; behavioral bounds are
+        // deferred to per-prop check methods for localized error
+        // reporting.
+
+        // Struct generics: keep only bounds that are structurally
+        // needed by field types (e.g. `ServerAction<ServFn>` needs
+        // `ServFn: ServerFn`).
+        let field_types: Vec<&Type> = props.iter().map(|p| &p.ty).collect();
+        let struct_generics = type_analysis::strip_non_structural_bounds(
+            original_generics,
+            &field_types,
+        );
+        let (struct_impl_generics, _, struct_where_clause) =
+            struct_generics.split_for_impl();
+
+        let phantom_type_params = type_analysis::find_unused_type_params(
+            original_generics,
+            &field_types,
+        );
 
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
@@ -189,19 +225,21 @@ impl ToTokens for Model {
         #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
 
-        let is_island_with_children =
-            is_island && props.iter().any(|prop| prop.name.ident == "children");
+        let is_island_with_children = is_island
+            && props
+                .iter()
+                .any(|prop| is_children_prop(&prop.name.ident, &prop.ty));
         let is_island_with_other_props = is_island
             && ((is_island_with_children && props.len() > 1)
                 || (!is_island_with_children && !props.is_empty()));
 
         let prop_builder_fields =
-            prop_builder_fields(vis, props, is_island_with_other_props);
+            prop_builder_fields(props, is_island_with_other_props);
         let props_serializer = if is_island_with_other_props {
-            let fields = prop_serializer_fields(vis, props);
+            let fields = prop_serializer_fields(props);
             quote! {
                 #[derive(::leptos::serde::Deserialize)]
-                #vis struct #props_serialized_name {
+                pub struct #props_serialized_name {
                     #fields
                 }
             }
@@ -216,9 +254,10 @@ impl ToTokens for Model {
             name.span(),
         );
 
-        let component_fn_prop_docs = generate_component_fn_prop_docs(props);
+        let component_fn_prop_docs = generate_prop_documentation(props);
         let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
-            // Avoid generating an empty doc line in case the component has no doc and no props.
+            // Avoid generating an empty doc line in case the component has no
+            // doc and no props.
             quote! {
                 #docs
             }
@@ -240,19 +279,22 @@ impl ToTokens for Model {
             {
                 /* TODO for 0.8: fix this
                  *
-                 * The problem is that cargo now warns about an expected "tracing" cfg if
-                 * you don't have a "tracing" feature in your actual crate
+                 * The problem is that cargo now warns about an expected
+                 * "tracing" cfg if you don't have a
+                 * "tracing" feature in your actual crate
                  *
                  * However, until https://github.com/tokio-rs/tracing/pull/1819 is merged
-                 * (?), you can't provide an alternate path for `tracing` (for example,
-                 * ::leptos::tracing), which means that if you're going to use the macro
+                 * (?), you can't provide an alternate path for `tracing`
+                 * (for example, ::leptos::tracing), which
+                 * means that if you're going to use the macro
                  * you *must* have `tracing` in your Cargo.toml.
                  *
                  * Including the feature-check here causes cargo warnings on
                  * previously-working projects.
                  *
-                 * Removing the feature-check here breaks any project that uses leptos with
-                 * the tracing feature turned on, but without a tracing dependency in its
+                 * Removing the feature-check here breaks any project that
+                 * uses leptos with the tracing feature
+                 * turned on, but without a tracing dependency in its
                  * Cargo.toml.
                  * /
                  */
@@ -316,7 +358,7 @@ impl ToTokens for Model {
             quote! {}
         };
 
-        let body_name = unmodified_fn_name_from_fn_name(&body_name);
+        let body_name = component_inner_fn_name(&body_name);
         let body_expr = if is_island {
             quote! {
                 ::leptos::reactive::owner::Owner::new().with(|| {
@@ -373,14 +415,6 @@ impl ToTokens for Model {
             component
         };
 
-        let props_arg = if no_props {
-            quote! {}
-        } else {
-            quote! {
-                props: #props_name #generics
-            }
-        };
-
         let destructure_props = if no_props {
             quote! {}
         } else {
@@ -418,6 +452,7 @@ impl ToTokens for Model {
                 #island_serialize_props
                 let #props_name {
                     #prop_names
+                    ..
                 } = props;
                 #wrapped_children
             }
@@ -438,7 +473,8 @@ impl ToTokens for Model {
                         let prop_names = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children" {
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                {
                                     None
                                 } else {
                                     let name = &prop.name.ident;
@@ -454,8 +490,8 @@ impl ToTokens for Model {
                         let prop_builders = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children"
-                                    || prop.prop_opts.optional
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                    || prop.options.optional
                                 {
                                     None
                                 } else {
@@ -469,8 +505,8 @@ impl ToTokens for Model {
                         let optional_props = props
                             .iter()
                             .filter_map(|prop| {
-                                if prop.name.ident == "children"
-                                    || !prop.prop_opts.optional
+                                if is_children_prop(&prop.name.ident, &prop.ty)
+                                    || !prop.options.optional
                                 {
                                     None
                                 } else {
@@ -581,38 +617,55 @@ impl ToTokens for Model {
             quote! {}
         };
 
-        let output = quote! {
-            #[doc = #builder_name_doc]
-            #[doc = ""]
-            #docs_and_prop_docs
-            #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
-            //#[builder(doc)]
-            #[builder(crate_module_path=::leptos::typed_builder)]
-            #[allow(non_snake_case)]
-            #vis struct #props_name #impl_generics #where_clause {
-                #prop_builder_fields
+        let phantom_field = type_analysis::generate_phantom_field(
+            &phantom_type_params,
+            is_island_with_other_props,
+        );
+
+        // Prefixed to avoid type-namespace collisions with user defined types
+        // from the same scope. Allows users to write
+        // ```
+        // struct Foo;
+        // #[component]
+        // fn Foo(_foo: Foo) -> impl IntoView { () }
+        // ```
+        // without resulting in both module and struct named equally.
+        // Using the `::leptos::component::component_helper` inference bridge
+        // in view! macros stil allows for renamed imports of component fns,
+        // as no direct (named) access to this companion module is required.
+        let companion_name = format_ident!("__{}", name);
+
+        let CompanionModuleBody {
+            module_items,
+            trait_impls,
+            helper_constructor_arg,
+        } = generate_companion_internals(&CompanionConfig {
+            original_generics,
+            stripped_generics: &struct_generics,
+            module_name: &companion_name,
+            display_name: name,
+            kind: "component",
+            props_name: &props_name,
+            props,
+        });
+
+        let props_serialized_reexport = if is_island_with_other_props {
+            quote! { #vis use #companion_name::#props_serialized_name; }
+        } else {
+            quote! {}
+        };
+
+        let props_arg = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                props: #props_name #generics
             }
+        };
 
-            #props_serializer
-
+        let output = quote! {
             #[allow(missing_docs)]
             #binding
-
-            impl #impl_generics ::leptos::component::Props for #props_name #generics #where_clause {
-                type Builder = #props_builder_name #generics;
-
-                fn builder() -> Self::Builder {
-                    #props_name::builder()
-                }
-            }
-
-            // TODO restore dyn attrs
-            /*impl #impl_generics ::leptos::DynAttrs for #props_name #generics #where_clause {
-                fn dyn_attrs(mut self, v: Vec<(&'static str, ::leptos::Attribute)>) -> Self {
-                    #dyn_attrs_props
-                    self
-                }
-            } */
 
             #unknown_attrs
             #docs_and_prop_docs
@@ -626,6 +679,56 @@ impl ToTokens for Model {
             {
                 #body
             }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            #vis mod #companion_name {
+                #[allow(unused_imports)]
+                use super::*;
+
+                #[doc = #builder_name_doc]
+                #[doc = ""]
+                #docs_and_prop_docs
+                #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
+                //#[builder(doc)]
+                #[builder(crate_module_path=::leptos::typed_builder)]
+                #[allow(non_snake_case)]
+                pub struct #props_name #struct_impl_generics #struct_where_clause {
+                    #prop_builder_fields
+                    #phantom_field
+                }
+
+                #props_serializer
+
+                impl #struct_impl_generics ::leptos::component::Props for #props_name #generics #struct_where_clause {
+                    type Builder = #props_builder_name #generics;
+                    type Helper = Helper #generics;
+
+                    fn builder() -> Self::Builder {
+                        #props_name::builder()
+                    }
+
+                    fn helper() -> Self::Helper {
+                        __helper()
+                    }
+                }
+
+                #module_items
+
+                #[doc(hidden)]
+                pub fn __helper #struct_impl_generics ()
+                    -> Helper #generics
+                    #struct_where_clause
+                {
+                    Helper(#helper_constructor_arg)
+                }
+            }
+
+            #vis use #companion_name::#props_name;
+            #vis use #companion_name::#props_builder_name;
+            #props_serialized_reexport
+
+            #trait_impls
         };
 
         tokens.append_all(output)
@@ -736,14 +839,41 @@ impl ToTokens for DummyModel {
     }
 }
 
-struct Prop {
+struct ComponentProp {
     docs: Docs,
-    prop_opts: PropOpt,
+    options: ComponentPropOptions,
     name: PatIdent,
     ty: Type,
 }
 
-impl Prop {
+impl PropLike for ComponentProp {
+    fn name(&self) -> &Ident {
+        &self.name.ident
+    }
+    fn ty(&self) -> &Type {
+        &self.ty
+    }
+    fn docs(&self) -> &Docs {
+        &self.docs
+    }
+    fn is_optional(&self) -> bool {
+        self.options.is_optional_prop()
+    }
+    fn has_optional_flag(&self) -> bool {
+        self.options.optional
+    }
+    fn has_strip_option_flag(&self) -> bool {
+        self.options.strip_option
+    }
+    fn has_into_flag(&self) -> bool {
+        self.options.into
+    }
+    fn default(&self) -> Option<&syn::Expr> {
+        self.options.default.as_ref()
+    }
+}
+
+impl ComponentProp {
     fn new(arg: FnArg) -> Self {
         let typed = if let FnArg::Typed(ty) = arg {
             ty
@@ -751,15 +881,15 @@ impl Prop {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
-        let prop_opts =
-            PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
+        let options = ComponentPropOptions::from_attributes(&typed.attrs)
+            .unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
                 abort!(e.span(), e.to_string());
             });
 
         let name = match *typed.pat {
             Pat::Ident(i) => {
-                if let Some(name) = &prop_opts.name {
+                if let Some(name) = &options.name {
                     PatIdent {
                         attrs: vec![],
                         by_ref: None,
@@ -772,7 +902,7 @@ impl Prop {
                 }
             }
             Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_) => {
-                if let Some(name) = &prop_opts.name {
+                if let Some(name) = &options.name {
                     PatIdent {
                         attrs: vec![],
                         by_ref: None,
@@ -799,156 +929,9 @@ impl Prop {
 
         Self {
             docs: Docs::new(&typed.attrs),
-            prop_opts,
+            options,
             name,
             ty: *typed.ty,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Docs(Vec<(String, Span)>);
-
-impl ToTokens for Docs {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let s = self
-            .0
-            .iter()
-            .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
-            .collect::<TokenStream>();
-
-        tokens.append_all(s);
-    }
-}
-
-impl Docs {
-    pub fn new(attrs: &[Attribute]) -> Self {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-        enum ViewCodeFenceState {
-            Outside,
-            Rust,
-            Rsx,
-        }
-        let mut quotes = "```".to_string();
-        let mut quote_ws = "".to_string();
-        let mut view_code_fence_state = ViewCodeFenceState::Outside;
-        // todo fix docs stuff
-        const RSX_START: &str = "# ::leptos::view! {";
-        const RSX_END: &str = "# };";
-
-        // Separated out of chain to allow rustfmt to work
-        let map = |(doc, span): (String, Span)| {
-            doc.split('\n')
-                .map(str::trim_end)
-                .flat_map(|doc| {
-                    let trimmed_doc = doc.trim_start();
-                    let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
-                    let trimmed_doc = trimmed_doc.trim_end();
-                    match view_code_fence_state {
-                        ViewCodeFenceState::Outside
-                            if trimmed_doc.starts_with("```")
-                                && trimmed_doc
-                                    .trim_start_matches('`')
-                                    .starts_with("view") =>
-                        {
-                            view_code_fence_state = ViewCodeFenceState::Rust;
-                            let view = trimmed_doc.find('v').unwrap();
-                            trimmed_doc[..view].clone_into(&mut quotes);
-                            leading_ws.clone_into(&mut quote_ws);
-                            let rust_options = &trimmed_doc
-                                [view + "view".len()..]
-                                .trim_start();
-                            vec![
-                                format!("{leading_ws}{quotes}{rust_options}"),
-                                format!("{leading_ws}"),
-                            ]
-                        }
-                        ViewCodeFenceState::Rust if trimmed_doc == quotes => {
-                            view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![format!("{leading_ws}"), doc.to_owned()]
-                        }
-                        ViewCodeFenceState::Rust
-                            if trimmed_doc.starts_with('<') =>
-                        {
-                            view_code_fence_state = ViewCodeFenceState::Rsx;
-                            vec![
-                                format!("{leading_ws}{RSX_START}"),
-                                doc.to_owned(),
-                            ]
-                        }
-                        ViewCodeFenceState::Rsx if trimmed_doc == quotes => {
-                            view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![
-                                format!("{leading_ws}{RSX_END}"),
-                                doc.to_owned(),
-                            ]
-                        }
-                        _ => vec![doc.to_string()],
-                    }
-                })
-                .map(|l| (l, span))
-                .collect_vec()
-        };
-
-        let mut attrs = attrs
-            .iter()
-            .filter_map(|attr| {
-                let Meta::NameValue(attr) = &attr.meta else {
-                    return None;
-                };
-                if !attr.path.is_ident("doc") {
-                    return None;
-                }
-
-                let Some(val) = value_to_string(&attr.value) else {
-                    abort!(
-                        attr,
-                        "expected string literal in value of doc comment"
-                    );
-                };
-
-                Some((val, attr.path.span()))
-            })
-            .flat_map(map)
-            .collect_vec();
-
-        if view_code_fence_state != ViewCodeFenceState::Outside {
-            if view_code_fence_state == ViewCodeFenceState::Rust {
-                attrs.push((quote_ws.clone(), Span::call_site()))
-            } else {
-                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
-            }
-            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
-        }
-
-        Self(attrs)
-    }
-
-    pub fn padded(&self) -> TokenStream {
-        self.0
-            .iter()
-            .enumerate()
-            .map(|(idx, (doc, span))| {
-                let doc = if idx == 0 {
-                    format!("    - {doc}")
-                } else {
-                    format!("      {doc}")
-                };
-
-                let doc = LitStr::new(&doc, *span);
-
-                quote! { #[doc = #doc] }
-            })
-            .collect()
-    }
-
-    pub fn typed_builder(&self) -> String {
-        let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
-
-        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
-            format!("\n\n{doc_str}")
-        } else {
-            String::new()
         }
     }
 }
@@ -999,7 +982,7 @@ impl ToTokens for UnknownAttrs {
 
 #[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
-struct PropOpt {
+struct ComponentPropOptions {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
     optional: bool,
     #[attribute(conflicts = [optional, strip_option])]
@@ -1013,132 +996,45 @@ struct PropOpt {
     name: Option<String>,
 }
 
-struct TypedBuilderOpts<'a> {
-    default: bool,
-    default_with_value: Option<syn::Expr>,
-    strip_option: bool,
-    into: bool,
-    ty: &'a Type,
-}
-
-impl<'a> TypedBuilderOpts<'a> {
-    fn from_opts(opts: &PropOpt, ty: &'a Type) -> Self {
-        Self {
-            default: opts.optional || opts.optional_no_strip || opts.attrs,
-            default_with_value: opts.default.clone(),
-            strip_option: opts.strip_option || opts.optional && is_option(ty),
-            into: opts.into,
-            ty,
-        }
-    }
-}
-
-impl TypedBuilderOpts<'_> {
-    fn to_serde_tokens(&self) -> TokenStream {
-        let default = if let Some(v) = &self.default_with_value {
-            let v = v.to_token_stream().to_string();
-            quote! { default=#v, }
-        } else if self.default {
-            quote! { default, }
-        } else {
-            quote! {}
-        };
-
-        if !default.is_empty() {
-            quote! { #[serde(#default)] }
-        } else {
-            quote! {}
-        }
-    }
-}
-
-impl ToTokens for TypedBuilderOpts<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let default = if let Some(v) = &self.default_with_value {
-            let v = v.to_token_stream().to_string();
-            quote! { default_code=#v, }
-        } else if self.default {
-            quote! { default, }
-        } else {
-            quote! {}
-        };
-
-        // If self.strip_option && self.into, then the strip_option will be represented as part of the transform closure.
-        let strip_option = if self.strip_option && !self.into {
-            quote! { strip_option, }
-        } else {
-            quote! {}
-        };
-
-        let into = if self.into {
-            if !self.strip_option {
-                let ty = &self.ty;
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> #ty {
-                        value.into_reactive_value()
-                    },
-                }
-            } else {
-                let ty = unwrap_option(self.ty);
-                quote! {
-                    fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
-                        Some(value.into_reactive_value())
-                    },
-                }
-            }
-        } else {
-            quote! {}
-        };
-
-        let setter = if !strip_option.is_empty() || !into.is_empty() {
-            quote! { setter(#strip_option #into) }
-        } else {
-            quote! {}
-        };
-
-        let output = if !default.is_empty() || !setter.is_empty() {
-            quote! { #[builder(#default #setter)] }
-        } else {
-            quote! {}
-        };
-
-        tokens.append_all(output);
+impl ComponentPropOptions {
+    fn is_optional_prop(&self) -> bool {
+        self.optional
+            || self.optional_no_strip
+            || self.attrs
+            || self.default.is_some()
     }
 }
 
 fn prop_builder_fields(
-    vis: &Visibility,
-    props: &[Prop],
+    props: &[ComponentProp],
     is_island_with_other_props: bool,
 ) -> TokenStream {
     props
         .iter()
         .map(|prop| {
-            let Prop {
-                docs,
-                name,
-                prop_opts,
-                ty,
-            } = prop;
+            let builder_attrs = TypedBuilderOpts::from_prop(prop);
+            let builder_docs =
+                prop_to_doc(prop, PropDocumentationStyle::Inline);
 
-            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
-
-            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
+            let name = &prop.name;
+            let ty = prop.ty();
+            let docs = prop.docs();
 
             // Children won't need documentation in many cases
-            let allow_missing_docs = if name.ident == "children" {
+            let allow_missing_docs = if is_children_prop(&name.ident, ty) {
                 quote!(#[allow(missing_docs)])
             } else {
                 quote!()
             };
-            let skip_children_serde =
-                if is_island_with_other_props && name.ident == "children" {
-                    quote!(#[serde(skip)])
-                } else {
-                    quote!()
-                };
+            let skip_children_serde = if is_island_with_other_props
+                && is_children_prop(&name.ident, ty)
+            {
+                quote!(#[serde(skip)])
+            } else {
+                quote!()
+            };
 
-            let PatIdent { ident, by_ref, .. } = &name;
+            let PatIdent { ident, by_ref, .. } = name;
 
             quote! {
                 #docs
@@ -1146,45 +1042,40 @@ fn prop_builder_fields(
                 #builder_attrs
                 #allow_missing_docs
                 #skip_children_serde
-                #vis #by_ref #ident: #ty,
+                pub #by_ref #ident: #ty,
             }
         })
         .collect()
 }
 
-fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+fn prop_serializer_fields(props: &[ComponentProp]) -> TokenStream {
     props
         .iter()
         .filter_map(|prop| {
-            if prop.name.ident == "children" {
+            if is_children_prop(&prop.name.ident, prop.ty()) {
                 None
             } else {
-                let Prop {
-                    docs,
-                    name,
-                    prop_opts,
-                    ty,
-                } = prop;
-
-                let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
+                let builder_attrs = TypedBuilderOpts::from_prop(prop);
                 let serde_attrs = builder_attrs.to_serde_tokens();
 
-                let PatIdent { ident, by_ref, .. } = &name;
+                let docs = prop.docs();
+                let PatIdent { ident, by_ref, .. } = &prop.name;
+                let ty = prop.ty();
 
                 Some(quote! {
                     #docs
                     #serde_attrs
-                    #vis #by_ref #ident: #ty,
+                    pub #by_ref #ident: #ty,
                 })
             }
         })
         .collect()
 }
 
-fn prop_names(props: &[Prop]) -> TokenStream {
+fn prop_names(props: &[ComponentProp]) -> TokenStream {
     props
         .iter()
-        .map(|Prop { name, .. }| {
+        .map(|ComponentProp { name, .. }| {
             // fields like mutability are removed because unneeded
             // in the contexts in which this is used
             let ident = &name.ident;
@@ -1193,192 +1084,15 @@ fn prop_names(props: &[Prop]) -> TokenStream {
         .collect()
 }
 
-fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
-    let required_prop_docs = props
-        .iter()
-        .filter(|Prop { prop_opts, .. }| {
-            !(prop_opts.optional
-                || prop_opts.optional_no_strip
-                || prop_opts.default.is_some())
-        })
-        .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
-
-    let optional_prop_docs = props
-        .iter()
-        .filter(|Prop { prop_opts, .. }| {
-            prop_opts.optional
-                || prop_opts.optional_no_strip
-                || prop_opts.default.is_some()
-        })
-        .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
-
-    let required_prop_docs = if !required_prop_docs.is_empty() {
-        quote! {
-            #[doc = " # Required Props"]
-            #required_prop_docs
-        }
-    } else {
-        quote! {}
-    };
-
-    let optional_prop_docs = if !optional_prop_docs.is_empty() {
-        quote! {
-            #[doc = " # Optional Props"]
-            #optional_prop_docs
-        }
-    } else {
-        quote! {}
-    };
-
-    quote! {
-        #required_prop_docs
-        #optional_prop_docs
-    }
-}
-
-pub fn is_option(ty: &Type) -> bool {
-    if let Type::Path(TypePath {
-        path: Path { segments, .. },
-        ..
-    }) = ty
-    {
-        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
-            first.ident == "Option"
-        } else {
-            false
-        }
-    } else {
-        false
-    }
-}
-
-pub fn unwrap_option(ty: &Type) -> Type {
-    const STD_OPTION_MSG: &str =
-        "make sure you're not shadowing the `std::option::Option` type that \
-         is automatically imported from the standard prelude";
-
-    if let Type::Path(TypePath {
-        path: Path { segments, .. },
-        ..
-    }) = ty
-    {
-        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
-            if first.ident == "Option" {
-                if let PathArguments::AngleBracketed(
-                    AngleBracketedGenericArguments { args, .. },
-                ) = &first.arguments
-                {
-                    if let [GenericArgument::Type(ty)] =
-                        &args.iter().collect::<Vec<_>>()[..]
-                    {
-                        return ty.clone();
-                    }
-                }
-            }
-        }
-    }
-
-    abort!(
-        ty,
-        "`Option` must be `std::option::Option`";
-        help = STD_OPTION_MSG
-    );
-}
-
-#[derive(Clone, Copy)]
-enum PropDocStyle {
-    List,
-    Inline,
-}
-
-fn prop_to_doc(
-    Prop {
-        docs,
-        name,
-        ty,
-        prop_opts,
-    }: &Prop,
-    style: PropDocStyle,
-) -> TokenStream {
-    let ty = if (prop_opts.optional || prop_opts.strip_option) && is_option(ty)
-    {
-        unwrap_option(ty)
-    } else {
-        ty.to_owned()
-    };
-
-    let type_item: syn::Item = parse_quote! {
-        type SomeType = #ty;
-    };
-
-    let file = syn::File {
-        shebang: None,
-        attrs: vec![],
-        items: vec![type_item],
-    };
-
-    let pretty_ty = prettyplease::unparse(&file);
-
-    let pretty_ty = &pretty_ty[16..&pretty_ty.len() - 2];
-
-    match style {
-        PropDocStyle::List => {
-            let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!(" - **{}**: [`{pretty_ty}`]", quote!(#name))
-                } else {
-                    format!(
-                        " - **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
-                        quote!(#name),
-                    )
-                },
-                name.ident.span(),
-            );
-
-            let arg_user_docs = docs.padded();
-
-            quote! {
-                #[doc = #arg_ty_doc]
-                #arg_user_docs
-            }
-        }
-        PropDocStyle::Inline => {
-            let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!(
-                        "**{}**: [`{}`]{}",
-                        quote!(#name),
-                        pretty_ty,
-                        docs.typed_builder()
-                    )
-                } else {
-                    format!(
-                        "**{}**: `impl`[`Into<{}>`]{}",
-                        quote!(#name),
-                        pretty_ty,
-                        docs.typed_builder()
-                    )
-                },
-                name.ident.span(),
-            );
-
-            quote! {
-                #[builder(setter(doc = #arg_ty_doc))]
-            }
-        }
-    }
-}
-
-pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
+pub fn component_inner_fn_name(ident: &Ident) -> Ident {
     Ident::new(
         &format!("__component_{}", ident.to_string().to_case(Snake)),
         ident.span(),
     )
 }
 
-/// Converts all `impl Trait`s in a function signature to use generic params instead.
+/// Converts all `impl Trait`s in a function signature to use generic params
+/// instead.
 fn convert_impl_trait_to_generic(sig: &mut Signature) {
     fn new_generic_ident(i: usize, span: Span) -> Ident {
         Ident::new(&format!("__ImplTrait{i}"), span)
@@ -1386,8 +1100,8 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
 
     // First: visit all `impl Trait`s and replace them with new generic params.
     #[derive(Default)]
-    struct RemoveImplTrait(Vec<TypeImplTrait>);
-    impl VisitMut for RemoveImplTrait {
+    struct ReplaceImplTraitWithGeneric(Vec<TypeImplTrait>);
+    impl VisitMut for ReplaceImplTraitWithGeneric {
         fn visit_type_mut(&mut self, ty: &mut Type) {
             syn::visit_mut::visit_type_mut(self, ty);
             if matches!(ty, Type::ImplTrait(_)) {
@@ -1409,18 +1123,19 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
         fn visit_attribute_mut(&mut self, _: &mut Attribute) {}
         fn visit_pat_mut(&mut self, _: &mut Pat) {}
     }
-    let mut visitor = RemoveImplTrait::default();
+    let mut visitor = ReplaceImplTraitWithGeneric::default();
     for fn_arg in sig.inputs.iter_mut() {
         visitor.visit_fn_arg_mut(fn_arg);
     }
-    let RemoveImplTrait(impl_traits) = visitor;
+    let ReplaceImplTraitWithGeneric(impl_traits) = visitor;
 
     // Second: Add the new generic params into the signature.
     for (i, impl_trait) in impl_traits.into_iter().enumerate() {
         let span = impl_trait.span();
         let ident = new_generic_ident(i, span);
         // We can simply append to the end (only lifetime params must be first).
-        // Note currently default generics are not allowed in `fn`, so not a concern.
+        // Note currently default generics are not allowed in `fn`, so not a
+        // concern.
         sig.generics.params.push(GenericParam::Type(TypeParam {
             attrs: vec![],
             ident,

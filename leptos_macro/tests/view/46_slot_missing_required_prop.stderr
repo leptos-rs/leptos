@@ -1,0 +1,35 @@
+error[E0277]: missing required prop `concrete_i32` on slot `HelloSlot`
+  --> tests/view/46_slot_missing_required_prop.rs:24:14
+   |
+24 |             <HelloSlot slot>
+   |              ^^^^^^^^^ missing prop `concrete_i32`
+   |
+   = help: the trait `required_HelloSlot_concrete_i32` is not implemented for `Absent`
+   = note: required props: [`concrete_i32`]
+note: required by a bound in `__HelloSlot::PropPresence::<(__F0, __F1)>::require_props`
+  --> tests/view/46_slot_missing_required_prop.rs:6:1
+   |
+ 6 | #[slot]
+   | ^^^^^^^ required by this bound in `PropPresence::<(__F0, __F1)>::require_props`
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `check_missing` exists for struct `__HelloSlot::PropPresence<(Absent, Present)>`, but its trait bounds were not satisfied
+  --> tests/view/46_slot_missing_required_prop.rs:24:14
+   |
+ 6 | #[slot]
+   | ------- method `check_missing` not found for this struct
+...
+24 |             <HelloSlot slot>
+   |              ^^^^^^^^^ method cannot be called on `__HelloSlot::PropPresence<(Absent, Present)>` due to unsatisfied trait bounds
+   |
+  ::: $WORKSPACE/leptos/src/component.rs
+   |
+   |     pub struct Absent;
+   |     ----------------- doesn't satisfy `Absent: required_HelloSlot_concrete_i32`
+   |
+note: trait bound `Absent: required_HelloSlot_concrete_i32` was not satisfied
+  --> tests/view/46_slot_missing_required_prop.rs:6:1
+   |
+ 6 | #[slot]
+   | ^^^^^^^
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)

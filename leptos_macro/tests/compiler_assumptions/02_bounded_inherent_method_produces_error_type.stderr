@@ -1,0 +1,16 @@
+error[E0599]: the method `extract_value` exists for struct `Wrap<bool>`, but its trait bounds were not satisfied
+  --> tests/compiler_assumptions/02_bounded_inherent_method_produces_error_type.rs:29:23
+   |
+18 | struct Wrap<T>(T);
+   | -------------- method `extract_value` not found for this struct
+...
+29 |     let result = wrap.extract_value(); // E0599 -> {error}
+   |                       ^^^^^^^^^^^^^ method cannot be called on `Wrap<bool>` due to unsatisfied trait bounds
+   |
+note: trait bound `bool: Check` was not satisfied
+  --> tests/compiler_assumptions/02_bounded_inherent_method_produces_error_type.rs:19:9
+   |
+19 | impl<T: Check> Wrap<T> {
+   |         ^^^^^  -------
+   |         |
+   |         unsatisfied trait bound introduced here

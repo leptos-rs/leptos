@@ -1,0 +1,29 @@
+error[E0277]: `NotAView` cannot be rendered as a view element
+  --> tests/view/49_children_wrong_return_type.rs:14:17
+   |
+11 | /     view! {
+12 | |         <div>
+13 | |             <Inner>
+14 | |                 {NotAView}
+   | |                 ^--------^
+   | |                 ||
+   | |                 |this tail expression is of type `NotAView`
+   | |                 `NotAView` cannot be rendered
+15 | |             </Inner>
+16 | |         </div>
+17 | |     }
+   | |_____- required by a bound introduced by this call
+   |
+help: the trait `FnMut()` is not implemented for `NotAView`
+  --> tests/view/49_children_wrong_return_type.rs:7:1
+   |
+ 7 | struct NotAView;
+   | ^^^^^^^^^^^^^^^
+   = note: types used in views must implement `Render`
+   = note: required for `NotAView` to implement `ReactiveFunction`
+   = note: required for `NotAView` to implement `leptos::prelude::Render`
+   = note: required for `NotAView` to implement `IntoRender`
+help: you might have meant to create the closure instead of a block
+   |
+14 |                 |_| {NotAView}
+   |                 +++

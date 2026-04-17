@@ -1,0 +1,35 @@
+error[E0277]: missing required prop `concrete_bool` on component `Inner`
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+11 |             <Inner/>
+   |              ^^^^^ missing prop `concrete_bool`
+   |
+   = help: the trait `required_Inner_concrete_bool` is not implemented for `Absent`
+   = note: required props: [`concrete_bool`]
+note: required by a bound in `__Inner::PropPresence::<(__F0,)>::require_props`
+  --> tests/view/05_concrete_prop_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^ required by this bound in `PropPresence::<(__F0,)>::require_props`
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the method `check_missing` exists for struct `__Inner::PropPresence<(Absent,)>`, but its trait bounds were not satisfied
+  --> tests/view/05_concrete_prop_missing.rs:11:14
+   |
+11 |             <Inner/>
+   |              ^^^^^ method cannot be called on `__Inner::PropPresence<(Absent,)>` due to unsatisfied trait bounds
+...
+16 | #[component]
+   | ------------ method `check_missing` not found for this struct
+   |
+  ::: $WORKSPACE/leptos/src/component.rs
+   |
+   |     pub struct Absent;
+   |     ----------------- doesn't satisfy `Absent: required_Inner_concrete_bool`
+   |
+note: trait bound `Absent: required_Inner_concrete_bool` was not satisfied
+  --> tests/view/05_concrete_prop_missing.rs:16:1
+   |
+16 | #[component]
+   | ^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

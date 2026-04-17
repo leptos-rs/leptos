@@ -1,0 +1,40 @@
+error[E0277]: `bool` is not a valid type for prop `foo`
+  --> tests/compiler_assumptions/04_check_and_wrap_plus_bounded_unwrap_two_errors.rs:34:44
+   |
+34 |     let result = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599
+   |                         ------------------ ^^^^ the trait `Fn()` is not implemented for `bool`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+note: required for `bool` to implement `CheckFoo`
+  --> tests/compiler_assumptions/04_check_and_wrap_plus_bounded_unwrap_two_errors.rs:15:23
+   |
+15 | impl<T: Fn() -> bool> CheckFoo for T {}
+   |         ------------  ^^^^^^^^     ^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `Helper::check_and_wrap_foo`
+  --> tests/compiler_assumptions/04_check_and_wrap_plus_bounded_unwrap_two_errors.rs:25:30
+   |
+25 |     fn check_and_wrap_foo<T: CheckFoo>(&self, val: T) -> WrapFoo<T> {
+   |                              ^^^^^^^^ required by this bound in `Helper::check_and_wrap_foo`
+
+error[E0599]: the method `extract_value` exists for struct `WrapFoo<bool>`, but its trait bounds were not satisfied
+  --> tests/compiler_assumptions/04_check_and_wrap_plus_bounded_unwrap_two_errors.rs:34:50
+   |
+17 | struct WrapFoo<T>(T);
+   | ----------------- method `extract_value` not found for this struct
+...
+34 |     let result = helper.check_and_wrap_foo(true).extract_value(); // E0277 + E0599
+   |                                                  ^^^^^^^^^^^^^ method cannot be called on `WrapFoo<bool>` due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `bool: Fn<()>`
+      `bool: FnOnce<()>`
+  --> tests/compiler_assumptions/04_check_and_wrap_plus_bounded_unwrap_two_errors.rs:18:9
+   |
+18 | impl<T: Fn() -> bool> WrapFoo<T> {
+   |         ^^^^^^^^^^^^  ----------
+   |         |       |
+   |         |       unsatisfied trait bound introduced here
+   |         unsatisfied trait bound introduced here
