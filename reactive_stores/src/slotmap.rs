@@ -1,5 +1,37 @@
 //! SlotMap support for keyed fields based on their map types.
-use crate::KeyedAccess;
+use crate::{KeyedAccess, KeyedIterable};
+
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::DenseSlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+#[allow(deprecated)]
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::HopSlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SecondaryMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SparseSecondaryMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
 
 impl<K: slotmap::Key, V> KeyedAccess<K> for slotmap::SlotMap<K, V> {
     type Value = V;
