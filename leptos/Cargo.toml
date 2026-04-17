@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.8.17"
+version = "0.8.19"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -165,15 +165,42 @@ denylist = [
   "multipart",
 ]
 skip_feature_sets = [
-  ["csr", "ssr"],
-  ["csr", "hydrate"],
-  ["ssr", "hydrate"],
-  ["serde", "serde-lite"],
-  ["serde", "miniserde"],
-  ["serde", "rkyv"],
-  ["miniserde", "rkyv"],
-  ["serde-lite", "rkyv"],
-  ["default-tls", "rustls"],
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "rkyv",
+  ],
+  [
+    "miniserde",
+    "rkyv",
+  ],
+  [
+    "serde-lite",
+    "rkyv",
+  ],
+  [
+    "default-tls",
+    "rustls",
+  ],
 ]
 max_combination_size = 2
 

@@ -1069,7 +1069,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "either_of"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "paste",
  "pin-project-lite",
@@ -1950,7 +1950,7 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "leptos"
-version = "0.8.17"
+version = "0.8.19"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2033,7 +2033,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "any_spawner",
  "anyhow",
@@ -2058,7 +2058,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.8.9"
+version = "0.8.10"
 dependencies = [
  "config",
  "regex",
@@ -2118,7 +2118,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.15"
+version = "0.8.16"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -2900,7 +2900,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -2927,7 +2927,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -2948,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-error2",
@@ -3472,7 +3472,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3800,7 +3800,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.14"
+version = "0.2.15"
 dependencies = [
  "any_spawner",
  "async-trait",
@@ -4578,9 +4578,9 @@ dependencies = [
 
 [[package]]
 name = "wasm_split_helpers"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a114b3073258dd5de3d812cdd048cca6842342755e828a14dbf15f843f2d1b84"
+checksum = "d0cb6d1008be3c4c5abc31a407bfb8c8449ae14efc8561c1db821f79b9614b0a"
 dependencies = [
  "async-once-cell",
  "wasm_split_macros",
@@ -4588,9 +4588,9 @@ dependencies = [
 
 [[package]]
 name = "wasm_split_macros"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56481f8ed1a9f9ae97ea7b08a5e2b12e8adf9a7818a6ba952b918e09c7be8bf0"
+checksum = "d0a659ffe5c7f4538aa6357c07e3d73221cc61eba03bd9a081e14bc91ed09b8c"
 dependencies = [
  "base16",
  "quote",

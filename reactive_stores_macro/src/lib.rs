@@ -242,12 +242,14 @@ impl ToTokens for Model {
 
         // read access
         tokens.extend(quote! {
+            #[allow(missing_docs)]
             #vis trait #trait_name <AnyStoreField, #params>
             #where_with_orig
             {
                 #(#trait_fields)*
             }
 
+            #[automatically_derived]
             impl #generics_with_orig #trait_name <AnyStoreField, #clear_params> for AnyStoreField
             #where_with_orig
             {
@@ -837,6 +839,7 @@ impl ToTokens for PatchModel {
 
         // read access
         tokens.extend(quote! {
+            #[automatically_derived]
             impl #generics #library_path::PatchField for #name <#params>
                #where_clause
             {
