@@ -382,29 +382,18 @@ pub fn maybe_optimised_component_children(
                     return None;
                 } else if let Some(stmt) = block.stmts.first() {
                     match stmt {
-                        Stmt::Macro(mac) => {
-                            // eprintln!("Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Macro(mac) if is_supported(&mac.mac) => {
+                            quote! { #block }
                         }
-                        Stmt::Item(Item::Macro(mac)) => {
-                            // eprintln!("Item Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Item(Item::Macro(mac))
+                            if is_supported(&mac.mac) =>
+                        {
+                            quote! { #block }
                         }
-                        Stmt::Expr(Expr::Macro(mac), _) => {
-                            // eprintln!("Expr Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Expr(Expr::Macro(mac), _)
+                            if is_supported(&mac.mac) =>
+                        {
+                            quote! { #block }
                         }
                         _ => return None,
                     }
