@@ -60,7 +60,7 @@ pub fn SimpleCounterWithBuilder(initial_value: i32) -> impl IntoView {
     ))
 }
 
-// Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
+// Easy to use with Trunk (trunk-rs.github.io/trunk) or with a simple wasm-bindgen setup
 pub fn main() {
     mount_to_body(|| view! {
         <SimpleCounter initial_value=3 />
