@@ -158,7 +158,7 @@ tower-layer = { default-features = false, version = "0.3" }
 attribute-derive = { default-features = false, version = "0.10" }
 insta = { default-features = false, version = "1.46" }
 codee = { default-features = false, version = "0.3" }
-actix-http = { default-features = false, version = "3.11" }
+actix-http = { default-features = false, version = "3.12" }
 wasm-bindgen-test = { default-features = false, version = "0.3" }
 rustversion = { default-features = false, version = "1.0" }
 getrandom = { default-features = false, version = "0.4" }
