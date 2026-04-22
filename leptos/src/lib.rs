@@ -132,7 +132,7 @@
 //! }
 //! ```
 //!
-//! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
+//! Leptos is easy to use with [Trunk](https://trunk-rs.github.io/trunk/) (or with a simple wasm-bindgen setup):
 //!
 //! ```rust
 //! use leptos::{mount::mount_to_body, prelude::*};
