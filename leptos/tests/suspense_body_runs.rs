@@ -135,3 +135,71 @@ async fn body_runs_with_conditional_nested_resource() {
     println!("nested-resource case: body ran {runs} times");
     assert_eq!(runs, 3, "expected 3 runs in the nested-resource case");
 }
+
+/// `strict=true` disables the double-check pass, so a Suspense with one
+/// top-level resource runs the body twice (initial `dry_resolve` + final
+/// `resolve`) rather than three times.
+#[tokio::test]
+async fn body_runs_with_strict_suspense() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let count_in = Arc::clone(&count);
+
+    let res = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            42
+        },
+    );
+
+    let app = view! {
+        <Suspense strict=true>{move || {
+            count_in.fetch_add(1, Ordering::SeqCst);
+            res.get().map(|v| v.to_string())
+        }}</Suspense>
+    };
+
+    let html = render(app).await;
+    assert!(html.contains("42"), "rendered html was: {html:?}");
+
+    let runs = count.load(Ordering::SeqCst);
+    println!("strict single-resource case: body ran {runs} times");
+    assert_eq!(runs, 2, "expected 2 runs in strict mode");
+}
+
+/// Same behavior for `<Transition strict=true/>`.
+#[tokio::test]
+async fn body_runs_with_strict_transition() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let count_in = Arc::clone(&count);
+
+    let res = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            42
+        },
+    );
+
+    let app = view! {
+        <Transition strict=true>{move || {
+            count_in.fetch_add(1, Ordering::SeqCst);
+            res.get().map(|v| v.to_string())
+        }}</Transition>
+    };
+
+    let html = render(app).await;
+    assert!(html.contains("42"), "rendered html was: {html:?}");
+
+    let runs = count.load(Ordering::SeqCst);
+    println!("strict transition case: body ran {runs} times");
+    assert_eq!(runs, 2, "expected 2 runs in strict transition mode");
+}
