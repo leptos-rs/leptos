@@ -175,17 +175,46 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
+
+    let site_base = options.site_base.clone();
+    let has_base = !site_base.is_empty();
+
+    // Prefix for HTML hrefs, which are path-absolute (with leading `/`)
+    // or path-relative (without) depending on whether LEPTOS_SITE_BASE is set.
+    let base_and_root_prefix = if has_base && root.is_empty() {
+        ""
+    } else if has_base {
+        // Remove all leading `/` to make href path-relative
+        root.trim_start_matches("/")
+    } else {
+        &root
+    };
+
+    // JS import base
+    let site_base_path = site_base
+        .split_once("//")
+        .and_then(|(_, after_http)| {
+            after_http.split_once("/").map(|(_, path)| path)
+        })
+        .unwrap_or_default();
+    let base_and_root_js = format!("/{site_base_path}{root}")
+        .trim_end_matches("/")
+        .to_string();
+
     view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
+        <link rel="modulepreload" href=format!("{base_and_root_prefix}{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link
             rel="preload"
-            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
+            href=format!("{base_and_root_prefix}{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
+            {format!(
+                "{script}({:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}",
+                if has_base { base_and_root_js } else { root }
+            )}
         </script>
     }
 }
