@@ -10,7 +10,7 @@ pub fn NavBar(
     view! {
         <nav>
             <Show
-                when=move || logged_in.get()
+                when=logged_in
                 fallback=|| {
                     view! {
                         <A href=Page::Login.path()>"Login"</A>
