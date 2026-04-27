@@ -27,7 +27,7 @@ use tachys::{
 ///
 /// #[component]
 /// fn Counters() -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+///   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 ///
 ///   view! {
 ///     <div>
@@ -62,19 +62,19 @@ use tachys::{
 /// #
 /// # #[component]
 /// # fn Counters() -> impl IntoView {
-/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 /// #
-///   view! {
-///     <div>
-///         <For
-///           each=move || counters.get()
-///           key=|counter| counter.id
-///           let(counter)
-///         >
-///             <button>"Value: " {move || counter.count.get()}</button>
-///         </For>
-///     </div>
-///   }
+/// view! {
+///   <div>
+///       <For
+///         each=move || counters.get()
+///         key=|counter| counter.id
+///         let(counter)
+///       >
+///           <button>"Value: " {move || counter.count.get()}</button>
+///       </For>
+///   </div>
+/// }
 /// # }
 /// ```
 ///
@@ -93,19 +93,19 @@ use tachys::{
 /// #
 /// # #[component]
 /// # fn Counters() -> impl IntoView {
-/// #   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+/// #   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 /// #
-///   view! {
-///     <div>
-///         <For
-///           each=move || counters.get()
-///           key=|counter| counter.id
-///           let(Counter { id, count })
-///         >
-///             <button>"Value: " {move || count.get()}</button>
-///         </For>
-///     </div>
-///   }
+/// view! {
+///   <div>
+///       <For
+///         each=move || counters.get()
+///         key=|counter| counter.id
+///         let(Counter { id, count })
+///       >
+///           <button>"Value: " {move || count.get()}</button>
+///       </For>
+///   </div>
+/// }
 /// # }
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
@@ -162,7 +162,7 @@ where
 ///
 /// #[component]
 /// fn Counters() -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
+///   let (counters, set_counters) = signal::<Vec<Counter>>(vec![]);
 ///
 ///   view! {
 ///     <div>

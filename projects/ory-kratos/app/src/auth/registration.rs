@@ -179,9 +179,9 @@ pub fn RegistrationPage() -> impl IntoView {
     let registration_flow =
         create_local_resource(|| (), |_| async move { init_registration().await });
     // Is none if user hasn't submitted data.
-    let register_resp = create_rw_signal(None::<Result<RegistrationResponse, ServerFnError>>);
+    let register_resp = RwSignal::new(None::<Result<RegistrationResponse, ServerFnError>>);
     // after user tries to register we update the signal resp.
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(resp) = register.value().get() {
             register_resp.set(Some(resp))
         }
@@ -198,7 +198,7 @@ pub fn RegistrationPage() -> impl IntoView {
     });
     // this is the body of our registration form, we don't know what the inputs are so it's a stand in for some
     // json map of unknown argument length with type of string.
-    let body = create_rw_signal(HashMap::new());
+    let body = RwSignal::new(HashMap::new());
     view! {
         // we'll render the fallback when the user hits the page for the first time
       <Suspense fallback=||view!{Loading Registration Details}>

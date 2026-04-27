@@ -192,8 +192,7 @@ async fn deprecated_watch_runs() {
             // simulate an arbitrary side effect
             let b = Arc::new(RwLock::new(String::new()));
 
-            #[allow(deprecated)]
-            let effect = reactive_graph::effect::watch(
+            let effect = Effect::watch(
                 move || a.get(),
                 {
                     let b = b.clone();
