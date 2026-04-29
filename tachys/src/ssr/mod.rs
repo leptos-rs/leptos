@@ -403,53 +403,71 @@ impl Stream for StreamBuilder {
                                             .sync_buf
                                             .find(&closing)
                                             .unwrap();
-                                        let chunks_iter =
-                                            chunks.into_iter().rev();
 
-                                        // TODO can probably make this more efficient
-                                        let (before, replaced) =
-                                            this.sync_buf.split_at(start);
-                                        let (_, after) = replaced.split_at(
-                                            end - start + closing.len(),
+                                        let after = this.sync_buf.split_off(
+                                            end + closing.len(),
                                         );
-                                        let mut buf = String::new();
-                                        buf.push_str(before);
+                                        this.sync_buf.truncate(start);
 
-                                        let mut held_chunks = VecDeque::new();
-                                        for chunk in chunks_iter {
-                                            if let StreamChunk::Sync(ready) =
-                                                chunk
-                                            {
-                                                buf.push_str(&ready);
-                                            } else {
-                                                held_chunks.push_front(chunk);
-                                            }
+                                        let mut chunks = chunks;
+                                        while let Some(StreamChunk::Sync(s)) =
+                                            chunks.front()
+                                        {
+                                            this.sync_buf.push_str(s);
+                                            chunks.pop_front();
                                         }
-                                        buf.push_str(after);
-                                        this.sync_buf = buf;
-                                        for chunk in held_chunks {
-                                            this.chunks.push_front(chunk);
+
+                                        if !chunks.is_empty() {
+                                            if !after.is_empty() {
+                                                chunks.push_back(
+                                                    StreamChunk::Sync(after),
+                                                );
+                                            }
+                                            for chunk in
+                                                chunks.into_iter().rev()
+                                            {
+                                                this.chunks.push_front(chunk);
+                                            }
+                                        } else {
+                                            this.sync_buf.push_str(&after);
                                         }
                                     } else {
                                         OooChunk::push_start(
                                             &id,
                                             &mut this.sync_buf,
                                         );
-                                        for chunk in chunks.into_iter().rev() {
-                                            if let StreamChunk::Sync(ready) =
-                                                chunk
+                                        let mut chunks = chunks;
+                                        while let Some(StreamChunk::Sync(s)) =
+                                            chunks.front()
+                                        {
+                                            this.sync_buf.push_str(s);
+                                            chunks.pop_front();
+                                        }
+
+                                        if !chunks.is_empty() {
+                                            let mut end_buf = String::new();
+                                            OooChunk::push_end_with_nonce(
+                                                replace,
+                                                &id,
+                                                &mut end_buf,
+                                                nonce.as_deref(),
+                                            );
+                                            chunks.push_back(
+                                                StreamChunk::Sync(end_buf),
+                                            );
+                                            for chunk in
+                                                chunks.into_iter().rev()
                                             {
-                                                this.sync_buf.push_str(&ready);
-                                            } else {
                                                 this.chunks.push_front(chunk);
                                             }
+                                        } else {
+                                            OooChunk::push_end_with_nonce(
+                                                replace,
+                                                &id,
+                                                &mut this.sync_buf,
+                                                nonce.as_deref(),
+                                            );
                                         }
-                                        OooChunk::push_end_with_nonce(
-                                            replace,
-                                            &id,
-                                            &mut this.sync_buf,
-                                            nonce.as_deref(),
-                                        );
                                     }
                                 }
                                 Poll::Pending => {
@@ -459,7 +477,11 @@ impl Stream for StreamBuilder {
                         }
 
                         if this.sync_buf.is_empty() {
-                            Poll::Pending
+                            if this.chunks.is_empty() {
+                                Poll::Pending
+                            } else {
+                                self.poll_next(cx)
+                            }
                         } else {
                             Poll::Ready(Some(mem::take(&mut this.sync_buf)))
                         }
