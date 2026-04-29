@@ -514,7 +514,7 @@ impl AttributeValue for char {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        0
+        1
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
@@ -749,7 +749,7 @@ macro_rules! render_primitive {
             type CloneableOwned = Self;
 
             fn html_len(&self) -> usize {
-                0
+                10
             }
 
             fn to_html(self, key: &str, buf: &mut String) {

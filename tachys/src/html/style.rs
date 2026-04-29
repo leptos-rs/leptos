@@ -50,10 +50,9 @@ where
     type Cloneable = Style<S::Cloneable>;
     type CloneableOwned = Style<S::CloneableOwned>;
 
-    // TODO
     #[inline(always)]
     fn html_len(&self) -> usize {
-        0
+        self.style.html_len() + 9
     }
 
     fn to_html(
@@ -126,14 +125,16 @@ impl<S> ToTemplate for Style<S>
 where
     S: IntoStyle,
 {
+    const STYLE: &'static str = S::TEMPLATE;
+
     fn to_template(
         _buf: &mut String,
-        _style: &mut String,
         _class: &mut String,
+        style: &mut String,
         _inner_html: &mut String,
         _position: &mut Position,
     ) {
-        // TODO: should there be some templating for static styles?
+        S::to_template(style);
     }
 }
 
@@ -142,6 +143,9 @@ where
 ///
 /// This could be a plain string, or a property name-value pair.
 pub trait IntoStyle: Send {
+    /// The HTML that should be included in a `<template>`.
+    const TEMPLATE: &'static str = "";
+
     /// The type after all async data have resolved.
     type AsyncOutput: IntoStyle;
     /// The view state retained between building and rebuilding.
@@ -151,8 +155,17 @@ pub trait IntoStyle: Send {
     /// An equivalent value that can be cloned and is `'static`.
     type CloneableOwned: IntoStyle + Clone + 'static;
 
+    /// The estimated length of the HTML.
+    fn html_len(&self) -> usize {
+        0
+    }
+
     /// Renders the style to HTML.
     fn to_html(self, style: &mut String);
+
+    /// Renders the style to HTML for a `<template>`.
+    #[allow(unused)] // it's used with `nightly` feature
+    fn to_template(style: &mut String) {}
 
     /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
     /// either been rendered on the server, or cloned for a `<template>`.
@@ -190,6 +203,10 @@ impl<T: IntoStyle> IntoStyle for Option<T> {
     type State = (crate::renderer::types::Element, Option<T::State>);
     type Cloneable = Option<T::Cloneable>;
     type CloneableOwned = Option<T::CloneableOwned>;
+
+    fn html_len(&self) -> usize {
+        self.as_ref().map_or(0, IntoStyle::html_len)
+    }
 
     fn to_html(self, style: &mut String) {
         if let Some(t) = self {
@@ -271,6 +288,10 @@ impl<'a> IntoStyle for &'a str {
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, style: &mut String) {
         style.push_str(self);
         style.push(';');
@@ -322,6 +343,10 @@ impl IntoStyle for Arc<str> {
     type Cloneable = Self;
     type CloneableOwned = Self;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, style: &mut String) {
         style.push_str(&self);
         style.push(';');
@@ -372,6 +397,10 @@ impl IntoStyle for String {
     type State = (crate::renderer::types::Element, String);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, style: &mut String) {
         style.push_str(&self);
@@ -432,6 +461,11 @@ pub trait IntoStyleValue: Send {
     /// An equivalent value that can be cloned and is `'static`.
     type CloneableOwned: Clone + IntoStyleValue + 'static;
 
+    /// The estimated length of the HTML.
+    fn html_len(&self) -> usize {
+        0
+    }
+
     /// Renders the style to HTML.
     fn to_html(self, name: &str, style: &mut String);
 
@@ -474,6 +508,10 @@ where
     type State = (crate::renderer::types::CssStyleDeclaration, K, V::State);
     type Cloneable = (K, V::Cloneable);
     type CloneableOwned = (K, V::CloneableOwned);
+
+    fn html_len(&self) -> usize {
+        self.0.as_ref().len() + 1 + self.1.html_len()
+    }
 
     fn to_html(self, style: &mut String) {
         let (name, value) = self;
@@ -538,6 +576,10 @@ macro_rules! impl_style_value {
             type Cloneable = Self;
             type CloneableOwned = Self;
 
+            fn html_len(&self) -> usize {
+                self.len()
+            }
+
             fn to_html(self, name: &str, style: &mut String) {
                 style.push_str(name);
                 style.push(':');
@@ -594,6 +636,10 @@ macro_rules! impl_style_value {
             type State = Self;
             type Cloneable = Self;
             type CloneableOwned = Self;
+
+            fn html_len(&self) -> usize {
+                self.as_ref().map_or(0, |v| v.len())
+            }
 
             fn to_html(self, name: &str, style: &mut String) {
                 if let Some(value) = self {
@@ -674,6 +720,10 @@ impl<const V: &'static str> IntoStyleValue for Static<V> {
     type Cloneable = Self;
     type CloneableOwned = Self;
 
+    fn html_len(&self) -> usize {
+        V.len()
+    }
+
     fn to_html(self, name: &str, style: &mut String) {
         style.push_str(name);
         style.push(':');
@@ -719,6 +769,14 @@ impl<const V: &'static str> IntoStyleValue for Option<Static<V>> {
     type State = Self;
     type Cloneable = Self;
     type CloneableOwned = Self;
+
+    fn html_len(&self) -> usize {
+        if self.is_some() {
+            V.len()
+        } else {
+            0
+        }
+    }
 
     fn to_html(self, name: &str, style: &mut String) {
         if self.is_some() {
@@ -772,12 +830,23 @@ impl<const V: &'static str> IntoStyleValue for Option<Static<V>> {
 
 #[cfg(all(feature = "nightly", rustc_nightly))]
 impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
+    const TEMPLATE: &'static str = V;
+
     type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
 
+    fn html_len(&self) -> usize {
+        V.len()
+    }
+
     fn to_html(self, style: &mut String) {
+        style.push_str(V);
+        style.push(';');
+    }
+
+    fn to_template(style: &mut String) {
         style.push_str(V);
         style.push(';');
     }
