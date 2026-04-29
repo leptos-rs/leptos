@@ -518,7 +518,13 @@ impl AttributeValue for char {
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
-        <String as AttributeValue>::to_html(self.to_string(), key, buf);
+        buf.push(' ');
+        buf.push_str(key);
+        buf.push_str("=\"");
+        let mut buffer = [0u8; 4];
+        let str = self.encode_utf8(&mut buffer);
+        buf.push_str(&escape_attr(str));
+        buf.push('"');
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -531,20 +537,30 @@ impl AttributeValue for char {
         // if we're actually hydrating from SSRed HTML, we don't need to set the attribute
         // if we're hydrating from a CSR-cloned <template>, we do need to set non-StaticAttr attributes
         if !FROM_SERVER {
-            Rndr::set_attribute(el, key, &self.to_string());
+            let mut buffer = [0u8; 4];
+            let str = self.encode_utf8(&mut buffer);
+            Rndr::set_attribute(el, key, str);
         }
         (el.clone(), self)
     }
 
-    fn build(self, el: &crate::renderer::types::Element, key: &str) -> Self::State {
-        Rndr::set_attribute(el, key, &self.to_string());
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        let mut buffer = [0u8; 4];
+        let str = self.encode_utf8(&mut buffer);
+        Rndr::set_attribute(el, key, str);
         (el.to_owned(), self)
     }
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
         let (el, prev_value) = state;
         if self != *prev_value {
-            Rndr::set_attribute(el, key, &self.to_string());
+            let mut buffer = [0u8; 4];
+            let str = self.encode_utf8(&mut buffer);
+            Rndr::set_attribute(el, key, str);
         }
         *prev_value = self;
     }
