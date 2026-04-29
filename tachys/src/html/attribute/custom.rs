@@ -56,7 +56,7 @@ where
     type CloneableOwned = CustomAttr<K, V::CloneableOwned>;
 
     fn html_len(&self) -> usize {
-        self.key.as_ref().len() + 3 + self.value.html_len()
+        self.key.as_ref().len() + 4 + self.value.html_len()
     }
 
     fn to_html(
