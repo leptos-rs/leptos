@@ -299,7 +299,7 @@ impl IntoStyle for Oco<'static, str> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        self.len() + 1
+        self.len()
     }
 
     fn to_html(self, style: &mut String) {

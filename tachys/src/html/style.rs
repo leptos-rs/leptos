@@ -156,7 +156,9 @@ pub trait IntoStyle: Send {
     type CloneableOwned: IntoStyle + Clone + 'static;
 
     /// The estimated length of the HTML.
-    fn html_len(&self) -> usize;
+    fn html_len(&self) -> usize {
+        0
+    }
 
     /// Renders the style to HTML.
     fn to_html(self, style: &mut String);
@@ -287,7 +289,7 @@ impl<'a> IntoStyle for &'a str {
     type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
-        self.len() + 1
+        self.len()
     }
 
     fn to_html(self, style: &mut String) {
@@ -342,7 +344,7 @@ impl IntoStyle for Arc<str> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        self.len() + 1
+        self.len()
     }
 
     fn to_html(self, style: &mut String) {
@@ -397,7 +399,7 @@ impl IntoStyle for String {
     type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
-        self.len() + 1
+        self.len()
     }
 
     fn to_html(self, style: &mut String) {
@@ -460,7 +462,9 @@ pub trait IntoStyleValue: Send {
     type CloneableOwned: Clone + IntoStyleValue + 'static;
 
     /// The estimated length of the HTML.
-    fn html_len(&self) -> usize;
+    fn html_len(&self) -> usize {
+        0
+    }
 
     /// Renders the style to HTML.
     fn to_html(self, name: &str, style: &mut String);
@@ -506,7 +510,7 @@ where
     type CloneableOwned = (K, V::CloneableOwned);
 
     fn html_len(&self) -> usize {
-        self.0.as_ref().len() + 2 + self.1.html_len()
+        self.0.as_ref().len() + 1 + self.1.html_len()
     }
 
     fn to_html(self, style: &mut String) {
@@ -834,7 +838,7 @@ impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        V.len() + 1
+        V.len()
     }
 
     fn to_html(self, style: &mut String) {
