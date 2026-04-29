@@ -506,7 +506,63 @@ impl AttributeValue for Arc<str> {
         self
     }
 }
-// TODO impl AttributeValue for Rc<str> and Arc<str> too
+
+impl AttributeValue for char {
+    type AsyncOutput = Self;
+    type State = (crate::renderer::types::Element, Self);
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn html_len(&self) -> usize {
+        0
+    }
+
+    fn to_html(self, key: &str, buf: &mut String) {
+        <String as AttributeValue>::to_html(self.to_string(), key, buf);
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        // if we're actually hydrating from SSRed HTML, we don't need to set the attribute
+        // if we're hydrating from a CSR-cloned <template>, we do need to set non-StaticAttr attributes
+        if !FROM_SERVER {
+            Rndr::set_attribute(el, key, &self.to_string());
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &crate::renderer::types::Element, key: &str) -> Self::State {
+        Rndr::set_attribute(el, key, &self.to_string());
+        (el.to_owned(), self)
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        let (el, prev_value) = state;
+        if self != *prev_value {
+            Rndr::set_attribute(el, key, &self.to_string());
+        }
+        *prev_value = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+}
 
 impl AttributeValue for bool {
     type AsyncOutput = Self;
@@ -681,7 +737,12 @@ macro_rules! render_primitive {
             }
 
             fn to_html(self, key: &str, buf: &mut String) {
-                <String as AttributeValue>::to_html(self.to_string(), key, buf);
+                use std::fmt::Write;
+                buf.push(' ');
+                buf.push_str(key);
+                buf.push_str("=\"");
+                write!(buf, "{}", self).expect("failed to write primitive attribute");
+                buf.push('"');
             }
 
             fn to_template(_key: &str, _buf: &mut String) {}
@@ -746,7 +807,6 @@ render_primitive![
     i128,
     f32,
     f64,
-    char,
     IpAddr,
     SocketAddr,
     SocketAddrV4,
