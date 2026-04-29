@@ -477,7 +477,11 @@ impl Stream for StreamBuilder {
                         }
 
                         if this.sync_buf.is_empty() {
-                            Poll::Pending
+                            if this.chunks.is_empty() {
+                                Poll::Pending
+                            } else {
+                                self.poll_next(cx)
+                            }
                         } else {
                             Poll::Ready(Some(mem::take(&mut this.sync_buf)))
                         }
