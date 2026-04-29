@@ -47,7 +47,7 @@ where
     type CloneableOwned = Class<C::CloneableOwned>;
 
     fn html_len(&self) -> usize {
-        self.class.html_len() + 1
+        self.class.html_len() + 9
     }
 
     fn to_html(

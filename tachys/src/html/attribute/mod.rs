@@ -229,7 +229,7 @@ where
     type CloneableOwned = Attr<K, V::CloneableOwned>;
 
     fn html_len(&self) -> usize {
-        K::KEY.len() + 3 + self.1.html_len()
+        K::KEY.len() + 4 + self.1.html_len()
     }
 
     fn to_html(

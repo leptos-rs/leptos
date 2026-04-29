@@ -104,6 +104,10 @@ where
         self.into_shared()
     }
 
+    fn html_len(&self) -> usize {
+        0
+    }
+
     fn dry_resolve(&mut self) {
         self.invoke();
     }
@@ -123,6 +127,10 @@ where
     type State = RenderEffect<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
     type CloneableOwned = SharedReactiveFunction<C>;
+
+    fn html_len(&self) -> usize {
+        0
+    }
 
     fn to_html(mut self, style: &mut String) {
         let value = self.invoke();
@@ -252,6 +260,10 @@ macro_rules! style_reactive {
                 self
             }
 
+            fn html_len(&self) -> usize {
+                0
+            }
+
             fn dry_resolve(&mut self) {}
 
             async fn resolve(self) -> Self::AsyncOutput {
@@ -324,6 +336,10 @@ macro_rules! style_reactive {
 
             fn into_cloneable_owned(self) -> Self::CloneableOwned {
                 self
+            }
+
+            fn html_len(&self) -> usize {
+                0
             }
 
             fn dry_resolve(&mut self) {}
