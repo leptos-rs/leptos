@@ -404,9 +404,9 @@ impl Stream for StreamBuilder {
                                             .find(&closing)
                                             .unwrap();
 
-                                        let after = this.sync_buf.split_off(
-                                            end + closing.len(),
-                                        );
+                                        let after = this
+                                            .sync_buf
+                                            .split_off(end + closing.len());
                                         this.sync_buf.truncate(start);
 
                                         let mut chunks = chunks;

@@ -514,13 +514,17 @@ impl AttributeValue for char {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        self.len_utf8()
+        0
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
+        buf.push(' ');
+        buf.push_str(key);
+        buf.push_str("=\"");
         let mut buffer = [0u8; 4];
         let str = self.encode_utf8(&mut buffer);
-        <&str as AttributeValue>::to_html(str, key, buf);
+        buf.push_str(&escape_attr(str));
+        buf.push('"');
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
