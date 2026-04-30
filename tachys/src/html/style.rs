@@ -289,7 +289,7 @@ impl<'a> IntoStyle for &'a str {
     type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
-        self.len()
+        self.len() + 1
     }
 
     fn to_html(self, style: &mut String) {
@@ -344,7 +344,7 @@ impl IntoStyle for Arc<str> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        self.len()
+        self.len() + 1
     }
 
     fn to_html(self, style: &mut String) {
@@ -399,7 +399,7 @@ impl IntoStyle for String {
     type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
-        self.len()
+        self.len() + 1
     }
 
     fn to_html(self, style: &mut String) {
@@ -577,7 +577,7 @@ macro_rules! impl_style_value {
             type CloneableOwned = Self;
 
             fn html_len(&self) -> usize {
-                self.len()
+                self.len() + 1
             }
 
             fn to_html(self, name: &str, style: &mut String) {
@@ -638,7 +638,7 @@ macro_rules! impl_style_value {
             type CloneableOwned = Self;
 
             fn html_len(&self) -> usize {
-                self.as_ref().map_or(0, |v| v.len())
+                self.as_ref().map_or(0, |v| v.len() + 1)
             }
 
             fn to_html(self, name: &str, style: &mut String) {
@@ -721,7 +721,7 @@ impl<const V: &'static str> IntoStyleValue for Static<V> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        V.len()
+        V.len() + 1
     }
 
     fn to_html(self, name: &str, style: &mut String) {
@@ -772,7 +772,7 @@ impl<const V: &'static str> IntoStyleValue for Option<Static<V>> {
 
     fn html_len(&self) -> usize {
         if self.is_some() {
-            V.len()
+            V.len() + 1
         } else {
             0
         }
@@ -838,7 +838,7 @@ impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        V.len()
+        V.len() + 1
     }
 
     fn to_html(self, style: &mut String) {
@@ -878,6 +878,28 @@ impl<const V: &'static str> IntoStyle for crate::view::static_types::Static<V> {
     }
 
     fn reset(_state: &mut Self::State) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{style, IntoStyle, IntoStyleValue};
+    use crate::html::attribute::Attribute;
+
+    #[test]
+    fn style_html_len_accounts_for_trailing_semicolon() {
+        assert_eq!(style("display: block").html_len(), 24);
+    }
+
+    #[test]
+    fn style_html_len_accounts_for_named_values() {
+        assert_eq!(style(("color", "blue")).html_len(), 20);
+    }
+
+    #[test]
+    fn style_value_html_len_accounts_for_trailing_semicolon() {
+        assert_eq!("blue".html_len(), 5);
+        assert_eq!(("color", "blue").html_len(), 11);
+    }
 }
 
 /*

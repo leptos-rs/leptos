@@ -758,3 +758,37 @@ mod tests {
     }
 }
 */
+
+#[cfg(test)]
+mod tests {
+    use super::{OooChunk, StreamBuilder, StreamChunk};
+    use futures::StreamExt;
+    use std::collections::VecDeque;
+
+    #[tokio::test]
+    async fn repolls_when_ooo_processing_leaves_followup_chunks() {
+        let mut stream = StreamBuilder {
+            sync_buf: "<!--s-1-o--><!--s-1-c-->".to_string(),
+            chunks: VecDeque::new(),
+            pending: None,
+            pending_ooo: VecDeque::new(),
+            id: None,
+        };
+
+        stream.pending_ooo.push_back(Box::pin(async {
+            OooChunk {
+                id: "1-".to_string(),
+                chunks: VecDeque::from([StreamChunk::Async {
+                    chunks: Box::pin(async {
+                        VecDeque::from([StreamChunk::Sync("done".to_string())])
+                    }),
+                }]),
+                replace: false,
+                nonce: None,
+            }
+        }));
+
+        assert_eq!(stream.next().await.as_deref(), Some("done"));
+        assert!(stream.next().await.is_none());
+    }
+}

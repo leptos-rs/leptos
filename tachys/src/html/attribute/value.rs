@@ -514,7 +514,9 @@ impl AttributeValue for char {
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        1
+        let mut buffer = [0u8; 4];
+        let str = self.encode_utf8(&mut buffer);
+        escape_attr(str).len()
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
@@ -749,7 +751,7 @@ macro_rules! render_primitive {
             type CloneableOwned = Self;
 
             fn html_len(&self) -> usize {
-                10
+                core::mem::size_of::<$child_type>() * 4
             }
 
             fn to_html(self, key: &str, buf: &mut String) {
@@ -842,3 +844,27 @@ render_primitive![
     NonZeroIsize,
     NonZeroUsize,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::AttributeValue;
+
+    #[test]
+    fn char_html_len_counts_utf8_width() {
+        assert_eq!('é'.html_len(), 2);
+    }
+
+    #[test]
+    fn char_html_len_accounts_for_escaping() {
+        assert_eq!('"'.html_len(), 6);
+    }
+
+    #[test]
+    fn primitive_html_len_matches_display_width() {
+        let int_value = -42i32;
+        assert!(int_value.html_len() >= int_value.to_string().len());
+
+        let float_value = 3.5f32;
+        assert!(float_value.html_len() >= float_value.to_string().len());
+    }
+}

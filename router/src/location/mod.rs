@@ -139,9 +139,10 @@ impl Url {
     pub fn unescape(s: &str) -> String {
         #[cfg(feature = "ssr")]
         {
-            percent_encoding::percent_decode_str(s)
-                .decode_utf8_lossy()
-                .to_string()
+            match percent_encoding::percent_decode_str(s).decode_utf8() {
+                Ok(v) => v.into_owned(),
+                Err(_) => s.into(),
+            }
         }
 
         #[cfg(not(feature = "ssr"))]
@@ -166,6 +167,21 @@ impl Url {
         {
             Self::unescape(s)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Url;
+
+    #[test]
+    fn unescape_decodes_valid_sequences() {
+        assert_eq!(Url::unescape("hello%20world"), "hello world");
+    }
+
+    #[test]
+    fn unescape_preserves_invalid_sequences() {
+        assert_eq!(Url::unescape("%FF"), "%FF");
     }
 }
 
