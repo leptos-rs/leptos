@@ -15,7 +15,7 @@ pub mod imports {
     pub use any_spawner::Executor;
     pub use reactive_graph::{
         computed::{ArcMemo, Memo},
-        effect::{Effect, RenderEffect},
+        effect::{Effect, ImmediateEffect, RenderEffect},
         prelude::*,
         signal::RwSignal,
         wrappers::read::Signal,
@@ -372,6 +372,35 @@ async fn effect_doesnt_rerun_if_memo_didnt_change() {
             assert_eq!(*combined_count.read().unwrap(), 2);
         })
         .await
+}
+
+#[cfg(feature = "effects")]
+#[test]
+fn sync_effect_can_recompute_dirty_memo_while_being_notified() {
+    let owner = Owner::new();
+    owner.set();
+
+    use imports::*;
+
+    let source = RwSignal::new(0);
+    let even = Memo::new(move |_| source.get() % 2 == 0);
+    let combined_count = Arc::new(RwLock::new(0));
+
+    let _effect = ImmediateEffect::new({
+        let combined_count = Arc::clone(&combined_count);
+        move || {
+            _ = even.get();
+            *combined_count.write().unwrap() += 1;
+        }
+    });
+
+    assert_eq!(*combined_count.read().unwrap(), 1);
+
+    source.set(1);
+    assert_eq!(*combined_count.read().unwrap(), 2);
+
+    assert_eq!(even.get_untracked(), false);
+    assert_eq!(*combined_count.read().unwrap(), 2);
 }
 
 #[cfg(feature = "effects")]
