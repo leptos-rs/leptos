@@ -401,7 +401,7 @@ html_elements! {
     /// The `<td>` HTML element defines a cell of a table that contains data. It participates in the table model.
     td HtmlTableCellElement [colspan, headers, rowspan] true,
     /// The `<template>` HTML element is a mechanism for holding HTML that is not to be rendered immediately when a page is loaded but may be instantiated subsequently during runtime using JavaScript.
-    template HtmlTemplateElement [] true,
+    template HtmlTemplateElement [shadowrootmode] true,
     /// The `<textarea>` HTML element represents a multi-line plain-text editing control, useful when you want to allow users to enter a sizeable amount of free-form text, for example a comment on a review or feedback form.
     textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] false,
     /// The `<tfoot>` HTML element defines a set of rows summarizing the columns of the table.
