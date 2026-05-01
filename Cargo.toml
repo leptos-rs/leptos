@@ -114,7 +114,7 @@ paste = { default-features = false, version = "1.0" }
 quote = { default-features = false, version = "1.0" }
 web-sys = { default-features = false, version = "0.3" }
 js-sys = { default-features = false, version = "0.3" }
-rand = { default-features = false, version = "0.9" }
+rand = { default-features = false, version = "0.10" }
 serde-lite = { default-features = false, version = "0.5" }
 tokio-tungstenite = { default-features = false, version = "0.28" }
 serial_test = { default-features = false, version = "3.3" }
