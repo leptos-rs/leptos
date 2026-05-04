@@ -353,10 +353,18 @@ where
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             let children = Arc::clone(&children);
             move |double_checking: Option<bool>| {
-                // on the first run, always track the tasks
-                if double_checking.is_none() {
-                    tasks.track();
-                }
+                // Always re-track the `tasks` signal at the top of every run.
+                //
+                // This guarantees the effect keeps a live subscription on `tasks`
+                // regardless of which branch we exit through. In particular, if
+                // `tasks.try_read_untracked()` below returns `None` (because a
+                // concurrent `tasks.update()` is holding the write lock), we
+                // would otherwise fall through to `false` without tracking any
+                // signal — the effect would silently lose its subscription and
+                // never be re-scheduled by subsequent `tasks.update(...)` calls
+                // in `TaskHandle::drop`. That deadlocks `tasks_rx.await` in
+                // `to_html_async_with_buf` and stalls the SSR stream forever.
+                tasks.track();
 
                 if let Some(curr_tasks) = tasks.try_read_untracked() {
                     if curr_tasks.is_empty() {
