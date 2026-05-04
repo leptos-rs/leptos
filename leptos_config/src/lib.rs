@@ -4,7 +4,6 @@ pub mod errors;
 
 use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
-use regex::Regex;
 use std::{
     env::VarError,
     fs,
@@ -441,6 +440,13 @@ impl TryFrom<String> for ReloadWSProtocol {
     }
 }
 
+/// Returns the byte index of the line starting with `prefix`.
+fn find_line_starting_with(text: &str, prefix: &str) -> Option<usize> {
+    text.split_inclusive('\n')
+        .find(|line| line.starts_with(prefix))
+        .map(|line| line.as_ptr() as usize - text.as_ptr() as usize)
+}
+
 /// Loads [`LeptosOptions`] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
 ///
@@ -452,25 +458,14 @@ impl TryFrom<String> for ReloadWSProtocol {
 pub fn get_config_from_str(
     text: &str,
 ) -> Result<LeptosOptions, LeptosConfigError> {
-    let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
-    let re_workspace: Regex =
-        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]").unwrap();
-
-    let metadata_name;
-    let start;
-    match re.find(text) {
-        Some(found) => {
-            metadata_name = "[package.metadata.leptos]";
-            start = found.start();
-        }
-        None => match re_workspace.find(text) {
-            Some(found) => {
-                metadata_name = "[[workspace.metadata.leptos]]";
-                start = found.start();
-            }
-            None => return Err(LeptosConfigError::ConfigSectionNotFound),
-        },
-    };
+    let (metadata_name, start) =
+        ["[package.metadata.leptos]", "[[workspace.metadata.leptos]]"]
+            .iter()
+            .find_map(|section| {
+                find_line_starting_with(text, section)
+                    .map(|start| (section, start))
+            })
+            .ok_or(LeptosConfigError::ConfigSectionNotFound)?;
 
     // so that serde error messages have right line number
     let newlines = text[..start].matches('\n').count();

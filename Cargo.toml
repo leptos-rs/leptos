@@ -141,7 +141,6 @@ temp-env = { default-features = false, version = "0.3" }
 uuid = { default-features = false, version = "1.20" }
 bytes = { default-features = false, version = "1.11" }
 http = { default-features = false, version = "1.4" }
-regex = { default-features = false, version = "1.12" }
 drain_filter_polyfill = { default-features = false, version = "0.1" }
 tempfile = { default-features = false, version = "3.24" }
 futures-lite = { default-features = false, version = "2.6" }
