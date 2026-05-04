@@ -1360,6 +1360,58 @@ mod tests {
         let _fields = store.items().into_iter();
     }
 
+    #[test]
+    fn nested_keyed_subfields_dont_deadlock_on_first_iter() {
+        _ = any_spawner::Executor::init_tokio();
+        
+
+        // Regression test for a panic/deadlock that occurred when a `For`
+        // over a keyed subfield was nested inside another `For` over a
+        // keyed subfield. Iterating the inner subfield's `KeyedSubfield`
+        // would call `update_keys`, which, while holding a write lock on
+        // the global `KeyMap`, would initialize its entry by calling
+        // `latest_keys()`. That traversed back through the parent
+        // `AtKeyed::reader` -> `resolve_index` -> `with_field_keys`,
+        // attempting to re-acquire the same write lock and aborting.
+        use crate::Field;
+
+        #[derive(Debug, Store, Clone)]
+        struct Part {
+            id: usize,
+            #[store(key: usize = |c| c.id)]
+            chapters: Vec<Chapter>,
+        }
+
+        #[derive(Debug, Store, Clone)]
+        struct Chapter {
+            id: usize,
+        }
+
+        #[derive(Debug, Store)]
+        struct Structure {
+            #[store(key: usize = |p| p.id)]
+            parts: Vec<Part>,
+        }
+
+        let store = Store::new(Structure {
+            parts: vec![Part {
+                id: 1,
+                chapters: vec![Chapter { id: 10 }],
+            }],
+        });
+
+        // Mimic the behavior of nested `<For>` components: iterate the
+        // outer keyed subfield, take a `Field<Part>` for each item, and
+        // iterate its inner keyed subfield. Doing so on a freshly
+        // constructed store ensures both the outer and the inner entries
+        // need to be initialized, which is the case that triggered the
+        // re-entrant write lock.
+        for at_part in store.parts() {
+            let part: Field<Part> = at_part.into();
+            let _: Vec<_> = part.chapters().into_iter().collect();
+        }
+    }
+
     #[tokio::test]
     async fn patching_keyed_field_only_notifies_changed_keys() {
         _ = any_spawner::Executor::init_tokio();
