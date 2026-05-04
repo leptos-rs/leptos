@@ -1363,7 +1363,6 @@ mod tests {
     #[test]
     fn nested_keyed_subfields_dont_deadlock_on_first_iter() {
         _ = any_spawner::Executor::init_tokio();
-        
 
         // Regression test for a panic/deadlock that occurred when a `For`
         // over a keyed subfield was nested inside another `For` over a
