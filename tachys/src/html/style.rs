@@ -897,8 +897,8 @@ mod tests {
 
     #[test]
     fn style_value_html_len_accounts_for_trailing_semicolon() {
-        assert_eq!("blue".html_len(), 5);
-        assert_eq!(("color", "blue").html_len(), 11);
+        assert_eq!(IntoStyleValue::html_len(&"blue"), 5);
+        assert_eq!(IntoStyle::html_len(&("color", "blue")), 11);
     }
 }
 
