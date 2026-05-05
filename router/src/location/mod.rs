@@ -172,14 +172,17 @@ impl Url {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "ssr", target_arch = "wasm32"))]
     use super::Url;
 
     #[test]
+    #[cfg(any(feature = "ssr", target_arch = "wasm32"))]
     fn unescape_decodes_valid_sequences() {
         assert_eq!(Url::unescape("hello%20world"), "hello world");
     }
 
     #[test]
+    #[cfg(any(feature = "ssr", target_arch = "wasm32"))]
     fn unescape_preserves_invalid_sequences() {
         assert_eq!(Url::unescape("%FF"), "%FF");
     }

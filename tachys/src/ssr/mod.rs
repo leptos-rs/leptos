@@ -386,7 +386,8 @@ impl Stream for StreamBuilder {
                         }
                     } else {
                         // check if *any* pending out-of-order chunk is ready
-                        for mut chunk in mem::take(&mut this.pending_ooo) {
+                        let mut ooo = mem::take(&mut this.pending_ooo);
+                        while let Some(mut chunk) = ooo.pop_front() {
                             match chunk.as_mut().poll(cx) {
                                 Poll::Ready(OooChunk {
                                     id,
@@ -428,6 +429,19 @@ impl Stream for StreamBuilder {
                                             {
                                                 this.chunks.push_front(chunk);
                                             }
+                                            // we just split the sync_buf and moved the remainder
+                                            // into this.chunks. as such, any subsequent OOO chunks
+                                            // will not be able to find their placeholders.
+                                            // we stop here and let the next poll_next call
+                                            // handle them
+                                            this.pending_ooo.extend(ooo);
+                                            let sync =
+                                                mem::take(&mut this.sync_buf);
+                                            return if sync.is_empty() {
+                                                self.poll_next(cx)
+                                            } else {
+                                                Poll::Ready(Some(sync))
+                                            };
                                         } else {
                                             this.sync_buf.push_str(&after);
                                         }
@@ -475,6 +489,7 @@ impl Stream for StreamBuilder {
                                 }
                             }
                         }
+                        this.pending_ooo.extend(ooo);
 
                         if this.sync_buf.is_empty() {
                             if this.chunks.is_empty() {
@@ -790,5 +805,60 @@ mod tests {
 
         assert_eq!(stream.next().await.as_deref(), Some("done"));
         assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn multiple_ooo_with_async_subchunks() {
+        let mut stream = StreamBuilder {
+            sync_buf: "<!--s-1-o--><!--s-1-c--><!--s-2-o--><!--s-2-c-->"
+                .to_string(),
+            chunks: VecDeque::new(),
+            pending: None,
+            pending_ooo: VecDeque::new(),
+            id: None,
+        };
+
+        // OOO chunk 1: resolves to an async chunk
+        stream.pending_ooo.push_back(Box::pin(async {
+            OooChunk {
+                id: "1-".to_string(),
+                chunks: VecDeque::from([StreamChunk::Async {
+                    chunks: Box::pin(async {
+                        VecDeque::from([StreamChunk::Sync("done1".to_string())])
+                    }),
+                }]),
+                replace: false,
+                nonce: None,
+            }
+        }));
+
+        // OOO chunk 2: resolves to sync content
+        stream.pending_ooo.push_back(Box::pin(async {
+            OooChunk {
+                id: "2-".to_string(),
+                chunks: VecDeque::from([StreamChunk::Sync(
+                    "done2".to_string(),
+                )]),
+                replace: false,
+                nonce: None,
+            }
+        }));
+
+        let mut results = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            results.push(chunk);
+        }
+
+        let combined = results.join("");
+
+        // If it works correctly, we should NOT see the <template>/<script> fallback for "2-"
+        // because it should have been found and replaced in sync_buf.
+        // The fallback contains "document.createTreeWalker"
+        assert!(
+            !combined.contains("document.createTreeWalker"),
+            "Should not contain fallback script when placeholder is present"
+        );
+        assert!(combined.contains("done1"));
+        assert!(combined.contains("done2"));
     }
 }
