@@ -77,6 +77,7 @@ pub struct AnyView {
         &Cursor,
         &PositionState,
     ) -> Pin<Box<dyn Future<Output = AnyViewState>>>,
+    add_any_attr: fn(Erased, AnyAttribute) -> AnyView,
 }
 
 impl AnyView {
@@ -350,6 +351,13 @@ where
             value.into_inner::<T>().rebuild(state);
         }
 
+        fn add_any_attr<T: RenderHtml + 'static>(
+            value: Erased,
+            attr: AnyAttribute,
+        ) -> AnyView {
+            value.into_inner::<T>().add_any_attr(attr).into_any()
+        }
+
         let value = self.into_owned();
         AnyView {
             type_id: TypeId::of::<T::Owned>(),
@@ -371,6 +379,7 @@ where
             hydrate_from_server: hydrate_from_server::<T::Owned>,
             #[cfg(feature = "hydrate")]
             hydrate_async: hydrate_async::<T::Owned>,
+            add_any_attr: add_any_attr::<T::Owned>,
             value: Erased::new(value),
         }
     }
@@ -401,7 +410,7 @@ impl Render for AnyView {
 }
 
 impl AddAnyAttr for AnyView {
-    type Output<SomeNewAttr: Attribute> = AnyViewWithAttrs;
+    type Output<SomeNewAttr: Attribute> = AnyView;
 
     #[allow(unused_variables)]
     fn add_any_attr<NewAttr: Attribute>(
@@ -411,10 +420,10 @@ impl AddAnyAttr for AnyView {
     where
         Self::Output<NewAttr>: RenderHtml,
     {
-        AnyViewWithAttrs {
-            view: self,
-            attrs: vec![attr.into_cloneable_owned().into_any_attr()],
-        }
+        (self.add_any_attr)(
+            self.value,
+            attr.into_cloneable_owned().into_any_attr(),
+        )
     }
 }
 
