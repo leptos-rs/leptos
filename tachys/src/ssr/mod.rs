@@ -850,7 +850,6 @@ mod tests {
         }
 
         let combined = results.join("");
-        println!("Combined output: {}", combined);
 
         // If it works correctly, we should NOT see the <template>/<script> fallback for "2-"
         // because it should have been found and replaced in sync_buf.
