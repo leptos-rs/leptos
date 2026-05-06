@@ -80,6 +80,13 @@ pub struct LeptosOptions {
     #[builder(default)]
     #[serde(default)]
     pub reload_external_port: Option<u32>,
+    /// The hostname the Websocket watcher connects to on the client, e.g.,
+    /// when running inside a container and accessing from the host machine.
+    ///
+    /// Defaults to `window.location.hostname`.
+    #[builder(default)]
+    #[serde(default)]
+    pub reload_external_host: Option<String>,
     /// The protocol the Websocket watcher uses on the client: `ws` in most cases, `wss` when behind
     /// a reverse https proxy.
     ///
@@ -227,6 +234,9 @@ impl LeptosOptions {
                 Some(val) => Some(val.parse()?),
                 None => None,
             },
+            reload_external_host: env_wo_default(
+                "LEPTOS_RELOAD_EXTERNAL_HOST",
+            )?,
             reload_ws_protocol: ws_from_str(
                 env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
             )?,

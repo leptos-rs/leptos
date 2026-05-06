@@ -26,14 +26,18 @@ pub fn AutoReload(
             Some(val) => val,
             None => options.reload_port,
         };
+        let reload_host = match options.reload_external_host {
+            Some(ref host) => format!("'{host}'"),
+            None => "null".to_string(),
+        };
         let protocol = match options.reload_ws_protocol {
             leptos_config::ReloadWSProtocol::WS => "'ws://'",
             leptos_config::ReloadWSProtocol::WSS => "'wss://'",
         };
 
         let script = format!(
-            "(function (reload_port, protocol) {{ {} {} }})({reload_port:?}, \
-             {protocol})",
+            "(function (reload_port, protocol, reload_host) {{ {} {} \
+             }})({reload_port:?}, {protocol}, {reload_host})",
             leptos_hot_reload::HOT_RELOAD_JS,
             include_str!("reload_script.js")
         );
