@@ -287,7 +287,9 @@ where
             web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
                 .unwrap_throw();
         let data = data.to_string().as_string().unwrap_or_default();
-        serde_qs::Config::new(5, false).deserialize_str::<Self>(&data)
+        serde_qs::Config::new()
+            .use_form_encoding(true)
+            .deserialize_str::<Self>(&data)
     }
 }
 

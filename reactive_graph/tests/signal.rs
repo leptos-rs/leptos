@@ -140,3 +140,15 @@ fn into_inner_non_arc_signal() {
     b.dispose();
     assert_eq!(a.into_inner(), Some(2));
 }
+
+#[test]
+fn signal_callable_on_stable() {
+    let owner = Owner::new();
+    owner.set();
+    let rw = RwSignal::new(42);
+    assert_eq!(rw(), 42);
+    let (read, write) = signal(10);
+    assert_eq!(read(), 10);
+    write(20);
+    assert_eq!(read(), 20);
+}

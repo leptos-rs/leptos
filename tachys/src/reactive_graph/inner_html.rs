@@ -147,7 +147,6 @@ macro_rules! inner_html_reactive {
     };
 }
 
-#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use crate::html::element::InnerHtmlValue;
     #[allow(deprecated)]
@@ -235,7 +234,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     inner_html_reactive!(
@@ -246,7 +245,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     inner_html_reactive!(

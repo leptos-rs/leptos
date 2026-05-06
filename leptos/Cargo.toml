@@ -123,6 +123,7 @@ subsecond = [
   "web-sys/WebSocket",
   "web-sys/Window",
 ]
+lazy = ["tachys/lazy"]
 
 [dev-dependencies]
 tokio = { features = [

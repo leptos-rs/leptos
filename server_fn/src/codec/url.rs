@@ -58,7 +58,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.as_query().unwrap_or_default();
-        let args = serde_qs::Config::new(5, false)
+        let args = serde_qs::Config::new()
+            .use_form_encoding(true)
             .deserialize_str::<Self>(string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
@@ -97,7 +98,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
-        let args = serde_qs::Config::new(5, false)
+        let args = serde_qs::Config::new()
+            .use_form_encoding(true)
             .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
@@ -136,7 +138,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.as_query().unwrap_or_default();
-        let args = serde_qs::Config::new(5, false)
+        let args = serde_qs::Config::new()
+            .use_form_encoding(true)
             .deserialize_str::<Self>(string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
@@ -175,7 +178,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
-        let args = serde_qs::Config::new(5, false)
+        let args = serde_qs::Config::new()
+            .use_form_encoding(true)
             .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
@@ -214,7 +218,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, E> {
         let string_data = req.try_into_string().await?;
-        let args = serde_qs::Config::new(5, false)
+        let args = serde_qs::Config::new()
+            .use_form_encoding(true)
             .deserialize_str::<Self>(&string_data)
             .map_err(|e| {
                 ServerFnErrorErr::Args(e.to_string()).into_app_error()
