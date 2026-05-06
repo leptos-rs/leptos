@@ -183,7 +183,7 @@ pub fn WithAnAction() -> impl IntoView {
         Resource::new(move || action.version().get(), |_| get_rows());
 
     view! {
-        <h3>Using <code>Action::new</code></h3>
+        <h3>Using <code>ServerAction::new</code></h3>
         <p>
             "Some server functions are conceptually \"mutations,\", which change something on the server. "
             "These often work well as actions."
