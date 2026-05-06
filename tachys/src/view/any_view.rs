@@ -77,6 +77,12 @@ pub struct AnyView {
         &Cursor,
         &PositionState,
     ) -> Pin<Box<dyn Future<Output = AnyViewState>>>,
+    // Only needed under erase_components: without it, AddAnyAttr for AnyView
+    // falls back to AnyViewWithAttrs (wrapping), which avoids the recursive
+    // monomorphization chain that T -> T::Output<AnyAttribute> -> ... would
+    // otherwise create. Under erase_components, all NextAttribute::Output
+    // converge to Vec<AnyAttribute>, so the chain terminates in ≤2 steps.
+    #[cfg(erase_components)]
     add_any_attr: fn(Erased, AnyAttribute) -> AnyView,
 }
 
@@ -351,6 +357,7 @@ where
             value.into_inner::<T>().rebuild(state);
         }
 
+        #[cfg(erase_components)]
         fn add_any_attr<T: RenderHtml + 'static>(
             value: Erased,
             attr: AnyAttribute,
@@ -379,6 +386,7 @@ where
             hydrate_from_server: hydrate_from_server::<T::Owned>,
             #[cfg(feature = "hydrate")]
             hydrate_async: hydrate_async::<T::Owned>,
+            #[cfg(erase_components)]
             add_any_attr: add_any_attr::<T::Owned>,
             value: Erased::new(value),
         }
@@ -409,10 +417,13 @@ impl Render for AnyView {
     }
 }
 
+// Under erase_components, the vtable delegates add_any_attr to the inner type.
+// This is safe because erase_components makes all NextAttribute::Output converge
+// to Vec<AnyAttribute> (a fixed point), so the monomorphization chain terminates.
+#[cfg(erase_components)]
 impl AddAnyAttr for AnyView {
     type Output<SomeNewAttr: Attribute> = AnyView;
 
-    #[allow(unused_variables)]
     fn add_any_attr<NewAttr: Attribute>(
         self,
         attr: NewAttr,
@@ -424,6 +435,27 @@ impl AddAnyAttr for AnyView {
             self.value,
             attr.into_cloneable_owned().into_any_attr(),
         )
+    }
+}
+
+// Without erase_components, wrap in AnyViewWithAttrs (attrs applied externally).
+// Delegating through the vtable here would cause an unbounded T -> T::Output<AnyAttribute>
+// monomorphization chain, since attribute tuple types grow on each step.
+#[cfg(not(erase_components))]
+impl AddAnyAttr for AnyView {
+    type Output<SomeNewAttr: Attribute> = AnyViewWithAttrs;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        AnyViewWithAttrs {
+            view: self,
+            attrs: vec![attr.into_cloneable_owned().into_any_attr()],
+        }
     }
 }
 
