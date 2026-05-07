@@ -8,6 +8,9 @@ use crate::html::attribute::Attribute;
 /// Normally, this is used to add an attribute to an HTML element. But it is required to be
 /// implemented for all types that implement [`RenderHtml`], so that attributes can be spread onto
 /// other structures like the return type of a component.
+///
+/// On native targets `RenderHtml` is still present (just unused for SSR), so
+/// the bound stays — splitting it adds churn without removing real code.
 pub trait AddAnyAttr {
     /// The new type once the attribute has been added.
     type Output<SomeNewAttr: Attribute>: RenderHtml;

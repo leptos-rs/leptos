@@ -2,6 +2,7 @@ use super::{
     any_view::{AnyView, IntoAny},
     iterators::StaticVec,
 };
+#[cfg(feature = "web")]
 use crate::html::element::HtmlElement;
 
 /// A typed-erased collection of different views.
@@ -44,6 +45,7 @@ impl Fragment {
     }
 }
 
+#[cfg(feature = "web")]
 impl<E, At, Ch> IntoFragment for HtmlElement<E, At, Ch>
 where
     HtmlElement<E, At, Ch>: IntoAny,

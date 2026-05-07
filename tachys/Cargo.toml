@@ -23,10 +23,57 @@ oco_ref = { workspace = true, optional = true }
 async-trait = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
 erased = { workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
-js-sys = { workspace = true, default-features = true }
-web-sys = { features = [
+drain_filter_polyfill = { workspace = true, default-features = true }
+indexmap = { workspace = true, default-features = true }
+rustc-hash = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+itertools = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
+sledgehammer_bindgen = { features = [
+  "web",
+], optional = true, workspace = true, default-features = true }
+sledgehammer_utils = { optional = true, workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
+
+# macOS-native renderer (activated only when the `native-ui` feature
+# is on; otherwise the cocoa renderer modules in src/ are cfg'd out
+# and cocoa_dom isn't pulled into the build).
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa_dom = { path = "../../leptos-native/cocoa_dom", version = "0.1.0", optional = true }
+
+# iOS-native renderer (activated only when the `native-ui` feature
+# is on; same shape as cocoa_dom above).
+[target.'cfg(target_os = "ios")'.dependencies]
+ios_dom = { path = "../../leptos-native/ios_dom", version = "0.1.0", optional = true }
+
+# Linux-native renderer (activated only when the `native-ui` feature
+# is on; same shape as cocoa_dom above).
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk_dom = { path = "../../leptos-native/gtk_dom", version = "0.1.0", optional = true }
+
+# Web-only deps. Activated by the `web` feature (mutually exclusive
+# with `native-ui`). Gating by feature rather than by `target_os`
+# keeps these out of native-UI builds without misclassifying
+# server-side SSR builds (which run on linux/macos but still need
+# wasm-bindgen-derived types for shared compilation).
+[dependencies.wasm-bindgen]
+workspace = true
+default-features = true
+optional = true
+
+[dependencies.js-sys]
+workspace = true
+default-features = true
+optional = true
+
+[dependencies.web-sys]
+workspace = true
+default-features = true
+optional = true
+features = [
   "Window",
   "Document",
   "HtmlElement",
@@ -147,20 +194,7 @@ web-sys = { features = [
   "HtmlSlotElement",
   "HtmlTemplateElement",
   "HtmlOptionElement",
-], workspace = true, default-features = true }
-drain_filter_polyfill = { workspace = true, default-features = true }
-indexmap = { workspace = true, default-features = true }
-rustc-hash = { workspace = true, default-features = true }
-futures = { workspace = true, default-features = true }
-itertools = { workspace = true, default-features = true }
-send_wrapper = { workspace = true, default-features = true }
-sledgehammer_bindgen = { features = [
-  "web",
-], optional = true, workspace = true, default-features = true }
-sledgehammer_utils = { optional = true, workspace = true, default-features = true }
-tracing = { optional = true, workspace = true, default-features = true }
-serde = { optional = true, workspace = true, default-features = true }
-serde_json = { optional = true, workspace = true, default-features = true }
+]
 
 [dev-dependencies]
 tokio-test = { workspace = true, default-features = true }
@@ -174,11 +208,17 @@ rustc_version = { workspace = true, default-features = true }
 
 [features]
 default = ["testing"]
+
+# `web` is NOT in `default` deliberately: cargo unifies features across
+# the dep graph, and any single transitive consumer that pulls tachys
+# without `default-features = false` would silently activate `web` even
+# in a `native-ui` build.
+web = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys"]
 delegation = []                                                       # enables event delegation
 error-hook = []
-hydrate = []
-islands = ["dep:serde", "dep:serde_json"]
-ssr = []
+hydrate = ["web"]
+islands = ["web", "dep:serde", "dep:serde_json"]
+ssr = ["web"]
 oco = ["dep:oco_ref"]
 nightly = ["reactive_graph/nightly"]
 testing = ["dep:slotmap"]
@@ -187,6 +227,17 @@ reactive_stores = ["reactive_graph", "dep:reactive_stores"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
 mark_branches = []
+# Activates the native UI rendering backends. The specific backend
+# (Cocoa on macOS, GTK on Linux) is chosen by target_os at compile
+# time. `dep:cocoa_dom` and `dep:gtk_dom` activate the optional
+# native-renderer dependencies; if a target_os doesn't have one of
+# them declared (e.g. there's no gtk_dom dep on macOS), Cargo
+# silently no-ops the activation, so this works correctly on any
+# target. Mutually exclusive with `web`.
+native-ui = ["dep:cocoa_dom", "dep:gtk_dom", "dep:ios_dom"]
+# Enables Taffy's block_layout algorithm + the `<block>` tag/builder.
+# Off by default to keep file size down for apps that only need flex.
+block_layout = ["cocoa_dom?/block_layout"]
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "sledgehammer"]

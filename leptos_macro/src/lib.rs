@@ -266,10 +266,28 @@ mod slot;
 ///     }
 /// }
 /// ```
+/// The pluggable form of [`view!`]. Same syntax, but takes a leading
+/// **namespace path** argument that selects the renderer toolkit:
+///
+/// ```text
+/// raw_view!(<namespace>, <view-body>)
+/// raw_view!(<namespace>, class = "scope-class", <view-body>)
+/// ```
+///
+/// `<namespace>` is a module path containing four submodules
+/// (`elements`, `events`, `attrs`, `bind`) — see the docs on
+/// `leptos::__view_namespace` and the per-renderer
+/// `leptos_<backend>::__view_namespace` for the contract.
+///
+/// Day-to-day, you don't call this directly. Each renderer crate
+/// (`leptos` for web, `leptos_cocoa` / `leptos_ios` / `leptos_gtk`
+/// for native) ships its own `view!` `macro_rules!` that wraps
+/// `raw_view!` with its own namespace pre-supplied. That way
+/// `view!{}` keeps its existing ergonomics across renderers.
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-pub fn view(tokens: TokenStream) -> TokenStream {
+pub fn raw_view(tokens: TokenStream) -> TokenStream {
     view_macro_impl(tokens, false)
 }
 
@@ -282,14 +300,60 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
     if cfg!(feature = "__internal_erase_components") {
-        view(tokens)
+        // The erase-components shortcut just goes through raw_view's
+        // path. Synthesize a namespace prefix pointing at the web
+        // renderer (this codepath is web-only).
+        let mut prefixed = TokenStream::from(quote! { ::leptos::__view_namespace , });
+        prefixed.extend(tokens);
+        raw_view(prefixed)
     } else {
-        view_macro_impl(tokens, true)
+        // template! is web-only — the macro emits SSR/hydrate-shaped
+        // template tags. Use the web namespace directly.
+        let namespace_tokens = quote! { ::leptos::__view_namespace };
+        let tokens: proc_macro2::TokenStream = tokens.into();
+        view_inner(tokens, namespace_tokens, true)
     }
 }
 
 fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
+    let mut iter = tokens.into_iter();
+
+    // The leading namespace path: every token up to the first
+    // top-level `,`. Selects the renderer toolkit module containing
+    // `elements`, `events`, `attrs`, `bind` submodules.
+    let mut namespace_tokens = proc_macro2::TokenStream::new();
+    let mut found_comma = false;
+    for tok in iter.by_ref() {
+        if let proc_macro2::TokenTree::Punct(p) = &tok {
+            if p.as_char() == ',' {
+                found_comma = true;
+                break;
+            }
+        }
+        namespace_tokens.extend(std::iter::once(tok));
+    }
+    if !found_comma || namespace_tokens.is_empty() {
+        proc_macro_error2::abort_call_site!(
+            "raw_view! requires a namespace path as its first argument";
+            help = "use the renderer's `view!` wrapper instead — e.g. `view! {{ ... }}` after `use leptos::prelude::*;` (web) or `use leptos_cocoa::prelude::*;` (native)"
+        );
+    }
+
+    let body: proc_macro2::TokenStream = iter.collect();
+    view_inner(body, namespace_tokens, template)
+}
+
+/// Shared implementation between `raw_view!` (parses namespace from
+/// the leading tokens) and `template!` (web-only, hardcoded
+/// namespace). The `namespace_tokens` is aliased to `__leptos_view`
+/// inside the generated block so the macro's emissions
+/// (which reference `__leptos_view::*`) resolve through it.
+fn view_inner(
+    tokens: proc_macro2::TokenStream,
+    namespace_tokens: proc_macro2::TokenStream,
+    template: bool,
+) -> TokenStream {
     let mut tokens = tokens.into_iter();
 
     let first = tokens.next();
@@ -337,10 +401,17 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
     // seems to break rust-analyzer, but it works when the allow is put here.
+    //
+    // The `use ... as __leptos_view` aliases the user-supplied namespace
+    // path to the name the rest of the macro's emissions reference. This
+    // is the macro-pluggability seam — the per-renderer `view!` wrappers
+    // pre-supply their namespace; tachys/leptos stays renderer-agnostic.
     let output = quote! {
         {
             #[allow(unused_braces)]
             {
+                #[allow(unused_imports)]
+                use #namespace_tokens as __leptos_view;
                 #(#errors;)*
                 #nodes_output
             }
@@ -391,7 +462,11 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
         });
     let tokens = proc_macro2::TokenStream::from_str(&file)
         .unwrap_or_else(|e| abort!(Span::call_site(), e));
-    view(tokens.into())
+    // include_view! is web-only; synthesize a namespace prefix
+    // pointing at the web renderer so raw_view can do its work.
+    let mut prefixed = TokenStream::from(quote! { ::leptos::__view_namespace , });
+    prefixed.extend(TokenStream::from(tokens));
+    raw_view(prefixed)
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.

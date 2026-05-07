@@ -1,7 +1,6 @@
 use crate::{children::ChildrenFn, component, control_flow::Show, IntoView};
 use core::time::Duration;
 use leptos_dom::helpers::TimeoutHandle;
-use leptos_macro::view;
 use reactive_graph::{
     effect::RenderEffect,
     owner::{on_cleanup, StoredValue},

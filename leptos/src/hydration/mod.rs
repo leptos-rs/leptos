@@ -2,7 +2,7 @@
 
 use crate::{prelude::*, WasmSplitManifest};
 use leptos_config::LeptosOptions;
-use leptos_macro::{component, view};
+use leptos_macro::component;
 use std::{path::PathBuf, sync::OnceLock};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.

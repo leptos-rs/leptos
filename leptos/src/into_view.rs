@@ -52,6 +52,19 @@ impl<T> View<T> {
 }
 
 /// A trait that is implemented for types that can be rendered.
+///
+/// **Note (refactor-in-progress):** the upstream-target end state is
+/// to drop the `RenderHtml` bound on native targets (no SSR or
+/// hydration there). That work is parked because `IntoView`,
+/// `RenderHtml`, `AsyncOutput`, and `AddAnyAttr` are tightly coupled
+/// across `children.rs`, `attribute_interceptor.rs`,
+/// `suspense_component.rs`, and `nonce.rs` — splitting the trait
+/// also requires cfg-gating those generic bounds, which is a Phase 5
+/// concern (when the per-OS builders move out and the relevant trait
+/// surface stops being native-reachable). For now native builds keep
+/// satisfying the `RenderHtml` bound via the no-op impls in
+/// `tachys::{cocoa,gtk,ios}::render_html_stub` and
+/// `impl_typed_attrs_for!`.
 pub trait IntoView
 where
     Self: Sized + Render + RenderHtml + Send,

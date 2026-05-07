@@ -15,14 +15,21 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-/// Types for two way data binding.
+/// Types for two way data binding (web only — tied to HTML form
+/// elements; not reachable on the macOS target).
+#[cfg(feature = "web")]
 pub mod bind;
+#[cfg(feature = "web")]
 mod class;
+#[cfg(feature = "web")]
 mod inner_html;
-/// Provides a reactive [`NodeRef`](node_ref::NodeRef) type.
+/// Provides a reactive [`NodeRef`](node_ref::NodeRef) type (web only).
+#[cfg(feature = "web")]
 pub mod node_ref;
 mod owned;
+#[cfg(feature = "web")]
 mod property;
+#[cfg(feature = "web")]
 mod style;
 mod suspense;
 

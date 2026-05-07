@@ -20,10 +20,10 @@ base64 = { optional = true, workspace = true, default-features = true }
 cfg-if = { workspace = true, default-features = true }
 hydration_context = { workspace = true }
 either_of = { workspace = true }
-leptos_dom = { workspace = true }
+leptos_dom = { workspace = true, default-features = false }
 leptos_hot_reload = { workspace = true }
 leptos_macro = { workspace = true }
-leptos_server = { workspace = true, features = ["tachys"] }
+leptos_server = { workspace = true, default-features = false, features = ["tachys"] }
 leptos_config = { workspace = true }
 leptos-spin-macro = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true }
@@ -35,7 +35,7 @@ rand = { optional = true, workspace = true, default-features = true }
 getrandom = { optional = true, workspace = true, default-features = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = { workspace = true, default-features = true }
-tachys = { workspace = true, features = [
+tachys = { workspace = true, default-features = false, features = [
   "reactive_graph",
   "reactive_stores",
   "oco",
@@ -46,7 +46,7 @@ typed-builder = { workspace = true, default-features = true }
 typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-server_fn = { workspace = true, features = ["form-redirects", "browser"] }
+server_fn = { workspace = true }
 web-sys = { features = [
   "ShadowRoot",
   "ShadowRootInit",
@@ -64,14 +64,30 @@ dioxus-cli-config = { workspace = true, default-features = true, optional = true
 dioxus-devtools = { workspace = true, default-features = true, optional = true }
 
 [features]
+default = []
+# `web` and `native-ui` are mutually exclusive — exactly one must be
+# enabled. The mutex is enforced by a compile_error! at the top of
+# `src/lib.rs`. csr/hydrate/ssr each implicitly activate `web`.
+# Neither is in `default` because Cargo unifies features across the
+# dep graph — defaults can leak through transitive deps and silently
+# violate the mutex. See ../tachys/Cargo.toml for the full rationale.
+web = ["tachys/web", "leptos_dom/web"]
 hydration = [
   "reactive_graph/hydration",
   "leptos_server/hydration",
   "hydration_context/browser",
   "leptos_dom/hydration",
 ]
-csr = ["leptos_macro/csr", "reactive_graph/effects", "getrandom?/wasm_js"]
+csr = [
+  "web",
+  "leptos_macro/csr",
+  "reactive_graph/effects",
+  "getrandom?/wasm_js",
+  "server_fn/browser",
+  "server_fn/form-redirects",
+]
 hydrate = [
+  "web",
   "leptos_macro/hydrate",
   "hydration",
   "tachys/hydrate",
@@ -81,6 +97,7 @@ hydrate = [
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
 ssr = [
+  "web",
   "leptos_macro/ssr",
   "leptos_server/ssr",
   "server_fn/ssr",
@@ -113,6 +130,21 @@ trace-component-props = [
 ]
 delegation = ["tachys/delegation"]
 islands-router = ["tachys/mark_branches"]
+# Native UI builds: do `leptos = { default-features = false }`. By
+# default leptos exposes everything a native renderer needs (Render,
+# Mountable, IntoView, signals, components, the prelude — minus the
+# web-only `view!` macro and the DOM/SSR helpers). The renderer is
+# plugged in by depending on a glue crate (`leptos_cocoa`,
+# `leptos_ios`, `leptos_gtk`) which brings its own `view!` and the
+# corresponding element/event/bind builders.
+#
+# `reactive_graph/effects` is needed for reactive UI updates on any
+# target. Web builds activate it via `csr` / `hydrate`. Native
+# builds — depend on `reactive_graph = { features = ["effects"] }`
+# directly (the glue crates already do).
+# Passthrough for `tachys`'s `block_layout` feature — enables the
+# `<block>` tag/builder. Off by default to keep binary size down.
+block_layout = ["tachys/block_layout"]
 subsecond = [
   "reactive_graph/subsecond",
   "dep:subsecond",
@@ -143,6 +175,12 @@ rustc_version = { workspace = true, default-features = true }
 # downstream usage should never manually enable this feature.
 [target.'cfg(erase_components)'.dependencies]
 leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
+
+# Native renderer crates (`cocoa_dom`, `ios_dom`, `gtk_dom`) used to
+# be optional deps here, activated by the now-removed `native-ui`
+# feature. They've moved out: native builds depend on the
+# corresponding glue crate (`leptos_cocoa`/`leptos_ios`/`leptos_gtk`),
+# which pulls them in directly.
 
 [package.metadata.cargo-all-features]
 denylist = [

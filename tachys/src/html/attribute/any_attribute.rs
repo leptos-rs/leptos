@@ -2,7 +2,7 @@ use super::{Attribute, NextAttribute};
 use crate::{
     erased::{Erased, ErasedLocal},
     html::attribute::NamedAttributeKey,
-    renderer::{dom::Element, Rndr},
+    renderer::{types::Element, Rndr},
 };
 use std::{any::TypeId, fmt::Debug, mem};
 #[cfg(feature = "ssr")]
@@ -381,11 +381,16 @@ impl Attribute for Vec<AnyAttribute> {
                         Rndr::set_inner_html(&old.el, "");
                     }
                     NamedAttributeKey::Property(prop_name) => {
+                        #[cfg(feature = "web")]
                         Rndr::set_property(
                             &old.el,
                             &prop_name,
                             &wasm_bindgen::JsValue::UNDEFINED,
                         );
+                        // Property removal is a web-only concept; no-op
+                        // on native (see implementation_log.md).
+                        #[cfg(feature = "native-ui")]
+                        let _ = prop_name;
                     }
                     NamedAttributeKey::Attribute(key) => {
                         Rndr::remove_attribute(&old.el, &key);

@@ -9,7 +9,7 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-tachys = { workspace = true }
+tachys = { workspace = true, default-features = false }
 reactive_graph = { workspace = true }
 or_poisoned = { workspace = true }
 js-sys = { workspace = true, default-features = true }
@@ -29,6 +29,10 @@ default-features = true
 
 [features]
 default = []
+# Web build: gates the DOM helpers and `web_sys::console::*` paths.
+# Native builds disable this and depend on the appropriate glue
+# crate (`leptos_cocoa`, etc.) which provides the native renderer.
+web = ["tachys/web"]
 tracing = ["dep:tracing"]
 trace-component-props = ["dep:serde", "dep:serde_json"]
 hydration = ["reactive_graph/hydration"]

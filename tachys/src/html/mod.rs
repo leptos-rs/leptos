@@ -1,4 +1,6 @@
+#[cfg(feature = "web")]
 use self::attribute::Attribute;
+#[cfg(feature = "web")]
 use crate::{
     hydration::Cursor,
     no_attrs,
@@ -9,7 +11,9 @@ use crate::{
     },
     view::{Position, PositionState, Render, RenderHtml},
 };
+#[cfg(feature = "web")]
 use attribute::any_attribute::AnyAttribute;
+#[cfg(feature = "web")]
 use std::borrow::Cow;
 
 /// Diagnostic message shared by event, directive, and property `.expect()` calls.
@@ -19,6 +23,8 @@ use std::borrow::Cow;
 /// panics on multithreaded servers. If these `.expect()` calls fire, it means
 /// the `ssr` feature was activated unintentionally via Cargo feature
 /// unification in a client-side (CSR or hydrate) build.
+///
+/// Only referenced from the web-only event/directive/property modules.
 pub(crate) const FEATURE_CONFLICT_DIAGNOSTIC: &str =
     "Value is None because the `ssr` feature is active. When `ssr` is \
      enabled, tachys skips creating client-side values (event handlers, \
@@ -31,32 +37,52 @@ pub(crate) const FEATURE_CONFLICT_DIAGNOSTIC: &str =
 /// Types for HTML attributes.
 pub mod attribute;
 /// Types for manipulating the `class` attribute and `classList`.
+#[cfg(feature = "web")]
 pub mod class;
 /// Types for creating user-defined attributes with custom behavior (directives).
 pub mod directive;
-/// Types for HTML elements.
+/// Types for HTML elements (web only). After the Phase 4 macro
+/// refactor, native renderers expose their element constructors
+/// through their own glue crate's `view_prelude::__leptos_view::elements`
+/// namespace; `tachys::html::element` is unused on native.
+#[cfg(feature = "web")]
 pub mod element;
-/// Types for DOM events.
+
+/// Types for DOM events. Web-only — native event descriptors live
+/// in the per-renderer glue crate's `events` module (e.g.
+/// `leptos_cocoa::events`).
+#[cfg(feature = "web")]
 pub mod event;
+// Native event descriptors moved to the per-renderer glue crates
+// (`leptos_cocoa::events`, `leptos_ios::events`, `leptos_gtk::events`)
+// in Phase 5.
 /// Types for adding interactive islands to inert HTML pages.
+#[cfg(feature = "web")]
 pub mod islands;
 /// Types for accessing a reference to an HTML element.
+#[cfg(feature = "web")]
 pub mod node_ref;
 /// Types for DOM properties.
+#[cfg(feature = "web")]
 pub mod property;
 /// Types for the `style` attribute and individual style manipulation.
+#[cfg(feature = "web")]
 pub mod style;
 
-/// A `<!DOCTYPE>` declaration.
+/// A `<!DOCTYPE>` declaration. Web-only — disabled on native targets
+/// since the renderer has no concept of inert HTML or doctypes.
+#[cfg(feature = "web")]
 pub struct Doctype {
     value: &'static str,
 }
 
 /// Creates a `<!DOCTYPE>`.
+#[cfg(feature = "web")]
 pub fn doctype(value: &'static str) -> Doctype {
     Doctype { value }
 }
 
+#[cfg(feature = "web")]
 impl Render for Doctype {
     type State = ();
 
@@ -65,8 +91,10 @@ impl Render for Doctype {
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
+#[cfg(feature = "web")]
 no_attrs!(Doctype);
 
+#[cfg(feature = "web")]
 impl RenderHtml for Doctype {
     type AsyncOutput = Self;
     type Owned = Self;
@@ -105,10 +133,12 @@ impl RenderHtml for Doctype {
 }
 
 /// An element that contains no interactivity, and whose contents can be known at compile time.
+#[cfg(feature = "web")]
 pub struct InertElement {
     html: Cow<'static, str>,
 }
 
+#[cfg(feature = "web")]
 impl InertElement {
     /// Creates a new inert element.
     pub fn new(html: impl Into<Cow<'static, str>>) -> Self {
@@ -117,8 +147,10 @@ impl InertElement {
 }
 
 /// Retained view state for [`InertElement`].
+#[cfg(feature = "web")]
 pub struct InertElementState(Cow<'static, str>, Element);
 
+#[cfg(feature = "web")]
 impl Mountable for InertElementState {
     fn unmount(&mut self) {
         self.1.unmount();
@@ -137,6 +169,7 @@ impl Mountable for InertElementState {
     }
 }
 
+#[cfg(feature = "web")]
 impl Render for InertElement {
     type State = InertElementState;
 
@@ -157,6 +190,7 @@ impl Render for InertElement {
     }
 }
 
+#[cfg(feature = "web")]
 impl AddAnyAttr for InertElement {
     type Output<SomeNewAttr: Attribute> = Self;
 
@@ -174,6 +208,7 @@ impl AddAnyAttr for InertElement {
     }
 }
 
+#[cfg(feature = "web")]
 impl RenderHtml for InertElement {
     type AsyncOutput = Self;
     type Owned = Self;

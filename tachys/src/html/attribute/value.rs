@@ -31,6 +31,102 @@ where
     }
 }
 
+// Native-only escape hatches: the native builders accept attribute
+// values that aren't web `AttributeValue`s (e.g. `Vec<&str>` for
+// `<pop_up_button items=...>`). The view! macro wraps every non-
+// literal attribute value through `into_attribute_value`, so we
+// need direct `IntoAttributeValue` impls for these types whose
+// Output is the type itself.
+#[cfg(feature = "native-ui")]
+impl IntoAttributeValue for Vec<&'static str> {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
+#[cfg(feature = "native-ui")]
+impl IntoAttributeValue for Vec<String> {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
+// iOS Color (and the named system colors). Lets the view! macro
+// pass `text_color=Color::SYSTEM_BLUE` etc. through verbatim to the
+// builder's typed `.text_color()` method (which takes
+// `IntoMaybeReactive<Color>`).
+#[cfg(all(target_os = "ios", feature = "native-ui"))]
+impl IntoAttributeValue for ios_dom::Color {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
+// Same for macOS (cocoa_dom::Color), which had the same restriction
+// — kept it from biting future-us if/when a cocoa example uses
+// `text_color=` in a view! macro.
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::Color {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
+// AppKit text-alignment enum, used as a label `alignment=` value.
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::NSTextAlignment {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
+// Sizing dimension type (`Dim`) and other native-only attribute
+// value types that lived in `tachys::cocoa::attr` moved to
+// `leptos_cocoa::attrs` in Phase 5; their `IntoAttributeValue` impls
+// move with them, but only after the G-refactor (skipping
+// `into_attribute_value` for typed builder methods) lands. For now
+// `Dim`-typed attributes can't be used through the `view!` macro on
+// native; they work via the direct builder API.
+
+// Taffy enums used as `<stack>` / `<block>` attribute values
+// (`direction`, `justify_content`, `align`, `wrap`). The `view!`
+// macro wraps non-literal values through `into_attribute_value`,
+// so without these impls a Path expression like
+// `align=AlignItems::Center` fails to type-check.
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::layout::FlexDirection {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::layout::JustifyContent {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::layout::AlignItems {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+impl IntoAttributeValue for cocoa_dom::layout::FlexWrap {
+    type Output = Self;
+    fn into_attribute_value(self) -> Self::Output {
+        self
+    }
+}
+
 /// A possible value for an HTML attribute.
 pub trait AttributeValue: Send {
     /// The state that should be retained between building and rebuilding.

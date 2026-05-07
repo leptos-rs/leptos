@@ -155,6 +155,64 @@
 
 extern crate self as leptos;
 
+/// The renderer-toolkit namespace the `view!{}` macro routes through
+/// on web. The `view!` `macro_rules!` defined just below pre-supplies
+/// this path to `leptos_macro::raw_view!`, which aliases it as
+/// `__leptos_view` inside the generated block. Users don't import
+/// from this module — `view! { ... }` "just works" once `leptos` is
+/// in scope.
+///
+/// Native renderers (`leptos_cocoa`, `leptos_ios`, `leptos_gtk`)
+/// expose their own `__view_namespace` of the same shape and ship
+/// their own `view!` wrapper. See `ARCHITECTURE.md` in the
+/// leptos-native repo for the contract.
+#[cfg(feature = "web")]
+#[doc(hidden)]
+#[allow(non_camel_case_types, missing_docs)]
+pub mod __view_namespace {
+    pub mod elements {
+        pub use ::tachys::html::doctype;
+        pub use ::tachys::html::element::*;
+        pub use ::tachys::html::InertElement;
+    }
+    pub mod svg {
+        pub use ::tachys::svg::*;
+    }
+    pub mod mathml {
+        pub use ::tachys::mathml::*;
+    }
+    pub mod events {
+        pub use ::tachys::html::event::*;
+    }
+    pub mod attrs {
+        pub use ::tachys::html::attribute::custom::custom_attribute;
+        pub use ::tachys::html::attribute::*;
+        pub use ::tachys::html::class::class;
+        pub use ::tachys::html::directive::directive;
+        pub use ::tachys::html::node_ref::node_ref;
+        pub use ::tachys::html::property::prop;
+        pub use ::tachys::html::style::style;
+    }
+    pub mod bind {
+        pub use ::tachys::html::attribute::*;
+        pub use ::tachys::reactive_graph::bind::Group;
+    }
+}
+
+/// The web `view!{}` macro.
+/// Wraps `leptos_macro::raw_view!` with the web renderer namespace
+/// pre-supplied, so existing code keeps working unchanged.
+///
+/// On native targets, use the equivalent `view!` exported by your
+/// renderer crate (`leptos_cocoa::view!`, etc.).
+#[cfg(feature = "web")]
+#[macro_export]
+macro_rules! view {
+    ($($t:tt)*) => {
+        $crate::raw_view!($crate::__view_namespace, $($t)*)
+    };
+}
+
 /// Exports all the core types of the library.
 pub mod prelude {
     // Traits
@@ -168,14 +226,36 @@ pub mod prelude {
     mod export_types {
         #[cfg(feature = "nonce")]
         pub use crate::nonce::*;
+
+        // Modules available on every target.
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
-            form::*, hydration::*, into_view::*, mount::*, suspense::*,
-            text_prop::*,
+            into_view::*, suspense::*, text_prop::*,
         };
+
+        // Web-only modules. These either import web-sys types directly
+        // or pull in tachys submodules that are cfg'd-out on macOS.
+        // The macOS port provides Cocoa-flavoured equivalents elsewhere.
+        #[cfg(feature = "web")]
+        pub use crate::{form::*, hydration::*, mount::*};
+
+        // The native mount entry points + NodeRef / Storage / set_interval /
+        // Color analogues moved out to per-renderer glue crates in
+        // Phase 5. Native users do
+        // `use leptos_cocoa::*;` (macOS), `use leptos_ios::*;` (iOS),
+        // or `use leptos_gtk::*;` (Linux) for the corresponding API.
+
         pub use leptos_config::*;
+        #[cfg(feature = "web")]
         pub use leptos_dom::helpers::*;
         pub use leptos_macro::*;
+        // The web `view!` `macro_rules!` lives at the leptos crate
+        // root (macro namespace, via #[macro_export]). Re-export it
+        // through the prelude so `use leptos::prelude::*` brings it
+        // into scope alongside `raw_view!`. Web-only — native users
+        // get their `view!` from `leptos_<backend>::prelude::*`.
+        #[cfg(feature = "web")]
+        pub use crate::view;
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
@@ -191,15 +271,28 @@ pub mod prelude {
             self,
             error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
         };
-        pub use tachys::{
-            reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
-            view::{fragment::Fragment, template::ViewTemplate},
+        // tachys::reactive_graph::{bind, node_ref} are cfg'd-out on
+        // native targets; only re-export them on the web target.
+        #[cfg(feature = "web")]
+        pub use tachys::reactive_graph::{
+            bind::BindAttribute, node_ref::*,
+        };
+        pub use tachys::reactive_graph::Suspend;
+        // The web `view!` `macro_rules!` is defined at the crate root
+        // (with `#[macro_export]`) so users get it via the
+        // `pub use leptos_macro::*` glob below — it lives in the same
+        // macro namespace.
+        pub use tachys::view::{
+            fragment::Fragment, template::ViewTemplate,
         };
     }
     pub use export_types::*;
 }
 
 /// Components used for working with HTML forms, like `<ActionForm>`.
+/// Web-only — AppKit form controls are wired through the Cocoa
+/// element module instead.
+#[cfg(feature = "web")]
 pub mod form;
 
 /// A standard way to wrap functions and closures to pass them to components.
@@ -224,20 +317,34 @@ pub mod error {
 
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
-    pub use crate::{
-        animated_show::*, await_::*, for_loop::*, show::*, show_let::*,
-    };
+    #[cfg(feature = "web")]
+    pub use crate::animated_show::*;
+    #[cfg(feature = "web")]
+    pub use crate::await_::*;
+    pub use crate::{for_loop::*, show::*, show_let::*};
 }
+// `animated_show` uses leptos_dom::helpers::set_timeout_with_handle
+// which is web-only.
+#[cfg(feature = "web")]
 mod animated_show;
+// `<Await>` ships a `view!{<Suspense>...</Suspense>}` invocation,
+// which depends on `leptos::view!` being defined. The wrapper macro
+// is web-only (native users get their own from
+// `leptos_<backend>::view!`), so this module is web-only too.
+#[cfg(feature = "web")]
 mod await_;
 mod for_loop;
 mod show;
 mod show_let;
 
 /// A component that allows rendering a component somewhere else.
+/// Web-only — uses `leptos_dom::helpers::document()`.
+#[cfg(feature = "web")]
 pub mod portal;
 
-/// Components to enable server-side rendering and client-side hydration.
+/// Components to enable server-side rendering and client-side
+/// hydration. Web-only.
+#[cfg(feature = "web")]
 pub mod hydration;
 
 /// Utilities for exporting nonces to be used for a Content Security Policy.
@@ -270,7 +377,12 @@ mod provider;
 #[doc(inline)]
 pub use tachys;
 /// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
+#[cfg(feature = "web")]
 pub mod mount;
+// iOS and macOS mount entry points moved to the `leptos_ios` /
+// `leptos_cocoa` crates in Phase 5; users do `use leptos_ios::*;`
+// or `use leptos_cocoa::*;` for `run` / `mount_to_window`.
+// GTK mount entry point moved to the `leptos_gtk` crate in Phase 5.
 #[doc(inline)]
 pub use leptos_config as config;
 #[doc(inline)]
@@ -292,16 +404,27 @@ pub use leptos_server as server;
 /// HTML attribute types.
 #[doc(inline)]
 pub use tachys::html::attribute as attr;
-/// HTML element types.
+/// HTML element types. Web-only — on macOS the parallel Cocoa
+/// element builders live in `tachys::cocoa`; on Linux in
+/// `tachys::gtk`.
+#[cfg(feature = "web")]
 #[doc(inline)]
 pub use tachys::html::element as html;
+// Native element builders + their `view!` wrapper macros live in the
+// per-renderer glue crates: `leptos_cocoa` (macOS), `leptos_ios`
+// (iOS), `leptos_gtk` (Linux). Users `use leptos_<backend>::prelude::*;`
+// to get the right `view!`, element builders, mount entry points,
+// etc.
 /// HTML event types.
+#[cfg(feature = "web")]
 #[doc(no_inline)]
 pub use tachys::html::event as ev;
 /// MathML element types.
+#[cfg(feature = "web")]
 #[doc(inline)]
 pub use tachys::mathml as math;
 /// SVG element types.
+#[cfg(feature = "web")]
 #[doc(inline)]
 pub use tachys::svg;
 

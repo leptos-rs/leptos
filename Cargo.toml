@@ -51,13 +51,13 @@ either_of = { path = "./either_of/", version = "0.1.9" }
 hydration_context = { path = "./hydration_context", version = "0.3.0" }
 leptos = { path = "./leptos", version = "0.8.19" }
 leptos_config = { path = "./leptos_config", version = "0.8.10" }
-leptos_dom = { path = "./leptos_dom", version = "0.8.8" }
+leptos_dom = { path = "./leptos_dom", version = "0.8.8", default-features = false }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.6" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.8.8" }
 leptos_macro = { path = "./leptos_macro", version = "0.8.16" }
 leptos_router = { path = "./router", version = "0.8.12" }
 leptos_router_macro = { path = "./router_macro", version = "0.8.6" }
-leptos_server = { path = "./leptos_server", version = "0.8.7" }
+leptos_server = { path = "./leptos_server", version = "0.8.7", default-features = false }
 leptos_meta = { path = "./meta", version = "0.8.6" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
@@ -68,7 +68,7 @@ reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.4.2" }
 server_fn = { path = "./server_fn", version = "0.8.12" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.10" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
-tachys = { path = "./tachys", version = "0.2.15" }
+tachys = { path = "./tachys", version = "0.2.15", default-features = false }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5" }

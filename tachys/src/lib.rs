@@ -17,6 +17,7 @@
 
 /// Commonly-used traits.
 pub mod prelude {
+    #[cfg(feature = "web")]
     pub use crate::{
         html::{
             attribute::{
@@ -34,45 +35,86 @@ pub mod prelude {
             element::{ElementChild, ElementExt, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
         },
-        renderer::{dom::Dom, Renderer},
+        renderer::dom::Dom,
+    };
+
+    pub use crate::{
+        renderer::Renderer,
         view::{
             add_attr::AddAnyAttr,
             any_view::{AnyView, IntoAny, IntoMaybeErased},
             IntoRender, Mountable, Render, RenderHtml,
         },
     };
+
+    // Native: re-export the cocoa renderer alias as `Dom` so existing
+    // `use prelude::Dom` sites keep resolving on macOS. Only active
+    // when the `native-ui` feature is enabled (otherwise the cocoa
+    // module isn't compiled).
+    #[cfg(all(target_os = "macos", feature = "native-ui"))]
+    pub use crate::renderer::cocoa::Dom;
+    // Same for iOS — the UIKit renderer alias is also `Dom`.
+    #[cfg(all(target_os = "ios", feature = "native-ui"))]
+    pub use crate::renderer::ios::Dom;
+    // Same for Linux — the GTK renderer alias is also `Dom`.
+    #[cfg(all(target_os = "linux", feature = "native-ui"))]
+    pub use crate::renderer::gtk::Dom;
+
+    #[cfg(feature = "native-ui")]
+    pub use crate::html::attribute::{
+        any_attribute::IntoAnyAttribute, IntoAttributeValue,
+    };
 }
 
+#[cfg(feature = "web")]
 use wasm_bindgen::JsValue;
+#[cfg(feature = "web")]
 use web_sys::Node;
 
-/// Helpers for interacting with the DOM.
+// Per-OS element builder modules (`cocoa`, `ios`, `gtk`) moved to
+// the per-renderer glue crates `leptos_cocoa` / `leptos_ios` /
+// `leptos_gtk` in Phase 5. Tachys keeps only the renderer-protocol
+// adapter in `renderer::{cocoa,ios,gtk}` (used by the `Rndr` type
+// alias for tachys's generic machinery).
+/// Helpers for interacting with the DOM (web only).
+#[cfg(feature = "web")]
 pub mod dom;
 /// Types for building a statically-typed HTML view tree.
 pub mod html;
-/// Supports adding interactivity to HTML.
+/// Supports adding interactivity to HTML. The bulk of this module
+/// is web-only (DOM cursor traversal), but a handful of native-side
+/// stubs and the `Cursor` type are referenced by the trait surface
+/// (`RenderHtml`), so the module compiles unconditionally — its
+/// web-only contents are gated internally on `feature = "web"`.
 pub mod hydration;
-/// Types for MathML.
+/// Types for MathML (web only).
+#[cfg(feature = "web")]
 pub mod mathml;
 /// Defines various backends that can render views.
 pub mod renderer;
-/// Rendering views to HTML.
+/// Rendering views to HTML. The trait surface (`StreamBuilder`,
+/// `RenderHtml::to_html_*`) is referenced unconditionally; web-only
+/// internals are gated on `feature = "web"` within the module.
 pub mod ssr;
-/// Types for SVG.
+/// Types for SVG (web only). Native targets get their `<view>` etc.
+/// element constructors from the per-renderer glue crate's
+/// `view_prelude::__leptos_view::elements` namespace; `tachys::svg`
+/// is unused on native after the Phase 4 macro refactor.
+#[cfg(feature = "web")]
 pub mod svg;
 /// Core logic for manipulating views.
 pub mod view;
 
 pub use either_of as either;
-#[cfg(feature = "islands")]
+#[cfg(all(feature = "islands", feature = "web"))]
 #[doc(hidden)]
 pub use wasm_bindgen;
-#[cfg(feature = "islands")]
+#[cfg(all(feature = "islands", feature = "web"))]
 #[doc(hidden)]
 pub use web_sys;
 
 /// View implementations for the `oco_ref` crate (cheaply-cloned string types).
-#[cfg(feature = "oco")]
+#[cfg(all(feature = "oco", feature = "web"))]
 pub mod oco;
 /// View implementations for the `reactive_graph` crate.
 #[cfg(feature = "reactive_graph")]
@@ -81,6 +123,7 @@ pub mod reactive_graph;
 /// A type-erased container.
 pub mod erased;
 
+#[cfg(feature = "web")]
 pub(crate) trait UnwrapOrDebug {
     type Output;
 
@@ -93,6 +136,7 @@ pub(crate) trait UnwrapOrDebug {
     ) -> Option<Self::Output>;
 }
 
+#[cfg(feature = "web")]
 impl<T> UnwrapOrDebug for Result<T, JsValue> {
     type Output = T;
 

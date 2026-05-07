@@ -399,7 +399,7 @@ fn inert_element_to_tokens(
     html.finish();
 
     quote! {
-        ::leptos::tachys::html::InertElement::new(#html)
+        __leptos_view::elements::InertElement::new(#html)
     }
 }
 
@@ -513,7 +513,7 @@ fn inert_svg_element_to_tokens(
     html.finish();
 
     quote! {
-        ::leptos::tachys::svg::InertElement::new(#html)
+        __leptos_view::elements::InertElement::new(#html)
     }
 }
 
@@ -688,7 +688,7 @@ fn node_to_tokens(
         Node::Comment(_) => None,
         Node::Doctype(node) => {
             let value = node.value.to_string_best();
-            Some(quote! { ::leptos::tachys::html::doctype(#value) })
+            Some(quote! { __leptos_view::elements::doctype(#value) })
         }
         Node::Fragment(fragment) => fragment_to_tokens(
             &mut fragment.children,
@@ -922,12 +922,20 @@ pub(crate) fn element_to_tokens(
         /* TODO restore this
         let mut ide_helper_close_tag = IdeTagHelper::new();
         let close_tag = node.close_tag.as_ref().map(|c| &c.name);*/
+        // Tag emission routes through the per-renderer
+        // `__leptos_view::elements` namespace. Users bring it in via
+        // `use leptos::view_prelude::*;` (web) or
+        // `use leptos_<backend>::view_prelude::*;` (native). The
+        // macro no longer hard-codes `tachys::html::element::*` /
+        // `tachys::svg::*` / `tachys::mathml::*` — every tag goes
+        // through one configurable path, so a renderer can opt out
+        // of SVG/MathML simply by not exposing those names.
         let is_custom = is_custom_element(&tag);
         let name = if is_custom {
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
-            quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#custom(#name) }
+            quote_spanned! { node.name().span() => __leptos_view::elements::#custom(#name) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
             let name = if tag == "use" || tag == "use_" {
@@ -935,33 +943,25 @@ pub(crate) fn element_to_tokens(
             } else {
                 name.to_token_stream()
             };
-            quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
+            quote_spanned! { node.name().span() => __leptos_view::elements::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
-            quote_spanned! { node.name().span() => ::leptos::tachys::mathml::#name() }
+            quote_spanned! { node.name().span() => __leptos_view::elements::#name() }
         } else if is_ambiguous_element(&tag) {
+            // Track parent context for downstream attribute/event
+            // dispatch, but the actual element constructor path is
+            // the same in every branch.
             match parent_type {
-                TagType::Unknown => {
-                    // We decided this warning was too aggressive, but I'll leave it here in case we want it later
-                    /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
-                    but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
-                    quote_spanned! { node.name().span() =>
-                        ::leptos::tachys::html::element::#name()
-                    }
+                TagType::Unknown | TagType::Html => {
+                    quote_spanned! { node.name().span() => __leptos_view::elements::#name() }
                 }
-                TagType::Html => {
-                    quote_spanned! { node.name().span() => ::leptos::tachys::html::element::#name() }
-                }
-                TagType::Svg => {
-                    quote_spanned! { node.name().span() => ::leptos::tachys::svg::#name() }
-                }
-                TagType::Math => {
-                    quote_spanned! { node.name().span() => ::leptos::tachys::math::#name() }
+                TagType::Svg | TagType::Math => {
+                    quote_spanned! { node.name().span() => __leptos_view::elements::#name() }
                 }
             }
         } else {
             parent_type = TagType::Html;
-            quote_spanned! { name.span() => ::leptos::tachys::html::element::#name() }
+            quote_spanned! { name.span() => __leptos_view::elements::#name() }
         };
 
         /* TODO restore this
@@ -1195,7 +1195,7 @@ pub(crate) fn attribute_absolute(
                             let key_name = key.to_string();
                             if key_name == "class" || key_name == "style" {
                                 Some(
-                                    quote! { ::leptos::tachys::html::#key::#key(#value) },
+                                    quote! { __leptos_view::attrs::#key(#value) },
                                 )
                             } else if key_name == "aria" {
                                 let value = attribute_value(node, true);
@@ -1204,7 +1204,7 @@ pub(crate) fn attribute_absolute(
                                 let fn_name = parts_iter.map(|p| p.to_string()).collect::<Vec<String>>().join("_");
                                 let key = Ident::new(&fn_name, key.span());
                                 Some(
-                                    quote! { ::leptos::tachys::html::attribute::#key(#value) },
+                                    quote! { __leptos_view::attrs::#key(#value) },
                                 )
                             } else if multipart {
                                 // e.g., attr:data-foo="bar"
@@ -1213,11 +1213,11 @@ pub(crate) fn attribute_absolute(
                                     End(n) => n.to_string(),
                                 }).collect::<String>();
                                 Some(
-                                    quote! { ::leptos::tachys::html::attribute::custom::custom_attribute(#key_name, #value) },
+                                    quote! { __leptos_view::attrs::custom_attribute(#key_name, #value) },
                                 )
                             } else {
                                 Some(
-                                    quote! { ::leptos::tachys::html::attribute::#key(#value) },
+                                    quote! { __leptos_view::attrs::#key(#value) },
                                 )
                             }
                         } else if id == "use" {
@@ -1229,7 +1229,7 @@ pub(crate) fn attribute_absolute(
                             };
                             Some(
                                 quote! {
-                                    ::leptos::tachys::html::directive::directive(
+                                    __leptos_view::attrs::directive(
                                         #key,
                                         #[allow(clippy::useless_conversion)] #param
                                     )
@@ -1242,14 +1242,14 @@ pub(crate) fn attribute_absolute(
                                 .replacen("style:", "", 1)
                                 .replacen("class:", "", 1);
                             Some(
-                                quote! { ::leptos::tachys::html::#id::#id((#key, #value)) },
+                                quote! { __leptos_view::attrs::#id((#key, #value)) },
                             )
                         } else if id == "prop" {
                             let value = attribute_value(node, false);
                             let key = &node.key.to_string();
                             let key = key.replacen("prop:", "", 1);
                             Some(
-                                quote! { ::leptos::tachys::html::property::#id(#key, #value) },
+                                quote! { __leptos_view::attrs::prop(#key, #value) },
                             )
                         } else if id == "on" {
                             let key = &node.key.to_string();
@@ -1257,7 +1257,7 @@ pub(crate) fn attribute_absolute(
                             let (on, ty, handler) =
                                 event_type_and_handler(&key, node);
                             Some(
-                                quote! { ::leptos::tachys::html::event::#on(#ty, #handler) },
+                                quote! { __leptos_view::events::on(#ty, #handler) },
                             )
                         } else {
                             proc_macro_error2::abort!(
@@ -1281,22 +1281,22 @@ pub(crate) fn attribute_absolute(
             let name = &node.key.to_string();
             if name == "class" || name == "style" {
                 quote! {
-                    ::leptos::tachys::html::#key::#key(#value)
+                    __leptos_view::attrs::#key(#value)
                 }
             }
             else if name.contains('-') && !name.starts_with("aria-") {
                 quote! {
-                    ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)
+                    __leptos_view::attrs::custom_attribute(#name, #value)
                 }
             }
             else if name == "node_ref" {
                 quote! {
-                    ::leptos::tachys::html::node_ref::#key(#value)
+                    __leptos_view::attrs::node_ref(#value)
                 }
             }
             else {
                 quote! {
-                    ::leptos::tachys::html::attribute::#key(#value)
+                    __leptos_view::attrs::#key(#value)
                 }
             }
         }),
@@ -1312,14 +1312,8 @@ pub(crate) fn two_way_binding_to_tokens(
     let ident =
         format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
 
-    if name == "group" {
-        quote! {
-            .bind(leptos::tachys::reactive_graph::bind::#ident, #value)
-        }
-    } else {
-        quote! {
-            .bind(::leptos::attr::#ident, #value)
-        }
+    quote! {
+        .bind(__leptos_view::bind::#ident, #value)
     }
 }
 
@@ -1382,7 +1376,7 @@ pub(crate) fn event_type_and_handler(
     };
 
     let event_type = quote! {
-        ::leptos::tachys::html::event::#event_type
+        __leptos_view::events::#event_type
     };
     let event_type = if options.captured {
         let capture = if let Some(capture) = capture_ident {
@@ -1390,7 +1384,7 @@ pub(crate) fn event_type_and_handler(
         } else {
             quote! { capture }
         };
-        quote! { ::leptos::tachys::html::event::#capture(#event_type) }
+        quote! { __leptos_view::events::#capture(#event_type) }
     } else {
         event_type
     };
@@ -1401,7 +1395,7 @@ pub(crate) fn event_type_and_handler(
         } else {
             quote! { undelegated }
         };
-        quote! { ::leptos::tachys::html::event::#undelegated(#event_type) }
+        quote! { __leptos_view::events::#undelegated(#event_type) }
     } else {
         event_type
     };

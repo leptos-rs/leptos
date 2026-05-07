@@ -1,9 +1,29 @@
-use crate::view::{Mountable, ToTemplate};
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use crate::view::Mountable;
+#[cfg(feature = "web")]
+use crate::view::ToTemplate;
+#[cfg(feature = "web")]
+use std::borrow::Cow;
+use std::{fmt::Debug, marker::PhantomData};
+#[cfg(feature = "web")]
 use wasm_bindgen::JsValue;
 
-/// A DOM renderer.
+/// A DOM renderer (web target).
+#[cfg(feature = "web")]
 pub mod dom;
+
+/// A Cocoa/AppKit renderer (macOS target). Requires the `native-ui`
+/// feature; otherwise tachys uses the web renderer even on macOS.
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+pub mod cocoa;
+
+/// A UIKit renderer (iOS target). Requires the `native-ui` feature.
+#[cfg(all(target_os = "ios", feature = "native-ui"))]
+pub mod ios;
+
+/// A GTK4 renderer (Linux target). Requires the `native-ui` feature;
+/// otherwise tachys uses the web renderer even on Linux.
+#[cfg(all(target_os = "linux", feature = "native-ui"))]
+pub mod gtk;
 
 /// The renderer being used for the application.
 ///
@@ -17,13 +37,39 @@ pub mod dom;
 /// future, so to the extent possible the rest of the crate tries to stick to using
 /// [`Renderer`].
 /// methods rather than directly manipulating the DOM inline.
+#[cfg(feature = "web")]
 pub type Rndr = dom::Dom;
+/// Renderer alias for the macOS target — points at the Cocoa/AppKit backend.
+#[cfg(all(target_os = "macos", feature = "native-ui"))]
+pub type Rndr = cocoa::Dom;
+/// Renderer alias for the iOS target — points at the UIKit backend.
+#[cfg(all(target_os = "ios", feature = "native-ui"))]
+pub type Rndr = ios::Dom;
+/// Renderer alias for the Linux target — points at the GTK4 backend.
+#[cfg(all(target_os = "linux", feature = "native-ui"))]
+pub type Rndr = gtk::Dom;
 
 /// Types used by the renderer.
 ///
 /// See [`Rndr`] for additional information on this rendering approach.
 pub mod types {
+    #[cfg(feature = "web")]
     pub use super::dom::{
+        ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,
+        TemplateElement, Text,
+    };
+    #[cfg(all(target_os = "macos", feature = "native-ui"))]
+    pub use super::cocoa::{
+        ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,
+        TemplateElement, Text,
+    };
+    #[cfg(all(target_os = "linux", feature = "native-ui"))]
+    pub use super::gtk::{
+        ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,
+        TemplateElement, Text,
+    };
+    #[cfg(all(target_os = "ios", feature = "native-ui"))]
+    pub use super::ios::{
         ClassList, CssStyleDeclaration, Element, Event, Node, Placeholder,
         TemplateElement, Text,
     };
@@ -128,6 +174,9 @@ pub struct RemoveEventHandler<T>(
     PhantomData<fn() -> T>,
 );
 
+// `new` and `into_inner` are only used by the web renderer; on
+// native we never construct or unwrap a RemoveEventHandler this way.
+#[cfg(feature = "web")]
 impl<T> RemoveEventHandler<T> {
     /// Creates a new container with a function that will be called when it is dropped.
     pub(crate) fn new(remove: impl FnOnce() + Send + Sync + 'static) -> Self {
@@ -151,6 +200,12 @@ impl<T> Drop for RemoveEventHandler<T> {
 }
 
 /// Additional rendering behavior that applies only to DOM nodes.
+///
+/// This trait is web-only: it bakes in `JsValue` and other browser-DOM
+/// concepts that have no native counterpart. On macOS we cfg it out
+/// entirely; the renderer-specific behaviour we still need (events,
+/// styles) lives directly on `cocoa::Dom` as inherent methods.
+#[cfg(feature = "web")]
 pub trait DomRenderer: Renderer {
     /// Generic event type, from which any specific event can be converted.
     type Event;

@@ -148,7 +148,7 @@ where
     }
 }
 
-/// Automatically turns a server [MultiAction](MultiAction) into an HTML
+/// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[component]
