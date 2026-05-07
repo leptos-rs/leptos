@@ -241,6 +241,21 @@ impl LeptosOptions {
             server_fn_mod_path: env_wo_default("SERVER_FN_MOD_PATH")?.is_some(),
         })
     }
+
+    /// Returns the path to the generated CSS file.
+    ///
+    /// # Example
+    /// ```
+    /// let path = leptos_options.css_file_path();
+    /// println!("{}", path);
+    /// ```
+    pub fn css_path(&self) -> PathBuf {
+        let mut path = PathBuf::new();
+        path.push(&*self.site_pkg_dir);
+        let file_name = format!("{}.css", self.output_name);
+        path.push(file_name);
+        path
+    }
 }
 
 fn default_site_root() -> Arc<str> {
