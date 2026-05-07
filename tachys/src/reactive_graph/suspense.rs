@@ -140,6 +140,12 @@ where
     T: Render,
 {
     inner: Rc<RefCell<OptionState<T>>>,
+    // The `AbortHandle` of the in-flight rebuild future, if any. Tracked so
+    // that a subsequent `rebuild` call can cancel the prior future before
+    // spawning a new one. Without this, two futures can race for
+    // `inner.borrow_mut()` and the loser panics with
+    // "RefCell already borrowed".
+    abort: Option<AbortHandle>,
 }
 
 impl<T> Mountable for SuspendState<T>
@@ -181,7 +187,10 @@ where
         // await, if they have already been cleaned up
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let mut fut = Box::pin(Abortable::new(inner, abort_registration));
-        on_cleanup(move || abort_handle.abort());
+        on_cleanup({
+            let abort_handle = abort_handle.clone();
+            move || abort_handle.abort()
+        });
 
         // poll the future once immediately
         // if it's already available, start in the ready state
@@ -197,7 +206,7 @@ where
         // if the initial state was pending, spawn a future to wait for it
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
-        if initially_pending {
+        let abort = if initially_pending {
             reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
                 async move {
@@ -209,26 +218,43 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value).rebuild(&mut *state.borrow_mut());
+                        // try_borrow_mut: if a newer rebuild has already
+                        // taken the borrow, drop our stale value rather
+                        // than panicking. The newer rebuild produces the
+                        // up-to-date view.
+                        if let Ok(mut s) = state.try_borrow_mut() {
+                            Some(value).rebuild(&mut s);
+                        }
                     }
 
                     subscriber.forward();
                 }
             });
+            Some(abort_handle)
         } else {
             subscriber.forward();
-        }
+            None
+        };
 
-        SuspendState { inner }
+        SuspendState { inner, abort }
     }
 
     fn rebuild(self, state: &mut Self::State) {
         let Self { subscriber, inner } = self;
 
+        // Cancel any in-flight rebuild future. Without this, the prior
+        // future continues running and eventually calls
+        // `state.borrow_mut()`, racing the new future for the same borrow
+        // and panicking with "RefCell already borrowed".
+        if let Some(prev) = state.abort.take() {
+            prev.abort();
+        }
+
         // create a Future that will be aborted on on_cleanup
         // this prevents trying to access signals or other resources inside the Suspend, after the
         // await, if they have already been cleaned up
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        state.abort = Some(abort_handle.clone());
         let fut = Abortable::new(inner, abort_registration);
         on_cleanup(move || abort_handle.abort());
 
@@ -252,7 +278,12 @@ where
                 // has no parent
                 Executor::tick().await;
                 if let Ok(value) = value {
-                    Some(value).rebuild(&mut *state.borrow_mut());
+                    // try_borrow_mut defends against any remaining ordering
+                    // edge around `Executor::tick`. If a newer rebuild has
+                    // already grabbed the borrow, drop the stale value.
+                    if let Ok(mut s) = state.try_borrow_mut() {
+                        Some(value).rebuild(&mut s);
+                    }
                 }
 
                 subscriber.forward();
@@ -406,7 +437,10 @@ where
         // await, if they have already been cleaned up
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let mut fut = Box::pin(Abortable::new(inner, abort_registration));
-        on_cleanup(move || abort_handle.abort());
+        on_cleanup({
+            let abort_handle = abort_handle.clone();
+            move || abort_handle.abort()
+        });
 
         // poll the future once immediately
         // if it's already available, start in the ready state
@@ -424,7 +458,7 @@ where
         // if the initial state was pending, spawn a future to wait for it
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
-        if initially_pending {
+        let abort = if initially_pending {
             reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
                 async move {
@@ -436,17 +470,22 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value).rebuild(&mut *state.borrow_mut());
+                        // try_borrow_mut: see comment in `build`.
+                        if let Ok(mut s) = state.try_borrow_mut() {
+                            Some(value).rebuild(&mut s);
+                        }
                     }
 
                     subscriber.forward();
                 }
             });
+            Some(abort_handle)
         } else {
             subscriber.forward();
-        }
+            None
+        };
 
-        SuspendState { inner }
+        SuspendState { inner, abort }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
