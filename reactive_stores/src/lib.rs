@@ -493,10 +493,20 @@ impl KeyMap {
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
+        // We must call `initialize()` *outside* the write lock below,
+        // because nested keyed subfields can recursively re-enter this map:
+        // initializing a child path may call `latest_keys()` on a parent
+        // keyed field, whose `AtKeyed::reader` calls `resolve_index`, which
+        // itself calls `with_field_keys` and would attempt to acquire the
+        // same write lock — aborting in single-threaded environments and
+        // deadlocking in multi-threaded ones.
+        let needs_init = !self.0.read().or_poisoned().contains_key(&path);
+        let mut initial = needs_init.then(initialize);
+
         let mut guard = self.0.write().or_poisoned();
-        let entry = guard
-            .entry(path.clone())
-            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+        let entry = guard.entry(path.clone()).or_insert_with(|| {
+            Box::new(FieldKeys::new(initial.take().unwrap_or_default()))
+        });
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
         let (result, new_keys) = fun(entry);
