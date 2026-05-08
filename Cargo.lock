@@ -2126,7 +2126,6 @@ name = "leptos_config"
 version = "0.8.10"
 dependencies = [
  "config",
- "regex",
  "serde",
  "temp-env",
  "tempfile",
