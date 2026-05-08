@@ -14,7 +14,6 @@ config = { default-features = false, features = [
   "toml",
   "convert-case",
 ], workspace = true }
-regex = { workspace = true, default-features = true }
 serde = { features = [
   "derive",
   "rc",
