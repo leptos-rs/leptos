@@ -72,7 +72,7 @@ where
     let from = from.into_iter().collect::<Vec<_>>();
     let to = to.into_iter().collect::<Vec<_>>();
 
-    let (list, set_list) = create_signal(from.clone());
+    let (list, set_list) = signal(from.clone());
     request_animation_frame({
         let to = to.clone();
         let then = then.clone();
@@ -121,7 +121,7 @@ where
 }
 
 // fn view_fn(cx: Scope) -> impl IntoView {
-//     let (should_show_a, sett_should_show_a) = create_signal(cx, true);
+//     let (should_show_a, sett_should_show_a) = signal(cx, true);
 
 //     let a = vec![2];
 //     let b = vec![1, 2, 3];
