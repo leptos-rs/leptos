@@ -64,6 +64,12 @@ generic = ["server_fn_macro/generic"]
 # This is automatic as long as the leptos crate is depended upon,
 # downstream usage should never manually enable this feature.
 __internal_erase_components = []
+# Companion to `__internal_erase_components`, propagated from `--cfg box_closures` via
+# the `leptos` crate's `target.cfg(box_closures)` dependency entry. Makes the
+# `view!` macro wrap reactive child closures in the non-generic
+# `SharedReactiveFunction<_>` so downstream `Render`/`Effect` machinery
+# monomorphizes per output type rather than per closure type.
+__internal_box_closures = []
 
 [package.metadata.cargo-all-features]
 denylist = ["tracing", "trace-component-props", "trace-components"]
