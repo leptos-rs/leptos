@@ -1,5 +1,7 @@
 //! Provides a builder and implementation for wholesale configuration of [`axum::Router`].
 
+#[cfg(feature = "embed")]
+use crate::service::EmbededSiteRoot;
 use crate::{
     ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
 };
@@ -45,8 +47,8 @@ enum ResourceMode {
     #[cfg(feature = "default")]
     Filesystem,
     /// Build the compiled site pkg dir into the server binary.
-    #[cfg(feature = "default")]
-    BuiltIn,
+    #[cfg(feature = "embed")]
+    Embed,
 }
 
 /// The possible modes for serving of the assets for a [`RouterConfiguration`].
@@ -69,8 +71,9 @@ enum AssetMode {
 enum Site {
     #[cfg(feature = "default")]
     Filesystem(Cow<'static, str>),
-    #[cfg(feature = "default")]
-    BuiltIn(Cow<'static, str>),
+    /// Build the compiled site pkg dir into the server binary.
+    #[cfg(feature = "embed")]
+    Embed(Cow<'static, str>),
 }
 
 /// A configuration builder that simplifies the set up of a Leptos application onto an Axum router.
@@ -89,7 +92,6 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     site_pkg_mode: ResourceMode,
     favicon_mode: ResourceMode,
     serve_asset: AssetMode,
-    // TODO favicon embed?
     error_handler: bool,
 }
 
@@ -320,12 +322,12 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 
     /// Compile the files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` found during compile
-    /// time.  At runtime the routes will be created to serve these builtin files.
+    /// time.  At runtime the routes will be created to serve these embed files.
     ///
     /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
-    #[cfg(feature = "default")]
-    pub fn enable_builtin_site_pkg(self) -> Self {
-        self.site_pkg_mode(ResourceMode::BuiltIn)
+    #[cfg(feature = "embed")]
+    pub fn enable_embed_site_pkg(self) -> Self {
+        self.site_pkg_mode(ResourceMode::Embed)
     }
 
     /// Disables the routing of `LEPTOS_SITE_PKG` files.
@@ -346,9 +348,9 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 
     /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` by building it into the target binary.
-    #[cfg(feature = "default")]
-    pub fn enable_builtin_favicon(self) -> Self {
-        self.favicon_mode(ResourceMode::BuiltIn)
+    #[cfg(feature = "embed")]
+    pub fn enable_embed_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::Embed)
     }
 
     /// Disables the routing of `favicon.ico`
@@ -411,10 +413,10 @@ where
                         site_pkg_dir_service_route_path(&leptos_options).into(),
                     ))
                 }
-                #[cfg(feature = "default")]
-                ResourceMode::BuiltIn => {
-                    todo!()
-                }
+                #[cfg(feature = "embed")]
+                ResourceMode::Embed => site_pkg_routes.push(Site::Embed(
+                    site_pkg_dir_service_route_path(&leptos_options).into(),
+                )),
             };
 
             match self.favicon_mode {
@@ -422,9 +424,9 @@ where
                 #[cfg(feature = "default")]
                 ResourceMode::Filesystem => site_pkg_routes
                     .push(Site::Filesystem("/favicon.ico".into())),
-                #[cfg(feature = "default")]
-                ResourceMode::BuiltIn => {
-                    todo!()
+                #[cfg(feature = "embed")]
+                ResourceMode::Embed => {
+                    site_pkg_routes.push(Site::Embed("/favicon.ico".into()))
                 }
             };
 
@@ -458,9 +460,22 @@ where
                             )
                         }
                     }
-                    #[cfg(feature = "default")]
-                    Site::BuiltIn(..) => {
-                        todo!()
+                    #[cfg(feature = "embed")]
+                    Site::Embed(path) => {
+                        let serve_dir = EmbededSiteRoot::new();
+                        if let Some(error_handler) = error_handler.clone() {
+                            router.route_service(
+                                &path,
+                                builder.service(
+                                    serve_dir.clone().fallback(error_handler),
+                                ),
+                            )
+                        } else {
+                            router.route_service(
+                                &path,
+                                builder.service(serve_dir.clone()),
+                            )
+                        }
                     }
                 })
         };
