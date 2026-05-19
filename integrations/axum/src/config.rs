@@ -2,15 +2,16 @@
 
 #[cfg(feature = "embed")]
 use crate::service::EmbededSiteRoot;
-use crate::{
-    ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
-};
+use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
 #[cfg(feature = "default")]
-use crate::{site_pkg_dir_service, site_pkg_dir_service_route_path};
+use crate::{
+    LeptosContextLayer, site_pkg_dir_service, site_pkg_dir_service_route_path,
+};
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
 #[cfg(feature = "default")]
 use std::borrow::Cow;
+#[cfg(feature = "default")]
 use tower::builder::ServiceBuilder;
 
 pub(crate) mod traits {
@@ -68,6 +69,7 @@ enum AssetMode {
     ServeDir(Cow<'static, str>),
 }
 
+#[cfg(any(feature = "default", feature = "embed"))]
 enum Site {
     #[cfg(feature = "default")]
     Filesystem(Cow<'static, str>),
@@ -401,9 +403,12 @@ where
             )
         });
 
+        #[cfg(any(feature = "default", feature = "embed"))]
+        let leptos_options = LeptosOptions::from_ref(&state);
+
+        #[cfg(any(feature = "default", feature = "embed"))]
         let router = 'router: {
             let mut site_pkg_routes = Vec::new();
-            let leptos_options = LeptosOptions::from_ref(&state);
 
             match self.site_pkg_mode {
                 ResourceMode::Disable => (),
@@ -480,14 +485,14 @@ where
                 })
         };
 
+        // While the one set up for `site_pkg_mode` may be used, it might not be configured and so
+        // reusing that clone may be problematic; much easier to create one just for here; maybe refactor
+        // this later when implementation is more settled.
+        #[cfg(feature = "default")]
+        let builder = ServiceBuilder::new()
+            .option_layer(extra_cx.map(LeptosContextLayer::new_with_context));
+
         let router = if let Some(error_handler) = error_handler {
-            let leptos_options = LeptosOptions::from_ref(&state);
-            // While the one set up for `site_pkg_mode` may be used, it might not be configured and so
-            // reusing that clone may be problematic; much easier to create one just for here; maybe refactor
-            // this later when implementation is more settled.
-            let builder = ServiceBuilder::new().option_layer(
-                extra_cx.map(LeptosContextLayer::new_with_context),
-            );
             match self.serve_asset {
                 #[cfg(feature = "default")]
                 AssetMode::ServeDir(path) if path == "/" => router
@@ -513,10 +518,6 @@ where
                 AssetMode::Disable => router.fallback_service(error_handler),
             }
         } else {
-            let leptos_options = LeptosOptions::from_ref(&state);
-            let builder = ServiceBuilder::new().option_layer(
-                extra_cx.map(LeptosContextLayer::new_with_context),
-            );
             match self.serve_asset {
                 #[cfg(feature = "default")]
                 AssetMode::ServeDir(path) if path == "/" => router
