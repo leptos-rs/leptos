@@ -320,9 +320,10 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev_cleanup) = state;
         if let Some(prev) = prev_cleanup.take()
-            && let Some(remove) = prev.into_inner() {
-                remove();
-            }
+            && let Some(remove) = prev.into_inner()
+        {
+            remove();
+        }
         *prev_cleanup = Some(if E::CAPTURE {
             self.attach_capture(el)
         } else {

@@ -256,21 +256,22 @@ where
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>()
-            && self.value.read().or_poisoned().is_none() {
-                let handle = suspense_context.task_id();
-                let mut ready =
-                    Box::pin(SpecialNonReactiveFuture::new(self.ready()));
-                match ready.as_mut().now_or_never() {
-                    Some(_) => drop(handle),
-                    None => {
-                        reactive_graph::spawn(async move {
-                            ready.await;
-                            drop(handle);
-                        });
-                    }
+            && self.value.read().or_poisoned().is_none()
+        {
+            let handle = suspense_context.task_id();
+            let mut ready =
+                Box::pin(SpecialNonReactiveFuture::new(self.ready()));
+            match ready.as_mut().now_or_never() {
+                Some(_) => drop(handle),
+                None => {
+                    reactive_graph::spawn(async move {
+                        ready.await;
+                        drop(handle);
+                    });
                 }
-                self.suspenses.write().or_poisoned().push(suspense_context);
             }
+            self.suspenses.write().or_poisoned().push(suspense_context);
+        }
         Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
 }

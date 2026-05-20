@@ -81,20 +81,21 @@ pub fn HydrationScripts(
             for line in hashes.lines() {
                 let line = line.trim();
                 if !line.is_empty()
-                    && let Some((file, hash)) = line.split_once(':') {
-                        if file == "manifest" {
-                            manifest.clear();
-                            manifest.push_str("__wasm_split_manifest.");
-                            manifest.push_str(hash.trim());
-                            manifest.push_str(".json");
-                        }
-                        if file == "split" {
-                            split.clear();
-                            split.push_str("__wasm_split.");
-                            split.push_str(hash.trim());
-                            split.push_str(".js");
-                        }
+                    && let Some((file, hash)) = line.split_once(':')
+                {
+                    if file == "manifest" {
+                        manifest.clear();
+                        manifest.push_str("__wasm_split_manifest.");
+                        manifest.push_str(hash.trim());
+                        manifest.push_str(".json");
                     }
+                    if file == "split" {
+                        split.clear();
+                        split.push_str("__wasm_split.");
+                        split.push_str(hash.trim());
+                        split.push_str(".js");
+                    }
+                }
             }
             (split, manifest)
         } else {
@@ -136,14 +137,14 @@ pub fn HydrationScripts(
             for line in hashes.lines() {
                 let line = line.trim();
                 if !line.is_empty()
-                    && let Some((file, hash)) = line.split_once(':') {
-                        if file == "js" {
-                            js_file_name.push_str(&format!(".{}", hash.trim()));
-                        } else if file == "wasm" {
-                            wasm_file_name
-                                .push_str(&format!(".{}", hash.trim()));
-                        }
+                    && let Some((file, hash)) = line.split_once(':')
+                {
+                    if file == "js" {
+                        js_file_name.push_str(&format!(".{}", hash.trim()));
+                    } else if file == "wasm" {
+                        wasm_file_name.push_str(&format!(".{}", hash.trim()));
                     }
+                }
             }
         } else {
             leptos::logging::error!(

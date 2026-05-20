@@ -56,10 +56,11 @@ where
             while inner.node_type() == COMMENT_NODE {
                 if let Some(content) = inner.text_content()
                     && (content.starts_with("bo") || content.starts_with("bc"))
-                        && let Some(sibling) = Rndr::next_sibling(&inner) {
-                            *inner = sibling;
-                            continue;
-                        }
+                    && let Some(sibling) = Rndr::next_sibling(&inner)
+                {
+                    *inner = sibling;
+                    continue;
+                }
 
                 break;
             }
@@ -83,10 +84,11 @@ where
             while inner.node_type() == COMMENT_NODE {
                 if let Some(content) = inner.text_content()
                     && (content.starts_with("bo") || content.starts_with("bc"))
-                        && let Some(sibling) = Rndr::next_sibling(&inner) {
-                            *inner = sibling;
-                            continue;
-                        }
+                    && let Some(sibling) = Rndr::next_sibling(&inner)
+                {
+                    *inner = sibling;
+                    continue;
+                }
                 break;
             }
         }

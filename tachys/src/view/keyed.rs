@@ -560,19 +560,20 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             //    * this would happen if, for example, 2 items
             //      have been added before it, and it has moved by 2
             if let Some(from_item) = from_item
-                && let Some(to_item) = to.get_full(from_item) {
-                    let moves_forward_by = (to_item.0 as i32) - (index as i32);
-                    let move_in_dom = moves_forward_by
-                        != (added.len() as i32) - (removed.len() as i32);
+                && let Some(to_item) = to.get_full(from_item)
+            {
+                let moves_forward_by = (to_item.0 as i32) - (index as i32);
+                let move_in_dom = moves_forward_by
+                    != (added.len() as i32) - (removed.len() as i32);
 
-                    let op = DiffOpMove {
-                        from: index,
-                        len: 1,
-                        to: to_item.0,
-                        move_in_dom,
-                    };
-                    moved.push(op);
-                }
+                let op = DiffOpMove {
+                    from: index,
+                    len: 1,
+                    to: to_item.0,
+                    move_in_dom,
+                };
+                moved.push(op);
+            }
         }
     }
 
@@ -790,11 +791,12 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
 
     for i in 0..diff.items_to_move + diff.added.len() + diff.removed.len() {
         if let Some(DiffOpRemove { at, .. }) = removes_next
-            && i == *at {
-                removes_next = removes_iter.next();
+            && i == *at
+        {
+            removes_next = removes_iter.next();
 
-                continue;
-            }
+            continue;
+        }
 
         match (adds_next, &mut moves_next) {
             (Some(add), Some(move_)) => {

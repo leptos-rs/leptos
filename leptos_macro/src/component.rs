@@ -87,24 +87,24 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(feature = "__internal_erase_components")]
     {
         if let ReturnType::Type(_, ty) = ret
-            && let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
-                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
-                if bounds.iter().any(|bound| {
-                    if let syn::TypeParamBound::Trait(trait_bound) = bound
-                        && trait_bound.path.segments.iter().any(
-                            |path_segment| {
-                                path_segment.ident == "MatchNestedRoutes"
-                            },
-                        ) {
-                            return true;
-                        }
-                    false
-                }) {
-                    *ty = parse_quote!(
-                        ::leptos_router::any_nested_route::AnyNestedRoute
-                    );
+            && let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref()
+        {
+            // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+            if bounds.iter().any(|bound| {
+                if let syn::TypeParamBound::Trait(trait_bound) = bound
+                    && trait_bound.path.segments.iter().any(|path_segment| {
+                        path_segment.ident == "MatchNestedRoutes"
+                    })
+                {
+                    return true;
                 }
+                false
+            }) {
+                *ty = parse_quote!(
+                    ::leptos_router::any_nested_route::AnyNestedRoute
+                );
             }
+        }
     }
     #[cfg(not(feature = "__internal_erase_components"))]
     {
@@ -968,9 +968,10 @@ impl UnknownAttrs {
             .iter()
             .filter_map(|attr| {
                 if attr.path().is_ident("doc")
-                    && let Meta::NameValue(_) = &attr.meta {
-                        return None;
-                    }
+                    && let Meta::NameValue(_) = &attr.meta
+                {
+                    return None;
+                }
 
                 if is_lint_attr(attr) {
                     return None;
@@ -1261,15 +1262,16 @@ pub fn unwrap_option(ty: &Type) -> Type {
         ..
     }) = ty
         && let [first] = &segments.iter().collect::<Vec<_>>()[..]
-            && first.ident == "Option"
-                && let PathArguments::AngleBracketed(
-                    AngleBracketedGenericArguments { args, .. },
-                ) = &first.arguments
-                    && let [GenericArgument::Type(ty)] =
-                        &args.iter().collect::<Vec<_>>()[..]
-                    {
-                        return ty.clone();
-                    }
+        && first.ident == "Option"
+        && let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            args,
+            ..
+        }) = &first.arguments
+        && let [GenericArgument::Type(ty)] =
+            &args.iter().collect::<Vec<_>>()[..]
+    {
+        return ty.clone();
+    }
 
     abort!(
         ty,

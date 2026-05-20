@@ -155,9 +155,9 @@ impl Segments {
         if let Some((_last, segments)) = self.0.split_last()
             && let Some(Segment::Wildcard(s)) =
                 segments.iter().find(|s| matches!(s, Segment::Wildcard(_)))
-            {
-                abort!(Span::call_site(), "Wildcard must be at end: {}", s)
-            }
+        {
+            abort!(Span::call_site(), "Wildcard must be at end: {}", s)
+        }
     }
 }
 

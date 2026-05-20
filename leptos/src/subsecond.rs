@@ -39,18 +39,18 @@ pub fn connect_to_hot_patch_messages() {
             if let Ok(DevserverMsg::HotReload(msg)) =
                 serde_json::from_str::<DevserverMsg>(string)
                 && let Some(jump_table) = msg.jump_table.as_ref().cloned()
-                    && msg.for_build_id == Some(dioxus_cli_config::build_id()) {
-                        let our_pid = if cfg!(target_family = "wasm") {
-                            None
-                        } else {
-                            Some(std::process::id())
-                        };
+                && msg.for_build_id == Some(dioxus_cli_config::build_id())
+            {
+                let our_pid = if cfg!(target_family = "wasm") {
+                    None
+                } else {
+                    Some(std::process::id())
+                };
 
-                        if msg.for_pid == our_pid {
-                            unsafe { subsecond::apply_patch(jump_table) }
-                                .unwrap();
-                        }
-                    }
+                if msg.for_pid == our_pid {
+                    unsafe { subsecond::apply_patch(jump_table) }.unwrap();
+                }
+            }
         })
         .into_js_value()
         .as_ref()

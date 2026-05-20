@@ -166,13 +166,13 @@ impl Dom {
             // ignored
             if let Some(node) = node.as_ref()
                 && node.node_type() == 8
-                    && node
-                        .text_content()
-                        .unwrap_or_default()
-                        .starts_with("hot-reload")
-                {
-                    return Self::next_sibling(node);
-                }
+                && node
+                    .text_content()
+                    .unwrap_or_default()
+                    .starts_with("hot-reload")
+            {
+                return Self::next_sibling(node);
+            }
 
             node
         }
@@ -190,13 +190,13 @@ impl Dom {
             // ignored
             if let Some(node) = node.as_ref()
                 && node.node_type() == 8
-                    && node
-                        .text_content()
-                        .unwrap_or_default()
-                        .starts_with("hot-reload")
-                {
-                    return Self::next_sibling(node);
-                }
+                && node
+                    .text_content()
+                    .unwrap_or_default()
+                    .starts_with("hot-reload")
+            {
+                return Self::next_sibling(node);
+            }
 
             node
         }

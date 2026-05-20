@@ -213,9 +213,11 @@ where
         let prev_name = state.name;
         let prev_state = state.effect.take_value();
         if let Some((list, prev_include)) = &prev_state
-            && prev_name != name && *prev_include {
-                Rndr::remove_class(list, prev_name);
-            }
+            && prev_name != name
+            && *prev_include
+        {
+            Rndr::remove_class(list, prev_name);
+        }
 
         // Name might've updated:
         state.name = name;

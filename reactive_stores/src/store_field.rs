@@ -132,7 +132,7 @@ where
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         let triggers = &self.signals;
-        
+
         triggers.write().or_poisoned().get_or_insert(path)
     }
 

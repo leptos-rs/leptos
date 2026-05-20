@@ -361,17 +361,18 @@ fn inert_element_to_tokens(
                                     && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                        && let Lit::Str(txt) = &lit.lit {
-                                            let value = txt.value();
-                                            let value = html_escape::encode_double_quoted_attribute(&value);
-                                            if attr_name == "class" {
-                                                html.push_class(&value);
-                                            } else {
-                                                html.push_str("=\"");
-                                                html.push_str(&value);
-                                                html.push('"');
-                                            }
-                                        };
+                                    && let Lit::Str(txt) = &lit.lit
+                                {
+                                    let value = txt.value();
+                                    let value = html_escape::encode_double_quoted_attribute(&value);
+                                    if attr_name == "class" {
+                                        html.push_class(&value);
+                                    } else {
+                                        html.push_str("=\"");
+                                        html.push_str(&value);
+                                        html.push('"');
+                                    }
+                                };
                             }
                         }
 
@@ -471,17 +472,18 @@ fn inert_svg_element_to_tokens(
                                     && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                        && let Lit::Str(txt) = &lit.lit {
-                                            let value = txt.value();
-                                            let value = html_escape::encode_double_quoted_attribute(&value);
-                                            if attr_name == "class" {
-                                                html.push_class(&value);
-                                            } else {
-                                                html.push_str("=\"");
-                                                html.push_str(&value);
-                                                html.push('"');
-                                            }
-                                        };
+                                    && let Lit::Str(txt) = &lit.lit
+                                {
+                                    let value = txt.value();
+                                    let value = html_escape::encode_double_quoted_attribute(&value);
+                                    if attr_name == "class" {
+                                        html.push_class(&value);
+                                    } else {
+                                        html.push_str("=\"");
+                                        html.push_str(&value);
+                                        html.push('"');
+                                    }
+                                };
                             }
                         }
 
@@ -791,13 +793,15 @@ pub(crate) fn element_to_tokens(
         };
 
         if let NodeAttribute::Attribute(a) = a
-            && let Some(Tuple(_)) = a.value() {
-                return Ordering::Greater;
-            }
+            && let Some(Tuple(_)) = a.value()
+        {
+            return Ordering::Greater;
+        }
         if let NodeAttribute::Attribute(b) = b
-            && let Some(Tuple(_)) = b.value() {
-                return Ordering::Less;
-            }
+            && let Some(Tuple(_)) = b.value()
+        {
+            return Ordering::Less;
+        }
 
         match (key_a.as_deref(), key_b.as_deref()) {
             (Some("class"), Some("class")) | (Some("style"), Some("style")) => {
@@ -1407,26 +1411,24 @@ fn class_to_tokens(
     // case of class=(["foo", "bar"], /* something */)
     // just expands to multiple uses of class:
     if let Some(Tuple(tuple)) = node.value()
-        && tuple.elems.len() == 2 {
-            let name = &tuple.elems[0];
-            let value = &tuple.elems[1];
-            if let Expr::Array(ExprArray { elems, .. }) = name {
-                return elems
-                    .iter()
-                    .map(|elem| match elem {
-                        Expr::Lit(ExprLit {
-                            lit: Lit::Str(s), ..
-                        }) => quote! {
-                            .#class((#s, #value))
-                        },
-                        _ => proc_macro_error2::abort!(
-                            elem.span(),
-                            "invalid name"
-                        ),
-                    })
-                    .collect();
-            }
+        && tuple.elems.len() == 2
+    {
+        let name = &tuple.elems[0];
+        let value = &tuple.elems[1];
+        if let Expr::Array(ExprArray { elems, .. }) = name {
+            return elems
+                .iter()
+                .map(|elem| match elem {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) => quote! {
+                        .#class((#s, #value))
+                    },
+                    _ => proc_macro_error2::abort!(elem.span(), "invalid name"),
+                })
+                .collect();
         }
+    }
 
     // default case
     let value = attribute_value(node, false);
@@ -1639,11 +1641,12 @@ fn attribute_value(
             KVAttributeValue::Expr(expr) => {
                 if let Expr::Lit(lit) = expr
                     && cfg!(all(feature = "nightly", rustc_nightly))
-                        && let Lit::Str(str) = &lit.lit {
-                            return quote! {
-                                ::leptos::tachys::view::static_types::Static::<#str>
-                            };
-                        }
+                    && let Lit::Str(str) = &lit.lit
+                {
+                    return quote! {
+                        ::leptos::tachys::view::static_types::Static::<#str>
+                    };
+                }
 
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
                     quote! {
@@ -1904,37 +1907,36 @@ pub(crate) fn directive_call_from_attribute_node(
 
 fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
     if (name == "style" || name == "class")
-        && let Some(Tuple(tuple)) = node.value() {
-            {
-                if tuple.elems.len() == 2 {
-                    let style_name = &tuple.elems[0];
-                    if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s), ..
-                    }) = style_name
-                    {
-                        return TupleName::Str(s.value());
-                    } else if let Expr::Array(ExprArray { elems, .. }) =
-                        style_name
-                    {
-                        return TupleName::Array(
-                            elems
-                                .iter()
-                                .filter_map(|elem| match elem {
-                                    Expr::Lit(ExprLit {
-                                        lit: Lit::Str(s),
-                                        ..
-                                    }) => Some(s.value()),
-                                    _ => proc_macro_error2::abort!(
-                                        elem.span(),
-                                        "invalid name"
-                                    ),
-                                })
-                                .collect(),
-                        );
-                    }
+        && let Some(Tuple(tuple)) = node.value()
+    {
+        {
+            if tuple.elems.len() == 2 {
+                let style_name = &tuple.elems[0];
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s), ..
+                }) = style_name
+                {
+                    return TupleName::Str(s.value());
+                } else if let Expr::Array(ExprArray { elems, .. }) = style_name
+                {
+                    return TupleName::Array(
+                        elems
+                            .iter()
+                            .filter_map(|elem| match elem {
+                                Expr::Lit(ExprLit {
+                                    lit: Lit::Str(s), ..
+                                }) => Some(s.value()),
+                                _ => proc_macro_error2::abort!(
+                                    elem.span(),
+                                    "invalid name"
+                                ),
+                            })
+                            .collect(),
+                    );
                 }
             }
         }
+    }
 
     TupleName::None
 }
