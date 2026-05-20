@@ -811,11 +811,22 @@ pub trait FormatType {
     const FORMAT_TYPE: Format;
 
     /// Encodes data into a string.
+    ///
+    /// For [`Format::Text`], any bytes that are not valid UTF-8 are replaced
+    /// with the Unicode replacement character (`U+FFFD`) rather than panicking.
+    /// A well-behaved [`Encodes`] implementation for a text format should
+    /// produce valid UTF-8; the lossy fallback exists so that error-reporting
+    /// paths (e.g. [`ServerFnErrorWrapper`](crate::error::ServerFnErrorWrapper))
+    /// cannot themselves panic when given malformed bytes.
     fn into_encoded_string(bytes: Bytes) -> String {
         match Self::FORMAT_TYPE {
             Format::Binary => STANDARD_NO_PAD.encode(bytes),
-            Format::Text => String::from_utf8(bytes.into())
-                .expect("Valid text format type with utf-8 comptabile string"),
+            Format::Text => {
+                let vec: Vec<u8> = bytes.into();
+                String::from_utf8(vec).unwrap_or_else(|e| {
+                    String::from_utf8_lossy(e.as_bytes()).into_owned()
+                })
+            }
         }
     }
 
@@ -1330,6 +1341,78 @@ mod tests {
         assert_eq!(
             deserialized.unwrap_err(),
             Bytes::from_static(b"error details")
+        );
+    }
+
+    #[test]
+    fn into_encoded_string_text_passes_valid_utf8_through() {
+        let bytes = Bytes::from_static("hello — world".as_bytes());
+        let out = <JsonEncoding as FormatType>::into_encoded_string(bytes);
+        assert_eq!(out, "hello — world");
+    }
+
+    #[test]
+    fn into_encoded_string_text_does_not_panic_on_invalid_utf8() {
+        // 0xFF / 0xFE are never valid UTF-8 start bytes.
+        let bytes = Bytes::from_static(&[0xFFu8, 0xFE, b'a']);
+        let out = <JsonEncoding as FormatType>::into_encoded_string(bytes);
+        // The Unicode replacement character must appear; the valid trailing
+        // byte must be preserved.
+        assert!(
+            out.contains('\u{FFFD}'),
+            "expected replacement char in {out:?}"
+        );
+        assert!(out.ends_with('a'), "expected 'a' preserved in {out:?}");
+    }
+
+    /// A `Format::Text` encoder that intentionally emits non-UTF-8 bytes.
+    /// This is the "fail-during-fail" reproduction from KNOWN_BUGS.md #2:
+    /// without the lossy fallback in `into_encoded_string`, formatting an
+    /// error through `ServerFnErrorWrapper` would panic.
+    struct BadTextEncoder;
+
+    impl ContentType for BadTextEncoder {
+        const CONTENT_TYPE: &'static str = "text/plain";
+    }
+
+    impl FormatType for BadTextEncoder {
+        const FORMAT_TYPE: Format = Format::Text;
+    }
+
+    #[derive(Debug)]
+    struct BadTextError;
+
+    impl Encodes<BadTextError> for BadTextEncoder {
+        type Error = std::convert::Infallible;
+
+        fn encode(_: &BadTextError) -> Result<Bytes, Self::Error> {
+            Ok(Bytes::from_static(&[0xFFu8, 0xFE, 0xFD]))
+        }
+    }
+
+    impl Decodes<BadTextError> for BadTextEncoder {
+        type Error = std::convert::Infallible;
+
+        fn decode(_: Bytes) -> Result<BadTextError, Self::Error> {
+            Ok(BadTextError)
+        }
+    }
+
+    impl FromServerFnError for BadTextError {
+        type Encoder = BadTextEncoder;
+
+        fn from_server_fn_error(_value: ServerFnErrorErr) -> Self {
+            BadTextError
+        }
+    }
+
+    #[test]
+    fn server_fn_error_wrapper_display_does_not_panic_on_bad_bytes() {
+        let wrapper = crate::error::ServerFnErrorWrapper(BadTextError);
+        let s = format!("{wrapper}");
+        assert!(
+            s.contains('\u{FFFD}'),
+            "expected replacement char in lossy output, got {s:?}"
         );
     }
 }
