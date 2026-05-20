@@ -57,11 +57,11 @@
 //! # if false { // don't run effect in doctests
 //! Effect::new(move |_| {
 //!     // you can access individual store fields with a getter
-//!     println!("todos: {:?}", &*store.todos().read());
+//!     println!("user: {:?}", &*store.user().read());
 //! });
 //! # }
 //!
-//! // won't notify the effect that listens to `todos`
+//! // won't notify the effect that listens to `user`
 //! store.todos().write().push(Todo {
 //!     label: "Test".to_string(),
 //!     completed: false,
@@ -239,6 +239,7 @@
 //! field in the signal inner `Arc<RwLock<_>>`, and tracks the trigger that corresponds with its
 //! path; calling `.write()` returns a writeable guard, and notifies that same trigger.
 
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
@@ -270,6 +271,10 @@ mod len;
 mod option;
 mod patch;
 mod path;
+#[cfg(feature = "serde")]
+mod serde;
+#[cfg(feature = "slotmap")]
+mod slotmap;
 mod store_field;
 mod subfield;
 
@@ -320,7 +325,7 @@ impl TriggerMap {
 }
 
 /// Manages the keys for a keyed field, including the ability to remove and reuse keys.
-pub(crate) struct FieldKeys<K> {
+pub struct FieldKeys<K> {
     spare_keys: Vec<StorePathSegment>,
     current_key: usize,
     keys: FxHashMap<K, (StorePathSegment, usize)>,
@@ -353,7 +358,15 @@ impl<K> FieldKeys<K>
 where
     K: Hash + PartialEq + Eq,
 {
-    fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
+    /// Returns a copy of the path segment to the value identified by the key
+    ///
+    /// # Usage
+    ///
+    /// You shouldn't call this method from your code, since it's a part of
+    /// implementation details of `reactive_stores`. This method was exposed
+    /// to implement the derive `Patch` macro for keyed fields.
+    #[doc(hidden)]
+    pub fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
         self.keys.get(key).copied()
     }
 
@@ -364,12 +377,17 @@ where
         })
     }
 
-    fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+    fn update(
+        &mut self,
+        iter: impl IntoIterator<Item = K>,
+    ) -> Vec<(usize, StorePathSegment)> {
         let new_keys = iter
             .into_iter()
             .enumerate()
             .map(|(idx, key)| (key, idx))
             .collect::<FxHashMap<K, usize>>();
+
+        let mut index_keys = Vec::with_capacity(new_keys.len());
 
         // remove old keys and recycle the slots
         self.keys.retain(|key, old_entry| match new_keys.get(key) {
@@ -385,14 +403,17 @@ where
 
         // add new keys
         for (key, idx) in new_keys {
-            // the suggestion doesn't compile because we need &mut for self.next_key(),
-            // and we don't want to call that until after the check
-            #[allow(clippy::map_entry)]
-            if !self.keys.contains_key(&key) {
-                let path = self.next_key();
-                self.keys.insert(key, (path, idx));
+            match self.keys.get(&key) {
+                Some((segment, idx)) => index_keys.push((*idx, *segment)),
+                None => {
+                    let path = self.next_key();
+                    self.keys.insert(key, (path, idx));
+                    index_keys.push((idx, path));
+                }
             }
         }
+
+        index_keys
     }
 }
 
@@ -406,55 +427,109 @@ impl<K> Default for FieldKeys<K> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-type HashMap<K, V> = Arc<dashmap::DashMap<K, V>>;
-#[cfg(target_arch = "wasm32")]
-type HashMap<K, V> = send_wrapper::SendWrapper<
-    std::rc::Rc<std::cell::RefCell<std::collections::HashMap<K, V>>>,
->;
+type Map<K, V> = Arc<std::sync::RwLock<std::collections::HashMap<K, V>>>;
 
 /// A map of the keys for a keyed subfield.
-#[derive(Clone)]
-pub struct KeyMap(HashMap<StorePath, Box<dyn Any + Send + Sync>>);
-
-impl Default for KeyMap {
-    fn default() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        return Self(Default::default());
-        #[cfg(target_arch = "wasm32")]
-        return Self(send_wrapper::SendWrapper::new(Default::default()));
-    }
-}
+#[derive(Clone, Default)]
+pub struct KeyMap(
+    /// Path to subfield -> Keys in keyed subfield
+    Map<StorePath, Box<dyn Any + Send + Sync>>,
+    /// Map index -> key
+    Map<(StorePath, usize), StorePathSegment>,
+);
 
 impl KeyMap {
-    fn with_field_keys<K, T>(
+    /// Transforms the keys related to the field identified by `path`.
+    ///
+    /// # Arguments
+    ///
+    /// - **path** - path to the field with collection
+    /// - **fun** - Transforms an instance of [FieldKeys] into the result
+    ///   
+    ///   ## Return value
+    ///
+    ///   callback should return a tuple ( result, new_keys)
+    ///
+    ///   - **result** - this value will be passed as a result
+    ///   - **new_keys** - is a vector of new keys to be added into reverse mapping
+    ///     (path, idx) -> (path segment) map
+    ///     
+    ///     ### Entries
+    ///
+    ///     Entry in the vector is a tuple (idx, segment) where
+    ///
+    ///     - **idx** - index of the element in the collection
+    ///     - **segment** - key of the element in the collection
+    ///     
+    /// - **initialize** - it is the set of keys with which to initialize the
+    ///   KeyMap for this field, if there aren't keys listed yet. In all cases
+    ///   inside the library this is `|| self.latest_keys()` or `|| self.inner.latest_keys()`
+    ///
+    ///   This function will be called **only** if KeyMap doesn't have entry for
+    ///   `path`.
+    ///
+    ///   ## Returns
+    ///
+    ///   A vector of keys which will be used if KeyMap doesn't have an entry for
+    ///   given `path`
+    ///
+    /// # Returns
+    ///
+    /// - [None] if path doesn't point to the keyed field
+    /// - **result** value returned from `fun` callback
+    ///
+    /// # Usage
+    ///
+    /// You should not call this method directly from your code, as it's
+    /// an implementation detail of `reactive_stores`. This method was exposed
+    /// to implement the derive `Patch` macro for keyed fields.
+    #[doc(hidden)]
+    pub fn with_field_keys<K, T>(
         &self,
         path: StorePath,
-        fun: impl FnOnce(&mut FieldKeys<K>) -> T,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
         initialize: impl FnOnce() -> Vec<K>,
     ) -> Option<T>
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut entry = self
-            .0
-            .entry(path)
-            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+        // We must call `initialize()` *outside* the write lock below,
+        // because nested keyed subfields can recursively re-enter this map:
+        // initializing a child path may call `latest_keys()` on a parent
+        // keyed field, whose `AtKeyed::reader` calls `resolve_index`, which
+        // itself calls `with_field_keys` and would attempt to acquire the
+        // same write lock — aborting in single-threaded environments and
+        // deadlocking in multi-threaded ones.
+        let needs_init = !self.0.read().or_poisoned().contains_key(&path);
+        let mut initial = needs_init.then(initialize);
 
-        #[cfg(target_arch = "wasm32")]
-        let entry = if !self.0.borrow().contains_key(&path) {
-            Some(Box::new(FieldKeys::new(initialize())))
-        } else {
-            None
-        };
-        #[cfg(target_arch = "wasm32")]
-        let mut map = self.0.borrow_mut();
-        #[cfg(target_arch = "wasm32")]
-        let entry = map.entry(path).or_insert_with(|| entry.unwrap());
+        let mut guard = self.0.write().or_poisoned();
+        let entry = guard.entry(path.clone()).or_insert_with(|| {
+            Box::new(FieldKeys::new(initial.take().unwrap_or_default()))
+        });
 
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-        Some(fun(entry))
+        let (result, new_keys) = fun(entry);
+        if !new_keys.is_empty() {
+            for (idx, segment) in new_keys {
+                self.1
+                    .write()
+                    .or_poisoned()
+                    .insert((path.clone(), idx), segment);
+            }
+        }
+        Some(result)
+    }
+
+    fn contains_key(&self, key: &StorePath) -> bool {
+        self.0.read().or_poisoned().contains_key(key)
+    }
+
+    fn get_key_for_index(
+        &self,
+        key: &(StorePath, usize),
+    ) -> Option<StorePathSegment> {
+        self.1.read().or_poisoned().get(key).copied()
     }
 }
 
@@ -780,7 +855,7 @@ mod tests {
     use reactive_graph::{
         effect::Effect,
         owner::StoredValue,
-        traits::{Read, ReadUntracked, Set, Update, Write},
+        traits::{Read, ReadUntracked, Set, Track, Update, Write},
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -830,6 +905,30 @@ mod tests {
                 },
             ],
         }
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Foo {
+        id: i32,
+        bar: Bar,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Bar {
+        bar_signature: i32,
+        baz: Baz,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baz {
+        more_data: i32,
+        baw: Baw,
+    }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Baw {
+        more_data: i32,
+        end: i32,
     }
 
     #[tokio::test]
@@ -1112,30 +1211,6 @@ mod tests {
 
         _ = any_spawner::Executor::init_tokio();
 
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Foo {
-            id: i32,
-            bar: Bar,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Bar {
-            bar_signature: i32,
-            baz: Baz,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baz {
-            more_data: i32,
-            baw: Baw,
-        }
-
-        #[derive(Debug, Clone, Store, Patch, Default)]
-        struct Baw {
-            more_data: i32,
-            end: i32,
-        }
-
         let store = Store::new(Foo {
             id: 42,
             bar: Bar {
@@ -1218,5 +1293,138 @@ mod tests {
         assert_eq!(bar_baz_runs.get_value(), 3);
         assert_eq!(more_data_runs.get_value(), 3);
         assert_eq!(baz_baw_end_runs.get_value(), 3);
+    }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_subfield() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(Foo {
+            id: 42,
+            bar: Bar {
+                bar_signature: 69,
+                baz: Baz {
+                    more_data: 9999,
+                    baw: Baw {
+                        more_data: 22,
+                        end: 1112,
+                    },
+                },
+            },
+        });
+
+        let tracked_field = store.bar().baz().more_data();
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.bar().baz().set(Baz {
+            more_data: 42,
+            baw: Baw {
+                more_data: 11,
+                end: 31,
+            },
+        });
+        tick().await;
+        store.bar().set(Bar {
+            bar_signature: 23,
+            baz: Baz {
+                more_data: 32,
+                baw: Baw {
+                    more_data: 432,
+                    end: 423,
+                },
+            },
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn changing_parent_notifies_unkeyed_child() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        let tracked_field = store.todos().at_unkeyed(0);
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                // we only track `more`, but this should still be notified
+                // when its parent fields `bar` or `baz` change
+                println!("{:?}", *tracked_field.read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+
+        store.todos().write().pop();
+        tick().await;
+
+        store.todos().write().push(Todo {
+            label: "another one".into(),
+            completed: false,
+        });
+        tick().await;
+
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn untracked_write_on_subfield_shouldnt_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let name_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        let tracked_field = store.user();
+
+        Effect::new_sync({
+            let name_count = Arc::clone(&name_count);
+            move |_| {
+                tracked_field.track();
+                name_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 1);
+
+        tracked_field.write().push('!');
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 2);
+
+        tracked_field.write_untracked().push('!');
+        tick().await;
+        assert_eq!(name_count.load(Ordering::Relaxed), 2);
     }
 }

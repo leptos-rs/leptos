@@ -250,8 +250,6 @@ impl RouteList {
 
     /// Sets the given routes as the list of generated routes.
     pub fn register(routes: RouteList) {
-        Self::GENERATED.with(|inner| {
-            *inner.borrow_mut() = Some(routes);
-        });
+        Self::GENERATED.with_borrow_mut(|inner| *inner = Some(routes));
     }
 }

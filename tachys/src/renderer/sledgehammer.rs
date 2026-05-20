@@ -527,13 +527,14 @@ impl DomRenderer for Sledgehammer {
         V: ToTemplate + 'static,
     {
         thread_local! {
-            static TEMPLATES: RefCell<LinearMap<TypeId, SNode>> = Default::default();
+            static TEMPLATES: RefCell<Vec<(TypeId, SNode)>> = Default::default();
         }
 
-        TEMPLATES.with(|t| {
-            t.borrow_mut()
-                .entry(TypeId::of::<V>())
-                .or_insert_with(|| {
+        TEMPLATES.with_borrow_mut(|t| {
+            let id = TypeId::of::<V>();
+            t.iter()
+                .find_map(|entry| (entry.0 == id).then(|| entry.1.clone()))
+                .unwrap_or_else(|| {
                     let mut buf = String::new();
                     V::to_template(
                         &mut buf,
@@ -547,9 +548,9 @@ impl DomRenderer for Sledgehammer {
                         channel.create_element(node.0 .0, "template");
                         channel.set_inner_html(node.0 .0, &buf)
                     });
+                    t.push((id, node.clone()));
                     node
                 })
-                .clone()
         })
     }
 

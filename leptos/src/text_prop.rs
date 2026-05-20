@@ -83,6 +83,7 @@ impl IntoAttributeValue for TextProp {
     }
 }
 
+#[allow(unused)]
 macro_rules! textprop_reactive {
     ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
     {
@@ -100,7 +101,7 @@ macro_rules! textprop_reactive {
     };
 }
 
-#[cfg(not(feature = "nightly"))]
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use super::TextProp;
     use oco_ref::Oco;

@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version = "0.8.6"
+version = "0.8.8"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -34,6 +34,7 @@ trace-component-props = ["dep:serde", "dep:serde_json"]
 hydration = ["reactive_graph/hydration"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]

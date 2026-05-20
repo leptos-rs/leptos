@@ -663,26 +663,24 @@ impl From<Vec<FieldNavItem>> for FieldNavCtx {
 #[component]
 pub fn FieldNavPortlet() -> impl IntoView {
     let ctx = expect_context::<ReadSignal<Option<FieldNavCtx>>>();
-    move || {
-        let ctx = ctx.get();
-        ctx.map(|ctx| {
-            view! {
-                <div id="FieldNavPortlet">
-                    <span>"FieldNavPortlet:"</span>
-                    <nav>
-                        {ctx
-                            .0
-                            .map(|ctx| {
-                                ctx.into_iter()
-                                    .map(|FieldNavItem { href, text }| {
-                                        view! { <A href=href>{text}</A> }
-                                    })
-                                    .collect_view()
-                            })}
-                    </nav>
-                </div>
-            }
-        })
+
+    view! {
+        <ShowLet some=ctx let:ctx>
+            <div id="FieldNavPortlet">
+                <span>"FieldNavPortlet:"</span>
+                <nav>
+                    {ctx
+                        .0
+                        .map(|ctx| {
+                            ctx.into_iter()
+                                .map(|FieldNavItem { href, text }| {
+                                    view! { <A href=href>{text}</A> }
+                                })
+                                .collect_view()
+                        })}
+                </nav>
+            </div>
+        </ShowLet>
     }
 }
 

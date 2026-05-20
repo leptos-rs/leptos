@@ -369,7 +369,7 @@ impl ResolvedStaticPath {
                             eprintln!("{e}");
                         }
                     }
-                    owner.unset();
+                    owner.unset_with_forced_cleanup();
                 }
             }
         });

@@ -1,0 +1,53 @@
+experimental = ["setup-scripts"]
+
+# For tests that need to run one at a time to avoid resource contention from
+# parallel execution.
+[test-groups]
+serial-integration = { max-threads = 1 }
+
+# The built-in `fn build_test_service` in the test runs a single instance of
+# `cargo leptos build` guaranteed with `std::sync::Once`.  However,
+# `cargo-nexttest` does not have the ability to group tests under the same
+# process to emulate what `cargo test` does, thus resulting in competing
+# `wasm-bindgen` executions that will clobber each other, breaking the tests.
+# While serializing the tests was done at one point as a quick workaround,
+# using setup-scripts is the better approach.
+#
+# References:
+# - https://github.com/nextest-rs/nextest/issues/27
+# - https://github.com/nextest-rs/nextest/issues/209
+#
+# [[profile.default.overrides]]
+# filter = "binary_id(leptos_axum::axum_integration)"
+# test-group = "serial-integration"
+
+# Ideally we want this to work to allow for as much as (relatively) cross-
+# platform compatibility via cargo, but there doesn't appear to be a way to
+# apply environment variables or otherwise set `LEPTOS_OUTPUT_NAME` within
+# this section.
+#
+# ```
+# [scripts.setup.axum_integration_service_mode]
+# command = ["cargo", "leptos", "--manifest-path", "integrations/axum/tests/service_mode/Cargo.toml", "build"]
+#
+# [[profile.default.scripts]]
+# filter = "binary_id(leptos_axum::axum_integration)"
+# setup = ["axum_integration_service_mode"]
+# ```
+#
+# Instead, we have to do the platform specific route...
+[scripts.setup.axum_integration_service_mode_sh]
+command = ["./scripts/axum_integration_service_mode.sh"]
+
+[scripts.setup.axum_integration_service_mode_bat]
+command = ["cmd", "/c", "scripts\\axum_integration_service_mode.bat"]
+
+[[profile.default.scripts]]
+platform = { host = "cfg(unix)" }
+filter = "binary_id(leptos_axum::axum_integration)"
+setup = ["axum_integration_service_mode_sh"]
+
+[[profile.default.scripts]]
+platform = { host = "cfg(windows)" }
+filter = "binary_id(leptos_axum::axum_integration)"
+setup = ["axum_integration_service_mode_bat"]

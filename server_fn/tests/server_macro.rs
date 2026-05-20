@@ -10,7 +10,9 @@
         feature = "multipart",
         feature = "serde-lite",
         feature = "cbor",
-        feature = "msgpack"
+        feature = "msgpack",
+        feature = "bitcode",
+        feature = "bitcode-serde",
     ))
 ))]
 

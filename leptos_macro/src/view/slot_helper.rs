@@ -1,6 +1,6 @@
 use super::{
     component_builder::maybe_optimised_component_children,
-    convert_to_snake_case, ident_from_tag_name,
+    convert_to_snake_case, full_path_from_tag_name,
 };
 use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
@@ -24,7 +24,7 @@ pub(crate) fn slot_to_tokens(
         node.name().to_string()
     });
 
-    let component_name = ident_from_tag_name(node.name());
+    let component_path = full_path_from_tag_name(node.name());
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error2::emit_error!(
@@ -190,7 +190,7 @@ pub(crate) fn slot_to_tokens(
 
     let slot = quote_spanned! {node.span()=>
         {
-            let slot = #component_name::builder()
+            let slot = #component_path::builder()
                 #(#props)*
                 #(#slots)*
                 #children

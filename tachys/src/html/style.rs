@@ -5,7 +5,9 @@ use super::attribute::{
 #[cfg(all(feature = "nightly", rustc_nightly))]
 use crate::view::static_types::Static;
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     renderer::{dom::CssStyleDeclaration, Rndr},
     view::{Position, ToTemplate},
 };
@@ -99,6 +101,10 @@ where
         Style {
             style: self.style.resolve().await,
         }
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute("style".into())]
     }
 }
 

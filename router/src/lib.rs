@@ -105,7 +105,7 @@
 //!     move || params.read().get("id").unwrap_or_default(),
 //!     move |id| contact_data(id)
 //!   );
-//!   todo!()
+//!   // ... return some view
 //! }
 //! ```
 //!

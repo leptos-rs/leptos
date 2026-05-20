@@ -3,7 +3,10 @@ use super::{
     Render, RenderHtml,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute, NextAttribute},
+    html::attribute::{
+        any_attribute::AnyAttribute, Attribute, NamedAttributeKey,
+        NextAttribute,
+    },
     hydration::Cursor,
     ssr::StreamBuilder,
 };
@@ -264,6 +267,13 @@ where
             Either::Right(right) => Either::Right(right.resolve().await),
         }
     }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        match self {
+            Either::Left(left) => left.keys(),
+            Either::Right(right) => right.keys(),
+        }
+    }
 }
 
 impl<A, B> RenderHtml for Either<A, B>
@@ -401,21 +411,14 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
-        let state = match self {
+        match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
-        };
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
         }
-        state
     }
 
     async fn hydrate_async(
@@ -423,21 +426,14 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
-        }
-        let state = match self {
+        match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate_async(cursor, position).await)
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate_async(cursor, position).await)
             }
-        };
-        if cfg!(feature = "mark_branches") {
-            cursor.advance_to_placeholder(position);
         }
-        state
     }
 
     fn into_owned(self) -> Self::Owned {
@@ -963,17 +959,11 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
 
                     Self::State { state }
                 }
@@ -983,17 +973,11 @@ macro_rules! tuples {
                     cursor: &Cursor,
                     position: &PositionState,
                 ) -> Self::State {
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             [<EitherOf $num>]::$ty(this.hydrate_async(cursor, position).await)
                         })*
                     };
-                    if cfg!(feature = "mark_branches") {
-                        cursor.advance_to_placeholder(position);
-                    }
 
                     Self::State { state }
                 }

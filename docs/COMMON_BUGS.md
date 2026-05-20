@@ -9,12 +9,12 @@ This document is intended as a running list of common issues, with example code 
 **Issue**: Sometimes you want to update a reactive signal in a way that depends on another signal.
 
 ```rust
-let (a, set_a) = create_signal(0);
-let (b, set_b) = create_signal(false);
+let (a, set_a) = signal(0);
+let (b, set_b) = signal(false);
 
-create_effect(move |_| {
-	if a() > 5 {
-		set_b(true);
+Effect::new(move |_| {
+	if a.get() > 5 {
+		set_b.set(true);
 	}
 });
 ```
@@ -24,55 +24,9 @@ This creates an inefficient chain of updates, and can easily lead to infinite lo
 **Solution**: Follow the rule, _What can be derived, should be derived._ In this case, this has the benefit of massively reducing the code size, too!
 
 ```rust
-let (a, set_a) = create_signal(0);
-let b = move || a () > 5;
+let (a, set_a) = signal(0);
+let b = move || a.get() > 5;
 ```
-
-### Nested signal updates/reads triggering panic
-
-Sometimes you have nested signals: for example, hash-map that can change over time, each of whose values can also change over time:
-
-```rust
-#[component]
-pub fn App() -> impl IntoView {
-    let resources = create_rw_signal(HashMap::new());
-
-    let update = move |id: usize| {
-        resources.update(|resources| {
-            resources
-                .entry(id)
-                .or_insert_with(|| create_rw_signal(0))
-                .update(|amount| *amount += 1)
-        })
-    };
-
-    view! {
-        <div>
-            <pre>{move || format!("{:#?}", resources.get().into_iter().map(|(id, resource)| (id, resource.get())).collect::<Vec<_>>())}</pre>
-            <button on:click=move |_| update(1)>"+"</button>
-        </div>
-    }
-}
-```
-
-Clicking the button twice will cause a panic, because of the nested signal _read_. Calling the `update` function on `resources` immediately takes out a mutable borrow on `resources`, then updates the `resource` signal—which re-runs the effect that reads from the signals, which tries to immutably access `resources` and panics. It's the nested update here which causes a problem, because the inner update triggers and effect that tries to read both signals while the outer is still updating.
-
-You can fix this fairly easily by using the [`batch()`](https://docs.rs/leptos/latest/leptos/fn.batch.html) method:
-
-```rust
-    let update = move |id: usize| {
-        batch(move || {
-            resources.update(|resources| {
-                resources
-                    .entry(id)
-                    .or_insert_with(|| create_rw_signal(0))
-                    .update(|amount| *amount += 1)
-            })
-        });
-    };
-```
-
-This delays running any effects until after both updates are made, preventing the conflict entirely without requiring any other restructuring.
 
 ## Templates and the DOM
 
@@ -83,8 +37,8 @@ Many DOM attributes can be updated either by setting an attribute on the DOM nod
 This means that in practice, attributes like `value` or `checked` on an `<input/>` element only update the _default_ value for the `<input/>`. If you want to reactively update the value, you should use `prop:value` instead to set the `value` property.
 
 ```rust
-let (a, set_a) = create_signal("Starting value".to_string());
-let on_input = move |ev| set_a(event_target_value(&ev));
+let (a, set_a) = signal("Starting value".to_string());
+let on_input = move |ev| set_a.set(event_target_value(&ev));
 
 view! {
 
@@ -97,8 +51,8 @@ view! {
 ```
 
 ```rust
-let (a, set_a) = create_signal("Starting value".to_string());
-let on_input = move |ev| set_a(event_target_value(&ev));
+let (a, set_a) = signal("Starting value".to_string());
+let on_input = move |ev| set_a.set(event_target_value(&ev));
 
 view! {
 

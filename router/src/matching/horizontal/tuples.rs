@@ -4,7 +4,6 @@ macro_rules! tuples {
     ($first:ident => $($ty:ident),*) => {
         impl<$first, $($ty),*> PossibleRouteMatch for ($first, $($ty,)*)
         where
-            Self: core::fmt::Debug,
             $first: PossibleRouteMatch,
 			$($ty: PossibleRouteMatch),*,
         {

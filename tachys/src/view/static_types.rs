@@ -8,7 +8,8 @@ use crate::{
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, AttributeKey, AttributeValue, NextAttribute,
+        Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+        NextAttribute,
     },
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
@@ -110,6 +111,10 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Attribute(K::KEY.into())]
     }
 }
 

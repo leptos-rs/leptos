@@ -65,6 +65,16 @@ impl ParamsMap {
             .find_map(|(k, v)| if k == key { Some(v.clone()) } else { None })
     }
 
+    /// Gets an iterator for all the most-recently-added values on the map
+    pub fn latest_values(&self) -> ParamsMapIterRef<'_> {
+        let inner: Vec<_> = self
+            .0
+            .iter()
+            .flat_map(|(k, v)| v.last().map(|v| (k, v.as_str())))
+            .collect();
+        ParamsMapIterRef(inner.into_iter())
+    }
+
     /// Gets a reference to the most-recently-added value of this param from the map.
     pub fn get_str(&self, key: &str) -> Option<&str> {
         self.0.iter().find_map(|(k, v)| {
@@ -138,6 +148,20 @@ impl IntoIterator for ParamsMap {
     }
 }
 
+impl<'a> IntoIterator for &'a ParamsMap {
+    type Item = (&'a Cow<'static, str>, &'a str);
+    type IntoIter = ParamsMapIterRef<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let inner: Vec<_> = self
+            .0
+            .iter()
+            .flat_map(|(k, v)| v.iter().map(move |v| (k, v.as_str())))
+            .collect();
+        ParamsMapIterRef(inner.into_iter())
+    }
+}
+
 /// An iterator over the keys and values of a [`ParamsMap`].
 #[derive(Debug)]
 pub struct ParamsMapIter(
@@ -146,6 +170,20 @@ pub struct ParamsMapIter(
 
 impl Iterator for ParamsMapIter {
     type Item = (Cow<'static, str>, String);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// An iterator over the references of the keys and values of a [`ParamMap`].
+#[derive(Debug)]
+pub struct ParamsMapIterRef<'a>(
+    <Vec<(&'a Cow<'static, str>, &'a str)> as IntoIterator>::IntoIter,
+);
+
+impl<'a> Iterator for ParamsMapIterRef<'a> {
+    type Item = (&'a Cow<'static, str>, &'a str);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
@@ -199,31 +237,56 @@ where
     }
 }
 
-// TODO can we support Option<T> and T in a non-nightly way?
-#[cfg(all(feature = "nightly", rustc_nightly))]
-mod option_param {
-    use super::{IntoParam, ParamsError};
+/// Helpers for the `Params` derive macro to allow specialization without nightly.
+pub mod macro_helpers {
+    use crate::params::{IntoParam, ParamsError};
     use std::{str::FromStr, sync::Arc};
 
-    auto trait NotOption {}
-    impl<T> !NotOption for Option<T> {}
+    /// This struct is never actually created; it just exists so that we can impl associated
+    /// functions on it.
+    pub struct Wrapper<T>(T);
 
-    impl<T> IntoParam for T
-    where
-        T: FromStr + NotOption,
-        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-    {
-        fn into_param(
+    impl<T: IntoParam> Wrapper<T> {
+        /// This is the 'preferred' impl to be used for all `T` that implement `IntoParam`.
+        /// Because it is directly on the struct, the compiler will pick this over the impl from
+        /// the `Fallback` trait.
+        #[inline]
+        pub fn __into_param(
             value: Option<&str>,
             name: &str,
-        ) -> Result<Self, ParamsError> {
-            let value = value
-                .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
-            Self::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
+        ) -> Result<T, ParamsError> {
+            T::into_param(value, name)
         }
     }
-}
 
+    /// If the Fallback trait is in scope, then the compiler has two possible implementations for
+    /// `__into_params`. It will pick the one from this trait if the inherent one doesn't exist.
+    /// (which it won't if `T` does not implement `IntoParam`)
+    pub trait Fallback<T>: Sized
+    where
+        T: FromStr,
+        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+    {
+        /// Fallback function in case the inherent impl on the Wrapper struct does not exist for
+        /// `T`
+        #[inline]
+        fn __into_param(
+            value: Option<&str>,
+            name: &str,
+        ) -> Result<T, ParamsError> {
+            let value = value
+                .ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
+            T::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
+        }
+    }
+
+    impl<T> Fallback<T> for Wrapper<T>
+    where
+        T: FromStr,
+        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+    {
+    }
+}
 /// Errors that can occur while parsing params using [`Params`].
 #[derive(Error, Debug, Clone)]
 pub enum ParamsError {

@@ -49,7 +49,7 @@ pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 ///
-/// Fort the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
+/// For the struct above the `[syn::DeriveInput::parse]` will return the instance of [syn::Generics]
 /// which will conceptually look like this
 ///
 /// ```text
@@ -242,12 +242,14 @@ impl ToTokens for Model {
 
         // read access
         tokens.extend(quote! {
+            #[allow(missing_docs)]
             #vis trait #trait_name <AnyStoreField, #params>
             #where_with_orig
             {
                 #(#trait_fields)*
             }
 
+            #[automatically_derived]
             impl #generics_with_orig #trait_name <AnyStoreField, #clear_params> for AnyStoreField
             #where_with_orig
             {
@@ -744,6 +746,35 @@ impl ToTokens for PatchModel {
                                 },
                             )
                         });
+                    let keyed = attrs
+                        .iter()
+                        .find_map(|attr| {
+                            attr.meta.path().is_ident("store").then(|| {
+                                match &attr.meta {
+                                    Meta::List(list) => {
+                                        let subfields = match Punctuated::<
+                                                SubfieldMode,
+                                                Comma,
+                                            >::parse_terminated
+                                                .parse2(list.tokens.clone())
+                                            {
+                                                Ok(modes) => Some(
+                                                    modes
+                                                        .iter()
+                                                        .cloned()
+                                                        .collect::<Vec<_>>(),
+                                                ),
+                                                Err(e) => abort!(list, e),
+                                            }.unwrap_or_default();
+                                            subfields.into_iter().find_map(|subfield| match subfield {
+                                                SubfieldMode::Keyed(closure, _ty) => Some(closure),
+                                                SubfieldMode::Skip => None,
+                                            })
+                                    }
+                                    _ => None,
+                                }
+                            })
+                        }).flatten();
 
                     if let Some(closure) = closure {
                         let params = closure.inputs;
@@ -758,13 +789,39 @@ impl ToTokens for PatchModel {
                             }
                             new_path.replace_last(#idx + 1);
                         }
+                    } else if let Some(closure) = keyed {
+                        quote! {
+                            #library_path::PatchFieldKeyed::patch_field_keyed(
+                                &mut self.#locator,
+                                new.#locator,
+                                notify,
+                                keys,
+                                #closure,
+                                |key| {
+                                    let keys = keys.as_ref()?;
+                                    let segment = keys
+                                        .with_field_keys(
+                                            path.clone(),
+                                            |keys| (keys.get(key), vec![]),
+                                            || vec![],
+                                        )
+                                        .flatten()
+                                        .map(|(_, idx)| idx)?;
+                                    let mut path = path.clone();
+                                    path.push(segment);
+                                    Some(path)
+                                }
+                            );
+                            new_path.replace_last(#idx + 1);
+                        }
                     } else {
                         quote! {
                             #library_path::PatchField::patch_field(
                                 &mut self.#locator,
                                 new.#locator,
                                 &new_path,
-                                notify
+                                notify,
+                                keys
                             );
                             new_path.replace_last(#idx + 1);
                         }
@@ -782,6 +839,7 @@ impl ToTokens for PatchModel {
 
         // read access
         tokens.extend(quote! {
+            #[automatically_derived]
             impl #generics #library_path::PatchField for #name <#params>
                #where_clause
             {
@@ -790,6 +848,7 @@ impl ToTokens for PatchModel {
                     new: Self,
                     path: &#library_path::StorePath,
                     notify: &mut dyn FnMut(&#library_path::StorePath),
+                    keys: Option<&#library_path::KeyMap>,
                 ) {
                     let mut new_path = path.clone();
                     new_path.push(0);

@@ -100,6 +100,13 @@ impl Res for Response<Body> {
             .unwrap()
     }
 
+    fn content_type(&mut self, content_type: &str) {
+        if let Ok(content_type) = HeaderValue::from_str(content_type) {
+            self.headers_mut()
+                .insert(header::CONTENT_TYPE, content_type);
+        }
+    }
+
     fn redirect(&mut self, path: &str) {
         if let Ok(path) = HeaderValue::from_str(path) {
             self.headers_mut().insert(header::LOCATION, path);

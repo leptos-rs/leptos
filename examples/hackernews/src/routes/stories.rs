@@ -145,14 +145,11 @@ fn Story(story: api::Story) -> impl IntoView {
                     Either::Left(
                         view! {
                             <span>
-                                {"by "}
-                                {story
-                                    .user
-                                    .map(|user| {
-                                        view! {
-                                            <A href=format!("/users/{user}")>{user.clone()}</A>
-                                        }
-                                    })} {format!(" {} | ", story.time_ago)}
+                                "by "
+                                <ShowLet some=story.user let:user>
+                                    <A href=format!("/users/{user}")>{user.clone()}</A>
+                                </ShowLet>
+                                {format!(" {} | ", story.time_ago)}
                                 <A href=format!(
                                     "/stories/{}",
                                     story.id,

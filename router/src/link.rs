@@ -116,7 +116,7 @@ pub fn A<H>(
     scroll: bool,
     /// The nodes or elements to be shown inside the link.
     children: Children,
-) -> impl IntoView
+) -> impl IntoView + 'static
 where
     H: ToHref + Send + Sync + 'static,
 {

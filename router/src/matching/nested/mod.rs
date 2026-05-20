@@ -1,6 +1,6 @@
 use super::{
-    IntoChooseViewMaybeErased, MatchInterface, MatchNestedRoutes,
-    PartialPathMatch, PathSegment, PossibleRouteMatch, RouteMatchId,
+    IntoChooseViewMaybeErased, MatchInterface, MatchNestedRoutes, PathSegment,
+    PossibleRouteMatch, RouteMatchId,
 };
 use crate::{ChooseView, GeneratedRouteData, MatchParams, Method, SsrMode};
 use core::{fmt, iter};
@@ -189,9 +189,7 @@ where
     Self: 'static,
     Segments: PossibleRouteMatch,
     Children: MatchNestedRoutes,
-    Children::Match: MatchParams,
-    Children: 'static,
-    View: ChooseView + Clone,
+    View: ChooseView,
 {
     type Data = Data;
     type Match = NestedMatch<Children::Match, View>;
@@ -211,82 +209,98 @@ where
 
         self.segments
             .test(path)
-            .and_then(
-                |PartialPathMatch {
-                     remaining,
-                     mut params,
-                     matched,
-                 }| {
-                    let (_, inner, remaining, was_optional_fallback) =
-                        match &self.children {
-                            None => (None, None, remaining, false),
-                            Some(children) => {
+            .and_then({
+                type Params = Vec<(Cow<'static, str>, String)>;
+
+                // codegen optimisation:
+                fn inner<'a, Children>(
+                    this_was_optional: bool,
+                    path: &'a str,
+                    remaining: &'a str,
+                    segments: &dyn PossibleRouteMatch,
+                    children: &'a Option<Children>,
+                    mut params: Params,
+                ) -> Option<(Option<Children::Match>, &'a str, Params)>
+                where
+                    Children: MatchNestedRoutes,
+                {
+                    let mut was_optional_fallback = false;
+
+                    let (child, remaining) = match children {
+                        None => (None, remaining),
+                        Some(children) => {
+                            let (inner, remaining) =
+                                children.match_nested(remaining);
+
+                            if let Some((_, child)) = inner {
+                                (Some(child), remaining)
+                            } else if this_was_optional {
+                                // if the parent route was optional, re-match children against full path
+                                was_optional_fallback = true;
                                 let (inner, remaining) =
-                                    children.match_nested(remaining);
-
-                                match inner {
-                                    Some((id, inner)) => (
-                                        Some(id),
-                                        Some(inner),
-                                        remaining,
-                                        false,
-                                    ),
-                                    None if this_was_optional => {
-                                        // if the parent route was optional, re-match children against full path
-                                        let (inner, remaining) =
-                                            children.match_nested(path);
-                                        let (id, inner) = inner?;
-                                        (Some(id), Some(inner), remaining, true)
-                                    }
-                                    None => {
-                                        return None;
-                                    }
-                                }
+                                    children.match_nested(path);
+                                inner.map(|(_, child)| {
+                                    (Some(child), remaining)
+                                })?
+                            } else {
+                                return None;
                             }
-                        };
-
-                    // if this was an optional route, re-parse its params
-                    if was_optional_fallback {
-                        // new params are based on the path it matched (up to the point where the matched child begins)
-                        // e.g., if we have /:foo?/bar, for /bar we should *not* have { "foo": "bar" }
-                        // so, we re-parse based on "" to yield { "foo": "" }
-                        let matched = inner
-                            .as_ref()
-                            .map(|inner| inner.as_matched())
-                            .unwrap_or("");
-                        let rematch = path
-                            .trim_end_matches(&format!("{matched}{remaining}"));
-                        let new_partial = self.segments.test(rematch).unwrap();
-                        params = new_partial.params;
-                    }
-
-                    let inner_params = inner
-                        .as_ref()
-                        .map(|inner| inner.to_params())
-                        .unwrap_or_default();
-
-                    let id = RouteMatchId(self.id);
+                        }
+                    };
 
                     if remaining.is_empty() || remaining == "/" {
-                        params.extend(inner_params);
-                        Some((
-                            Some((
-                                id,
-                                NestedMatch {
-                                    id,
-                                    matched: matched.to_string(),
-                                    params,
-                                    child: inner,
-                                    view_fn: self.view.clone(),
-                                },
-                            )),
-                            remaining,
-                        ))
+                        // if this was an optional route, re-parse its params
+                        if was_optional_fallback {
+                            // new params are based on the path it matched (up to the point where the matched child begins)
+                            // e.g., if we have /:foo?/bar, for /bar we should *not* have { "foo": "bar" }
+                            // so, we re-parse based on "" to yield { "foo": "" }
+                            let matched = child
+                                .as_ref()
+                                .map_or("", Children::Match::as_matched);
+                            let rematch = path.trim_end_matches(&format!(
+                                "{matched}{remaining}"
+                            ));
+                            let new_partial = segments.test(rematch).unwrap();
+                            params = new_partial.params;
+                        }
+
+                        params.extend(
+                            child
+                                .as_ref()
+                                .map_or(Vec::new(), Children::Match::to_params),
+                        );
+                        Some((child, remaining, params))
                     } else {
                         None
                     }
-                },
-            )
+                }
+
+                |partial_match| {
+                    let (child, remaining, params) = inner(
+                        this_was_optional,
+                        path,
+                        partial_match.remaining,
+                        &self.segments,
+                        &self.children,
+                        partial_match.params,
+                    )?;
+                    let id = RouteMatchId(self.id);
+
+                    Some((
+                        Some((
+                            id,
+                            NestedMatch {
+                                id,
+                                matched: partial_match.matched.to_string(),
+                                params,
+                                child,
+                                view_fn: self.view.clone(),
+                            },
+                        )),
+                        remaining,
+                    ))
+                }
+            })
             .unwrap_or((None, path))
     }
 

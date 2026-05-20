@@ -9,7 +9,7 @@
 [![Discord](https://img.shields.io/discord/1031524867910148188?color=%237289DA&label=discord)](https://discord.gg/YdRAhS7eQB)
 [![Matrix](https://img.shields.io/badge/Matrix-leptos-grey?logo=matrix&labelColor=white&logoColor=black)](https://matrix.to/#/#leptos:matrix.org)
 
-[Website](https://leptos.dev) | [Book](https://leptos-rs.github.io/leptos/) | [Docs.rs](https://docs.rs/leptos/latest/leptos/) | [Playground](https://codesandbox.io/p/sandbox/leptos-rtfggt?file=%2Fsrc%2Fmain.rs%3A1%2C1) | [Discord](https://discord.gg/YdRAhS7eQB)
+[Website](https://leptos.dev) | [Book](https://leptos-rs.github.io/leptos/) | [Docs.rs](https://docs.rs/leptos/latest/leptos/) | [Playground](https://codesandbox.io/p/devbox/playground-j23dz7?file=%2Fsrc%2Fmain.rs) | [Discord](https://discord.gg/YdRAhS7eQB)
 
 You can find a list of useful libraries and example projects at [`awesome-leptos`](https://github.com/leptos-rs/awesome-leptos).
 
@@ -60,7 +60,7 @@ pub fn SimpleCounterWithBuilder(initial_value: i32) -> impl IntoView {
     ))
 }
 
-// Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
+// Easy to use with Trunk (trunk-rs.github.io/trunk) or with a simple wasm-bindgen setup
 pub fn main() {
     mount_to_body(|| view! {
         <SimpleCounter initial_value=3 />
@@ -74,8 +74,8 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 ## What does that mean?
 
-- **Full-stack**: Leptos can be used to build apps that run in the browser (client-side rendering), on the server (server-side rendering), or by rendering HTML on the server and then adding interactivity in the browser (server-side rendering with hydration). This includes support for HTTP streaming of both data ([`Resource`s](https://docs.rs/leptos/latest/leptos/struct.Resource.html)) and HTML (out-of-order or in-order streaming of [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/fn.Suspense.html) components.)
-- **Isomorphic**: Leptos provides primitives to write isomorphic [server functions](https://docs.rs/leptos_server/0.2.5/leptos_server/index.html), i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser, without needing to create and maintain a separate REST or other API.
+- **Full-stack**: Leptos can be used to build apps that run in the browser (client-side rendering), on the server (server-side rendering), or by rendering HTML on the server and then adding interactivity in the browser (server-side rendering with hydration). This includes support for HTTP streaming of both data ([`Resource`s](https://docs.rs/leptos/latest/leptos/prelude/struct.Resource.html)) and HTML (out-of-order or in-order streaming of [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/suspense/fn.Suspense.html) components.)
+- **Isomorphic**: Leptos provides primitives to write isomorphic [server functions](https://docs.rs/server_fn/latest/server_fn/), i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser, without needing to create and maintain a separate REST or other API.
 - **Web**: Leptos is built on the Web platform and Web standards. The [router](https://docs.rs/leptos_router/latest/leptos_router/) is designed to use Web fundamentals (like links and forms) and build on top of them rather than trying to replace them.
 - **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
 - **Fine-grained reactivity**: The entire framework is built from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (So, no virtual DOM overhead!)
@@ -90,12 +90,29 @@ Here are some resources for learning more about Leptos:
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
 - [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 
+### Random numbers on wasm (`rand` / `getrandom`)
+
+When you compile a Leptos app to `wasm32-unknown-unknown`, `rand` and `getrandom` need a JavaScript-backed source of randomness. If that backend isn’t enabled, your build can fail or randomness just won’t work in the browser.
+
+Leptos itself takes care of this for its own code, but that does **not** automatically configure your app’s own `rand` / `getrandom` dependencies. If you use them directly, you need to turn on the JS backend yourself.
+
+A simple setup in your `Cargo.toml` might look like this:
+
+```toml
+[dependencies]
+# Make sure getrandom works on wasm by enabling its JS backend
+getrandom = { version = "0.2", features = ["js"] }
+rand      = { version = "0.8", features = ["small_rng"] }
+```
+
+Some of the examples in this repo (for example `js-framework-benchmark` and `hackernews_js_fetch`) already do this, so you can use them as a reference if you’re unsure.
+
 ## `cargo-leptos`
 
 [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
 
 ```bash
-cargo install cargo-leptos
+cargo install cargo-leptos --locked
 cargo leptos new --git https://github.com/leptos-rs/start-axum
 cd [your project name]
 cargo leptos watch

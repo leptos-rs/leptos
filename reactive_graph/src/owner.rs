@@ -61,7 +61,8 @@ pub struct Owner {
 }
 
 impl Owner {
-    fn downgrade(&self) -> WeakOwner {
+    /// Creates a [`WeakOwner`] reference to this owner that does not prevent cleanup.
+    pub fn downgrade(&self) -> WeakOwner {
         WeakOwner {
             inner: Arc::downgrade(&self.inner),
             #[cfg(feature = "hydration")]
@@ -70,15 +71,22 @@ impl Owner {
     }
 }
 
+/// A weak reference to an [`Owner`] that does not prevent cleanup.
+///
+/// This is useful for capturing an owner reference without creating reference
+/// cycles that would prevent the owner from being dropped and cleaned up.
 #[derive(Clone)]
-struct WeakOwner {
+pub struct WeakOwner {
     inner: Weak<RwLock<OwnerInner>>,
     #[cfg(feature = "hydration")]
     shared_context: Option<Weak<dyn SharedContext + Send + Sync>>,
 }
 
 impl WeakOwner {
-    fn upgrade(&self) -> Option<Owner> {
+    /// Attempts to upgrade this weak reference to a strong [`Owner`].
+    ///
+    /// Returns `None` if the owner has already been dropped.
+    pub fn upgrade(&self) -> Option<Owner> {
         self.inner.upgrade().map(|inner| {
             #[cfg(feature = "hydration")]
             let shared_context =
@@ -209,6 +217,25 @@ impl Owner {
         this
     }
 
+    /// Returns the parent of this `Owner`, if any.
+    ///
+    /// None when:
+    /// - This is a root owner
+    /// - The parent has been dropped
+    pub fn parent(&self) -> Option<Owner> {
+        self.inner
+            .read()
+            .or_poisoned()
+            .parent
+            .as_ref()
+            .and_then(|p| p.upgrade())
+            .map(|inner| Owner {
+                inner,
+                #[cfg(feature = "hydration")]
+                shared_context: self.shared_context.clone(),
+            })
+    }
+
     /// Creates a new `Owner` that is the child of the current `Owner`, if any.
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));
@@ -245,9 +272,7 @@ impl Owner {
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         // codegen optimisation:
         fn inner_1(self_: &Owner) -> Option<WeakOwner> {
-            let prev = {
-                OWNER.with(|o| (*o.borrow_mut()).replace(self_.downgrade()))
-            };
+            let prev = OWNER.with_borrow_mut(|o| o.replace(self_.downgrade()));
             #[cfg(feature = "sandboxed-arenas")]
             Arena::set(&self_.inner.read().or_poisoned().arena);
             prev
@@ -258,9 +283,7 @@ impl Owner {
 
         // monomorphisation optimisation:
         fn inner_2(prev: Option<WeakOwner>) {
-            OWNER.with(|o| {
-                *o.borrow_mut() = prev;
-            });
+            OWNER.with_borrow_mut(|o| *o = prev);
         }
         inner_2(prev);
 
@@ -321,12 +344,31 @@ impl Owner {
     }
 
     /// Removes this from its state as the thread-local owner and drops it.
+    /// If there are other holders of this owner, it may not cleanup, if always cleaning up is required,
+    /// see [`Owner::unset_with_forced_cleanup`].
     pub fn unset(self) {
         OWNER.with_borrow_mut(|owner| {
             if owner.as_ref().and_then(|n| n.upgrade()) == Some(self) {
                 mem::take(owner);
             }
         })
+    }
+
+    /// Removes this from its state as the thread-local owner and drops it.
+    /// Unlike [`Owner::unset`], this will always run cleanup on this owner,
+    /// even if there are other holders of this owner.
+    pub fn unset_with_forced_cleanup(self) {
+        OWNER.with_borrow_mut(|owner| {
+            if owner
+                .as_ref()
+                .and_then(|n| n.upgrade())
+                .map(|o| o == self)
+                .unwrap_or(false)
+            {
+                mem::take(owner);
+            }
+        });
+        self.cleanup();
     }
 
     /// Returns the current [`SharedContext`], if any.

@@ -1,7 +1,8 @@
 use crate::{
-    computed::{ArcMemo, Memo},
+    computed::{ArcMemo, Memo, ScopedFuture},
     diagnostics::is_suppressing_resource_load,
-    owner::{ArcStoredValue, ArenaItem},
+    graph::untrack,
+    owner::{ArcStoredValue, ArenaItem, Owner},
     send_wrapper_ext::SendOption,
     signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
@@ -199,13 +200,23 @@ where
         I: Send + Sync,
         O: Send + Sync,
     {
+        let weak_owner = Owner::current().map(|o| o.downgrade());
         ArcAction {
             in_flight: ArcRwSignal::new(0),
             input: ArcRwSignal::new(SendOption::new(None)),
             value: ArcRwSignal::new(SendOption::new(value)),
             version: Default::default(),
             dispatched: Default::default(),
-            action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
+            action_fn: Arc::new(move |input| {
+                let fut = untrack(|| action_fn(input));
+                match weak_owner.as_ref().and_then(|w| w.upgrade()) {
+                    Some(owner) => Box::pin(
+                        owner.with(|| ScopedFuture::new_untracked(fut)),
+                    )
+                        as Pin<Box<dyn Future<Output = O> + Send>>,
+                    None => Box::pin(ScopedFuture::new_untracked(fut)),
+                }
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
         }
@@ -370,6 +381,7 @@ where
         F: Fn(&I) -> Fu + 'static,
         Fu: Future<Output = O> + 'static,
     {
+        let weak_owner = Owner::current().map(|o| o.downgrade());
         let action_fn = SendWrapper::new(action_fn);
         ArcAction {
             in_flight: ArcRwSignal::new(0),
@@ -378,7 +390,15 @@ where
             version: Default::default(),
             dispatched: Default::default(),
             action_fn: Arc::new(move |input| {
-                Box::pin(SendWrapper::new(action_fn(input)))
+                let fut = untrack(|| action_fn(input));
+                match weak_owner.as_ref().and_then(|w| w.upgrade()) {
+                    Some(owner) => Box::pin(SendWrapper::new(
+                        owner.with(|| ScopedFuture::new_untracked(fut)),
+                    )),
+                    None => Box::pin(SendWrapper::new(
+                        ScopedFuture::new_untracked(fut),
+                    )),
+                }
             }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),

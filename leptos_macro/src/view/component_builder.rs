@@ -90,7 +90,7 @@ pub(crate) fn component_to_tokens(
 
         if optional {
             optional_props.push(quote! {
-                props.#name = { #value }.map(Into::into);
+                props.#name = { #value }.map(::leptos::prelude::IntoReactiveValue::into_reactive_value);
             })
         } else {
             required_props.push(quote! {
@@ -176,7 +176,9 @@ pub(crate) fn component_to_tokens(
     let spreads = (!(spreads.is_empty())).then(|| {
         if cfg!(feature = "__internal_erase_components") {
             quote! {
-                .add_any_attr(vec![#(#spreads.into_any_attr(),)*])
+                .add_any_attr({
+                    vec![#(::leptos::attr::any_attribute::IntoAnyAttribute::into_any_attr(#spreads),)*]
+                })
             }
         } else {
             quote! {
@@ -380,29 +382,18 @@ pub fn maybe_optimised_component_children(
                     return None;
                 } else if let Some(stmt) = block.stmts.first() {
                     match stmt {
-                        Stmt::Macro(mac) => {
-                            // eprintln!("Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Macro(mac) if is_supported(&mac.mac) => {
+                            quote! { #block }
                         }
-                        Stmt::Item(Item::Macro(mac)) => {
-                            // eprintln!("Item Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Item(Item::Macro(mac))
+                            if is_supported(&mac.mac) =>
+                        {
+                            quote! { #block }
                         }
-                        Stmt::Expr(Expr::Macro(mac), _) => {
-                            // eprintln!("Expr Macro: {:?}", mac.mac.path);
-                            if is_supported(&mac.mac) {
-                                quote! { #block }
-                            } else {
-                                return None;
-                            }
+                        Stmt::Expr(Expr::Macro(mac), _)
+                            if is_supported(&mac.mac) =>
+                        {
+                            quote! { #block }
                         }
                         _ => return None,
                     }

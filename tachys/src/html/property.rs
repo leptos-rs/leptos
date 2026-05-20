@@ -3,7 +3,9 @@ use super::attribute::{
     NextAttribute,
 };
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     renderer::Rndr,
     view::{Position, ToTemplate},
 };
@@ -20,7 +22,7 @@ where
 {
     Property {
         key,
-        value: Some(SendWrapper::new(value)),
+        value: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(value)),
     }
 }
 
@@ -76,21 +78,21 @@ where
         el: &crate::renderer::types::Element,
     ) -> Self::State {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .hydrate::<FROM_SERVER>(el, self.key.as_ref())
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .build(el, self.key.as_ref())
     }
 
     fn rebuild(self, state: &mut Self::State) {
         self.value
-            .expect("property removed early")
+            .expect(super::FEATURE_CONFLICT_DIAGNOSTIC)
             .take()
             .rebuild(state, self.key.as_ref())
     }
@@ -113,16 +115,16 @@ where
         }
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.value.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![NamedAttributeKey::Property(
+            self.key.as_ref().to_string().into(),
+        )]
     }
 }
 

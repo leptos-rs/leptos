@@ -105,6 +105,76 @@ fn test_classes() {
 
 #[cfg(feature = "ssr")]
 #[test]
+fn test_class_with_class_directive_merge() {
+    use leptos::prelude::*;
+
+    // class= followed by class: should merge
+    let rendered: View<HtmlElement<_, _, _>> = view! {
+        <div class="foo" class:bar=true></div>
+    };
+
+    assert_eq!(rendered.to_html(), "<div class=\"foo bar\"></div>");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn test_solo_class_directive() {
+    use leptos::prelude::*;
+
+    // Solo class: directive should work without class attribute
+    let rendered: View<HtmlElement<_, _, _>> = view! {
+        <div class:foo=true></div>
+    };
+
+    assert_eq!(rendered.to_html(), "<div class=\"foo\"></div>");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn test_class_directive_with_static_class() {
+    use leptos::prelude::*;
+
+    // class:foo comes after class= due to macro sorting
+    // The class= clears buffer, then class:foo appends
+    let rendered: View<HtmlElement<_, _, _>> = view! {
+        <div class:foo=true class="bar"></div>
+    };
+
+    // After macro sorting: class="bar" class:foo=true
+    // Expected: "bar foo"
+    assert_eq!(rendered.to_html(), "<div class=\"bar foo\"></div>");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn test_global_class_applied() {
+    use leptos::prelude::*;
+
+    // Test that a global class is properly applied
+    let rendered: View<HtmlElement<_, _, _>> = view! { class="global",
+        <div></div>
+    };
+
+    assert_eq!(rendered.to_html(), "<div class=\"global\"></div>");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn test_multiple_class_attributes_overwrite() {
+    use leptos::prelude::*;
+
+    // When multiple class attributes are applied, the last one should win (browser behavior)
+    // This simulates what happens when attributes are combined programmatically
+    let el = leptos::html::div().class("first").class("second");
+
+    let html = el.to_html();
+
+    // The second class attribute should overwrite the first
+    assert_eq!(html, "<div class=\"second\"></div>");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
 fn ssr_with_styles() {
     use leptos::prelude::*;
 

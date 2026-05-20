@@ -317,6 +317,26 @@ where
     type State = ElementState<At::State, Ch::State>;
 
     fn rebuild(self, state: &mut Self::State) {
+        // check whether the tag is the same, for custom elements
+        // because this is const `false` for all other element types,
+        // the compiler should be able to optimize it out
+        if E::TAG.is_empty() {
+            // see https://github.com/leptos-rs/leptos/issues/4412
+            let new_tag = self.tag.tag();
+
+            // this is not particularly efficient, but it saves us from
+            // having to keep track of the tag name for every element state
+            let old_tag = state.el.tag_name();
+            if new_tag != old_tag {
+                let mut new_state = self.build();
+                state.insert_before_this(&mut new_state);
+                state.unmount();
+                *state = new_state;
+                return;
+            }
+        }
+
+        // rebuild attributes and children for any element
         let ElementState {
             attrs, children, ..
         } = state;
@@ -700,7 +720,7 @@ impl<At, Ch> Deref for ElementState<At, Ch> {
 
 impl<At, Ch> Mountable for ElementState<At, Ch> {
     fn unmount(&mut self) {
-        Rndr::remove(self.el.as_ref());
+        Rndr::remove(&self.el);
     }
 
     fn mount(
@@ -708,7 +728,7 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        Rndr::insert_node(parent, self.el.as_ref(), marker);
+        Rndr::insert_node(parent, &self.el, marker);
     }
 
     fn try_mount(
@@ -716,23 +736,35 @@ impl<At, Ch> Mountable for ElementState<At, Ch> {
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) -> bool {
-        Rndr::try_insert_node(parent, self.el.as_ref(), marker)
+        Rndr::try_insert_node(parent, &self.el, marker)
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
-        if let Some(parent) = Rndr::get_parent(self.el.as_ref()) {
-            if let Some(element) =
-                crate::renderer::types::Element::cast_from(parent)
+        // codegen optimisation:
+        fn inner(
+            element: &crate::renderer::types::Element,
+            child: &mut dyn Mountable,
+        ) -> bool {
+            if let Some(parent) = Rndr::get_parent(element)
+                .and_then(crate::renderer::types::Element::cast_from)
             {
-                child.mount(&element, Some(self.el.as_ref()));
-                return true;
+                child.mount(&parent, Some(element));
+                true
+            } else {
+                false
             }
         }
-        false
+        inner(&self.el, child)
     }
 
     fn elements(&self) -> Vec<crate::renderer::types::Element> {
-        vec![self.el.clone()]
+        // codegen optimisation:
+        fn inner(
+            element: &crate::renderer::types::Element,
+        ) -> Vec<crate::renderer::types::Element> {
+            vec![element.clone()]
+        }
+        inner(&self.el)
     }
 }
 

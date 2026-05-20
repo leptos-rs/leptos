@@ -1,0 +1,13 @@
+[package]
+name = "subsecond_hot_patch"
+version = "0.1.0"
+authors = ["Greg Johnston <greg.johnston@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr", "subsecond"] }
+leptos_router = { path = "../../router" }
+
+[features]
+default = ["web"]
+web = []

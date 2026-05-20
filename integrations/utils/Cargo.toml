@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Utilities to help build server integrations for the Leptos web framework."
-version = "0.8.5"
+version = "0.8.8"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -18,4 +18,5 @@ leptos_config = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]

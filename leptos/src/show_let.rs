@@ -1,5 +1,6 @@
 use crate::{children::ViewFn, IntoView};
 use leptos_macro::component;
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 use reactive_graph::traits::Get;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::either::Either;
@@ -71,7 +72,7 @@ use tachys::either::Either;
 /// }
 /// # }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn ShowLet<T, ChFn, V, M>(
     /// The children will be shown whenever `value` is `Some`.
     ///
@@ -149,8 +150,13 @@ where
 
 /// Marker type for creating an `OptionGetter` from a signal.
 /// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
+///
+/// On nightly, signal types implement `Fn() -> T` directly, so they go through
+/// the `FunctionMarker` impl instead. This impl is only needed on stable where
+/// signals don't implement `Fn()`.
 pub struct SignalMarker;
 
+#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 impl<T, S> IntoOptionGetter<T, SignalMarker> for S
 where
     S: Get<Value = Option<T>> + Clone + Send + Sync + 'static,
@@ -158,5 +164,18 @@ where
     fn into_option_getter(self) -> OptionGetter<T> {
         let cloned = self.clone();
         OptionGetter(Arc::new(move || cloned.get()))
+    }
+}
+
+/// Marker type for creating an `OptionGetter` from a static value.
+/// Used so that the compiler doesn't complain about double implementations of the trait `IntoOptionGetter`.
+pub struct StaticMarker;
+
+impl<T> IntoOptionGetter<T, StaticMarker> for Option<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn into_option_getter(self) -> OptionGetter<T> {
+        OptionGetter(Arc::new(move || self.clone()))
     }
 }

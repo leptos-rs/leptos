@@ -47,8 +47,6 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-#[cfg(feature = "default")]
-use dashmap::DashMap;
 use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
@@ -69,18 +67,29 @@ use leptos_router::{
     static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
     RouteListing, SsrMode,
 };
-use parking_lot::RwLock;
+use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
-use std::path::Path;
-#[cfg(feature = "default")]
 use std::sync::LazyLock;
-use std::{collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc};
+#[cfg(feature = "default")]
+use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashSet,
+    fmt::Debug,
+    io,
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
 #[cfg(feature = "default")]
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
+
+#[cfg(feature = "default")]
+mod service;
+#[cfg(feature = "default")]
+pub use service::ErrorHandler;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -126,24 +135,24 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write();
+        let mut writable = self.0.write().or_poisoned();
         *writable = parts
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key.
     pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact.
     pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write();
+        let mut writeable = self.0.write().or_poisoned();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -166,7 +175,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write();
+        let mut res_options = res_options.0.write().or_poisoned();
         if let Some(status) = res_options.status {
             *self.0.status_mut() = status;
         }
@@ -1522,13 +1531,14 @@ impl StaticRouteGenerator {
 }
 
 #[cfg(feature = "default")]
-static STATIC_HEADERS: LazyLock<DashMap<String, ResponseOptions>> =
-    LazyLock::new(DashMap::new);
+static STATIC_HEADERS: LazyLock<
+    std::sync::RwLock<HashMap<String, ResponseOptions>>,
+> = LazyLock::new(Default::default);
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
-    let status = resp.0.read().status;
+    let status = resp.0.read().or_poisoned().status;
 
     if let Some(status) = status {
         return status == StatusCode::NOT_FOUND;
@@ -1558,7 +1568,10 @@ async fn write_static_route(
     html: &str,
 ) -> Result<(), std::io::Error> {
     if let Some(options) = response_options {
-        STATIC_HEADERS.insert(path.to_string(), options);
+        STATIC_HEADERS
+            .write()
+            .or_poisoned()
+            .insert(path.to_string(), options);
     }
 
     let path = static_path(options, path);
@@ -1635,7 +1648,8 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers = STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                let headers =
+                    STATIC_HEADERS.read().or_poisoned().get(orig_path).cloned();
                 (headers, None)
             };
 
@@ -2021,7 +2035,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler_with_context<S, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -2050,7 +2068,20 @@ where
                 let res = res.await.unwrap();
 
                 if res.status() == StatusCode::OK {
-                    res.into_response()
+                    let owner = Owner::new();
+                    owner.with(|| {
+                        additional_context();
+                        let res = res.into_response();
+                        if let Some(response_options) =
+                            use_context::<ResponseOptions>()
+                        {
+                            let mut res = AxumResponse(res);
+                            res.extend_response(&response_options);
+                            res.0
+                        } else {
+                            res
+                        }
+                    })
                 } else {
                     let mut res = handle_response_inner(
                         move || {
@@ -2093,7 +2124,11 @@ where
 /// A reasonable handler for serving static files (like JS/WASM/CSS) and 404 errors.
 ///
 /// This is provided as a convenience, but is a fairly simple function. If you need to adapt it,
-/// simply reuse the source code of this function in your own application.
+/// simply reuse the source code of this function in your own application.  A more compositional
+/// implementation is offered by [`ErrorHandler`] as it implements a tower [`Service`] which
+/// may be composed with other tower services.
+///
+/// [`Service`]: tower::Service
 #[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
     shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
@@ -2143,4 +2178,38 @@ async fn get_static_file(
             format!("Something went wrong: {err}"),
         )),
     }
+}
+
+/// A helper to create a [`ServeDir`] service for the static files under
+/// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
+/// as the fallback service, or be attached as a service route on the router,
+/// typically with the path derived from [`site_pkg_dir_service_route_path`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+#[cfg(feature = "default")]
+pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
+    ServeDir::new(&*options.site_root)
+        .precompressed_gzip()
+        .precompressed_br()
+}
+
+/// A helper for constructing the axum route path from the `LeptosOptions`, can be used
+/// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
+/// for setting up a routed site pkg service with [`Router::route_service`].
+///
+/// [`ServeDir`]: tower_http::services::ServeDir
+pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
+    // The path of the route being built will be constained to serve only the
+    // contents of `site_pkg_dir` to avoid conflicts with the root routes.
+    let mut path = String::new();
+    // While it shouldn't start with a '/', but check anyway.
+    if !options.site_pkg_dir.starts_with('/') {
+        path.push('/');
+    }
+    path.push_str(&options.site_pkg_dir);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path.push_str("{*path}");
+    path
 }

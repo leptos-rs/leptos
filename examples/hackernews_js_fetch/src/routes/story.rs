@@ -35,17 +35,13 @@ pub fn Story() -> impl IntoView {
                                 <h1>{story.title}</h1>
                             </a>
                             <span class="host">"("{story.domain}")"</span>
-                            {story
-                                .user
-                                .map(|user| {
-                                    view! {
-                                        <p class="meta">
-                                            {story.points} " points | by "
-                                            <A href=format!("/users/{user}")>{user.clone()}</A>
-                                            {format!(" {}", story.time_ago)}
-                                        </p>
-                                    }
-                                })}
+                            <ShowLet some=story.user let:user>
+                                <p class="meta">
+                                    {story.points} " points | by "
+                                    <A href=format!("/users/{user}")>{user.clone()}</A>
+                                    {format!(" {}", story.time_ago)}
+                                </p>
+                            </ShowLet>
                         </div>
                         <div class="item-view-comments">
                             <p class="item-view-comments-header">

@@ -3,7 +3,9 @@ use super::attribute::{
     NextAttribute,
 };
 use crate::{
-    html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,
+    html::attribute::{
+        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+    },
     prelude::AddAnyAttr,
     view::{Position, ToTemplate},
 };
@@ -45,11 +47,13 @@ pub fn directive<T, P, D>(handler: D, param: P) -> Directive<T, D, P>
 where
     D: IntoDirective<T, P>,
 {
-    Directive(Some(SendWrapper::new(DirectiveInner {
-        handler,
-        param,
-        t: PhantomData,
-    })))
+    Directive((!cfg!(feature = "ssr")).then(|| {
+        SendWrapper::new(DirectiveInner {
+            handler,
+            param,
+            t: PhantomData,
+        })
+    }))
 }
 
 /// Custom logic that runs in the browser when the element is created or hydrated.
@@ -117,19 +121,19 @@ where
         self,
         el: &crate::renderer::types::Element,
     ) -> Self::State {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn build(self, el: &crate::renderer::types::Element) -> Self::State {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let inner = self.0.expect("directive removed early").take();
+        let inner = self.0.expect(super::FEATURE_CONFLICT_DIAGNOSTIC).take();
         inner.handler.run(state.clone(), inner.param);
     }
 
@@ -149,16 +153,14 @@ where
         Directive(inner)
     }
 
-    fn dry_resolve(&mut self) {
-        // dry_resolve() only runs during SSR, and we should use it to
-        // synchronously remove and drop the SendWrapper value
-        // we don't need this value during SSR and leaving it here could drop it
-        // from a different thread
-        self.0.take();
-    }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
+    }
+
+    fn keys(&self) -> Vec<NamedAttributeKey> {
+        vec![]
     }
 }
 

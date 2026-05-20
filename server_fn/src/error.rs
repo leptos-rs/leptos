@@ -568,7 +568,7 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Converts the custom error type to a [`String`].
+    /// Serializes the custom error type to bytes, according to the encoding given by `Self::Encoding`.
     fn ser(&self) -> Bytes {
         Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
@@ -581,7 +581,7 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
         })
     }
 
-    /// Deserializes the custom error type from a [`&str`].
+    /// Deserializes the custom error type, according to the encoding given by `Self::Encoding`.
     fn de(data: Bytes) -> Self {
         Self::Encoder::decode(data).unwrap_or_else(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()

@@ -10,4 +10,4 @@ warning: unused import: `server_fn::error::ServerFnError`
 2 | use server_fn::error::ServerFnError;
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-  = note: `#[warn(unused_imports)]` on by default
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default

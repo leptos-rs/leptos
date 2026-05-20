@@ -54,9 +54,53 @@ impl<Fut> ScopedFuture<Fut> {
             fut,
         }
     }
+
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn new_untracked_with_diagnostics(
+        fut: Fut,
+    ) -> ScopedFutureUntrackedWithDiagnostics<Fut> {
+        let owner = Owner::current().unwrap_or_default();
+        ScopedFutureUntrackedWithDiagnostics {
+            owner,
+            observer: None,
+            fut,
+        }
+    }
 }
 
 impl<Fut: Future> Future for ScopedFuture<Fut> {
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        this.owner.with(|| {
+            #[cfg(debug_assertions)]
+            let _maybe_guard = if this.observer.is_none() {
+                Some(crate::diagnostics::SpecialNonReactiveZone::enter())
+            } else {
+                None
+            };
+            this.observer.with_observer(|| this.fut.poll(cx))
+        })
+    }
+}
+
+pin_project! {
+    /// A [`Future`] wrapper that sets the [`Owner`] and [`Observer`] before polling the inner
+    /// `Future`, output of [`ScopedFuture::new_untracked_with_diagnostics`].
+    ///
+    /// In leptos 0.9 this will be replaced with `ScopedFuture` itself.
+    #[derive(Clone)]
+    pub struct ScopedFutureUntrackedWithDiagnostics<Fut> {
+        owner: Owner,
+        observer: Option<AnySubscriber>,
+        #[pin]
+        fut: Fut,
+    }
+}
+
+impl<Fut: Future> Future for ScopedFutureUntrackedWithDiagnostics<Fut> {
     type Output = Fut::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

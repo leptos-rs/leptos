@@ -7,6 +7,9 @@ use std::cell::Cell;
 use std::{cell::RefCell, panic::Location, rc::Rc};
 use web_sys::{Comment, Element, Node, Text};
 
+#[cfg(feature = "mark_branches")]
+const COMMENT_NODE: u16 = 8;
+
 /// Hydration works by walking over the DOM, adding interactivity as needed.
 ///
 /// This cursor tracks the location in the DOM that is currently being hydrated. Each that type
@@ -43,13 +46,27 @@ where
     ///
     /// Does nothing if there is no child.
     pub fn child(&self) {
-        //crate::log("advancing to next child of ");
-        //Rndr::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
         if let Some(node) = Rndr::first_child(&inner) {
             *inner = node;
         }
-        //drop(inner);
+
+        #[cfg(feature = "mark_branches")]
+        {
+            while inner.node_type() == COMMENT_NODE {
+                if let Some(content) = inner.text_content() {
+                    if content.starts_with("bo") || content.starts_with("bc") {
+                        if let Some(sibling) = Rndr::next_sibling(&inner) {
+                            *inner = sibling;
+                            continue;
+                        }
+                    }
+                }
+
+                break;
+            }
+        }
+        // //drop(inner);
         //crate::log(">> which is ");
         //Rndr::log_node(&self.current());
     }
@@ -58,11 +75,24 @@ where
     ///
     /// Does nothing if there is no sibling.
     pub fn sibling(&self) {
-        //crate::log("advancing to next sibling of ");
-        //Rndr::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
         if let Some(node) = Rndr::next_sibling(&inner) {
             *inner = node;
+        }
+
+        #[cfg(feature = "mark_branches")]
+        {
+            while inner.node_type() == COMMENT_NODE {
+                if let Some(content) = inner.text_content() {
+                    if content.starts_with("bo") || content.starts_with("bc") {
+                        if let Some(sibling) = Rndr::next_sibling(&inner) {
+                            *inner = sibling;
+                            continue;
+                        }
+                    }
+                }
+                break;
+            }
         }
         //drop(inner);
         //crate::log(">> which is ");

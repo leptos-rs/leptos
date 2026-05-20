@@ -2,9 +2,20 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
   --> tests/invalid/aliased_return_full.rs:11:1
    |
 11 | #[server]
-   | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
+   | ^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+help: the trait `FromServerFnError` is not implemented for `InvalidError`
+  --> tests/invalid/aliased_return_full.rs:4:1
+   |
+ 4 | pub enum InvalidError {
+   | ^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+  --> src/error.rs
+   |
+   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | | where
+   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
+   | |___________________________________________________________^
    = note: required for `BrowserClient` to implement `Client<InvalidError>`
 note: required by a bound in `server_fn::ServerFn::Client`
   --> src/lib.rs
@@ -22,11 +33,22 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
   --> tests/invalid/aliased_return_full.rs:11:1
    |
 11 | #[server]
-   | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
+   | ^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+help: the trait `FromServerFnError` is not implemented for `InvalidError`
+  --> tests/invalid/aliased_return_full.rs:4:1
+   |
+ 4 | pub enum InvalidError {
+   | ^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+  --> src/error.rs
+   |
+   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | | where
+   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
+   | |___________________________________________________________^
    = note: required for `BrowserClient` to implement `Client<InvalidError>`
-   = note: required for `Http<PostUrl, Post<JsonEncoding>>` to implement `Protocol<FullAliasResult, std::string::String, BrowserClient, BrowserMockServer, InvalidError>`
+   = note: required for `Http<PostUrl, Post<JsonEncoding>>` to implement `Protocol<FullAliasResult, String, BrowserClient, BrowserMockServer, InvalidError>`
 note: required by a bound in `server_fn::ServerFn::Protocol`
   --> src/lib.rs
    |
@@ -45,9 +67,20 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
   --> tests/invalid/aliased_return_full.rs:11:1
    |
 11 | #[server]
-   | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
+   | ^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+help: the trait `FromServerFnError` is not implemented for `InvalidError`
+  --> tests/invalid/aliased_return_full.rs:4:1
+   |
+ 4 | pub enum InvalidError {
+   | ^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+  --> src/error.rs
+   |
+   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | | where
+   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
+   | |___________________________________________________________^
 note: required by a bound in `server_fn::ServerFn::Error`
   --> src/lib.rs
    |
@@ -59,9 +92,20 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
   --> tests/invalid/aliased_return_full.rs:11:1
    |
 11 | #[server]
-   | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
+   | ^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+help: the trait `FromServerFnError` is not implemented for `InvalidError`
+  --> tests/invalid/aliased_return_full.rs:4:1
+   |
+ 4 | pub enum InvalidError {
+   | ^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+  --> src/error.rs
+   |
+   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | | where
+   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
+   | |___________________________________________________________^
 note: required by a bound in `server_fn::ServerFn::InputStreamError`
   --> src/lib.rs
    |
@@ -73,9 +117,20 @@ error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
   --> tests/invalid/aliased_return_full.rs:11:1
    |
 11 | #[server]
-   | ^^^^^^^^^ the trait `FromServerFnError` is not implemented for `InvalidError`
+   | ^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+help: the trait `FromServerFnError` is not implemented for `InvalidError`
+  --> tests/invalid/aliased_return_full.rs:4:1
+   |
+ 4 | pub enum InvalidError {
+   | ^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
+  --> src/error.rs
+   |
+   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | | where
+   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
+   | |___________________________________________________________^
 note: required by a bound in `server_fn::ServerFn::OutputStreamError`
   --> src/lib.rs
    |

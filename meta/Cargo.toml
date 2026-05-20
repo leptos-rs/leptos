@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.8.5"
+version = "0.8.6"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -29,6 +29,7 @@ tracing = ["dep:tracing"]
 nonce = ["leptos/nonce"]
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.cargo-all-features]

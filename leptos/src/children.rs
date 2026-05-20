@@ -262,6 +262,16 @@ where
     }
 }
 
+impl<C> From<View<C>> for ViewFn
+where
+    C: Clone + Send + Sync + 'static,
+    View<C>: IntoAny,
+{
+    fn from(value: View<C>) -> Self {
+        Self(Arc::new(move || value.clone().into_any()))
+    }
+}
+
 impl ViewFn {
     /// Execute the wrapped function
     pub fn run(&self) -> AnyView {
@@ -286,6 +296,16 @@ where
 {
     fn from(value: F) -> Self {
         Self(Box::new(move || value().into_any()))
+    }
+}
+
+impl<C> From<View<C>> for ViewFnOnce
+where
+    C: Send + Sync + 'static,
+    View<C>: IntoAny,
+{
+    fn from(value: View<C>) -> Self {
+        Self(Box::new(move || value.into_any()))
     }
 }
 

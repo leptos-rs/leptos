@@ -510,11 +510,9 @@ if (window.hljs) {
             });
             view! {
                 <pre><code class="language-rust">{code.await}</code></pre>
-                {
-                    move || script.get().map(|script| {
-                        view! { <Script>{script}</Script> }
-                    })
-                }
+                <ShowLet some=script let:script>
+                    <Script>{script}</Script>
+                </ShowLet>
             }
         })
     };
@@ -567,11 +565,9 @@ if (window.hljs) {
             });
             view! {
                 <pre><code class="language-rust">{code.await}</code></pre>
-                {
-                    move || script.get().map(|script| {
-                        view! { <Script>{script}</Script> }
-                    })
-                }
+                <ShowLet some=script let:script>
+                    <Script>{script}</Script>
+                </ShowLet>
             }
         })
     };

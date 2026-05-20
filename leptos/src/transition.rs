@@ -10,17 +10,18 @@ use reactive_graph::{
     effect::Effect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, Set, Track, With},
+    traits::{Get, Set, Track, With, WithUntracked},
     wrappers::write::SignalSetter,
 };
 use slotmap::{DefaultKey, SlotMap};
+use std::sync::Arc;
 use tachys::reactive_graph::OwnedView;
 
-/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
+/// If any [`Resource`](crate::prelude::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`.
 ///
-/// Unlike [`Suspense`](crate::Suspense), this will not fall
+/// Unlike [`Suspense`](crate::prelude::Suspense), this will not fall
 /// back to the `fallback` state if there are further changes after the initial load.
 ///
 /// Note that the `children` will be rendered initially (in order to capture the fact that
@@ -104,14 +105,19 @@ where
         provide_context(SuspenseContext {
             tasks: tasks.clone(),
         });
-        let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
-            tasks.track();
-            if prev.is_none() && starts_local {
-                false
-            } else {
-                tasks.with(SlotMap::is_empty)
+        let none_pending = ArcMemo::new({
+            let tasks = tasks.clone();
+            move |prev: Option<&bool>| {
+                tasks.track();
+                if prev.is_none() && starts_local {
+                    false
+                } else {
+                    tasks.with(SlotMap::is_empty)
+                }
             }
         });
+        let has_tasks =
+            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
         if let Some(set_pending) = set_pending {
             Effect::new_isomorphic({
                 let none_pending = none_pending.clone();
@@ -127,6 +133,7 @@ where
             fallback,
             children,
             error_boundary_parent,
+            has_tasks,
         })
     })
 }

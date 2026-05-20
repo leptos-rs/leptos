@@ -68,9 +68,9 @@ impl Observer {
     fn replace(observer: Option<AnySubscriber>) -> SetObserverOnDrop {
         SetObserverOnDrop(
             OBSERVER
-                .with(|o| {
+                .with_borrow_mut(|o| {
                     mem::replace(
-                        &mut *o.borrow_mut(),
+                        o,
                         observer.map(|subscriber| ObserverState {
                             subscriber,
                             untracked: false,
@@ -84,9 +84,9 @@ impl Observer {
     fn replace_untracked(observer: Option<AnySubscriber>) -> SetObserverOnDrop {
         SetObserverOnDrop(
             OBSERVER
-                .with(|o| {
+                .with_borrow_mut(|o| {
                     mem::replace(
-                        &mut *o.borrow_mut(),
+                        o,
                         observer.map(|subscriber| ObserverState {
                             subscriber,
                             untracked: true,

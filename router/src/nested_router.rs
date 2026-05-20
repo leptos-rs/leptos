@@ -26,7 +26,7 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track},
+    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
@@ -119,6 +119,7 @@ where
                     base,
                     &mut loaders,
                     &mut outlets,
+                    &outer_owner,
                 );
                 drop(url);
 
@@ -159,13 +160,14 @@ where
             }
             return;
         }
+
         // since the path didn't match, we'll update the retained path for future diffing
         state.path.clear();
         state.path.push_str(url_snapshot.path());
 
         let new_match = self.routes.match_route(url_snapshot.path());
 
-        state.current_url.set(url_snapshot);
+        *state.current_url.write_untracked() = url_snapshot;
 
         match new_match {
             None => {
@@ -192,6 +194,7 @@ where
                     &mut state.outlets,
                     self.set_is_routing.is_some(),
                     0,
+                    &self.outer_owner,
                 );
 
                 let (abort_handle, abort_registration) =
@@ -369,6 +372,7 @@ where
                         base,
                         &mut loaders,
                         &mut outlets,
+                        &outer_owner,
                     );
 
                     // outlets will not send their views if the loaders are never polled
@@ -422,7 +426,15 @@ where
                     base,
                     &mut loaders,
                     &mut outlets,
+                    &outer_owner,
                 );
+
+                let preload_owners = outlets
+                    .iter()
+                    .map(|o| o.preload_owner.clone())
+                    .collect::<Vec<_>>();
+                outer_owner
+                    .with(|| Owner::on_cleanup(move || drop(preload_owners)));
 
                 // outlets will not send their views if the loaders are never polled
                 // the loaders are async so that they can lazy-load routes in the browser,
@@ -475,6 +487,7 @@ where
                         base,
                         &mut loaders,
                         &mut outlets,
+                        &outer_owner,
                     );
                     drop(url);
 
@@ -530,6 +543,7 @@ where
                         base,
                         &mut loaders,
                         &mut outlets,
+                        &outer_owner,
                     );
                     drop(url);
 
@@ -566,6 +580,7 @@ pub(crate) struct RouteContext {
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
     owner: Arc<Mutex<Option<Owner>>>,
+    preload_owner: Owner,
     child: ChildRoute,
 }
 
@@ -597,6 +612,7 @@ impl Clone for RouteContext {
             view_fn: Arc::clone(&self.view_fn),
             owner: Arc::clone(&self.owner),
             child: self.child.clone(),
+            preload_owner: self.preload_owner.clone(),
         }
     }
 }
@@ -608,6 +624,7 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
+        outer_owner: &Owner,
     );
 
     #[allow(clippy::too_many_arguments)]
@@ -621,6 +638,7 @@ trait AddNestedRoute {
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
+        outer_owner: &Owner,
     ) -> u8;
 }
 
@@ -634,6 +652,7 @@ where
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext>,
+        outer_owner: &Owner,
     ) {
         let orig_url = url;
 
@@ -701,6 +720,7 @@ where
             base: base.clone(),
             child: ChildRoute(Arc::new(Mutex::new(None))),
             owner: Arc::new(Mutex::new(None)),
+            preload_owner: outer_owner.child(),
         };
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
@@ -725,7 +745,15 @@ where
                 provide_context(params.clone());
                 provide_context(url.clone());
                 provide_context(matched.clone());
-                view.preload().await;
+                outlet
+                    .preload_owner
+                    .with(|| {
+                        provide_context(params.clone());
+                        provide_context(url.clone());
+                        provide_context(matched.clone());
+                        ScopedFuture::new(view.preload())
+                    })
+                    .await;
                 let child = outlet.child.clone();
                 *view_fn.lock().or_poisoned() =
                     Box::new(move |owner_where_used| {
@@ -772,7 +800,13 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(orig_url, base, loaders, outlets);
+            child.build_nested_route(
+                orig_url,
+                base,
+                loaders,
+                outlets,
+                outer_owner,
+            );
         }
     }
 
@@ -787,6 +821,7 @@ where
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
+        outer_owner: &Owner,
     ) -> u8 {
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
@@ -803,7 +838,13 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(url, base, preloaders, outlets);
+                self.build_nested_route(
+                    url,
+                    base,
+                    preloaders,
+                    outlets,
+                    outer_owner,
+                );
                 level
             }
             Some(current) => {
@@ -842,6 +883,10 @@ where
                     let old_matched = mem::replace(
                         &mut current.matched,
                         ArcRwSignal::new(new_match),
+                    );
+                    let old_preload_owner = mem::replace(
+                        &mut current.preload_owner,
+                        outer_owner.child(),
                     );
                     let matched_including_parents = {
                         ArcMemo::new({
@@ -885,11 +930,26 @@ where
                         let child = outlet.child.clone();
                         async move {
                             let child = child.clone();
-                            if set_is_routing {
-                                AsyncTransition::run(|| view.preload()).await;
-                            } else {
-                                view.preload().await;
-                            }
+                            outlet
+                                .preload_owner
+                                .with(|| {
+                                    provide_context(
+                                        params_including_parents.clone(),
+                                    );
+                                    provide_context(url.clone());
+                                    provide_context(matched.clone());
+                                    ScopedFuture::new(async {
+                                        if set_is_routing {
+                                            AsyncTransition::run(|| {
+                                                view.preload()
+                                            })
+                                            .await;
+                                        } else {
+                                            view.preload().await;
+                                        }
+                                    })
+                                })
+                                .await;
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let prev_owner = route_owner
@@ -938,6 +998,7 @@ where
                             drop(old_params);
                             drop(old_url);
                             drop(old_matched);
+                            drop(old_preload_owner);
                             trigger
                         }
                     })));
@@ -948,8 +1009,13 @@ where
 
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
-                        child
-                            .build_nested_route(url, base, preloaders, outlets);
+                        child.build_nested_route(
+                            url,
+                            base,
+                            preloaders,
+                            outlets,
+                            outer_owner,
+                        );
                     } else {
                         *outlets[*items].child.0.lock().or_poisoned() = None;
                     }
@@ -973,6 +1039,7 @@ where
                         outlets,
                         set_is_routing,
                         level + 1,
+                        outer_owner,
                     )
                 } else {
                     *current.child.0.lock().or_poisoned() = None;

@@ -72,6 +72,10 @@ mod axum {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
+                    // TODO: This does not set the Content-Type on the response. Doing so will
+                    //  require a breaking change in order to get the correct encoding from the
+                    //  error's `FromServerFnError::Encoder::CONTENT_TYPE` impl.
+                    //  Note: This only applies to middleware errors.
                     let err =
                         ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     Response::<Body>::error_response(&path, err)
@@ -149,6 +153,10 @@ mod actix {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
+                    // TODO: This does not set the Content-Type on the response. Doing so will
+                    //  require a breaking change in order to get the correct encoding from the
+                    //  error's `FromServerFnError::Encoder::CONTENT_TYPE` impl.
+                    //  Note: This only applies to middleware errors.
                     let err =
                         ser(ServerFnErrorErr::MiddlewareError(e.to_string()));
                     ActixResponse::error_response(&path, err).take()

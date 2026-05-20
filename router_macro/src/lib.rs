@@ -7,7 +7,7 @@
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
 use proc_macro_error2::{abort, proc_macro_error, set_dummy};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
 };
@@ -267,10 +267,7 @@ fn lazy_route_impl(
     };
     let lazy_view_ident =
         Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
-    let preload_lazy_view_ident = Ident::new(
-        &format!("__preload_{lazy_view_ident}"),
-        lazy_view_ident.span(),
-    );
+    let preload_ident = format_ident!("__preload_{lazy_view_ident}");
 
     im.items.push(
         syn::parse::<ImplItem>(
@@ -280,7 +277,7 @@ fn lazy_route_impl(
                     // we don't split routes for wasm32 ssr
                     // but we don't require a `hydrate`/`csr` feature on leptos_router
                     #[cfg(target_arch = "wasm32")]
-                    #preload_lazy_view_ident().await;
+                    #preload_ident().await;
                 }
             }
             .into(),

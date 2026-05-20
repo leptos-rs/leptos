@@ -331,6 +331,7 @@ impl ServerFnCall {
         enum PathInfo {
             Serde,
             Rkyv,
+            Bitcode,
             None,
         }
 
@@ -339,6 +340,12 @@ impl ServerFnCall {
                 PathInfo::Rkyv,
                 quote! {
                     Clone, #server_fn_path::rkyv::Archive, #server_fn_path::rkyv::Serialize, #server_fn_path::rkyv::Deserialize
+                },
+            ),
+            Some("Bitcode") => (
+                PathInfo::Bitcode,
+                quote! {
+                    Clone, #server_fn_path::bitcode::Encode, #server_fn_path::bitcode::Decode
                 },
             ),
             Some("MultipartFormData")
@@ -376,9 +383,12 @@ impl ServerFnCall {
                     #[serde(crate = #serde_path)]
                 }
             }
+            PathInfo::Bitcode => quote! {},
             PathInfo::Rkyv => quote! {},
             PathInfo::None => quote! {},
         };
+
+        let lint_attrs = &self.body.lint_attrs;
 
         let vis = &self.body.vis;
         let struct_name = self.struct_name();
@@ -402,6 +412,7 @@ impl ServerFnCall {
             #docs
             #[derive(Debug, #derives)]
             #addl_path
+            #(#lint_attrs)*
             #vis struct #struct_name {
                 #(#fields),*
             }
@@ -752,6 +763,7 @@ impl ServerFnCall {
         // build struct for type
         let fn_name = &body.ident;
         let attrs = &body.attrs;
+        let lint_attrs = &body.lint_attrs;
 
         let fn_args = body.inputs.iter().map(|f| &f.arg).collect::<Vec<_>>();
 
@@ -771,6 +783,7 @@ impl ServerFnCall {
             quote! {
                 #docs
                 #(#attrs)*
+                #(#lint_attrs)*
                 #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
                     #dummy_name(#(#field_names),*).await
                 }
@@ -1457,6 +1470,8 @@ pub struct ServerFnBody {
     pub block: TokenStream2,
     /// The documentation of the server function.
     pub docs: Vec<(String, Span)>,
+    /// The lint attributes of the server function.
+    pub lint_attrs: Vec<Attribute>,
     /// The middleware attributes applied to the server function.
     pub middlewares: Vec<Middleware>,
 }
@@ -1514,6 +1529,9 @@ impl Parse for ServerFnBody {
             };
             !attr.path.is_ident("doc")
         });
+        let (lint_attrs, mut attrs): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(is_lint_attr);
+
         // extract all #[middleware] attributes, removing them from signature of dummy
         let mut middlewares: Vec<Middleware> = vec![];
         attrs.retain(|attr| {
@@ -1549,6 +1567,7 @@ impl Parse for ServerFnBody {
             block,
             attrs,
             docs,
+            lint_attrs,
             middlewares,
         })
     }
@@ -1571,13 +1590,24 @@ impl ServerFnBody {
             output_arrow,
             return_ty,
             block,
+            lint_attrs,
             ..
         } = &self;
         quote! {
             #[doc(hidden)]
             #(#attrs)*
+            #(#lint_attrs)*
             #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty
             #block
         }
     }
+}
+
+fn is_lint_attr(attr: &Attribute) -> bool {
+    let path = &attr.path();
+    path.is_ident("allow")
+        || path.is_ident("warn")
+        || path.is_ident("expect")
+        || path.is_ident("deny")
+        || path.is_ident("forbid")
 }

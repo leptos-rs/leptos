@@ -15,3 +15,9 @@ pub async fn click_link(client: &Client, text: &str) -> Result<()> {
     link.click().await?;
     Ok(())
 }
+
+pub async fn click_button(client: &Client, id: &str) -> Result<()> {
+    let btn = find::element_by_id(&client, &id).await?;
+    btn.click().await?;
+    Ok(())
+}
