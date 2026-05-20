@@ -93,10 +93,8 @@ fn try_from_env_test() {
 fn leptos_options_css_file_path() {
     fn next_file_name<'a>(a: &'a mut Ancestors) -> Option<&'a str> {
         a.next()
-            .map(|p| p.file_name())
-            .flatten()
-            .map(|s| s.to_str())
-            .flatten()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
     }
     let options = LeptosOptions::builder().output_name("test").build();
     let path = options.css_file_path();

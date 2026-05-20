@@ -264,7 +264,7 @@ pub fn redirect(path: &str) {
         tracing::warn!("{}", &msg);
 
         #[cfg(not(feature = "tracing"))]
-        eprintln!("{}", &msg);
+        eprintln!("{}", msg);
     }
 }
 
@@ -377,8 +377,8 @@ pub fn handle_server_fns_with_context(
 
                             // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                             // Location set, then redirect to the Referer
-                            if accepts_html {
-                                if let Some(referrer) = referrer {
+                            if accepts_html
+                                && let Some(referrer) = referrer {
                                     let has_location =
                                         res.0.headers().get(LOCATION).is_some();
                                     if !has_location {
@@ -388,7 +388,6 @@ pub fn handle_server_fns_with_context(
                                             .insert(LOCATION, referrer);
                                     }
                                 }
-                            }
 
                             // the Location header may have been set to Referer, so any redirection by the
                             // user must overwrite it

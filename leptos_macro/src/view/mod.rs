@@ -358,12 +358,10 @@ fn inert_element_to_tokens(
 
                                 if let Some(value) =
                                     attr.possible_value.to_value()
-                                {
-                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                    && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                    {
-                                        if let Lit::Str(txt) = &lit.lit {
+                                        && let Lit::Str(txt) = &lit.lit {
                                             let value = txt.value();
                                             let value = html_escape::encode_double_quoted_attribute(&value);
                                             if attr_name == "class" {
@@ -373,9 +371,7 @@ fn inert_element_to_tokens(
                                                 html.push_str(&value);
                                                 html.push('"');
                                             }
-                                        }
-                                    }
-                                };
+                                        };
                             }
                         }
 
@@ -472,12 +468,10 @@ fn inert_svg_element_to_tokens(
 
                                 if let Some(value) =
                                     attr.possible_value.to_value()
-                                {
-                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                    && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                    {
-                                        if let Lit::Str(txt) = &lit.lit {
+                                        && let Lit::Str(txt) = &lit.lit {
                                             let value = txt.value();
                                             let value = html_escape::encode_double_quoted_attribute(&value);
                                             if attr_name == "class" {
@@ -487,9 +481,7 @@ fn inert_svg_element_to_tokens(
                                                 html.push_str(&value);
                                                 html.push('"');
                                             }
-                                        }
-                                    }
-                                };
+                                        };
                             }
                         }
 
@@ -798,16 +790,14 @@ pub(crate) fn element_to_tokens(
             _ => None,
         };
 
-        if let NodeAttribute::Attribute(a) = a {
-            if let Some(Tuple(_)) = a.value() {
+        if let NodeAttribute::Attribute(a) = a
+            && let Some(Tuple(_)) = a.value() {
                 return Ordering::Greater;
             }
-        }
-        if let NodeAttribute::Attribute(b) = b {
-            if let Some(Tuple(_)) = b.value() {
+        if let NodeAttribute::Attribute(b) = b
+            && let Some(Tuple(_)) = b.value() {
                 return Ordering::Less;
             }
-        }
 
         match (key_a.as_deref(), key_b.as_deref()) {
             (Some("class"), Some("class")) | (Some("style"), Some("style")) => {
@@ -1416,8 +1406,8 @@ fn class_to_tokens(
 ) -> TokenStream {
     // case of class=(["foo", "bar"], /* something */)
     // just expands to multiple uses of class:
-    if let Some(Tuple(tuple)) = node.value() {
-        if tuple.elems.len() == 2 {
+    if let Some(Tuple(tuple)) = node.value()
+        && tuple.elems.len() == 2 {
             let name = &tuple.elems[0];
             let value = &tuple.elems[1];
             if let Expr::Array(ExprArray { elems, .. }) = name {
@@ -1437,7 +1427,6 @@ fn class_to_tokens(
                     .collect();
             }
         }
-    }
 
     // default case
     let value = attribute_value(node, false);
@@ -1648,15 +1637,13 @@ fn attribute_value(
         None => quote! { true },
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
-                if let Expr::Lit(lit) = expr {
-                    if cfg!(all(feature = "nightly", rustc_nightly)) {
-                        if let Lit::Str(str) = &lit.lit {
+                if let Expr::Lit(lit) = expr
+                    && cfg!(all(feature = "nightly", rustc_nightly))
+                        && let Lit::Str(str) = &lit.lit {
                             return quote! {
                                 ::leptos::tachys::view::static_types::Static::<#str>
                             };
                         }
-                    }
-                }
 
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
                     quote! {
@@ -1916,8 +1903,8 @@ pub(crate) fn directive_call_from_attribute_node(
 }
 
 fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
-    if name == "style" || name == "class" {
-        if let Some(Tuple(tuple)) = node.value() {
+    if (name == "style" || name == "class")
+        && let Some(Tuple(tuple)) = node.value() {
             {
                 if tuple.elems.len() == 2 {
                     let style_name = &tuple.elems[0];
@@ -1948,7 +1935,6 @@ fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
                 }
             }
         }
-    }
 
     TupleName::None
 }

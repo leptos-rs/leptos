@@ -132,8 +132,8 @@ where
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         let triggers = &self.signals;
-        let trigger = triggers.write().or_poisoned().get_or_insert(path);
-        trigger
+        
+        triggers.write().or_poisoned().get_or_insert(path)
     }
 
     #[track_caller]
@@ -152,7 +152,7 @@ where
                     .unwrap_or_else(|| {
                         panic!(
                             "could not find key for index {:?} at {}",
-                            &(path.clone(), segment.0),
+                            (path.clone(), segment.0),
                             caller
                         )
                     });

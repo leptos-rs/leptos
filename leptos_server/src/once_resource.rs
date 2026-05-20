@@ -255,8 +255,8 @@ where
     type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.read().or_poisoned().is_none() {
+        if let Some(suspense_context) = use_context::<SuspenseContext>()
+            && self.value.read().or_poisoned().is_none() {
                 let handle = suspense_context.task_id();
                 let mut ready =
                     Box::pin(SpecialNonReactiveFuture::new(self.ready()));
@@ -271,7 +271,6 @@ where
                 }
                 self.suspenses.write().or_poisoned().push(suspense_context);
             }
-        }
         Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
 }

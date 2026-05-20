@@ -38,9 +38,8 @@ pub fn connect_to_hot_patch_messages() {
 
             if let Ok(DevserverMsg::HotReload(msg)) =
                 serde_json::from_str::<DevserverMsg>(string)
-            {
-                if let Some(jump_table) = msg.jump_table.as_ref().cloned() {
-                    if msg.for_build_id == Some(dioxus_cli_config::build_id()) {
+                && let Some(jump_table) = msg.jump_table.as_ref().cloned()
+                    && msg.for_build_id == Some(dioxus_cli_config::build_id()) {
                         let our_pid = if cfg!(target_family = "wasm") {
                             None
                         } else {
@@ -52,8 +51,6 @@ pub fn connect_to_hot_patch_messages() {
                                 .unwrap();
                         }
                     }
-                }
-            }
         })
         .into_js_value()
         .as_ref()

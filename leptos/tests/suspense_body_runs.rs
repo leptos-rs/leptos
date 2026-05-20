@@ -15,7 +15,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-async fn render(app: impl IntoView + Send + 'static) -> String {
+async fn render(app: impl IntoView + 'static) -> String {
     app.to_html_stream_in_order().collect::<String>().await
 }
 

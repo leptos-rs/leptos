@@ -257,11 +257,10 @@ where
         let signal = self.read_signal(el);
         prop(self.key(), signal).rebuild(attr_state);
 
-        if let Some(prev) = prev_cleanup.take() {
-            if let Some(remove) = prev.into_inner() {
+        if let Some(prev) = prev_cleanup.take()
+            && let Some(remove) = prev.into_inner() {
                 remove();
             }
-        }
         *prev_cleanup = Some(self.attach(el));
     }
 

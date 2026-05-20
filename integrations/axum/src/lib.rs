@@ -429,8 +429,8 @@ async fn handle_server_fns_inner(
 
                     // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                     // Location set, then redirect to the Referer
-                    if accepts_html {
-                        if let Some(referrer) = referrer {
+                    if accepts_html
+                        && let Some(referrer) = referrer {
                             let has_location =
                                 res.0.headers().get(LOCATION).is_some();
                             if !has_location {
@@ -438,7 +438,6 @@ async fn handle_server_fns_inner(
                                 res.0.headers_mut().insert(LOCATION, referrer);
                             }
                         }
-                    }
 
                     // apply status code and headers if user changed them
                     res.extend_response(&res_options);

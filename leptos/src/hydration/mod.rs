@@ -80,8 +80,8 @@ pub fn HydrationScripts(
             let mut manifest = "__wasm_split_manifest.json".to_string();
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':') {
                         if file == "manifest" {
                             manifest.clear();
                             manifest.push_str("__wasm_split_manifest.");
@@ -95,7 +95,6 @@ pub fn HydrationScripts(
                             split.push_str(".js");
                         }
                     }
-                }
             }
             (split, manifest)
         } else {
@@ -136,8 +135,8 @@ pub fn HydrationScripts(
                 .expect("failed to read hash file");
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':') {
                         if file == "js" {
                             js_file_name.push_str(&format!(".{}", hash.trim()));
                         } else if file == "wasm" {
@@ -145,7 +144,6 @@ pub fn HydrationScripts(
                                 .push_str(&format!(".{}", hash.trim()));
                         }
                     }
-                }
             }
         } else {
             leptos::logging::error!(

@@ -86,19 +86,18 @@ impl Parse for Model {
 fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(feature = "__internal_erase_components")]
     {
-        if let ReturnType::Type(_, ty) = ret {
-            if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
+        if let ReturnType::Type(_, ty) = ret
+            && let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
                 // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
                 if bounds.iter().any(|bound| {
-                    if let syn::TypeParamBound::Trait(trait_bound) = bound {
-                        if trait_bound.path.segments.iter().any(
+                    if let syn::TypeParamBound::Trait(trait_bound) = bound
+                        && trait_bound.path.segments.iter().any(
                             |path_segment| {
                                 path_segment.ident == "MatchNestedRoutes"
                             },
                         ) {
                             return true;
                         }
-                    }
                     false
                 }) {
                     *ty = parse_quote!(
@@ -106,7 +105,6 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
                     );
                 }
             }
-        }
     }
     #[cfg(not(feature = "__internal_erase_components"))]
     {
@@ -969,11 +967,10 @@ impl UnknownAttrs {
         let attrs = attrs
             .iter()
             .filter_map(|attr| {
-                if attr.path().is_ident("doc") {
-                    if let Meta::NameValue(_) = &attr.meta {
+                if attr.path().is_ident("doc")
+                    && let Meta::NameValue(_) = &attr.meta {
                         return None;
                     }
-                }
 
                 if is_lint_attr(attr) {
                     return None;
@@ -1263,22 +1260,16 @@ pub fn unwrap_option(ty: &Type) -> Type {
         path: Path { segments, .. },
         ..
     }) = ty
-    {
-        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
-            if first.ident == "Option" {
-                if let PathArguments::AngleBracketed(
+        && let [first] = &segments.iter().collect::<Vec<_>>()[..]
+            && first.ident == "Option"
+                && let PathArguments::AngleBracketed(
                     AngleBracketedGenericArguments { args, .. },
                 ) = &first.arguments
-                {
-                    if let [GenericArgument::Type(ty)] =
+                    && let [GenericArgument::Type(ty)] =
                         &args.iter().collect::<Vec<_>>()[..]
                     {
                         return ty.clone();
                     }
-                }
-            }
-        }
-    }
 
     abort!(
         ty,

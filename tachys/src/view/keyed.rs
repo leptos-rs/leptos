@@ -151,7 +151,7 @@ where
             parent,
             marker,
             hashed_items,
-            ref mut rendered_items,
+            rendered_items,
         } = state;
         let new_items = self.items.into_iter().flatten();
         let (capacity, _) = new_items.size_hint();
@@ -559,8 +559,8 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             // 2) be moved (but not need to move in the DOM)
             //    * this would happen if, for example, 2 items
             //      have been added before it, and it has moved by 2
-            if let Some(from_item) = from_item {
-                if let Some(to_item) = to.get_full(from_item) {
+            if let Some(from_item) = from_item
+                && let Some(to_item) = to.get_full(from_item) {
                     let moves_forward_by = (to_item.0 as i32) - (index as i32);
                     let move_in_dom = moves_forward_by
                         != (added.len() as i32) - (removed.len() as i32);
@@ -573,7 +573,6 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
                     };
                     moved.push(op);
                 }
-            }
         }
     }
 
@@ -790,13 +789,12 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut moves_next = moves_iter.next().copied();
 
     for i in 0..diff.items_to_move + diff.added.len() + diff.removed.len() {
-        if let Some(DiffOpRemove { at, .. }) = removes_next {
-            if i == *at {
+        if let Some(DiffOpRemove { at, .. }) = removes_next
+            && i == *at {
                 removes_next = removes_iter.next();
 
                 continue;
             }
-        }
 
         match (adds_next, &mut moves_next) {
             (Some(add), Some(move_)) => {

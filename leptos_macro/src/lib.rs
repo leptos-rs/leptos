@@ -682,7 +682,7 @@ fn component_macro(
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+    if let (Ok(unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model
             .is_transparent(is_transparent)
             .is_lazy(is_lazy)

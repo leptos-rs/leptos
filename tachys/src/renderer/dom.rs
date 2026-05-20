@@ -164,8 +164,8 @@ impl Dom {
             let node = node.first_child();
             // if it's a comment node that starts with hot-reload, it's a marker that should be
             // ignored
-            if let Some(node) = node.as_ref() {
-                if node.node_type() == 8
+            if let Some(node) = node.as_ref()
+                && node.node_type() == 8
                     && node
                         .text_content()
                         .unwrap_or_default()
@@ -173,7 +173,6 @@ impl Dom {
                 {
                     return Self::next_sibling(node);
                 }
-            }
 
             node
         }
@@ -189,8 +188,8 @@ impl Dom {
             let node = node.next_sibling();
             // if it's a comment node that starts with hot-reload, it's a marker that should be
             // ignored
-            if let Some(node) = node.as_ref() {
-                if node.node_type() == 8
+            if let Some(node) = node.as_ref()
+                && node.node_type() == 8
                     && node
                         .text_content()
                         .unwrap_or_default()
@@ -198,7 +197,6 @@ impl Dom {
                 {
                     return Self::next_sibling(node);
                 }
-            }
 
             node
         }

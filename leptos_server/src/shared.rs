@@ -232,8 +232,8 @@ where
             } else {
                 let init = initial();
                 #[cfg(feature = "ssr")]
-                if let Some(sc) = sc {
-                    if sc.get_is_hydrating() {
+                if let Some(sc) = sc
+                    && sc.get_is_hydrating() {
                         match Ser::encode(&init)
                             .map(IntoEncodedString::into_encoded_string)
                         {
@@ -248,7 +248,6 @@ where
                             }
                         }
                     }
-                }
                 init
             }
         }

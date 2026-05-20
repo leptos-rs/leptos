@@ -500,8 +500,8 @@ impl ServerFnCall {
         let fn_path = self.args.fn_path.clone().map(|fn_path| {
             let fn_path = fn_path.value();
             // Remove any leading slashes, then add one slash back
-            let fn_path = "/".to_string() + fn_path.trim_start_matches('/');
-            fn_path
+            
+            "/".to_string() + fn_path.trim_start_matches('/')
         });
 
         let enable_server_fn_mod_path =
@@ -932,27 +932,24 @@ impl Parse for Middleware {
 }
 
 fn output_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty {
-        if pat.path.segments[0].ident == "Result" {
+    if let syn::Type::Path(pat) = &return_ty
+        && pat.path.segments[0].ident == "Result" {
             if pat.path.segments.is_empty() {
                 panic!("{:#?}", pat.path);
             } else if let PathArguments::AngleBracketed(args) =
                 &pat.path.segments[0].arguments
-            {
-                if let GenericArgument::Type(ty) = &args.args[0] {
+                && let GenericArgument::Type(ty) = &args.args[0] {
                     return Some(ty);
                 }
-            }
-        }
-    };
+        };
 
     None
 }
 
 fn err_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty {
-        if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) =
+    if let syn::Type::Path(pat) = &return_ty
+        && pat.path.segments[0].ident == "Result"
+            && let PathArguments::AngleBracketed(args) =
                 &pat.path.segments[0].arguments
             {
                 // Result<T>
@@ -963,9 +960,7 @@ fn err_type(return_ty: &Type) -> Option<&Type> {
                 else if let GenericArgument::Type(ty) = &args.args[1] {
                     return Some(ty);
                 }
-            }
-        }
-    };
+            };
 
     None
 }
@@ -998,9 +993,9 @@ fn err_ws_in_type(
 }
 
 fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
-    if let Some(syn::Type::Path(ref pat)) = output_ty {
-        if pat.path.segments[0].ident == "BoxedStream" {
-            if let PathArguments::AngleBracketed(args) =
+    if let Some(syn::Type::Path(pat)) = output_ty
+        && pat.path.segments[0].ident == "BoxedStream"
+            && let PathArguments::AngleBracketed(args) =
                 &pat.path.segments[0].arguments
             {
                 // BoxedStream<T>
@@ -1018,8 +1013,6 @@ fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
                      BoxedStream<Result<T, E>> where E: FromServerFnError",
                 ));
             };
-        }
-    };
 
     Ok(None)
 }
