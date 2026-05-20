@@ -1,7 +1,7 @@
 use any_spawner::Executor;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 #[test]

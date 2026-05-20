@@ -3,8 +3,8 @@ use reactive_graph::{
     effect::Effect,
     graph::untrack,
     signal::{
-        guards::{Derefable, ReadGuard},
         RwSignal,
+        guards::{Derefable, ReadGuard},
     },
     traits::{
         DefinedAt, Get, IsDisposed, Notify, ReadUntracked, Set, Track,

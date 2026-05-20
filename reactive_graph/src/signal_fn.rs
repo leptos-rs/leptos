@@ -237,11 +237,11 @@ where
 
 // SignalSetter: needs Storage<ArcWriteSignal<T>> + Storage<Box<dyn Fn(T) + Send + Sync>>
 impl<
-        T: 'static,
-        S: Storage<ArcWriteSignal<T>>
-            + Storage<Box<dyn Fn(T) + Send + Sync>>
-            + 'static,
-    > std::ops::Deref for SignalSetter<T, S>
+    T: 'static,
+    S: Storage<ArcWriteSignal<T>>
+        + Storage<Box<dyn Fn(T) + Send + Sync>>
+        + 'static,
+> std::ops::Deref for SignalSetter<T, S>
 where
     SignalSetter<T, S>: crate::traits::Set<Value = T>,
 {
@@ -253,11 +253,11 @@ where
 }
 
 impl<
-        T: 'static,
-        S: Storage<ArcWriteSignal<T>>
-            + Storage<Box<dyn Fn(T) + Send + Sync>>
-            + 'static,
-    > writable_deref_impl::WritableDerefImpl for SignalSetter<T, S>
+    T: 'static,
+    S: Storage<ArcWriteSignal<T>>
+        + Storage<Box<dyn Fn(T) + Send + Sync>>
+        + 'static,
+> writable_deref_impl::WritableDerefImpl for SignalSetter<T, S>
 where
     SignalSetter<T, S>: crate::traits::Set<Value = T>,
 {

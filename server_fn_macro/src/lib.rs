@@ -8,7 +8,7 @@
 
 use convert_case::{Case, Converter};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -500,8 +500,8 @@ impl ServerFnCall {
         let fn_path = self.args.fn_path.clone().map(|fn_path| {
             let fn_path = fn_path.value();
             // Remove any leading slashes, then add one slash back
-            let fn_path = "/".to_string() + fn_path.trim_start_matches('/');
-            fn_path
+
+            "/".to_string() + fn_path.trim_start_matches('/')
         });
 
         let enable_server_fn_mod_path =
@@ -932,17 +932,16 @@ impl Parse for Middleware {
 }
 
 fn output_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty {
-        if pat.path.segments[0].ident == "Result" {
-            if pat.path.segments.is_empty() {
-                panic!("{:#?}", pat.path);
-            } else if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                if let GenericArgument::Type(ty) = &args.args[0] {
-                    return Some(ty);
-                }
-            }
+    if let syn::Type::Path(pat) = &return_ty
+        && pat.path.segments[0].ident == "Result"
+    {
+        if pat.path.segments.is_empty() {
+            panic!("{:#?}", pat.path);
+        } else if let PathArguments::AngleBracketed(args) =
+            &pat.path.segments[0].arguments
+            && let GenericArgument::Type(ty) = &args.args[0]
+        {
+            return Some(ty);
         }
     };
 
@@ -950,20 +949,18 @@ fn output_type(return_ty: &Type) -> Option<&Type> {
 }
 
 fn err_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty {
-        if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                // Result<T>
-                if args.args.len() == 1 {
-                    return None;
-                }
-                // Result<T, _>
-                else if let GenericArgument::Type(ty) = &args.args[1] {
-                    return Some(ty);
-                }
-            }
+    if let syn::Type::Path(pat) = &return_ty
+        && pat.path.segments[0].ident == "Result"
+        && let PathArguments::AngleBracketed(args) =
+            &pat.path.segments[0].arguments
+    {
+        // Result<T>
+        if args.args.len() == 1 {
+            return None;
+        }
+        // Result<T, _>
+        else if let GenericArgument::Type(ty) = &args.args[1] {
+            return Some(ty);
         }
     };
 
@@ -998,27 +995,25 @@ fn err_ws_in_type(
 }
 
 fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
-    if let Some(syn::Type::Path(ref pat)) = output_ty {
-        if pat.path.segments[0].ident == "BoxedStream" {
-            if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                // BoxedStream<T>
-                if args.args.len() == 1 {
-                    return Ok(None);
-                }
-                // BoxedStream<T, E>
-                else if let GenericArgument::Type(ty) = &args.args[1] {
-                    return Ok(Some(ty.clone()));
-                }
-
-                return Err(syn::Error::new(
-                    output_ty.span(),
-                    "websocket server functions should return \
-                     BoxedStream<Result<T, E>> where E: FromServerFnError",
-                ));
-            };
+    if let Some(syn::Type::Path(pat)) = output_ty
+        && pat.path.segments[0].ident == "BoxedStream"
+        && let PathArguments::AngleBracketed(args) =
+            &pat.path.segments[0].arguments
+    {
+        // BoxedStream<T>
+        if args.args.len() == 1 {
+            return Ok(None);
         }
+        // BoxedStream<T, E>
+        else if let GenericArgument::Type(ty) = &args.args[1] {
+            return Ok(Some(ty.clone()));
+        }
+
+        return Err(syn::Error::new(
+            output_ty.span(),
+            "websocket server functions should return BoxedStream<Result<T, \
+             E>> where E: FromServerFnError",
+        ));
     };
 
     Ok(None)
@@ -1243,7 +1238,7 @@ impl Parse for ServerFnArgs {
                         return Err(syn::Error::new(
                             stream.span(),
                             "unexpected extra argument",
-                        ))
+                        ));
                     }
                 }
             } else {
@@ -1283,7 +1278,7 @@ impl Parse for ServerFnArgs {
                     return Err(syn::Error::new(
                         encoding.span(),
                         "Encoding not found.",
-                    ))
+                    ));
                 }
             }
         }
@@ -1332,7 +1327,7 @@ impl Parse for ServerFnArg {
                 return Err(syn::Error::new(
                     arg.span(),
                     "cannot use receiver types in server function macro",
-                ))
+                ));
             }
             FnArg::Typed(t) => t,
         };

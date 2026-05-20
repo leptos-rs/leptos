@@ -1,12 +1,12 @@
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, IntoAppError, ServerFnErrorErr,
-    ServerFnErrorResponseParts, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, IntoAppError, SERVER_FN_ERROR_HEADER, ServerFnErrorErr,
+    ServerFnErrorResponseParts, ServerFnErrorWrapper,
 };
 use axum::body::Body;
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
-use http::{header, HeaderValue, Response, StatusCode};
+use http::{HeaderValue, Response, StatusCode, header};
 
 impl<E> TryRes<E> for Response<Body>
 where

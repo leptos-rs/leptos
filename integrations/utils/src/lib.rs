@@ -1,13 +1,13 @@
 #![allow(clippy::type_complexity)]
 
-use futures::{stream::once, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::once};
 use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
+    IntoView, PrefetchLazyFn, WasmSplitManifest,
     context::provide_context,
     nonce::use_nonce,
     prelude::ReadValue,
     reactive::owner::{Owner, Sandboxed},
-    IntoView, PrefetchLazyFn, WasmSplitManifest,
 };
 use leptos_config::LeptosOptions;
 use leptos_meta::{Link, ServerMetaContextOutput};
@@ -21,7 +21,7 @@ pub trait ExtendResponse: Sized {
     type ResponseOptions: Send;
 
     fn from_stream(stream: impl Stream<Item = String> + Send + 'static)
-        -> Self;
+    -> Self;
 
     fn extend_response(&mut self, opt: &Self::ResponseOptions);
 

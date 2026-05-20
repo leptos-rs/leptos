@@ -1,33 +1,33 @@
 use crate::{
-    initial_value, FromEncodedStr, IntoEncodedString,
-    IS_SUPPRESSING_RESOURCE_LOAD,
+    FromEncodedStr, IS_SUPPRESSING_RESOURCE_LOAD, IntoEncodedString,
+    initial_value,
 };
+#[cfg(feature = "serde-lite")]
+use codee::SerdeLite;
 #[cfg(feature = "rkyv")]
 use codee::binary::RkyvCodec;
 #[cfg(feature = "serde-wasm-bindgen")]
 use codee::string::JsonSerdeWasmCodec;
 #[cfg(feature = "miniserde")]
 use codee::string::MiniserdeCodec;
-#[cfg(feature = "serde-lite")]
-use codee::SerdeLite;
 use codee::{
-    string::{FromToStringCodec, JsonSerdeCodec},
     Decoder, Encoder,
+    string::{FromToStringCodec, JsonSerdeCodec},
 };
 use core::{fmt::Debug, marker::PhantomData};
 use futures::{Future, FutureExt};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::SuspenseContext, AsyncDerivedReadyFuture, ScopedFuture,
+        AsyncDerivedReadyFuture, ScopedFuture, suspense::SuspenseContext,
     },
     diagnostics::{SpecialNonReactiveFuture, SpecialNonReactiveZone},
     graph::{AnySource, ToAnySource},
-    owner::{use_context, ArenaItem, Owner},
+    owner::{ArenaItem, Owner, use_context},
     prelude::*,
     signal::{
-        guards::{Plain, ReadGuard},
         ArcTrigger,
+        guards::{Plain, ReadGuard},
     },
     unwrap_signal,
 };
@@ -37,8 +37,8 @@ use std::{
     panic::Location,
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll, Waker},
 };
@@ -255,22 +255,22 @@ where
     type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.read().or_poisoned().is_none() {
-                let handle = suspense_context.task_id();
-                let mut ready =
-                    Box::pin(SpecialNonReactiveFuture::new(self.ready()));
-                match ready.as_mut().now_or_never() {
-                    Some(_) => drop(handle),
-                    None => {
-                        reactive_graph::spawn(async move {
-                            ready.await;
-                            drop(handle);
-                        });
-                    }
+        if let Some(suspense_context) = use_context::<SuspenseContext>()
+            && self.value.read().or_poisoned().is_none()
+        {
+            let handle = suspense_context.task_id();
+            let mut ready =
+                Box::pin(SpecialNonReactiveFuture::new(self.ready()));
+            match ready.as_mut().now_or_never() {
+                Some(_) => drop(handle),
+                None => {
+                    reactive_graph::spawn(async move {
+                        ready.await;
+                        drop(handle);
+                    });
                 }
-                self.suspenses.write().or_poisoned().push(suspense_context);
             }
+            self.suspenses.write().or_poisoned().push(suspense_context);
         }
         Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }

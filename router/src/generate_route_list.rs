@@ -1,9 +1,9 @@
 use crate::{
+    Method, SsrMode,
     matching::PathSegment,
     static_routes::{
         RegenerationFn, ResolvedStaticPath, StaticPath, StaticRoute,
     },
-    Method, SsrMode,
 };
 use futures::future::join_all;
 use reactive_graph::owner::Owner;
@@ -86,9 +86,9 @@ impl RouteListing {
         mut self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
         writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
-            + Send
-            + Clone
-            + 'static,
+        + Send
+        + Clone
+        + 'static,
         was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
     ) where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
@@ -202,9 +202,9 @@ impl RouteList {
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
         writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
-            + Send
-            + Clone
-            + 'static,
+        + Send
+        + Clone
+        + 'static,
         was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
     ) where
         Fut: Future<Output = (Owner, String)> + Send + 'static,

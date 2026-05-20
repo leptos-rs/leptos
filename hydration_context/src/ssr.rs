@@ -1,9 +1,9 @@
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use futures::{
+    Stream, StreamExt,
     future::join_all,
     stream::{self, once},
-    Stream, StreamExt,
 };
 use or_poisoned::OrPoisoned;
 use std::{
@@ -12,8 +12,8 @@ use std::{
     mem,
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     task::{Context, Poll},
 };
@@ -185,7 +185,7 @@ impl SharedContext for SsrSharedContext {
             _ = write!(
                 initial_chunk,
                 "[{}, {}, {:?}],",
-                error.0 .0,
+                error.0.0,
                 error.1,
                 error.2.to_string()
             );
@@ -296,7 +296,7 @@ impl Stream for AsyncDataStream {
                 _ = write!(
                     resolved,
                     "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
-                    error.0 .0,
+                    error.0.0,
                     error.1,
                     error.2.to_string()
                 );

@@ -1,6 +1,6 @@
 use crate::{
     html::{
-        attribute::{any_attribute::AnyAttribute, AttributeValue},
+        attribute::{AttributeValue, any_attribute::AnyAttribute},
         class::IntoClass,
         element::InnerHtmlValue,
         property::IntoProperty,
@@ -10,7 +10,7 @@ use crate::{
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
     renderer::Rndr,
-    view::{strings::StrState, Position, PositionState, ToTemplate},
+    view::{Position, PositionState, ToTemplate, strings::StrState},
 };
 use oco_ref::Oco;
 use wasm_bindgen::JsValue;

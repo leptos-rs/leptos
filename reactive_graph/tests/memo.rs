@@ -399,7 +399,7 @@ fn sync_effect_can_recompute_dirty_memo_while_being_notified() {
     source.set(1);
     assert_eq!(*combined_count.read().unwrap(), 2);
 
-    assert_eq!(even.get_untracked(), false);
+    assert!(!even.get_untracked());
     assert_eq!(*combined_count.read().unwrap(), 2);
 }
 

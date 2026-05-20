@@ -1,6 +1,6 @@
 use super::{
-    inner::{ArcAsyncDerivedInner, AsyncDerivedState},
     AsyncDerivedReadyFuture, ScopedFuture,
+    inner::{ArcAsyncDerivedInner, AsyncDerivedState},
 };
 #[cfg(feature = "sandboxed-arenas")]
 use crate::owner::Sandboxed;
@@ -12,11 +12,11 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
-    owner::{use_context, Owner},
+    owner::{Owner, use_context},
     send_wrapper_ext::SendOption,
     signal::{
-        guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
         ArcTrigger,
+        guards::{AsyncPlain, Mapped, MappedMut, ReadGuard, WriteGuard},
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
@@ -26,7 +26,7 @@ use crate::{
 };
 use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
-use futures::{channel::oneshot, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, channel::oneshot};
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
@@ -34,8 +34,8 @@ use std::{
     ops::{Deref, DerefMut},
     panic::Location,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, RwLock, Weak,
+        atomic::{AtomicBool, Ordering},
     },
     task::Waker,
 };
@@ -119,7 +119,7 @@ pub struct ArcAsyncDerived<T> {
 #[allow(dead_code)]
 pub(crate) trait BlockingLock<T> {
     fn blocking_read_arc(self: &Arc<Self>)
-        -> async_lock::RwLockReadGuardArc<T>;
+    -> async_lock::RwLockReadGuardArc<T>;
 
     fn blocking_write_arc(
         self: &Arc<Self>,

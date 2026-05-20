@@ -1,6 +1,6 @@
 use reactive_graph::{
     owner::Owner,
-    signal::{arc_signal, signal, ArcRwSignal, RwSignal},
+    signal::{ArcRwSignal, RwSignal, arc_signal, signal},
     traits::{
         Dispose, Get, GetUntracked, IntoInner, Read, Set, Update,
         UpdateUntracked, With, WithUntracked, Write,

@@ -243,8 +243,8 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Plain, ReadGuard, WriteGuard},
         ArcTrigger,
+        guards::{Plain, ReadGuard, WriteGuard},
     },
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
@@ -858,8 +858,8 @@ mod tests {
         traits::{Read, ReadUntracked, Set, Track, Update, Write},
     };
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     pub async fn tick() {

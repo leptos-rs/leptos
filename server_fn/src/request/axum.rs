@@ -8,8 +8,8 @@ use axum::{
 };
 use futures::{Sink, Stream, StreamExt};
 use http::{
-    header::{ACCEPT, CONTENT_TYPE, REFERER},
     Request,
+    header::{ACCEPT, CONTENT_TYPE, REFERER},
 };
 use http_body_util::BodyExt;
 use std::borrow::Cow;
@@ -106,7 +106,7 @@ where
         }
         #[cfg(feature = "axum")]
         {
-            use axum::extract::{ws::Message, FromRequest};
+            use axum::extract::{FromRequest, ws::Message};
             use futures::FutureExt;
 
             let upgrade =

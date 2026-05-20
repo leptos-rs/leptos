@@ -1,12 +1,12 @@
 //! Provides a builder and implementation for wholesale configuration of [`axum::Router`].
 
-use crate::{generate_route_list, ErrorHandler, LeptosRoutes};
+use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
 #[cfg(feature = "default")]
 use crate::{
-    site_pkg_dir_service, site_pkg_dir_service_route_path, LeptosContextLayer,
+    LeptosContextLayer, site_pkg_dir_service, site_pkg_dir_service_route_path,
 };
-use axum::{extract::FromRef, Router};
-use leptos::{config::LeptosOptions, IntoView};
+use axum::{Router, extract::FromRef};
+use leptos::{IntoView, config::LeptosOptions};
 #[cfg(feature = "default")]
 use tower::builder::ServiceBuilder;
 

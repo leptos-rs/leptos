@@ -1,7 +1,7 @@
 use super::{
+    ArcReadSignal, ArcWriteSignal,
     guards::{Plain, ReadGuard, UntrackedWriteGuard, WriteGuard},
     subscriber_traits::AsSubscriberSet,
-    ArcReadSignal, ArcWriteSignal,
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},

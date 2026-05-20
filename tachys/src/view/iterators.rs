@@ -1,9 +1,9 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    Mountable, Position, PositionState, Render, RenderHtml,
+    add_attr::AddAnyAttr,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,

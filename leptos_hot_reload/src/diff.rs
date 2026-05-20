@@ -367,9 +367,9 @@ pub enum ReplacementNode {
 #[cfg(test)]
 mod tests {
     use crate::{
+        LNode,
         diff::{Patch, PatchAction, ReplacementNode},
         node::LAttributeValue,
-        LNode,
     };
 
     #[test]

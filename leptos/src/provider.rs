@@ -1,5 +1,5 @@
-use crate::{children::TypedChildren, component, IntoView};
-use reactive_graph::owner::{provide_context, Owner};
+use crate::{IntoView, children::TypedChildren, component};
+use reactive_graph::owner::{Owner, provide_context};
 use tachys::reactive_graph::OwnedView;
 
 #[component]

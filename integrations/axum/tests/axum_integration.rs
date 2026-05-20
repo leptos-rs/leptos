@@ -1,6 +1,6 @@
 use reqwest::{
-    header::{HeaderName, HeaderValue},
     Client, StatusCode, Url,
+    header::{HeaderName, HeaderValue},
 };
 use std::{
     path::Path,
@@ -50,10 +50,11 @@ async fn fallback() -> anyhow::Result<()> {
     let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
-    assert!(res
-        .text()
-        .await?
-        .contains("<title>Error from fallback</title>"));
+    assert!(
+        res.text()
+            .await?
+            .contains("<title>Error from fallback</title>")
+    );
     Ok(())
 }
 
@@ -110,10 +111,11 @@ async fn error_handler_service() -> anyhow::Result<()> {
         .await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
-    assert!(res
-        .text()
-        .await?
-        .contains("<title>Error from fallback</title>"));
+    assert!(
+        res.text()
+            .await?
+            .contains("<title>Error from fallback</title>")
+    );
     Ok(())
 }
 
@@ -140,10 +142,11 @@ async fn error_handler_service_fallback() -> anyhow::Result<()> {
     let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
-    assert!(res
-        .text()
-        .await?
-        .contains("<title>Error from fallback</title>"));
+    assert!(
+        res.text()
+            .await?
+            .contains("<title>Error from fallback</title>")
+    );
     Ok(())
 }
 
@@ -176,10 +179,11 @@ async fn route_site_pkg_no_fallback() -> anyhow::Result<()> {
         .await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
-    assert!(res
-        .text()
-        .await?
-        .contains("<title>Error from fallback</title>"));
+    assert!(
+        res.text()
+            .await?
+            .contains("<title>Error from fallback</title>")
+    );
     Ok(())
 }
 
@@ -205,10 +209,11 @@ async fn route_site_pkg_dir_method() -> anyhow::Result<()> {
     let res = client.get(service.url("/pkg/no_such_path")?).send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_ne!(res.content_length(), Some(0));
-    assert!(res
-        .text()
-        .await?
-        .contains("<title>Error from fallback</title>"));
+    assert!(
+        res.text()
+            .await?
+            .contains("<title>Error from fallback</title>")
+    );
     // gven the lack of a more generic fallback service, those other paths will not get a shell
     let res = client
         .get(service.url("/no_such_path_elsewhere")?)
@@ -530,7 +535,7 @@ async fn leptos_options_css_moved() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn conf_alternate_router_state() -> anyhow::Result<()> {
-    use axum::{extract::State, routing::get, Router};
+    use axum::{Router, extract::State, routing::get};
     use leptos::prelude::*;
     use leptos_axum::LeptosRoutes;
 

@@ -1,4 +1,4 @@
-use rustc_version::{version_meta, Channel};
+use rustc_version::{Channel, version_meta};
 
 fn main() {
     let target = std::env::var("TARGET").unwrap_or_default();

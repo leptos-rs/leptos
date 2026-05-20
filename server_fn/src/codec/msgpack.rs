@@ -1,9 +1,9 @@
 use crate::{
-    codec::{Patch, Post, Put},
     ContentType, Decodes, Encodes, Format, FormatType,
+    codec::{Patch, Post, Put},
 };
 use bytes::Bytes;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Serializes and deserializes MessagePack with [`rmp_serde`].
 pub struct MsgPackEncoding;

@@ -1,5 +1,5 @@
 use or_poisoned::OrPoisoned;
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 #[cfg(feature = "sandboxed-arenas")]
 use std::cell::RefCell;
 #[cfg(not(feature = "sandboxed-arenas"))]

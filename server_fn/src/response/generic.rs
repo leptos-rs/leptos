@@ -14,12 +14,12 @@
 
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, IntoAppError, ServerFnErrorErr,
-    ServerFnErrorResponseParts, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
+    FromServerFnError, IntoAppError, SERVER_FN_ERROR_HEADER, ServerFnErrorErr,
+    ServerFnErrorResponseParts, ServerFnErrorWrapper,
 };
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
-use http::{header, HeaderValue, Response, StatusCode};
+use http::{HeaderValue, Response, StatusCode, header};
 use std::pin::Pin;
 use throw_error::Error;
 

@@ -12,9 +12,9 @@ use convert_case::{
 };
 use convert_case_extras::is_case;
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
@@ -24,10 +24,10 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
-    punctuated::Pair::{End, Punctuated},
-    spanned::Spanned,
     Expr::{self, Tuple},
     ExprArray, ExprLit, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
+    punctuated::Pair::{End, Punctuated},
+    spanned::Spanned,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -358,22 +358,19 @@ fn inert_element_to_tokens(
 
                                 if let Some(value) =
                                     attr.possible_value.to_value()
-                                {
-                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                    && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                    {
-                                        if let Lit::Str(txt) = &lit.lit {
-                                            let value = txt.value();
-                                            let value = html_escape::encode_double_quoted_attribute(&value);
-                                            if attr_name == "class" {
-                                                html.push_class(&value);
-                                            } else {
-                                                html.push_str("=\"");
-                                                html.push_str(&value);
-                                                html.push('"');
-                                            }
-                                        }
+                                    && let Lit::Str(txt) = &lit.lit
+                                {
+                                    let value = txt.value();
+                                    let value = html_escape::encode_double_quoted_attribute(&value);
+                                    if attr_name == "class" {
+                                        html.push_class(&value);
+                                    } else {
+                                        html.push_str("=\"");
+                                        html.push_str(&value);
+                                        html.push('"');
                                     }
                                 };
                             }
@@ -472,22 +469,19 @@ fn inert_svg_element_to_tokens(
 
                                 if let Some(value) =
                                     attr.possible_value.to_value()
-                                {
-                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                    && let KVAttributeValue::Expr(Expr::Lit(
                                         lit,
                                     )) = &value.value
-                                    {
-                                        if let Lit::Str(txt) = &lit.lit {
-                                            let value = txt.value();
-                                            let value = html_escape::encode_double_quoted_attribute(&value);
-                                            if attr_name == "class" {
-                                                html.push_class(&value);
-                                            } else {
-                                                html.push_str("=\"");
-                                                html.push_str(&value);
-                                                html.push('"');
-                                            }
-                                        }
+                                    && let Lit::Str(txt) = &lit.lit
+                                {
+                                    let value = txt.value();
+                                    let value = html_escape::encode_double_quoted_attribute(&value);
+                                    if attr_name == "class" {
+                                        html.push_class(&value);
+                                    } else {
+                                        html.push_str("=\"");
+                                        html.push_str(&value);
+                                        html.push('"');
                                     }
                                 };
                             }
@@ -798,15 +792,15 @@ pub(crate) fn element_to_tokens(
             _ => None,
         };
 
-        if let NodeAttribute::Attribute(a) = a {
-            if let Some(Tuple(_)) = a.value() {
-                return Ordering::Greater;
-            }
+        if let NodeAttribute::Attribute(a) = a
+            && let Some(Tuple(_)) = a.value()
+        {
+            return Ordering::Greater;
         }
-        if let NodeAttribute::Attribute(b) = b {
-            if let Some(Tuple(_)) = b.value() {
-                return Ordering::Less;
-            }
+        if let NodeAttribute::Attribute(b) = b
+            && let Some(Tuple(_)) = b.value()
+        {
+            return Ordering::Less;
         }
 
         match (key_a.as_deref(), key_b.as_deref()) {
@@ -1152,10 +1146,13 @@ fn attribute_to_tokens(
                     && node.value().and_then(value_to_string).is_none()
                 {
                     let span = node.key.span();
-                    proc_macro_error2::emit_error!(span, "Combining a global class (view! { class = ... }) \
+                    proc_macro_error2::emit_error!(
+                        span,
+                        "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
-            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773"
+                    )
                 };
 
                 quote! {
@@ -1416,26 +1413,23 @@ fn class_to_tokens(
 ) -> TokenStream {
     // case of class=(["foo", "bar"], /* something */)
     // just expands to multiple uses of class:
-    if let Some(Tuple(tuple)) = node.value() {
-        if tuple.elems.len() == 2 {
-            let name = &tuple.elems[0];
-            let value = &tuple.elems[1];
-            if let Expr::Array(ExprArray { elems, .. }) = name {
-                return elems
-                    .iter()
-                    .map(|elem| match elem {
-                        Expr::Lit(ExprLit {
-                            lit: Lit::Str(s), ..
-                        }) => quote! {
-                            .#class((#s, #value))
-                        },
-                        _ => proc_macro_error2::abort!(
-                            elem.span(),
-                            "invalid name"
-                        ),
-                    })
-                    .collect();
-            }
+    if let Some(Tuple(tuple)) = node.value()
+        && tuple.elems.len() == 2
+    {
+        let name = &tuple.elems[0];
+        let value = &tuple.elems[1];
+        if let Expr::Array(ExprArray { elems, .. }) = name {
+            return elems
+                .iter()
+                .map(|elem| match elem {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) => quote! {
+                        .#class((#s, #value))
+                    },
+                    _ => proc_macro_error2::abort!(elem.span(), "invalid name"),
+                })
+                .collect();
         }
     }
 
@@ -1648,14 +1642,13 @@ fn attribute_value(
         None => quote! { true },
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
-                if let Expr::Lit(lit) = expr {
-                    if cfg!(all(feature = "nightly", rustc_nightly)) {
-                        if let Lit::Str(str) = &lit.lit {
-                            return quote! {
-                                ::leptos::tachys::view::static_types::Static::<#str>
-                            };
-                        }
-                    }
+                if let Expr::Lit(lit) = expr
+                    && cfg!(all(feature = "nightly", rustc_nightly))
+                    && let Lit::Str(str) = &lit.lit
+                {
+                    return quote! {
+                        ::leptos::tachys::view::static_types::Static::<#str>
+                    };
                 }
 
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
@@ -1916,35 +1909,33 @@ pub(crate) fn directive_call_from_attribute_node(
 }
 
 fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
-    if name == "style" || name == "class" {
-        if let Some(Tuple(tuple)) = node.value() {
-            {
-                if tuple.elems.len() == 2 {
-                    let style_name = &tuple.elems[0];
-                    if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s), ..
-                    }) = style_name
-                    {
-                        return TupleName::Str(s.value());
-                    } else if let Expr::Array(ExprArray { elems, .. }) =
-                        style_name
-                    {
-                        return TupleName::Array(
-                            elems
-                                .iter()
-                                .filter_map(|elem| match elem {
-                                    Expr::Lit(ExprLit {
-                                        lit: Lit::Str(s),
-                                        ..
-                                    }) => Some(s.value()),
-                                    _ => proc_macro_error2::abort!(
-                                        elem.span(),
-                                        "invalid name"
-                                    ),
-                                })
-                                .collect(),
-                        );
-                    }
+    if (name == "style" || name == "class")
+        && let Some(Tuple(tuple)) = node.value()
+    {
+        {
+            if tuple.elems.len() == 2 {
+                let style_name = &tuple.elems[0];
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s), ..
+                }) = style_name
+                {
+                    return TupleName::Str(s.value());
+                } else if let Expr::Array(ExprArray { elems, .. }) = style_name
+                {
+                    return TupleName::Array(
+                        elems
+                            .iter()
+                            .filter_map(|elem| match elem {
+                                Expr::Lit(ExprLit {
+                                    lit: Lit::Str(s), ..
+                                }) => Some(s.value()),
+                                _ => proc_macro_error2::abort!(
+                                    elem.span(),
+                                    "invalid name"
+                                ),
+                            })
+                            .collect(),
+                    );
                 }
             }
         }

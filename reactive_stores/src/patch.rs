@@ -1,6 +1,6 @@
 use crate::{
-    path::StorePath, KeyMap, KeyedAccess, KeyedIterable, KeyedSubfield,
-    StoreField,
+    KeyMap, KeyedAccess, KeyedIterable, KeyedSubfield, StoreField,
+    path::StorePath,
 };
 use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
@@ -12,9 +12,9 @@ use std::{
     hash::Hash,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-        NonZeroU8, NonZeroUsize,
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128,
+        NonZeroIsize, NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU128, NonZeroUsize,
     },
     rc::Rc,
     sync::Arc,
@@ -641,8 +641,12 @@ patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
-patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
-patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+patch_tuple!(
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U
+);
+patch_tuple!(
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V
+);
 patch_tuple!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
 );

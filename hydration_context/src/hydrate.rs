@@ -10,12 +10,12 @@ use js_sys::Array;
 use std::{
     fmt::Display,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         LazyLock,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 use throw_error::{Error, ErrorId};
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
+use wasm_bindgen::{JsCast, prelude::wasm_bindgen};
 
 #[wasm_bindgen]
 extern "C" {

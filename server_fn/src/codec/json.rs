@@ -1,7 +1,7 @@
 use super::{Patch, Post, Put};
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
 use bytes::Bytes;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Serializes and deserializes JSON with [`serde_json`].
 pub struct JsonEncoding;

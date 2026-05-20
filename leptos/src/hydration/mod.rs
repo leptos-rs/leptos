@@ -1,6 +1,6 @@
 #![allow(clippy::needless_lifetimes)]
 
-use crate::{prelude::*, WasmSplitManifest};
+use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
 use std::{path::PathBuf, sync::OnceLock};
@@ -80,20 +80,20 @@ pub fn HydrationScripts(
             let mut manifest = "__wasm_split_manifest.json".to_string();
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "manifest" {
-                            manifest.clear();
-                            manifest.push_str("__wasm_split_manifest.");
-                            manifest.push_str(hash.trim());
-                            manifest.push_str(".json");
-                        }
-                        if file == "split" {
-                            split.clear();
-                            split.push_str("__wasm_split.");
-                            split.push_str(hash.trim());
-                            split.push_str(".js");
-                        }
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':')
+                {
+                    if file == "manifest" {
+                        manifest.clear();
+                        manifest.push_str("__wasm_split_manifest.");
+                        manifest.push_str(hash.trim());
+                        manifest.push_str(".json");
+                    }
+                    if file == "split" {
+                        split.clear();
+                        split.push_str("__wasm_split.");
+                        split.push_str(hash.trim());
+                        split.push_str(".js");
                     }
                 }
             }
@@ -136,14 +136,13 @@ pub fn HydrationScripts(
                 .expect("failed to read hash file");
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "js" {
-                            js_file_name.push_str(&format!(".{}", hash.trim()));
-                        } else if file == "wasm" {
-                            wasm_file_name
-                                .push_str(&format!(".{}", hash.trim()));
-                        }
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':')
+                {
+                    if file == "js" {
+                        js_file_name.push_str(&format!(".{}", hash.trim()));
+                    } else if file == "wasm" {
+                        wasm_file_name.push_str(&format!(".{}", hash.trim()));
                     }
                 }
             }

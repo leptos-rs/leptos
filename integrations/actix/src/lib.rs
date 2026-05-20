@@ -8,7 +8,7 @@
 //! directory in the Leptos repository.
 
 use actix_files::NamedFile;
-use actix_http::header::{HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER};
+use actix_http::header::{ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER};
 use actix_web::{
     dev::{ServiceFactory, ServiceRequest},
     http::header,
@@ -16,26 +16,26 @@ use actix_web::{
     web::{Data, Payload, ServiceConfig},
     *,
 };
-use futures::{stream::once, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::once};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
 use leptos::{
+    IntoView,
     config::LeptosOptions,
     context::{provide_context, use_context},
     hydration::IslandsRouterNavigation,
     prelude::expect_context,
     reactive::{computed::ScopedFuture, owner::Owner},
-    IntoView,
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
+    ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect,
     location::RequestUrl,
     static_routes::{RegenerationFn, ResolvedStaticPath},
-    ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
@@ -264,7 +264,7 @@ pub fn redirect(path: &str) {
         tracing::warn!("{}", &msg);
 
         #[cfg(not(feature = "tracing"))]
-        eprintln!("{}", &msg);
+        eprintln!("{}", msg);
     }
 }
 
@@ -377,16 +377,14 @@ pub fn handle_server_fns_with_context(
 
                             // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                             // Location set, then redirect to the Referer
-                            if accepts_html {
-                                if let Some(referrer) = referrer {
-                                    let has_location =
-                                        res.0.headers().get(LOCATION).is_some();
-                                    if !has_location {
-                                        *res.0.status_mut() = StatusCode::FOUND;
-                                        res.0
-                                            .headers_mut()
-                                            .insert(LOCATION, referrer);
-                                    }
+                            if accepts_html && let Some(referrer) = referrer {
+                                let has_location =
+                                    res.0.headers().get(LOCATION).is_some();
+                                if !has_location {
+                                    *res.0.status_mut() = StatusCode::FOUND;
+                                    res.0
+                                        .headers_mut()
+                                        .insert(LOCATION, referrer);
                                 }
                             }
 
@@ -1396,11 +1394,11 @@ pub trait LeptosRoutes {
 impl<T> LeptosRoutes for actix_web::App<T>
 where
     T: ServiceFactory<
-        ServiceRequest,
-        Config = (),
-        Error = Error,
-        InitError = (),
-    >,
+            ServiceRequest,
+            Config = (),
+            Error = Error,
+            InitError = (),
+        >,
 {
     #[cfg_attr(
         feature = "tracing",

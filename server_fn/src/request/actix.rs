@@ -3,7 +3,7 @@ use crate::{
     request::Req,
     response::actix::ActixResponse,
 };
-use actix_web::{web::Payload, HttpRequest};
+use actix_web::{HttpRequest, web::Payload};
 use actix_ws::Message;
 use bytes::Bytes;
 use futures::{FutureExt, Stream, StreamExt};
@@ -25,7 +25,7 @@ impl ActixRequest {
 
     fn header(&self, name: &str) -> Option<Cow<'_, str>> {
         self.0
-             .0
+            .0
             .headers()
             .get(name)
             .map(|h| String::from_utf8_lossy(h.as_bytes()))
@@ -48,7 +48,7 @@ where
     type WebsocketResponse = ActixResponse;
 
     fn as_query(&self) -> Option<&str> {
-        self.0 .0.uri().query()
+        self.0.0.uri().query()
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {

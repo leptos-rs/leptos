@@ -21,15 +21,15 @@ mod stored_value;
 use self::arena::Arena;
 pub use arc_stored_value::ArcStoredValue;
 #[cfg(feature = "sandboxed-arenas")]
-pub use arena::sandboxed::Sandboxed;
-#[cfg(feature = "sandboxed-arenas")]
 use arena::ArenaMap;
 use arena::NodeId;
+#[cfg(feature = "sandboxed-arenas")]
+pub use arena::sandboxed::Sandboxed;
 pub use arena_item::*;
 pub use context::*;
 pub use storage::*;
 #[allow(deprecated)] // allow exporting deprecated fn
-pub use stored_value::{store_value, FromLocal, StoredValue};
+pub use stored_value::{FromLocal, StoredValue, store_value};
 
 /// A reactive owner, which manages
 /// 1) the cancellation of [`Effect`](crate::effect::Effect)s,
@@ -373,8 +373,8 @@ impl Owner {
 
     /// Returns the current [`SharedContext`], if any.
     #[cfg(feature = "hydration")]
-    pub fn current_shared_context(
-    ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
+    pub fn current_shared_context()
+    -> Option<Arc<dyn SharedContext + Send + Sync>> {
         OWNER.with(|o| {
             o.borrow()
                 .as_ref()

@@ -1,4 +1,4 @@
-use crate::{children::TypedChildren, IntoView};
+use crate::{IntoView, children::TypedChildren};
 use futures::{channel::oneshot, future::join_all};
 use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
@@ -6,7 +6,7 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
-    owner::{provide_context, ArcStoredValue, Owner},
+    owner::{ArcStoredValue, Owner, provide_context},
     signal::ArcRwSignal,
     traits::{Get, Update, With, WithUntracked, WriteValue},
 };
@@ -18,13 +18,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tachys::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     reactive_graph::OwnedView,
     ssr::{StreamBuilder, StreamChunk},
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml,
+        Mountable, Position, PositionState, Render, RenderHtml,
+        add_attr::AddAnyAttr,
     },
 };
 use throw_error::{Error, ErrorHook, ErrorId};

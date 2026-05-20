@@ -2,8 +2,8 @@ use super::ArcMemo;
 use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
+        guards::{Mapped, Plain, ReadGuard},
     },
     traits::{DefinedAt, Dispose, Get, ReadUntracked, Track},
     unwrap_signal,

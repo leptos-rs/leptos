@@ -1,6 +1,6 @@
 use crate::{
-    children::{TypedChildrenFn, ViewFn},
     IntoView,
+    children::{TypedChildrenFn, ViewFn},
 };
 use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get, wrappers::read::Signal};

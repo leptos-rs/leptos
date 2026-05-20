@@ -1,14 +1,14 @@
 use crate::{
+    IntoView,
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
     suspense_component::SuspenseBoundary,
-    IntoView,
 };
 use leptos_macro::component;
 use reactive_graph::{
-    computed::{suspense::SuspenseContext, ArcMemo},
+    computed::{ArcMemo, suspense::SuspenseContext},
     effect::Effect,
-    owner::{provide_context, use_context, Owner},
+    owner::{Owner, provide_context, use_context},
     signal::ArcRwSignal,
     traits::{Get, Set, Track, With, WithUntracked},
     wrappers::write::SignalSetter,

@@ -4,12 +4,12 @@ use crate::hydration::set_currently_hydrating;
 use crate::view::any_view::AnyView;
 use crate::{
     html::attribute::Attribute,
-    hydration::{failed_to_cast_element, Cursor},
+    hydration::{Cursor, failed_to_cast_element},
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, IntoRender, Mountable, Position, PositionState,
-        Render, RenderHtml, ToTemplate,
+        IntoRender, Mountable, Position, PositionState, Render, RenderHtml,
+        ToTemplate, add_attr::AddAnyAttr,
     },
 };
 use const_str_slice_concat::{
@@ -23,7 +23,7 @@ mod element_ext;
 mod elements;
 mod inner_html;
 use super::attribute::{
-    any_attribute::AnyAttribute, escape_attr, NextAttribute,
+    NextAttribute, any_attribute::AnyAttribute, escape_attr,
 };
 pub use custom::*;
 pub use element_ext::*;
@@ -77,7 +77,6 @@ where
     E: ElementWithChildren,
     Ch: RenderHtml + next_tuple::NextTuple,
     <Ch as next_tuple::NextTuple>::Output<NewChild::Output>: Render,
-
     NewChild: IntoRender,
     NewChild::Output: RenderHtml,
 {
@@ -103,7 +102,6 @@ impl<E, At, Ch, NewChild> ElementChild<NewChild> for HtmlElement<E, At, Ch>
 where
     E: ElementWithChildren,
     Ch: RenderHtml + NextChildren,
-
     NewChild: IntoRender,
     NewChild::Output: RenderHtml,
 {
