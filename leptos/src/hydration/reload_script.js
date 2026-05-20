@@ -1,8 +1,8 @@
-if (window.location.protocol === "https:") {
-	protocol = "wss://";
-}
-
 let host = window.location.hostname;
+
+if (protocol === null) {
+	protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+}
 
 function connect() {
 	let ws = new WebSocket(`${protocol}${host}:${reload_port}/live_reload`);
