@@ -67,14 +67,12 @@ pub fn HashedStylesheet(
                 .expect("failed to read hash file");
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "css" {
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':')
+                        && file == "css" {
                             css_file_name
                                 .push_str(&format!(".{}", hash.trim()));
                         }
-                    }
-                }
             }
         }
     }

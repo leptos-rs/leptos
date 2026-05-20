@@ -34,8 +34,8 @@ impl fmt::Debug for BrowserUrl {
 
 impl BrowserUrl {
     fn scroll_to_el(loc_scroll: bool) {
-        if let Ok(hash) = window().location().hash() {
-            if !hash.is_empty() {
+        if let Ok(hash) = window().location().hash()
+            && !hash.is_empty() {
                 let hash = js_sys::decode_uri(&hash[1..])
                     .ok()
                     .and_then(|decoded| decoded.as_string())
@@ -46,7 +46,6 @@ impl BrowserUrl {
                     return;
                 }
             }
-        }
 
         // scroll to top
         if loc_scroll {
