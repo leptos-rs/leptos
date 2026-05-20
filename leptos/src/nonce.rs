@@ -4,7 +4,7 @@ use base64::{
     engine::{self, general_purpose},
     Engine,
 };
-use rand::{rng, RngCore};
+use rand::{rng, Rng};
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
