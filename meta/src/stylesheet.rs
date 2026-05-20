@@ -69,10 +69,10 @@ pub fn HashedStylesheet(
                 let line = line.trim();
                 if !line.is_empty()
                     && let Some((file, hash)) = line.split_once(':')
-                        && file == "css" {
-                            css_file_name
-                                .push_str(&format!(".{}", hash.trim()));
-                        }
+                    && file == "css"
+                {
+                    css_file_name.push_str(&format!(".{}", hash.trim()));
+                }
             }
         }
     }

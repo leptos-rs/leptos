@@ -361,13 +361,14 @@ impl ResolvedStaticPath {
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
                     if !was_error(&owner)
-                        && let Err(e) = writer(&self, &owner, html).await {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!("{e}");
+                        && let Err(e) = writer(&self, &owner, html).await
+                    {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!("{e}");
 
-                            #[cfg(not(feature = "tracing"))]
-                            eprintln!("{e}");
-                        }
+                        #[cfg(not(feature = "tracing"))]
+                        eprintln!("{e}");
+                    }
                     owner.unset_with_forced_cleanup();
                 }
             }

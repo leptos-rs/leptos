@@ -268,18 +268,20 @@ impl ServerMetaContextOutput {
         };
 
         if !html_attrs.is_empty()
-            && let Some(index) = modified_chunk.find("<html") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<html".len();
-                modified_chunk.insert_str(insert_pos, &html_attrs);
-            }
+            && let Some(index) = modified_chunk.find("<html")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<html".len();
+            modified_chunk.insert_str(insert_pos, &html_attrs);
+        }
 
         if !body_attrs.is_empty()
-            && let Some(index) = modified_chunk.find("<body") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<body".len();
-                modified_chunk.insert_str(insert_pos, &body_attrs);
-            }
+            && let Some(index) = modified_chunk.find("<body")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<body".len();
+            modified_chunk.insert_str(insert_pos, &body_attrs);
+        }
 
         futures::stream::once(async move { modified_chunk }).chain(stream)
     }

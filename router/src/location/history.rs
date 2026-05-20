@@ -35,17 +35,18 @@ impl fmt::Debug for BrowserUrl {
 impl BrowserUrl {
     fn scroll_to_el(loc_scroll: bool) {
         if let Ok(hash) = window().location().hash()
-            && !hash.is_empty() {
-                let hash = js_sys::decode_uri(&hash[1..])
-                    .ok()
-                    .and_then(|decoded| decoded.as_string())
-                    .unwrap_or(hash);
-                let el = document().get_element_by_id(&hash);
-                if let Some(el) = el {
-                    el.scroll_into_view();
-                    return;
-                }
+            && !hash.is_empty()
+        {
+            let hash = js_sys::decode_uri(&hash[1..])
+                .ok()
+                .and_then(|decoded| decoded.as_string())
+                .unwrap_or(hash);
+            let el = document().get_element_by_id(&hash);
+            if let Some(el) = el {
+                el.scroll_into_view();
+                return;
             }
+        }
 
         // scroll to top
         if loc_scroll {

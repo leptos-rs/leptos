@@ -474,10 +474,7 @@ mod tests {
 
         // Correctly removes ".." segments.
         assert!(normalize_path("/some/../another") == "/another");
-        assert!(
-            normalize_path("/one/two/../three/../../four")
-                == "/four"
-        );
+        assert!(normalize_path("/one/two/../three/../../four") == "/four");
 
         // Correctly sets trailing slash if last segement is "..".
         assert!(normalize_path("/one/two/..") == "/one/");
@@ -488,12 +485,7 @@ mod tests {
         assert!(normalize_path("/../") == "/");
 
         // Going into negative levels and coming back into the positives.
-        assert!(
-            normalize_path("/one/../../two/three") == "/two/three"
-        );
-        assert!(
-            normalize_path("/one/../../two/three/")
-                == "/two/three/"
-        );
+        assert!(normalize_path("/one/../../two/three") == "/two/three");
+        assert!(normalize_path("/one/../../two/three/") == "/two/three/");
     }
 }
