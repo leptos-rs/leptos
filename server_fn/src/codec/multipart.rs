@@ -106,7 +106,7 @@ where
     }
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(all(feature = "ssr", feature = "generic"))]
 #[cfg(test)]
 mod tests {
     use super::*;
