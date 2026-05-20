@@ -5,8 +5,8 @@ pub mod errors;
 use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use std::{
-fmt::Display,
     env::VarError,
+    fmt::Display,
     fs,
     net::SocketAddr,
     path::{Path, PathBuf},
