@@ -1,6 +1,8 @@
 use super::{Encoding, FromReq};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorWrapper},
+    error::{
+        FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
+    },
     request::{browser::BrowserFormData, ClientReq, Req},
     ContentType, IntoReq,
 };
@@ -82,15 +84,76 @@ where
     E: FromServerFnError + Send + Sync,
 {
     async fn from_req(req: Request) -> Result<Self, E> {
-        let boundary = req
-            .to_content_type()
-            .and_then(|ct| multer::parse_boundary(ct).ok())
-            .expect("couldn't parse boundary");
+        let content_type = req.to_content_type().ok_or_else(|| {
+            ServerFnErrorErr::Args(
+                "missing Content-Type header for multipart request".to_string(),
+            )
+            .into_app_error()
+        })?;
+        let boundary =
+            multer::parse_boundary(content_type.as_ref()).map_err(|e| {
+                ServerFnErrorErr::Args(format!(
+                    "could not parse multipart boundary: {e}"
+                ))
+                .into_app_error()
+            })?;
         let stream = req.try_into_stream()?;
         let data = multer::Multipart::new(
             stream.map(|data| data.map_err(|e| ServerFnErrorWrapper(E::de(e)))),
             boundary,
         );
         Ok(MultipartData::Server(data).into())
+    }
+}
+
+#[cfg(feature = "ssr")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::ServerFnError;
+    use bytes::Bytes;
+    use futures::executor::block_on;
+    use http::Request as HttpRequest;
+
+    fn build_req(content_type: Option<&str>) -> HttpRequest<Bytes> {
+        let mut builder = HttpRequest::builder().method("POST").uri("/upload");
+        if let Some(ct) = content_type {
+            builder = builder.header("Content-Type", ct);
+        }
+        builder.body(Bytes::from_static(b"x")).unwrap()
+    }
+
+    async fn try_decode(
+        req: HttpRequest<Bytes>,
+    ) -> Result<MultipartData, ServerFnError> {
+        <MultipartData as FromReq<MultipartFormData, _, _>>::from_req(req).await
+    }
+
+    #[test]
+    fn from_req_returns_err_when_content_type_is_missing() {
+        let result = block_on(try_decode(build_req(None)));
+        assert!(
+            matches!(result, Err(ServerFnError::Args(_))),
+            "expected Args error on missing Content-Type, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn from_req_returns_err_when_content_type_is_not_multipart() {
+        let result = block_on(try_decode(build_req(Some("text/plain"))));
+        assert!(
+            matches!(result, Err(ServerFnError::Args(_))),
+            "expected Args error on non-multipart Content-Type, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn from_req_returns_err_when_multipart_boundary_is_missing() {
+        let result =
+            block_on(try_decode(build_req(Some("multipart/form-data"))));
+        assert!(
+            matches!(result, Err(ServerFnError::Args(_))),
+            "expected Args error when boundary is missing, got {result:?}"
+        );
     }
 }
