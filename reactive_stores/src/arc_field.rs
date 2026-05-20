@@ -1,7 +1,8 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
-    KeyedSubfield, Store, StoreField, StoreFieldTrigger, Subfield,
+    KeyedIterable, KeyedSubfield, Store, StoreField, StoreFieldTrigger,
+    Subfield,
 };
 use reactive_graph::{
     owner::Storage,
@@ -367,7 +368,8 @@ where
     AtKeyed<Inner, Prev, K, T>: Clone,
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: 'static,
     T: KeyedAccess<K> + 'static,

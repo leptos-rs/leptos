@@ -1,4 +1,7 @@
-use crate::{path::StorePath, KeyMap, KeyedAccess, KeyedSubfield, StoreField};
+use crate::{
+    path::StorePath, KeyMap, KeyedAccess, KeyedIterable, KeyedSubfield,
+    StoreField,
+};
 use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
 use reactive_graph::traits::{Notify, UntrackableGuard};
@@ -51,7 +54,8 @@ where
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Self: StoreField<Value = T>,
     <Self as StoreField>::Value: PatchFieldKeyed<K>,
     Inner: StoreField<Value = Prev>,

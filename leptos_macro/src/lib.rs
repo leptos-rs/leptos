@@ -952,6 +952,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
         None,
         None,
+        None,
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),

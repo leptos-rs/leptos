@@ -403,8 +403,6 @@ impl Stream for StreamBuilder {
                                             .sync_buf
                                             .find(&closing)
                                             .unwrap();
-                                        let chunks_iter =
-                                            chunks.into_iter().rev();
 
                                         // TODO can probably make this more efficient
                                         let (before, replaced) =
@@ -416,18 +414,20 @@ impl Stream for StreamBuilder {
                                         buf.push_str(before);
 
                                         let mut held_chunks = VecDeque::new();
-                                        for chunk in chunks_iter {
+                                        for chunk in chunks {
                                             if let StreamChunk::Sync(ready) =
                                                 chunk
                                             {
                                                 buf.push_str(&ready);
                                             } else {
-                                                held_chunks.push_front(chunk);
+                                                held_chunks.push_back(chunk);
                                             }
                                         }
                                         buf.push_str(after);
                                         this.sync_buf = buf;
-                                        for chunk in held_chunks {
+                                        while let Some(chunk) =
+                                            held_chunks.pop_back()
+                                        {
                                             this.chunks.push_front(chunk);
                                         }
                                     } else {
@@ -435,13 +435,14 @@ impl Stream for StreamBuilder {
                                             &id,
                                             &mut this.sync_buf,
                                         );
-                                        for chunk in chunks.into_iter().rev() {
+                                        let mut held_chunks = VecDeque::new();
+                                        for chunk in chunks {
                                             if let StreamChunk::Sync(ready) =
                                                 chunk
                                             {
                                                 this.sync_buf.push_str(&ready);
                                             } else {
-                                                this.chunks.push_front(chunk);
+                                                held_chunks.push_back(chunk);
                                             }
                                         }
                                         OooChunk::push_end_with_nonce(
@@ -450,6 +451,11 @@ impl Stream for StreamBuilder {
                                             &mut this.sync_buf,
                                             nonce.as_deref(),
                                         );
+                                        while let Some(chunk) =
+                                            held_chunks.pop_back()
+                                        {
+                                            this.chunks.push_front(chunk);
+                                        }
                                     }
                                 }
                                 Poll::Pending => {

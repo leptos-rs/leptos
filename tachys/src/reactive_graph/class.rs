@@ -682,7 +682,6 @@ macro_rules!  class_reactive {
     };
 }
 
-#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use super::{RenderEffect, RenderEffectWithClassName};
     use crate::{html::class::IntoClass, renderer::Rndr};
@@ -815,7 +814,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     class_reactive!(
@@ -826,7 +825,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     class_reactive!(
@@ -873,27 +872,8 @@ mod reactive_stores {
         Inner: Send + Sync + Clone + 'static,
     );
 
-    tuple_class_reactive!(
-        AtKeyed,
-        <Inner, Prev, K>,
-        <Inner, Prev, K, bool>,
-        AtKeyed<Inner, Prev, K, bool>: Get<Value = bool>,
-        Prev: Send + Sync + 'static,
-        Inner: Send + Sync + Clone + 'static,
-        K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a bool: IntoIterator,
-    );
-
-    tuple_class_reactive!(
-        KeyedSubfield,
-        <Inner, Prev, K>,
-        <Inner, Prev, K, bool>,
-        KeyedSubfield<Inner, Prev, K, bool>: Get<Value = bool>,
-        Prev: Send + Sync + 'static,
-        Inner: Send + Sync + Clone + 'static,
-        K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a bool: IntoIterator,
-    );
+    // Note: tuple_class_reactive! for AtKeyed and KeyedSubfield with bool values
+    // are not applicable since bool doesn't implement KeyedIterable.
 
     tuple_class_reactive!(
         DerefedField,

@@ -83,6 +83,13 @@ pub fn Transition<Chil>(
     #[prop(optional, into)]
     set_pending: Option<SignalSetter<bool>>,
     children: TypedChildren<Chil>,
+    /// If `true`, disables the SSR "double-check" pass that re-walks the
+    /// children after initial resources resolve in order to discover
+    /// conditional/nested resource reads. Enable this when the children body
+    /// has no conditional resource reads but does have side effects that
+    /// should not fire more than once per render.
+    #[prop(optional)]
+    strict: bool,
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
@@ -134,6 +141,7 @@ where
             children,
             error_boundary_parent,
             has_tasks,
+            strict,
         })
     })
 }

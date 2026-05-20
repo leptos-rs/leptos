@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
-version = "0.8.9"
+version = "0.9.0-alpha"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -30,7 +30,7 @@ or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-axum = { workspace = true, default-features = true }
+axum = { workspace = true, default-features = true, features = ["macros"] }
 reqwest = { workspace = true }
 tempfile = { workspace = true, default-features = true }
 tokio = { features = [

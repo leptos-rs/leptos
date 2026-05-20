@@ -83,7 +83,7 @@ pub fn AnimatedShow(
         } else {
             cls.set(hide_class);
 
-            let h = leptos_dom::helpers::set_timeout_with_handle(
+            let h = leptos_dom::helpers::set_timeout(
                 move || show.set(false),
                 hide_delay,
             )
@@ -100,7 +100,7 @@ pub fn AnimatedShow(
     });
 
     view! {
-        <Show when=move || show.get() fallback=|| ()>
+        <Show when=show>
             <div class=move || cls.get()>{children()}</div>
         </Show>
     }

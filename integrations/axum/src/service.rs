@@ -1,16 +1,23 @@
-use crate::{handle_response_inner, PinnedStream};
+use crate::{
+    extend_response, generate_request_and_parts, handle_response_inner,
+    PinnedStream, ResponseOptions,
+};
 use axum::{
     body::Body,
     http::{Request, Response, StatusCode},
 };
 use futures::{stream::once, Future, StreamExt};
-use leptos::{config::LeptosOptions, context::provide_context, IntoView};
+use leptos::{
+    context::provide_context,
+    reactive::{computed::ScopedFuture, owner::Owner},
+    IntoView,
+};
 use std::{
     convert::Infallible,
     pin::Pin,
     task::{Context, Poll},
 };
-use tower::Service;
+use tower::{Layer, Service};
 
 /// Service for serving error pages generated with the provided application shell.
 ///
@@ -35,13 +42,22 @@ use tower::Service;
 /// #     view! { <main>"Hello, world!"</main> }
 /// # }
 /// # let conf = get_configuration(None).unwrap();
-/// # let addr = conf.leptos_options.site_addr;
 /// # let leptos_options = conf.leptos_options;
 /// # let routes = generate_route_list(App);
 /// fn shell(options: LeptosOptions) -> impl IntoView {
-///     view! { <App/> }
+///     view! {
+///         <html>
+///             <head>
+///                 <HydrationScripts options/>
+///             </head>
+///             <body>
+///                 <App/>
+///             </body>
+///         </html>
+///     }
 /// }
 ///
+/// # #[cfg(feature = "default")]
 /// let app = Router::new()
 ///     .leptos_routes(&leptos_options, routes, {
 ///         let leptos_options = leptos_options.clone();
@@ -50,78 +66,64 @@ use tower::Service;
 ///     // the following `fallback_service(...)` call approximately replicates
 ///     // .fallback(leptos_axum::file_and_error_handler(shell))
 ///     .fallback_service(
+///         // please do take note that both `file_and_error_handler` and
+///         // `site_pkg_dir_service` require `feature = "default"`
 ///         leptos_axum::site_pkg_dir_service(&leptos_options).fallback(
 ///             leptos_axum::ErrorHandler::new(shell, leptos_options),
 ///         ),
 ///     );
 /// ```
 #[derive(Clone, Debug)]
-pub struct ErrorHandler<CX, SH> {
-    additional_context: CX,
+pub struct ErrorHandler<CX, SH, S> {
+    additional_context: Option<CX>,
     shell: SH,
-    options: LeptosOptions,
+    state: S,
 }
 
-impl<SH> ErrorHandler<(), SH> {
-    /// Create a new handler with the provided shell and options.
-    pub fn new(shell: SH, options: LeptosOptions) -> Self {
+impl<SH, S> ErrorHandler<fn(), SH, S> {
+    /// Create a new handler with the provided shell and state.
+    pub fn new(shell: SH, state: S) -> Self {
         Self {
-            additional_context: (),
+            additional_context: None,
             shell,
-            options,
+            state,
         }
     }
 }
 
-impl<CX, SH> ErrorHandler<CX, SH> {
-    /// Create a new handler with an additional context along with the provided shell and options.
+impl<CX, SH, S> ErrorHandler<CX, SH, S> {
+    /// Create a new handler with an additional context along with the provided shell and state.
     pub fn new_with_context(
         additional_context: CX,
         shell: SH,
-        options: LeptosOptions,
+        state: S,
+    ) -> Self {
+        Self {
+            additional_context: Some(additional_context),
+            shell,
+            state,
+        }
+    }
+
+    /// Create a new handler with an additional optional context along with the provided shell and state.
+    pub fn new_with_option_context(
+        additional_context: Option<CX>,
+        shell: SH,
+        state: S,
     ) -> Self {
         Self {
             additional_context,
             shell,
-            options,
+            state,
         }
     }
 }
 
-impl<SH, IV> Service<Request<Body>> for ErrorHandler<(), SH>
-where
-    SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send,
-    IV: IntoView + 'static,
-{
-    type Response = Response<Body>;
-    type Error = Infallible;
-    type Future = Pin<
-        Box<
-            dyn Future<Output = Result<Response<Body>, Infallible>>
-                + Send
-                + 'static,
-        >,
-    >;
-
-    #[inline]
-    fn poll_ready(
-        &mut self,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let options = self.options.clone();
-        let shell = self.shell.clone();
-        render_error_handler(|| {}, shell, options, req)
-    }
-}
-
-impl<CX, SH, IV> Service<Request<Body>> for ErrorHandler<CX, SH>
+impl<CX, SH, S, IV> Service<Request<Body>> for ErrorHandler<CX, SH, S>
 where
     CX: Fn() + 'static + Clone + Send,
-    SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send,
+    SH: Fn(S) -> IV + 'static + Clone + Send,
+    S: Clone + Send + Sync + 'static,
     IV: IntoView + 'static,
 {
     type Response = Response<Body>;
@@ -143,17 +145,17 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let options = self.options.clone();
+        let state = self.state.clone();
         let shell = self.shell.clone();
         let additional_context = self.additional_context.clone();
-        render_error_handler(additional_context, shell, options, req)
+        render_error_handler(additional_context, shell, state, req)
     }
 }
 
-fn render_error_handler<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send,
-    shell: impl Fn(LeptosOptions) -> IV + 'static + Clone + Send,
-    options: LeptosOptions,
+fn render_error_handler<IV, S>(
+    additional_context: Option<impl Fn() + 'static + Clone + Send>,
+    shell: impl Fn(S) -> IV + 'static + Clone + Send,
+    state: S,
     req: Request<Body>,
 ) -> Pin<
     Box<
@@ -164,21 +166,24 @@ fn render_error_handler<IV>(
 >
 where
     IV: IntoView + 'static,
+    S: Send + Sync + Clone + 'static,
 {
     Box::pin(async move {
         let mut res = handle_response_inner(
             {
-                let options = options.clone();
+                let state = state.clone();
                 let additional_context = additional_context.clone();
                 move || {
-                    provide_context(options.clone());
-                    additional_context();
+                    provide_context(state.clone());
+                    if let Some(additional_context) = &additional_context {
+                        additional_context();
+                    }
                 }
             },
             {
-                let options = options.clone();
+                let state = state.clone();
                 let shell = shell.clone();
-                move || shell(options)
+                move || shell(state)
             },
             req,
             |app, chunks, _supports_ooo| {
@@ -207,4 +212,129 @@ where
 
         Ok(res)
     })
+}
+
+/// Provide a reactive context that set up similarly to the one available to server functions to the inner
+/// service via the supplied middleware service.
+#[derive(Clone, Debug)]
+pub struct LeptosContextLayer<CX> {
+    additional_context: Option<CX>,
+}
+
+impl Default for LeptosContextLayer<fn()> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LeptosContextLayer<fn()> {
+    /// Returns a new layer.
+    pub fn new() -> Self {
+        Self {
+            additional_context: None,
+        }
+    }
+}
+
+impl<CX> LeptosContextLayer<CX> {
+    /// Returns a new layer with the additional context to be provided.
+    pub fn new_with_context(additional_context: CX) -> Self
+    where
+        CX: Fn() + 'static + Clone + Send,
+    {
+        Self {
+            additional_context: Some(additional_context),
+        }
+    }
+
+    /// Returns a new layer with a possible additional context to be provided.
+    pub fn new_with_option_context(additional_context: Option<CX>) -> Self
+    where
+        CX: Fn() + 'static + Clone + Send,
+    {
+        Self { additional_context }
+    }
+}
+
+impl<S, CX> Layer<S> for LeptosContextLayer<CX>
+where
+    CX: Clone,
+{
+    type Service = LeptosContext<S, CX>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        LeptosContext::new(service, self.additional_context.clone())
+    }
+}
+
+/// Provide a reactive context that set up similarly to the one available to server functions to the inner
+/// service.
+#[derive(Clone, Debug)]
+pub struct LeptosContext<S, CX> {
+    inner: S,
+    owner: Owner,
+    additional_context: Option<CX>,
+}
+
+impl<S, CX> LeptosContext<S, CX> {
+    /// Create a new `LeptosContext`, optionally with an additional context.
+    pub fn new(inner: S, additional_context: Option<CX>) -> Self {
+        let owner = Owner::new();
+        Self {
+            inner,
+            owner,
+            additional_context,
+        }
+    }
+}
+
+impl<ReqBody, ResBody, S, CX> Service<Request<ReqBody>> for LeptosContext<S, CX>
+where
+    CX: Fn() + 'static + Clone + Send,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>
+        + Clone
+        + Send
+        + 'static,
+    S::Future: Send,
+    ReqBody: Send + 'static,
+    ResBody: Default + Send,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = Pin<
+        Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>,
+    >;
+
+    #[inline]
+    fn poll_ready(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+        // Because the inner service can panic until ready, we need to ensure we only
+        // use the ready service.
+        //
+        // See: https://docs.rs/tower/latest/tower/trait.Service.html#be-careful-when-cloning-inner-services
+        let clone = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, clone);
+        let (req, parts) = generate_request_and_parts(req);
+        let additional_context = self.additional_context.clone();
+
+        self.owner.with(|| {
+            Box::pin(ScopedFuture::new(async move {
+                provide_context(parts);
+                let res_options = ResponseOptions::default();
+                provide_context(res_options.clone());
+                if let Some(additional_context) = additional_context {
+                    additional_context();
+                }
+                let mut res = inner.call(req).await?;
+                extend_response(&mut res, &res_options);
+                Ok(res)
+            }))
+        })
+    }
 }

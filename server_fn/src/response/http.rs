@@ -1,7 +1,7 @@
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
-    SERVER_FN_ERROR_HEADER,
+    FromServerFnError, IntoAppError, ServerFnErrorErr,
+    ServerFnErrorResponseParts, ServerFnErrorWrapper, SERVER_FN_ERROR_HEADER,
 };
 use axum::body::Body;
 use bytes::Bytes;
@@ -16,7 +16,7 @@ where
         let builder = http::Response::builder();
         builder
             .status(200)
-            .header(http::header::CONTENT_TYPE, content_type)
+            .header(header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
             .map_err(|e| {
                 ServerFnErrorErr::Response(e.to_string()).into_app_error()
@@ -27,7 +27,7 @@ where
         let builder = http::Response::builder();
         builder
             .status(200)
-            .header(http::header::CONTENT_TYPE, content_type)
+            .header(header::CONTENT_TYPE, content_type)
             .body(Body::from(data))
             .map_err(|e| {
                 ServerFnErrorErr::Response(e.to_string()).into_app_error()
@@ -43,7 +43,7 @@ where
         let builder = http::Response::builder();
         builder
             .status(200)
-            .header(http::header::CONTENT_TYPE, content_type)
+            .header(header::CONTENT_TYPE, content_type)
             .body(body)
             .map_err(|e| {
                 ServerFnErrorErr::Response(e.to_string()).into_app_error()
@@ -52,19 +52,13 @@ where
 }
 
 impl Res for Response<Body> {
-    fn error_response(path: &str, err: Bytes) -> Self {
+    fn error_response(path: &str, err: ServerFnErrorResponseParts) -> Self {
         Response::builder()
-            .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+            .status(err.status_code)
             .header(SERVER_FN_ERROR_HEADER, path)
-            .body(err.into())
+            .header(header::CONTENT_TYPE, err.content_type)
+            .body(err.body.into())
             .unwrap()
-    }
-
-    fn content_type(&mut self, content_type: &str) {
-        if let Ok(content_type) = HeaderValue::from_str(content_type) {
-            self.headers_mut()
-                .insert(header::CONTENT_TYPE, content_type);
-        }
     }
 
     fn redirect(&mut self, path: &str) {

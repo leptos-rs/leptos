@@ -22,6 +22,7 @@ pub struct ServerFnCall {
     body: ServerFnBody,
     default_path: String,
     server_fn_path: Option<Path>,
+    preset_client: Option<Type>,
     preset_server: Option<Type>,
     default_protocol: Option<Type>,
     default_input_encoding: Option<Type>,
@@ -56,6 +57,7 @@ impl ServerFnCall {
             args,
             body,
             server_fn_path: None,
+            preset_client: None,
             preset_server: None,
             default_protocol: None,
             default_input_encoding: None,
@@ -107,6 +109,12 @@ impl ServerFnCall {
         self
     }
 
+    /// Set the default client implementation.
+    pub fn default_client_type(mut self, client: Option<Type>) -> Self {
+        self.preset_client = client;
+        self
+    }
+
     /// Set the default server implementation.
     pub fn default_server_type(mut self, server: Option<Type>) -> Self {
         self.preset_server = server;
@@ -146,6 +154,8 @@ impl ServerFnCall {
             parse_quote! {
                 #server_fn_path::client::reqwest::ReqwestClient
             }
+        } else if let Some(client) = &self.preset_client {
+            client.clone()
         } else {
             parse_quote! {
                 #server_fn_path::client::browser::BrowserClient
@@ -871,11 +881,13 @@ pub fn server_macro_impl(
     body: TokenStream2,
     server_fn_path: Option<Path>,
     default_path: &str,
+    preset_client: Option<Type>,
     preset_server: Option<Type>,
     default_protocol: Option<Type>,
 ) -> Result<TokenStream2> {
     let body = ServerFnCall::parse(default_path, args, body)?
         .default_server_fn_path(server_fn_path)
+        .default_client_type(preset_client)
         .default_server_type(preset_server)
         .default_protocol(default_protocol);
 
