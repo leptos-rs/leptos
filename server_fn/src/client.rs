@@ -55,7 +55,7 @@ pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
 #[cfg(feature = "browser")]
 /// Implements [`Client`] for a `fetch` request in the browser.
 pub mod browser {
-    use super::{get_server_url, Client};
+    use super::{Client, get_server_url};
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::browser::{BrowserRequest, RequestInner},
@@ -71,10 +71,10 @@ pub mod browser {
     pub struct BrowserClient;
 
     impl<
-            Error: FromServerFnError,
-            InputStreamError: FromServerFnError,
-            OutputStreamError: FromServerFnError,
-        > Client<Error, InputStreamError, OutputStreamError> for BrowserClient
+        Error: FromServerFnError,
+        InputStreamError: FromServerFnError,
+        OutputStreamError: FromServerFnError,
+    > Client<Error, InputStreamError, OutputStreamError> for BrowserClient
     {
         type Request = BrowserRequest;
         type Response = BrowserResponse;
@@ -113,8 +113,8 @@ pub mod browser {
             Output = Result<
                 (
                     impl futures::Stream<Item = Result<Bytes, Bytes>>
-                        + Send
-                        + 'static,
+                    + Send
+                    + 'static,
                     impl futures::Sink<Bytes> + Send + 'static,
                 ),
                 Error,
@@ -227,7 +227,7 @@ pub mod browser {
 #[cfg(feature = "reqwest")]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
-    use super::{get_server_url, Client};
+    use super::{Client, get_server_url};
     use crate::{
         error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
         request::reqwest::CLIENT,
@@ -241,10 +241,10 @@ pub mod reqwest {
     pub struct ReqwestClient;
 
     impl<
-            Error: FromServerFnError,
-            InputStreamError: FromServerFnError,
-            OutputStreamError: FromServerFnError,
-        > Client<Error, InputStreamError, OutputStreamError> for ReqwestClient
+        Error: FromServerFnError,
+        InputStreamError: FromServerFnError,
+        OutputStreamError: FromServerFnError,
+    > Client<Error, InputStreamError, OutputStreamError> for ReqwestClient
     {
         type Request = Request;
         type Response = Response;

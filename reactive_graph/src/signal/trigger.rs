@@ -1,4 +1,4 @@
-use super::{subscriber_traits::AsSubscriberSet, ArcTrigger};
+use super::{ArcTrigger, subscriber_traits::AsSubscriberSet};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     owner::ArenaItem,

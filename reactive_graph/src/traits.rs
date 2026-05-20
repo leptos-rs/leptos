@@ -53,7 +53,7 @@ use crate::{
     effect::Effect,
     graph::{Observer, Source, Subscriber, ToAnySource},
     owner::Owner,
-    signal::{arc_signal, guards::UntrackedWriteGuard, ArcReadSignal},
+    signal::{ArcReadSignal, arc_signal, guards::UntrackedWriteGuard},
 };
 use any_spawner::Executor;
 use futures::{Stream, StreamExt};

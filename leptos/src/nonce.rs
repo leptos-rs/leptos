@@ -1,10 +1,9 @@
 use crate::context::{provide_context, use_context};
 use base64::{
-    alphabet,
+    Engine, alphabet,
     engine::{self, general_purpose},
-    Engine,
 };
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 

@@ -1,15 +1,15 @@
 use crate::{
-    codec::{Patch, Post, Put},
     ContentType, Decodes, Encodes, Format, FormatType,
+    codec::{Patch, Post, Put},
 };
 use bytes::Bytes;
 use rkyv::{
+    Archive, Deserialize, Serialize,
     api::high::{HighDeserializer, HighSerializer, HighValidator},
     bytecheck::CheckBytes,
     rancor,
     ser::allocator::ArenaHandle,
     util::AlignedVec,
-    Archive, Deserialize, Serialize,
 };
 
 type RkyvSerializer<'a> =

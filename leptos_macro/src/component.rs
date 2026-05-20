@@ -6,16 +6,16 @@ use convert_case::{
 use convert_case_extras::is_case;
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
-use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error2::abort;
-use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{ToTokens, TokenStreamExt, format_ident, quote, quote_spanned};
 use std::hash::DefaultHasher;
 use syn::{
-    parse::Parse, parse_quote, spanned::Spanned, token::Colon,
-    visit_mut::VisitMut, AngleBracketedGenericArguments, Attribute, FnArg,
-    GenericArgument, GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait,
-    TypeParam, TypePath, Visibility,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
+    GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent, Path,
+    PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait, TypeParam,
+    TypePath, Visibility, parse::Parse, parse_quote, spanned::Spanned,
+    token::Colon, visit_mut::VisitMut,
 };
 
 pub struct Model {

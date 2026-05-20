@@ -1,6 +1,6 @@
 #![allow(clippy::needless_lifetimes)]
 
-use crate::{prelude::*, WasmSplitManifest};
+use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
 use std::{path::PathBuf, sync::OnceLock};

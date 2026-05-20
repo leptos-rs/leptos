@@ -6,10 +6,10 @@ use crate::{
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use reqwest::{
-    header::{ACCEPT, CONTENT_TYPE},
     Body,
+    header::{ACCEPT, CONTENT_TYPE},
 };
-pub use reqwest::{multipart::Form, Client, Method, Request, Url};
+pub use reqwest::{Client, Method, Request, Url, multipart::Form};
 use std::sync::LazyLock;
 
 pub(crate) static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
@@ -42,7 +42,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(CONTENT_TYPE, content_type)
@@ -69,7 +69,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(CONTENT_TYPE, content_type)
@@ -94,7 +94,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(CONTENT_TYPE, content_type)
@@ -117,7 +117,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(ACCEPT, accepts)
@@ -140,7 +140,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(CONTENT_TYPE, content_type)
@@ -168,7 +168,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         .header(CONTENT_TYPE, content_type)

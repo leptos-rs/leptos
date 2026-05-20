@@ -5,11 +5,11 @@
 #![deny(missing_docs)]
 
 use proc_macro::{TokenStream, TokenTree};
-use proc_macro2::Span;
 use proc_macro_error2::{abort, proc_macro_error, set_dummy};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::Span;
+use quote::{ToTokens, format_ident, quote};
 use syn::{
-    spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
+    FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath, spanned::Spanned,
 };
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
@@ -24,8 +24,8 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 ///
 /// ```rust
 /// use leptos_router::{
-///     path, OptionalParamSegment, ParamSegment, StaticSegment,
-///     WildcardSegment,
+///     OptionalParamSegment, ParamSegment, StaticSegment, WildcardSegment,
+///     path,
 /// };
 ///
 /// let path = path!("/foo/:bar/:baz?/*any");

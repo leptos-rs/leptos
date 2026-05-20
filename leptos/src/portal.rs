@@ -1,4 +1,4 @@
-use crate::{children::TypedChildrenFn, mount, IntoView};
+use crate::{IntoView, children::TypedChildrenFn, mount};
 use leptos_dom::helpers::document;
 use leptos_macro::component;
 use reactive_graph::{effect::Effect, graph::untrack, owner::Owner};

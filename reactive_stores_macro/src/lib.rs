@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
+use proc_macro_error2::{OptionExt, abort, abort_call_site, proc_macro_error};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error2::{abort, abort_call_site, proc_macro_error, OptionExt};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta,
+    Result, Token, Type, TypeParam, Variant, Visibility, WhereClause,
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta,
-    Result, Token, Type, TypeParam, Variant, Visibility, WhereClause,
 };
 
 #[proc_macro_error]

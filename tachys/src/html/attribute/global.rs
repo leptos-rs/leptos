@@ -2,11 +2,11 @@ use super::Lang;
 use crate::{
     html::{
         attribute::*,
-        class::{class, Class, IntoClass},
+        class::{Class, IntoClass, class},
         element::{ElementType, HasElementType, HtmlElement},
-        event::{on, on_target, EventDescriptor, On, Targeted},
-        property::{prop, IntoProperty, Property},
-        style::{style, IntoStyle, Style},
+        event::{EventDescriptor, On, Targeted, on, on_target},
+        property::{IntoProperty, Property, prop},
+        style::{IntoStyle, Style, style},
     },
     prelude::RenderHtml,
     view::add_attr::AddAnyAttr,

@@ -1,11 +1,11 @@
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute, AttributeValue},
+    html::attribute::{Attribute, AttributeValue, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml, ToTemplate,
+        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr,
     },
 };
 use reactive_graph::effect::RenderEffect;
@@ -814,13 +814,13 @@ mod stable {
     use super::RenderEffectState;
     use crate::{
         html::attribute::{
-            any_attribute::AnyAttribute, Attribute, AttributeValue,
+            Attribute, AttributeValue, any_attribute::AnyAttribute,
         },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     };
     #[allow(deprecated)]
@@ -899,13 +899,13 @@ mod reactive_stores {
     use super::RenderEffectState;
     use crate::{
         html::attribute::{
-            any_attribute::AnyAttribute, Attribute, AttributeValue,
+            Attribute, AttributeValue, any_attribute::AnyAttribute,
         },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     };
     #[allow(deprecated)]

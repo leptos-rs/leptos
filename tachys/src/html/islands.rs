@@ -1,9 +1,9 @@
-use super::attribute::{any_attribute::AnyAttribute, Attribute};
+use super::attribute::{Attribute, any_attribute::AnyAttribute};
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
     ssr::StreamBuilder,
-    view::{add_attr::AddAnyAttr, Position, PositionState},
+    view::{Position, PositionState, add_attr::AddAnyAttr},
 };
 
 /// An island of interactivity in an otherwise-inert HTML document.
@@ -59,7 +59,7 @@ impl<View> Island<View> {
     fn should_have_element_representation() -> bool {
         #[cfg(feature = "reactive_graph")]
         {
-            use reactive_graph::owner::{use_context, IsHydrating};
+            use reactive_graph::owner::{IsHydrating, use_context};
             let already_hydrating =
                 use_context::<IsHydrating>().map(|h| h.0).unwrap_or(false);
             !already_hydrating

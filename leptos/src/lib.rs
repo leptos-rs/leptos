@@ -188,7 +188,7 @@ pub mod prelude {
             error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
         };
         pub use tachys::{
-            reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
+            reactive_graph::{Suspend, bind::BindAttribute, node_ref::*},
             view::{fragment::Fragment, template::ViewTemplate},
         };
     }

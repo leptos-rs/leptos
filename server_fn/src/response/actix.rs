@@ -1,15 +1,14 @@
 use super::{Res, TryRes};
 use crate::error::{
-    FromServerFnError, ServerFnErrorResponseParts, ServerFnErrorWrapper,
-    SERVER_FN_ERROR_HEADER,
+    FromServerFnError, SERVER_FN_ERROR_HEADER, ServerFnErrorResponseParts,
+    ServerFnErrorWrapper,
 };
 use actix_web::{
-    http::{
-        header,
-        header::{HeaderValue, CONTENT_TYPE, LOCATION},
-        StatusCode,
-    },
     HttpResponse,
+    http::{
+        StatusCode, header,
+        header::{CONTENT_TYPE, HeaderValue, LOCATION},
+    },
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};

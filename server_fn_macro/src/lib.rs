@@ -8,7 +8,7 @@
 
 use convert_case::{Case, Converter};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -1243,7 +1243,7 @@ impl Parse for ServerFnArgs {
                         return Err(syn::Error::new(
                             stream.span(),
                             "unexpected extra argument",
-                        ))
+                        ));
                     }
                 }
             } else {
@@ -1283,7 +1283,7 @@ impl Parse for ServerFnArgs {
                     return Err(syn::Error::new(
                         encoding.span(),
                         "Encoding not found.",
-                    ))
+                    ));
                 }
             }
         }
@@ -1332,7 +1332,7 @@ impl Parse for ServerFnArg {
                 return Err(syn::Error::new(
                     arg.span(),
                     "cannot use receiver types in server function macro",
-                ))
+                ));
             }
             FnArg::Typed(t) => t,
         };

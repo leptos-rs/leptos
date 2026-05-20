@@ -12,9 +12,9 @@ use convert_case::{
 };
 use convert_case_extras::is_case;
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
-use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
@@ -24,10 +24,10 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
-    punctuated::Pair::{End, Punctuated},
-    spanned::Spanned,
     Expr::{self, Tuple},
     ExprArray, ExprLit, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
+    punctuated::Pair::{End, Punctuated},
+    spanned::Spanned,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -4,8 +4,8 @@ use reactive_graph::{
     traits::DefinedAt,
 };
 use server_fn::{
-    error::{FromServerFnError, ServerFnUrlError},
     ServerFn,
+    error::{FromServerFnError, ServerFnUrlError},
 };
 use std::{ops::Deref, panic::Location, sync::Arc};
 

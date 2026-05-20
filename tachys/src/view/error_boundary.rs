@@ -1,9 +1,9 @@
-use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
+use super::{Position, PositionState, RenderHtml, add_attr::AddAnyAttr};
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     ssr::StreamBuilder,
-    view::{iterators::OptionState, Mountable, Render},
+    view::{Mountable, Render, iterators::OptionState},
 };
 use either_of::Either;
 use std::sync::Arc;
@@ -116,7 +116,6 @@ where
 impl<T, E> AddAnyAttr for Result<T, E>
 where
     T: AddAnyAttr,
-
     E: Into<AnyError> + Send + 'static,
 {
     type Output<SomeNewAttr: Attribute> =

@@ -132,7 +132,7 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
-use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+use base64::{DecodeError, Engine, engine::general_purpose::STANDARD_NO_PAD};
 #[cfg(feature = "bitcode")]
 pub use bitcode;
 // re-exported to make it possible to implement a custom Client without adding a separate
@@ -149,7 +149,7 @@ pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
 use error::{FromServerFnError, ServerFnErrorErr};
-use futures::{pin_mut, SinkExt, Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt, pin_mut};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use redirect::call_redirect_hook;
@@ -222,31 +222,23 @@ pub trait ServerFn: Send + Sized {
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
-    type Client: Client<
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+    type Client: Client<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
 
     /// The type of the HTTP server that will send the response from the server side.
     ///
     /// For example, this might be `axum` or `actix-web`.
-    type Server: Server<
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+    type Server: Server<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
 
     /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
-        Self,
-        Self::Output,
-        Self::Client,
-        Self::Server,
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+            Self,
+            Self::Output,
+            Self::Client,
+            Self::Server,
+            Self::Error,
+            Self::InputStreamError,
+            Self::OutputStreamError,
+        >;
 
     /// The return type of the server function.
     ///
@@ -272,10 +264,7 @@ pub trait ServerFn: Send + Sized {
     /// Middleware that should be applied to this server function.
     fn middlewares() -> Vec<
         Arc<
-            dyn Layer<
-                ServerFnServerRequest<Self>,
-                ServerFnServerResponse<Self>,
-            >,
+            dyn Layer<ServerFnServerRequest<Self>, ServerFnServerResponse<Self>>,
         >,
     > {
         Vec::new()
@@ -586,17 +575,17 @@ where
 }
 
 impl<
-        Input,
-        InputItem,
-        OutputItem,
-        InputEncoding,
-        OutputEncoding,
-        Client,
-        Server,
-        Error,
-        InputStreamError,
-        OutputStreamError,
-    >
+    Input,
+    InputItem,
+    OutputItem,
+    InputEncoding,
+    OutputEncoding,
+    Client,
+    Server,
+    Error,
+    InputStreamError,
+    OutputStreamError,
+>
     Protocol<
         Input,
         BoxedStream<OutputItem, OutputStreamError>,
@@ -1005,8 +994,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        error::FromServerFnError, middleware::BoxedService, LazyServerFnMap,
-        Protocol, Server, ServerFn, ServerFnTraitObj,
+        LazyServerFnMap, Protocol, Server, ServerFn, ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -1139,11 +1128,12 @@ pub mod axum {
 #[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
+        LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
         error::FromServerFnError, middleware::BoxedService,
         request::actix::ActixRequest, response::actix::ActixResponse,
-        server::Server, LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
+        server::Server,
     };
-    use actix_web::{web::Payload, HttpRequest, HttpResponse};
+    use actix_web::{HttpRequest, HttpResponse, web::Payload};
     use http::Method;
     use or_poisoned::OrPoisoned;
     #[doc(hidden)]

@@ -1,15 +1,15 @@
 use crate::{FromEncodedStr, IntoEncodedString};
+#[cfg(feature = "serde-lite")]
+use codee::SerdeLite;
 #[cfg(feature = "rkyv")]
 use codee::binary::RkyvCodec;
 #[cfg(feature = "serde-wasm-bindgen")]
 use codee::string::JsonSerdeWasmCodec;
 #[cfg(feature = "miniserde")]
 use codee::string::MiniserdeCodec;
-#[cfg(feature = "serde-lite")]
-use codee::SerdeLite;
 use codee::{
-    string::{FromToStringCodec, JsonSerdeCodec},
     Decoder, Encoder,
+    string::{FromToStringCodec, JsonSerdeCodec},
 };
 use core::{fmt::Debug, marker::PhantomData};
 use futures::Future;
@@ -25,12 +25,12 @@ use reactive_graph::{
     signal::{ArcRwSignal, RwSignal},
 };
 use std::{
-    future::{pending, IntoFuture},
+    future::{IntoFuture, pending},
     ops::{Deref, DerefMut},
     panic::Location,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 

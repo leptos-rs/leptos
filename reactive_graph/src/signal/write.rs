@@ -1,4 +1,4 @@
-use super::{guards::WriteGuard, ArcWriteSignal};
+use super::{ArcWriteSignal, guards::WriteGuard};
 use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     traits::{

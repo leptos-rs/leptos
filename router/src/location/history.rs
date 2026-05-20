@@ -1,8 +1,8 @@
-use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
+use super::{LocationChange, LocationProvider, Url, handle_anchor_click};
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
-use js_sys::{try_iter, Array, JsString};
+use js_sys::{Array, JsString, try_iter};
 use leptos::{ev, prelude::*};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{

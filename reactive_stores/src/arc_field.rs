@@ -1,8 +1,8 @@
 use crate::{
-    path::{StorePath, StorePathSegment},
     ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
     KeyedIterable, KeyedSubfield, Store, StoreField, StoreFieldTrigger,
     Subfield,
+    path::{StorePath, StorePathSegment},
 };
 use reactive_graph::{
     owner::Storage,

@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use proc_macro_error2::abort;
+use proc_macro2::Ident;
 use quote::{format_ident, quote};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     mem,
 };
-use syn::{parse_macro_input, parse_quote, ItemFn, ReturnType, Stmt};
+use syn::{ItemFn, ReturnType, Stmt, parse_macro_input, parse_quote};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let name = if !args.is_empty() {

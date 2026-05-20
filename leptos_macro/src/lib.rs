@@ -15,9 +15,9 @@ extern crate proc_macro_error2;
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::str::FromStr;
-use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
+use syn::{Visibility, parse_macro_input, spanned::Spanned, token::Pub};
 
 mod params;
 mod view;

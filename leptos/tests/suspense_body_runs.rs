@@ -11,8 +11,8 @@ use any_spawner::Executor;
 use futures::StreamExt;
 use leptos::prelude::*;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 async fn render(app: impl IntoView + Send + 'static) -> String {

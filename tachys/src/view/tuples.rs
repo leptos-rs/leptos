@@ -2,10 +2,10 @@ use super::{
     Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
-    view::{add_attr::AddAnyAttr, StreamBuilder},
+    view::{StreamBuilder, add_attr::AddAnyAttr},
 };
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,

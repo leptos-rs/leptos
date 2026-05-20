@@ -1,13 +1,13 @@
 use crate::{
-    path::{StorePath, StorePathSegment},
     ArcStore, KeyMap, Store, StoreFieldTrigger,
+    path::{StorePath, StorePathSegment},
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::Storage,
     signal::{
-        guards::{Plain, UntrackedWriteGuard, WriteGuard},
         ArcTrigger,
+        guards::{Plain, UntrackedWriteGuard, WriteGuard},
     },
     traits::{Track, UntrackableGuard},
 };

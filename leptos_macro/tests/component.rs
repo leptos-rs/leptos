@@ -261,8 +261,8 @@ mod macro_hygiene {
     #[test]
     fn view_into_any() {
         use ::leptos::{
-            prelude::{ElementChild, IntoAny},
             IntoView,
+            prelude::{ElementChild, IntoAny},
         };
         use ::leptos_macro::{component, view};
 

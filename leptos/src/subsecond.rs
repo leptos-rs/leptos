@@ -1,6 +1,6 @@
 use dioxus_devtools::DevserverMsg;
-use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{js_sys::JsString, MessageEvent, WebSocket};
+use wasm_bindgen::{JsCast, prelude::Closure};
+use web_sys::{MessageEvent, WebSocket, js_sys::JsString};
 
 /// Sets up a websocket connect to the `dx` CLI, waiting for incoming hot-patching messages
 /// and patching the WASM binary appropriately.

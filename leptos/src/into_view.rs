@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 use tachys::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
-        ToTemplate,
+        Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr,
     },
 };
 

@@ -14,7 +14,7 @@ use std::{
     borrow::Cow,
     cell::{LazyCell, RefCell},
 };
-use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, intern, prelude::Closure};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
 /// A [`Renderer`](crate::renderer::Renderer) that uses `web-sys` to manipulate DOM elements in the browser.

@@ -82,15 +82,15 @@ impl<K: slotmap::Key, V> KeyedAccess<K> for slotmap::SparseSecondaryMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
+    use crate::{self as reactive_stores, AtKeyed, Store, tests::tick};
     use reactive_graph::{
         effect::Effect,
         traits::{GetUntracked, ReadUntracked, Set, Track, Write},
     };
     use slotmap::{DefaultKey, SlotMap};
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     #[derive(Debug, Default, Store)]

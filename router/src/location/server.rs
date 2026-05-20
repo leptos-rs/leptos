@@ -1,4 +1,4 @@
-use super::{Url, BASE};
+use super::{BASE, Url};
 use crate::params::ParamsMap;
 use std::sync::Arc;
 

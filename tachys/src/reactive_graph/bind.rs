@@ -2,17 +2,17 @@ use crate::{
     dom::{event_target_checked, event_target_value},
     html::{
         attribute::{
+            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+            NextAttribute,
             maybe_next_attr_erasure_macros::{
                 next_attr_combine, next_attr_output_type,
             },
-            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
-            NextAttribute,
         },
         event::{change, input, on},
-        property::{prop, IntoProperty},
+        property::{IntoProperty, prop},
     },
     prelude::AddAnyAttr,
-    renderer::{types::Element, RemoveEventHandler},
+    renderer::{RemoveEventHandler, types::Element},
     view::{Position, ToTemplate},
 };
 use reactive_graph::{

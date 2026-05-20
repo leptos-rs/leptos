@@ -6,8 +6,8 @@ use crate::{
     },
     owner::{Storage, StorageAccess, SyncStorage},
     signal::{
-        guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal, ArcRwSignal,
+        guards::{Mapped, Plain, ReadGuard},
     },
     traits::{DefinedAt, Get, IsDisposed, ReadUntracked},
 };

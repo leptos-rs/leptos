@@ -1,5 +1,5 @@
 use super::{
-    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+    TagType, fragment_to_tokens, utils::is_nostrip_optional_and_update_key,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
@@ -12,7 +12,7 @@ use rstml::node::{
 };
 use std::collections::HashMap;
 use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
+    Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt, spanned::Spanned,
 };
 
 pub(crate) fn component_to_tokens(

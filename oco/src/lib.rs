@@ -32,7 +32,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     borrow::{Borrow, Cow},
     ffi::{CStr, OsStr},
@@ -713,8 +713,8 @@ mod tests {
     }
 
     #[test]
-    fn cloned_inplace_borrowed_str_should_make_borrowed_str_and_remain_borrowed(
-    ) {
+    fn cloned_inplace_borrowed_str_should_make_borrowed_str_and_remain_borrowed()
+     {
         let mut s: Oco<str> = Oco::Borrowed("hello");
         assert!(s.clone_inplace().is_borrowed());
         assert!(s.is_borrowed());

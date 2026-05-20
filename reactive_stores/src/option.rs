@@ -92,8 +92,8 @@ mod tests {
     };
     use reactive_stores_macro::Patch;
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     pub async fn tick() {

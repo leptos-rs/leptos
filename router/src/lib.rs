@@ -157,7 +157,7 @@ pub use ssr_mode::*;
 pub(crate) mod view_transition {
     use js_sys::{Function, Promise, Reflect};
     use leptos::leptos_dom::helpers::document;
-    use wasm_bindgen::{closure::Closure, intern, JsCast, JsValue};
+    use wasm_bindgen::{JsCast, JsValue, closure::Closure, intern};
 
     pub fn start_view_transition(
         level: u8,
