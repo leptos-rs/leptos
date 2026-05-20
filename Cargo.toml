@@ -39,7 +39,7 @@ members = [
 exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 
 [workspace.dependencies]
