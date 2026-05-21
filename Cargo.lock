@@ -2035,7 +2035,7 @@ dependencies = [
  "oco_ref",
  "or_poisoned",
  "paste",
- "rand 0.9.2",
+ "rand 0.10.1",
  "reactive_graph",
  "rustc-hash 2.1.1",
  "rustc_version",

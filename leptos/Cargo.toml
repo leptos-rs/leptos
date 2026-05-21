@@ -104,7 +104,7 @@ tracing = [
   "leptos_dom/tracing",
   "leptos_server/tracing",
 ]
-nonce = ["base64", "rand", "dep:getrandom"]
+nonce = ["base64", "dep:getrandom"]
 spin = ["leptos-spin-macro"]
 islands = ["leptos_macro/islands"]
 trace-component-props = [

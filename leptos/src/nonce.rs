@@ -4,7 +4,6 @@ use base64::{
     engine::{self, general_purpose},
     Engine,
 };
-use rand::{rng, RngCore};
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
@@ -171,9 +170,8 @@ const NONCE_ENGINE: engine::GeneralPurpose =
 impl Nonce {
     /// Generates a new nonce from 16 bytes (128 bits) of random data.
     pub fn new() -> Self {
-        let mut rng = rng();
-        let mut bytes = [0; 16];
-        rng.fill_bytes(&mut bytes);
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("failed to fill nonce bytes");
         Nonce(NONCE_ENGINE.encode(bytes).into())
     }
 }
