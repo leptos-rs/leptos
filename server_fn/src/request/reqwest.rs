@@ -110,10 +110,11 @@ where
         body: Self::FormData,
         method: Method,
     ) -> Result<Self, E> {
+        let url = format!("{}{}", get_server_url(), path);
         match method {
-            Method::POST => CLIENT.post(path),
-            Method::PUT => CLIENT.put(path),
-            Method::PATCH => CLIENT.patch(path),
+            Method::POST => CLIENT.post(url),
+            Method::PUT => CLIENT.put(url),
+            Method::PATCH => CLIENT.patch(url),
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
@@ -133,10 +134,11 @@ where
         body: Self::FormData,
         method: Method,
     ) -> Result<Self, E> {
+        let url = format!("{}{}", get_server_url(), path);
         match method {
-            Method::POST => CLIENT.post(path),
-            Method::PATCH => CLIENT.patch(path),
-            Method::PUT => CLIENT.put(path),
+            Method::POST => CLIENT.post(url),
+            Method::PATCH => CLIENT.patch(url),
+            Method::PUT => CLIENT.put(url),
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
