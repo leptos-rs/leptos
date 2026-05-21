@@ -1,5 +1,8 @@
 use super::ClientRes;
-use crate::error::{FromServerFnError, IntoAppError, ServerFnErrorErr};
+use crate::{
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
+    redirect::REDIRECT_HEADER,
+};
 use bytes::Bytes;
 use futures::{Stream, TryStreamExt};
 use reqwest::Response;
@@ -44,6 +47,6 @@ impl<E: FromServerFnError> ClientRes<E> for Response {
     }
 
     fn has_redirect(&self) -> bool {
-        self.headers().get("Location").is_some()
+        self.headers().get(REDIRECT_HEADER).is_some()
     }
 }
