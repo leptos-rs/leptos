@@ -3597,6 +3597,7 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
  "wasm-streams",
  "web-sys",
  "xxhash-rust",
