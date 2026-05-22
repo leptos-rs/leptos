@@ -1026,8 +1026,8 @@ fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
 
     Err(syn::Error::new(
         output_ty.span(),
-        "websocket server functions should return \
-         BoxedStream<Result<T, E>> where E: FromServerFnError",
+        "websocket server functions should return BoxedStream<Result<T, E>> \
+         where E: FromServerFnError",
     ))
 }
 
