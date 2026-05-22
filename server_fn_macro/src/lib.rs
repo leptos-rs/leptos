@@ -970,52 +970,51 @@ fn err_ws_in_type(
     inputs: &Punctuated<ServerFnArg, syn::token::Comma>,
 ) -> Option<Type> {
     inputs.into_iter().find_map(|pat| {
-        if let syn::Type::Path(ref pat) = *pat.arg.ty {
-            if pat.path.segments[0].ident != "BoxedStream" {
-                return None;
-            }
-
-            if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                // BoxedStream<T>
-                if args.args.len() == 1 {
-                    return None;
-                }
-                // BoxedStream<T, E>
-                else if let GenericArgument::Type(ty) = &args.args[1] {
-                    return Some(ty.clone());
-                }
-            };
+        let syn::Type::Path(ref pat) = *pat.arg.ty else {
+            return None;
         };
-
-        None
+        let segment = pat.path.segments.first()?;
+        if segment.ident != "BoxedStream" {
+            return None;
+        }
+        let PathArguments::AngleBracketed(args) = &segment.arguments else {
+            return None;
+        };
+        // BoxedStream<T> has no explicit error type; BoxedStream<T, E> -> E
+        match args.args.iter().nth(1)? {
+            GenericArgument::Type(ty) => Some(ty.clone()),
+            _ => None,
+        }
     })
 }
 
 fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
-    if let Some(syn::Type::Path(pat)) = output_ty
-        && pat.path.segments[0].ident == "BoxedStream"
-        && let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-    {
-        // BoxedStream<T>
-        if args.args.len() == 1 {
-            return Ok(None);
-        }
-        // BoxedStream<T, E>
-        else if let GenericArgument::Type(ty) = &args.args[1] {
-            return Ok(Some(ty.clone()));
-        }
-
-        return Err(syn::Error::new(
-            output_ty.span(),
-            "websocket server functions should return BoxedStream<Result<T, \
-             E>> where E: FromServerFnError",
-        ));
+    let Some(syn::Type::Path(pat)) = output_ty else {
+        return Ok(None);
     };
+    let Some(segment) = pat.path.segments.first() else {
+        return Ok(None);
+    };
+    if segment.ident != "BoxedStream" {
+        return Ok(None);
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Ok(None);
+    };
+    // BoxedStream<T>
+    if args.args.len() == 1 {
+        return Ok(None);
+    }
+    // BoxedStream<T, E>
+    if let Some(GenericArgument::Type(ty)) = args.args.iter().nth(1) {
+        return Ok(Some(ty.clone()));
+    }
 
-    Ok(None)
+    Err(syn::Error::new(
+        output_ty.span(),
+        "websocket server functions should return \
+         BoxedStream<Result<T, E>> where E: FromServerFnError",
+    ))
 }
 
 /// The arguments to the `server` macro.
