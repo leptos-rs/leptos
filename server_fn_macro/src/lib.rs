@@ -949,22 +949,21 @@ fn output_type(return_ty: &Type) -> Option<&Type> {
 }
 
 fn err_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty
-        && pat.path.segments[0].ident == "Result"
-        && let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-    {
-        // Result<T>
-        if args.args.len() == 1 {
-            return None;
-        }
-        // Result<T, _>
-        else if let GenericArgument::Type(ty) = &args.args[1] {
-            return Some(ty);
-        }
+    let syn::Type::Path(pat) = return_ty else {
+        return None;
     };
-
-    None
+    let segment = pat.path.segments.first()?;
+    if segment.ident != "Result" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    // Result<T> has no explicit error type; Result<T, E> -> E
+    match args.args.iter().nth(1)? {
+        GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
 }
 
 fn err_ws_in_type(
