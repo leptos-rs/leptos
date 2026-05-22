@@ -935,7 +935,7 @@ fn output_type(return_ty: &Type) -> Option<&Type> {
     let syn::Type::Path(pat) = return_ty else {
         return None;
     };
-    let segment = pat.path.segments.first()?;
+    let segment = pat.path.segments.last()?;
     if segment.ident != "Result" {
         return None;
     }
@@ -952,7 +952,7 @@ fn err_type(return_ty: &Type) -> Option<&Type> {
     let syn::Type::Path(pat) = return_ty else {
         return None;
     };
-    let segment = pat.path.segments.first()?;
+    let segment = pat.path.segments.last()?;
     if segment.ident != "Result" {
         return None;
     }
@@ -973,7 +973,7 @@ fn err_ws_in_type(
         let syn::Type::Path(ref pat) = *pat.arg.ty else {
             return None;
         };
-        let segment = pat.path.segments.first()?;
+        let segment = pat.path.segments.last()?;
         if segment.ident != "BoxedStream" {
             return None;
         }
@@ -992,7 +992,7 @@ fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
     let Some(syn::Type::Path(pat)) = output_ty else {
         return Ok(None);
     };
-    let Some(segment) = pat.path.segments.first() else {
+    let Some(segment) = pat.path.segments.last() else {
         return Ok(None);
     };
     if segment.ident != "BoxedStream" {
