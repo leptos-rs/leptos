@@ -932,20 +932,20 @@ impl Parse for Middleware {
 }
 
 fn output_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty
-        && pat.path.segments[0].ident == "Result"
-    {
-        if pat.path.segments.is_empty() {
-            panic!("{:#?}", pat.path);
-        } else if let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-            && let GenericArgument::Type(ty) = &args.args[0]
-        {
-            return Some(ty);
-        }
+    let syn::Type::Path(pat) = return_ty else {
+        return None;
     };
-
-    None
+    let segment = pat.path.segments.first()?;
+    if segment.ident != "Result" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
 }
 
 fn err_type(return_ty: &Type) -> Option<&Type> {
