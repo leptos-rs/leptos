@@ -518,14 +518,28 @@ impl ServerFnCall {
         };
 
         let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
-        let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
-            Some(_) => "SERVER_FN_OVERRIDE_KEY",
-            None => "CARGO_MANIFEST_DIR",
-        };
         let hash = if enable_hash {
+            let key = match option_env!("SERVER_FN_OVERRIDE_KEY") {
+                // An explicit override key pins the URL hash; use it as-is.
+                Some(_) => quote! { env!("SERVER_FN_OVERRIDE_KEY") },
+                // Default to the crate name + version. This is identical on
+                // every machine and CI worker, unlike the previous default
+                // of `CARGO_MANIFEST_DIR`, which embedded the absolute build
+                // path and made the generated URL differ between a developer
+                // checkout and a CI worker (and between a WASM client build
+                // and the server build), silently 404ing every server
+                // function call in split-build deployments.
+                None => quote! {
+                    concat!(
+                        env!("CARGO_PKG_NAME"),
+                        "@",
+                        env!("CARGO_PKG_VERSION")
+                    )
+                },
+            };
             quote! {
                 #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", module_path!()).as_bytes(),
+                    concat!(#key, ":", module_path!()).as_bytes(),
                     0
                 )
             }
