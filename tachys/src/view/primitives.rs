@@ -18,7 +18,7 @@ use std::{
 
 // any changes here should also be made in src/reactive_graph/guards.rs
 macro_rules! render_primitive {
-  ($($child_type:ty),* $(,)?) => {
+  ($escape:literal; $($child_type:ty),* $(,)?) => {
     $(
 		paste::paste! {
 			pub struct [<$child_type:camel State>](crate::renderer::types::Text, $child_type);
@@ -80,12 +80,24 @@ macro_rules! render_primitive {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
 					// add a comment node to separate from previous sibling, if any
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
 					}
-					_ = write!(buf, "{}", self);
+					// `$escape` is `true` only for types whose `Display` output can
+					// contain HTML-significant characters (e.g. `char`). Numeric
+					// primitives emit a syntactic subset of HTML text and are written
+					// directly to avoid an intermediate allocation.
+					if $escape {
+						if escape {
+							buf.push_str(&html_escape::encode_text(&self.to_string()));
+						} else {
+							_ = write!(buf, "{}", self);
+						}
+					} else {
+						_ = write!(buf, "{}", self);
+					}
 					*position = Position::NextChildAfterText;
 				}
 
@@ -145,6 +157,7 @@ macro_rules! render_primitive {
 }
 
 render_primitive![
+    false;
     usize,
     u8,
     u16,
@@ -159,7 +172,6 @@ render_primitive![
     i128,
     f32,
     f64,
-    char,
     bool,
     IpAddr,
     SocketAddr,
@@ -180,3 +192,54 @@ render_primitive![
     NonZeroIsize,
     NonZeroUsize,
 ];
+
+// `char` can be any Unicode scalar value, including HTML-significant
+// characters such as `<`, `>`, `&`, `"`, and `'`. Its body output must be
+// escaped to avoid an HTML-injection sink.
+render_primitive![true; char];
+
+#[cfg(test)]
+mod tests {
+    use crate::view::{Position, RenderHtml};
+
+    #[test]
+    fn char_escapes_html_special_characters() {
+        let mut buf = String::new();
+        '<'.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            false,
+            vec![],
+        );
+        assert_eq!(buf, "&lt;");
+    }
+
+    #[test]
+    fn char_not_escaped_in_raw_text_context() {
+        // When the enclosing element opts out of escaping (e.g. `<script>`),
+        // the char must be written verbatim.
+        let mut buf = String::new();
+        '<'.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            false,
+            false,
+            vec![],
+        );
+        assert_eq!(buf, "<");
+    }
+
+    #[test]
+    fn numeric_primitive_renders_unescaped() {
+        let mut buf = String::new();
+        42u32.to_html_with_buf(
+            &mut buf,
+            &mut Position::FirstChild,
+            true,
+            false,
+            vec![],
+        );
+        assert_eq!(buf, "42");
+    }
+}
