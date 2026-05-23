@@ -101,6 +101,9 @@ rustc_version = { workspace = true, default-features = true }
 [dev-dependencies]
 trybuild = { workspace = true, default-features = true }
 
+[target.'cfg(target_family = "wasm")'.dev-dependencies]
+wasm-bindgen-test = { workspace = true, default-features = true }
+
 [features]
 axum-no-default = [
   "ssr",

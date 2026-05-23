@@ -108,14 +108,7 @@ where
         method: http::Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
-        let server_url = get_server_url();
-        let mut url = String::with_capacity(
-            server_url.len() + path.len() + 1 + query.len(),
-        );
-        url.push_str(server_url);
-        url.push_str(path);
-        url.push('?');
-        url.push_str(query);
+        let url = format!("{}{path}?{query}", get_server_url());
         Ok(Self(SendWrapper::new(RequestInner {
             request: match method {
                 Method::GET => Request::get(&url),
@@ -152,10 +145,7 @@ where
         method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
-        let server_url = get_server_url();
-        let mut url = String::with_capacity(server_url.len() + path.len());
-        url.push_str(server_url);
-        url.push_str(path);
+        let url = format!("{}{path}", get_server_url());
         Ok(Self(SendWrapper::new(RequestInner {
             request: match method {
                 Method::POST => Request::post(&url),
@@ -190,10 +180,7 @@ where
         method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
-        let server_url = get_server_url();
-        let mut url = String::with_capacity(server_url.len() + path.len());
-        url.push_str(server_url);
-        url.push_str(path);
+        let url = format!("{}{path}", get_server_url());
         let body: &[u8] = &body;
         let body = Uint8Array::from(body).buffer();
         Ok(Self(SendWrapper::new(RequestInner {
@@ -229,10 +216,7 @@ where
         method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
-        let server_url = get_server_url();
-        let mut url = String::with_capacity(server_url.len() + path.len());
-        url.push_str(server_url);
-        url.push_str(path);
+        let url = format!("{}{path}", get_server_url());
         Ok(Self(SendWrapper::new(RequestInner {
             request: match method {
                 Method::POST => Request::post(&url),
@@ -266,6 +250,7 @@ where
         method: Method,
     ) -> Result<Self, E> {
         let (abort_ctrl, abort_signal) = abort_signal();
+        let url = format!("{}{path}", get_server_url());
         let form_data = body.0.take();
         let url_params =
             UrlSearchParams::new_with_str_sequence_sequence(&form_data)
@@ -279,9 +264,9 @@ where
                 })?;
         Ok(Self(SendWrapper::new(RequestInner {
             request: match method {
-                Method::POST => Request::post(path),
-                Method::PUT => Request::put(path),
-                Method::PATCH => Request::patch(path),
+                Method::POST => Request::post(&url),
+                Method::PUT => Request::put(&url),
+                Method::PATCH => Request::patch(&url),
                 m => {
                     return Err(E::from_server_fn_error(
                         ServerFnErrorErr::UnsupportedRequestMethod(
@@ -319,9 +304,10 @@ where
                 ));
             }
         }
+        let url = format!("{}{path}", get_server_url());
         // TODO abort signal
         let (request, abort_ctrl) =
-            streaming_request(path, accepts, content_type, body, method)
+            streaming_request(&url, accepts, content_type, body, method)
                 .map_err(|e| {
                     E::from_server_fn_error(ServerFnErrorErr::Request(format!(
                         "{e:?}"
@@ -335,7 +321,7 @@ where
 }
 
 fn streaming_request(
-    path: &str,
+    url: &str,
     accepts: &str,
     content_type: &str,
     body: impl Stream<Item = Bytes> + 'static,
@@ -365,6 +351,6 @@ fn streaming_request(
         &JsValue::from_str("duplex"),
         &JsValue::from_str("half"),
     )?;
-    let req = web_sys::Request::new_with_str_and_init(path, &init)?;
+    let req = web_sys::Request::new_with_str_and_init(url, &init)?;
     Ok((Request::from(req), abort_ctrl))
 }
