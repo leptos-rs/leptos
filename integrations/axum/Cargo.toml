@@ -27,6 +27,7 @@ tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
+rust-embed = { optional = true, workspace = true, features = ["debug-embed", "interpolate-folder-path"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -50,6 +51,7 @@ default = [
   "tower/util",
   "server_fn/axum",
 ]
+embed = ["dep:rust-embed"]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 

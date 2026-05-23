@@ -2480,6 +2480,7 @@ async fn get_static_file(
     }
 }
 
+// TODO FIXME rename this to serve_site_root_service
 /// A helper to create a [`ServeDir`] service for the static files under
 /// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
 /// as the fallback service, or be attached as a service route on the router,
