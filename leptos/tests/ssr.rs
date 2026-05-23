@@ -237,7 +237,7 @@ fn ssr_textarea_escapes_dynamic_content() {
 
     assert_eq!(
         rendered.to_html(),
-        "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;\
-         /script&gt;</textarea>"
+        "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&gt;\
+         </textarea>"
     );
 }

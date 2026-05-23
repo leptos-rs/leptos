@@ -434,7 +434,7 @@ html_element_inner! {
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use crate::{
-        html::element::{textarea, ElementChild},
+        html::element::{ElementChild, textarea},
         view::RenderHtml,
     };
 
@@ -443,13 +443,12 @@ mod tests {
         // `<textarea>` content is escapable raw text per the HTML spec, so a
         // child string containing `</textarea>` or `<script>` must be escaped
         // rather than written verbatim.
-        let untrusted =
-            "</textarea><script>alert('xss')</script>".to_string();
+        let untrusted = "</textarea><script>alert('xss')</script>".to_string();
         let html = textarea().child(untrusted).to_html();
         assert_eq!(
             html,
-            "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;\
-             /script&gt;</textarea>"
+            "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&\
+             gt;</textarea>"
         );
     }
 }
