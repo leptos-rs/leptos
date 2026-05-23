@@ -6,7 +6,7 @@ use crate::{
 use actix_web::{HttpRequest, web::Payload};
 use actix_ws::Message;
 use bytes::Bytes;
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 
@@ -143,9 +143,11 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                                if let Err(err) = session.binary(incoming).await {
-                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body));
-                                }
+                        if let Err(err) = session.binary(incoming).await {
+                            if response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                                break;
+                            }
+                        }
                     },
                     outgoing = msg_stream.next().fuse() => {
                         let Some(outgoing) = outgoing else {
@@ -158,13 +160,14 @@ where
                                 }
                             }
                             Ok(Message::Binary(bytes)) => {
-                                _ = response_stream_tx
-                                    .start_send(
-                                        Ok(bytes),
-                                    );
+                                if response_stream_tx.send(Ok(bytes)).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Text(text)) => {
-                                _ = response_stream_tx.start_send(Ok(text.into_bytes()));
+                                if response_stream_tx.send(Ok(text.into_bytes())).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Close(_)) => {
                                 break;
@@ -172,7 +175,9 @@ where
                             Ok(_other) => {
                             }
                             Err(e) => {
-                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body));
+                                if response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body)).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }

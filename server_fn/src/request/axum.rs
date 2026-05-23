@@ -6,6 +6,8 @@ use axum::{
     body::{Body, Bytes},
     response::Response,
 };
+#[cfg(feature = "axum")]
+use futures::SinkExt;
 use futures::{Sink, Stream, StreamExt};
 use http::{
     Request,
@@ -136,7 +138,9 @@ where
                             break;
                         };
                         if let Err(err) = session.send(Message::Binary(incoming)).await {
-                            _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body));
+                            if outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                                break;
+                            }
                         }
                     },
                         outgoing = session.recv().fuse() => {
@@ -145,13 +149,14 @@ where
                         };
                         match outgoing {
                             Ok(Message::Binary(bytes)) => {
-                                _ = outgoing_tx
-                                    .start_send(
-                                        Ok(bytes),
-                                    );
+                                if outgoing_tx.send(Ok(bytes)).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Text(text)) => {
-                                _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
+                                if outgoing_tx.send(Ok(Bytes::from(text))).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Ping(bytes)) => {
                                 if session.send(Message::Pong(bytes)).await.is_err() {
@@ -160,7 +165,9 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body));
+                                if outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body)).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }
