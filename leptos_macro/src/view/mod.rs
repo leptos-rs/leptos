@@ -338,8 +338,7 @@ fn inert_element_to_tokens(
                         let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
                         let escape = el_name != "script"
-                            && el_name != "style"
-                            && el_name != "textarea";
+                            && el_name != "style";
 
                         // opening tag
                         html.push('<');
@@ -449,8 +448,7 @@ fn inert_svg_element_to_tokens(
                             .unwrap_or(el_name);
 
                         let escape = el_name != "script"
-                            && el_name != "style"
-                            && el_name != "textarea";
+                            && el_name != "style";
 
                         // opening tag
                         html.push('<');
@@ -705,8 +703,7 @@ fn node_to_tokens(
             if !top_level && is_inert {
                 let el_name = el_node.name().to_string();
                 let escape = el_name != "script"
-                    && el_name != "style"
-                    && el_name != "textarea";
+                    && el_name != "style";
 
                 let el_name = el_node.name().to_string();
                 if is_svg_element(&el_name) && el_name != "svg" {
