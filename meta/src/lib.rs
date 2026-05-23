@@ -44,7 +44,8 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
-    attr::{any_attribute::AnyAttribute, NextAttribute},
+    IntoView,
+    attr::{NextAttribute, any_attribute::AnyAttribute},
     component,
     logging::debug_warn,
     oco::Oco,
@@ -57,18 +58,17 @@ use leptos::{
         },
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     },
-    IntoView,
 };
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         Arc, LazyLock,
+        mpsc::{Receiver, Sender, channel},
     },
 };
 use wasm_bindgen::JsCast;
@@ -267,20 +267,20 @@ impl ServerMetaContextOutput {
             buf
         };
 
-        if !html_attrs.is_empty() {
-            if let Some(index) = modified_chunk.find("<html") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<html".len();
-                modified_chunk.insert_str(insert_pos, &html_attrs);
-            }
+        if !html_attrs.is_empty()
+            && let Some(index) = modified_chunk.find("<html")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<html".len();
+            modified_chunk.insert_str(insert_pos, &html_attrs);
         }
 
-        if !body_attrs.is_empty() {
-            if let Some(index) = modified_chunk.find("<body") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<body".len();
-                modified_chunk.insert_str(insert_pos, &body_attrs);
-            }
+        if !body_attrs.is_empty()
+            && let Some(index) = modified_chunk.find("<body")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<body".len();
+            modified_chunk.insert_str(insert_pos, &body_attrs);
         }
 
         futures::stream::once(async move { modified_chunk }).chain(stream)

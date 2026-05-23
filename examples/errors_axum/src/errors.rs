@@ -1,6 +1,8 @@
 use http::status::StatusCode;
-use leptos::prelude::{FromServerFnError, ServerFnErrorErr};
-use leptos::server_fn::codec::JsonEncoding;
+use leptos::{
+    prelude::{FromServerFnError, ServerFnErrorErr},
+    server_fn::codec::JsonEncoding,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

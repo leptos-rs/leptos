@@ -1,7 +1,7 @@
 use crate::{
+    ContentType, Decodes, Encodes, Format, FormatType,
     codec::{Patch, Post, Put},
     error::ServerFnErrorErr,
-    ContentType, Decodes, Encodes, Format, FormatType,
 };
 use bytes::Bytes;
 use serde_lite::{Deserialize, Serialize};

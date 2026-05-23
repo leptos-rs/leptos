@@ -1,9 +1,9 @@
 use crate::{
-    arc_field::{StoreFieldReader, StoreFieldWriter},
-    path::{StorePath, StorePathSegment},
     ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
     KeyedIterable, KeyedSubfield, Store, StoreField, StoreFieldTrigger,
     Subfield,
+    arc_field::{StoreFieldReader, StoreFieldWriter},
+    path::{StorePath, StorePathSegment},
 };
 use reactive_graph::{
     owner::{ArenaItem, Storage, SyncStorage},

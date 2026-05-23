@@ -1,12 +1,12 @@
 use crate::{
+    KeyMap, StoreFieldTrigger,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
-        guards::{Mapped, MappedMut, MappedMutArc, WriteGuard},
         ArcTrigger,
+        guards::{Mapped, MappedMut, MappedMutArc, WriteGuard},
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
@@ -956,7 +956,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
+    use crate::{self as reactive_stores, AtKeyed, Store, tests::tick};
     use reactive_graph::{
         effect::Effect,
         traits::{Get, GetUntracked, ReadUntracked, Set, Track, Write},
@@ -965,8 +965,8 @@ mod tests {
     use std::{
         collections::{BTreeMap, BTreeSet, HashMap},
         sync::{
-            atomic::{AtomicUsize, Ordering},
             Arc,
+            atomic::{AtomicUsize, Ordering},
         },
     };
 

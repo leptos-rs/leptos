@@ -9,7 +9,7 @@ use crate::{
     unwrap_signal,
 };
 use any_spawner::Executor;
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, select};
 use send_wrapper::SendWrapper;
 use std::{
     future::Future,

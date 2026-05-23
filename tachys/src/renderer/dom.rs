@@ -14,7 +14,7 @@ use std::{
     borrow::Cow,
     cell::{LazyCell, RefCell},
 };
-use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, intern, prelude::Closure};
 use web_sys::{AddEventListenerOptions, Comment, HtmlTemplateElement};
 
 /// A [`Renderer`](crate::renderer::Renderer) that uses `web-sys` to manipulate DOM elements in the browser.
@@ -164,15 +164,14 @@ impl Dom {
             let node = node.first_child();
             // if it's a comment node that starts with hot-reload, it's a marker that should be
             // ignored
-            if let Some(node) = node.as_ref() {
-                if node.node_type() == 8
-                    && node
-                        .text_content()
-                        .unwrap_or_default()
-                        .starts_with("hot-reload")
-                {
-                    return Self::next_sibling(node);
-                }
+            if let Some(node) = node.as_ref()
+                && node.node_type() == 8
+                && node
+                    .text_content()
+                    .unwrap_or_default()
+                    .starts_with("hot-reload")
+            {
+                return Self::next_sibling(node);
             }
 
             node
@@ -189,15 +188,14 @@ impl Dom {
             let node = node.next_sibling();
             // if it's a comment node that starts with hot-reload, it's a marker that should be
             // ignored
-            if let Some(node) = node.as_ref() {
-                if node.node_type() == 8
-                    && node
-                        .text_content()
-                        .unwrap_or_default()
-                        .starts_with("hot-reload")
-                {
-                    return Self::next_sibling(node);
-                }
+            if let Some(node) = node.as_ref()
+                && node.node_type() == 8
+                && node
+                    .text_content()
+                    .unwrap_or_default()
+                    .starts_with("hot-reload")
+            {
+                return Self::next_sibling(node);
             }
 
             node

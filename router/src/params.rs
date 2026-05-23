@@ -245,7 +245,7 @@ where
 {
     /// Converts the param.
     fn into_param(value: Option<&str>, name: &str)
-        -> Result<Self, ParamsError>;
+    -> Result<Self, ParamsError>;
 }
 
 impl<T> IntoParam for Option<T>

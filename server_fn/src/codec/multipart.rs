@@ -1,10 +1,10 @@
 use super::{Encoding, FromReq};
 use crate::{
+    ContentType, IntoReq,
     error::{
         FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper,
     },
-    request::{browser::BrowserFormData, ClientReq, Req},
-    ContentType, IntoReq,
+    request::{ClientReq, Req, browser::BrowserFormData},
 };
 use futures::StreamExt;
 use http::Method;

@@ -9,7 +9,7 @@ use std::time::Duration;
 use tachys::html::event::EventDescriptor;
 #[cfg(feature = "tracing")]
 use tracing::instrument;
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, prelude::Closure};
 
 thread_local! {
     pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();

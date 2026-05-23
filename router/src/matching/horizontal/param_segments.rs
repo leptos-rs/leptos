@@ -8,7 +8,7 @@ use std::borrow::Cow;
 /// ```rust
 /// # (|| -> Option<()> { // Option does not impl Terminate, so no main
 /// use leptos::prelude::*;
-/// use leptos_router::{path, ParamSegment, PossibleRouteMatch};
+/// use leptos_router::{ParamSegment, PossibleRouteMatch, path};
 ///
 /// let path = &"/hello";
 ///
@@ -87,7 +87,7 @@ impl PossibleRouteMatch for ParamSegment {
 /// # (|| -> Option<()> { // Option does not impl Terminate, so no main
 /// use leptos::prelude::*;
 /// use leptos_router::{
-///     path, ParamSegment, PossibleRouteMatch, StaticSegment, WildcardSegment,
+///     ParamSegment, PossibleRouteMatch, StaticSegment, WildcardSegment, path,
 /// };
 ///
 /// let path = &"/echo/send/sync/and/static";

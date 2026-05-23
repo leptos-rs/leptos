@@ -128,7 +128,7 @@ where
                         ServerFnErrorErr::UnsupportedRequestMethod(
                             m.to_string(),
                         ),
-                    ))
+                    ));
                 }
             }
             .header("Content-Type", content_type)
@@ -166,7 +166,7 @@ where
                         ServerFnErrorErr::UnsupportedRequestMethod(
                             m.to_string(),
                         ),
-                    ))
+                    ));
                 }
             }
             .header("Content-Type", content_type)
@@ -206,7 +206,7 @@ where
                         ServerFnErrorErr::UnsupportedRequestMethod(
                             m.to_string(),
                         ),
-                    ))
+                    ));
                 }
             }
             .header("Content-Type", content_type)
@@ -243,7 +243,7 @@ where
                         ServerFnErrorErr::UnsupportedRequestMethod(
                             m.to_string(),
                         ),
-                    ))
+                    ));
                 }
             }
             .header("Accept", accepts)
@@ -287,7 +287,7 @@ where
                         ServerFnErrorErr::UnsupportedRequestMethod(
                             m.to_string(),
                         ),
-                    ))
+                    ));
                 }
             }
             .header("Content-Type", content_type)
@@ -316,7 +316,7 @@ where
             m => {
                 return Err(E::from_server_fn_error(
                     ServerFnErrorErr::UnsupportedRequestMethod(m.to_string()),
-                ))
+                ));
             }
         }
         // TODO abort signal

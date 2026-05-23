@@ -42,21 +42,21 @@ use axum::{
     body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
-        header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
-        request::Parts,
         HeaderMap, Method, Request, Response, StatusCode,
+        header::{self, ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER},
+        request::Parts,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-use futures::{stream::once, Future, Stream, StreamExt};
+use futures::{Future, Stream, StreamExt, stream::once};
 use hydration_context::SsrSharedContext;
 use leptos::{
+    IntoView,
     config::LeptosOptions,
     context::{provide_context, use_context},
     prelude::*,
     reactive::{computed::ScopedFuture, owner::Owner},
-    IntoView,
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
@@ -65,9 +65,9 @@ use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
+    ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect, location::RequestUrl,
-    static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
-    RouteListing, SsrMode,
+    static_routes::RegenerationFn,
 };
 use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
@@ -309,7 +309,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 ///
 /// ```no_run
-/// use axum::{handler::Handler, routing::post, Router};
+/// use axum::{Router, handler::Handler, routing::post};
 /// use leptos::prelude::*;
 /// use std::net::SocketAddr;
 ///
@@ -429,14 +429,12 @@ async fn handle_server_fns_inner(
 
                     // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                     // Location set, then redirect to the Referer
-                    if accepts_html {
-                        if let Some(referrer) = referrer {
-                            let has_location =
-                                res.0.headers().get(LOCATION).is_some();
-                            if !has_location {
-                                *res.0.status_mut() = StatusCode::FOUND;
-                                res.0.headers_mut().insert(LOCATION, referrer);
-                            }
+                    if accepts_html && let Some(referrer) = referrer {
+                        let has_location =
+                            res.0.headers().get(LOCATION).is_some();
+                        if !has_location {
+                            *res.0.status_mut() = StatusCode::FOUND;
+                            res.0.headers_mut().insert(LOCATION, referrer);
                         }
                     }
 
@@ -472,7 +470,7 @@ pub type PinnedHtmlStream =
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -518,9 +516,9 @@ pub fn render_app_to_stream<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -543,9 +541,9 @@ pub fn render_route<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     LeptosOptions: FromRef<S>,
@@ -561,7 +559,7 @@ where
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -607,9 +605,9 @@ pub fn render_app_to_stream_in_order<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -661,10 +659,10 @@ pub fn render_app_to_stream_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -692,9 +690,9 @@ pub fn render_route_with_context<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     LeptosOptions: FromRef<S>,
@@ -794,10 +792,10 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -867,9 +865,9 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -894,10 +892,10 @@ fn handle_response<IV>(
         bool,
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -992,7 +990,7 @@ fn provide_contexts(
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -1039,9 +1037,9 @@ pub fn render_app_async<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -1094,9 +1092,9 @@ pub fn render_app_async_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -1546,9 +1544,9 @@ fn handle_static_route<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     LeptosOptions: FromRef<S>,
     S: Send + 'static,
@@ -2361,9 +2359,9 @@ pub fn file_and_error_handler_with_context<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     S: Send + Sync + Clone + 'static,
@@ -2437,9 +2435,9 @@ pub fn file_and_error_handler<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     S: Send + Sync + Clone + 'static,

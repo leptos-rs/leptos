@@ -2,7 +2,7 @@ use super::{
     component_builder::maybe_optimised_component_children,
     convert_to_snake_case, full_path_from_tag_name,
 };
-use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
+use crate::view::{TagType, fragment_to_tokens, utils::filter_prefixed_attrs};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
@@ -39,11 +39,7 @@ pub(crate) fn slot_to_tokens(
         .iter()
         .filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
-                if is_slot(node) {
-                    None
-                } else {
-                    Some(node)
-                }
+                if is_slot(node) { None } else { Some(node) }
             } else {
                 None
             }
@@ -222,11 +218,7 @@ pub(crate) fn get_slot(
 ) -> Option<&KeyedAttribute> {
     node.attributes().iter().find_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
-            if is_slot(node) {
-                Some(node)
-            } else {
-                None
-            }
+            if is_slot(node) { Some(node) } else { None }
         } else {
             None
         }

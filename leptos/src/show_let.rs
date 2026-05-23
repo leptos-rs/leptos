@@ -1,4 +1,4 @@
-use crate::{children::ViewFn, IntoView};
+use crate::{IntoView, children::ViewFn};
 use leptos_macro::component;
 use reactive_graph::traits::Get;
 use std::{marker::PhantomData, sync::Arc};

@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use bytes::Bytes;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};

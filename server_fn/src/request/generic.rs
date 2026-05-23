@@ -18,8 +18,8 @@ use crate::{
 };
 use bytes::Bytes;
 use futures::{
-    stream::{self, Stream},
     Sink, StreamExt,
+    stream::{self, Stream},
 };
 use http::{Request, Response};
 use std::borrow::Cow;

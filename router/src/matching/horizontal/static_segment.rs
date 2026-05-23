@@ -31,7 +31,7 @@ impl AsPath for &'static str {
 /// ```rust
 /// # (|| -> Option<()> { // Option does not impl Terminate, so no main
 /// use leptos::prelude::*;
-/// use leptos_router::{path, PossibleRouteMatch, StaticSegment};
+/// use leptos_router::{PossibleRouteMatch, StaticSegment, path};
 ///
 /// let path = &"/users";
 ///

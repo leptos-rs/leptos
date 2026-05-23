@@ -8,7 +8,7 @@ use reactive_graph::{
 use std::hash::Hash;
 use tachys::{
     reactive_graph::OwnedView,
-    view::keyed::{keyed, SerializableKey},
+    view::keyed::{SerializableKey, keyed},
 };
 
 /// Iterates over children and displays them, keyed by the `key` function given.

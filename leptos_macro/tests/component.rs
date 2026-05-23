@@ -115,8 +115,8 @@ fn WithLifetime<'a>(data: &'a str) -> impl IntoView {
 fn returns_static_lifetime() {
     #[allow(unused)]
     fn can_return_impl_intoview_from_body() -> impl IntoView {
-        let val = String::from("non_static_lifetime");
-        WithLifetime(WithLifetimeProps::builder().data(&val).build())
+        let val = "non_static_lifetime";
+        WithLifetime(WithLifetimeProps::builder().data(val).build())
     }
 }
 
@@ -251,8 +251,8 @@ mod macro_hygiene {
         #[component]
         fn Component() -> impl IntoView {
             view! {
-                {()}
-                {()}
+                {}
+                {}
             }
         }
     }
@@ -261,14 +261,14 @@ mod macro_hygiene {
     #[test]
     fn view_into_any() {
         use ::leptos::{
-            prelude::{ElementChild, IntoAny},
             IntoView,
+            prelude::{ElementChild, IntoAny},
         };
         use ::leptos_macro::{component, view};
 
         #[component]
         fn Component() -> impl IntoView {
-            view! { <div>{().into_any()} {()}</div> }
+            view! { <div>{().into_any()} {}</div> }
         }
     }
 }

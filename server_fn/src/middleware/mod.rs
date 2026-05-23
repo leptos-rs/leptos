@@ -56,7 +56,7 @@ pub trait Service<Request, Response> {
 #[cfg(feature = "axum-no-default")]
 mod axum {
     use super::{BoxedService, ServerFnErrorSerializer, Service};
-    use crate::{error::ServerFnErrorErr, response::Res, ServerFnError};
+    use crate::{ServerFnError, error::ServerFnErrorErr, response::Res};
     use axum::body::Body;
     use http::{Request, Response};
     use std::{future::Future, pin::Pin};
@@ -134,7 +134,7 @@ mod actix {
         error::ServerFnErrorErr,
         middleware::ServerFnErrorSerializer,
         request::actix::ActixRequest,
-        response::{actix::ActixResponse, Res},
+        response::{Res, actix::ActixResponse},
     };
     use actix_web::{HttpRequest, HttpResponse};
     use std::{future::Future, pin::Pin};
@@ -174,7 +174,7 @@ mod actix {
             req: ActixRequest,
             err_ser: ServerFnErrorSerializer,
         ) -> Pin<Box<dyn Future<Output = ActixResponse> + Send>> {
-            let path = req.0 .0.uri().path().to_string();
+            let path = req.0.0.uri().path().to_string();
             let inner = self.call(req.0.take().0);
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {

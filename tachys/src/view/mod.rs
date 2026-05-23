@@ -381,7 +381,7 @@ where
     T: Mountable,
 {
     fn unmount(&mut self) {
-        if let Some(ref mut mounted) = self {
+        if let Some(mounted) = self {
             mounted.unmount()
         }
     }
@@ -391,7 +391,7 @@ where
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        if let Some(ref mut inner) = self {
+        if let Some(inner) = self {
             inner.mount(parent, marker);
         }
     }

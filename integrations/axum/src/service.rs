@@ -1,16 +1,16 @@
 use crate::{
-    extend_response, generate_request_and_parts, handle_response_inner,
-    PinnedStream, ResponseOptions,
+    PinnedStream, ResponseOptions, extend_response, generate_request_and_parts,
+    handle_response_inner,
 };
 use axum::{
     body::Body,
     http::{Request, Response, StatusCode},
 };
-use futures::{stream::once, Future, StreamExt};
+use futures::{Future, StreamExt, stream::once};
 use leptos::{
+    IntoView,
     context::provide_context,
     reactive::{computed::ScopedFuture, owner::Owner},
-    IntoView,
 };
 use std::{
     convert::Infallible,

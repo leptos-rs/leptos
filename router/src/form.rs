@@ -1,8 +1,8 @@
 use crate::{
+    NavigateOptions,
     components::ToHref,
     hooks::{has_router, use_navigate, use_resolved_path},
     location::{BrowserUrl, LocationProvider},
-    NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};

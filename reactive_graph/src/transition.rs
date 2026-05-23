@@ -4,7 +4,7 @@ use futures::{channel::oneshot, future::join_all};
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
-    sync::{mpsc, OnceLock, RwLock},
+    sync::{OnceLock, RwLock, mpsc},
 };
 
 static TRANSITION: OnceLock<RwLock<Option<TransitionInner>>> = OnceLock::new();

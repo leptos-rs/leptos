@@ -16,7 +16,7 @@ mod resource;
 pub use resource::*;
 mod shared;
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+use base64::{DecodeError, Engine, engine::general_purpose::STANDARD_NO_PAD};
 /// Re-export of the `codee` crate.
 pub use codee;
 pub use shared::*;
@@ -81,12 +81,12 @@ mod view_implementations {
     use reactive_graph::traits::Read;
     use std::future::Future;
     use tachys::{
-        html::attribute::{any_attribute::AnyAttribute, Attribute},
+        html::attribute::{Attribute, any_attribute::AnyAttribute},
         hydration::Cursor,
         reactive_graph::{RenderEffectState, Suspend, SuspendState},
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+            Position, PositionState, Render, RenderHtml, add_attr::AddAnyAttr,
         },
     };
 

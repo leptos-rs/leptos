@@ -1,10 +1,10 @@
-use crate::{children::ChildrenFn, component, control_flow::Show, IntoView};
+use crate::{IntoView, children::ChildrenFn, component, control_flow::Show};
 use core::time::Duration;
 use leptos_dom::helpers::TimeoutHandle;
 use leptos_macro::view;
 use reactive_graph::{
     effect::RenderEffect,
-    owner::{on_cleanup, StoredValue},
+    owner::{StoredValue, on_cleanup},
     signal::RwSignal,
     traits::{Get, GetUntracked, GetValue, Set, SetValue},
     wrappers::read::Signal,

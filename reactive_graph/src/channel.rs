@@ -1,10 +1,10 @@
 use core::sync::atomic::Ordering::Relaxed;
-use futures::{task::AtomicWaker, Stream};
+use futures::{Stream, task::AtomicWaker};
 use std::{
     fmt::Debug,
     hash::Hash,
     pin::Pin,
-    sync::{atomic::AtomicBool, Arc, Weak},
+    sync::{Arc, Weak, atomic::AtomicBool},
     task::{Context, Poll},
 };
 

@@ -1,19 +1,19 @@
 use crate::{
+    IntoView,
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
-    IntoView,
 };
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, select};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::{LocalResourceNotifier, SuspenseContext},
         ArcMemo, ScopedFuture,
+        suspense::{LocalResourceNotifier, SuspenseContext},
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, Owner},
+    owner::{Owner, provide_context, use_context},
     signal::ArcRwSignal,
     traits::{
         Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
@@ -24,14 +24,14 @@ use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
 use tachys::{
     either::Either,
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
     view::{
+        Mountable, Position, PositionState, Render, RenderHtml,
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
-        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 use throw_error::ErrorHookFuture;

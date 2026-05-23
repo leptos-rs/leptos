@@ -10,9 +10,9 @@ pub mod read {
             SyncStorage,
         },
         signal::{
-            guards::{Mapped, Plain, ReadGuard},
             ArcMappedSignal, ArcReadSignal, ArcRwSignal, MappedSignal,
             ReadSignal, RwSignal,
+            guards::{Mapped, Plain, ReadGuard},
         },
         traits::{
             DefinedAt, Dispose, Get, Read, ReadUntracked, ReadValue, Track,

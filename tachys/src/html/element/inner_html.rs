@@ -1,10 +1,10 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
     html::attribute::{
+        Attribute, NamedAttributeKey, NextAttribute,
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, NamedAttributeKey, NextAttribute,
     },
     renderer::Rndr,
     view::add_attr::AddAnyAttr,
@@ -129,7 +129,6 @@ where
 pub trait InnerHtmlAttribute<T>
 where
     T: InnerHtmlValue,
-
     Self: Sized + AddAnyAttr,
 {
     /// Sets the inner HTML of this element.

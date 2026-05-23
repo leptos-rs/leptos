@@ -1,11 +1,11 @@
 use super::{Encoding, FromReq, IntoReq};
 use crate::{
+    ContentType,
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
-    ContentType,
 };
 use http::Method;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Pass arguments as a URL-encoded query string of a `GET` request.
 pub struct GetUrl;
