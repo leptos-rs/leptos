@@ -143,11 +143,10 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                        if let Err(err) = session.binary(incoming).await {
-                            if response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                        if let Err(err) = session.binary(incoming).await
+                            && response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
                                 break;
                             }
-                        }
                     },
                     outgoing = msg_stream.next().fuse() => {
                         let Some(outgoing) = outgoing else {

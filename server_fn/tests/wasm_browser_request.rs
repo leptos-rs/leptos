@@ -18,8 +18,8 @@ use server_fn::{
     client::set_server_url,
     error::ServerFnError,
     request::{
-        browser::{BrowserFormData, BrowserRequest},
         ClientReq,
+        browser::{BrowserFormData, BrowserRequest},
     },
 };
 use std::sync::OnceLock;

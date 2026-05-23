@@ -19,7 +19,7 @@ use http::Method;
 use server_fn::{
     client::set_server_url,
     error::ServerFnError,
-    request::{reqwest::Form, ClientReq},
+    request::{ClientReq, reqwest::Form},
 };
 use std::sync::OnceLock;
 

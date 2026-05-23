@@ -137,11 +137,10 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                        if let Err(err) = session.send(Message::Binary(incoming)).await {
-                            if outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                        if let Err(err) = session.send(Message::Binary(incoming)).await
+                            && outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
                                 break;
                             }
-                        }
                     },
                         outgoing = session.recv().fuse() => {
                         let Some(outgoing) = outgoing else {
