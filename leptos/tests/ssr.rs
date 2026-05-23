@@ -205,3 +205,39 @@ fn ssr_option() {
 
     assert_eq!(rendered.to_html(), "<option></option>");
 }
+
+#[cfg(feature = "ssr")]
+#[test]
+fn ssr_textarea_escapes_static_content() {
+    use leptos::prelude::*;
+
+    // Nested (non-top-level) static textarea exercises the macro's inert
+    // HTML path; its content must be HTML-escaped.
+    let rendered: View<HtmlElement<_, _, _>> = view! {
+        <div><textarea>"a < b & c"</textarea></div>
+    };
+
+    assert_eq!(
+        rendered.to_html(),
+        "<div><textarea>a &lt; b &amp; c</textarea></div>"
+    );
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn ssr_textarea_escapes_dynamic_content() {
+    use leptos::prelude::*;
+
+    // A dynamic child makes the textarea non-inert, exercising the runtime
+    // render path; its content must also be HTML-escaped.
+    let untrusted = "</textarea><script>alert('xss')</script>".to_string();
+    let rendered: View<HtmlElement<_, _, _>> = view! {
+        <textarea>{untrusted}</textarea>
+    };
+
+    assert_eq!(
+        rendered.to_html(),
+        "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;\
+         /script&gt;</textarea>"
+    );
+}
