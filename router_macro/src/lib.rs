@@ -343,7 +343,10 @@ fn lazy_route_impl(
     });
 
     match item {
-        None => s,
+        None => abort!(
+            im.span(),
+            "`#[lazy_route]` requires a `view` method on the impl block"
+        ),
         Some(fun) => {
             if let Some(a) = fun.sig.asyncness {
                 abort!(a.span(), "`view` method should not be async")
