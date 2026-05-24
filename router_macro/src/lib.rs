@@ -13,7 +13,13 @@ use syn::{
 };
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
-const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
+// RFC 3986 `pchar` also allows `:`, `@`, and the `sub-delims` set
+// (`! $ & ' ( ) * + , ; =`). `*` is intentionally excluded here because the
+// `path!` DSL reserves it as the wildcard sigil (see `Segment::Wildcard`);
+// allowing it inside a static segment would mask misplaced-wildcard mistakes
+// such as `path!("/home/any*")`.
+const RFC3986_PCHAR_OTHER: [char; 12] =
+    ['@', ':', '!', '$', '&', '\'', '(', ')', '+', ',', ';', '='];
 
 /// Constructs a path for use in a [`Route`] definition.
 ///
