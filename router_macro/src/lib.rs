@@ -100,9 +100,14 @@ impl SegmentParser {
                         self.segments.push(Segment::Static("/".to_string()));
                     }
                 }
-                TokenTree::Group(_) => unimplemented!(),
-                TokenTree::Ident(_) => unimplemented!(),
-                TokenTree::Punct(_) => unimplemented!(),
+                other => {
+                    let span: Span = other.span().into();
+                    abort!(
+                        span,
+                        "`path!` expects a string literal, e.g. \
+                         `path!(\"/users/:id\")`"
+                    );
+                }
             }
         }
     }
