@@ -351,6 +351,12 @@ fn lazy_route_impl(
             if let Some(a) = fun.sig.asyncness {
                 abort!(a.span(), "`view` method should not be async")
             }
+            if fun.sig.inputs.len() != 1 {
+                abort!(
+                    fun.sig.inputs.span(),
+                    "`view` must take exactly one argument (`this: Self`)"
+                )
+            }
             fun.sig.asyncness = Some(Default::default());
 
             let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
