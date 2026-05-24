@@ -1,0 +1,5 @@
+error: Wildcard must be at end: any
+ --> tests/ui/non_trailing_wildcard.rs:4:19
+  |
+4 |     let _ = path!("/home/*any/end");
+  |                   ^^^^^^^^^^^^^^^^
