@@ -130,14 +130,15 @@ impl SegmentParser {
 
 impl Segment {
     fn is_valid(segment: &str) -> bool {
-        segment == "/"
-            || segment.chars().all(|c| {
-                c.is_ascii_digit()
-                    || c.is_ascii_lowercase()
-                    || c.is_ascii_uppercase()
-                    || RFC3986_UNRESERVED.contains(&c)
-                    || RFC3986_PCHAR_OTHER.contains(&c)
-            })
+        !segment.is_empty()
+            && (segment == "/"
+                || segment.chars().all(|c| {
+                    c.is_ascii_digit()
+                        || c.is_ascii_lowercase()
+                        || c.is_ascii_uppercase()
+                        || RFC3986_UNRESERVED.contains(&c)
+                        || RFC3986_PCHAR_OTHER.contains(&c)
+                }))
     }
 
     fn ensure_valid(&self) {
