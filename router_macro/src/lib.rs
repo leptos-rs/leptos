@@ -9,7 +9,8 @@ use proc_macro_error2::{abort, proc_macro_error, set_dummy};
 use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote};
 use syn::{
-    FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath, spanned::Spanned,
+    FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath, parse_quote,
+    spanned::Spanned,
 };
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
@@ -359,33 +360,33 @@ fn lazy_route_impl(
             }
             fun.sig.asyncness = Some(Default::default());
 
-            let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
-                abort!(fun.sig.span(), "must have an argument")
-            });
-            let FnArg::Typed(first_arg) = first_arg else {
-                abort!(
-                    first_arg.span(),
+            let first_arg = match fun.sig.inputs.first_mut() {
+                Some(FnArg::Typed(arg)) => arg,
+                Some(other) => abort!(
+                    other.span(),
                     "this must be a typed argument like `this: Self`"
-                )
+                ),
+                None => abort!(fun.sig.span(), "must have an argument"),
             };
-            let first_arg_pat = &*first_arg.pat;
+
+            // Preserve the user's binding pattern (`mut this`, `Self { .. }`,
+            // `_`, …) on the generated lazy function, where pattern syntax is
+            // valid. The trait `view` method instead binds a fresh identifier
+            // and forwards it as an *expression*, since interpolating an
+            // arbitrary pattern into call position produces invalid code.
+            let user_pat = (*first_arg.pat).clone();
+            let this_ident = Ident::new("__this", Span::call_site());
+            first_arg.pat = Box::new(parse_quote!(#this_ident));
+
             let body = std::mem::replace(
                 &mut fun.block,
-                syn::parse(
-                    quote! {
-                        {
-                            #lazy_view_ident(#first_arg_pat).await
-                        }
-                    }
-                    .into(),
-                )
-                .unwrap(),
+                parse_quote!({ #lazy_view_ident(#this_ident).await }),
             );
 
             quote! {
                 #[allow(non_snake_case)]
                 #[::leptos::lazy]
-                fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
+                fn #lazy_view_ident(#user_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
                 }
 
