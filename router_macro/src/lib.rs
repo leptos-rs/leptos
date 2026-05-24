@@ -94,8 +94,23 @@ impl SegmentParser {
                         );
                     }
                     parsed = true;
-                    let lit = lit.to_string();
-                    if lit.contains("//") {
+
+                    // Parse via `syn::LitStr` so we operate on the literal's
+                    // *value*, not its source text. This handles raw strings
+                    // (`r"…"`, `r#"…"#`) and escapes uniformly, whereas
+                    // `Literal::to_string()` returns the `r`/`#`/quote
+                    // characters as part of the text.
+                    let lit_str: syn::LitStr =
+                        syn::parse(TokenStream::from(TokenTree::Literal(lit)))
+                            .unwrap_or_else(|e| {
+                                abort!(
+                                    e.span(),
+                                    "`path!` expects a string literal"
+                                )
+                            });
+                    let value = lit_str.value();
+
+                    if value.contains("//") {
                         abort!(
                             proc_macro2::Span::call_site(),
                             "Consecutive '/' is not allowed"
@@ -103,10 +118,9 @@ impl SegmentParser {
                     }
                     Self::parse_str(
                         &mut self.segments,
-                        lit.trim_start_matches(['"', '/'])
-                            .trim_end_matches(['"', '/']),
+                        value.trim_start_matches('/').trim_end_matches('/'),
                     );
-                    if lit.ends_with(r#"/""#) && lit != r#""/""# {
+                    if value.ends_with('/') && value != "/" {
                         self.segments.push(Segment::Static("/".to_string()));
                     }
                 }
