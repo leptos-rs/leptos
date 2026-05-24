@@ -50,12 +50,19 @@ const RFC3986_PCHAR_OTHER: [char; 12] =
 pub fn path(tokens: TokenStream) -> TokenStream {
     let mut parser = SegmentParser::new(tokens);
     parser.parse_all();
-    let segments = Segments(parser.segments);
+    let segments = Segments {
+        span: parser.span,
+        segments: parser.segments,
+    };
     segments.into_token_stream().into()
 }
 
-#[derive(Debug, PartialEq)]
-struct Segments(pub Vec<Segment>);
+struct Segments {
+    segments: Vec<Segment>,
+    // Span of the path string literal, used to anchor validation errors at the
+    // literal rather than the whole `path!(...)` invocation.
+    span: Span,
+}
 
 #[derive(Debug, PartialEq)]
 enum Segment {
@@ -68,6 +75,7 @@ enum Segment {
 struct SegmentParser {
     input: proc_macro::token_stream::IntoIter,
     segments: Vec<Segment>,
+    span: Span,
 }
 
 impl SegmentParser {
@@ -75,6 +83,7 @@ impl SegmentParser {
         Self {
             input: input.into_iter(),
             segments: Vec::new(),
+            span: Span::call_site(),
         }
     }
 }
@@ -108,13 +117,11 @@ impl SegmentParser {
                                     "`path!` expects a string literal"
                                 )
                             });
+                    self.span = lit_str.span();
                     let value = lit_str.value();
 
                     if value.contains("//") {
-                        abort!(
-                            proc_macro2::Span::call_site(),
-                            "Consecutive '/' is not allowed"
-                        );
+                        abort!(self.span, "Consecutive '/' is not allowed");
                     }
                     Self::parse_str(
                         &mut self.segments,
@@ -170,16 +177,16 @@ impl Segment {
                 }))
     }
 
-    fn ensure_valid(&self) {
+    fn ensure_valid(&self, span: Span) {
         match self {
             Self::Wildcard(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid wildcard segment: {}", s)
+                abort!(span, "Invalid wildcard segment: {}", s)
             }
             Self::Static(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid static segment: {}", s)
+                abort!(span, "Invalid static segment: {}", s)
             }
             Self::Param(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid param segment: {}", s)
+                abort!(span, "Invalid param segment: {}", s)
             }
             _ => (),
         }
@@ -188,18 +195,20 @@ impl Segment {
 
 impl Segments {
     fn ensure_valid(&self) {
-        if let Some((_last, segments)) = self.0.split_last()
+        if let Some((_last, segments)) = self.segments.split_last()
             && let Some(Segment::Wildcard(s)) =
                 segments.iter().find(|s| matches!(s, Segment::Wildcard(_)))
         {
-            abort!(Span::call_site(), "Wildcard must be at end: {}", s)
+            abort!(self.span, "Wildcard must be at end: {}", s)
+        }
+        for segment in &self.segments {
+            segment.ensure_valid(self.span);
         }
     }
 }
 
 impl ToTokens for Segment {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        self.ensure_valid();
         match self {
             Segment::Wildcard(s) => {
                 tokens.extend(quote! { leptos_router::WildcardSegment(#s) });
@@ -221,7 +230,7 @@ impl ToTokens for Segment {
 impl ToTokens for Segments {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.ensure_valid();
-        match self.0.as_slice() {
+        match self.segments.as_slice() {
             [] => tokens.extend(quote! { () }),
             [segment] => tokens.extend(quote! { (#segment,) }),
             segments => tokens.extend(quote! { (#(#segments),*) }),
