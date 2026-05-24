@@ -81,9 +81,19 @@ impl SegmentParser {
 
 impl SegmentParser {
     pub fn parse_all(&mut self) {
+        let mut parsed = false;
         for input in self.input.by_ref() {
             match input {
                 TokenTree::Literal(lit) => {
+                    if parsed {
+                        let span: Span = lit.span().into();
+                        abort!(
+                            span,
+                            "`path!` accepts a single string literal; use \
+                             `concat!` to build one from several pieces"
+                        );
+                    }
+                    parsed = true;
                     let lit = lit.to_string();
                     if lit.contains("//") {
                         abort!(
