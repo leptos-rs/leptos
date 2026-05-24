@@ -376,7 +376,7 @@ fn lazy_route_impl(
             // arbitrary pattern into call position produces invalid code.
             let user_pat = (*first_arg.pat).clone();
             let this_ident = Ident::new("__this", Span::call_site());
-            first_arg.pat = Box::new(parse_quote!(#this_ident));
+            first_arg.pat = parse_quote!(#this_ident);
 
             let body = std::mem::replace(
                 &mut fun.block,
