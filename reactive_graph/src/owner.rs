@@ -257,6 +257,16 @@ impl Owner {
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
+        // When the children list is about to grow its allocation, drop the
+        // `Weak`s whose owners have already been dropped. `children` is
+        // otherwise append-only, so a long-lived parent would accumulate dead
+        // weak refs without bound and pay for walking them on cleanup. Pruning
+        // only at a reallocation boundary keeps this amortized O(1).
+        if !inner.children.is_empty()
+            && inner.children.len() == inner.children.capacity()
+        {
+            inner.children.retain(|child| child.strong_count() > 0);
+        }
         inner.children.push(Arc::downgrade(&child.inner));
         child
     }
@@ -632,6 +642,25 @@ mod tests {
         assert!(
             len <= 64,
             "owner accumulated {len} dead NodeIds after dispose-heavy loop"
+        );
+    }
+
+    // A long-lived parent under which many short-lived children are created and
+    // dropped must not accumulate dead `Weak` refs: `child` prunes them when
+    // the `children` Vec would otherwise grow.
+    #[test]
+    fn dropped_children_do_not_leak_weak_refs() {
+        let parent = Owner::new();
+
+        for _ in 0..10_000 {
+            let child = parent.child();
+            drop(child);
+        }
+
+        let len = parent.inner.read().or_poisoned().children.len();
+        assert!(
+            len <= 64,
+            "parent accumulated {len} dead child Weak refs"
         );
     }
 }
