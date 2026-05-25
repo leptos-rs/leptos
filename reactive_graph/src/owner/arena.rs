@@ -155,6 +155,27 @@ pub mod sandboxed {
         }
     }
 
+    /// RAII guard that snapshots the current thread-local arena and restores it
+    /// on drop, so polling a `Sandboxed` future does not leak its arena into the
+    /// caller's context (including across `await` points and panics).
+    struct RestoreArena(Option<Weak<RwLock<ArenaMap>>>);
+
+    impl Drop for RestoreArena {
+        fn drop(&mut self) {
+            MAP.with_borrow_mut(|m| *m = self.0.take());
+        }
+    }
+
+    impl RestoreArena {
+        fn install(arena: Option<&Arc<RwLock<ArenaMap>>>) -> Self {
+            let guard = MAP.with_borrow(|m| RestoreArena(m.clone()));
+            if let Some(arena) = arena {
+                Arena::set(arena);
+            }
+            guard
+        }
+    }
+
     impl<Fut> Future for Sandboxed<Fut>
     where
         Fut: Future,
@@ -165,9 +186,7 @@ pub mod sandboxed {
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
         ) -> Poll<Self::Output> {
-            if let Some(arena) = self.arena.as_ref() {
-                Arena::set(arena);
-            }
+            let _restore = RestoreArena::install(self.arena.as_ref());
             let this = self.project();
             this.inner.poll(cx)
         }
@@ -183,9 +202,7 @@ pub mod sandboxed {
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
         ) -> Poll<Option<Self::Item>> {
-            if let Some(arena) = self.arena.as_ref() {
-                Arena::set(arena);
-            }
+            let _restore = RestoreArena::install(self.arena.as_ref());
             let this = self.project();
             this.inner.poll_next(cx)
         }
