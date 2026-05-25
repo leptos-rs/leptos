@@ -178,7 +178,7 @@ where
     AtIndex<Inner, Prev>: Clone,
     S: Storage<ArcField<Prev::Output>>,
     Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
-    Prev: IndexMut<usize> + Send + Sync + 'static,
+    Prev: IndexMut<usize> + crate::len::Len + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {
     #[track_caller]
