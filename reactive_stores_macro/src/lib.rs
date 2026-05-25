@@ -656,7 +656,6 @@ enum PatchModelTy {
     Struct {
         fields: Vec<Field>,
     },
-    #[allow(dead_code)]
     Enum {
         variants: Vec<Variant>,
     },
@@ -682,14 +681,9 @@ impl Parse for PatchModel {
 
                 PatchModelTy::Struct { fields }
             }
-            syn::Data::Enum(_e) => {
-                abort_call_site!("only structs can be used with `Patch`");
-
-                // TODO: support enums later on
-                // PatchModelTy::Enum {
-                //     variants: e.variants.into_iter().collect(),
-                // }
-            }
+            syn::Data::Enum(e) => PatchModelTy::Enum {
+                variants: e.variants.into_iter().collect(),
+            },
             _ => {
                 abort_call_site!(
                     "only structs and enums can be used with `Store`"
@@ -710,9 +704,9 @@ impl ToTokens for PatchModel {
         let library_path = quote! { reactive_stores };
         let PatchModel { name, generics, ty } = &self;
 
-        let fields = match ty {
+        let body = match ty {
             PatchModelTy::Struct { fields } => {
-                fields.iter().enumerate().map(|(idx, field)| {
+                let fields = fields.iter().enumerate().map(|(idx, field)| {
                     let Field {
                         attrs, ident, ..
                     } = &field;
@@ -855,10 +849,118 @@ impl ToTokens for PatchModel {
                             new_path.replace_last(#idx + 1);
                         }
                     }
-                }).collect::<Vec<_>>()
+                }).collect::<Vec<_>>();
+                quote! {
+                    let mut new_path = path.clone();
+                    new_path.push(0);
+                    #(#fields)*
+                }
             }
-            PatchModelTy::Enum { variants: _ } => {
-                unreachable!("not implemented currently")
+            PatchModelTy::Enum { variants } => {
+                // Number every variant field with a path segment that is
+                // unique across the whole enum, mirroring the numbering used
+                // by the `Store` derive, so that `notify` targets the same
+                // triggers the field accessors subscribe to.
+                let mut next_segment = 0usize;
+                let arms = variants.iter().map(|variant| {
+                    let Variant { ident, fields, .. } = variant;
+                    let base = next_segment;
+                    match fields {
+                        Fields::Unit => {
+                            next_segment += 0;
+                            // same variant, no payload: nothing to patch
+                            quote! {
+                                (#name::#ident, #name::#ident) => {}
+                            }
+                        }
+                        Fields::Named(named) => {
+                            next_segment += named.named.len();
+                            let self_binds = named.named.iter().map(|f| {
+                                let id = f.ident.as_ref().unwrap();
+                                let bind = Ident::new(&format!("self_{id}"), id.span());
+                                quote! { #id: #bind }
+                            });
+                            let new_binds = named.named.iter().map(|f| {
+                                let id = f.ident.as_ref().unwrap();
+                                let bind = Ident::new(&format!("new_{id}"), id.span());
+                                quote! { #id: #bind }
+                            });
+                            let patches = named.named.iter().enumerate().map(|(i, f)| {
+                                let id = f.ident.as_ref().unwrap();
+                                let self_bind = Ident::new(&format!("self_{id}"), id.span());
+                                let new_bind = Ident::new(&format!("new_{id}"), id.span());
+                                let segment = base + i;
+                                let advance = if i == 0 {
+                                    quote! { new_path.push(#segment); }
+                                } else {
+                                    quote! { new_path.replace_last(#segment); }
+                                };
+                                quote! {
+                                    #advance
+                                    #library_path::PatchField::patch_field(
+                                        #self_bind, #new_bind, &new_path, notify, keys,
+                                    );
+                                }
+                            });
+                            quote! {
+                                (
+                                    #name::#ident { #(#self_binds),* },
+                                    #name::#ident { #(#new_binds),* },
+                                ) => {
+                                    let mut new_path = path.clone();
+                                    #(#patches)*
+                                }
+                            }
+                        }
+                        Fields::Unnamed(unnamed) => {
+                            next_segment += unnamed.unnamed.len();
+                            let self_binds = (0..unnamed.unnamed.len()).map(|i| {
+                                Ident::new(&format!("self_{i}"), Span::call_site())
+                            });
+                            let new_binds = (0..unnamed.unnamed.len()).map(|i| {
+                                Ident::new(&format!("new_{i}"), Span::call_site())
+                            });
+                            let patches = (0..unnamed.unnamed.len()).map(|i| {
+                                let self_bind = Ident::new(&format!("self_{i}"), Span::call_site());
+                                let new_bind = Ident::new(&format!("new_{i}"), Span::call_site());
+                                let segment = base + i;
+                                let advance = if i == 0 {
+                                    quote! { new_path.push(#segment); }
+                                } else {
+                                    quote! { new_path.replace_last(#segment); }
+                                };
+                                quote! {
+                                    #advance
+                                    #library_path::PatchField::patch_field(
+                                        #self_bind, #new_bind, &new_path, notify, keys,
+                                    );
+                                }
+                            });
+                            quote! {
+                                (
+                                    #name::#ident( #(#self_binds),* ),
+                                    #name::#ident( #(#new_binds),* ),
+                                ) => {
+                                    let mut new_path = path.clone();
+                                    #(#patches)*
+                                }
+                            }
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                quote! {
+                    match (&mut *self, new) {
+                        #(#arms)*
+                        // discriminant changed: replace the whole value and
+                        // notify the enum's own path, which wakes subscribers of
+                        // every variant accessor (they track `this` on this path).
+                        (this, new) => {
+                            *this = new;
+                            notify(path);
+                        }
+                    }
+                }
             }
         };
 
@@ -879,9 +981,7 @@ impl ToTokens for PatchModel {
                     notify: &mut dyn FnMut(&#library_path::StorePath),
                     keys: Option<&#library_path::KeyMap>,
                 ) {
-                    let mut new_path = path.clone();
-                    new_path.push(0);
-                    #(#fields)*
+                    #body
                 }
             }
         });
