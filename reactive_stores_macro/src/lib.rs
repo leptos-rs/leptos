@@ -1,5 +1,5 @@
 use convert_case::{Case, Casing};
-use proc_macro_error2::{OptionExt, abort, abort_call_site, proc_macro_error};
+use proc_macro_error2::{abort, abort_call_site, proc_macro_error};
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, quote};
 use syn::{
@@ -733,7 +733,14 @@ impl ToTokens for PatchModel {
                                                 .parse2(list.tokens.clone())
                                             {
                                                 Ok(closures) => {
-                                                    let closure = closures.iter().next().cloned().expect_or_abort("should have ONE closure");
+                                                    let mut iter = closures.iter();
+                                                    let closure = match iter.next() {
+                                                        Some(closure) => closure.clone(),
+                                                        None => abort!(list, "expected one closure, as in `#[patch(|this, new| ...)]`"),
+                                                    };
+                                                    if let Some(extra) = iter.next() {
+                                                        abort!(extra, "expected exactly one closure in `#[patch(...)]`, but found more than one");
+                                                    }
                                                     if closure.inputs.len() != 2 {
                                                         abort!(closure.inputs, "patch closure should have TWO params as in #[patch(|this, new| ...)]");
                                                     }
