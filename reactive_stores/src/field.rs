@@ -144,7 +144,7 @@ where
     T: Send + Sync,
     S: Storage<ArcField<T>>,
     Subfield<Inner, Prev, T>: Clone,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
 {
     #[track_caller]
@@ -159,7 +159,7 @@ where
 
 impl<Inner, T> From<DerefedField<Inner>> for Field<T>
 where
-    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner: Clone + StoreField + IsDisposed + Send + Sync + 'static,
     Inner::Value: Deref<Target = T> + DerefMut,
     T: Sized + 'static,
 {
@@ -177,7 +177,7 @@ impl<Inner, Prev, S> From<AtIndex<Inner, Prev>> for Field<Prev::Output, S>
 where
     AtIndex<Inner, Prev>: Clone,
     S: Storage<ArcField<Prev::Output>>,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: IndexMut<usize> + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {
@@ -200,7 +200,7 @@ where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     T: KeyedIterable,
     for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
     T: KeyedAccess<K> + 'static,
     T::Value: Sized,
