@@ -518,14 +518,28 @@ impl ServerFnCall {
         };
 
         let enable_hash = option_env!("DISABLE_SERVER_FN_HASH").is_none();
-        let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
-            Some(_) => "SERVER_FN_OVERRIDE_KEY",
-            None => "CARGO_MANIFEST_DIR",
-        };
         let hash = if enable_hash {
+            let key = match option_env!("SERVER_FN_OVERRIDE_KEY") {
+                // An explicit override key pins the URL hash; use it as-is.
+                Some(_) => quote! { env!("SERVER_FN_OVERRIDE_KEY") },
+                // Default to the crate name + version. This is identical on
+                // every machine and CI worker, unlike the previous default
+                // of `CARGO_MANIFEST_DIR`, which embedded the absolute build
+                // path and made the generated URL differ between a developer
+                // checkout and a CI worker (and between a WASM client build
+                // and the server build), silently 404ing every server
+                // function call in split-build deployments.
+                None => quote! {
+                    concat!(
+                        env!("CARGO_PKG_NAME"),
+                        "@",
+                        env!("CARGO_PKG_VERSION")
+                    )
+                },
+            };
             quote! {
                 #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                    concat!(env!(#key_env_var), ":", module_path!()).as_bytes(),
+                    concat!(#key, ":", module_path!()).as_bytes(),
                     0
                 )
             }
@@ -932,91 +946,89 @@ impl Parse for Middleware {
 }
 
 fn output_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty
-        && pat.path.segments[0].ident == "Result"
-    {
-        if pat.path.segments.is_empty() {
-            panic!("{:#?}", pat.path);
-        } else if let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-            && let GenericArgument::Type(ty) = &args.args[0]
-        {
-            return Some(ty);
-        }
+    let syn::Type::Path(pat) = return_ty else {
+        return None;
     };
-
-    None
+    let segment = pat.path.segments.last()?;
+    if segment.ident != "Result" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
 }
 
 fn err_type(return_ty: &Type) -> Option<&Type> {
-    if let syn::Type::Path(pat) = &return_ty
-        && pat.path.segments[0].ident == "Result"
-        && let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-    {
-        // Result<T>
-        if args.args.len() == 1 {
-            return None;
-        }
-        // Result<T, _>
-        else if let GenericArgument::Type(ty) = &args.args[1] {
-            return Some(ty);
-        }
+    let syn::Type::Path(pat) = return_ty else {
+        return None;
     };
-
-    None
+    let segment = pat.path.segments.last()?;
+    if segment.ident != "Result" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    // Result<T> has no explicit error type; Result<T, E> -> E
+    match args.args.iter().nth(1)? {
+        GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
 }
 
 fn err_ws_in_type(
     inputs: &Punctuated<ServerFnArg, syn::token::Comma>,
 ) -> Option<Type> {
     inputs.into_iter().find_map(|pat| {
-        if let syn::Type::Path(ref pat) = *pat.arg.ty {
-            if pat.path.segments[0].ident != "BoxedStream" {
-                return None;
-            }
-
-            if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                // BoxedStream<T>
-                if args.args.len() == 1 {
-                    return None;
-                }
-                // BoxedStream<T, E>
-                else if let GenericArgument::Type(ty) = &args.args[1] {
-                    return Some(ty.clone());
-                }
-            };
+        let syn::Type::Path(ref pat) = *pat.arg.ty else {
+            return None;
         };
-
-        None
+        let segment = pat.path.segments.last()?;
+        if segment.ident != "BoxedStream" {
+            return None;
+        }
+        let PathArguments::AngleBracketed(args) = &segment.arguments else {
+            return None;
+        };
+        // BoxedStream<T> has no explicit error type; BoxedStream<T, E> -> E
+        match args.args.iter().nth(1)? {
+            GenericArgument::Type(ty) => Some(ty.clone()),
+            _ => None,
+        }
     })
 }
 
 fn err_ws_out_type(output_ty: &Option<Type>) -> Result<Option<Type>> {
-    if let Some(syn::Type::Path(pat)) = output_ty
-        && pat.path.segments[0].ident == "BoxedStream"
-        && let PathArguments::AngleBracketed(args) =
-            &pat.path.segments[0].arguments
-    {
-        // BoxedStream<T>
-        if args.args.len() == 1 {
-            return Ok(None);
-        }
-        // BoxedStream<T, E>
-        else if let GenericArgument::Type(ty) = &args.args[1] {
-            return Ok(Some(ty.clone()));
-        }
-
-        return Err(syn::Error::new(
-            output_ty.span(),
-            "websocket server functions should return BoxedStream<Result<T, \
-             E>> where E: FromServerFnError",
-        ));
+    let Some(syn::Type::Path(pat)) = output_ty else {
+        return Ok(None);
     };
+    let Some(segment) = pat.path.segments.last() else {
+        return Ok(None);
+    };
+    if segment.ident != "BoxedStream" {
+        return Ok(None);
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Ok(None);
+    };
+    // BoxedStream<T>
+    if args.args.len() == 1 {
+        return Ok(None);
+    }
+    // BoxedStream<T, E>
+    if let Some(GenericArgument::Type(ty)) = args.args.iter().nth(1) {
+        return Ok(Some(ty.clone()));
+    }
 
-    Ok(None)
+    Err(syn::Error::new(
+        output_ty.span(),
+        "websocket server functions should return BoxedStream<Result<T, E>> \
+         where E: FromServerFnError",
+    ))
 }
 
 /// The arguments to the `server` macro.
