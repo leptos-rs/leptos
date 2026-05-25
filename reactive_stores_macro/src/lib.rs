@@ -783,7 +783,29 @@ impl ToTokens for PatchModel {
                             })
                         }).flatten();
 
-                    if let Some(closure) = closure {
+                    // A field marked `#[store(skip)]` is opted out of store-field
+                    // generation; it must also be opted out of patching, so the
+                    // field's type need not implement `PatchField`.
+                    let skip = attrs.iter().any(|attr| {
+                        attr.meta.path().is_ident("store")
+                            && matches!(&attr.meta, Meta::List(list)
+                                if Punctuated::<SubfieldMode, Comma>::parse_terminated
+                                    .parse2(list.tokens.clone())
+                                    .map(|modes| {
+                                        modes.iter().any(|mode| {
+                                            matches!(mode, SubfieldMode::Skip)
+                                        })
+                                    })
+                                    .unwrap_or(false))
+                    });
+
+                    if skip {
+                        // leave the field untouched; only keep the running
+                        // path segment aligned for the following fields.
+                        quote! {
+                            new_path.replace_last(#idx + 1);
+                        }
+                    } else if let Some(closure) = closure {
                         let params = closure.inputs;
                         let body = closure.body;
                         quote! {
