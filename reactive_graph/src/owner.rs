@@ -345,7 +345,8 @@ impl Owner {
         // values would accumulate dead ids unboundedly. Pruning only at a
         // reallocation boundary keeps this amortized O(1) and bounds `nodes` to
         // roughly the live set.
-        if !inner.nodes.is_empty() && inner.nodes.len() == inner.nodes.capacity()
+        if !inner.nodes.is_empty()
+            && inner.nodes.len() == inner.nodes.capacity()
         {
             #[cfg(not(feature = "sandboxed-arenas"))]
             Arena::with(|arena| {
@@ -658,9 +659,6 @@ mod tests {
         }
 
         let len = parent.inner.read().or_poisoned().children.len();
-        assert!(
-            len <= 64,
-            "parent accumulated {len} dead child Weak refs"
-        );
+        assert!(len <= 64, "parent accumulated {len} dead child Weak refs");
     }
 }

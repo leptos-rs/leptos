@@ -7,11 +7,7 @@
 //! the guard to work.
 
 use any_spawner::Executor;
-use reactive_graph::{
-    actions::ArcAction,
-    owner::Owner,
-    traits::GetUntracked,
-};
+use reactive_graph::{actions::ArcAction, owner::Owner, traits::GetUntracked};
 use std::sync::Arc;
 use tokio::sync::Notify;
 

@@ -108,9 +108,8 @@ where
         }
 
         let mut this = self.project();
-        let _restore = TRANSITION.with_borrow_mut(|slot| {
-            Restore(slot.replace(this.inner.clone()))
-        });
+        let _restore = TRANSITION
+            .with_borrow_mut(|slot| Restore(slot.replace(this.inner.clone())));
         if let Some(action) = this.action.take() {
             this.future.set(Some(action()));
         }
