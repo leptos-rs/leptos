@@ -271,7 +271,10 @@ where
     }
 }
 
-impl<T> Write for Field<T> {
+impl<T, S> Write for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
@@ -292,5 +295,32 @@ impl<T> Write for Field<T> {
 impl<T, S> IsDisposed for Field<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as reactive_stores, Field, Store};
+    use reactive_graph::{
+        owner::{LocalStorage, Owner},
+        traits::{ReadUntracked, Write},
+    };
+
+    #[derive(Default, reactive_stores_macro::Store)]
+    struct State {
+        value: i32,
+    }
+
+    #[test]
+    fn write_is_available_for_non_default_storage() {
+        let owner = Owner::new();
+        owner.set();
+
+        let store: Store<State, LocalStorage> =
+            Store::new_local(State::default());
+        let field: Field<i32, LocalStorage> = store.value().into();
+
+        *field.write() = 7;
+        assert_eq!(*field.read_untracked(), 7);
     }
 }
