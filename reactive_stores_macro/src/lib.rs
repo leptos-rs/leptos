@@ -331,35 +331,58 @@ impl ModelTy {
                     )
                 })
                 .unzip(),
-            ModelTy::Enum { variants } => variants
-                .iter()
-                .map(|variant| {
-                    let Variant { ident, fields, .. } = variant;
+            ModelTy::Enum { variants } => {
+                // Assign every variant field a distinct path segment that is
+                // unique across the whole enum. Without this, all variant
+                // fields collapse onto segment `0`, so writing one field wakes
+                // subscribers of every other field (see sibling-wake bug).
+                let mut next_segment = 0usize;
+                let bases = variants
+                    .iter()
+                    .map(|variant| {
+                        let base = next_segment;
+                        next_segment += match &variant.fields {
+                            Fields::Unit => 0,
+                            Fields::Named(fields) => fields.named.len(),
+                            Fields::Unnamed(fields) => fields.unnamed.len(),
+                        };
+                        base
+                    })
+                    .collect::<Vec<_>>();
 
-                    (
-                        variant_to_tokens(
-                            false,
-                            library_path,
-                            ident,
-                            generics,
-                            clear_generics,
-                            any_store_field,
-                            name,
-                            fields,
-                        ),
-                        variant_to_tokens(
-                            true,
-                            library_path,
-                            ident,
-                            generics,
-                            clear_generics,
-                            any_store_field,
-                            name,
-                            fields,
-                        ),
-                    )
-                })
-                .unzip(),
+                variants
+                    .iter()
+                    .zip(bases)
+                    .map(|(variant, base)| {
+                        let Variant { ident, fields, .. } = variant;
+
+                        (
+                            variant_to_tokens(
+                                false,
+                                base,
+                                library_path,
+                                ident,
+                                generics,
+                                clear_generics,
+                                any_store_field,
+                                name,
+                                fields,
+                            ),
+                            variant_to_tokens(
+                                true,
+                                base,
+                                library_path,
+                                ident,
+                                generics,
+                                clear_generics,
+                                any_store_field,
+                                name,
+                                fields,
+                            ),
+                        )
+                    })
+                    .unzip()
+            }
         }
     }
 }
@@ -449,6 +472,7 @@ fn field_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn variant_to_tokens(
     include_body: bool,
+    base_segment: usize,
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
     _generics: &Generics,
@@ -510,7 +534,9 @@ fn variant_to_tokens(
             tokens.extend(fields
                 .named
                 .iter()
-                .map(|field| {
+                .enumerate()
+                .map(|(field_idx, field)| {
+                    let segment = base_segment + field_idx;
                     let field_ident = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
@@ -530,7 +556,7 @@ fn variant_to_tokens(
                                 if matches {
                                     Some(#library_path::Subfield::new(
                                         self,
-                                        0.into(),
+                                        #segment.into(),
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident { #field_ident, .. } => Some(#field_ident),
@@ -589,6 +615,7 @@ fn variant_to_tokens(
                 .iter()
                 .enumerate()
                 .map(|(idx, field)| {
+                    let segment = base_segment + idx;
                     let field_ident = idx;
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
@@ -613,7 +640,7 @@ fn variant_to_tokens(
                                 if matches {
                                     Some(#library_path::Subfield::new(
                                         self,
-                                        0.into(),
+                                        #segment.into(),
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident(#(#ignore_before)* this, #(#ignore_after)*) => Some(this),
