@@ -1,6 +1,229 @@
-use crate::{StoreField, Subfield};
-use reactive_graph::traits::{FlattenOptionRefOption, Read, ReadUntracked};
-use std::ops::Deref;
+use crate::{
+    KeyMap, StoreField, StoreFieldTrigger,
+    path::{StorePath, StorePathSegment},
+};
+use reactive_graph::{
+    signal::{
+        ArcTrigger,
+        guards::{Mapped, MappedMut, WriteGuard},
+    },
+    traits::{
+        DefinedAt, FlattenOptionRefOption, IsDisposed, Notify, Read,
+        ReadUntracked, Track, UntrackableGuard, Write,
+    },
+};
+use std::{
+    iter,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    panic::Location,
+};
+
+/// Accesses the inner value of an `Option`-typed store field.
+///
+/// Unlike a plain [`Subfield`](crate::Subfield), this projection is fallible:
+/// its [`reader`](StoreField::reader)/[`writer`](StoreField::writer) return
+/// `None` when the underlying field is currently `None`, instead of handing
+/// back a guard that panics when dereferenced.
+pub struct OptionSubfield<Inner, T> {
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
+    defined_at: &'static Location<'static>,
+    path_segment: StorePathSegment,
+    inner: Inner,
+    ty: PhantomData<T>,
+}
+
+impl<Inner, T> Clone for OptionSubfield<Inner, T>
+where
+    Inner: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: self.defined_at,
+            path_segment: self.path_segment,
+            inner: self.inner.clone(),
+            ty: self.ty,
+        }
+    }
+}
+
+impl<Inner, T> Copy for OptionSubfield<Inner, T> where Inner: Copy {}
+
+impl<Inner, T> OptionSubfield<Inner, T> {
+    /// Creates an accessor for the inner value of an `Option`-typed field.
+    #[track_caller]
+    pub fn new(inner: Inner) -> Self {
+        Self {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            path_segment: 0.into(),
+            inner,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<Inner, T> StoreField for OptionSubfield<Inner, T>
+where
+    Inner: StoreField<Value = Option<T>>,
+    T: 'static,
+{
+    type Value = T;
+    type Reader = Mapped<Inner::Reader, T>;
+    type Writer = MappedMut<WriteGuard<Vec<ArcTrigger>, Inner::Writer>, T>;
+
+    fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .path()
+            .into_iter()
+            .chain(iter::once(self.path_segment))
+    }
+
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .path_unkeyed()
+            .into_iter()
+            .chain(iter::once(self.path_segment))
+    }
+
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger(path)
+    }
+
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
+    fn reader(&self) -> Option<Self::Reader> {
+        let inner = self.inner.reader()?;
+        // The reader holds the inner lock for its whole lifetime, so the
+        // value cannot toggle to `None` before the (lazy) projection runs on
+        // deref. Bail out here instead of handing back a guard that would
+        // panic in `as_ref().unwrap()`.
+        if inner.is_none() {
+            return None;
+        }
+        Some(Mapped::new_with_guard(inner, |t| t.as_ref().unwrap()))
+    }
+
+    fn writer(&self) -> Option<Self::Writer> {
+        let mut parent = self.inner.writer()?;
+        // See `reader`: the write guard holds the inner lock, so a single
+        // check here keeps the `as_mut().unwrap()` projection panic-free.
+        if parent.is_none() {
+            return None;
+        }
+        // untrack the parent so it doesn't notify its `this` trigger (which
+        // would notify siblings); the path triggers are included below.
+        parent.untrack();
+        let triggers = self.triggers_for_current_path();
+        let guard = WriteGuard::new(triggers, parent);
+        Some(MappedMut::new(
+            guard,
+            |t| t.as_ref().unwrap(),
+            |t| t.as_mut().unwrap(),
+        ))
+    }
+
+    #[inline(always)]
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.keys()
+    }
+
+    #[track_caller]
+    fn track_field(&self) {
+        let mut full_path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.track();
+        trigger.children.track();
+
+        while !full_path.is_empty() {
+            full_path.pop();
+            let inner = self.get_trigger(full_path.clone());
+            inner.this.track();
+        }
+    }
+}
+
+impl<Inner, T> DefinedAt for OptionSubfield<Inner, T> {
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+        {
+            None
+        }
+    }
+}
+
+impl<Inner, T> IsDisposed for OptionSubfield<Inner, T>
+where
+    Inner: IsDisposed,
+{
+    fn is_disposed(&self) -> bool {
+        self.inner.is_disposed()
+    }
+}
+
+impl<Inner, T> Notify for OptionSubfield<Inner, T>
+where
+    Inner: StoreField<Value = Option<T>>,
+    T: 'static,
+{
+    #[track_caller]
+    fn notify(&self) {
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.notify();
+        trigger.children.notify();
+    }
+}
+
+impl<Inner, T> Track for OptionSubfield<Inner, T>
+where
+    Inner: StoreField<Value = Option<T>> + Track + 'static,
+    T: 'static,
+{
+    #[track_caller]
+    fn track(&self) {
+        self.track_field();
+    }
+}
+
+impl<Inner, T> ReadUntracked for OptionSubfield<Inner, T>
+where
+    Inner: StoreField<Value = Option<T>>,
+    T: 'static,
+{
+    type Value = <Self as StoreField>::Reader;
+
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.reader()
+    }
+}
+
+impl<Inner, T> Write for OptionSubfield<Inner, T>
+where
+    Inner: StoreField<Value = Option<T>>,
+    T: 'static,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer()
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.writer().map(|mut writer| {
+            writer.untrack();
+            writer
+        })
+    }
+}
 
 /// Extends optional store fields, with the ability to unwrap or map over them.
 pub trait OptionStoreExt
@@ -11,24 +234,26 @@ where
     type Output;
 
     /// Provides access to the inner value, as a subfield, unwrapping the outer value.
-    fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output>;
+    ///
+    /// The returned field reads and writes fallibly: if the outer value becomes
+    /// `None` before the projection runs, its reader/writer yield `None` rather
+    /// than panicking.
+    fn unwrap(self) -> OptionSubfield<Self, Self::Output>;
 
     /// Inverts a subfield of an `Option` to an `Option` of a subfield.
-    fn invert(
-        self,
-    ) -> Option<Subfield<Self, Option<Self::Output>, Self::Output>> {
+    fn invert(self) -> Option<OptionSubfield<Self, Self::Output>> {
         self.map(|f| f)
     }
 
     /// Reactively maps over the field.
     ///
     /// This returns `None` if the subfield is currently `None`,
-    /// and a new store subfield with the inner value if it is `Some`. This can be used in some  
+    /// and a new store subfield with the inner value if it is `Some`. This can be used in some
     /// other reactive context, which will cause it to re-run if the field toggles between `None`
     /// and `Some(_)`.
     fn map<U>(
         self,
-        map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
+        map_fn: impl FnOnce(OptionSubfield<Self, Self::Output>) -> U,
     ) -> Option<U>;
 
     /// Unreactively maps over the field.
@@ -38,7 +263,7 @@ where
     /// `[OptionStoreExt::map]`, and will not cause the reactive context to re-run if the field changes.
     fn map_untracked<U>(
         self,
-        map_fn: impl FnOnce(Subfield<Self, Option<Self::Output>, Self::Output>) -> U,
+        map_fn: impl FnOnce(OptionSubfield<Self, Self::Output>) -> U,
     ) -> Option<U>;
 }
 
@@ -50,18 +275,13 @@ where
 {
     type Output = T;
 
-    fn unwrap(self) -> Subfield<Self, Option<Self::Output>, Self::Output> {
-        Subfield::new(
-            self,
-            0.into(),
-            |t| t.as_ref().unwrap(),
-            |t| t.as_mut().unwrap(),
-        )
+    fn unwrap(self) -> OptionSubfield<Self, Self::Output> {
+        OptionSubfield::new(self)
     }
 
     fn map<U>(
         self,
-        map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
+        map_fn: impl FnOnce(OptionSubfield<S, T>) -> U,
     ) -> Option<U> {
         if self.try_read().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
@@ -72,7 +292,7 @@ where
 
     fn map_untracked<U>(
         self,
-        map_fn: impl FnOnce(Subfield<S, Option<T>, T>) -> U,
+        map_fn: impl FnOnce(OptionSubfield<S, T>) -> U,
     ) -> Option<U> {
         if self.try_read_untracked().as_deref().flatten().is_some() {
             Some(map_fn(self.unwrap()))
@@ -367,5 +587,38 @@ mod tests {
         assert_eq!(parent_count.load(Ordering::Relaxed), 4);
         assert_eq!(inner_first_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_second_count.load(Ordering::Relaxed), 4);
+    }
+
+    #[test]
+    fn unwrap_reads_as_none_after_option_is_cleared() {
+        use crate::OptionStoreExt;
+        use reactive_graph::owner::Owner;
+
+        #[derive(Debug, Clone, Store)]
+        struct State {
+            value: Option<i32>,
+        }
+
+        let owner = Owner::new();
+        owner.set();
+
+        let store = Store::new(State { value: Some(1) });
+
+        // Capture the unwrapped inner field while the option is `Some`.
+        let inner = OptionStoreExt::unwrap(store.value());
+        assert_eq!(inner.try_read_untracked().map(|g| *g), Some(1));
+
+        // Another writer clears the option after the inner field was captured.
+        *store.value().write() = None;
+
+        // The previously valid projection must now read as `None` instead of
+        // panicking with "called `Option::unwrap()` on a `None` value".
+        let guard = inner.try_read_untracked();
+        assert!(guard.is_none());
+        // Forcing the (lazy) projection must not panic.
+        assert!(guard.map(|g| *g).is_none());
+
+        // The writer side is fallible in the same way.
+        assert!(inner.try_write().is_none());
     }
 }
