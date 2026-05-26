@@ -1711,7 +1711,18 @@ where
             // this if for thing like 404s, where we do not want to cache an endless series of
             // typos (or malicious requests)
             let mut res = AxumResponse(match html {
-                Some(html) => axum::response::Html(html).into_response(),
+                // `html` is `Some` only for an uncached error response (the
+                // `was_404` predicate gated the build). `Html(..)` defaults to
+                // 200, so make the error status explicit rather than relying
+                // on the captured `ResponseOptions` to carry it. A custom
+                // status set by the app still overrides this via
+                // `extend_response` below.
+                Some(html) => {
+                    let mut response =
+                        axum::response::Html(html).into_response();
+                    *response.status_mut() = StatusCode::NOT_FOUND;
+                    response
+                }
                 None => match ServeFile::new(path).oneshot(req).await {
                     Ok(res) => res.into_response(),
                     // The cached file can be removed between the `try_exists`
