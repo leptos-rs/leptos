@@ -386,13 +386,34 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
             "the only supported argument is a string literal"
         );
     });
-    let file =
-        std::fs::read_to_string(file_name.value()).unwrap_or_else(|_| {
-            abort!(Span::call_site(), "could not open file");
-        });
+    let file = std::fs::read_to_string(file_name.value()).unwrap_or_else(|e| {
+        abort!(
+            Span::call_site(),
+            "could not open file `{}`: {e}",
+            file_name.value()
+        );
+    });
     let tokens = proc_macro2::TokenStream::from_str(&file)
         .unwrap_or_else(|e| abort!(Span::call_site(), e));
-    view(tokens.into())
+    let view = proc_macro2::TokenStream::from(view(tokens.into()));
+
+    // Register the included file in Cargo's recompilation graph. Like
+    // `read_to_string` above, the path is resolved relative to the crate
+    // root (the proc-macro's working directory), which is `CARGO_MANIFEST_DIR`
+    // in the consuming crate; absolute paths are passed through unchanged.
+    let tracked_path = if std::path::Path::new(&file_name.value()).is_absolute()
+    {
+        quote! { #file_name }
+    } else {
+        quote! { concat!(env!("CARGO_MANIFEST_DIR"), "/", #file_name) }
+    };
+    quote! {
+        {
+            const _: &[u8] = include_bytes!(#tracked_path);
+            #view
+        }
+    }
+    .into()
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
