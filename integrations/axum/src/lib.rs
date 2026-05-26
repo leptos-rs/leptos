@@ -181,6 +181,13 @@ pub(crate) fn extend_response<ResBody>(
         .extend(std::mem::take(&mut res_options.headers));
 }
 
+/// A generic `500 Internal Server Error` response with no body details, used
+/// when an integration handler hits an unrecoverable but non-fatal condition
+/// that previously panicked.
+fn internal_server_error() -> Response<Body> {
+    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+}
+
 struct AxumResponse(Response<Body>);
 
 impl ExtendResponse for AxumResponse {
@@ -732,22 +739,49 @@ where
     );
 
     move |state, req| {
-        // 1. Process route to match the values in routeListing
-        let path = req
+        // 1. Process route to match the values in routeListing.
+        //
+        // `MatchedPath` is only present when the request flowed through Axum's
+        // matcher; mounting this handler outside the router (manual tower
+        // composition, `nest`/`route_service`, direct calls in tests) leaves it
+        // absent. Rather than panic — which would kill the worker and 500 every
+        // affected request — log and return a generic 500 so the misconfigured
+        // route is diagnosable without taking the process down.
+        let Some(path) = req
             .extensions()
             .get::<MatchedPath>()
-            .expect("Failed to get Axum router rule")
-            .as_str();
+            .map(|p| p.as_str().to_owned())
+        else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            return Box::pin(async { internal_server_error() });
+        };
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
-        let listing: &AxumRouteListing =
-            paths.iter().find(|r| r.path() == path).unwrap_or_else(|| {
-                panic!(
-                    "Failed to find the route {path} requested by the user. \
-                     This suggests that the routing rules in the Router that \
-                     call this handler needs to be edited!"
-                )
-            });
+        let Some(listing) = paths.iter().find(|r| r.path() == path.as_str())
+        else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited."
+            );
+            return Box::pin(async { internal_server_error() });
+        };
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
             SsrMode::OutOfOrder => ooo(req),
@@ -2587,5 +2621,28 @@ mod tests {
             parts.headers.get(LOCATION).map(|v| v.as_bytes()),
             Some(&b"/dashboard"[..])
         );
+    }
+
+    // When the render_route handler is mounted such that Axum's `MatchedPath`
+    // is absent (e.g. invoked outside the router), it must return a generic
+    // 500 instead of panicking and killing the worker.
+    #[cfg(feature = "default")]
+    #[tokio::test]
+    async fn render_route_without_matched_path_returns_500() {
+        let options = leptos::config::get_configuration(None)
+            .unwrap()
+            .leptos_options;
+
+        let handler = render_route_with_context(
+            Vec::<AxumRouteListing>::new(),
+            || {},
+            || "app",
+        );
+
+        // No `MatchedPath` extension is attached to this request.
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+
+        let res = handler(State(options), req).await;
+        assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
