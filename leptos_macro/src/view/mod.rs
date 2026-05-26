@@ -1598,21 +1598,50 @@ fn is_ambiguous_element(tag: &str) -> bool {
 }
 
 fn parse_event(event_name: &str) -> (String, EventNameOptions) {
-    let undelegated = event_name.contains(":undelegated");
-    let targeted = event_name.contains(":target");
-    let captured = event_name.contains(":capture");
-    let event_name = event_name
-        .replace(":undelegated", "")
-        .replace(":target", "")
-        .replace(":capture", "");
-    (
-        event_name,
+    match try_parse_event(event_name) {
+        Ok(parsed) => parsed,
+        Err(modifier) => abort!(
+            Span::call_site(),
+            "unknown event modifier `:{}`; expected one of `:undelegated`, \
+             `:target`, or `:capture`",
+            modifier
+        ),
+    }
+}
+
+/// Splits an event name into its base name and modifier flags.
+///
+/// The base event name is everything before the first `:`; each remaining
+/// `:`-separated fragment must be one of the three known modifiers. Returns
+/// `Err(fragment)` for any unrecognized modifier so the caller can report it,
+/// rather than matching modifiers as substrings (which silently accepted
+/// typos like `:targeted` and mangled the event name).
+fn try_parse_event(
+    event_name: &str,
+) -> Result<(String, EventNameOptions), String> {
+    let mut fragments = event_name.split(':');
+    let name = fragments.next().unwrap_or_default().to_string();
+
+    let mut undelegated = false;
+    let mut targeted = false;
+    let mut captured = false;
+    for modifier in fragments {
+        match modifier {
+            "undelegated" => undelegated = true,
+            "target" => targeted = true,
+            "capture" => captured = true,
+            other => return Err(other.to_string()),
+        }
+    }
+
+    Ok((
+        name,
         EventNameOptions {
             undelegated,
             targeted,
             captured,
         },
-    )
+    ))
 }
 
 /// Escapes Rust keywords that are also HTML attribute names
@@ -1804,7 +1833,7 @@ const TYPED_EVENTS: [&str; 127] = [
 
 const CUSTOM_EVENT: &str = "Custom";
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct EventNameOptions {
     undelegated: bool,
     targeted: bool,
@@ -1973,5 +2002,49 @@ mod inert_element_tests {
         assert!(!is_inert(quote! { <input bind:value="x" /> }));
         assert!(!is_inert(quote! { <div style:color="red" /> }));
         assert!(!is_inert(quote! { <div prop:foo="bar" /> }));
+    }
+}
+
+#[cfg(test)]
+mod parse_event_tests {
+    use super::try_parse_event;
+
+    fn parse(name: &str) -> (String, (bool, bool, bool)) {
+        let (name, opts) = try_parse_event(name).unwrap();
+        (name, (opts.undelegated, opts.targeted, opts.captured))
+    }
+
+    #[test]
+    fn plain_and_modified_events() {
+        assert_eq!(parse("click"), ("click".into(), (false, false, false)));
+        assert_eq!(
+            parse("click:target"),
+            ("click".into(), (false, true, false))
+        );
+        assert_eq!(
+            parse("click:undelegated"),
+            ("click".into(), (true, false, false))
+        );
+        assert_eq!(
+            parse("click:capture"),
+            ("click".into(), (false, false, true))
+        );
+        assert_eq!(
+            parse("click:undelegated:capture"),
+            ("click".into(), (true, false, true))
+        );
+    }
+
+    #[test]
+    fn unknown_modifier_is_rejected_not_substring_matched() {
+        // `:targeted` is a typo for `:target`; substring matching used to
+        // accept it (and mangle the event name to `clicked`). Exact matching
+        // surfaces it as an error instead.
+        assert_eq!(try_parse_event("click:targeted"), Err("targeted".into()));
+        assert_eq!(
+            try_parse_event("click:capturefoo"),
+            Err("capturefoo".into())
+        );
+        assert_eq!(try_parse_event("click:capture2"), Err("capture2".into()));
     }
 }
