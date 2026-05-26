@@ -949,7 +949,15 @@ where
             move || {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
+                //
+                // `path_and_query` is `None` for authority-form URIs (e.g. a
+                // `CONNECT host:port` request from a misconfigured proxy or a
+                // health probe). Fall back to the root rather than panicking.
+                let path = req
+                    .uri()
+                    .path_and_query()
+                    .map(|p| p.as_str())
+                    .unwrap_or("/");
 
                 let full_path = format!("http://leptos.dev{path}");
                 let (_, req_parts) = generate_request_and_parts(req);
