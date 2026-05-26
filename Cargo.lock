@@ -2130,6 +2130,7 @@ dependencies = [
  "leptos_macro",
  "leptos_meta",
  "leptos_router",
+ "mime",
  "or_poisoned",
  "reqwest",
  "server_fn",
