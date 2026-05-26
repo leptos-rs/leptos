@@ -21,6 +21,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
+lru = { workspace = true, optional = true }
 mime = { workspace = true }
 tachys = { workspace = true }
 tokio = { default-features = false, workspace = true }
@@ -45,6 +46,7 @@ tokio = { features = [
 [features]
 wasm = []
 default = [
+  "dep:lru",
   "tokio/fs",
   "tokio/sync",
   "tower-http/fs",
