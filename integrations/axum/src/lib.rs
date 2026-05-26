@@ -2628,7 +2628,19 @@ async fn get_static_file(
         None => req,
     };
 
-    let req = req.body(Body::empty()).unwrap();
+    let req = match req.body(Body::empty()) {
+        Ok(req) => req,
+        Err(err) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("failed to build static file request: {err}");
+            #[cfg(not(feature = "tracing"))]
+            let _ = err;
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not build static file request".to_string(),
+            ));
+        }
+    };
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // This path is relative to the cargo root
     match ServeDir::new(root)
