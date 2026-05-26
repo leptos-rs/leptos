@@ -1714,11 +1714,20 @@ where
                 Some(html) => axum::response::Html(html).into_response(),
                 None => match ServeFile::new(path).oneshot(req).await {
                     Ok(res) => res.into_response(),
-                    Err(err) => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Something went wrong: {err}"),
-                    )
-                        .into_response(),
+                    // The cached file can be removed between the `try_exists`
+                    // check above and this read (a TOCTOU race). Do not render
+                    // the raw filesystem error into the body — that leaks
+                    // server paths — log it and return a generic 500.
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "failed to serve static file {}: {err}",
+                            path.display()
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = &err;
+                        internal_server_error()
+                    }
                 },
             });
 
