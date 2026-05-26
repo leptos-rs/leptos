@@ -2528,7 +2528,21 @@ where
                 let options = LeptosOptions::from_ref(&state);
                 let res =
                     get_static_file(uri, &options.site_root, req.headers());
-                let res = res.await.unwrap();
+                // `get_static_file` returns `Err` if the underlying `ServeDir`
+                // fails. This handler is the documented "reasonable default"
+                // fallback, so it must not panic: log and serve a generic 500.
+                let res = match res.await {
+                    Ok(res) => res,
+                    Err((status, err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "static file handler failed: {status} {err}"
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = (status, err);
+                        return internal_server_error();
+                    }
+                };
 
                 if res.status() == StatusCode::OK {
                     let owner = Owner::new();
