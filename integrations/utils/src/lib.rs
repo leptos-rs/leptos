@@ -200,12 +200,85 @@ where
     (owner, stream)
 }
 
-pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
+/// Returns `true` if `path` could escape the site root once interpolated into
+/// an on-disk path.
+///
+/// The static handlers build a filesystem path by concatenating the request
+/// path onto the site root (`{site_root}/{path}.html`). The request path is not
+/// percent-decoded upstream, so we reject a literal `..` segment, the
+/// percent-encoded dot/separator sequences a later decoding step could turn
+/// into one (`%2e`, `%2f`, `%5c`), and a backslash (a path separator on
+/// Windows).
+fn is_path_traversal(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    if lower.contains("%2e") || lower.contains("%2f") || lower.contains("%5c") {
+        return true;
+    }
+    path.split('/')
+        .any(|segment| segment == ".." || segment.contains('\\'))
+}
+
+/// Builds the on-disk path for the static file backing `path`, or returns
+/// `None` if `path` would escape `options.site_root` via directory traversal.
+///
+/// Callers must treat `None` as a rejected request (respond `404` on the read
+/// side, refuse to write on the generation side); the helper performs no
+/// filesystem access and never returns a path outside the site root.
+pub fn static_file_path(options: &LeptosOptions, path: &str) -> Option<String> {
+    if is_path_traversal(path) {
+        return None;
+    }
     let trimmed_path = path.trim_start_matches('/');
     let path = if trimmed_path.is_empty() {
         "index"
     } else {
         trimmed_path
     };
-    format!("{}/{}.html", options.site_root, path)
+    Some(format!("{}/{}.html", options.site_root, path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use leptos_config::LeptosOptions;
+
+    fn opts() -> LeptosOptions {
+        LeptosOptions::builder()
+            .output_name("ignored")
+            .site_root("/var/www/site/static")
+            .build()
+    }
+
+    #[test]
+    fn static_file_path_rejects_traversal() {
+        let options = opts();
+        // literal `..` segments
+        assert_eq!(static_file_path(&options, "/../../etc/passwd"), None);
+        assert_eq!(static_file_path(&options, "/posts/../../secret"), None);
+        assert_eq!(static_file_path(&options, ".."), None);
+        // percent-encoded dot / separators (path is not decoded upstream)
+        assert_eq!(static_file_path(&options, "/..%2f..%2fetc"), None);
+        assert_eq!(static_file_path(&options, "/%2e%2e/secret"), None);
+        assert_eq!(static_file_path(&options, "/foo%2Fbar"), None);
+        // backslash separator (Windows)
+        assert_eq!(static_file_path(&options, "/..\\..\\secret"), None);
+    }
+
+    #[test]
+    fn static_file_path_allows_legitimate_paths() {
+        let options = opts();
+        assert_eq!(
+            static_file_path(&options, "/"),
+            Some("/var/www/site/static/index.html".into())
+        );
+        assert_eq!(
+            static_file_path(&options, "/posts/my-first-post"),
+            Some("/var/www/site/static/posts/my-first-post.html".into())
+        );
+        // a single dot is harmless (stays in the same directory)
+        assert_eq!(
+            static_file_path(&options, "/a/./b"),
+            Some("/var/www/site/static/a/./b.html".into())
+        );
+    }
 }
