@@ -157,7 +157,7 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
                                             matches!(&value.value, KVAttributeValue::Expr(expr) if {
                                                 if let Expr::Lit(lit) = expr {
                                                     let key = attr.key.to_string();
-                                                    if key.starts_with("style:") || key.starts_with("prop:") || key.starts_with("on:") || key.starts_with("use:") || key.starts_with("bind") {
+                                                    if key.starts_with("style:") || key.starts_with("prop:") || key.starts_with("on:") || key.starts_with("use:") || key.starts_with("bind:") {
                                                         false
                                                     } else {
                                                         matches!(&lit.lit, Lit::Str(_))
@@ -1943,4 +1943,35 @@ enum TupleName {
     None,
     Str(String),
     Array(Vec<String>),
+}
+
+#[cfg(test)]
+mod inert_element_tests {
+    use super::is_inert_element;
+    use quote::quote;
+
+    fn is_inert(tokens: proc_macro2::TokenStream) -> bool {
+        let config = rstml::ParserConfig::default().recover_block(true);
+        let parser = rstml::Parser::new(config);
+        let (nodes, _) = parser.parse_recoverable(tokens).split_vec();
+        is_inert_element(&nodes[0])
+    }
+
+    #[test]
+    fn plain_string_attribute_is_inert() {
+        // `binding` merely starts with the letters "bind"; it is a normal
+        // string-literal attribute, not the `bind:` two-way directive, so an
+        // element carrying only such attributes must take the inert fast path.
+        assert!(is_inert(quote! { <custom-element binding="foo" /> }));
+        assert!(is_inert(quote! { <div bind-target="x" /> }));
+    }
+
+    #[test]
+    fn leptos_directives_are_not_inert() {
+        // The genuine namespaced directives must keep excluding the element
+        // from the inert path, matching `attribute_to_tokens`.
+        assert!(!is_inert(quote! { <input bind:value="x" /> }));
+        assert!(!is_inert(quote! { <div style:color="red" /> }));
+        assert!(!is_inert(quote! { <div prop:foo="bar" /> }));
+    }
 }
