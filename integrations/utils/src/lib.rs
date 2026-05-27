@@ -17,6 +17,51 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 pub type BoxedFnOnce<T> = Box<dyn FnOnce() -> T + Send>;
 
+/// Wraps a response body stream and ties cleanup of the reactive [`Owner`] to
+/// the stream's `Drop`, rather than to a chained terminal future.
+///
+/// The previous approach appended an `owner.unset_with_forced_cleanup()` future
+/// as the last item of the stream. That only runs if the stream is polled to
+/// completion, so a client disconnecting mid-response (slow client, browser
+/// cancel, proxy timeout) would drop the body before the terminal future ran,
+/// leaking the `Owner` and everything it transitively keeps alive. Cleaning up
+/// on `Drop` runs whether the stream finishes or is cancelled.
+struct OwnerCleanupStream {
+    inner: Pin<Box<dyn Stream<Item = String> + Send>>,
+    owner: Option<Owner>,
+}
+
+impl OwnerCleanupStream {
+    fn new(
+        inner: impl Stream<Item = String> + Send + 'static,
+        owner: Owner,
+    ) -> Self {
+        Self {
+            inner: Box::pin(inner),
+            owner: Some(owner),
+        }
+    }
+}
+
+impl Stream for OwnerCleanupStream {
+    type Item = String;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.get_mut().inner.as_mut().poll_next(cx)
+    }
+}
+
+impl Drop for OwnerCleanupStream {
+    fn drop(&mut self) {
+        if let Some(owner) = self.owner.take() {
+            owner.unset_with_forced_cleanup();
+        }
+    }
+}
+
 pub trait ExtendResponse: Sized {
     type ResponseOptions: Send;
 
@@ -115,16 +160,14 @@ pub trait ExtendResponse: Sized {
             // wait for the first chunk of the stream, then set the status and headers
             let first_chunk = stream.next().await.unwrap_or_default();
 
-            let mut res = Self::from_stream(Sandboxed::new(
-                once(async move { first_chunk })
-                    .chain(stream)
-                    // drop the owner, cleaning up the reactive runtime,
-                    // once the stream is over
-                    .chain(once(async move {
-                        owner.unset_with_forced_cleanup();
-                        Default::default()
-                    })),
-            ));
+            // Cleanup of the owner is tied to `OwnerCleanupStream`'s `Drop`, so
+            // it runs whether the body streams to completion or the client
+            // disconnects early and the body is dropped.
+            let mut res =
+                Self::from_stream(Sandboxed::new(OwnerCleanupStream::new(
+                    once(async move { first_chunk }).chain(stream),
+                    owner,
+                )));
 
             res.extend_response(&res_options);
 
