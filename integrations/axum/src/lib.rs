@@ -507,7 +507,17 @@ async fn handle_server_fns_inner(
                  function type, somewhere in your `main` function.",
             )))
     }
-    .expect("could not build Response")
+    .unwrap_or_else(|err| {
+        // The branches above only set a status and a string body, so this is
+        // not reachable today; handle it gracefully anyway so a future edit
+        // that adds a fallible header to the builder cannot turn this
+        // diagnostic into a panic.
+        #[cfg(feature = "tracing")]
+        tracing::error!("could not build server function response: {err}");
+        #[cfg(not(feature = "tracing"))]
+        let _ = err;
+        internal_server_error()
+    })
 }
 
 /// A stream of bytes of HTML.
