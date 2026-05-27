@@ -1,0 +1,295 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title></title>
+        <meta name="robots" content="noindex" />
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="./mdbook-admonish.css">
+
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="getting_started/index.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="getting_started/leptos_dx.html"><strong aria-hidden="true">2.1.</strong> Leptos DX</a></li><li class="chapter-item expanded "><a href="getting_started/community_crates.html"><strong aria-hidden="true">2.2.</strong> The Leptos Community and leptos-* Crates</a></li></ol></li><li class="chapter-item expanded "><a href="view/index.html"><strong aria-hidden="true">3.</strong> Part 1: Building User Interfaces</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="view/01_basic_component.html"><strong aria-hidden="true">3.1.</strong> A Basic Component</a></li><li class="chapter-item expanded "><a href="view/02_dynamic_attributes.html"><strong aria-hidden="true">3.2.</strong> Dynamic Attributes</a></li><li class="chapter-item expanded "><a href="view/03_components.html"><strong aria-hidden="true">3.3.</strong> Components and Props</a></li><li class="chapter-item expanded "><a href="view/04_iteration.html"><strong aria-hidden="true">3.4.</strong> Iteration</a></li><li class="chapter-item expanded "><a href="view/04b_iteration.html"><strong aria-hidden="true">3.5.</strong> Iterating over More Complex Data</a></li><li class="chapter-item expanded "><a href="view/05_forms.html"><strong aria-hidden="true">3.6.</strong> Forms and Inputs</a></li><li class="chapter-item expanded "><a href="view/06_control_flow.html"><strong aria-hidden="true">3.7.</strong> Control Flow</a></li><li class="chapter-item expanded "><a href="view/07_errors.html"><strong aria-hidden="true">3.8.</strong> Error Handling</a></li><li class="chapter-item expanded "><a href="view/08_parent_child.html"><strong aria-hidden="true">3.9.</strong> Parent-Child Communication</a></li><li class="chapter-item expanded "><a href="view/09_component_children.html"><strong aria-hidden="true">3.10.</strong> Passing Children to Components</a></li><li class="chapter-item expanded "><a href="view/builder.html"><strong aria-hidden="true">3.11.</strong> No Macros: The View Builder Syntax</a></li></ol></li><li class="chapter-item expanded "><a href="reactivity/index.html"><strong aria-hidden="true">4.</strong> Reactivity</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="reactivity/working_with_signals.html"><strong aria-hidden="true">4.1.</strong> Working with Signals</a></li><li class="chapter-item expanded "><a href="reactivity/14_create_effect.html"><strong aria-hidden="true">4.2.</strong> Responding to Changes with create_effect</a></li><li class="chapter-item expanded "><a href="reactivity/interlude_functions.html"><strong aria-hidden="true">4.3.</strong> Interlude: Reactivity and Functions</a></li></ol></li><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">5.</strong> Testing</a></li><li class="chapter-item expanded "><a href="async/index.html"><strong aria-hidden="true">6.</strong> Async</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="async/10_resources.html"><strong aria-hidden="true">6.1.</strong> Loading Data with Resources</a></li><li class="chapter-item expanded "><a href="async/11_suspense.html"><strong aria-hidden="true">6.2.</strong> Suspense</a></li><li class="chapter-item expanded "><a href="async/12_transition.html"><strong aria-hidden="true">6.3.</strong> Transition</a></li><li class="chapter-item expanded "><a href="async/13_actions.html"><strong aria-hidden="true">6.4.</strong> Actions</a></li></ol></li><li class="chapter-item expanded "><a href="interlude_projecting_children.html"><strong aria-hidden="true">7.</strong> Interlude: Projecting Children</a></li><li class="chapter-item expanded "><a href="15_global_state.html"><strong aria-hidden="true">8.</strong> Global State Management</a></li><li class="chapter-item expanded "><a href="router/index.html"><strong aria-hidden="true">9.</strong> Router</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="router/16_routes.html"><strong aria-hidden="true">9.1.</strong> Defining &lt;Routes/&gt;</a></li><li class="chapter-item expanded "><a href="router/17_nested_routing.html"><strong aria-hidden="true">9.2.</strong> Nested Routing</a></li><li class="chapter-item expanded "><a href="router/18_params_and_queries.html"><strong aria-hidden="true">9.3.</strong> Params and Queries</a></li><li class="chapter-item expanded "><a href="router/19_a.html"><strong aria-hidden="true">9.4.</strong> &lt;A/&gt;</a></li><li class="chapter-item expanded "><a href="router/20_form.html"><strong aria-hidden="true">9.5.</strong> &lt;Form/&gt;</a></li></ol></li><li class="chapter-item expanded "><a href="interlude_styling.html"><strong aria-hidden="true">10.</strong> Interlude: Styling</a></li><li class="chapter-item expanded "><a href="metadata.html"><strong aria-hidden="true">11.</strong> Metadata</a></li><li class="chapter-item expanded "><a href="csr_wrapping_up.html"><strong aria-hidden="true">12.</strong> Client-Side Rendering: Wrapping Up</a></li><li class="chapter-item expanded "><a href="ssr/index.html"><strong aria-hidden="true">13.</strong> Part 2: Server Side Rendering</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="ssr/21_cargo_leptos.html"><strong aria-hidden="true">13.1.</strong> cargo-leptos</a></li><li class="chapter-item expanded "><a href="ssr/22_life_cycle.html"><strong aria-hidden="true">13.2.</strong> The Life of a Page Load</a></li><li class="chapter-item expanded "><a href="ssr/23_ssr_modes.html"><strong aria-hidden="true">13.3.</strong> Async Rendering and SSR “Modes”</a></li><li class="chapter-item expanded "><a href="ssr/24_hydration_bugs.html"><strong aria-hidden="true">13.4.</strong> Hydration Bugs</a></li></ol></li><li class="chapter-item expanded "><a href="server/index.html"><strong aria-hidden="true">14.</strong> Working with the Server</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="server/25_server_functions.html"><strong aria-hidden="true">14.1.</strong> Server Functions</a></li><li class="chapter-item expanded "><a href="server/26_extractors.html"><strong aria-hidden="true">14.2.</strong> Extractors</a></li><li class="chapter-item expanded "><a href="server/27_response.html"><strong aria-hidden="true">14.3.</strong> Responses and Redirects</a></li></ol></li><li class="chapter-item expanded "><a href="progressive_enhancement/index.html"><strong aria-hidden="true">15.</strong> Progressive Enhancement and Graceful Degradation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="progressive_enhancement/action_form.html"><strong aria-hidden="true">15.1.</strong> &lt;ActionForm/&gt;s</a></li></ol></li><li class="chapter-item expanded "><a href="deployment/index.html"><strong aria-hidden="true">16.</strong> Deployment</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deployment/binary_size.html"><strong aria-hidden="true">16.1.</strong> Optimizing WASM Binary Size</a></li></ol></li><li class="chapter-item expanded "><a href="islands.html"><strong aria-hidden="true">17.</strong> Guide: Islands</a></li><li class="chapter-item expanded "><a href="appendix_reactive_graph.html"><strong aria-hidden="true">18.</strong> Appendix: How Does the Reactive System Work?</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title"></h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/">
+<link rel="canonical" href="https://book.leptos.dev/">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/getting_started/index.html">
+<link rel="canonical" href="https://book.leptos.dev/getting_started/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/getting_started/leptos_dx.html">
+<link rel="canonical" href="https://book.leptos.dev/getting_started/leptos_dx.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/getting_started/community_crates.html">
+<link rel="canonical" href="https://book.leptos.dev/getting_started/community_crates.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/index.html">
+<link rel="canonical" href="https://book.leptos.dev/view/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/01_basic_component.html">
+<link rel="canonical" href="https://book.leptos.dev/view/01_basic_component.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/02_dynamic_attributes.html">
+<link rel="canonical" href="https://book.leptos.dev/view/02_dynamic_attributes.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/03_components.html">
+<link rel="canonical" href="https://book.leptos.dev/view/03_components.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/04_iteration.html">
+<link rel="canonical" href="https://book.leptos.dev/view/04_iteration.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/04b_iteration.html">
+<link rel="canonical" href="https://book.leptos.dev/view/04b_iteration.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/05_forms.html">
+<link rel="canonical" href="https://book.leptos.dev/view/05_forms.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/06_control_flow.html">
+<link rel="canonical" href="https://book.leptos.dev/view/06_control_flow.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/07_errors.html">
+<link rel="canonical" href="https://book.leptos.dev/view/07_errors.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/08_parent_child.html">
+<link rel="canonical" href="https://book.leptos.dev/view/08_parent_child.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/09_component_children.html">
+<link rel="canonical" href="https://book.leptos.dev/view/09_component_children.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/builder.html">
+<link rel="canonical" href="https://book.leptos.dev/view/builder.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/reactivity/index.html">
+<link rel="canonical" href="https://book.leptos.dev/reactivity/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/reactivity/working_with_signals.html">
+<link rel="canonical" href="https://book.leptos.dev/reactivity/working_with_signals.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/reactivity/14_create_effect.html">
+<link rel="canonical" href="https://book.leptos.dev/reactivity/14_create_effect.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/reactivity/interlude_functions.html">
+<link rel="canonical" href="https://book.leptos.dev/reactivity/interlude_functions.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/testing.html">
+<link rel="canonical" href="https://book.leptos.dev/testing.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/async/index.html">
+<link rel="canonical" href="https://book.leptos.dev/async/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/async/10_resources.html">
+<link rel="canonical" href="https://book.leptos.dev/async/10_resources.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/async/11_suspense.html">
+<link rel="canonical" href="https://book.leptos.dev/async/11_suspense.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/async/12_transition.html">
+<link rel="canonical" href="https://book.leptos.dev/async/12_transition.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/async/13_action.html">
+<link rel="canonical" href="https://book.leptos.dev/async/13_action.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/interlude_projecting_children.html">
+<link rel="canonical" href="https://book.leptos.dev/interlude_projecting_children.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/15_global_state.html">
+<link rel="canonical" href="https://book.leptos.dev/15_global_state.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/index.html">
+<link rel="canonical" href="https://book.leptos.dev/router/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/16_routes.html">
+<link rel="canonical" href="https://book.leptos.dev/router/16_routes.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/17_nested_routing.html">
+<link rel="canonical" href="https://book.leptos.dev/router/17_nested_routing.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/18_params_and_queries.html">
+<link rel="canonical" href="https://book.leptos.dev/router/18_params_and_queries.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/19_a.html">
+<link rel="canonical" href="https://book.leptos.dev/router/19_a.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/router/20_form.html">
+<link rel="canonical" href="https://book.leptos.dev/router/20_form.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/interlude_styling.html">
+<link rel="canonical" href="https://book.leptos.dev/interlude_styling.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/metadata.html">
+<link rel="canonical" href="https://book.leptos.dev/metadata.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/csr_wrapping_up.html">
+<link rel="canonical" href="https://book.leptos.dev/csr_wrapping_up.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/ssr/index.html">
+<link rel="canonical" href="https://book.leptos.dev/ssr/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/ssr/21_cargo_leptos.html">
+<link rel="canonical" href="https://book.leptos.dev/ssr/21_cargo_leptos.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/ssr/22_life_cycle.html">
+<link rel="canonical" href="https://book.leptos.dev/ssr/22_life_cycle.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/ssr/23_ssr_modes.html">
+<link rel="canonical" href="https://book.leptos.dev/ssr/23_ssr_modes.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/ssr/24_hydration_bugs.html">
+<link rel="canonical" href="https://book.leptos.dev/ssr/24_hydration_bugs.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/server/index.html">
+<link rel="canonical" href="https://book.leptos.dev/server/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/server/25_server_functions.html">
+<link rel="canonical" href="https://book.leptos.dev/server/25_server_functions.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/server/26_extractors.html">
+<link rel="canonical" href="https://book.leptos.dev/server/26_extractors.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/server/27_response.html">
+<link rel="canonical" href="https://book.leptos.dev/server/27_response.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/progressive_enhancement/index.html">
+<link rel="canonical" href="https://book.leptos.dev/progressive_enhancement/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/progressive_enhancement/action_form.html">
+<link rel="canonical" href="https://book.leptos.dev/progressive_enhancement/action_form.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/deployment/index.html">
+<link rel="canonical" href="https://book.leptos.dev/deployment/index.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/deployment/binary_size.html">
+<link rel="canonical" href="https://book.leptos.dev/deployment/binary_size.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/islands.html">
+<link rel="canonical" href="https://book.leptos.dev/islands.html">
+<div style="break-before: page; page-break-before: always;"></div><meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/appendix_reactive_graph.html">
+<link rel="canonical" href="https://book.leptos.dev/appendix_reactive_graph.html">
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>

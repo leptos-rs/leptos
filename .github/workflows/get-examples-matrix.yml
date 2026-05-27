@@ -1,0 +1,36 @@
+name: Get Examples Matrix Call
+on:
+  workflow_call:
+    outputs:
+      matrix:
+        description: "Matrix"
+        value: ${{ jobs.create.outputs.matrix }}
+jobs:
+  create:
+    name: Create Examples Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    env:
+      # separate examples using "|" (vertical bar) char like "a|b|c".
+      # cargo-make should be excluded by default.
+      EXCLUDED_EXAMPLES: cargo-make
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install jq
+        run: sudo apt-get install jq
+      - name: Set Matrix
+        id: set-matrix
+        run: |
+          examples=$(ls -1d examples/*/ |
+          grep -vE "($EXCLUDED_EXAMPLES)" |
+          sed 's/\/$//' |
+          jq -R -s -c 'split("\n")[:-1]')
+          echo "Example Directories: $examples"
+          echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u

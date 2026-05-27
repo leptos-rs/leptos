@@ -1,0 +1,17 @@
+target
+dist
+pkg
+comparisons
+blob.rs
+**/projects/**/Cargo.lock
+**/examples/**/Cargo.lock
+**/benchmarks/**/Cargo.lock
+**/*.rs.bk
+.DS_Store
+.idea
+.direnv
+.envrc
+
+.vscode
+vendor
+hash.txt

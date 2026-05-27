@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  # Grouping all dependencies in one PR weekly
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "all"
+    groups:
+      rust-dependencies:
+        patterns:
+          - "*"
