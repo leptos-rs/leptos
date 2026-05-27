@@ -70,21 +70,13 @@ jobs:
           attempt_limit: 3
           attempt_delay: 15000
       - name: Setup Rust
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: dtolnay/rust-toolchain@master
         with:
-          action: dtolnay/rust-toolchain@master
-          with: |
-            toolchain: ${{ matrix.toolchain }}
-            targets: wasm32-unknown-unknown
-            components: clippy,rustfmt
-          attempt_limit: 3
-          attempt_delay: 15000
+          toolchain: ${{ matrix.toolchain }}
+          targets: wasm32-unknown-unknown
+          components: clippy,rustfmt
       - name: Install binstall
-        uses: Wandalen/wretry.action@v3.8.0
-        with:
-          action: cargo-bins/cargo-binstall@main
-          attempt_limit: 3
-          attempt_delay: 15000
+        uses: cargo-bins/cargo-binstall@main
       - name: Install wasm-bindgen
         uses: nick-fields/retry@v4
         with:
@@ -123,19 +115,11 @@ jobs:
       # Part of direct-minimal-versions check
       - name: Install cargo-hack
         if: contains(matrix.toolchain, 'nightly')
-        uses: Wandalen/wretry.action@v3.8.0
-        with:
-          action: taiki-e/install-action@cargo-hack
-          attempt_limit: 3
-          attempt_delay: 15000
+        uses: taiki-e/install-action@cargo-hack
       # Part of direct-minimal-versions check
       - name: Install cargo-minimal-versions
         if: contains(matrix.toolchain, 'nightly')
-        uses: Wandalen/wretry.action@v3.8.0
-        with:
-          action: taiki-e/install-action@cargo-minimal-versions
-          attempt_limit: 3
-          attempt_delay: 15000
+        uses: taiki-e/install-action@cargo-minimal-versions
       - name: Install Trunk
         if: contains(inputs.directory, 'examples')
         uses: nick-fields/retry@v4
