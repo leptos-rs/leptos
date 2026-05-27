@@ -5,7 +5,10 @@ use crate::{
     owner::{ArcStoredValue, ArenaItem, Owner},
     send_wrapper_ext::SendOption,
     signal::{ArcMappedSignal, ArcRwSignal, MappedSignal, RwSignal},
-    traits::{DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, Write},
+    traits::{
+        DefinedAt, Dispose, Get, GetUntracked, GetValue, Update, UpdateValue,
+        Write,
+    },
     unwrap_signal,
 };
 use any_spawner::Executor;
@@ -266,6 +269,9 @@ where
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
+            // Bump the dispatch counter and snapshot it for this dispatch, so a
+            // later dispatch (higher counter) can tell this one it is stale.
+            self.dispatched.update_value(|n| *n += 1);
             let current_version = self.dispatched.get_value();
             self.input.try_update(|inp| **inp = Some(input));
 
@@ -285,7 +291,7 @@ where
                         // otherwise, update the value
                         result = fut => {
                             in_flight.update(|n| *n = n.saturating_sub(1));
-                            let is_latest = dispatched.get_value() <= current_version;
+                            let is_latest = dispatched.get_value() == current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
                                 value.update(|n| **n = Some(result));
@@ -318,6 +324,9 @@ where
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
+            // Bump the dispatch counter and snapshot it for this dispatch, so a
+            // later dispatch (higher counter) can tell this one it is stale.
+            self.dispatched.update_value(|n| *n += 1);
             let current_version = self.dispatched.get_value();
             self.input.try_update(|inp| **inp = Some(input));
 
@@ -337,7 +346,7 @@ where
                         // otherwise, update the value
                         result = fut => {
                             in_flight.update(|n| *n = n.saturating_sub(1));
-                            let is_latest = dispatched.get_value() <= current_version;
+                            let is_latest = dispatched.get_value() == current_version;
                             if is_latest {
                                 version.update(|n| *n += 1);
                                 value.update(|n| **n = Some(result));
