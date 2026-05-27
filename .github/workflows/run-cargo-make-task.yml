@@ -64,11 +64,7 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install -y libglib2.0-dev
-      - uses: Wandalen/wretry.action@v3.8.0
-        with:
-          action: actions/checkout@v6
-          attempt_limit: 3
-          attempt_delay: 15000
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -138,24 +134,16 @@ jobs:
           command: trunk --version
       - name: Install Node.js
         if: contains(inputs.directory, 'examples')
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: actions/setup-node@v6
         with:
-          action: actions/setup-node@v6
-          with: |
-            node-version: 20
-          attempt_limit: 3
-          attempt_delay: 15000
+          node-version: 20
       - name: Install pnpm
         if: contains(inputs.directory, 'examples')
         id: pnpm-install
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: pnpm/action-setup@v6
         with:
-          action: pnpm/action-setup@v6
-          with: |
-            version: 8
-            run_install: false
-          attempt_limit: 3
-          attempt_delay: 15000
+          version: 8
+          run_install: false
       - name: Get pnpm store directory
         if: contains(inputs.directory, 'examples')
         id: pnpm-cache
@@ -166,9 +154,6 @@ jobs:
           retry_wait_seconds: 15
           command: |
             echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      # NOTE: actions/cache is intentionally NOT wrapped in a retry action.
-      # wretry.action cannot run a wrapped action's `post` step, which is where
-      # actions/cache saves the cache - wrapping it would silently disable caching.
       - uses: actions/cache@v5
         if: contains(inputs.directory, 'examples')
         name: Setup pnpm cache
@@ -219,13 +204,9 @@ jobs:
             done
       - name: Install Deno
         if: contains(inputs.directory, 'examples')
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: denoland/setup-deno@v2
         with:
-          action: denoland/setup-deno@v2
-          with: |
-            deno-version: v1.x
-          attempt_limit: 3
-          attempt_delay: 15000
+          deno-version: v1.x
       - name: Maybe install gtk-rs dependencies
         if: contains(inputs.directory, 'gtk')
         uses: nick-fields/retry@v4
