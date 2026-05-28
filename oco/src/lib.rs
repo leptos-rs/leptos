@@ -627,24 +627,91 @@ impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, Cow<'b
 impl<'b> Add<&'b str> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
     fn add(self, rhs: &'b str) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs)
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            _ => Oco::Owned(String::from(self) + rhs),
+        }
     }
 }
 
 impl<'b> Add<Cow<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
+    /// - `self` empty and `rhs` is [`Cow::Owned`] → returns `rhs`'s
+    ///   `String` wrapped in [`Oco::Owned`].
     fn add(self, rhs: Cow<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            (true, false) => match rhs {
+                Cow::Owned(r) => Oco::Owned(r),
+                Cow::Borrowed(r) => Oco::Owned(r.to_string()),
+            },
+            (false, false) => Oco::Owned(String::from(self) + rhs.as_ref()),
+        }
     }
 }
 
 impl<'b> Add<Oco<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
+    /// - `self` empty and `rhs` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `rhs` unchanged.
     fn add(self, rhs: Oco<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            (true, false) => match rhs {
+                Oco::Counted(r) => Oco::Counted(r),
+                Oco::Owned(r) => Oco::Owned(r),
+                Oco::Borrowed(r) => Oco::Owned(r.to_string()),
+            },
+            (false, false) => Oco::Owned(String::from(self) + rhs.as_ref()),
+        }
     }
 }
 
@@ -730,6 +797,80 @@ mod tests {
         assert_eq!(s.clone() + " world", "hello world");
         assert_eq!(s.clone() + Cow::from(" world"), "hello world");
         assert_eq!(s + Oco::from(" world"), "hello world");
+    }
+
+    #[test]
+    fn add_two_empty_should_return_borrowed_empty_without_allocating() {
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + "";
+        assert!(result.is_borrowed());
+        assert_eq!(result, "");
+
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Cow::Borrowed("");
+        assert!(result.is_borrowed());
+
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Oco::<str>::Borrowed("");
+        assert!(result.is_borrowed());
+    }
+
+    #[test]
+    fn add_empty_rhs_to_counted_should_preserve_arc() {
+        let arc: Arc<str> = Arc::from("hello");
+        let s: Oco<str> = Oco::Counted(Arc::clone(&arc));
+        let result = s + "";
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+
+        let s: Oco<str> = Oco::Counted(Arc::clone(&arc));
+        let result = s + Oco::<str>::Borrowed("");
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_rhs_to_owned_should_preserve_buffer() {
+        let s: Oco<str> = Oco::Owned("hello".to_string());
+        let ptr = s.as_str().as_ptr();
+        let result = s + "";
+        match result {
+            Oco::Owned(string) => {
+                assert_eq!(string.as_str().as_ptr(), ptr);
+                assert_eq!(string, "hello");
+            }
+            other => panic!("expected Owned, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_self_to_counted_oco_should_preserve_arc() {
+        let arc: Arc<str> = Arc::from("world");
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Oco::Counted(Arc::clone(&arc));
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_self_to_owned_cow_should_preserve_buffer() {
+        let owned = String::from("world");
+        let ptr = owned.as_str().as_ptr();
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Cow::Owned(owned);
+        match result {
+            Oco::Owned(string) => {
+                assert_eq!(string.as_str().as_ptr(), ptr);
+                assert_eq!(string, "world");
+            }
+            other => panic!("expected Owned, got {other:?}"),
+        }
     }
 
     #[test]
