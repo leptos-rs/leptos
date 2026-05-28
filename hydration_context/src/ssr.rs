@@ -23,7 +23,6 @@ type AsyncDataBuf = Arc<RwLock<Vec<(SerializedDataId, PinnedFuture<String>)>>>;
 type ErrorBuf = Arc<RwLock<Vec<(SerializedDataId, ErrorId, Error)>>>;
 type SealedErrors = Arc<RwLock<HashSet<SerializedDataId>>>;
 
-#[derive(Default)]
 /// The shared context that should be used on the server side.
 pub struct SsrSharedContext {
     id: AtomicUsize,
@@ -37,13 +36,25 @@ pub struct SsrSharedContext {
     incomplete: Arc<Mutex<Vec<SerializedDataId>>>,
 }
 
+impl Default for SsrSharedContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SsrSharedContext {
     /// Creates a new shared context for rendering HTML on the server.
     pub fn new() -> Self {
         Self {
-            is_hydrating: AtomicBool::new(true),
+            id: AtomicUsize::new(0),
             non_hydration_id: AtomicUsize::new(usize::MAX),
-            ..Default::default()
+            is_hydrating: AtomicBool::new(true),
+            sync_buf: RwLock::default(),
+            async_buf: AsyncDataBuf::default(),
+            errors: ErrorBuf::default(),
+            sealed_error_boundaries: SealedErrors::default(),
+            deferred: Mutex::default(),
+            incomplete: Arc::default(),
         }
     }
 
@@ -54,8 +65,7 @@ impl SsrSharedContext {
     pub fn new_islands() -> Self {
         Self {
             is_hydrating: AtomicBool::new(false),
-            non_hydration_id: AtomicUsize::new(usize::MAX),
-            ..Default::default()
+            ..Self::new()
         }
     }
 
@@ -393,6 +403,40 @@ mod tests {
              double backslash would be decoded to a literal `\\u003c` and \
              shown raw to the user), got: {initial}"
         );
+    }
+
+    /// `SsrSharedContext::default()` must behave identically to
+    /// `SsrSharedContext::new()`. In particular, `is_hydrating` must be
+    /// `true` and `non_hydration_id` must start at `usize::MAX`, so the
+    /// hydrating counter (starting at 0) and the non-hydrating counter
+    /// (decrementing from `usize::MAX`) cannot collide for either path.
+    #[test]
+    fn default_matches_new_for_id_minting() {
+        let new_ctx = SsrSharedContext::new();
+        let default_ctx = SsrSharedContext::default();
+
+        // both must be in hydrating mode out of the box
+        assert!(new_ctx.get_is_hydrating());
+        assert!(default_ctx.get_is_hydrating());
+
+        // hydrating IDs start at 0 and increment
+        assert_eq!(default_ctx.next_id(), SerializedDataId(0));
+        assert_eq!(default_ctx.next_id(), SerializedDataId(1));
+
+        // non-hydrating IDs decrement from usize::MAX, NOT from 0
+        default_ctx.set_is_hydrating(false);
+        let first_non = default_ctx.next_id();
+        let second_non = default_ctx.next_id();
+        assert_eq!(first_non, SerializedDataId(usize::MAX));
+        assert_eq!(second_non, SerializedDataId(usize::MAX - 1));
+
+        // and a hydrating id minted later must not collide with the
+        // non-hydrating ones above
+        default_ctx.set_is_hydrating(true);
+        let next_hyd = default_ctx.next_id();
+        assert_eq!(next_hyd, SerializedDataId(2));
+        assert_ne!(next_hyd, first_non);
+        assert_ne!(next_hyd, second_non);
     }
 
     /// A future being polled by `AsyncDataStream::poll_next` must be able
