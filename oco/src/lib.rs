@@ -330,13 +330,53 @@ where
     }
 }
 
-impl<T: ?Sized> Default for Oco<'_, T>
-where
-    T: ToOwned,
-    T::Owned: Default,
-{
+// `Default` is specialised per unsized target so that the empty value
+// can be served from `'static` borrow without allocation. The blanket
+// `impl<T: ToOwned> Default for Oco<'_, T>` was removed because it
+// returned `Oco::Owned(T::Owned::default())` and forced an `O(n)`
+// upgrade on the first `.clone()` even though every empty value has
+// a `&'static` representation.
+
+impl Default for Oco<'_, str> {
+    /// Returns an empty [`Oco::Borrowed`] string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
     fn default() -> Self {
-        Oco::Owned(T::Owned::default())
+        Oco::Borrowed("")
+    }
+}
+
+impl<T> Default for Oco<'_, [T]>
+where
+    [T]: ToOwned,
+{
+    /// Returns an empty [`Oco::Borrowed`] slice with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(&[])
+    }
+}
+
+impl Default for Oco<'_, CStr> {
+    /// Returns an empty [`Oco::Borrowed`] C string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(c"")
+    }
+}
+
+impl Default for Oco<'_, OsStr> {
+    /// Returns an empty [`Oco::Borrowed`] OS string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(OsStr::new(""))
+    }
+}
+
+impl Default for Oco<'_, Path> {
+    /// Returns an empty [`Oco::Borrowed`] path with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(Path::new(""))
     }
 }
 
@@ -709,21 +749,44 @@ mod tests {
     }
 
     #[test]
-    fn default_for_str_should_return_an_empty_string() {
+    fn default_for_str_should_return_an_empty_borrowed_string() {
         let s: Oco<str> = Default::default();
         assert!(s.is_empty());
+        assert!(
+            s.is_borrowed(),
+            "default Oco<str> should be Borrowed for zero-alloc cheap clones"
+        );
     }
 
     #[test]
-    fn default_for_slice_should_return_an_empty_slice() {
+    fn default_for_slice_should_return_an_empty_borrowed_slice() {
         let s: Oco<[i32]> = Default::default();
         assert!(s.is_empty());
+        assert!(
+            s.is_borrowed(),
+            "default Oco<[T]> should be Borrowed for zero-alloc cheap clones"
+        );
     }
 
     #[test]
-    fn default_for_any_option_should_return_none() {
-        let s: Oco<Option<i32>> = Default::default();
-        assert!(s.is_none());
+    fn default_for_c_str_should_return_an_empty_borrowed_c_str() {
+        let s: Oco<CStr> = Default::default();
+        assert!(s.to_bytes().is_empty());
+        assert!(s.is_borrowed());
+    }
+
+    #[test]
+    fn default_for_os_str_should_return_an_empty_borrowed_os_str() {
+        let s: Oco<OsStr> = Default::default();
+        assert!(s.is_empty());
+        assert!(s.is_borrowed());
+    }
+
+    #[test]
+    fn default_for_path_should_return_an_empty_borrowed_path() {
+        let s: Oco<Path> = Default::default();
+        assert_eq!(s.as_os_str(), "");
+        assert!(s.is_borrowed());
     }
 
     #[test]
