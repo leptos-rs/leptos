@@ -890,4 +890,30 @@ mod tests {
         assert!(s.is_counted());
         assert_eq!(s.as_slice(), &[1, 2, 3]);
     }
+
+    #[test]
+    fn serde_round_trip_lands_on_counted_for_every_input_variant() {
+        // All three input variants serialise to the same on-wire form,
+        // and deserialisation lands on `Counted`. After a round trip the
+        // observed variant is therefore stable: code branching on
+        // `is_counted()` keeps working regardless of which variant the
+        // value started in.
+        for input in [
+            Oco::<str>::Borrowed("hello"),
+            Oco::<str>::Owned("hello".to_string()),
+            Oco::<str>::Counted(Arc::from("hello")),
+        ] {
+            let wire =
+                serde_json::to_string(&input).expect("serialize should work");
+            assert_eq!(wire, "\"hello\"");
+
+            let out: Oco<'static, str> =
+                serde_json::from_str(&wire).expect("deserialize should work");
+            assert_eq!(out, input);
+            assert!(
+                out.is_counted(),
+                "round-trip should always land on Counted"
+            );
+        }
+    }
 }
