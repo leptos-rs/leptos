@@ -180,6 +180,16 @@ impl SharedContext for SsrSharedContext {
         let sync_data = mem::take(&mut *self.sync_buf.write().or_poisoned());
         let async_data = self.async_buf.read().or_poisoned();
 
+        // snapshot incomplete-chunk markers known at this moment. Declaring
+        // the array up front lets client-side `get_incomplete_chunk` probes
+        // that fire during streaming see a defined (possibly empty) array
+        // rather than `undefined`. Later `set_incomplete_chunk` calls are
+        // streamed as `__INCOMPLETE_CHUNKS.push(id);` from
+        // `AsyncDataStream::poll_next`.
+        let initial_incomplete: Vec<SerializedDataId> =
+            self.incomplete.lock().or_poisoned().clone();
+        let initial_incomplete_count = initial_incomplete.len();
+
         // 1) initial, synchronous setup chunk
         let mut initial_chunk = String::new();
         // resolved synchronous resources and errors
@@ -211,13 +221,29 @@ impl SharedContext for SsrSharedContext {
         }
         initial_chunk.push_str("];");
 
+        // incomplete-chunk markers known at snapshot time. Before this
+        // change, `__INCOMPLETE_CHUNKS` was only written by the tail chunk
+        // *after every async resource had resolved* — so any hydration
+        // probe before that point saw `undefined` and treated
+        // fallback-state chunks as complete.
+        initial_chunk.push_str("__INCOMPLETE_CHUNKS=[");
+        for id in &initial_incomplete {
+            _ = write!(&mut initial_chunk, "{},", id.0);
+        }
+        initial_chunk.push_str("];");
+
         // resolvers
         initial_chunk.push_str("__RESOURCE_RESOLVERS=[];");
+
+        let incomplete_emitted =
+            Arc::new(AtomicUsize::new(initial_incomplete_count));
 
         let async_data = AsyncDataStream {
             async_buf: Arc::clone(&self.async_buf),
             errors: Arc::clone(&self.errors),
             sealed_error_boundaries: Arc::clone(&self.sealed_error_boundaries),
+            incomplete: Arc::clone(&self.incomplete),
+            incomplete_emitted: Arc::clone(&incomplete_emitted),
         };
 
         let incomplete = Arc::clone(&self.incomplete);
@@ -225,12 +251,21 @@ impl SharedContext for SsrSharedContext {
         let stream = stream::once(async move { initial_chunk })
             .chain(async_data)
             .chain(once(async move {
+                // final flush: emit pushes for any markers that landed after
+                // `AsyncDataStream` finished. The internal `incomplete` Vec
+                // is the source of truth for server-side `get_incomplete_chunk`
+                // queries; we read past the cursor instead of draining so
+                // those queries continue to work.
+                let lock = incomplete.lock().or_poisoned();
+                let from = incomplete_emitted.load(Ordering::Relaxed);
                 let mut script = String::new();
-                script.push_str("__INCOMPLETE_CHUNKS=[");
-                for chunk in mem::take(&mut *incomplete.lock().or_poisoned()) {
-                    _ = write!(script, "{},", chunk.0);
+                for entry in lock.iter().skip(from) {
+                    _ = write!(
+                        script,
+                        "__INCOMPLETE_CHUNKS.push({});",
+                        entry.0
+                    );
                 }
-                script.push_str("];");
                 script
             }));
         Some(Box::pin(stream))
@@ -274,6 +309,12 @@ struct AsyncDataStream {
     async_buf: AsyncDataBuf,
     errors: ErrorBuf,
     sealed_error_boundaries: SealedErrors,
+    incomplete: Arc<Mutex<Vec<SerializedDataId>>>,
+    /// Number of entries from `incomplete` that have already been emitted
+    /// as `__INCOMPLETE_CHUNKS.push(...)` statements (or as the initial
+    /// `__INCOMPLETE_CHUNKS=[...]` literal). The final tail closure picks
+    /// up wherever the stream left off.
+    incomplete_emitted: Arc<AtomicUsize>,
 }
 
 impl Stream for AsyncDataStream {
@@ -315,6 +356,19 @@ impl Stream for AsyncDataStream {
             async_buf.extend(still_pending);
             async_buf.is_empty()
         };
+
+        // Emit pushes for any incomplete-chunk markers added since the
+        // last poll (or set by a future we just polled, e.g. a Suspense
+        // boundary that flipped into the fallback state via
+        // `SsrSharedContext::set_incomplete_chunk`).
+        {
+            let lock = self.incomplete.lock().or_poisoned();
+            let from = self.incomplete_emitted.load(Ordering::Relaxed);
+            for entry in lock.iter().skip(from) {
+                _ = write!(resolved, "__INCOMPLETE_CHUNKS.push({});", entry.0);
+            }
+            self.incomplete_emitted.store(lock.len(), Ordering::Relaxed);
+        }
 
         let sealed = self.sealed_error_boundaries.read().or_poisoned();
         for error in mem::take(&mut *self.errors.write().or_poisoned()) {
@@ -528,6 +582,86 @@ mod tests {
         assert!(
             saw_error,
             "expected at least one streamed __SERIALIZED_ERRORS.push chunk"
+        );
+    }
+
+    /// `__INCOMPLETE_CHUNKS` must be declared in the initial chunk so that
+    /// client-side `get_incomplete_chunk` probes that fire while the stream
+    /// is still being delivered see a defined array. Markers that arrive
+    /// later (via `set_incomplete_chunk` from inside a Suspense future)
+    /// must be streamed as `__INCOMPLETE_CHUNKS.push(id);` *during*
+    /// `AsyncDataStream::poll_next`, not only in the final tail chunk.
+    #[test]
+    fn incomplete_chunks_array_is_declared_early_and_pushed_live() {
+        let ctx = Arc::new(SsrSharedContext::new());
+
+        // Suspense-shaped future: while being polled, it marks chunk 42 as
+        // incomplete and then resolves with some data. Mirrors what happens
+        // when a <Suspense> boundary detects local resources mid-resolution
+        // and calls `sc.set_incomplete_chunk(self.id)`.
+        let ctx_for_fut = Arc::clone(&ctx);
+        ctx.write_async(
+            SerializedDataId(1),
+            Box::pin(async move {
+                ctx_for_fut.set_incomplete_chunk(SerializedDataId(42));
+                String::from("\"ok\"")
+            }),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+
+        let initial = block_on(stream.next()).expect("initial chunk");
+        assert!(
+            initial.contains("__INCOMPLETE_CHUNKS=[];"),
+            "initial chunk must declare an empty __INCOMPLETE_CHUNKS array up \
+             front, got: {initial}"
+        );
+
+        // Collect everything else; the push must appear *somewhere* in the
+        // stream — not exclusively in the final tail chunk.
+        let mut rest = String::new();
+        let mut chunks_after_initial = 0;
+        while let Some(c) = block_on(stream.next()) {
+            chunks_after_initial += 1;
+            rest.push_str(&c);
+        }
+
+        assert!(
+            rest.contains("__INCOMPLETE_CHUNKS.push(42);"),
+            "expected a live __INCOMPLETE_CHUNKS.push(42) during streaming, \
+             got: {rest}"
+        );
+        assert!(
+            chunks_after_initial >= 1,
+            "expected at least one streamed chunk after the initial one"
+        );
+    }
+
+    /// A marker emitted from inside an async resource must be flushed in
+    /// the same chunk as the resource that produced it, so a slow client
+    /// that hasn't seen the tail yet still observes both together.
+    #[test]
+    fn incomplete_chunk_push_flushes_with_resolving_future() {
+        let ctx = Arc::new(SsrSharedContext::new());
+
+        let ctx_for_fut = Arc::clone(&ctx);
+        ctx.write_async(
+            SerializedDataId(7),
+            Box::pin(async move {
+                ctx_for_fut.set_incomplete_chunk(SerializedDataId(7));
+                String::from("\"resolved\"")
+            }),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+        let _initial = block_on(stream.next()).expect("initial chunk");
+        let live = block_on(stream.next()).expect("live chunk");
+
+        let push_pos = live.find("__INCOMPLETE_CHUNKS.push(7);");
+        let resolve_pos = live.find("__RESOLVED_RESOURCES[7]");
+        assert!(
+            push_pos.is_some() && resolve_pos.is_some(),
+            "both push and resolve must appear in the live chunk: {live}"
         );
     }
 }
