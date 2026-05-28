@@ -274,14 +274,18 @@ impl Stream for AsyncDataStream {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let mut resolved = String::new();
-        let mut async_buf = self.async_buf.write().or_poisoned();
-        let data = mem::take(&mut *async_buf);
+
+        // Drain the buffer under a *short* critical section, then drop the
+        // lock before polling user futures. Holding the write lock across
+        // `fut.poll(cx)` would deadlock if any polled future transitively
+        // calls back into `SsrSharedContext::write_async` (which also takes
+        // a write lock on the same RwLock).
+        let data = mem::take(&mut *self.async_buf.write().or_poisoned());
+
+        let mut still_pending = Vec::with_capacity(data.len());
         for (id, mut fut) in data {
             match fut.as_mut().poll(cx) {
-                // if it's not ready, put it back into the queue
-                Poll::Pending => {
-                    async_buf.push((id, fut));
-                }
+                Poll::Pending => still_pending.push((id, fut)),
                 Poll::Ready(data) => {
                     let data = data.replace('<', "\\u003c");
                     _ = write!(
@@ -292,6 +296,16 @@ impl Stream for AsyncDataStream {
                 }
             }
         }
+
+        // Re-acquire the write lock briefly to push back unfinished futures.
+        // Any futures registered *during* the polling above are already in
+        // `async_buf`; appending the still-pending ones preserves them.
+        let buf_empty = {
+            let mut async_buf = self.async_buf.write().or_poisoned();
+            async_buf.extend(still_pending);
+            async_buf.is_empty()
+        };
+
         let sealed = self.sealed_error_boundaries.read().or_poisoned();
         for error in mem::take(&mut *self.errors.write().or_poisoned()) {
             if !sealed.contains(&error.0) {
@@ -307,7 +321,7 @@ impl Stream for AsyncDataStream {
             }
         }
 
-        if async_buf.is_empty() && resolved.is_empty() {
+        if buf_empty && resolved.is_empty() {
             return Poll::Ready(None);
         }
         if resolved.is_empty() {
@@ -378,6 +392,52 @@ mod tests {
             "expected a single-backslash `\\u003c` escape in place of `<` (a \
              double backslash would be decoded to a literal `\\u003c` and \
              shown raw to the user), got: {initial}"
+        );
+    }
+
+    /// A future being polled by `AsyncDataStream::poll_next` must be able
+    /// to call back into `SsrSharedContext::write_async` on the same
+    /// context without deadlocking — the poll loop must not hold the
+    /// `async_buf` write lock across the user-future poll.
+    #[test]
+    fn async_stream_does_not_deadlock_on_reentrant_write_async() {
+        let ctx = Arc::new(SsrSharedContext::new());
+
+        // A "parent" resource future that, on its first poll, registers a
+        // sibling resource on the same context. This mirrors what real
+        // Leptos code does when one resource creates another while running
+        // (nested Suspense, child resources spawned inside a parent, etc.).
+        let ctx_for_fut = Arc::clone(&ctx);
+        ctx.write_async(
+            SerializedDataId(0),
+            Box::pin(async move {
+                ctx_for_fut.write_async(
+                    SerializedDataId(1),
+                    Box::pin(async { String::from("\"child\"") }),
+                );
+                String::from("\"parent\"")
+            }),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+
+        // Without the fix, on most platforms this `next().await` would
+        // deadlock (the inner write_async re-acquires a write lock the
+        // poll loop is already holding). With the fix it must complete.
+        let mut chunks = Vec::new();
+        while let Some(c) = block_on(stream.next()) {
+            chunks.push(c);
+        }
+
+        let joined = chunks.join("");
+        assert!(
+            joined.contains("__RESOLVED_RESOURCES[0]"),
+            "parent resource must resolve: {joined}"
+        );
+        assert!(
+            joined.contains("__RESOLVED_RESOURCES[1]"),
+            "child resource registered re-entrantly must also resolve: \
+             {joined}"
         );
     }
 
