@@ -36,11 +36,11 @@
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     borrow::{Borrow, Cow},
-    ffi::{CStr, OsStr},
+    ffi::{CStr, CString, OsStr, OsString},
     fmt,
     hash::Hash,
     ops::{Add, Deref},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -443,12 +443,44 @@ where
     }
 }
 
-impl<T: ?Sized> From<Box<T>> for Oco<'_, T>
+// `From<Box<T>>` is provided for the standard unsized targets (`str`,
+// `[T]`, `CStr`, `OsStr`, `Path`) and always materialises into
+// [`Oco::Owned`], matching [`From<String>`] and [`From<Vec<T>>`]. Each
+// conversion reuses the boxed allocation as the corresponding owned
+// value (zero extra payload copy) and lets the user opt into
+// reference-counting explicitly via [`Oco::clone_inplace`] when
+// sharing is desired.
+
+impl From<Box<str>> for Oco<'_, str> {
+    fn from(v: Box<str>) -> Self {
+        Oco::Owned(String::from(v))
+    }
+}
+
+impl<T> From<Box<[T]>> for Oco<'_, [T]>
 where
-    T: ToOwned,
+    [T]: ToOwned<Owned = Vec<T>>,
 {
-    fn from(v: Box<T>) -> Self {
-        Oco::Counted(v.into())
+    fn from(v: Box<[T]>) -> Self {
+        Oco::Owned(Vec::from(v))
+    }
+}
+
+impl From<Box<CStr>> for Oco<'_, CStr> {
+    fn from(v: Box<CStr>) -> Self {
+        Oco::Owned(CString::from(v))
+    }
+}
+
+impl From<Box<OsStr>> for Oco<'_, OsStr> {
+    fn from(v: Box<OsStr>) -> Self {
+        Oco::Owned(OsString::from(v))
+    }
+}
+
+impl From<Box<Path>> for Oco<'_, Path> {
+    fn from(v: Box<Path>) -> Self {
+        Oco::Owned(PathBuf::from(v))
     }
 }
 
@@ -760,6 +792,32 @@ mod tests {
         let s2 = s.clone();
         assert!(s2.is_counted());
         assert!(s.is_counted());
+    }
+
+    #[test]
+    fn from_box_str_should_produce_owned_consistent_with_string() {
+        let boxed: Box<str> = "hello".into();
+        let o1: Oco<'_, str> = boxed.into();
+        assert!(o1.is_owned());
+
+        let owned: String = "hello".to_owned();
+        let o2: Oco<'_, str> = owned.into();
+        assert!(o2.is_owned());
+
+        assert_eq!(o1, o2);
+    }
+
+    #[test]
+    fn from_box_slice_should_produce_owned_consistent_with_vec() {
+        let boxed: Box<[i32]> = vec![1, 2, 3].into_boxed_slice();
+        let o1: Oco<'_, [i32]> = boxed.into();
+        assert!(o1.is_owned());
+
+        let v: Vec<i32> = vec![1, 2, 3];
+        let o2: Oco<'_, [i32]> = v.into();
+        assert!(o2.is_owned());
+
+        assert_eq!(o1, o2);
     }
 
     #[test]
