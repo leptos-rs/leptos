@@ -588,12 +588,19 @@ impl<'a, T> Deserialize<'a> for Oco<'static, T>
 where
     T: ?Sized + ToOwned + 'a,
     T::Owned: DeserializeOwned,
+    Arc<T>: From<T::Owned>,
 {
+    /// Deserializes into the [`Oco::Counted`] variant so that the first
+    /// `.clone()` after deserialization is `O(1)` rather than `O(n)`. The
+    /// owned value produced by the deserializer is moved straight into an
+    /// `Arc<T>` (zero extra copy of the payload for `str`, `[T]`, and any
+    /// sized `T` that satisfies `Arc<T>: From<T::Owned>`).
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'a>,
     {
-        <T::Owned>::deserialize(deserializer).map(Oco::Owned)
+        <T::Owned>::deserialize(deserializer)
+            .map(|v| Oco::Counted(Arc::from(v)))
     }
 }
 
@@ -739,5 +746,26 @@ mod tests {
         let s: Oco<str> = serde_json::from_str("\"bar\"")
             .expect("should deserialize from string");
         assert_eq!(s, Oco::from(String::from("bar")));
+    }
+
+    #[test]
+    fn deserialization_produces_counted_variant() {
+        let s: Oco<str> = serde_json::from_str("\"hello\"")
+            .expect("should deserialize from string");
+        assert!(
+            s.is_counted(),
+            "deserialized Oco should be Counted so first clone is O(1)"
+        );
+        let s2 = s.clone();
+        assert!(s2.is_counted());
+        assert!(s.is_counted());
+    }
+
+    #[test]
+    fn deserialization_produces_counted_variant_for_slice() {
+        let s: Oco<[i32]> = serde_json::from_str("[1,2,3]")
+            .expect("should deserialize from slice");
+        assert!(s.is_counted());
+        assert_eq!(s.as_slice(), &[1, 2, 3]);
     }
 }
