@@ -178,7 +178,23 @@ impl SharedContext for SsrSharedContext {
 
     fn pending_data(&self) -> Option<PinnedStream<String>> {
         let sync_data = mem::take(&mut *self.sync_buf.write().or_poisoned());
-        let async_data = self.async_buf.read().or_poisoned();
+
+        // snapshot the set of async resource ids known at this moment.
+        // The client receives this exact set as the initial
+        // `__PENDING_RESOURCES=[...]` literal. Any resource registered
+        // *after* this snapshot (e.g. a nested Suspense / child server
+        // fn that calls `write_async` from inside a parent resource's
+        // future) is announced later as `__PENDING_RESOURCES.push(id);`
+        // before its `__RESOLVED_RESOURCES[id] = ...` write, so the
+        // client always sees the id in `__PENDING_RESOURCES` before the
+        // matching resolution.
+        let initial_pending_ids: HashSet<SerializedDataId> = self
+            .async_buf
+            .read()
+            .or_poisoned()
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect();
 
         // snapshot incomplete-chunk markers known at this moment. Declaring
         // the array up front lets client-side `get_incomplete_chunk` probes
@@ -214,9 +230,9 @@ impl SharedContext for SsrSharedContext {
         }
         initial_chunk.push_str("];");
 
-        // pending async resources
+        // pending async resources known at snapshot time
         initial_chunk.push_str("__PENDING_RESOURCES=[");
-        for (id, _) in async_data.iter() {
+        for id in &initial_pending_ids {
             _ = write!(&mut initial_chunk, "{},", id.0);
         }
         initial_chunk.push_str("];");
@@ -244,6 +260,7 @@ impl SharedContext for SsrSharedContext {
             sealed_error_boundaries: Arc::clone(&self.sealed_error_boundaries),
             incomplete: Arc::clone(&self.incomplete),
             incomplete_emitted: Arc::clone(&incomplete_emitted),
+            initial_pending_ids,
         };
 
         let incomplete = Arc::clone(&self.incomplete);
@@ -315,6 +332,12 @@ struct AsyncDataStream {
     /// `__INCOMPLETE_CHUNKS=[...]` literal). The final tail closure picks
     /// up wherever the stream left off.
     incomplete_emitted: Arc<AtomicUsize>,
+    /// IDs that were already advertised in the initial
+    /// `__PENDING_RESOURCES=[...]` literal. Any resource resolved by
+    /// `poll_next` whose id is NOT in this set must first emit a
+    /// `__PENDING_RESOURCES.push(id);` so the client sees it as
+    /// pending before its resolution arrives.
+    initial_pending_ids: HashSet<SerializedDataId>,
 }
 
 impl Stream for AsyncDataStream {
@@ -338,6 +361,19 @@ impl Stream for AsyncDataStream {
             match fut.as_mut().poll(cx) {
                 Poll::Pending => still_pending.push((id, fut)),
                 Poll::Ready(data) => {
+                    // Any resource id that was not in the initial
+                    // `__PENDING_RESOURCES=[...]` snapshot must be
+                    // announced before its resolution arrives, so the
+                    // client never sees `__RESOLVED_RESOURCES[id] = ...`
+                    // for an id that never appeared in
+                    // `__PENDING_RESOURCES`.
+                    if !self.initial_pending_ids.contains(&id) {
+                        _ = write!(
+                            resolved,
+                            "__PENDING_RESOURCES.push({});",
+                            id.0
+                        );
+                    }
                     let data = data.replace('<', "\\u003c");
                     _ = write!(
                         resolved,
@@ -640,6 +676,58 @@ mod tests {
     /// A marker emitted from inside an async resource must be flushed in
     /// the same chunk as the resource that produced it, so a slow client
     /// that hasn't seen the tail yet still observes both together.
+    /// A resource registered *after* `pending_data()` snapshots
+    /// `__PENDING_RESOURCES` must be announced via
+    /// `__PENDING_RESOURCES.push(id);` before its
+    /// `__RESOLVED_RESOURCES[id] = ...` write. A resource that *was* in
+    /// the initial snapshot must NOT be pushed again.
+    #[test]
+    fn late_registered_resource_pushes_to_pending_resources() {
+        let ctx = Arc::new(SsrSharedContext::new());
+        ctx.write_async(
+            SerializedDataId(1),
+            Box::pin(async { String::from("\"a\"") }),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+        let initial = block_on(stream.next()).expect("initial chunk");
+        assert!(
+            initial.contains("__PENDING_RESOURCES=[1,];"),
+            "initial chunk must list id 1 in __PENDING_RESOURCES: {initial}"
+        );
+
+        // late registration: this id (2) is not in the initial snapshot
+        ctx.write_async(
+            SerializedDataId(2),
+            Box::pin(async { String::from("\"b\"") }),
+        );
+
+        let mut rest = String::new();
+        while let Some(c) = block_on(stream.next()) {
+            rest.push_str(&c);
+        }
+
+        // id 2 must be pushed and resolved (in that order)
+        let push_2 = rest.find("__PENDING_RESOURCES.push(2);");
+        let resolve_2 = rest.find("__RESOLVED_RESOURCES[2]");
+        assert!(
+            push_2.is_some() && resolve_2.is_some(),
+            "late resource id 2 needs both push and resolve, got: {rest}"
+        );
+        assert!(
+            push_2.unwrap() < resolve_2.unwrap(),
+            "the push must precede the resolve, got: {rest}"
+        );
+
+        // id 1 was already in the initial snapshot — it must NOT be
+        // pushed again
+        assert!(
+            !rest.contains("__PENDING_RESOURCES.push(1);"),
+            "id 1 was in the initial snapshot and must not be pushed again, \
+             got: {rest}"
+        );
+    }
+
     #[test]
     fn incomplete_chunk_push_flushes_with_resolving_future() {
         let ctx = Arc::new(SsrSharedContext::new());
