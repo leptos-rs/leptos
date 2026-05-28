@@ -1,3 +1,4 @@
+//! Defines [`Oco<'a, T>`], an "Owned Clones Once" smart pointer,
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 //!
