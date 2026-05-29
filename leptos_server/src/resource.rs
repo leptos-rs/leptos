@@ -346,11 +346,30 @@ where
                     Box::pin(async move {
                         ready_fut.await;
                         value.with_untracked(|data| match &data {
-                            // TODO handle serialization errors
-                            Some(val) => {
-                                Ser::encode(val).unwrap().into_encoded_string()
+                            Some(val) => match Ser::encode(val) {
+                                Ok(encoded) => encoded.into_encoded_string(),
+                                #[allow(unused)]
+                                Err(e) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "error serializing resource for \
+                                         hydration: {e:?}"
+                                    );
+                                    String::new()
+                                }
+                            },
+                            // The value can be taken out from under the SSR
+                            // task (e.g. via `try_write_untracked`). Emit an
+                            // empty payload that fails to decode on the client
+                            // (so it reloads) instead of aborting the stream.
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "resource value missing while serializing \
+                                     for hydration"
+                                );
+                                String::new()
                             }
-                            _ => unreachable!(),
                         })
                     }),
                 );

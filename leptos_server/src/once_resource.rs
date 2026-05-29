@@ -159,8 +159,31 @@ where
                     Box::pin(async move {
                         ready_fut.await;
                         let value = value.read().or_poisoned();
-                        let value = value.as_ref().unwrap();
-                        Ser::encode(value).unwrap().into_encoded_string()
+                        match value.as_ref() {
+                            Some(value) => match Ser::encode(value) {
+                                Ok(encoded) => encoded.into_encoded_string(),
+                                #[allow(unused)]
+                                Err(e) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "error serializing resource for \
+                                         hydration: {e:?}"
+                                    );
+                                    String::new()
+                                }
+                            },
+                            // Emit an empty payload that fails to decode on the
+                            // client (so it reloads) instead of panicking and
+                            // aborting the SSR response stream.
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "resource value missing while serializing \
+                                     for hydration"
+                                );
+                                String::new()
+                            }
+                        }
                     }),
                 );
             }
