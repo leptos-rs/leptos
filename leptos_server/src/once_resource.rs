@@ -31,7 +31,7 @@ use reactive_graph::{
     unwrap_signal,
 };
 use std::{
-    future::IntoFuture,
+    future::{IntoFuture, pending},
     mem,
     panic::Location,
     pin::Pin,
@@ -116,13 +116,22 @@ where
 
         let fut = ScopedFuture::new(fut);
 
-        if !is_ready && !suppressing_resource_load() {
+        if !is_ready {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let loading = Arc::clone(&loading);
             let trigger = trigger.clone();
             reactive_graph::spawn(async move {
-                let loaded = fut.await;
+                // Check suppression when the loader is polled, not when the
+                // resource is constructed. Checking at construction time made
+                // a resource created inside a `SuppressResourceLoad` scope
+                // never load, even after the guard dropped; `Resource` checks
+                // at fetch time, and this keeps the two consistent.
+                let loaded = if suppressing_resource_load() {
+                    pending().await
+                } else {
+                    fut.await
+                };
                 *value.write().or_poisoned() = Some(loaded);
                 loading.store(false, Ordering::Relaxed);
                 for waker in mem::take(&mut *wakers.write().or_poisoned()) {

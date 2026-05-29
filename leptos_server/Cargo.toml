@@ -29,6 +29,14 @@ js-sys = { optional = true, workspace = true, default-features = true }
 wasm-bindgen = { workspace = true, optional = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
+[dev-dependencies]
+tokio = { features = [
+  "rt-multi-thread",
+  "macros",
+  "time",
+], workspace = true, default-features = true }
+any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
+
 [features]
 ssr = []
 hydration = []
