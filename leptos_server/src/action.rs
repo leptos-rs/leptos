@@ -147,6 +147,7 @@ where
     S::Error: Send + Sync + 'static,
 {
     /// Creates a new [`Action`] that will call the server function `S` when dispatched.
+    #[track_caller]
     pub fn new() -> Self {
         let err = use_context::<ServerActionError>().and_then(|error| {
             (error.path() == S::PATH)
