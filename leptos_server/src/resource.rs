@@ -400,7 +400,6 @@ where
     {
         use std::borrow::Borrow;
 
-        let shared_context = Owner::current_shared_context();
         if let Some(shared_context) = shared_context {
             let value = shared_context.read_data(id);
             if let Some(value) = value {
