@@ -353,10 +353,21 @@ where
             self.suspenses.write().or_poisoned().push(suspense_context);
         }
 
+        // Register the waker while holding the `wakers` lock, and check
+        // `loading` inside the same critical section. The loading task clears
+        // `loading` and then drains this list under the same lock, so taking
+        // the lock here makes "check the flag, then register" atomic with
+        // respect to that drain: we either observe `loading == false` (the
+        // value is ready), or we push a waker that the drain is guaranteed to
+        // see and wake. Without this, the loader could drain the (still empty)
+        // list between our check and our push, losing the wake-up and hanging
+        // the future forever.
+        let mut wakers = self.wakers.write().or_poisoned();
         if self.loading.load(Ordering::Relaxed) {
-            self.wakers.write().or_poisoned().push(waker.clone());
+            wakers.push(waker.clone());
             Poll::Pending
         } else {
+            drop(wakers);
             Poll::Ready(
                 self.value.read().or_poisoned().as_ref().unwrap().clone(),
             )
