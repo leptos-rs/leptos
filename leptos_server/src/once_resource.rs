@@ -1,6 +1,5 @@
 use crate::{
-    FromEncodedStr, IS_SUPPRESSING_RESOURCE_LOAD, IntoEncodedString,
-    initial_value,
+    FromEncodedStr, IntoEncodedString, initial_value, suppressing_resource_load,
 };
 #[cfg(feature = "serde-lite")]
 use codee::SerdeLite;
@@ -117,7 +116,7 @@ where
 
         let fut = ScopedFuture::new(fut);
 
-        if !is_ready && !IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+        if !is_ready && !suppressing_resource_load() {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let loading = Arc::clone(&loading);

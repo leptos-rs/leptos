@@ -30,21 +30,33 @@ use std::{
     panic::Location,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
-pub(crate) static IS_SUPPRESSING_RESOURCE_LOAD: AtomicBool =
-    AtomicBool::new(false);
+/// The number of live [`SuppressResourceLoad`] guards. Resource loading is
+/// suppressed while this is greater than zero. A counter rather than a boolean
+/// is used so that nested guards compose correctly.
+pub(crate) static SUPPRESS_RESOURCE_LOAD_COUNT: AtomicUsize =
+    AtomicUsize::new(0);
+
+/// Returns whether resource loading is currently suppressed by one or more
+/// live [`SuppressResourceLoad`] guards.
+pub(crate) fn suppressing_resource_load() -> bool {
+    SUPPRESS_RESOURCE_LOAD_COUNT.load(Ordering::Acquire) > 0
+}
 
 /// Used to prevent resources from actually loading, in environments (like server route generation)
 /// where they are not needed.
+///
+/// Guards are reentrant: nesting two of them keeps suppression active until the
+/// outermost guard is dropped.
 pub struct SuppressResourceLoad;
 
 impl SuppressResourceLoad {
-    /// Prevents resources from loading until this is dropped.
+    /// Prevents resources from loading until this (and any outer guard) is dropped.
     pub fn new() -> Self {
-        IS_SUPPRESSING_RESOURCE_LOAD.store(true, Ordering::Relaxed);
+        SUPPRESS_RESOURCE_LOAD_COUNT.fetch_add(1, Ordering::Release);
         Self
     }
 }
@@ -57,7 +69,7 @@ impl Default for SuppressResourceLoad {
 
 impl Drop for SuppressResourceLoad {
     fn drop(&mut self) {
-        IS_SUPPRESSING_RESOURCE_LOAD.store(false, Ordering::Relaxed);
+        SUPPRESS_RESOURCE_LOAD_COUNT.fetch_sub(1, Ordering::Release);
     }
 }
 
@@ -314,7 +326,7 @@ where
                 let (_, source) = source.get();
                 let fut = fetcher(source);
                 async move {
-                    if IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+                    if suppressing_resource_load() {
                         pending().await
                     } else {
                         fut.await
@@ -1447,5 +1459,35 @@ where
     /// value by reference.
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         self.data.by_ref()
+    }
+}
+
+#[cfg(test)]
+mod suppress_resource_load_tests {
+    use super::{SuppressResourceLoad, suppressing_resource_load};
+
+    // Touches the process-global suppression counter, so it is kept as a
+    // single test to avoid interfering with any other in-crate test.
+    #[test]
+    fn nested_guards_suppress_until_outermost_drops() {
+        assert!(!suppressing_resource_load());
+
+        let outer = SuppressResourceLoad::new();
+        assert!(suppressing_resource_load());
+
+        {
+            let _inner = SuppressResourceLoad::new();
+            assert!(suppressing_resource_load());
+        }
+        // The inner guard has dropped, but the outer one is still alive, so
+        // suppression must remain active. (With the previous boolean flag this
+        // assertion failed: the inner drop cleared it.)
+        assert!(
+            suppressing_resource_load(),
+            "suppression cleared while an outer guard was still alive"
+        );
+
+        drop(outer);
+        assert!(!suppressing_resource_load());
     }
 }
