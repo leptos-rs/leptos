@@ -69,18 +69,6 @@ base64 = { workspace = true, default-features = true }
 bitcode = { optional = true, workspace = true, default-features = true }
 
 # client
-gloo-net = { optional = true, workspace = true, default-features = true }
-js-sys = { optional = true, workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, optional = true, default-features = true }
-wasm-bindgen-futures = { optional = true, workspace = true, default-features = true }
-wasm-streams = { optional = true, workspace = true, default-features = true }
-web-sys = { optional = true, features = [
-  "console",
-  "ReadableStream",
-  "ReadableStreamDefaultReader",
-  "AbortController",
-  "AbortSignal",
-], workspace = true, default-features = true }
 
 # reqwest client
 reqwest = { default-features = false, optional = true, features = [
@@ -260,3 +248,17 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(rustc_nightly)',
 ] }
+
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+gloo-net = { optional = true, workspace = true, default-features = true }
+js-sys = { optional = true, workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, optional = true, default-features = true }
+wasm-bindgen-futures = { optional = true, workspace = true, default-features = true }
+wasm-streams = { optional = true, workspace = true, default-features = true }
+web-sys = { optional = true, features = [
+  "console",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
+  "AbortController",
+  "AbortSignal",
+], workspace = true, default-features = true }

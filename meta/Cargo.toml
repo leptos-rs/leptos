@@ -14,13 +14,11 @@ or_poisoned = { workspace = true }
 indexmap = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 
-[dependencies.web-sys]
-features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
-workspace = true
-default-features = true
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+wasm-bindgen = { workspace = true, default-features = true }
+web-sys = { features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"], workspace = true, default-features = true }
 
 [features]
 default = []

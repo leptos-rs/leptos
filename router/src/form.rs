@@ -6,12 +6,24 @@ use crate::{
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
+#[cfg(not(target_os = "wasi"))]
 use web_sys::{FormData, RequestRedirect, Response};
 
+#[cfg(not(target_os = "wasi"))]
 type OnFormData = Arc<dyn Fn(&FormData)>;
+#[cfg(not(target_os = "wasi"))]
 type OnResponse = Arc<dyn Fn(&Response)>;
+#[cfg(not(target_os = "wasi"))]
 type OnError = Arc<dyn Fn(&gloo_net::Error)>;
+
+#[cfg(target_os = "wasi")]
+type OnFormData = Arc<dyn Fn(&())>;
+#[cfg(target_os = "wasi")]
+type OnResponse = Arc<dyn Fn(&())>;
+#[cfg(target_os = "wasi")]
+type OnError = Arc<dyn Fn(&())>;
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
@@ -58,6 +70,7 @@ pub fn Form<A>(
 where
     A: ToHref + Send + Sync + 'static,
 {
+    #[cfg(not(target_os = "wasi"))]
     async fn post_form_data(
         action: &str,
         form_data: FormData,
@@ -70,6 +83,7 @@ where
             .await
     }
 
+    #[cfg(not(target_os = "wasi"))]
     async fn post_params(
         action: &str,
         enctype: &str,
@@ -100,6 +114,8 @@ where
     ) -> impl IntoView {
         let action_version = version;
         let navigate = has_router.then(use_navigate);
+
+        #[cfg(not(target_os = "wasi"))]
         let on_submit = {
             move |ev: web_sys::SubmitEvent| {
                 let navigate = navigate.clone();
@@ -299,12 +315,22 @@ where
 
         let method = method.unwrap_or("get");
 
-        form()
+        #[cfg(not(target_os = "wasi"))]
+        let el = form()
             .attr("method", method)
             .attr("action", move || action.get())
             .attr("enctype", enctype)
             .on(ev::submit, on_submit)
-            .child(children())
+            .child(children());
+
+        #[cfg(target_os = "wasi")]
+        let el = form()
+            .attr("method", method)
+            .attr("action", move || action.get())
+            .attr("enctype", enctype)
+            .child(children());
+
+        el
     }
 
     let has_router = has_router();
@@ -329,6 +355,7 @@ where
     )
 }
 
+#[cfg(not(target_os = "wasi"))]
 fn current_window_origin() -> String {
     let location = window().location();
     let protocol = location.protocol().unwrap_or_default();
@@ -343,6 +370,7 @@ fn current_window_origin() -> String {
     )
 }
 
+#[cfg(not(target_os = "wasi"))]
 fn extract_form_attributes(
     ev: &web_sys::Event,
 ) -> (web_sys::HtmlFormElement, String, String, String) {

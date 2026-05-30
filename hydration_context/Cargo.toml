@@ -14,6 +14,7 @@ throw_error = { workspace = true }
 or_poisoned = { workspace = true }
 futures = { workspace = true, default-features = true }
 serde = { features = ["derive"] , workspace = true, default-features = true }
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
 wasm-bindgen = { workspace = true, optional = true , default-features = true }
 js-sys = { optional = true , workspace = true, default-features = true }
 pin-project-lite = { workspace = true, default-features = true }

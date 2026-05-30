@@ -1,12 +1,15 @@
 use super::{Encoding, FromReq};
 use crate::{
     error::{FromServerFnError, ServerFnErrorWrapper},
-    request::{browser::BrowserFormData, ClientReq, Req},
+    request::{ClientReq, Req},
     ContentType, IntoReq,
 };
+#[cfg(not(target_os = "wasi"))]
+use crate::request::browser::BrowserFormData;
 use futures::StreamExt;
 use http::Method;
 use multer::Multipart;
+#[cfg(not(target_os = "wasi"))]
 use web_sys::FormData;
 
 /// Encodes multipart form data.
@@ -26,6 +29,7 @@ impl Encoding for MultipartFormData {
 #[derive(Debug)]
 pub enum MultipartData {
     /// `FormData` from the browser.
+    #[cfg(not(target_os = "wasi"))]
     Client(BrowserFormData),
     /// Generic multipart form using [`multer`]. This implements [`Stream`](futures::Stream).
     Server(multer::Multipart<'static>),
@@ -37,6 +41,7 @@ impl MultipartData {
     /// On the server side, this always returns `Some(_)`. On the client side, always returns `None`.
     pub fn into_inner(self) -> Option<Multipart<'static>> {
         match self {
+            #[cfg(not(target_os = "wasi"))]
             MultipartData::Client(_) => None,
             MultipartData::Server(data) => Some(data),
         }
@@ -45,6 +50,7 @@ impl MultipartData {
     /// Extracts the inner form data on the client side.
     ///
     /// On the server side, this always returns `None`. On the client side, always returns `Some(_)`.
+    #[cfg(not(target_os = "wasi"))]
     pub fn into_client_data(self) -> Option<BrowserFormData> {
         match self {
             MultipartData::Client(data) => Some(data),
@@ -53,12 +59,14 @@ impl MultipartData {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl From<FormData> for MultipartData {
     fn from(value: FormData) -> Self {
         MultipartData::Client(value.into())
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl<E: FromServerFnError, T, Request> IntoReq<MultipartFormData, Request, E>
     for T
 where

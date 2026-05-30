@@ -1,4 +1,6 @@
-use super::ClientRes;
+#[cfg(not(target_os = "wasi"))]
+mod impl_browser {
+use crate::response::ClientRes;
 use crate::{
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     redirect::REDIRECT_HEADER,
@@ -102,3 +104,64 @@ impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
         self.0.headers().get(REDIRECT_HEADER).is_some()
     }
 }
+}
+
+#[cfg(not(target_os = "wasi"))]
+pub use impl_browser::*;
+
+#[cfg(target_os = "wasi")]
+mod impl_wasi {
+    use crate::response::ClientRes;
+    use crate::error::FromServerFnError;
+    use bytes::Bytes;
+    use futures::Stream;
+    use http::HeaderMap;
+    use std::future::Future;
+
+    /// Browser response stub for WASI.
+    pub struct BrowserResponse;
+
+    impl BrowserResponse {
+        /// Generate headers.
+        pub fn generate_headers(&self) -> HeaderMap {
+            unreachable!()
+        }
+    }
+
+    impl<E: FromServerFnError> ClientRes<E> for BrowserResponse {
+        fn try_into_string(self) -> impl Future<Output = Result<String, E>> + Send {
+            async move { unreachable!() }
+        }
+
+        fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, E>> + Send {
+            async move { unreachable!() }
+        }
+
+        fn try_into_stream(
+            self,
+        ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, E>
+        {
+            let e = E::from_server_fn_error(crate::error::ServerFnErrorErr::Request("Browser stream not supported on WASI".into()));
+            Err::<futures::stream::Empty<Result<Bytes, Bytes>>, E>(e)
+        }
+
+        fn status(&self) -> u16 {
+            unreachable!()
+        }
+
+        fn status_text(&self) -> String {
+            unreachable!()
+        }
+
+        fn location(&self) -> String {
+            unreachable!()
+        }
+
+        fn has_redirect(&self) -> bool {
+            unreachable!()
+        }
+    }
+}
+
+#[cfg(target_os = "wasi")]
+pub use impl_wasi::*;

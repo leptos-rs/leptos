@@ -71,7 +71,9 @@ use std::{
         Arc, LazyLock,
     },
 };
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::JsCast;
+#[cfg(not(target_os = "wasi"))]
 use web_sys::HtmlHeadElement;
 
 mod body;
@@ -117,6 +119,7 @@ const COMMENT_NODE: u16 = 8;
 
 impl Default for MetaContext {
     fn default() -> Self {
+        #[cfg(not(target_os = "wasi"))]
         let build_cursor: fn() -> SendWrapper<Cursor> = || {
             let head = document().head().expect("missing <head> element");
             let mut cursor = None;
@@ -142,6 +145,11 @@ impl Default for MetaContext {
             ))
         };
 
+        #[cfg(not(target_os = "wasi"))]
+        let cursor = Arc::new(LazyLock::new(build_cursor));
+        #[cfg(target_os = "wasi")]
+        let build_cursor: fn() -> SendWrapper<Cursor> = || unreachable!();
+        #[cfg(target_os = "wasi")]
         let cursor = Arc::new(LazyLock::new(build_cursor));
         Self {
             title: Default::default(),
@@ -353,6 +361,7 @@ where
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 fn document_head() -> HtmlHeadElement {
     let document = document();
     document.head().unwrap_or_else(|| {
@@ -500,6 +509,7 @@ where
         // but this shouldn't warn about the parent being a regular element or being unused
         // because it will call "mount" with the parent where it is located in the component tree,
         // but actually be mounted to the <head>
+        #[cfg(not(target_os = "wasi"))]
         self.state.mount(&document_head(), None);
     }
 

@@ -52,7 +52,7 @@ pub trait Client<Error, InputStreamError = Error, OutputStreamError = Error> {
     fn spawn(future: impl Future<Output = ()> + Send + 'static);
 }
 
-#[cfg(feature = "browser")]
+#[cfg(all(feature = "browser", not(target_os = "wasi")))]
 /// Implements [`Client`] for a `fetch` request in the browser.
 pub mod browser {
     use super::{get_server_url, Client};
@@ -222,6 +222,59 @@ pub mod browser {
         }
     }
 }
+
+#[cfg(target_os = "wasi")]
+/// Implements [`Client`] for a `fetch` request in the browser.
+pub mod browser {
+    use super::Client;
+    use crate::error::FromServerFnError;
+    use crate::request::browser::BrowserRequest;
+    use crate::response::browser::BrowserResponse;
+    use bytes::Bytes;
+    use std::future::Future;
+
+    /// Implements [`Client`] for a `fetch` request in the browser.
+    pub struct BrowserClient;
+
+    impl<
+            Error: FromServerFnError,
+            InputStreamError: FromServerFnError,
+            OutputStreamError: FromServerFnError,
+        > Client<Error, InputStreamError, OutputStreamError> for BrowserClient
+    {
+        type Request = BrowserRequest;
+        type Response = BrowserResponse;
+
+        fn send(
+            _req: Self::Request,
+        ) -> impl Future<Output = Result<Self::Response, Error>> + Send
+        {
+            async move { unreachable!() }
+        }
+
+        fn open_websocket(
+            _url: &str,
+        ) -> impl Future<
+            Output = Result<
+                (
+                    impl futures::Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
+                    impl futures::Sink<Bytes> + Send + 'static,
+                ),
+                Error,
+            >,
+        > + Send {
+            async move {
+                let e = Error::from_server_fn_error(crate::error::ServerFnErrorErr::Request("Websockets not supported on WASI".into()));
+                Err::<(futures::stream::Empty<Result<Bytes, Bytes>>, futures::sink::Drain<Bytes>), Error>(e)
+            }
+        }
+
+        fn spawn(_future: impl Future<Output = ()> + Send + 'static) {
+            unreachable!()
+        }
+    }
+}
+
 
 #[cfg(feature = "reqwest")]
 /// Implements [`Client`] for a request made by [`reqwest`].

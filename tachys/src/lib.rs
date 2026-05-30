@@ -43,6 +43,13 @@ pub mod prelude {
     };
 }
 
+#[cfg(target_os = "wasi")]
+pub extern crate wasm_bindgen_wasi as wasm_bindgen;
+#[cfg(target_os = "wasi")]
+pub extern crate web_sys_wasi as web_sys;
+#[cfg(target_os = "wasi")]
+pub extern crate js_sys_wasi as js_sys;
+
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
@@ -98,7 +105,7 @@ impl<T> UnwrapOrDebug for Result<T, JsValue> {
 
     #[track_caller]
     fn or_debug(self, el: &Node, name: &'static str) {
-        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        #[cfg(all(any(debug_assertions, leptos_debuginfo), not(target_os = "wasi")))]
         {
             if let Err(err) = self {
                 let location = std::panic::Location::caller();
@@ -112,6 +119,10 @@ impl<T> UnwrapOrDebug for Result<T, JsValue> {
                 );
             }
         }
+        #[cfg(all(any(debug_assertions, leptos_debuginfo), target_os = "wasi"))]
+        {
+            let _ = (el, name);
+        }
         #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
         {
             _ = self;
@@ -124,7 +135,7 @@ impl<T> UnwrapOrDebug for Result<T, JsValue> {
         el: &Node,
         name: &'static str,
     ) -> Option<Self::Output> {
-        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        #[cfg(all(any(debug_assertions, leptos_debuginfo), not(target_os = "wasi")))]
         {
             if let Err(err) = &self {
                 let location = std::panic::Location::caller();
@@ -137,6 +148,11 @@ impl<T> UnwrapOrDebug for Result<T, JsValue> {
                     err,
                 );
             }
+            self.ok()
+        }
+        #[cfg(all(any(debug_assertions, leptos_debuginfo), target_os = "wasi"))]
+        {
+            let _ = (el, name);
             self.ok()
         }
         #[cfg(not(any(debug_assertions, leptos_debuginfo)))]

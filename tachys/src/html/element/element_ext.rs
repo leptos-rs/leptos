@@ -8,7 +8,10 @@ use crate::{
     renderer::RemoveEventHandler,
 };
 use wasm_bindgen::JsValue;
+#[cfg(not(target_os = "wasi"))]
 use web_sys::Element;
+#[cfg(target_os = "wasi")]
+use crate::renderer::types::Element;
 
 /// Extends an HTML element, allowing you to add attributes and children to the
 /// element's built state at runtime, with a similar API to how they

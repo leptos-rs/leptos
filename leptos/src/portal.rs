@@ -15,7 +15,7 @@ use std::sync::Arc;
 pub fn Portal<V>(
     /// Target element where the children will be appended
     #[prop(into, optional)]
-    mount: Option<web_sys::Element>,
+    mount: Option<crate::tachys::renderer::types::Element>,
     /// Whether to use a shadow DOM inside `mount`. Defaults to `false`.
     #[prop(optional)]
     use_shadow: bool,
@@ -28,6 +28,11 @@ pub fn Portal<V>(
 where
     V: IntoView + 'static,
 {
+    #[cfg(target_os = "wasi")]
+    {
+        let _ = (mount, use_shadow, is_svg, children);
+    }
+    #[cfg(not(target_os = "wasi"))]
     if cfg!(target_arch = "wasm32")
         && Owner::current_shared_context()
             .map(|sc| sc.is_browser())

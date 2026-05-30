@@ -6,7 +6,7 @@ use reactive_graph::owner::Owner;
 #[cfg(debug_assertions)]
 use std::cell::Cell;
 use tachys::{
-    dom::body,
+    dom::{body, HtmlElement},
     view::{Mountable, Render},
 };
 #[cfg(feature = "hydrate")]
@@ -16,7 +16,6 @@ use tachys::{
 };
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
-use web_sys::HtmlElement;
 
 #[cfg(feature = "hydrate")]
 /// Hydrates the app described by the provided function, starting at `<body>`.
@@ -180,7 +179,7 @@ where
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     #[cfg(debug_assertions)]
     {
@@ -224,7 +223,7 @@ where
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new();
@@ -300,3 +299,13 @@ where
         self.mountable.unmount();
     }
 }
+
+#[cfg(not(target_os = "wasi"))]
+#[inline(always)]
+fn init_executor() {
+    _ = Executor::init_wasm_bindgen();
+}
+
+#[cfg(target_os = "wasi")]
+#[inline(always)]
+fn init_executor() {}

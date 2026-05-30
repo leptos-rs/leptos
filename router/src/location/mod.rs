@@ -2,6 +2,7 @@
 
 use any_spawner::Executor;
 use core::fmt::Debug;
+#[cfg(not(target_os = "wasi"))]
 use js_sys::Reflect;
 use leptos::server::ServerActionError;
 use reactive_graph::{
@@ -10,10 +11,14 @@ use reactive_graph::{
     signal::{ArcRwSignal, ReadSignal},
     traits::With,
 };
+#[cfg(not(target_os = "wasi"))]
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
+#[cfg(not(target_os = "wasi"))]
 use tachys::dom::window;
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, JsValue};
+#[cfg(not(target_os = "wasi"))]
 use web_sys::{HtmlAnchorElement, MouseEvent};
 
 mod history;
@@ -122,11 +127,11 @@ impl Url {
     }
 
     pub fn escape(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
+        #[cfg(all(not(target_os = "wasi"), not(feature = "ssr")))]
         {
             js_sys::encode_uri_component(s).as_string().unwrap()
         }
-        #[cfg(feature = "ssr")]
+        #[cfg(any(target_os = "wasi", feature = "ssr"))]
         {
             percent_encoding::utf8_percent_encode(
                 s,
@@ -137,14 +142,14 @@ impl Url {
     }
 
     pub fn unescape(s: &str) -> String {
-        #[cfg(feature = "ssr")]
+        #[cfg(any(target_os = "wasi", feature = "ssr"))]
         {
             percent_encoding::percent_decode_str(s)
                 .decode_utf8_lossy()
                 .to_string()
         }
 
-        #[cfg(not(feature = "ssr"))]
+        #[cfg(all(not(target_os = "wasi"), not(feature = "ssr")))]
         {
             match js_sys::decode_uri_component(s) {
                 Ok(v) => v.into(),
@@ -154,7 +159,7 @@ impl Url {
     }
 
     pub fn unescape_minimal(s: &str) -> String {
-        #[cfg(not(feature = "ssr"))]
+        #[cfg(all(not(target_os = "wasi"), not(feature = "ssr")))]
         {
             match js_sys::decode_uri(s) {
                 Ok(v) => v.into(),
@@ -162,7 +167,7 @@ impl Url {
             }
         }
 
-        #[cfg(feature = "ssr")]
+        #[cfg(any(target_os = "wasi", feature = "ssr"))]
         {
             Self::unescape(s)
         }
@@ -264,8 +269,10 @@ pub trait LocationProvider: Clone + 'static {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg(not(target_os = "wasi"))]
 pub struct State(Option<SendWrapper<JsValue>>);
 
+#[cfg(not(target_os = "wasi"))]
 impl State {
     pub fn new(state: Option<JsValue>) -> Self {
         Self(state.map(SendWrapper::new))
@@ -279,6 +286,7 @@ impl State {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
         self.0.as_ref().map(|n| n.as_ref())
@@ -286,6 +294,7 @@ impl PartialEq for State {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl<T> From<T> for State
 where
     T: Into<JsValue>,
@@ -295,6 +304,23 @@ where
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+#[cfg(target_os = "wasi")]
+pub struct State(());
+
+#[cfg(target_os = "wasi")]
+impl State {
+    pub fn new(_state: Option<()>) -> Self {
+        Self(())
+    }
+
+    pub fn to_js_value(&self) -> () {
+        ()
+    }
+}
+
+
+#[cfg(not(target_os = "wasi"))]
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
     parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,

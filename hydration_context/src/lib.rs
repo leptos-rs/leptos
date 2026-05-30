@@ -12,17 +12,17 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(feature = "browser")]
+#[cfg(all(feature = "browser", not(target_os = "wasi")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
 mod csr;
-#[cfg(feature = "browser")]
+#[cfg(all(feature = "browser", not(target_os = "wasi")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
 mod hydrate;
 mod ssr;
-#[cfg(feature = "browser")]
+#[cfg(all(feature = "browser", not(target_os = "wasi")))]
 pub use csr::*;
 use futures::Stream;
-#[cfg(feature = "browser")]
+#[cfg(all(feature = "browser", not(target_os = "wasi")))]
 pub use hydrate::*;
 use serde::{Deserialize, Serialize};
 pub use ssr::*;

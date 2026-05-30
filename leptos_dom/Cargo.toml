@@ -12,20 +12,18 @@ edition.workspace = true
 tachys = { workspace = true }
 reactive_graph = { workspace = true }
 or_poisoned = { workspace = true }
-js-sys = { workspace = true, default-features = true }
 send_wrapper = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
 serde = { optional = true, workspace = true, default-features = true }
 
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+js-sys = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+web-sys = { workspace = true, default-features = true, features = ["Location"] }
+
 [dev-dependencies]
 leptos = { path = "../leptos" }
-
-[dependencies.web-sys]
-features = ["Location"]
-workspace = true
-default-features = true
 
 [features]
 default = []

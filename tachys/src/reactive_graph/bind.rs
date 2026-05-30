@@ -1,5 +1,4 @@
 use crate::{
-    dom::{event_target_checked, event_target_value},
     html::{
         attribute::{
             maybe_next_attr_erasure_macros::{
@@ -15,6 +14,8 @@ use crate::{
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+#[cfg(not(target_os = "wasi"))]
+use crate::dom::{event_target_checked, event_target_value};
 use reactive_graph::{
     signal::{ReadSignal, RwSignal, WriteSignal},
     traits::{Get, Set},
@@ -466,13 +467,29 @@ pub trait FromEventTarget {
 
 impl FromEventTarget for bool {
     fn from_event_target(evt: &web_sys::Event) -> Self {
-        event_target_checked(evt)
+        #[cfg(not(target_os = "wasi"))]
+        {
+            event_target_checked(evt)
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = evt;
+            unimplemented!()
+        }
     }
 }
 
 impl FromEventTarget for String {
     fn from_event_target(evt: &web_sys::Event) -> Self {
-        event_target_value(evt)
+        #[cfg(not(target_os = "wasi"))]
+        {
+            event_target_value(evt)
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = evt;
+            unimplemented!()
+        }
     }
 }
 
@@ -492,6 +509,7 @@ pub trait ChangeEvent {
         Self: Sized;
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl ChangeEvent for web_sys::Element {
     fn attach_change_event<T, W>(
         &self,
@@ -525,6 +543,22 @@ impl ChangeEvent for web_sys::Element {
     }
 }
 
+#[cfg(target_os = "wasi")]
+impl ChangeEvent for crate::renderer::types::Element {
+    fn attach_change_event<T, W>(
+        &self,
+        key: &str,
+        write_signal: W,
+    ) -> RemoveEventHandler<Self>
+    where
+        T: FromEventTarget + AttributeValue + 'static,
+        W: Set<Value = T> + 'static,
+    {
+        let _ = (key, write_signal);
+        RemoveEventHandler::new(|| {})
+    }
+}
+
 /// Get the value attribute of an element (input).
 /// Reads `value` if `T` is `String` and `checked` if `T` is `bool`.
 pub trait GetValue<T> {
@@ -532,15 +566,31 @@ pub trait GetValue<T> {
     fn get_value(&self) -> T;
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl GetValue<String> for web_sys::Element {
     fn get_value(&self) -> String {
         self.get_attribute("value").unwrap_or_default()
     }
 }
 
+#[cfg(target_os = "wasi")]
+impl GetValue<String> for crate::renderer::types::Element {
+    fn get_value(&self) -> String {
+        String::new()
+    }
+}
+
+#[cfg(not(target_os = "wasi"))]
 impl GetValue<bool> for web_sys::Element {
     fn get_value(&self) -> bool {
         self.get_attribute("checked").unwrap_or_default() == "true"
+    }
+}
+
+#[cfg(target_os = "wasi")]
+impl GetValue<bool> for crate::renderer::types::Element {
+    fn get_value(&self) -> bool {
+        false
     }
 }
 

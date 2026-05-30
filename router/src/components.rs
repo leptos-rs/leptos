@@ -168,8 +168,14 @@ impl RouterContext {
                 .into()
         }
 
+        #[cfg(not(target_os = "wasi"))]
         if url.origin() != current.origin() {
             window().location().set_href(path).unwrap();
+            return;
+        }
+        #[cfg(target_os = "wasi")]
+        if url.origin() != current.origin() {
+            let _ = path;
             return;
         }
 

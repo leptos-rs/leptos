@@ -2,7 +2,15 @@
 
 //! See [`Renderer`](crate::renderer::Renderer) and [`Rndr`](crate::renderer::Rndr) for additional information.
 
-use super::{CastFrom, RemoveEventHandler};
+#[cfg(not(target_os = "wasi"))]
+pub use browser::*;
+
+#[cfg(target_os = "wasi")]
+pub use wasi::*;
+
+#[cfg(not(target_os = "wasi"))]
+mod browser {
+use crate::renderer::{CastFrom, RemoveEventHandler};
 use crate::{
     dom::{document, window},
     ok_or_debug, or_debug,
@@ -151,7 +159,10 @@ impl Dom {
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     pub fn remove(node: &Node) {
+        #[cfg(not(target_os = "wasi"))]
         node.unchecked_ref::<Element>().remove();
+        #[cfg(target_os = "wasi")]
+        let _ = node;
     }
 
     pub fn get_parent(node: &Node) -> Option<Node> {
@@ -251,20 +262,26 @@ impl Dom {
     }
 
     pub fn set_property_or_value(el: &Element, key: &str, value: &JsValue) {
-        if key == "value" {
-            queue(Box::new({
-                let el = el.clone();
-                let value = value.clone();
-                move || {
-                    Self::set_property(&el, "value", &value);
-                }
-            }))
-        } else {
-            Self::set_property(el, key, value);
+        #[cfg(not(target_os = "wasi"))]
+        {
+            if key == "value" {
+                queue(Box::new({
+                    let el = el.clone();
+                    let value = value.clone();
+                    move || {
+                        Self::set_property(&el, "value", &value);
+                    }
+                }))
+            } else {
+                Self::set_property(el, key, value);
+            }
         }
+        #[cfg(target_os = "wasi")]
+        let _ = (el, key, value);
     }
 
     pub fn set_property(el: &Element, key: &str, value: &JsValue) {
+        #[cfg(not(target_os = "wasi"))]
         or_debug!(
             js_sys::Reflect::set(
                 el,
@@ -274,6 +291,8 @@ impl Dom {
             el,
             "setProperty"
         );
+        #[cfg(target_os = "wasi")]
+        let _ = (el, key, value);
     }
 
     pub fn add_event_listener(
@@ -281,35 +300,43 @@ impl Dom {
         name: &str,
         cb: Box<dyn FnMut(Event)>,
     ) -> RemoveEventHandler<Element> {
-        let cb = wasm_bindgen::closure::Closure::wrap(cb);
-        let name = intern(name);
-        or_debug!(
-            el.add_event_listener_with_callback(
-                name,
-                cb.as_ref().unchecked_ref()
-            ),
-            el,
-            "addEventListener"
-        );
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let cb = wasm_bindgen::closure::Closure::wrap(cb);
+            let name = intern(name);
+            or_debug!(
+                el.add_event_listener_with_callback(
+                    name,
+                    cb.as_ref().unchecked_ref()
+                ),
+                el,
+                "addEventListener"
+            );
 
-        // return the remover
-        RemoveEventHandler::new({
-            let name = name.to_owned();
-            let el = el.clone();
-            // safe to construct this here, because it will only run in the browser
-            // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(move || {
-                or_debug!(
-                    el.remove_event_listener_with_callback(
-                        intern(&name),
-                        cb.as_ref().unchecked_ref()
-                    ),
-                    &el,
-                    "removeEventListener"
-                )
-            });
-            move || cb()
-        })
+            // return the remover
+            RemoveEventHandler::new({
+                let name = name.to_owned();
+                let el = el.clone();
+                // safe to construct this here, because it will only run in the browser
+                // so it will always be accessed or dropped from the main thread
+                let cb = send_wrapper::SendWrapper::new(move || {
+                    or_debug!(
+                        el.remove_event_listener_with_callback(
+                            intern(&name),
+                            cb.as_ref().unchecked_ref()
+                        ),
+                        &el,
+                        "removeEventListener"
+                    )
+                });
+                move || cb()
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = (el, name, cb);
+            unreachable!()
+        }
     }
 
     pub fn add_event_listener_use_capture(
@@ -317,51 +344,67 @@ impl Dom {
         name: &str,
         cb: Box<dyn FnMut(Event)>,
     ) -> RemoveEventHandler<Element> {
-        let cb = wasm_bindgen::closure::Closure::wrap(cb);
-        let name = intern(name);
-        let options = AddEventListenerOptions::new();
-        options.set_capture(true);
-        or_debug!(
-            el.add_event_listener_with_callback_and_add_event_listener_options(
-                name,
-                cb.as_ref().unchecked_ref(),
-                &options
-            ),
-            el,
-            "addEventListenerUseCapture"
-        );
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let cb = wasm_bindgen::closure::Closure::wrap(cb);
+            let name = intern(name);
+            let options = AddEventListenerOptions::new();
+            options.set_capture(true);
+            or_debug!(
+                el.add_event_listener_with_callback_and_add_event_listener_options(
+                    name,
+                    cb.as_ref().unchecked_ref(),
+                    &options
+                ),
+                el,
+                "addEventListenerUseCapture"
+            );
 
-        // return the remover
-        RemoveEventHandler::new({
-            let name = name.to_owned();
-            let el = el.clone();
-            // safe to construct this here, because it will only run in the browser
-            // so it will always be accessed or dropped from the main thread
-            let cb = send_wrapper::SendWrapper::new(move || {
-                or_debug!(
-                    el.remove_event_listener_with_callback_and_bool(
-                        intern(&name),
-                        cb.as_ref().unchecked_ref(),
-                        true
-                    ),
-                    &el,
-                    "removeEventListener"
-                )
-            });
-            move || cb()
-        })
+            // return the remover
+            RemoveEventHandler::new({
+                let name = name.to_owned();
+                let el = el.clone();
+                // safe to construct this here, because it will only run in the browser
+                // so it will always be accessed or dropped from the main thread
+                let cb = send_wrapper::SendWrapper::new(move || {
+                    or_debug!(
+                        el.remove_event_listener_with_callback_and_bool(
+                            intern(&name),
+                            cb.as_ref().unchecked_ref(),
+                            true
+                        ),
+                        &el,
+                        "removeEventListener"
+                    )
+                });
+                move || cb()
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = (el, name, cb);
+            unreachable!()
+        }
     }
 
     pub fn event_target<T>(ev: &Event) -> T
     where
         T: CastFrom<Element>,
     {
-        let el = ev
-            .unchecked_ref::<web_sys::Event>()
-            .target()
-            .expect("event.target not found")
-            .unchecked_into::<Element>();
-        T::cast_from(el).expect("incorrect element type")
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let el = ev
+                .unchecked_ref::<web_sys::Event>()
+                .target()
+                .expect("event.target not found")
+                .unchecked_into::<Element>();
+            T::cast_from(el).expect("incorrect element type")
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = ev;
+            unreachable!()
+        }
     }
 
     pub fn add_event_listener_delegated(
@@ -370,101 +413,109 @@ impl Dom {
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Event)>,
     ) -> RemoveEventHandler<Element> {
-        let cb = Closure::wrap(cb);
-        let key = intern(&delegation_key);
-        or_debug!(
-            js_sys::Reflect::set(el, &JsValue::from_str(key), cb.as_ref()),
-            el,
-            "set property"
-        );
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let cb = Closure::wrap(cb);
+            let key = intern(&delegation_key);
+            or_debug!(
+                js_sys::Reflect::set(el, &JsValue::from_str(key), cb.as_ref()),
+                el,
+                "set property"
+            );
 
-        GLOBAL_EVENTS.with_borrow_mut(|events| {
-            if !events.contains(&name) {
-                // create global handler
-                let key = JsValue::from_str(key);
-                let handler = move |ev: web_sys::Event| {
-                    let target = ev.target();
-                    let node = ev.composed_path().get(0);
-                    let mut node = if node.is_undefined() || node.is_null() {
-                        JsValue::from(target)
-                    } else {
-                        node
-                    };
+            GLOBAL_EVENTS.with_borrow_mut(|events| {
+                if !events.contains(&name) {
+                    // create global handler
+                    let key = JsValue::from_str(key);
+                    let handler = move |ev: web_sys::Event| {
+                        let target = ev.target();
+                        let node = ev.composed_path().get(0);
+                        let mut node = if node.is_undefined() || node.is_null() {
+                            JsValue::from(target)
+                        } else {
+                            node
+                        };
 
-                    // TODO reverse Shadow DOM retargetting
-                    // TODO simulate currentTarget
+                        // TODO reverse Shadow DOM retargetting
+                        // TODO simulate currentTarget
 
-                    while !node.is_null() {
-                        let node_is_disabled = js_sys::Reflect::get(
-                            &node,
-                            &JsValue::from_str("disabled"),
-                        )
-                        .unwrap()
-                        .is_truthy();
-                        if !node_is_disabled {
-                            let maybe_handler =
-                                js_sys::Reflect::get(&node, &key).unwrap();
-                            if !maybe_handler.is_undefined() {
-                                let f = maybe_handler
-                                    .unchecked_ref::<js_sys::Function>();
-                                let _ = f.call1(&node, &ev);
+                        while !node.is_null() {
+                            let node_is_disabled = js_sys::Reflect::get(
+                                &node,
+                                &JsValue::from_str("disabled"),
+                            )
+                            .unwrap()
+                            .is_truthy();
+                            if !node_is_disabled {
+                                let maybe_handler =
+                                    js_sys::Reflect::get(&node, &key).unwrap();
+                                if !maybe_handler.is_undefined() {
+                                    let f = maybe_handler
+                                        .unchecked_ref::<js_sys::Function>();
+                                    let _ = f.call1(&node, &ev);
 
-                                if ev.cancel_bubble() {
-                                    return;
+                                    if ev.cancel_bubble() {
+                                        return;
+                                    }
                                 }
                             }
+
+                            // navigate up tree
+                            if let Some(parent) =
+                                node.unchecked_ref::<web_sys::Node>().parent_node()
+                            {
+                                node = parent.into()
+                            } else if let Some(root) =
+                                node.dyn_ref::<web_sys::ShadowRoot>()
+                            {
+                                node = root.host().unchecked_into();
+                            } else {
+                                node = JsValue::null()
+                            }
                         }
+                    };
 
-                        // navigate up tree
-                        if let Some(parent) =
-                            node.unchecked_ref::<web_sys::Node>().parent_node()
-                        {
-                            node = parent.into()
-                        } else if let Some(root) =
-                            node.dyn_ref::<web_sys::ShadowRoot>()
-                        {
-                            node = root.host().unchecked_into();
-                        } else {
-                            node = JsValue::null()
-                        }
-                    }
-                };
+                    let handler =
+                        Box::new(handler) as Box<dyn FnMut(web_sys::Event)>;
+                    let handler = Closure::wrap(handler).into_js_value();
+                    window()
+                        .add_event_listener_with_callback(
+                            &name,
+                            handler.unchecked_ref(),
+                        )
+                        .unwrap();
 
-                let handler =
-                    Box::new(handler) as Box<dyn FnMut(web_sys::Event)>;
-                let handler = Closure::wrap(handler).into_js_value();
-                window()
-                    .add_event_listener_with_callback(
-                        &name,
-                        handler.unchecked_ref(),
-                    )
-                    .unwrap();
+                    // register that we've created handler
+                    events.insert(name);
+                }
+            });
 
-                // register that we've created handler
-                events.insert(name);
-            }
-        });
-
-        // return the remover
-        RemoveEventHandler::new({
-            let key = key.to_owned();
-            let el = el.clone();
-            // safe to construct this here, because it will only run in the browser
-            // so it will always be accessed or dropped from the main thread
-            let el_cb = send_wrapper::SendWrapper::new((el, cb));
-            move || {
-                let (el, cb) = el_cb.take();
-                drop(cb);
-                or_debug!(
-                    js_sys::Reflect::delete_property(
+            // return the remover
+            RemoveEventHandler::new({
+                let key = key.to_owned();
+                let el = el.clone();
+                // safe to construct this here, because it will only run in the browser
+                // so it will always be accessed or dropped from the main thread
+                let el_cb = send_wrapper::SendWrapper::new((el, cb));
+                move || {
+                    let (el, cb) = el_cb.take();
+                    drop(cb);
+                    or_debug!(
+                        js_sys::Reflect::delete_property(
+                            &el,
+                            &JsValue::from_str(&key)
+                        ),
                         &el,
-                        &JsValue::from_str(&key)
-                    ),
-                    &el,
-                    "delete property"
-                );
-            }
-        })
+                        "delete property"
+                    );
+                }
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = (el, name, delegation_key, cb);
+            unreachable!()
+        }
     }
 
     pub fn class_list(el: &Element) -> ClassList {
@@ -638,6 +689,7 @@ impl Mountable for Node {
 
 impl Mountable for Text {
     fn unmount(&mut self) {
+        #[cfg(not(target_os = "wasi"))]
         self.remove();
     }
 
@@ -666,6 +718,7 @@ impl Mountable for Text {
 
 impl Mountable for Comment {
     fn unmount(&mut self) {
+        #[cfg(not(target_os = "wasi"))]
         self.remove();
     }
 
@@ -694,6 +747,7 @@ impl Mountable for Comment {
 
 impl Mountable for Element {
     fn unmount(&mut self) {
+        #[cfg(not(target_os = "wasi"))]
         self.remove();
     }
 
@@ -751,3 +805,359 @@ where
         source.dyn_into::<T>().ok()
     }
 }
+}
+
+#[cfg(target_os = "wasi")]
+mod wasi {
+    use crate::view::Mountable;
+    use std::borrow::Cow;
+    use std::fmt::Debug;
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct Dom;
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct Node;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct Text;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct Element;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct Placeholder;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct ClassList;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct CssStyleDeclaration;
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+    pub struct TemplateElement;
+
+    pub type Event = wasm_bindgen::JsValue;
+
+    pub fn queue_microtask(task: impl FnOnce() + 'static) {
+        let _ = task;
+    }
+
+    impl Element {
+        pub fn tag_name(&self) -> String {
+            String::new()
+        }
+        pub fn unchecked_into<T>(self) -> T {
+            unimplemented!()
+        }
+    }
+
+    struct SendSyncJsValue(wasm_bindgen::JsValue);
+    unsafe impl Send for SendSyncJsValue {}
+    unsafe impl Sync for SendSyncJsValue {}
+
+    impl std::ops::Deref for Node {
+        type Target = wasm_bindgen::JsValue;
+        fn deref(&self) -> &Self::Target {
+            static JS_VAL: std::sync::OnceLock<SendSyncJsValue> = std::sync::OnceLock::new();
+            &JS_VAL.get_or_init(|| SendSyncJsValue(wasm_bindgen::JsValue::null())).0
+        }
+    }
+
+    impl std::ops::Deref for Element {
+        type Target = Node;
+        fn deref(&self) -> &Self::Target {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+
+    impl std::ops::Deref for Text {
+        type Target = Node;
+        fn deref(&self) -> &Self::Target {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+
+    impl std::ops::Deref for Placeholder {
+        type Target = Node;
+        fn deref(&self) -> &Self::Target {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+
+    impl Dom {
+        pub fn intern(text: &str) -> &str {
+            text
+        }
+
+        pub fn create_element(tag: &str, namespace: Option<&str>) -> Element {
+            let _ = (tag, namespace);
+            Element
+        }
+
+        pub fn create_text_node(text: &str) -> Text {
+            let _ = text;
+            Text
+        }
+
+        pub fn create_placeholder() -> Placeholder {
+            Placeholder
+        }
+
+        pub fn set_text(node: &Text, text: &str) {
+            let _ = (node, text);
+        }
+
+        pub fn set_attribute(node: &Element, name: &str, value: &str) {
+            let _ = (node, name, value);
+        }
+
+        pub fn remove_attribute(node: &Element, name: &str) {
+            let _ = (node, name);
+        }
+
+        pub fn insert_node(
+            parent: &Element,
+            new_child: &Node,
+            anchor: Option<&Node>,
+        ) {
+            let _ = (parent, new_child, anchor);
+        }
+
+        pub fn try_insert_node(
+            parent: &Element,
+            new_child: &Node,
+            anchor: Option<&Node>,
+        ) -> bool {
+            let _ = (parent, new_child, anchor);
+            true
+        }
+
+        pub fn remove_node(parent: &Element, child: &Node) -> Option<Node> {
+            let _ = (parent, child);
+            None
+        }
+
+        pub fn remove(node: &Node) {
+            let _ = node;
+        }
+
+        pub fn get_parent(node: &Node) -> Option<Node> {
+            let _ = node;
+            None
+        }
+
+        pub fn first_child(node: &Node) -> Option<Node> {
+            let _ = node;
+            None
+        }
+
+        pub fn next_sibling(node: &Node) -> Option<Node> {
+            let _ = node;
+            None
+        }
+
+        pub fn log_node(node: &Node) {
+            let _ = node;
+        }
+
+        pub fn clear_children(parent: &Element) {
+            let _ = parent;
+        }
+
+        pub fn mount_before<M>(new_child: &mut M, before: &Node)
+        where
+            M: Mountable,
+        {
+            let _ = (new_child, before);
+        }
+
+        pub fn try_mount_before<M>(new_child: &mut M, before: &Node) -> bool
+        where
+            M: Mountable,
+        {
+            let _ = (new_child, before);
+            true
+        }
+
+        pub fn set_property_or_value(el: &Element, key: &str, value: &wasm_bindgen::JsValue) {
+            let _ = (el, key, value);
+        }
+
+        pub fn set_property(el: &Element, key: &str, value: &wasm_bindgen::JsValue) {
+            let _ = (el, key, value);
+        }
+
+        pub fn add_event_listener(
+            el: &Element,
+            name: &str,
+            cb: Box<dyn FnMut(Event)>,
+        ) -> crate::renderer::RemoveEventHandler<Element> {
+            let _ = (el, name, cb);
+            crate::renderer::RemoveEventHandler::new(|| {})
+        }
+
+        pub fn add_event_listener_use_capture(
+            el: &Element,
+            name: &str,
+            cb: Box<dyn FnMut(Event)>,
+        ) -> crate::renderer::RemoveEventHandler<Element> {
+            let _ = (el, name, cb);
+            crate::renderer::RemoveEventHandler::new(|| {})
+        }
+
+        pub fn event_target<T>(ev: &Event) -> T
+        where
+            T: crate::renderer::CastFrom<Element>,
+        {
+            let _ = ev;
+            panic!("event_target called on WASI")
+        }
+
+        pub fn add_event_listener_delegated(
+            el: &Element,
+            name: Cow<'static, str>,
+            delegation_key: Cow<'static, str>,
+            cb: Box<dyn FnMut(Event)>,
+        ) -> crate::renderer::RemoveEventHandler<Element> {
+            let _ = (el, name, delegation_key, cb);
+            crate::renderer::RemoveEventHandler::new(|| {})
+        }
+
+        pub fn class_list(el: &Element) -> ClassList {
+            let _ = el;
+            ClassList
+        }
+
+        pub fn add_class(list: &ClassList, name: &str) {
+            let _ = (list, name);
+        }
+
+        pub fn remove_class(list: &ClassList, name: &str) {
+            let _ = (list, name);
+        }
+
+        pub fn style(el: &Element) -> CssStyleDeclaration {
+            let _ = el;
+            CssStyleDeclaration
+        }
+
+        pub fn set_css_property(
+            style: &CssStyleDeclaration,
+            name: &str,
+            value: &str,
+        ) {
+            let _ = (style, name, value);
+        }
+
+        pub fn remove_css_property(style: &CssStyleDeclaration, name: &str) {
+            let _ = (style, name);
+        }
+
+        pub fn set_inner_html(el: &Element, html: &str) {
+            let _ = (el, html);
+        }
+
+        pub fn get_template<V>() -> TemplateElement
+        where
+            V: crate::view::ToTemplate + 'static,
+        {
+            TemplateElement
+        }
+
+        pub fn clone_template(tpl: &TemplateElement) -> Element {
+            let _ = tpl;
+            Element
+        }
+
+        pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
+            let _ = html;
+            Element
+        }
+
+        pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
+            let _ = html;
+            Element
+        }
+    }
+
+    macro_rules! impl_mountable {
+        ($($t:ty),*) => {
+            $(
+                impl Mountable for $t {
+                    fn unmount(&mut self) {}
+                    fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
+                        let _ = (parent, marker);
+                    }
+                    fn try_mount(&mut self, parent: &Element, marker: Option<&Node>) -> bool {
+                        let _ = (parent, marker);
+                        true
+                    }
+                    fn insert_before_this(&self, child: &mut dyn Mountable) -> bool {
+                        let _ = child;
+                        true
+                    }
+                    fn elements(&self) -> Vec<Element> {
+                        vec![]
+                    }
+                }
+            )*
+        };
+    }
+    impl_mountable!(Node, Text, Element, Placeholder);
+
+    impl AsRef<Node> for Node {
+        fn as_ref(&self) -> &Node {
+            self
+        }
+    }
+    impl AsRef<Node> for Text {
+        fn as_ref(&self) -> &Node {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+    impl AsRef<Node> for Element {
+        fn as_ref(&self) -> &Node {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+    impl AsRef<Node> for Placeholder {
+        fn as_ref(&self) -> &Node {
+            static NODE: Node = Node;
+            &NODE
+        }
+    }
+
+    impl crate::renderer::CastFrom<Node> for Text {
+        fn cast_from(source: Node) -> Option<Self> {
+            let _ = source;
+            Some(Text)
+        }
+    }
+    impl crate::renderer::CastFrom<Node> for Placeholder {
+        fn cast_from(source: Node) -> Option<Self> {
+            let _ = source;
+            Some(Placeholder)
+        }
+    }
+    impl crate::renderer::CastFrom<Node> for Element {
+        fn cast_from(source: Node) -> Option<Self> {
+            let _ = source;
+            Some(Element)
+        }
+    }
+
+    impl<T> crate::renderer::CastFrom<Element> for T {
+        fn cast_from(source: Element) -> Option<Self> {
+            let _ = source;
+            None
+        }
+    }
+
+    impl<T> crate::renderer::CastFrom<wasm_bindgen::JsValue> for T {
+        fn cast_from(source: wasm_bindgen::JsValue) -> Option<Self> {
+            let _ = source;
+            None
+        }
+    }
+}
+

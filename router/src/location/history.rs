@@ -1,7 +1,10 @@
-use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
+#[cfg(not(target_os = "wasi"))]
+use super::handle_anchor_click;
+use super::{LocationChange, LocationProvider, Url};
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
+#[cfg(not(target_os = "wasi"))]
 use js_sys::{try_iter, Array, JsString};
 use leptos::{ev, prelude::*};
 use or_poisoned::OrPoisoned;
@@ -14,8 +17,11 @@ use std::{
     string::String,
     sync::{Arc, Mutex},
 };
+#[cfg(not(target_os = "wasi"))]
 use tachys::dom::{document, window};
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, JsValue};
+#[cfg(not(target_os = "wasi"))]
 use web_sys::UrlSearchParams;
 
 #[derive(Clone)]
@@ -34,41 +40,63 @@ impl fmt::Debug for BrowserUrl {
 
 impl BrowserUrl {
     fn scroll_to_el(loc_scroll: bool) {
-        if let Ok(hash) = window().location().hash() {
-            if !hash.is_empty() {
-                let hash = js_sys::decode_uri(&hash[1..])
-                    .ok()
-                    .and_then(|decoded| decoded.as_string())
-                    .unwrap_or(hash);
-                let el = document().get_element_by_id(&hash);
-                if let Some(el) = el {
-                    el.scroll_into_view();
-                    return;
+        #[cfg(not(target_os = "wasi"))]
+        {
+            if let Ok(hash) = window().location().hash() {
+                if !hash.is_empty() {
+                    let hash = js_sys::decode_uri(&hash[1..])
+                        .ok()
+                        .and_then(|decoded| decoded.as_string())
+                        .unwrap_or(hash);
+                    let el = document().get_element_by_id(&hash);
+                    if let Some(el) = el {
+                        el.scroll_into_view();
+                        return;
+                    }
                 }
             }
-        }
 
-        // scroll to top
-        if loc_scroll {
-            window().scroll_to_with_x_and_y(0.0, 0.0);
+            // scroll to top
+            if loc_scroll {
+                window().scroll_to_with_x_and_y(0.0, 0.0);
+            }
         }
+        #[cfg(target_os = "wasi")]
+        let _ = loc_scroll;
     }
 }
 
 impl LocationProvider for BrowserUrl {
+    #[cfg(not(target_os = "wasi"))]
     type Error = JsValue;
+    #[cfg(target_os = "wasi")]
+    type Error = ();
 
-    fn new() -> Result<Self, JsValue> {
-        let url = ArcRwSignal::new(Self::current()?);
-        let path_stack = ArcStoredValue::new(
-            Self::current().map(|n| vec![n]).unwrap_or_default(),
-        );
-        Ok(Self {
-            url,
-            pending_navigation: Default::default(),
-            path_stack,
-            is_back: Default::default(),
-        })
+    fn new() -> Result<Self, Self::Error> {
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let url = ArcRwSignal::new(Self::current()?);
+            let path_stack = ArcStoredValue::new(
+                Self::current().map(|n| vec![n]).unwrap_or_default(),
+            );
+            Ok(Self {
+                url,
+                pending_navigation: Default::default(),
+                path_stack,
+                is_back: Default::default(),
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let url = ArcRwSignal::new(Url::default());
+            let path_stack = ArcStoredValue::new(Vec::new());
+            Ok(Self {
+                url,
+                pending_navigation: Default::default(),
+                path_stack,
+                is_back: Default::default(),
+            })
+        }
     }
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
@@ -76,195 +104,242 @@ impl LocationProvider for BrowserUrl {
     }
 
     fn current() -> Result<Url, Self::Error> {
-        let location = window().location();
-        Ok(Url {
-            origin: location.origin()?,
-            path: location.pathname()?,
-            search: location
-                .search()?
-                .strip_prefix('?')
-                .map(String::from)
-                .unwrap_or_default(),
-            search_params: search_params_from_web_url(
-                &UrlSearchParams::new_with_str(&location.search()?)?,
-            )?,
-            hash: location.hash()?,
-        })
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let location = window().location();
+            Ok(Url {
+                origin: location.origin()?,
+                path: location.pathname()?,
+                search: location
+                    .search()?
+                    .strip_prefix('?')
+                    .map(String::from)
+                    .unwrap_or_default(),
+                search_params: search_params_from_web_url(
+                    &UrlSearchParams::new_with_str(&location.search()?)?,
+                )?,
+                hash: location.hash()?,
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            Err(())
+        }
     }
 
     fn parse(url: &str) -> Result<Url, Self::Error> {
-        let base = window().location().origin()?;
-        Self::parse_with_base(url, &base)
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let base = window().location().origin()?;
+            Self::parse_with_base(url, &base)
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = url;
+            Err(())
+        }
     }
 
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
-        let location = web_sys::Url::new_with_base(url, base)?;
-        Ok(Url {
-            origin: location.origin(),
-            path: location.pathname(),
-            search: location
-                .search()
-                .strip_prefix('?')
-                .map(String::from)
-                .unwrap_or_default(),
-            search_params: search_params_from_web_url(
-                &location.search_params(),
-            )?,
-            hash: location.hash(),
-        })
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let location = web_sys::Url::new_with_base(url, base)?;
+            Ok(Url {
+                origin: location.origin(),
+                path: location.pathname(),
+                search: location
+                    .search()
+                    .strip_prefix('?')
+                    .map(String::from)
+                    .unwrap_or_default(),
+                search_params: search_params_from_web_url(
+                    &location.search_params(),
+                )?,
+                hash: location.hash(),
+            })
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = (url, base);
+            Err(())
+        }
     }
 
     fn init(&self, base: Option<Cow<'static, str>>) {
-        let navigate = {
-            let url = self.url.clone();
-            let pending = Arc::clone(&self.pending_navigation);
-            let this = self.clone();
-            move |new_url: Url, loc| {
-                let same_path = {
-                    let curr = url.read_untracked();
-                    curr.origin() == new_url.origin()
-                        && curr.path() == new_url.path()
-                };
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let navigate = {
+                let url = self.url.clone();
+                let pending = Arc::clone(&self.pending_navigation);
+                let this = self.clone();
+                move |new_url: Url, loc| {
+                    let same_path = {
+                        let curr = url.read_untracked();
+                        curr.origin() == new_url.origin()
+                            && curr.path() == new_url.path()
+                    };
 
-                url.set(new_url.clone());
-                if same_path {
-                    this.complete_navigation(&loc);
-                }
-                let pending = Arc::clone(&pending);
-                let (tx, rx) = oneshot::channel::<()>();
-                if !same_path {
-                    *pending.lock().or_poisoned() = Some(tx);
-                }
-                let url = url.clone();
-                let this = this.clone();
-                async move {
+                    url.set(new_url.clone());
+                    if same_path {
+                        this.complete_navigation(&loc);
+                    }
+                    let pending = Arc::clone(&pending);
+                    let (tx, rx) = oneshot::channel::<()>();
                     if !same_path {
-                        // if it has been canceled, ignore
-                        // otherwise, complete navigation -- i.e., set URL in address bar
-                        if rx.await.is_ok() {
-                            // only update the URL in the browser if this is still the current URL
-                            // if we've navigated to another page in the meantime, don't update the
-                            // browser URL
-                            let curr = url.read_untracked();
-                            if curr == new_url {
-                                this.complete_navigation(&loc);
+                        *pending.lock().or_poisoned() = Some(tx);
+                    }
+                    let url = url.clone();
+                    let this = this.clone();
+                    async move {
+                        if !same_path {
+                            // if it has been canceled, ignore
+                            // otherwise, complete navigation -- i.e., set URL in address bar
+                            if rx.await.is_ok() {
+                                // only update the URL in the browser if this is still the current URL
+                                // if we've navigated to another page in the meantime, don't update the
+                                // browser URL
+                                let curr = url.read_untracked();
+                                if curr == new_url {
+                                    this.complete_navigation(&loc);
+                                }
                             }
                         }
                     }
                 }
-            }
-        };
+            };
 
-        let handle_anchor_click =
-            handle_anchor_click(base, Self::parse_with_base, navigate);
+            let handle_anchor_click =
+                handle_anchor_click(base, Self::parse_with_base, navigate);
 
-        let click_handle = window_event_listener(ev::click, move |ev| {
-            if let Err(e) = handle_anchor_click(ev) {
-                #[cfg(feature = "tracing")]
-                tracing::error!("{e:?}");
-                #[cfg(not(feature = "tracing"))]
-                web_sys::console::error_1(&e);
-            }
-        });
-
-        // handle popstate event (forward/back navigation)
-        let popstate_cb = {
-            let url = self.url.clone();
-            let path_stack = self.path_stack.clone();
-            let is_back = self.is_back.clone();
-            move || match Self::current() {
-                Ok(new_url) => {
-                    let mut stack = path_stack.write_value();
-                    let is_navigating_back = stack.len() == 1
-                        || (stack.len() >= 2
-                            && stack.get(stack.len() - 2) == Some(&new_url));
-
-                    if is_navigating_back {
-                        stack.pop();
-                    }
-
-                    is_back.set(is_navigating_back);
-
-                    url.set(new_url);
-                }
-                Err(e) => {
+            let click_handle = window_event_listener(ev::click, move |ev| {
+                if let Err(e) = handle_anchor_click(ev) {
                     #[cfg(feature = "tracing")]
                     tracing::error!("{e:?}");
                     #[cfg(not(feature = "tracing"))]
                     web_sys::console::error_1(&e);
                 }
-            }
-        };
+            });
 
-        let popstate_handle =
-            window_event_listener(ev::popstate, move |_| popstate_cb());
+            // handle popstate event (forward/back navigation)
+            let popstate_cb = {
+                let url = self.url.clone();
+                let path_stack = self.path_stack.clone();
+                let is_back = self.is_back.clone();
+                move || match Self::current() {
+                    Ok(new_url) => {
+                        let mut stack = path_stack.write_value();
+                        let is_navigating_back = stack.len() == 1
+                            || (stack.len() >= 2
+                                && stack.get(stack.len() - 2) == Some(&new_url));
 
-        on_cleanup(|| {
-            click_handle.remove();
-            popstate_handle.remove();
-        });
+                        if is_navigating_back {
+                            stack.pop();
+                        }
+
+                        is_back.set(is_navigating_back);
+
+                        url.set(new_url);
+                    }
+                    Err(e) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("{e:?}");
+                        #[cfg(not(feature = "tracing"))]
+                        web_sys::console::error_1(&e);
+                    }
+                }
+            };
+
+            let popstate_handle =
+                window_event_listener(ev::popstate, move |_| popstate_cb());
+
+            on_cleanup(|| {
+                click_handle.remove();
+                popstate_handle.remove();
+            });
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = base;
+        }
     }
 
     fn ready_to_complete(&self) {
-        if let Some(tx) = self.pending_navigation.lock().or_poisoned().take() {
-            _ = tx.send(());
+        #[cfg(not(target_os = "wasi"))]
+        {
+            if let Some(tx) = self.pending_navigation.lock().or_poisoned().take() {
+                _ = tx.send(());
+            }
         }
     }
 
     fn complete_navigation(&self, loc: &LocationChange) {
-        let history = window().history().unwrap();
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let history = window().history().unwrap();
 
-        let current_path = self
-            .path_stack
-            .read_value()
-            .last()
-            .map(|url| url.to_full_path());
-        let add_to_stack = current_path.as_ref() != Some(&loc.value);
+            let current_path = self
+                .path_stack
+                .read_value()
+                .last()
+                .map(|url| url.to_full_path());
+            let add_to_stack = current_path.as_ref() != Some(&loc.value);
 
-        if loc.replace {
-            history
-                .replace_state_with_url(
-                    &loc.state.to_js_value(),
-                    "",
-                    Some(&loc.value),
-                )
-                .unwrap();
-        } else if add_to_stack {
-            // push the "forward direction" marker
-            let state = &loc.state.to_js_value();
-            history
-                .push_state_with_url(state, "", Some(&loc.value))
-                .unwrap();
-        }
-
-        // add this URL to the "path stack" for detecting back navigations, and
-        // unset "navigating back" state
-        if let Ok(url) = Self::current() {
-            if add_to_stack {
-                self.path_stack.write_value().push(url);
+            if loc.replace {
+                history
+                    .replace_state_with_url(
+                        &loc.state.to_js_value(),
+                        "",
+                        Some(&loc.value),
+                    )
+                    .unwrap();
+            } else if add_to_stack {
+                // push the "forward direction" marker
+                let state = &loc.state.to_js_value();
+                history
+                    .push_state_with_url(state, "", Some(&loc.value))
+                    .unwrap();
             }
-            self.is_back.set(false);
-        }
 
-        // scroll to el
-        Self::scroll_to_el(loc.scroll);
+            // add this URL to the "path stack" for detecting back navigations, and
+            // unset "navigating back" state
+            if let Ok(url) = Self::current() {
+                if add_to_stack {
+                    self.path_stack.write_value().push(url);
+                }
+                self.is_back.set(false);
+            }
+
+            // scroll to el
+            Self::scroll_to_el(loc.scroll);
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = loc;
+        }
     }
 
     fn redirect(loc: &str) {
-        let navigate = use_navigate();
-        let Some(url) = resolve_redirect_url(loc) else {
-            return; // resolve_redirect_url() already logs an error
-        };
-        let current_origin = location().origin().unwrap();
-        if url.origin() == current_origin {
-            let navigate = navigate.clone();
-            // delay by a tick here, so that the Action updates *before* the redirect
-            request_animation_frame(move || {
-                navigate(&url.href(), Default::default());
-            });
-            // Use set_href() if the conditions for client-side navigation were not satisfied
-        } else if let Err(e) = location().set_href(&url.href()) {
-            leptos::logging::error!("Failed to redirect: {e:#?}");
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let navigate = use_navigate();
+            let Some(url) = resolve_redirect_url(loc) else {
+                return; // resolve_redirect_url() already logs an error
+            };
+            let current_origin = window().location().origin().unwrap();
+            if url.origin() == current_origin {
+                let navigate = navigate.clone();
+                // delay by a tick here, so that the Action updates *before* the redirect
+                request_animation_frame(move || {
+                    navigate(&url.href(), Default::default());
+                });
+                // Use set_href() if the conditions for client-side navigation were not satisfied
+            } else if let Err(e) = window().location().set_href(&url.href()) {
+                leptos::logging::error!("Failed to redirect: {e:#?}");
+            }
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = loc;
         }
     }
 
@@ -273,6 +348,7 @@ impl LocationProvider for BrowserUrl {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 fn search_params_from_web_url(
     params: &web_sys::UrlSearchParams,
 ) -> Result<ParamsMap, JsValue> {
@@ -291,7 +367,7 @@ fn search_params_from_web_url(
         .collect()
 }
 
-/// Resolves a redirect location to an (absolute) URL.
+#[cfg(not(target_os = "wasi"))]
 pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
     let origin = match window().location().origin() {
         Ok(origin) => origin,

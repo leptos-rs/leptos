@@ -18,11 +18,35 @@ use tachys::{
     reactive_graph::node_ref::NodeRef,
 };
 use thiserror::Error;
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+#[cfg(not(target_os = "wasi"))]
 use web_sys::{
     Event, FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
     SubmitEvent,
 };
+
+#[cfg(target_os = "wasi")]
+/// Event type placeholder for WASI.
+pub type Event = ();
+#[cfg(target_os = "wasi")]
+/// FormData type placeholder for WASI.
+pub type FormData = ();
+#[cfg(target_os = "wasi")]
+/// HtmlButtonElement type placeholder for WASI.
+pub type HtmlButtonElement = ();
+#[cfg(target_os = "wasi")]
+/// HtmlFormElement type placeholder for WASI.
+pub type HtmlFormElement = ();
+#[cfg(target_os = "wasi")]
+/// HtmlInputElement type placeholder for WASI.
+pub type HtmlInputElement = ();
+#[cfg(target_os = "wasi")]
+/// SubmitEvent type placeholder for WASI.
+pub type SubmitEvent = ();
+#[cfg(target_os = "wasi")]
+/// JsValue type placeholder for WASI.
+pub type JsValue = ();
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
@@ -99,8 +123,9 @@ where
     ServFn::Error: Send + Sync + 'static,
     <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
 {
+    #[cfg(not(target_os = "wasi"))]
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
-    _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
+    let _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
         if let Some(url) = resolve_redirect_url(loc) {
             _ = window().location().set_href(&url.href());
         }
@@ -109,6 +134,7 @@ where
     let version = action.version();
     let value = action.value();
 
+    #[cfg(not(target_os = "wasi"))]
     let on_submit = {
         move |ev: SubmitEvent| {
             if ev.default_prevented() {
@@ -139,8 +165,11 @@ where
     let action_form = form()
         .action(ServFn::url())
         .method("post")
-        .on(submit, on_submit)
         .child(children());
+
+    #[cfg(not(target_os = "wasi"))]
+    let action_form = action_form.on(submit, on_submit);
+
     if let Some(node_ref) = node_ref {
         Either::Left(action_form.node_ref(node_ref))
     } else {
@@ -175,13 +204,15 @@ where
     ServFn::Error: Send + Sync + 'static,
     <ServFn as ServerFn>::Client: Client<<ServFn as ServerFn>::Error>,
 {
+    #[cfg(not(target_os = "wasi"))]
     // if redirect hook has not yet been set (by a router), defaults to a browser redirect
-    _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
+    let _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
         if let Some(url) = resolve_redirect_url(loc) {
             _ = window().location().set_href(&url.href());
         }
     });
 
+    #[cfg(not(target_os = "wasi"))]
     let on_submit = move |ev: SubmitEvent| {
         if ev.default_prevented() {
             return;
@@ -206,8 +237,11 @@ where
         .action(ServFn::url())
         .method("post")
         .attr("method", "post")
-        .on(submit, on_submit)
         .child(children());
+
+    #[cfg(not(target_os = "wasi"))]
+    let action_form = action_form.on(submit, on_submit);
+
     if let Some(node_ref) = node_ref {
         Either::Left(action_form.node_ref(node_ref))
     } else {
@@ -215,6 +249,7 @@ where
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 /// Resolves a redirect location to an (absolute) URL.
 pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
     let origin = match window().location().origin() {
@@ -235,11 +270,12 @@ pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
                 "Invalid redirect location: {}",
                 e.as_string().unwrap_or_default(),
             );
-            None
+            return None;
         }
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 /// Tries to deserialize a type from form data. This can be used for client-side
 /// validation during form submission.
 pub trait FromFormData
@@ -255,6 +291,7 @@ where
     ) -> Result<Self, serde_qs::Error>;
 }
 
+#[cfg(not(target_os = "wasi"))]
 /// Errors that can arise when converting from an HTML event or form into a Rust data type.
 #[derive(Error, Debug)]
 pub enum FromFormDataError {
@@ -269,6 +306,7 @@ pub enum FromFormDataError {
     Deserialization(serde_qs::Error),
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl<T> FromFormData for T
 where
     T: serde::de::DeserializeOwned,
@@ -291,6 +329,7 @@ where
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 fn form_data_from_event(
     ev: &SubmitEvent,
 ) -> Result<FormData, FromFormDataError> {

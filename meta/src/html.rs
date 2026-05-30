@@ -64,9 +64,12 @@ where
     type State = HtmlViewState<At>;
 
     fn build(self) -> Self::State {
+        #[cfg(not(target_os = "wasi"))]
         let el = document()
             .document_element()
             .expect("there to be a <html> element");
+        #[cfg(target_os = "wasi")]
+        let el = unreachable!();
 
         let attributes = self.attributes.build(&el);
 
@@ -142,9 +145,12 @@ where
         _cursor: &Cursor,
         _position: &PositionState,
     ) -> Self::State {
+        #[cfg(not(target_os = "wasi"))]
         let el = document()
             .document_element()
             .expect("there to be a <html> element");
+        #[cfg(target_os = "wasi")]
+        let el = unreachable!();
 
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
@@ -178,8 +184,12 @@ where
     }
 
     fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
-        vec![document()
+        #[cfg(not(target_os = "wasi"))]
+        let el = document()
             .document_element()
-            .expect("there to be a <html> element")]
+            .expect("there to be a <html> element");
+        #[cfg(target_os = "wasi")]
+        let el = unreachable!();
+        vec![el]
     }
 }

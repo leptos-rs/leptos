@@ -89,10 +89,17 @@ where
     E::Output: JsCast + 'static,
 {
     fn load(self, el: &crate::renderer::types::Element) {
-        // safe to construct SendWrapper here, because it will only run in the browser
-        // so it will always be accessed or dropped from the main thread
-        self.0
-            .set(Some(SendWrapper::new(el.clone().unchecked_into())));
+        #[cfg(not(target_os = "wasi"))]
+        {
+            // safe to construct SendWrapper here, because it will only run in the browser
+            // so it will always be accessed or dropped from the main thread
+            self.0
+                .set(Some(SendWrapper::new(el.clone().unchecked_into())));
+        }
+        #[cfg(target_os = "wasi")]
+        {
+            let _ = el;
+        }
     }
 }
 

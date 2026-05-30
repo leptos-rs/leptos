@@ -363,16 +363,19 @@ pub use serde_json;
 #[cfg(feature = "tracing")]
 #[doc(hidden)]
 pub use tracing;
+#[cfg(not(target_os = "wasi"))]
 #[doc(hidden)]
 pub use wasm_bindgen;
 #[doc(hidden)]
 pub use wasm_split_helpers as wasm_split;
+#[cfg(not(target_os = "wasi"))]
 #[doc(hidden)]
 pub use web_sys;
 
 #[doc(hidden)]
 pub mod __reexports {
     pub use send_wrapper;
+    #[cfg(not(target_os = "wasi"))]
     pub use wasm_bindgen_futures;
 }
 

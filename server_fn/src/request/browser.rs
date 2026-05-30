@@ -1,4 +1,6 @@
-use super::ClientReq;
+#[cfg(not(target_os = "wasi"))]
+mod impl_browser {
+use crate::request::ClientReq;
 use crate::{
     client::get_server_url,
     error::{FromServerFnError, ServerFnErrorErr},
@@ -368,3 +370,99 @@ fn streaming_request(
     let req = web_sys::Request::new_with_str_and_init(path, &init)?;
     Ok((Request::from(req), abort_ctrl))
 }
+}
+
+#[cfg(not(target_os = "wasi"))]
+pub use impl_browser::*;
+
+#[cfg(target_os = "wasi")]
+mod impl_wasi {
+    use crate::request::ClientReq;
+    use crate::error::FromServerFnError;
+    use bytes::Bytes;
+    use futures::Stream;
+
+    /// Browser request stub for WASI.
+    #[derive(Debug)]
+    pub struct BrowserRequest;
+
+    /// Browser form data stub for WASI.
+    #[derive(Debug)]
+    pub struct BrowserFormData;
+
+    impl From<()> for BrowserFormData {
+        fn from(_: ()) -> Self {
+            Self
+        }
+    }
+
+
+    impl<E> ClientReq<E> for BrowserRequest
+    where
+        E: FromServerFnError,
+    {
+        type FormData = BrowserFormData;
+
+        fn try_new_req_query(
+            _path: &str,
+            _content_type: &str,
+            _accepts: &str,
+            _query: &str,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+
+        fn try_new_req_text(
+            _path: &str,
+            _content_type: &str,
+            _accepts: &str,
+            _body: String,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+
+        fn try_new_req_bytes(
+            _path: &str,
+            _content_type: &str,
+            _accepts: &str,
+            _body: Bytes,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+
+        fn try_new_req_multipart(
+            _path: &str,
+            _accepts: &str,
+            _body: BrowserFormData,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+
+        fn try_new_req_form_data(
+            _path: &str,
+            _accepts: &str,
+            _content_type: &str,
+            _body: BrowserFormData,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+
+        fn try_new_req_streaming(
+            _path: &str,
+            _accepts: &str,
+            _content_type: &str,
+            _body: impl Stream<Item = Bytes> + 'static,
+            _method: http::Method,
+        ) -> Result<Self, E> {
+            unreachable!()
+        }
+    }
+}
+
+#[cfg(target_os = "wasi")]
+pub use impl_wasi::*;

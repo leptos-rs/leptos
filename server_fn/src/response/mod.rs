@@ -2,7 +2,7 @@
 #[cfg(feature = "actix-no-default")]
 pub mod actix;
 /// Response types for the browser.
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "browser", target_os = "wasi"))]
 pub mod browser;
 #[cfg(feature = "generic")]
 pub mod generic;

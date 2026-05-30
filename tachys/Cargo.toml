@@ -23,8 +23,23 @@ oco_ref = { workspace = true, optional = true }
 async-trait = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
 erased = { workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
+drain_filter_polyfill = { workspace = true, default-features = true }
+indexmap = { workspace = true, default-features = true }
+rustc-hash = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+itertools = { workspace = true, default-features = true }
+send_wrapper = { workspace = true, default-features = true }
+sledgehammer_bindgen = { features = [
+  "web",
+], optional = true, workspace = true, default-features = true }
+sledgehammer_utils = { optional = true, workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
+
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+wasm-bindgen = { workspace = true, default-features = true }
 js-sys = { workspace = true, default-features = true }
 web-sys = { features = [
   "Window",
@@ -56,7 +71,6 @@ web-sys = { features = [
   "DeviceOrientationEvent",
   "DragEvent",
   "ErrorEvent",
-  "Event",
   "FocusEvent",
   "GamepadEvent",
   "HashChangeEvent",
@@ -148,19 +162,11 @@ web-sys = { features = [
   "HtmlTemplateElement",
   "HtmlOptionElement",
 ], workspace = true, default-features = true }
-drain_filter_polyfill = { workspace = true, default-features = true }
-indexmap = { workspace = true, default-features = true }
-rustc-hash = { workspace = true, default-features = true }
-futures = { workspace = true, default-features = true }
-itertools = { workspace = true, default-features = true }
-send_wrapper = { workspace = true, default-features = true }
-sledgehammer_bindgen = { features = [
-  "web",
-], optional = true, workspace = true, default-features = true }
-sledgehammer_utils = { optional = true, workspace = true, default-features = true }
-tracing = { optional = true, workspace = true, default-features = true }
-serde = { optional = true, workspace = true, default-features = true }
-serde_json = { optional = true, workspace = true, default-features = true }
+
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasm-bindgen-wasi = { package = "wasm-bindgen", path = "../wasi_wasm_bindgen_stub" }
+web-sys-wasi = { package = "web-sys", path = "../wasi_web_sys_stub" }
+js-sys-wasi = { package = "js-sys", path = "../wasi_js_sys_stub" }
 
 [dev-dependencies]
 tokio-test = { workspace = true, default-features = true }

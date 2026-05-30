@@ -5,7 +5,10 @@ use crate::{
 #[cfg(any(debug_assertions, leptos_debuginfo))]
 use std::cell::Cell;
 use std::{cell::RefCell, panic::Location, rc::Rc};
+#[cfg(not(target_os = "wasi"))]
 use web_sys::{Comment, Element, Node, Text};
+#[cfg(target_os = "wasi")]
+use crate::renderer::types::{Placeholder as Comment, Element, Node, Text};
 
 #[cfg(feature = "mark_branches")]
 const COMMENT_NODE: u16 = 8;
@@ -157,97 +160,121 @@ pub(crate) fn set_currently_hydrating(
 }
 
 pub(crate) fn failed_to_cast_element(tag_name: &str, node: Node) -> Element {
-    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+    #[cfg(not(target_os = "wasi"))]
     {
-        _ = node;
-        unreachable!();
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+        {
+            _ = node;
+            unreachable!();
+        }
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        {
+            let hydrating = CURRENTLY_HYDRATING
+                .take()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "{unknown}".to_string());
+            web_sys::console::error_3(
+                &wasm_bindgen::JsValue::from_str(&format!(
+                    "A hydration error occurred while trying to hydrate an \
+                     element defined at {hydrating}.\n\nThe framework expected an \
+                     HTML <{tag_name}> element, but found this instead: ",
+                )),
+                &node,
+                &wasm_bindgen::JsValue::from_str(
+                    "\n\nThe hydration mismatch may have occurred slightly \
+                     earlier, but this is the first time the framework found a \
+                     node of an unexpected type.",
+                ),
+            );
+            panic!(
+                "Unrecoverable hydration error. Please read the error message \
+                 directly above this for more details."
+            );
+        }
     }
-    #[cfg(any(debug_assertions, leptos_debuginfo))]
+    #[cfg(target_os = "wasi")]
     {
-        let hydrating = CURRENTLY_HYDRATING
-            .take()
-            .map(|n| n.to_string())
-            .unwrap_or_else(|| "{unknown}".to_string());
-        web_sys::console::error_3(
-            &wasm_bindgen::JsValue::from_str(&format!(
-                "A hydration error occurred while trying to hydrate an \
-                 element defined at {hydrating}.\n\nThe framework expected an \
-                 HTML <{tag_name}> element, but found this instead: ",
-            )),
-            &node,
-            &wasm_bindgen::JsValue::from_str(
-                "\n\nThe hydration mismatch may have occurred slightly \
-                 earlier, but this is the first time the framework found a \
-                 node of an unexpected type.",
-            ),
-        );
-        panic!(
-            "Unrecoverable hydration error. Please read the error message \
-             directly above this for more details."
-        );
+        let _ = (tag_name, node);
+        unreachable!()
     }
 }
 
 pub(crate) fn failed_to_cast_marker_node(node: Node) -> Comment {
-    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+    #[cfg(not(target_os = "wasi"))]
     {
-        _ = node;
-        unreachable!();
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+        {
+            _ = node;
+            unreachable!();
+        }
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        {
+            let hydrating = CURRENTLY_HYDRATING
+                .take()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "{unknown}".to_string());
+            web_sys::console::error_3(
+                &wasm_bindgen::JsValue::from_str(&format!(
+                    "A hydration error occurred while trying to hydrate an \
+                     element defined at {hydrating}.\n\nThe framework expected a \
+                     marker node, but found this instead: ",
+                )),
+                &node,
+                &wasm_bindgen::JsValue::from_str(
+                    "\n\nThe hydration mismatch may have occurred slightly \
+                     earlier, but this is the first time the framework found a \
+                     node of an unexpected type.",
+                ),
+            );
+            panic!(
+                "Unrecoverable hydration error. Please read the error message \
+                 directly above this for more details."
+            );
+        }
     }
-    #[cfg(any(debug_assertions, leptos_debuginfo))]
+    #[cfg(target_os = "wasi")]
     {
-        let hydrating = CURRENTLY_HYDRATING
-            .take()
-            .map(|n| n.to_string())
-            .unwrap_or_else(|| "{unknown}".to_string());
-        web_sys::console::error_3(
-            &wasm_bindgen::JsValue::from_str(&format!(
-                "A hydration error occurred while trying to hydrate an \
-                 element defined at {hydrating}.\n\nThe framework expected a \
-                 marker node, but found this instead: ",
-            )),
-            &node,
-            &wasm_bindgen::JsValue::from_str(
-                "\n\nThe hydration mismatch may have occurred slightly \
-                 earlier, but this is the first time the framework found a \
-                 node of an unexpected type.",
-            ),
-        );
-        panic!(
-            "Unrecoverable hydration error. Please read the error message \
-             directly above this for more details."
-        );
+        let _ = node;
+        unreachable!()
     }
 }
 
 pub(crate) fn failed_to_cast_text_node(node: Node) -> Text {
-    #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+    #[cfg(not(target_os = "wasi"))]
     {
-        _ = node;
-        unreachable!();
+        #[cfg(not(any(debug_assertions, leptos_debuginfo)))]
+        {
+            _ = node;
+            unreachable!();
+        }
+        #[cfg(any(debug_assertions, leptos_debuginfo))]
+        {
+            let hydrating = CURRENTLY_HYDRATING
+                .take()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "{unknown}".to_string());
+            web_sys::console::error_3(
+                &wasm_bindgen::JsValue::from_str(&format!(
+                    "A hydration error occurred while trying to hydrate an \
+                     element defined at {hydrating}.\n\nThe framework expected a \
+                     text node, but found this instead: ",
+                )),
+                &node,
+                &wasm_bindgen::JsValue::from_str(
+                    "\n\nThe hydration mismatch may have occurred slightly \
+                     earlier, but this is the first time the framework found a \
+                     node of an unexpected type.",
+                ),
+            );
+            panic!(
+                "Unrecoverable hydration error. Please read the error message \
+                 directly above this for more details."
+            );
+        }
     }
-    #[cfg(any(debug_assertions, leptos_debuginfo))]
+    #[cfg(target_os = "wasi")]
     {
-        let hydrating = CURRENTLY_HYDRATING
-            .take()
-            .map(|n| n.to_string())
-            .unwrap_or_else(|| "{unknown}".to_string());
-        web_sys::console::error_3(
-            &wasm_bindgen::JsValue::from_str(&format!(
-                "A hydration error occurred while trying to hydrate an \
-                 element defined at {hydrating}.\n\nThe framework expected a \
-                 text node, but found this instead: ",
-            )),
-            &node,
-            &wasm_bindgen::JsValue::from_str(
-                "\n\nThe hydration mismatch may have occurred slightly \
-                 earlier, but this is the first time the framework found a \
-                 node of an unexpected type.",
-            ),
-        );
-        panic!(
-            "Unrecoverable hydration error. Please read the error message \
-             directly above this for more details."
-        );
+        let _ = node;
+        unreachable!()
     }
 }

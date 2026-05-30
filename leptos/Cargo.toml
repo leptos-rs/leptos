@@ -12,10 +12,7 @@ edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
-any_spawner = { workspace = true, features = [
-  "wasm-bindgen",
-  "futures-executor",
-] }
+
 base64 = { optional = true, workspace = true, default-features = true }
 cfg-if = { workspace = true, default-features = true }
 hydration_context = { workspace = true }
@@ -46,14 +43,6 @@ typed-builder = { workspace = true, default-features = true }
 typed-builder-macro = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-server_fn = { workspace = true, features = ["form-redirects", "browser"] }
-web-sys = { features = [
-  "ShadowRoot",
-  "ShadowRootInit",
-  "ShadowRootMode",
-], workspace = true, default-features = true }
-wasm-bindgen = { workspace = true, default-features = true }
-wasm-bindgen-futures = { workspace = true, default-features = true }
 serde_qs = { workspace = true, default-features = true }
 slotmap = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
@@ -62,6 +51,27 @@ wasm_split_helpers = { workspace = true, default-features = true }
 subsecond = { workspace = true, default-features = true, optional = true }
 dioxus-cli-config = { workspace = true, default-features = true, optional = true }
 dioxus-devtools = { workspace = true, default-features = true, optional = true }
+
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+web-sys = { features = [
+  "ShadowRoot",
+  "ShadowRootInit",
+  "ShadowRootMode",
+], workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+wasm-bindgen-futures = { workspace = true, default-features = true }
+any_spawner = { workspace = true, features = [
+  "wasm-bindgen",
+  "futures-executor",
+] }
+server_fn = { workspace = true, features = ["form-redirects", "browser"] }
+
+[target.'cfg(target_os = "wasi")'.dependencies]
+any_spawner = { workspace = true, features = [
+  "futures-executor",
+] }
+server_fn = { workspace = true, features = ["form-redirects"] }
+
 
 [features]
 hydration = [

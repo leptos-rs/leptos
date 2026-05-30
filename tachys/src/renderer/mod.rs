@@ -1,6 +1,6 @@
 use crate::view::{Mountable, ToTemplate};
 use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
-use wasm_bindgen::JsValue;
+use crate::JsValue;
 
 /// A DOM renderer.
 pub mod dom;
