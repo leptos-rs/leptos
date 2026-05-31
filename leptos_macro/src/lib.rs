@@ -1074,3 +1074,12 @@ pub fn memo(input: TokenStream) -> TokenStream {
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     lazy::lazy_impl(args, s)
 }
+
+/// Dummy wasm_bindgen macro that is a no-op on WASI targets.
+#[proc_macro_attribute]
+pub fn wasm_bindgen(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    item
+}

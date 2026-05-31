@@ -12,6 +12,9 @@ use crate::{
     view::{Position, PositionState, Render, RenderHtml},
 };
 use std::{borrow::Cow, fmt::Debug};
+#[cfg(target_os = "wasi")]
+use crate::web_sys;
+
 
 macro_rules! svg_elements {
 	($($tag:ident  [$($attr:ty),*]),* $(,)?) => {

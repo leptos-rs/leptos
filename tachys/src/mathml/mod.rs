@@ -6,6 +6,9 @@ use crate::{
     view::Render,
 };
 use std::fmt::Debug;
+#[cfg(target_os = "wasi")]
+use crate::web_sys;
+
 
 macro_rules! mathml_global {
 	($tag:ty, $attr:ty) => {

@@ -11,6 +11,9 @@ use crate::{
 };
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, sync::Arc};
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use wasm_bindgen::JsValue;
 
 /// Creates an [`Attribute`] that will set a DOM property on an element.

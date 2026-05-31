@@ -1,6 +1,0 @@
-[package]
-name = "wasm-bindgen"
-version = "0.2.122"
-edition = "2021"
-
-[dependencies]

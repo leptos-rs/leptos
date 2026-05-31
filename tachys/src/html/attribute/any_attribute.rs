@@ -5,6 +5,9 @@ use crate::{
     renderer::{dom::Element, Rndr},
 };
 use std::{any::TypeId, fmt::Debug, mem};
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 

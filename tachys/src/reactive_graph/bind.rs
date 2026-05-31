@@ -22,6 +22,9 @@ use reactive_graph::{
     wrappers::read::Signal,
 };
 use send_wrapper::SendWrapper;
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use wasm_bindgen::JsValue;
 #[cfg(feature = "reactive_stores")]
 use {

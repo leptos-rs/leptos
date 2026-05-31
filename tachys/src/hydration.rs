@@ -4,6 +4,9 @@ use crate::{
 };
 #[cfg(any(debug_assertions, leptos_debuginfo))]
 use std::cell::Cell;
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use std::{cell::RefCell, panic::Location, rc::Rc};
 #[cfg(not(target_os = "wasi"))]
 use web_sys::{Comment, Element, Node, Text};

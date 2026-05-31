@@ -809,6 +809,7 @@ where
 
 #[cfg(target_os = "wasi")]
 mod wasi {
+    use crate::wasm_bindgen;
     use crate::view::Mountable;
     use std::borrow::Cow;
     use std::fmt::Debug;
@@ -843,6 +844,15 @@ mod wasi {
         }
         pub fn unchecked_into<T>(self) -> T {
             unimplemented!()
+        }
+    }
+
+    impl Node {
+        pub fn node_type(&self) -> u16 {
+            0
+        }
+        pub fn text_content(&self) -> Option<String> {
+            None
         }
     }
 

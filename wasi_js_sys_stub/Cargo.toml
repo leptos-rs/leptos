@@ -1,7 +1,0 @@
-[package]
-name = "js-sys"
-version = "0.3.99"
-edition = "2021"
-
-[dependencies]
-wasm-bindgen = { path = "../wasi_wasm_bindgen_stub" }

@@ -44,11 +44,14 @@ pub mod prelude {
 }
 
 #[cfg(target_os = "wasi")]
-pub extern crate wasm_bindgen_wasi as wasm_bindgen;
+#[allow(missing_docs)]
+pub mod wasm_bindgen;
 #[cfg(target_os = "wasi")]
-pub extern crate web_sys_wasi as web_sys;
+#[allow(missing_docs)]
+pub mod web_sys;
 #[cfg(target_os = "wasi")]
-pub extern crate js_sys_wasi as js_sys;
+#[allow(missing_docs)]
+pub mod js_sys;
 
 use wasm_bindgen::JsValue;
 use web_sys::Node;
@@ -71,10 +74,10 @@ pub mod svg;
 pub mod view;
 
 pub use either_of as either;
-#[cfg(feature = "islands")]
+#[cfg(all(feature = "islands", not(target_os = "wasi")))]
 #[doc(hidden)]
 pub use wasm_bindgen;
-#[cfg(feature = "islands")]
+#[cfg(all(feature = "islands", not(target_os = "wasi")))]
 #[doc(hidden)]
 pub use web_sys;
 
@@ -88,6 +91,7 @@ pub mod reactive_graph;
 /// A type-erased container.
 pub mod erased;
 
+#[allow(dead_code)]
 pub(crate) trait UnwrapOrDebug {
     type Output;
 

@@ -305,7 +305,7 @@ pub use tachys::mathml as math;
 #[doc(inline)]
 pub use tachys::svg;
 
-#[cfg(feature = "subsecond")]
+#[cfg(all(feature = "subsecond", not(target_os = "wasi")))]
 /// Utilities for using binary hot-patching with [`subsecond`].
 pub mod subsecond;
 
@@ -366,17 +366,42 @@ pub use tracing;
 #[cfg(not(target_os = "wasi"))]
 #[doc(hidden)]
 pub use wasm_bindgen;
+#[cfg(target_os = "wasi")]
+#[doc(hidden)]
+pub mod wasm_bindgen {
+    pub use tachys::wasm_bindgen::*;
+    pub mod prelude {
+        pub use tachys::wasm_bindgen::prelude::*;
+        pub use leptos_macro::wasm_bindgen;
+    }
+}
+
 #[doc(hidden)]
 pub use wasm_split_helpers as wasm_split;
+
 #[cfg(not(target_os = "wasi"))]
 #[doc(hidden)]
 pub use web_sys;
+#[cfg(target_os = "wasi")]
+#[doc(hidden)]
+pub use tachys::web_sys;
+
+#[cfg(target_os = "wasi")]
+#[doc(hidden)]
+pub mod wasm_bindgen_futures {
+    pub fn spawn_local<F>(_future: F)
+    where
+        F: std::future::Future<Output = ()> + 'static,
+    {}
+}
 
 #[doc(hidden)]
 pub mod __reexports {
     pub use send_wrapper;
     #[cfg(not(target_os = "wasi"))]
     pub use wasm_bindgen_futures;
+    #[cfg(target_os = "wasi")]
+    pub use crate::wasm_bindgen_futures;
 }
 
 #[doc(hidden)]

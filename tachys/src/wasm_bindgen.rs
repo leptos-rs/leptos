@@ -13,7 +13,7 @@ impl JsValue {
 }
 
 pub mod closure {
-    use crate::JsValue;
+    use crate::wasm_bindgen::JsValue;
     pub struct Closure<T: ?Sized>(std::marker::PhantomData<T>);
     impl<T: ?Sized> Closure<T> {
         pub fn wrap(val: Box<T>) -> Self {
@@ -27,7 +27,7 @@ pub mod closure {
 }
 
 pub mod prelude {
-    pub use crate::closure::Closure;
+    pub use crate::wasm_bindgen::closure::Closure;
 }
 
 pub trait UnwrapThrowExt {

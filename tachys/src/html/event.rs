@@ -6,6 +6,9 @@ use crate::{
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
 };
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use send_wrapper::SendWrapper;
 use std::{
     borrow::Cow,

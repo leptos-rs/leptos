@@ -13,6 +13,9 @@ use crate::{
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use wasm_bindgen::JsValue;
 
 /// Retained view state for [`Oco`].

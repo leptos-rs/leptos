@@ -1,3 +1,5 @@
+use crate::wasm_bindgen;
+
 macro_rules! dummy_types {
     ($($id:ident),* $(,)?) => {
         $(

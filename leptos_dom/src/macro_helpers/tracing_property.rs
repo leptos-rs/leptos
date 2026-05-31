@@ -1,4 +1,7 @@
+#[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::UnwrapThrowExt;
+#[cfg(target_os = "wasi")]
+use tachys::wasm_bindgen::UnwrapThrowExt;
 
 #[macro_export]
 /// Use for tracing property

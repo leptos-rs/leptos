@@ -13,6 +13,9 @@ use reactive_graph::{
 };
 use send_wrapper::SendWrapper;
 use std::{cell::Cell, ops::DerefMut};
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use wasm_bindgen::JsCast;
 
 /// A reactive reference to a DOM node that can be used with the `node_ref` attribute.

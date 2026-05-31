@@ -1,5 +1,6 @@
+#[allow(non_snake_case)]
 pub mod Reflect {
-    use wasm_bindgen::JsValue;
+    use crate::wasm_bindgen::JsValue;
     pub fn set(
         target: &JsValue,
         property: &JsValue,

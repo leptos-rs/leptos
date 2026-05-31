@@ -2,6 +2,10 @@ use super::ElementWithChildren;
 use crate::html::element::{ElementType, HtmlElement};
 use std::fmt::Debug;
 
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
+
 /// Creates a custom element.
 #[track_caller]
 pub fn custom<E>(tag: E) -> HtmlElement<Custom<E>, (), ()>

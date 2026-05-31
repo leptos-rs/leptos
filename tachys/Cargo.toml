@@ -163,11 +163,6 @@ web-sys = { features = [
   "HtmlOptionElement",
 ], workspace = true, default-features = true }
 
-[target.'cfg(target_os = "wasi")'.dependencies]
-wasm-bindgen-wasi = { package = "wasm-bindgen", path = "../wasi_wasm_bindgen_stub" }
-web-sys-wasi = { package = "web-sys", path = "../wasi_web_sys_stub" }
-js-sys-wasi = { package = "js-sys", path = "../wasi_js_sys_stub" }
-
 [dev-dependencies]
 tokio-test = { workspace = true, default-features = true }
 tokio = { features = [

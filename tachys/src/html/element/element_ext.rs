@@ -7,6 +7,9 @@ use crate::{
     },
     renderer::RemoveEventHandler,
 };
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
 use wasm_bindgen::JsValue;
 #[cfg(not(target_os = "wasi"))]
 use web_sys::Element;

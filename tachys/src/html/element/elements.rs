@@ -7,6 +7,10 @@ use crate::{
 };
 use std::fmt::Debug;
 
+#[cfg(target_os = "wasi")]
+#[allow(unused_imports)]
+use crate::{js_sys, wasm_bindgen, web_sys};
+
 macro_rules! html_element_inner {
     (
         #[$meta:meta]

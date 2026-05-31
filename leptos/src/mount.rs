@@ -15,9 +15,9 @@ use tachys::{
     view::{PositionState, RenderHtml},
 };
 #[cfg(feature = "hydrate")]
-use wasm_bindgen::JsCast;
+use crate::wasm_bindgen::JsCast;
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(target_os = "wasi")))]
 /// Hydrates the app described by the provided function, starting at `<body>`.
 pub fn hydrate_body<F, N>(f: F)
 where
@@ -28,7 +28,7 @@ where
     owner.forget();
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(target_os = "wasi")))]
 /// Hydrates the app described by the provided function, starting at `<body>`, with support
 /// for lazy-loaded routes and components.
 pub fn hydrate_lazy<F, N>(f: F)
@@ -39,7 +39,7 @@ where
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     crate::task::spawn_local(async move {
         let owner = hydrate_from_async(body(), f).await;
@@ -52,7 +52,7 @@ thread_local! {
     static FIRST_CALL: Cell<bool> = const { Cell::new(true) };
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(target_os = "wasi")))]
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn hydrate_from<F, N>(parent: HtmlElement, f: F) -> UnmountHandle<N::State>
 where
@@ -65,7 +65,7 @@ where
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     #[cfg(debug_assertions)]
     {
@@ -101,7 +101,7 @@ where
     UnmountHandle { owner, mountable }
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(target_os = "wasi")))]
 /// Runs the provided closure and mounts the result to the provided element.
 pub async fn hydrate_from_async<F, N>(
     parent: HtmlElement,
@@ -117,7 +117,7 @@ where
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     #[cfg(debug_assertions)]
     {
@@ -240,7 +240,7 @@ where
 }
 
 /// Hydrates any islands that are currently present on the page.
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(target_os = "wasi")))]
 pub fn hydrate_islands() {
     use hydration_context::{HydrateSharedContext, SharedContext};
     use std::sync::Arc;
@@ -248,7 +248,7 @@ pub fn hydrate_islands() {
     // use wasm-bindgen-futures to drive the reactive system
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
-    _ = Executor::init_wasm_bindgen();
+    init_executor();
 
     #[cfg(debug_assertions)]
     FIRST_CALL.set(false);

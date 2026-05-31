@@ -5,6 +5,9 @@ use crate::{
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState},
 };
+#[cfg(target_os = "wasi")]
+use crate::{js_sys, wasm_bindgen};
+
 
 /// An island of interactivity in an otherwise-inert HTML document.
 pub struct Island<View> {
