@@ -80,3 +80,23 @@ struct MyParams {
     bar: usize,
     baz: String,
 }
+
+// Regression: `#[derive(Params)]` must thread the struct's generic
+// parameters (here a const generic) into the generated `impl`. Before the
+// fix the macro emitted `impl Params for PagedParams` without `<const N>`,
+// which failed to compile with `error[E0107]: missing generics`.
+#[derive(PartialEq, Debug, Params)]
+struct PagedParams<const N: usize> {
+    page: Option<i32>,
+}
+
+#[test]
+fn params_generic_const() {
+    let mut map = leptos_router::params::ParamsMap::new();
+    map.insert("page", "3".to_owned());
+    let params = PagedParams::<10>::from_map(&map).unwrap();
+    assert_eq!(PagedParams::<10> { page: Some(3) }, params);
+
+    let round_trip = params.to_map().unwrap();
+    assert_eq!(Some("3"), round_trip.get_str("page"));
+}
