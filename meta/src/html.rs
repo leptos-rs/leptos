@@ -4,7 +4,6 @@ use leptos::{
     component, html,
     reactive::owner::use_context,
     tachys::{
-        dom::document,
         html::attribute::Attribute,
         hydration::Cursor,
         view::{
@@ -14,6 +13,8 @@ use leptos::{
     },
     IntoView,
 };
+#[cfg(not(target_os = "wasi"))]
+use leptos::tachys::dom::document;
 
 /// A component to set metadata on the document’s `<html>` element from
 /// within the application.
@@ -65,15 +66,18 @@ where
 
     fn build(self) -> Self::State {
         #[cfg(not(target_os = "wasi"))]
-        let el = document()
-            .document_element()
-            .expect("there to be a <html> element");
+        {
+            let el = document()
+                .document_element()
+                .expect("there to be a <html> element");
+            let attributes = self.attributes.build(&el);
+            HtmlViewState { attributes }
+        }
         #[cfg(target_os = "wasi")]
-        let el = unreachable!();
-
-        let attributes = self.attributes.build(&el);
-
-        HtmlViewState { attributes }
+        {
+            let _ = self;
+            unreachable!()
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -146,15 +150,18 @@ where
         _position: &PositionState,
     ) -> Self::State {
         #[cfg(not(target_os = "wasi"))]
-        let el = document()
-            .document_element()
-            .expect("there to be a <html> element");
+        {
+            let el = document()
+                .document_element()
+                .expect("there to be a <html> element");
+            let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
+            HtmlViewState { attributes }
+        }
         #[cfg(target_os = "wasi")]
-        let el = unreachable!();
-
-        let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
-
-        HtmlViewState { attributes }
+        {
+            let _ = self;
+            unreachable!()
+        }
     }
 
     fn into_owned(self) -> Self::Owned {
@@ -185,11 +192,15 @@ where
 
     fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
         #[cfg(not(target_os = "wasi"))]
-        let el = document()
-            .document_element()
-            .expect("there to be a <html> element");
+        {
+            let el = document()
+                .document_element()
+                .expect("there to be a <html> element");
+            vec![el]
+        }
         #[cfg(target_os = "wasi")]
-        let el = unreachable!();
-        vec![el]
+        {
+            unreachable!()
+        }
     }
 }

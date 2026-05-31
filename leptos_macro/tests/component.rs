@@ -199,43 +199,49 @@ pub fn IntoReactiveValueTestComponentCallback(
 #[cfg(not(all(feature = "nightly", rustc_nightly)))]
 #[test]
 fn test_into_reactive_value_signal() {
-    let _ = view! {
-        <IntoReactiveValueTestComponentSignal
-            arg1=move || "I was a reactive closure!"
-            arg2="I was a basic str!"
-            arg3=Signal::stored("I was already a signal!")
-            arg4=move || 2
-            arg5=3
-            arg6=Signal::stored(4)
-            arg7=|| 2
-            arg8=move || "I was a reactive closure!"
-            arg9="I was a basic str!"
-            arg10=ArcSignal::stored("I was already a signal!".to_string())
-            arg11=move || 2
-            arg12=3
-            arg13=ArcSignal::stored(4)
-            arg14=|| 2
-            arg15=|| 2
-            nostrip:arg17=Some(|| 2)
-            arg18=|| 2
-        />
-    };
+    let owner = Owner::new();
+    owner.with(|| {
+        let _ = view! {
+            <IntoReactiveValueTestComponentSignal
+                arg1=move || "I was a reactive closure!"
+                arg2="I was a basic str!"
+                arg3=Signal::stored("I was already a signal!")
+                arg4=move || 2
+                arg5=3
+                arg6=Signal::stored(4)
+                arg7=|| 2
+                arg8=move || "I was a reactive closure!"
+                arg9="I was a basic str!"
+                arg10=ArcSignal::stored("I was already a signal!".to_string())
+                arg11=move || 2
+                arg12=3
+                arg13=ArcSignal::stored(4)
+                arg14=|| 2
+                arg15=|| 2
+                nostrip:arg17=Some(|| 2)
+                arg18=|| 2
+            />
+        };
+    });
 }
 
 #[test]
 fn test_into_reactive_value_callback() {
-    let _ = view! {
-        <IntoReactiveValueTestComponentCallback
-            arg1=|| "I was a callback static str!"
-            arg2=|_n| "I was a callback static str!"
-            arg3=|(_n,)| "I was a callback static str!"
-            arg4=|(_n, _s)| "I was a callback static str!"
-            arg5=|| "I was a callback static str!"
-            arg6=|_n| "I was a callback static str!"
-            arg7=|(_n,)| "I was a callback static str!"
-            arg8=|(_n, _s)| "I was a callback static str!"
-        />
-    };
+    let owner = Owner::new();
+    owner.with(|| {
+        let _ = view! {
+            <IntoReactiveValueTestComponentCallback
+                arg1=|| "I was a callback static str!"
+                arg2=|_n| "I was a callback static str!"
+                arg3=|(_n,)| "I was a callback static str!"
+                arg4=|(_n, _s)| "I was a callback static str!"
+                arg5=|| "I was a callback static str!"
+                arg6=|_n| "I was a callback static str!"
+                arg7=|(_n,)| "I was a callback static str!"
+                arg8=|(_n, _s)| "I was a callback static str!"
+            />
+        };
+    });
 }
 
 // an attempt to catch unhygienic macros regression

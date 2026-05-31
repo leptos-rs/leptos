@@ -1,10 +1,16 @@
 use crate::{
     components::ToHref,
-    hooks::{has_router, use_navigate, use_resolved_path},
+    hooks::{has_router, use_resolved_path},
+};
+#[cfg(not(target_os = "wasi"))]
+use crate::{
+    hooks::use_navigate,
     location::{BrowserUrl, LocationProvider},
     NavigateOptions,
 };
-use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
+use leptos::{html::form, prelude::*};
+#[cfg(not(target_os = "wasi"))]
+use leptos::{ev, logging::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
 #[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -112,8 +118,21 @@ where
         noscroll: bool,
         replace: bool,
     ) -> impl IntoView {
+        #[cfg(not(target_os = "wasi"))]
         let action_version = version;
+        #[cfg(not(target_os = "wasi"))]
         let navigate = has_router.then(use_navigate);
+        #[cfg(target_os = "wasi")]
+        let _ = (
+            has_router,
+            version,
+            error,
+            on_form_data,
+            on_response,
+            on_error,
+            noscroll,
+            replace,
+        );
 
         #[cfg(not(target_os = "wasi"))]
         let on_submit = {

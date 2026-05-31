@@ -1718,7 +1718,6 @@ dependencies = [
  "futures",
  "js-sys",
  "or_poisoned",
- "pin-project-lite",
  "serde",
  "throw_error",
  "wasm-bindgen",

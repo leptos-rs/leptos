@@ -7,13 +7,14 @@ use crate::{
             Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
             NextAttribute,
         },
-        event::{change, input, on},
         property::{prop, IntoProperty},
     },
     prelude::AddAnyAttr,
     renderer::{types::Element, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+#[cfg(not(target_os = "wasi"))]
+use crate::html::event::{change, input, on};
 #[cfg(not(target_os = "wasi"))]
 use crate::dom::{event_target_checked, event_target_value};
 use reactive_graph::{

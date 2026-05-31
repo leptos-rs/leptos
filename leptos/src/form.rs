@@ -1,22 +1,24 @@
 use crate::{children::Children, component, prelude::*, IntoView};
+#[cfg(not(target_os = "wasi"))]
 use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
     client::Client,
     codec::PostUrl,
-    error::{IntoAppError, ServerFnErrorErr},
     request::ClientReq,
     Http, ServerFn,
 };
+#[cfg(not(target_os = "wasi"))]
+use server_fn::error::{IntoAppError, ServerFnErrorErr};
 use tachys::{
     either::Either,
-    html::{
-        element::{form, Form},
-        event::submit,
-    },
+    html::element::{form, Form},
     reactive_graph::node_ref::NodeRef,
 };
+#[cfg(not(target_os = "wasi"))]
+use tachys::html::event::submit;
+#[cfg(not(target_os = "wasi"))]
 use thiserror::Error;
 #[cfg(not(target_os = "wasi"))]
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
@@ -131,8 +133,12 @@ where
         }
     });
 
+    #[cfg(not(target_os = "wasi"))]
     let version = action.version();
+    #[cfg(not(target_os = "wasi"))]
     let value = action.value();
+    #[cfg(target_os = "wasi")]
+    let _ = action;
 
     #[cfg(not(target_os = "wasi"))]
     let on_submit = {
@@ -211,6 +217,9 @@ where
             _ = window().location().set_href(&url.href());
         }
     });
+
+    #[cfg(target_os = "wasi")]
+    let _ = action;
 
     #[cfg(not(target_os = "wasi"))]
     let on_submit = move |ev: SubmitEvent| {

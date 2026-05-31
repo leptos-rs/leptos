@@ -7,10 +7,12 @@ use reactive_graph::{
         RwSignal,
     },
     traits::{
-        DefinedAt, Get, IsDisposed, Notify, ReadUntracked, Set, Track,
+        DefinedAt, Get, IsDisposed, Notify, ReadUntracked, Track,
         UntrackableGuard, Write,
     },
 };
+#[cfg(not(target_os = "wasi"))]
+use reactive_graph::traits::Set;
 use send_wrapper::SendWrapper;
 use std::{cell::Cell, ops::DerefMut};
 #[cfg(target_os = "wasi")]

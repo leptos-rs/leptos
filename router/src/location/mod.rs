@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 
+#[cfg(not(target_os = "wasi"))]
 use any_spawner::Executor;
 use core::fmt::Debug;
 #[cfg(not(target_os = "wasi"))]
@@ -13,7 +14,9 @@ use reactive_graph::{
 };
 #[cfg(not(target_os = "wasi"))]
 use send_wrapper::SendWrapper;
-use std::{borrow::Cow, future::Future};
+use std::borrow::Cow;
+#[cfg(not(target_os = "wasi"))]
+use std::future::Future;
 #[cfg(not(target_os = "wasi"))]
 use tachys::dom::window;
 #[cfg(not(target_os = "wasi"))]

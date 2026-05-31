@@ -2,6 +2,7 @@
 //! WASI stubs for DOM utility functions.
 
 use std::time::Duration;
+#[cfg(feature = "hydration")]
 use reactive_graph::owner::Owner;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

@@ -50,7 +50,6 @@ use leptos::{
     oco::Oco,
     reactive::owner::{provide_context, use_context},
     tachys::{
-        dom::document,
         html::{
             attribute::Attribute,
             element::{ElementType, HtmlElement},
@@ -63,6 +62,8 @@ use leptos::{
     },
     IntoView,
 };
+#[cfg(not(target_os = "wasi"))]
+use leptos::tachys::dom::document;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
@@ -112,9 +113,11 @@ impl MetaContext {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 pub(crate) const HEAD_MARKER_COMMENT: &str = "HEAD";
 /// Return value of [`Node::node_type`] for a comment.
 /// https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType#node.comment_node
+#[cfg(not(target_os = "wasi"))]
 const COMMENT_NODE: u16 = 8;
 
 impl Default for MetaContext {

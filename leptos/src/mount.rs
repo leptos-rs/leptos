@@ -1,6 +1,7 @@
 #[cfg(debug_assertions)]
 use crate::logging;
 use crate::IntoView;
+#[cfg(not(target_os = "wasi"))]
 use any_spawner::Executor;
 use reactive_graph::owner::Owner;
 #[cfg(debug_assertions)]

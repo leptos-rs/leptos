@@ -1,20 +1,22 @@
 #[cfg(not(target_os = "wasi"))]
 use super::handle_anchor_click;
 use super::{LocationChange, LocationProvider, Url};
+#[cfg(not(target_os = "wasi"))]
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
 #[cfg(not(target_os = "wasi"))]
 use js_sys::{try_iter, Array, JsString};
-use leptos::{ev, prelude::*};
+use leptos::prelude::*;
+#[cfg(not(target_os = "wasi"))]
+use leptos::ev;
+#[cfg(not(target_os = "wasi"))]
 use or_poisoned::OrPoisoned;
-use reactive_graph::{
-    signal::ArcRwSignal,
-    traits::{ReadUntracked, Set},
-};
+use reactive_graph::signal::ArcRwSignal;
+#[cfg(not(target_os = "wasi"))]
+use reactive_graph::traits::{ReadUntracked, Set};
 use std::{
     borrow::Cow,
-    string::String,
     sync::{Arc, Mutex},
 };
 #[cfg(not(target_os = "wasi"))]
@@ -27,7 +29,9 @@ use web_sys::UrlSearchParams;
 #[derive(Clone)]
 pub struct BrowserUrl {
     url: ArcRwSignal<Url>,
+    #[allow(dead_code)]
     pub(crate) pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    #[allow(dead_code)]
     pub(crate) path_stack: ArcStoredValue<Vec<Url>>,
     pub(crate) is_back: ArcRwSignal<bool>,
 }
@@ -39,30 +43,26 @@ impl fmt::Debug for BrowserUrl {
 }
 
 impl BrowserUrl {
+    #[cfg(not(target_os = "wasi"))]
     fn scroll_to_el(loc_scroll: bool) {
-        #[cfg(not(target_os = "wasi"))]
-        {
-            if let Ok(hash) = window().location().hash() {
-                if !hash.is_empty() {
-                    let hash = js_sys::decode_uri(&hash[1..])
-                        .ok()
-                        .and_then(|decoded| decoded.as_string())
-                        .unwrap_or(hash);
-                    let el = document().get_element_by_id(&hash);
-                    if let Some(el) = el {
-                        el.scroll_into_view();
-                        return;
-                    }
+        if let Ok(hash) = window().location().hash() {
+            if !hash.is_empty() {
+                let hash = js_sys::decode_uri(&hash[1..])
+                    .ok()
+                    .and_then(|decoded| decoded.as_string())
+                    .unwrap_or(hash);
+                let el = document().get_element_by_id(&hash);
+                if let Some(el) = el {
+                    el.scroll_into_view();
+                    return;
                 }
             }
-
-            // scroll to top
-            if loc_scroll {
-                window().scroll_to_with_x_and_y(0.0, 0.0);
-            }
         }
-        #[cfg(target_os = "wasi")]
-        let _ = loc_scroll;
+
+        // scroll to top
+        if loc_scroll {
+            window().scroll_to_with_x_and_y(0.0, 0.0);
+        }
     }
 }
 

@@ -1,7 +1,12 @@
-use crate::{children::TypedChildrenFn, mount, IntoView};
+use crate::{children::TypedChildrenFn, IntoView};
+#[cfg(not(target_os = "wasi"))]
+use crate::mount;
+#[cfg(not(target_os = "wasi"))]
 use leptos_dom::helpers::document;
 use leptos_macro::component;
+#[cfg(not(target_os = "wasi"))]
 use reactive_graph::{effect::Effect, graph::untrack, owner::Owner};
+#[cfg(not(target_os = "wasi"))]
 use std::sync::Arc;
 
 /// Renders components somewhere else in the DOM.

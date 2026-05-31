@@ -18,12 +18,16 @@ pub struct InnerTuple(String);
 
 #[test]
 fn green() {
-    let outer_signal = RwSignal::new(OuterState::default());
+    use leptos::prelude::Owner;
+    let owner = Owner::new();
+    owner.with(|| {
+        let outer_signal = RwSignal::new(OuterState::default());
 
-    let (_, _) = slice!(outer_signal.count);
+        let (_, _) = slice!(outer_signal.count);
 
-    let (_, _) = slice!(outer_signal.inner.inner_count);
-    let (_, _) = slice!(outer_signal.inner.inner_tuple.0);
+        let (_, _) = slice!(outer_signal.inner.inner_count);
+        let (_, _) = slice!(outer_signal.inner.inner_tuple.0);
+    });
 }
 
 #[test]

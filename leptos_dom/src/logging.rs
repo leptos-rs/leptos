@@ -65,10 +65,10 @@ macro_rules! debug_error {
 
 /// Log a string to the console (in the browser)
 /// or via `println!()` (if not in the browser).
+#[allow(clippy::print_stdout)]
 pub fn console_log(s: &str) {
     #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten", target_os = "wasi"))]
     {
-        #[allow(clippy::print_stdout)]
         println!("{s}");
     }
     #[cfg(all(target_arch = "wasm32", not(any(target_os = "emscripten", target_os = "wasi"))))]

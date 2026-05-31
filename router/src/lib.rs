@@ -227,6 +227,7 @@ pub(crate) mod view_transition {
         }
         #[cfg(target_os = "wasi")]
         {
+            let _ = (level, is_back_navigation);
             fun();
         }
     }
