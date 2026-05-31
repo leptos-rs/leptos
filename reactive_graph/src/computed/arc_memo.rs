@@ -228,7 +228,7 @@ where
     S: Storage<T>,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.inner), state);
+        std::ptr::hash(Arc::as_ptr(&self.inner), state);
     }
 }
 

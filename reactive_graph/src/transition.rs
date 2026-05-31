@@ -1,16 +1,23 @@
 //! Utilities to wait for asynchronous primitives to resolve.
 
 use futures::{channel::oneshot, future::join_all};
-use or_poisoned::OrPoisoned;
+use pin_project_lite::pin_project;
 use std::{
+    cell::RefCell,
     future::Future,
-    sync::{OnceLock, RwLock, mpsc},
+    pin::Pin,
+    sync::mpsc,
+    task::{Context, Poll},
 };
 
-static TRANSITION: OnceLock<RwLock<Option<TransitionInner>>> = OnceLock::new();
-
-fn global_transition() -> &'static RwLock<Option<TransitionInner>> {
-    TRANSITION.get_or_init(|| RwLock::new(None))
+thread_local! {
+    // The transition that is *currently being polled* on this thread. It is
+    // installed for the duration of each poll of the action future and removed
+    // again when that poll returns, so overlapping transitions (whether on the
+    // same thread or on different threads of a multi-threaded executor) never
+    // observe one another's slot.
+    static TRANSITION: RefCell<Option<TransitionInner>> =
+        const { RefCell::new(None) };
 }
 
 #[derive(Debug, Clone)]
@@ -35,36 +42,80 @@ impl AsyncTransition {
         T: Future<Output = U>,
     {
         let (tx, rx) = mpsc::channel();
-        let global_transition = global_transition();
         let inner = TransitionInner { tx };
-        let prev = Option::replace(
-            &mut *global_transition.write().or_poisoned(),
-            inner.clone(),
-        );
-        let value = action().await;
-        _ = std::mem::replace(
-            &mut *global_transition.write().or_poisoned(),
-            prev,
-        );
+
+        // While the action is being run and its future polled, install `inner`
+        // as the current transition. The guard inside `ScopedTransition::poll`
+        // restores the previous value on every poll exit, so this is safe to
+        // run concurrently with other transitions. `action` itself is invoked
+        // inside that scope (on the first poll) so resources created
+        // synchronously by it are registered too.
+        let value = ScopedTransition {
+            inner,
+            action: Some(action),
+            future: None,
+        }
+        .await;
+
         let mut pending = Vec::new();
-        while let Ok(tx) = rx.try_recv() {
-            pending.push(tx);
+        while let Ok(rx) = rx.try_recv() {
+            pending.push(rx);
         }
         join_all(pending).await;
         value
     }
 
     pub(crate) fn register(rx: oneshot::Receiver<()>) {
-        if let Some(tx) = global_transition()
-            .read()
-            .or_poisoned()
-            .as_ref()
-            .map(|n| &n.tx)
-        {
-            // if it's an Err, that just means the Receiver was dropped
-            // i.e., the transition is no longer listening, in which case it doesn't matter if we
-            // successfully register with it or not
-            _ = tx.send(rx);
+        TRANSITION.with_borrow(|current| {
+            if let Some(inner) = current.as_ref() {
+                // if it's an Err, that just means the Receiver was dropped
+                // i.e., the transition is no longer listening, in which case it
+                // doesn't matter if we successfully register with it or not
+                _ = inner.tx.send(rx);
+            }
+        });
+    }
+}
+
+pin_project! {
+    /// Runs `action` and polls the future it produces with `inner` installed as
+    /// the current transition for the duration of each poll, restoring the
+    /// previous transition afterwards. The future is built lazily on the first
+    /// poll so that `action` runs inside the transition scope.
+    struct ScopedTransition<F, Fut> {
+        inner: TransitionInner,
+        action: Option<F>,
+        #[pin]
+        future: Option<Fut>,
+    }
+}
+
+impl<F, Fut> Future for ScopedTransition<F, Fut>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future,
+{
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // RAII guard: restore the previous transition no matter how `poll`
+        // exits (return, `?`, or a panic in the polled future).
+        struct Restore(Option<TransitionInner>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                TRANSITION.with_borrow_mut(|slot| *slot = self.0.take());
+            }
         }
+
+        let mut this = self.project();
+        let _restore = TRANSITION
+            .with_borrow_mut(|slot| Restore(slot.replace(this.inner.clone())));
+        if let Some(action) = this.action.take() {
+            this.future.set(Some(action()));
+        }
+        this.future
+            .as_pin_mut()
+            .expect("ScopedTransition polled after completion")
+            .poll(cx)
     }
 }
