@@ -36,6 +36,26 @@ impl ParamsMap {
         }
     }
 
+    /// Inserts an already-decoded value into the map without performing an
+    /// additional percent-decoding pass.
+    ///
+    /// Query-string pairs are produced pre-decoded by both the browser's
+    /// `URLSearchParams` (client) and the `url` crate's `query_pairs` (server).
+    /// Routing them through [`insert`](Self::insert) would decode them a second
+    /// time, corrupting any value that legitimately contains a `%xx` sequence.
+    pub(crate) fn insert_decoded(
+        &mut self,
+        key: impl Into<Cow<'static, str>>,
+        value: String,
+    ) {
+        let key = key.into();
+        if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
+            prev.1.push(value);
+        } else {
+            self.0.push((key, vec![value]));
+        }
+    }
+
     /// Inserts a value into the map, replacing any existing value for that key.
     pub fn replace(
         &mut self,
