@@ -94,6 +94,8 @@ pin-project-lite = { default-features = false, version = "0.2" }
 send_wrapper = { default-features = false, version = "0.6" }
 tokio-test = { default-features = false, version = "0.4" }
 html-escape = { default-features = false, version = "0.2" }
+lru = { default-features = false, version = "0.18" }
+mime = { default-features = false, version = "0.3" }
 proc-macro-error2 = { default-features = false, version = "2.0" }
 const_format = { default-features = false, version = "0.2" }
 gloo-net = { default-features = false, version = "0.7" }

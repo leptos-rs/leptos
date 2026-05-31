@@ -2130,6 +2130,8 @@ dependencies = [
  "leptos_macro",
  "leptos_meta",
  "leptos_router",
+ "lru",
+ "mime",
  "or_poisoned",
  "reqwest",
  "server_fn",
@@ -2375,6 +2377,12 @@ name = "longest-increasing-subsequence"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3bd0dd2cd90571056fdb71f6275fada10131182f84899f4b2a916e565d81d86"
+
+[[package]]
+name = "lru"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a860605968fce16869fd239cf4237a82f3ac470723415db603b0e8b6c8d4fb9"
 
 [[package]]
 name = "lru-slab"

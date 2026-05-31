@@ -1235,7 +1235,7 @@ fn was_404(owner: &Owner) -> bool {
     false
 }
 
-fn static_path(options: &LeptosOptions, path: &str) -> String {
+fn static_path(options: &LeptosOptions, path: &str) -> Option<String> {
     use leptos_integration_utils::static_file_path;
 
     // If the path ends with a trailing slash, we generate the path
@@ -1253,6 +1253,15 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    // Reject anything that would escape the site root before caching headers
+    // or touching the filesystem.
+    let Some(file_path) = static_path(options, path) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to write static file for a path-traversal request",
+        ));
+    };
+
     if let Some(options) = response_options {
         STATIC_HEADERS
             .write()
@@ -1260,8 +1269,7 @@ async fn write_static_route(
             .insert(path.to_string(), options);
     }
 
-    let path = static_path(options, path);
-    let path = Path::new(&path);
+    let path = Path::new(&file_path);
     if let Some(path) = path.parent() {
         tokio::fs::create_dir_all(path).await?;
     }
@@ -1286,8 +1294,18 @@ where
             async move {
                 let options = data.into_inner();
                 let orig_path = req.uri().path();
-                let path = static_path(&options, orig_path);
-                let path = Path::new(&path);
+                // A `None` here means the request path would escape the site
+                // root (path traversal); decline it before any filesystem
+                // access.
+                let Some(file_path) = static_path(&options, orig_path) else {
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!(
+                        "rejected static route request with path traversal: \
+                         {orig_path}"
+                    );
+                    return HttpResponse::NotFound().finish();
+                };
+                let path = Path::new(&file_path);
                 let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 
                 let (response_options, html) = if !exists {
