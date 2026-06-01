@@ -53,6 +53,24 @@ struct ExecutorFns {
 // Use a single OnceLock to ensure atomic initialization of all functions.
 static EXECUTOR_FNS: OnceLock<ExecutorFns> = OnceLock::new();
 
+thread_local! {
+    // Per-thread executor override installed by
+    // `Executor::init_local_custom_executor`. When set, it takes precedence
+    // over the global `EXECUTOR_FNS` for spawns made *on this thread only*,
+    // leaving other threads and the global state untouched.
+    static LOCAL_EXECUTOR_FNS: OnceLock<ExecutorFns> = const { OnceLock::new() };
+}
+
+// Resolves the executor functions to use for the current thread: a thread-local
+// executor installed via `init_local_custom_executor` takes precedence;
+// otherwise the global executor is used. Returns `None` if neither is set.
+#[inline]
+fn current_executor_fns() -> Option<ExecutorFns> {
+    LOCAL_EXECUTOR_FNS
+        .with(|local| local.get().copied())
+        .or_else(|| EXECUTOR_FNS.get().copied())
+}
+
 // No-op functions to use when an executor doesn't support a specific operation.
 #[cfg(any(feature = "tokio", feature = "wasm-bindgen", feature = "glib"))]
 #[cold]
@@ -112,10 +130,10 @@ impl Executor {
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
         let pinned_fut = Box::pin(fut);
 
-        if let Some(fns) = EXECUTOR_FNS.get() {
+        if let Some(fns) = current_executor_fns() {
             (fns.spawn)(pinned_fut)
         } else {
-            // No global executor set.
+            // No executor set for this thread or globally.
             handle_uninitialized_spawn(pinned_fut);
         }
     }
@@ -129,10 +147,10 @@ impl Executor {
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
         let pinned_fut = Box::pin(fut);
 
-        if let Some(fns) = EXECUTOR_FNS.get() {
+        if let Some(fns) = current_executor_fns() {
             (fns.spawn_local)(pinned_fut)
         } else {
-            // No global executor set.
+            // No executor set for this thread or globally.
             handle_uninitialized_spawn_local(pinned_fut);
         }
     }
@@ -160,7 +178,7 @@ impl Executor {
     /// Does nothing if the global executor does not support polling.
     #[inline(always)]
     pub fn poll_local() {
-        if let Some(fns) = EXECUTOR_FNS.get() {
+        if let Some(fns) = current_executor_fns() {
             (fns.poll_local)()
         }
         // If not initialized or doesn't support polling, do nothing gracefully.
@@ -399,7 +417,7 @@ impl Executor {
         thread_local! {
             static CUSTOM_EXECUTOR_INSTANCE: OnceLock<
                 Box<dyn CustomExecutor>,
-            > = OnceLock::new();
+            > = const { OnceLock::new() };
         };
 
         CUSTOM_EXECUTOR_INSTANCE.with(|this| {
@@ -410,7 +428,9 @@ impl Executor {
         // Now set the ExecutorFns using the stored instance
         let executor_impl = ExecutorFns {
             spawn: |fut| {
-                // Unwrap is safe because we just set it successfully or returned Err.
+                // Unwrap is safe: the dispatch table below is only installed
+                // after the thread-local instance has been set, and these
+                // function pointers read the instance on the same thread.
                 CUSTOM_EXECUTOR_INSTANCE
                     .with(|this| this.get().unwrap().spawn(fut));
             },
@@ -424,8 +444,11 @@ impl Executor {
             },
         };
 
-        EXECUTOR_FNS
-            .set(executor_impl)
+        // Install the dispatch table for *this thread only*. The global
+        // `EXECUTOR_FNS` is intentionally left untouched so that other threads
+        // continue to use the global executor and `init_*` remains available.
+        LOCAL_EXECUTOR_FNS
+            .with(|local| local.set(executor_impl))
             .map_err(|_| ExecutorError::AlreadySet)
     }
 }
