@@ -115,7 +115,7 @@ where
 /// This is useful in the `on:change` listeners for an `<input type="checkbox">` element.
 pub fn event_target_checked(ev: &web_sys::Event) -> bool {
     ev.target()
-        .unwrap()
+        .unwrap_throw()
         .unchecked_into::<web_sys::HtmlInputElement>()
         .checked()
 }
