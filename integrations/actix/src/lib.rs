@@ -1377,10 +1377,35 @@ async fn write_static_route(
     }
 
     let path = Path::new(&file_path);
-    if let Some(path) = path.parent() {
-        tokio::fs::create_dir_all(path).await?;
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
     }
-    tokio::fs::write(path, &html).await?;
+
+    // Write to a uniquely-named temp file in the same directory and rename it
+    // over the target. `rename` is atomic on POSIX filesystems (and replaces
+    // the destination on Windows), so a concurrent reader or a crash never
+    // observes a half-written or truncated file. `tokio::fs::write` truncates
+    // the target up front, which would leave an empty file visible (and served
+    // with `try_exists == true`) if the process died mid-write.
+    let tmp_path = {
+        static COUNTER: std::sync::atomic::AtomicU64 =
+            std::sync::atomic::AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut file_name = path
+            .file_name()
+            .map(|name| name.to_os_string())
+            .unwrap_or_default();
+        file_name.push(format!(".tmp.{}.{n}", std::process::id()));
+        path.with_file_name(file_name)
+    };
+
+    tokio::fs::write(&tmp_path, html).await?;
+    if let Err(err) = tokio::fs::rename(&tmp_path, path).await {
+        // Best-effort cleanup so a failed rename does not leave temp files
+        // accumulating in the site root.
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(err);
+    }
 
     Ok(())
 }
@@ -1808,10 +1833,11 @@ mod tests {
     // Targeted imports rather than `use super::*`: the crate root glob-imports
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
-        ActixResponse, ExtendResponse, HttpResponse, LOCATION, Method,
-        OrPoisoned, Owner, Request, ResponseOptions,
+        ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
+        Method, OrPoisoned, Owner, Request, ResponseOptions,
         STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, accept_header_includes_html,
         header, provide_context, redirect, unsupported_ssr_mode_route,
+        write_static_route,
     };
     use actix_web::test::TestRequest;
 
@@ -1926,6 +1952,47 @@ mod tests {
         assert!(cache.get(&"/post/0".to_string()).is_none());
         // a recently-inserted entry is still present
         assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
+
+    // A static route must be written atomically: the file appears with its
+    // full contents or not at all, and no temp file is left behind. Writing in
+    // place would let a crash mid-write leave a truncated/empty file that is
+    // then served (because `try_exists` reports it as present).
+    #[actix_web::test]
+    async fn write_static_route_is_atomic() {
+        let dir = std::env::temp_dir().join(format!(
+            "leptos_actix_static_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let options = LeptosOptions::builder()
+            .output_name("test")
+            .site_root(dir.to_string_lossy().into_owned())
+            .build();
+
+        let html = "<html><body>hello</body></html>";
+        write_static_route(&options, None, "/page", html)
+            .await
+            .unwrap();
+
+        // the target was written in full
+        let written = std::fs::read_to_string(dir.join("page.html")).unwrap();
+        assert_eq!(written, html);
+
+        // no temp file was left behind
+        let leftovers = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
+            .count();
+        assert_eq!(leftovers, 0);
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     // An unknown `SsrMode` must serve a 500 rather than panicking the worker
