@@ -917,6 +917,35 @@ where
     }
 }
 
+/// Builds a route that responds with `500 Internal Server Error` for an
+/// [`SsrMode`] this integration does not know how to render.
+///
+/// `SsrMode` is a public, non-`#[non_exhaustive]` enum in `leptos_router`, but
+/// the rendering `match` used a `_ => unreachable!()` catch-all. That defeats
+/// the compiler's exhaustiveness check: a newly added variant would compile
+/// here and then panic the worker at runtime the first time a route used it.
+/// Serve a typed 500 instead of panicking.
+fn unsupported_ssr_mode_route(method: Method, mode: &SsrMode) -> Route {
+    #[cfg(feature = "tracing")]
+    tracing::error!(
+        "unsupported SSR mode {mode:?} for this route; serving 500"
+    );
+    #[cfg(not(feature = "tracing"))]
+    let _ = mode;
+
+    let handler = || async {
+        HttpResponse::InternalServerError()
+            .body("This rendering mode is not supported.")
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
+}
+
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
@@ -1569,7 +1598,9 @@ where
                                     app_fn.clone(),
                                     method,
                                 ),
-                                _ => unreachable!()
+                                ref mode => {
+                                    unsupported_ssr_mode_route(method, mode)
+                                }
                             },
                         )
                 };
@@ -1675,7 +1706,9 @@ impl LeptosRoutes for &mut ServiceConfig {
                                     app_fn.clone(),
                                     method,
                                 ),
-                                _ => unreachable!()
+                                ref mode => {
+                                    unsupported_ssr_mode_route(method, mode)
+                                }
                             },
                         );
                 }
@@ -1734,9 +1767,10 @@ mod tests {
     // Targeted imports rather than `use super::*`: the crate root glob-imports
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
-        ActixResponse, ExtendResponse, HttpResponse, LOCATION, OrPoisoned,
-        Owner, Request, ResponseOptions, accept_header_includes_html, header,
-        provide_context, redirect,
+        ActixResponse, ExtendResponse, HttpResponse, LOCATION, Method,
+        OrPoisoned, Owner, Request, ResponseOptions, SsrMode,
+        accept_header_includes_html, header, provide_context, redirect,
+        unsupported_ssr_mode_route,
     };
     use actix_web::test::TestRequest;
 
@@ -1830,5 +1864,24 @@ mod tests {
         assert!(!accept_header_includes_html("application/x-text/html-fake"));
         assert!(!accept_header_includes_html("application/json"));
         assert!(!accept_header_includes_html("*/*"));
+    }
+
+    // An unknown `SsrMode` must serve a 500 rather than panicking the worker
+    // via `unreachable!()`. `SsrMode::Async` stands in for "some variant the
+    // dedicated arms don't handle" — the route the helper builds is what a
+    // future variant would fall through to.
+    #[actix_web::test]
+    async fn unsupported_ssr_mode_serves_500() {
+        use actix_web::{App, http::StatusCode, test};
+
+        let app = test::init_service(App::new().route(
+            "/",
+            unsupported_ssr_mode_route(Method::Get, &SsrMode::Async),
+        ))
+        .await;
+
+        let req = test::TestRequest::get().uri("/").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
