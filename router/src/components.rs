@@ -649,7 +649,15 @@ pub fn RoutingProgress(
     const INCREMENT_EVERY_MS: f32 = 5.0;
     let expected_increments =
         max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
-    let percent_per_increment = 100.0 / expected_increments;
+    // `max_time` is optional and defaults to `Duration::ZERO`, which would make
+    // `expected_increments` zero and `100.0 / 0.0` evaluate to `inf` (and then
+    // `NaN`), producing `width: NaN%`. Fill the bar in a single increment when
+    // no positive `max_time` was provided.
+    let percent_per_increment = if expected_increments > 0.0 {
+        100.0 / expected_increments
+    } else {
+        100.0
+    };
 
     let (is_showing, set_is_showing) = signal(false);
     let (progress, set_progress) = signal(0.0);

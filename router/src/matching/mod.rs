@@ -292,6 +292,28 @@ mod tests {
     }
 
     #[test]
+    pub fn nested_tuple_preserves_inner_route_match_id() {
+        use crate::matching::MatchNestedRoutes;
+
+        // Each NestedRoute is assigned a unique RouteMatchId at construction.
+        let three = (
+            NestedRoute::new(StaticSegment("a"), || ()),
+            NestedRoute::new(StaticSegment("b"), || ()),
+            NestedRoute::new(StaticSegment("c"), || ()),
+        );
+
+        // For each position, the id returned by the tuple's `match_nested`
+        // must be the matched route's own id (as reported by `as_id`), not the
+        // child's positional index within the tuple.
+        for path in ["/a", "/b", "/c"] {
+            let (matched, _) = three.match_nested(path);
+            let (id, m) = matched
+                .unwrap_or_else(|| panic!("`{path}` should match a route"));
+            assert_eq!(id, m.as_id());
+        }
+    }
+
+    #[test]
     pub fn arbitrary_nested_routes() {
         let routes: RouteDefs<_> = RouteDefs::new_with_base(
             (
