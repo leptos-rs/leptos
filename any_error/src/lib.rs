@@ -110,16 +110,22 @@ pub fn set_error_hook(hook: Arc<dyn ErrorHook>) -> ResetErrorHookOnDrop {
 
 /// Invokes the error hook set by [`set_error_hook`] with the given error.
 pub fn throw(error: impl Into<Error>) -> ErrorId {
-    ERROR_HOOK
-        .with_borrow(|hook| hook.as_ref().map(|hook| hook.throw(error.into())))
+    // Clone the hook out of the thread-local *before* invoking it, so the
+    // `RefCell` borrow is released for the duration of the callback. Holding the
+    // borrow across the call would make any re-entrant `set_error_hook` /
+    // `throw` / `clear` performed by the hook panic with `BorrowMutError`.
+    get_error_hook()
+        .map(|hook| hook.throw(error.into()))
         .unwrap_or_default()
 }
 
 /// Clears the given error from the current error hook.
 pub fn clear(id: &ErrorId) {
-    ERROR_HOOK
-        .with_borrow(|hook| hook.as_ref().map(|hook| hook.clear(id)))
-        .unwrap_or_default()
+    // See `throw`: release the borrow before calling into the hook so the hook
+    // may itself touch the error-hook slot without panicking.
+    if let Some(hook) = get_error_hook() {
+        hook.clear(id);
+    }
 }
 
 pin_project_lite::pin_project! {
@@ -185,5 +191,36 @@ mod tests {
 
         let e = anyhow::anyhow!("anyhow error");
         let _le = Error::from(e);
+    }
+
+    struct NoOpHook;
+    impl ErrorHook for NoOpHook {
+        fn throw(&self, _: Error) -> ErrorId {
+            ErrorId::default()
+        }
+        fn clear(&self, _: &ErrorId) {}
+    }
+
+    // A hook that re-enters the error-hook machinery from inside its own
+    // callbacks. Before the borrow was released ahead of the call, this
+    // panicked with `BorrowMutError`.
+    #[test]
+    fn hook_may_reenter_error_hook_machinery_from_callback() {
+        struct Reenter;
+        impl ErrorHook for Reenter {
+            fn throw(&self, _: Error) -> ErrorId {
+                let _guard = set_error_hook(Arc::new(NoOpHook));
+                ErrorId::default()
+            }
+            fn clear(&self, _id: &ErrorId) {
+                // Re-enter the mutable path from `clear` as well.
+                let _guard = set_error_hook(Arc::new(NoOpHook));
+            }
+        }
+
+        let _guard = set_error_hook(Arc::new(Reenter));
+        // Neither of these may panic.
+        let id = throw("boom");
+        clear(&id);
     }
 }
