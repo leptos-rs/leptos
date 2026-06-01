@@ -169,7 +169,19 @@ impl Executor {
             _ = tx.send(());
         });
 
-        _ = rx.await;
+        if rx.await.is_err() {
+            // The task spawned to signal the next tick was dropped before it
+            // ran, so the executor never advanced. Returning here would make the
+            // caller believe a tick elapsed when none did; surface it instead of
+            // silently synchronizing on nothing.
+            panic!(
+                "Executor::tick() could not synchronize with the executor: \
+                 the task spawned to signal the next tick was dropped before \
+                 it ran. Either no global executor was initialized, or the \
+                 configured executor drops spawned futures instead of running \
+                 them."
+            );
+        }
     }
 
     /// Polls the global async executor.
