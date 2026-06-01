@@ -79,7 +79,11 @@ pub fn location_hash() -> Option<String> {
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
 pub fn location_pathname() -> Option<String> {
-    location().pathname().ok()
+    if is_server() {
+        None
+    } else {
+        location().pathname().ok()
+    }
 }
 
 /// Helper function to extract [`Event.target`](https://developer.mozilla.org/en-US/docs/Web/API/Event/target)
