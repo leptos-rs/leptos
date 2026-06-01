@@ -77,7 +77,11 @@ fn current_executor_fns() -> Option<ExecutorFns> {
 #[inline(never)]
 fn no_op_poll() {}
 
-#[cfg(all(not(feature = "wasm-bindgen"), not(debug_assertions)))]
+#[cfg(all(
+    not(feature = "wasm-bindgen"),
+    not(debug_assertions),
+    not(feature = "tracing")
+))]
 #[cold]
 #[inline(never)]
 fn no_op_spawn(_: PinnedFuture<()>) {
@@ -99,7 +103,7 @@ fn no_op_spawn(_: PinnedFuture<()>) {
     );
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(all(not(debug_assertions), not(feature = "tracing")))]
 #[cold]
 #[inline(never)]
 fn no_op_spawn_local(_: PinnedLocalFuture<()>) {
@@ -514,26 +518,31 @@ fn test_object_safety(_: Box<dyn CustomExecutor + Send + Sync>) {} // Added Send
 #[inline(never)]
 #[track_caller]
 fn handle_uninitialized_spawn(_fut: PinnedFuture<()>) {
-    let caller = std::panic::Location::caller();
-    #[cfg(all(debug_assertions, feature = "tracing"))]
+    // When tracing is enabled, emit a diagnostic and drop the task. This now
+    // fires in release builds too, where the log was previously cfg-gated out
+    // and the task was dropped with no diagnostic at all.
+    #[cfg(feature = "tracing")]
     {
+        let caller = std::panic::Location::caller();
         tracing::error!(
             target: "any_spawner",
-            spawn_caller=%caller,
-            "Executor::spawn called before a global executor was initialized. Task dropped."
+            spawn_caller = %caller,
+            "Executor::spawn called before a global executor was initialized. \
+             Task dropped."
         );
-        // Drop the future implicitly after logging
         drop(_fut);
     }
-    #[cfg(all(debug_assertions, not(feature = "tracing")))]
+    // Without tracing, fail loudly in debug builds.
+    #[cfg(all(not(feature = "tracing"), debug_assertions))]
     {
+        let caller = std::panic::Location::caller();
         panic!(
             "At {caller}, tried to spawn a Future with Executor::spawn() \
              before a global executor was initialized."
         );
     }
-    // In release builds (without tracing), call the specific no-op function.
-    #[cfg(not(debug_assertions))]
+    // Without tracing in release builds, fall back to the no-op function.
+    #[cfg(all(not(feature = "tracing"), not(debug_assertions)))]
     {
         no_op_spawn(_fut);
     }
@@ -544,26 +553,31 @@ fn handle_uninitialized_spawn(_fut: PinnedFuture<()>) {
 #[inline(never)]
 #[track_caller]
 fn handle_uninitialized_spawn_local(_fut: PinnedLocalFuture<()>) {
-    let caller = std::panic::Location::caller();
-    #[cfg(all(debug_assertions, feature = "tracing"))]
+    // When tracing is enabled, emit a diagnostic and drop the task. This now
+    // fires in release builds too, where the log was previously cfg-gated out.
+    #[cfg(feature = "tracing")]
     {
+        let caller = std::panic::Location::caller();
         tracing::error!(
             target: "any_spawner",
-            spawn_caller=%caller,
-            "Executor::spawn_local called before a global executor was initialized. \
-            Task likely dropped or panicked."
+            spawn_caller = %caller,
+            "Executor::spawn_local called before a global executor was \
+             initialized. Task dropped."
         );
-        // Fall through to panic or no-op depending on build/target
+        drop(_fut);
     }
-    #[cfg(all(debug_assertions, not(feature = "tracing")))]
+    // Without tracing, fail loudly in debug builds.
+    #[cfg(all(not(feature = "tracing"), debug_assertions))]
     {
+        let caller = std::panic::Location::caller();
         panic!(
             "At {caller}, tried to spawn a Future with \
              Executor::spawn_local() before a global executor was initialized."
         );
     }
-    // In release builds (without tracing), call the specific no-op function (which usually panics).
-    #[cfg(not(debug_assertions))]
+    // Without tracing in release builds, fall back to the no-op function
+    // (which panics).
+    #[cfg(all(not(feature = "tracing"), not(debug_assertions)))]
     {
         no_op_spawn_local(_fut);
     }
