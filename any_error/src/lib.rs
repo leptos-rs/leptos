@@ -25,7 +25,10 @@ pub struct Error(Arc<dyn error::Error + Send + Sync>);
 impl Error {
     /// Converts the wrapper into the inner reference-counted error.
     pub fn into_inner(self) -> Arc<dyn error::Error + Send + Sync> {
-        Arc::clone(&self.0)
+        // Move the `Arc` out of the wrapper rather than cloning it: this
+        // consumes `self`, so there is no reason to bump and then immediately
+        // drop the reference count.
+        self.0
     }
 }
 
@@ -196,6 +199,24 @@ mod tests {
 
         let e = anyhow::anyhow!("anyhow error");
         let _le = Error::from(e);
+    }
+
+    #[test]
+    fn into_inner_yields_uniquely_owned_arc() {
+        // `into_inner` consumes the only `Error`, so the returned `Arc` is the
+        // sole owner of the underlying error.
+        let e: Error = "boom".to_string().into();
+        let inner = e.into_inner();
+        assert_eq!(Arc::strong_count(&inner), 1);
+
+        // With another owner alive, the count is exactly that owner plus the
+        // returned `Arc`: `into_inner` introduces no extra references.
+        let e: Error = "boom".to_string().into();
+        let clone = e.clone();
+        let inner = e.into_inner();
+        assert_eq!(Arc::strong_count(&inner), 2);
+        drop(clone);
+        assert_eq!(Arc::strong_count(&inner), 1);
     }
 
     struct NoOpHook;
