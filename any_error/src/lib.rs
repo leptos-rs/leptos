@@ -95,7 +95,16 @@ pub struct ResetErrorHookOnDrop(Option<Arc<dyn ErrorHook>>);
 
 impl Drop for ResetErrorHookOnDrop {
     fn drop(&mut self) {
-        ERROR_HOOK.with_borrow_mut(|this| *this = self.0.take())
+        // Best-effort restore. If `ERROR_HOOK` is currently borrowed (e.g. this
+        // guard is dropped from inside a hook callback that still holds the
+        // borrow) or already destroyed (thread teardown), skip the restore
+        // instead of panicking: a panic escaping `drop` during unwinding aborts
+        // the whole process.
+        let _ = ERROR_HOOK.try_with(|cell| {
+            if let Ok(mut slot) = cell.try_borrow_mut() {
+                *slot = self.0.take();
+            }
+        });
     }
 }
 
@@ -285,5 +294,17 @@ mod tests {
         assert_eq!(counter.0.load(Ordering::SeqCst), 0);
         // The ambient hook is restored once the poll returns.
         assert!(get_error_hook().is_some());
+    }
+
+    // Dropping a `ResetErrorHookOnDrop` while the hook slot is already borrowed
+    // must not panic. Before the guard used `try_borrow_mut`, this panicked
+    // with `BorrowMutError` from inside `drop`.
+    #[test]
+    fn reset_guard_drop_is_silent_while_hook_slot_is_borrowed() {
+        let guard = set_error_hook(Arc::new(NoOpHook));
+        // Hold an immutable borrow of the slot, then drop the guard inside it.
+        ERROR_HOOK.with_borrow(|_held| {
+            drop(guard);
+        });
     }
 }
