@@ -1102,8 +1102,7 @@ pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     }
 /// }
 ///
-/// mod scoped
-/// {
+/// mod scoped {
 ///     # use leptos_macro::lazy;
 ///     #[lazy]
 ///     pub fn lazy_func() {}
@@ -1113,7 +1112,6 @@ pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// fn preload_scoped_lazy() {
 ///     let is_loaded = lazy_preload!(scoped::lazy_func);
 /// }
-///
 /// ```
 #[proc_macro]
 #[proc_macro_error]
