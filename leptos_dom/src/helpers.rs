@@ -148,6 +148,18 @@ fn closure_once(cb: impl FnOnce() + 'static) -> JsValue {
     closure.into_js_value()
 }
 
+/// Converts a [`Duration`] into the millisecond delay expected by
+/// `setTimeout`/`setInterval`.
+///
+/// The HTML standard types the timer delay as a signed 32-bit integer and
+/// clamps any larger value to `i32::MAX` rather than rejecting it (WHATWG HTML
+/// §8.6 "Timers"). `Duration::as_millis` returns a `u128`, so a delay longer
+/// than ~24.85 days would overflow an `i32`. We mirror the browser's clamping
+/// behaviour instead of overflowing.
+fn duration_to_ms(duration: Duration) -> i32 {
+    duration.as_millis().min(i32::MAX as u128) as i32
+}
+
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame),
 /// returning a cancelable handle.
@@ -283,7 +295,7 @@ pub fn set_timeout(
         window()
             .set_timeout_with_callback_and_timeout_and_arguments_0(
                 cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
+                duration_to_ms(duration),
             )
             .map(TimeoutHandle)
     }
@@ -419,7 +431,7 @@ pub fn set_interval(
         window()
             .set_interval_with_callback_and_timeout_and_arguments_0(
                 cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
+                duration_to_ms(duration),
             )
             .map(IntervalHandle)
     }
@@ -550,4 +562,32 @@ pub fn is_server() -> bool {
 /// Returns `true` if the current environment is a browser.
 pub fn is_browser() -> bool {
     !is_server()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_to_ms_passes_small_durations_through() {
+        assert_eq!(duration_to_ms(Duration::ZERO), 0);
+        assert_eq!(duration_to_ms(Duration::from_millis(250)), 250);
+        assert_eq!(duration_to_ms(Duration::from_secs(1)), 1000);
+    }
+
+    #[test]
+    fn duration_to_ms_clamps_durations_over_i32_max() {
+        // 30 days is 2_592_000_000 ms, which exceeds i32::MAX (2_147_483_647).
+        // It must clamp to i32::MAX, matching the browser, rather than
+        // overflowing the `u128 -> i32` conversion.
+        let thirty_days = Duration::from_secs(60 * 60 * 24 * 30);
+        assert!(thirty_days.as_millis() > i32::MAX as u128);
+        assert_eq!(duration_to_ms(thirty_days), i32::MAX);
+
+        // The exact boundary maps to i32::MAX, and one past it still clamps.
+        let boundary = Duration::from_millis(i32::MAX as u64);
+        assert_eq!(duration_to_ms(boundary), i32::MAX);
+        let past_boundary = Duration::from_millis(i32::MAX as u64 + 1);
+        assert_eq!(duration_to_ms(past_boundary), i32::MAX);
+    }
 }
