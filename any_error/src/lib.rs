@@ -157,10 +157,15 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        let _hook = this
-            .hook
-            .as_ref()
-            .map(|hook| set_error_hook(Arc::clone(hook)));
+        // Install the hook captured at construction time for the duration of
+        // this poll, *including* the `None` case. A future created before any
+        // hook was set must clear the slot while polling rather than silently
+        // inherit whatever hook happens to be installed on the polling thread.
+        // The guard restores the previous hook when the poll returns.
+        let _hook =
+            ResetErrorHookOnDrop(ERROR_HOOK.with_borrow_mut(|cur| {
+                std::mem::replace(cur, this.hook.clone())
+            }));
         this.inner.poll(cx)
     }
 }
@@ -222,5 +227,42 @@ mod tests {
         // Neither of these may panic.
         let id = throw("boom");
         clear(&id);
+    }
+
+    // A future built before any hook is installed captures `None`; polling it
+    // must clear the slot for the duration of the poll instead of routing
+    // `throw` to whatever hook happens to be installed on the polling thread.
+    #[test]
+    fn error_hook_future_with_no_captured_hook_clears_ambient_hook_during_poll()
+    {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct Counter(AtomicUsize);
+        impl ErrorHook for Counter {
+            fn throw(&self, _: Error) -> ErrorId {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                ErrorId::default()
+            }
+            fn clear(&self, _: &ErrorId) {}
+        }
+
+        // Built before any hook is installed -> captured hook is `None`.
+        let fut = ErrorHookFuture::new(async {
+            throw("inside future");
+        });
+
+        // Now install a counting hook on this thread.
+        let counter = Arc::new(Counter(AtomicUsize::new(0)));
+        let _g = set_error_hook(counter.clone());
+
+        // Drive the future to completion. The `throw` inside it must NOT reach
+        // the ambient `counter` hook, because the future captured `None`.
+        let mut fut = std::pin::pin!(fut);
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        assert!(fut.as_mut().poll(&mut cx).is_ready());
+
+        assert_eq!(counter.0.load(Ordering::SeqCst), 0);
+        // The ambient hook is restored once the poll returns.
+        assert!(get_error_hook().is_some());
     }
 }
