@@ -201,7 +201,7 @@ pub struct IdleCallbackHandle(u32);
 
 impl IdleCallbackHandle {
     /// Cancels the idle callback to which this refers.
-    /// See [`cancelAnimationFrame()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/cancelIdleCallback)
+    /// See [`cancelIdleCallback()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/cancelIdleCallback)
     pub fn cancel(&self) {
         window().cancel_idle_callback(self.0);
     }
