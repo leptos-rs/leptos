@@ -204,6 +204,33 @@ impl ExtendResponse for ActixResponse {
     }
 }
 
+/// Returns whether an `Accept` header value indicates the client will accept
+/// an HTML response — i.e. an ordinary browser navigation or a plain `<form>`
+/// submission, as opposed to a programmatic client expecting structured data.
+///
+/// Unlike a naive `contains("text/html")` check, each comma-separated media
+/// range is parsed with the [`mime`] crate and an explicit `q=0` refusal is
+/// honoured. So `text/html;q=0` (the client refusing HTML) and
+/// `application/x-text/html-fake` (an unrelated, unparseable range) are both
+/// correctly treated as *not* accepting HTML.
+fn accept_header_includes_html(accept: &str) -> bool {
+    accept.split(',').any(|range| {
+        let Ok(media) = range.trim().parse::<mime::Mime>() else {
+            return false;
+        };
+        if media.type_() != mime::TEXT || media.subtype() != mime::HTML {
+            return false;
+        }
+        // honour an explicit `q=0`, which means the client refuses HTML
+        match media.get_param("q") {
+            Some(q) => {
+                q.as_str().parse::<f32>().map(|w| w > 0.0).unwrap_or(true)
+            }
+            None => true,
+        }
+    })
+}
+
 /// Provides an easy way to redirect the user from within a server function.
 ///
 /// Calling `redirect` in a server function will redirect the browser in three
@@ -266,7 +293,7 @@ pub fn redirect(path: &str) {
             .headers()
             .get(ACCEPT)
             .and_then(|v| v.to_str().ok())
-            .map(|v| v.contains("text/html"))
+            .map(accept_header_includes_html)
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
@@ -388,7 +415,7 @@ pub fn handle_server_fns_with_context(
                                 .headers()
                                 .get(ACCEPT)
                                 .and_then(|v| v.to_str().ok())
-                                .map(|v| v.contains("text/html"))
+                                .map(accept_header_includes_html)
                                 .unwrap_or(false);
                             let referrer = req.headers().get(REFERER).cloned();
 
@@ -1708,7 +1735,8 @@ mod tests {
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, OrPoisoned,
-        Owner, Request, ResponseOptions, header, provide_context, redirect,
+        Owner, Request, ResponseOptions, accept_header_includes_html, header,
+        provide_context, redirect,
     };
     use actix_web::test::TestRequest;
 
@@ -1774,5 +1802,33 @@ mod tests {
                 .map(|v| v.as_bytes()),
             Some(&b"text/html; charset=utf-8"[..])
         );
+    }
+
+    #[test]
+    fn accept_header_plain_navigation_is_html() {
+        // typical browser navigation
+        assert!(accept_header_includes_html(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        ));
+        assert!(accept_header_includes_html("text/html"));
+        assert!(accept_header_includes_html("text/html; charset=utf-8"));
+        assert!(accept_header_includes_html("text/html;q=0.1"));
+    }
+
+    #[test]
+    fn accept_header_explicit_refusal_is_not_html() {
+        // `q=0` means the client explicitly does not want HTML
+        assert!(!accept_header_includes_html(
+            "text/html;q=0, application/json"
+        ));
+        assert!(!accept_header_includes_html("text/html;q=0.0"));
+    }
+
+    #[test]
+    fn accept_header_substring_is_not_html() {
+        // these contain the literal substring "text/html" but are not it
+        assert!(!accept_header_includes_html("application/x-text/html-fake"));
+        assert!(!accept_header_includes_html("application/json"));
+        assert!(!accept_header_includes_html("*/*"));
     }
 }
