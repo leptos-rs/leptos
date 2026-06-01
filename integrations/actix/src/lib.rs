@@ -1442,8 +1442,22 @@ where
                     }
                     None => match NamedFile::open(path) {
                         Ok(res) => res.into_response(&req),
-                        Err(err) => HttpResponse::InternalServerError()
-                            .body(err.to_string()),
+                        // The cached file can be removed or replaced between
+                        // the `try_exists` check above and this open (a TOCTOU
+                        // race). Do not render the raw filesystem error into
+                        // the body — that leaks server-side path and OS error
+                        // details — log it and return a generic 500.
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::warn!(
+                                "failed to serve static file {}: {err}",
+                                path.display()
+                            );
+                            #[cfg(not(feature = "tracing"))]
+                            let _ = &err;
+                            HttpResponse::InternalServerError()
+                                .body("Internal Server Error")
+                        }
                     },
                 });
 
