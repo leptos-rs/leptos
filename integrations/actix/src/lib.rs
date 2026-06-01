@@ -186,11 +186,20 @@ impl ExtendResponse for ActixResponse {
         let headers = self.0.headers_mut();
         if !headers.contains_key(header::CONTENT_TYPE) {
             // Set the Content Type headers on all responses. This makes Firefox show the page source
-            // without complaining
-            headers.insert(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str(content_type).unwrap(),
-            );
+            // without complaining.
+            //
+            // `content_type` is a `&str`, so it may not be a valid header
+            // value (e.g. if it contains a NUL byte). Skip the header rather
+            // than unwrapping, which would panic and take down the worker.
+            if let Ok(value) = HeaderValue::from_str(content_type) {
+                headers.insert(header::CONTENT_TYPE, value);
+            } else {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "skipped default Content-Type: {content_type:?} is not a \
+                     valid header value"
+                );
+            }
         }
     }
 }
@@ -1698,8 +1707,8 @@ mod tests {
     // Targeted imports rather than `use super::*`: the crate root glob-imports
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
-        LOCATION, OrPoisoned, Owner, Request, ResponseOptions, provide_context,
-        redirect,
+        ActixResponse, ExtendResponse, HttpResponse, LOCATION, OrPoisoned,
+        Owner, Request, ResponseOptions, header, provide_context, redirect,
     };
     use actix_web::test::TestRequest;
 
@@ -1741,6 +1750,29 @@ mod tests {
         assert_eq!(
             parts.headers.get(LOCATION).map(|v| v.as_bytes()),
             Some(&b"/dashboard"[..])
+        );
+    }
+
+    // A content type that is not a valid header value (e.g. it contains a NUL
+    // byte) must be skipped rather than unwrapped, which would panic.
+    #[test]
+    fn set_default_content_type_skips_invalid_value() {
+        let mut res = ActixResponse(HttpResponse::Ok().finish());
+        res.set_default_content_type("text/html\0bad");
+        assert!(res.0.headers().get(header::CONTENT_TYPE).is_none());
+    }
+
+    // A valid content type is still applied when none is set yet.
+    #[test]
+    fn set_default_content_type_sets_valid_value() {
+        let mut res = ActixResponse(HttpResponse::Ok().finish());
+        res.set_default_content_type("text/html; charset=utf-8");
+        assert_eq!(
+            res.0
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .map(|v| v.as_bytes()),
+            Some(&b"text/html; charset=utf-8"[..])
         );
     }
 }
