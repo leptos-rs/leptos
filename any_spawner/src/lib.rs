@@ -372,31 +372,42 @@ impl Executor {
             Box<dyn CustomExecutor + Send + Sync>,
         > = OnceLock::new();
 
-        CUSTOM_EXECUTOR_INSTANCE
-            .set(Box::new(custom_executor))
-            .map_err(|_| ExecutorError::AlreadySet)?;
-
-        // Now set the ExecutorFns using the stored instance
         let executor_impl = ExecutorFns {
-            spawn: |fut| {
-                // Unwrap is safe because we just set it successfully or returned Err.
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().spawn(fut);
+            spawn: |fut| match CUSTOM_EXECUTOR_INSTANCE.get() {
+                Some(executor) => executor.spawn(fut),
+                // Only reachable in the tiny window between winning the global
+                // slot and storing the instance below; treat it the same as
+                // spawning before any executor was initialized.
+                None => handle_uninitialized_spawn(fut),
             },
-            spawn_local: |fut| {
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().spawn_local(fut);
+            spawn_local: |fut| match CUSTOM_EXECUTOR_INSTANCE.get() {
+                Some(executor) => executor.spawn_local(fut),
+                None => handle_uninitialized_spawn_local(fut),
             },
             poll_local: || {
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().poll_local();
+                if let Some(executor) = CUSTOM_EXECUTOR_INSTANCE.get() {
+                    executor.poll_local();
+                }
             },
         };
 
+        // Claim the global slot *first*. If another initializer wins the race
+        // (or one already ran), we return here without ever storing
+        // `custom_executor`, so it is dropped on return instead of being leaked
+        // into static memory for the life of the process.
         EXECUTOR_FNS
             .set(executor_impl)
-            .map_err(|_| ExecutorError::AlreadySet)
-        // If setting EXECUTOR_FNS fails (extremely unlikely race if called *concurrently*
-        // with another init_* after CUSTOM_EXECUTOR_INSTANCE was set), we technically
-        // leave CUSTOM_EXECUTOR_INSTANCE set but EXECUTOR_FNS not. This is an edge case,
-        // but the primary race condition is solved.
+            .map_err(|_| ExecutorError::AlreadySet)?;
+
+        // We are the unique winner of the global slot, so the instance slot is
+        // guaranteed to be empty; this store cannot fail.
+        let _ = CUSTOM_EXECUTOR_INSTANCE.set(Box::new(custom_executor));
+        debug_assert!(
+            CUSTOM_EXECUTOR_INSTANCE.get().is_some(),
+            "custom executor instance must be stored after winning \
+             EXECUTOR_FNS"
+        );
+        Ok(())
     }
 
     /// Sets a custom executor *for the current thread only*.
