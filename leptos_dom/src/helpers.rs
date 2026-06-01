@@ -217,7 +217,7 @@ impl IdleCallbackHandle {
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback(
-    cb: impl Fn() + 'static,
+    cb: impl FnOnce() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
     #[cfg(feature = "tracing")]
     let span = ::tracing::Span::current();
@@ -228,15 +228,13 @@ pub fn request_idle_callback(
     };
 
     #[inline(never)]
-    fn ric(cb: Box<dyn Fn()>) -> Result<IdleCallbackHandle, JsValue> {
-        let cb = Closure::wrap(cb).into_js_value();
-
+    fn ric(cb: JsValue) -> Result<IdleCallbackHandle, JsValue> {
         window()
             .request_idle_callback(cb.as_ref().unchecked_ref())
             .map(IdleCallbackHandle)
     }
 
-    ric(Box::new(cb))
+    ric(closure_once(cb))
 }
 
 /// A microtask is a short function which will run after the current task has
@@ -593,5 +591,23 @@ mod tests {
         assert_eq!(duration_to_ms(boundary), i32::MAX);
         let past_boundary = Duration::from_millis(i32::MAX as u64 + 1);
         assert_eq!(duration_to_ms(past_boundary), i32::MAX);
+    }
+
+    // `request_idle_callback` must accept a one-shot closure that moves out of
+    // (consumes) its captures, exactly like `request_animation_frame`. The
+    // closures below are type-checked at compile time, which is where the
+    // `FnOnce` bound is enforced, but they are never invoked, so the DOM is
+    // never touched in this headless test. A regression to an `Fn` bound would
+    // make this fail to compile.
+    #[test]
+    fn request_idle_callback_accepts_consuming_closure() {
+        let _ric = || {
+            let owned = String::from("hello");
+            request_idle_callback(move || drop(owned))
+        };
+        let _raf = || {
+            let owned = String::from("hello");
+            request_animation_frame(move || drop(owned))
+        };
     }
 }
