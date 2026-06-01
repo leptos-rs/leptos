@@ -6,7 +6,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{StoredValue, on_cleanup},
     signal::RwSignal,
-    traits::{Get, GetUntracked, GetValue, Set, SetValue},
+    traits::{Get, GetUntracked, Set, SetValue, UpdateValue},
     wrappers::read::Signal,
 };
 use tachys::prelude::*;
@@ -74,9 +74,11 @@ pub fn AnimatedShow(
     let eff = RenderEffect::new(move |_| {
         if when.get() {
             // clear any possibly active timer
-            if let Some(h) = handle.get_value() {
-                h.clear();
-            }
+            handle.update_value(|handle| {
+                if let Some(h) = handle.take() {
+                    h.clear();
+                }
+            });
 
             cls.set(show_class);
             show.set(true);
@@ -93,9 +95,11 @@ pub fn AnimatedShow(
     });
 
     on_cleanup(move || {
-        if let Some(Some(h)) = handle.try_get_value() {
-            h.clear();
-        }
+        handle.try_update_value(|handle| {
+            if let Some(h) = handle.take() {
+                h.clear();
+            }
+        });
         drop(eff);
     });
 
