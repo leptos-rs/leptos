@@ -909,7 +909,13 @@ where
         }
     };
     match method {
-        Method::Get => web::get().to(handler),
+        // Per RFC 9110 §9.3.2 a HEAD must return the same status and headers
+        // as the equivalent GET. Actix does not run a GET handler for HEAD on
+        // its own, so register the GET render handler for both methods; the
+        // HTTP/1 encoder drops the body for HEAD responses.
+        Method::Get => web::route()
+            .guard(guard::Any(guard::Get()).or(guard::Head()))
+            .to(handler),
         Method::Post => web::post().to(handler),
         Method::Put => web::put().to(handler),
         Method::Delete => web::delete().to(handler),
@@ -1633,7 +1639,6 @@ where
                     )
                 } else {
                     router
-                        .route(path, web::head().to(HttpResponse::Ok))
                         .route(
                             path,
                             match mode {
@@ -1836,8 +1841,8 @@ mod tests {
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
         Method, OrPoisoned, Owner, Request, ResponseOptions,
         STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, accept_header_includes_html,
-        header, provide_context, redirect, unsupported_ssr_mode_route,
-        write_static_route,
+        header, provide_context, redirect, render_app_to_stream_with_context,
+        unsupported_ssr_mode_route, write_static_route,
     };
     use actix_web::test::TestRequest;
 
@@ -1952,6 +1957,39 @@ mod tests {
         assert!(cache.get(&"/post/0".to_string()).is_none());
         // a recently-inserted entry is still present
         assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
+
+    // A HEAD request to a render route must reach the GET handler and return
+    // the same status (RFC 9110 §9.3.2), not a hardcoded 200 or a 404. Both
+    // `App` and `&mut ServiceConfig` route HEAD through the same render path.
+    #[actix_web::test]
+    async fn head_request_reaches_render_handler() {
+        use actix_web::{App, http::Method as HttpMethod, test, web::Data};
+
+        // the render path spawns futures on the global executor
+        let _ = any_spawner::Executor::init_tokio();
+
+        let options = LeptosOptions::builder().output_name("test").build();
+        let route =
+            render_app_to_stream_with_context(|| {}, || "hello", Method::Get);
+
+        let app = test::init_service(
+            App::new().app_data(Data::new(options)).route("/", route),
+        )
+        .await;
+
+        let get = test::TestRequest::get().uri("/").to_request();
+        let get_status = test::call_service(&app, get).await.status();
+
+        let head = TestRequest::default()
+            .method(HttpMethod::HEAD)
+            .uri("/")
+            .to_request();
+        let head_status = test::call_service(&app, head).await.status();
+
+        // HEAD reaches the handler rather than 404-ing, and mirrors GET.
+        assert_ne!(head_status, actix_web::http::StatusCode::NOT_FOUND);
+        assert_eq!(head_status, get_status);
     }
 
     // A static route must be written atomically: the file appears with its
