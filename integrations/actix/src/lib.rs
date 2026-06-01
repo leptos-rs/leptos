@@ -44,7 +44,7 @@ use server_fn::{
     request::actix::ActixRequest,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
     ops::{Deref, DerefMut},
@@ -1301,9 +1301,35 @@ impl StaticRouteGenerator {
     }
 }
 
+/// Default upper bound on the number of per-path [`ResponseOptions`] entries
+/// cached for static routes. Without a bound the cache grew for the life of the
+/// process, one entry per unique static path served (e.g. attacker-driven slugs
+/// on a regenerated `/posts/{slug}` route).
+///
+/// Eviction is graceful: the static file is still served from disk, the cache
+/// only drops the custom headers/status captured at generation time for the
+/// evicted path (re-populated on the next regeneration). 1024 covers a typical
+/// static site's working set for a worst case on the order of ~1 MB.
+const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
+    match std::num::NonZeroUsize::new(1024) {
+        Some(capacity) => capacity,
+        None => unreachable!(),
+    };
+
+/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
+/// A missing, unparseable, or zero value falls back to the default.
+const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
+
 static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<HashMap<String, ResponseOptions>>,
-> = LazyLock::new(Default::default);
+    std::sync::RwLock<lru::LruCache<String, ResponseOptions>>,
+> = LazyLock::new(|| {
+    let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .and_then(std::num::NonZeroUsize::new)
+        .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
+    std::sync::RwLock::new(lru::LruCache::new(capacity))
+});
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1347,7 +1373,7 @@ async fn write_static_route(
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .insert(path.to_string(), options);
+            .put(path.to_string(), options);
     }
 
     let path = Path::new(&file_path);
@@ -1423,8 +1449,9 @@ where
                         .await;
                     (owner.with(use_context::<ResponseOptions>), html)
                 } else {
+                    // `LruCache::get` updates recency, so it needs a write lock.
                     let headers = STATIC_HEADERS
-                        .read()
+                        .write()
                         .or_poisoned()
                         .get(orig_path)
                         .cloned();
@@ -1782,9 +1809,9 @@ mod tests {
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, Method,
-        OrPoisoned, Owner, Request, ResponseOptions, SsrMode,
-        accept_header_includes_html, header, provide_context, redirect,
-        unsupported_ssr_mode_route,
+        OrPoisoned, Owner, Request, ResponseOptions,
+        STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, accept_header_includes_html,
+        header, provide_context, redirect, unsupported_ssr_mode_route,
     };
     use actix_web::test::TestRequest;
 
@@ -1878,6 +1905,27 @@ mod tests {
         assert!(!accept_header_includes_html("application/x-text/html-fake"));
         assert!(!accept_header_includes_html("application/json"));
         assert!(!accept_header_includes_html("*/*"));
+    }
+
+    // The per-path header cache must never grow without bound: serving many
+    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
+    // per path for the life of the process.
+    #[test]
+    fn static_headers_cache_is_bounded() {
+        let mut cache: lru::LruCache<String, ResponseOptions> =
+            lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
+        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
+
+        for i in 0..(capacity + 10) {
+            cache.put(format!("/post/{i}"), ResponseOptions::default());
+        }
+
+        // never grows past capacity
+        assert_eq!(cache.len(), capacity);
+        // the earliest-inserted entries have been evicted
+        assert!(cache.get(&"/post/0".to_string()).is_none());
+        // a recently-inserted entry is still present
+        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
     }
 
     // An unknown `SsrMode` must serve a 500 rather than panicking the worker
