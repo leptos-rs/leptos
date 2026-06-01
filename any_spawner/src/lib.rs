@@ -420,6 +420,16 @@ impl Executor {
             > = const { OnceLock::new() };
         };
 
+        // Reject re-initialization up front, before allocating the box or
+        // touching the instance slot. `LOCAL_EXECUTOR_FNS` is the authoritative
+        // per-thread "already configured" flag and is the *last* slot written
+        // on the success path, so checking it here guarantees we never leave the
+        // instance slot populated while reporting failure. The rejected executor
+        // is dropped when this function returns.
+        if LOCAL_EXECUTOR_FNS.with(|local| local.get().is_some()) {
+            return Err(ExecutorError::AlreadySet);
+        }
+
         CUSTOM_EXECUTOR_INSTANCE.with(|this| {
             this.set(Box::new(custom_executor))
                 .map_err(|_| ExecutorError::AlreadySet)
