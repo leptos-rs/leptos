@@ -230,12 +230,28 @@ pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Request>(), use_context::<ResponseOptions>())
     {
+        // The target string ultimately derives from user input (e.g. a `next`
+        // URL parameter or a form field), so it may contain bytes that are
+        // illegal in a header value (CR, LF, NUL, ...). `HeaderValue::from_str`
+        // rejects those, and turning that recoverable error into a panic would
+        // let any client able to influence the target take down the worker
+        // handling the request. Skip the redirect instead.
+        let location = match header::HeaderValue::from_str(path) {
+            Ok(location) => location,
+            Err(_) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                #[cfg(not(feature = "tracing"))]
+                eprintln!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                return;
+            }
+        };
         // insert the Location header in any case
-        res.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
+        res.insert_header(header::LOCATION, location);
 
         let accepts_html = req
             .headers()
@@ -1675,4 +1691,56 @@ where
             .map_err(|e| ServerFnErrorErr::ServerError(e.to_string()))
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    // Targeted imports rather than `use super::*`: the crate root glob-imports
+    // `actix_web::test`, which would shadow the `#[test]` attribute macro.
+    use super::{
+        LOCATION, OrPoisoned, Owner, Request, ResponseOptions, provide_context,
+        redirect,
+    };
+    use actix_web::test::TestRequest;
+
+    // A redirect target containing CR/LF cannot be encoded as a header value.
+    // `redirect` must skip the redirect instead of panicking, otherwise any
+    // client able to influence the target (e.g. a `next` parameter) can crash
+    // the request handler.
+    #[test]
+    fn redirect_ignores_invalid_header_value() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let http_req = TestRequest::default().to_http_request();
+            provide_context(Request::new(&http_req));
+            provide_context(res.clone());
+
+            redirect("/login\r\nSet-Cookie: pwned=1");
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert!(parts.headers.get(LOCATION).is_none());
+        assert!(parts.status.is_none());
+    }
+
+    // A well-formed target is still applied.
+    #[test]
+    fn redirect_sets_location_for_valid_target() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let http_req = TestRequest::default().to_http_request();
+            provide_context(Request::new(&http_req));
+            provide_context(res.clone());
+
+            redirect("/dashboard");
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(
+            parts.headers.get(LOCATION).map(|v| v.as_bytes()),
+            Some(&b"/dashboard"[..])
+        );
+    }
 }
