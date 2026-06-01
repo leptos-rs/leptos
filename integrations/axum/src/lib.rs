@@ -72,9 +72,9 @@ use leptos_router::{
 use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
-use std::sync::LazyLock;
+use std::path::Path;
 #[cfg(feature = "default")]
-use std::{collections::HashMap, path::Path};
+use std::sync::LazyLock;
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -181,6 +181,40 @@ pub(crate) fn extend_response<ResBody>(
         .extend(std::mem::take(&mut res_options.headers));
 }
 
+/// Returns whether an `Accept` header value indicates the client will accept
+/// an HTML response — i.e. an ordinary browser navigation or a plain `<form>`
+/// submission, as opposed to a programmatic client expecting structured data.
+///
+/// Unlike a naive `contains("text/html")` check, each comma-separated media
+/// range is parsed with the [`mime`] crate and an explicit `q=0` refusal is
+/// honoured. So `text/html;q=0` (the client refusing HTML) and
+/// `application/x-text/html-fake` (an unrelated, unparseable range) are both
+/// correctly treated as *not* accepting HTML.
+fn accept_header_includes_html(accept: &str) -> bool {
+    accept.split(',').any(|range| {
+        let Ok(media) = range.trim().parse::<mime::Mime>() else {
+            return false;
+        };
+        if media.type_() != mime::TEXT || media.subtype() != mime::HTML {
+            return false;
+        }
+        // honour an explicit `q=0`, which means the client refuses HTML
+        match media.get_param("q") {
+            Some(q) => {
+                q.as_str().parse::<f32>().map(|w| w > 0.0).unwrap_or(true)
+            }
+            None => true,
+        }
+    })
+}
+
+/// A generic `500 Internal Server Error` response with no body details, used
+/// when an integration handler hits an unrecoverable but non-fatal condition
+/// that previously panicked.
+fn internal_server_error() -> Response<Body> {
+    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+}
+
 struct AxumResponse(Response<Body>);
 
 impl ExtendResponse for AxumResponse {
@@ -245,18 +279,33 @@ pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
     {
+        // The path ultimately derives from user input (e.g. a `next` URL
+        // parameter), so it may contain bytes that are illegal in a header
+        // value (CR, LF, NUL, ...). `HeaderValue::from_str` rejects those, and
+        // turning that recoverable error into a panic would let any client take
+        // down the worker handling the request. Skip the redirect instead.
+        let location = match header::HeaderValue::from_str(path) {
+            Ok(location) => location,
+            Err(_) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                #[cfg(not(feature = "tracing"))]
+                eprintln!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                return;
+            }
+        };
         // insert the Location header in any case
-        res.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
+        res.insert_header(header::LOCATION, location);
 
         let accepts_html = req
             .headers
             .get(ACCEPT)
             .and_then(|v| v.to_str().ok())
-            .map(|v| v.contains("text/html"))
+            .map(accept_header_includes_html)
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
@@ -420,7 +469,7 @@ async fn handle_server_fns_inner(
                         .headers()
                         .get(ACCEPT)
                         .and_then(|v| v.to_str().ok())
-                        .map(|v| v.contains("text/html"))
+                        .map(accept_header_includes_html)
                         .unwrap_or(false);
                     let referrer = req.headers().get(REFERER).cloned();
 
@@ -458,7 +507,17 @@ async fn handle_server_fns_inner(
                  function type, somewhere in your `main` function.",
             )))
     }
-    .expect("could not build Response")
+    .unwrap_or_else(|err| {
+        // The branches above only set a status and a string body, so this is
+        // not reachable today; handle it gracefully anyway so a future edit
+        // that adds a fallible header to the builder cannot turn this
+        // diagnostic into a panic.
+        #[cfg(feature = "tracing")]
+        tracing::error!("could not build server function response: {err}");
+        #[cfg(not(feature = "tracing"))]
+        let _ = err;
+        internal_server_error()
+    })
 }
 
 /// A stream of bytes of HTML.
@@ -717,22 +776,49 @@ where
     );
 
     move |state, req| {
-        // 1. Process route to match the values in routeListing
-        let path = req
+        // 1. Process route to match the values in routeListing.
+        //
+        // `MatchedPath` is only present when the request flowed through Axum's
+        // matcher; mounting this handler outside the router (manual tower
+        // composition, `nest`/`route_service`, direct calls in tests) leaves it
+        // absent. Rather than panic — which would kill the worker and 500 every
+        // affected request — log and return a generic 500 so the misconfigured
+        // route is diagnosable without taking the process down.
+        let Some(path) = req
             .extensions()
             .get::<MatchedPath>()
-            .expect("Failed to get Axum router rule")
-            .as_str();
+            .map(|p| p.as_str().to_owned())
+        else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            return Box::pin(async { internal_server_error() });
+        };
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
-        let listing: &AxumRouteListing =
-            paths.iter().find(|r| r.path() == path).unwrap_or_else(|| {
-                panic!(
-                    "Failed to find the route {path} requested by the user. \
-                     This suggests that the routing rules in the Router that \
-                     call this handler needs to be edited!"
-                )
-            });
+        let Some(listing) = paths.iter().find(|r| r.path() == path.as_str())
+        else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited."
+            );
+            return Box::pin(async { internal_server_error() });
+        };
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
             SsrMode::OutOfOrder => ooo(req),
@@ -934,7 +1020,15 @@ where
             move || {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
+                //
+                // `path_and_query` is `None` for authority-form URIs (e.g. a
+                // `CONNECT host:port` request from a misconfigured proxy or a
+                // health probe). Fall back to the root rather than panicking.
+                let path = req
+                    .uri()
+                    .path_and_query()
+                    .map(|p| p.as_str())
+                    .unwrap_or("/");
 
                 let full_path = format!("http://leptos.dev{path}");
                 let (_, req_parts) = generate_request_and_parts(req);
@@ -1481,10 +1575,38 @@ impl StaticRouteGenerator {
     }
 }
 
+/// Default upper bound on the number of per-path [`ResponseOptions`] entries
+/// cached for static routes. Without a bound the cache grew for the life of the
+/// process, one entry per unique static path served (e.g. attacker-driven slugs
+/// on a regenerated `/posts/{slug}` route).
+///
+/// Eviction is graceful: the static file is still served from disk, the cache
+/// only drops the custom headers/status captured at generation time for the
+/// evicted path (re-populated on the next regeneration). 1024 covers a typical
+/// static site's working set for a worst case on the order of ~1 MB.
+#[cfg(feature = "default")]
+const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
+    match std::num::NonZeroUsize::new(1024) {
+        Some(capacity) => capacity,
+        None => unreachable!(),
+    };
+
+/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
+/// A missing, unparseable, or zero value falls back to the default.
+#[cfg(feature = "default")]
+const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
+
 #[cfg(feature = "default")]
 static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<HashMap<String, ResponseOptions>>,
-> = LazyLock::new(Default::default);
+    std::sync::RwLock<lru::LruCache<String, ResponseOptions>>,
+> = LazyLock::new(|| {
+    let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .and_then(std::num::NonZeroUsize::new)
+        .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
+    std::sync::RwLock::new(lru::LruCache::new(capacity))
+});
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
@@ -1499,7 +1621,7 @@ fn was_404(owner: &Owner) -> bool {
 }
 
 #[cfg(feature = "default")]
-fn static_path(options: &LeptosOptions, path: &str) -> String {
+fn static_path(options: &LeptosOptions, path: &str) -> Option<String> {
     use leptos_integration_utils::static_file_path;
 
     // If the path ends with a trailing slash, we generate the path
@@ -1518,15 +1640,23 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    // Reject anything that would escape the site root before caching headers
+    // or touching the filesystem.
+    let Some(file_path) = static_path(options, path) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to write static file for a path-traversal request",
+        ));
+    };
+
     if let Some(options) = response_options {
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .insert(path.to_string(), options);
+            .put(path.to_string(), options);
     }
 
-    let path = static_path(options, path);
-    let path = Path::new(&path);
+    let path = Path::new(&file_path);
     if let Some(path) = path.parent() {
         tokio::fs::create_dir_all(path).await?;
     }
@@ -1561,8 +1691,17 @@ where
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
             let orig_path = req.uri().path();
-            let path = static_path(&options, orig_path);
-            let path = Path::new(&path);
+            // A `None` here means the request path would escape the site root
+            // (path traversal); decline it before any filesystem access.
+            let Some(file_path) = static_path(&options, orig_path) else {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "rejected static route request with path traversal: \
+                     {orig_path}"
+                );
+                return (StatusCode::NOT_FOUND, "Not Found").into_response();
+            };
+            let path = Path::new(&file_path);
             let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 
             let (response_options, html) = if !exists {
@@ -1599,8 +1738,12 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers =
-                    STATIC_HEADERS.read().or_poisoned().get(orig_path).cloned();
+                // `LruCache::get` updates recency, so it needs a write lock.
+                let headers = STATIC_HEADERS
+                    .write()
+                    .or_poisoned()
+                    .get(orig_path)
+                    .cloned();
                 (headers, None)
             };
 
@@ -1610,14 +1753,34 @@ where
             // this if for thing like 404s, where we do not want to cache an endless series of
             // typos (or malicious requests)
             let mut res = AxumResponse(match html {
-                Some(html) => axum::response::Html(html).into_response(),
+                // `html` is `Some` only for an uncached error response (the
+                // `was_404` predicate gated the build). `Html(..)` defaults to
+                // 200, so make the error status explicit rather than relying
+                // on the captured `ResponseOptions` to carry it. A custom
+                // status set by the app still overrides this via
+                // `extend_response` below.
+                Some(html) => {
+                    let mut response =
+                        axum::response::Html(html).into_response();
+                    *response.status_mut() = StatusCode::NOT_FOUND;
+                    response
+                }
                 None => match ServeFile::new(path).oneshot(req).await {
                     Ok(res) => res.into_response(),
-                    Err(err) => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Something went wrong: {err}"),
-                    )
-                        .into_response(),
+                    // The cached file can be removed between the `try_exists`
+                    // check above and this read (a TOCTOU race). Do not render
+                    // the raw filesystem error into the body — that leaks
+                    // server paths — log it and return a generic 500.
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "failed to serve static file {}: {err}",
+                            path.display()
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = &err;
+                        internal_server_error()
+                    }
                 },
             });
 
@@ -2375,7 +2538,21 @@ where
                 let options = LeptosOptions::from_ref(&state);
                 let res =
                     get_static_file(uri, &options.site_root, req.headers());
-                let res = res.await.unwrap();
+                // `get_static_file` returns `Err` if the underlying `ServeDir`
+                // fails. This handler is the documented "reasonable default"
+                // fallback, so it must not panic: log and serve a generic 500.
+                let res = match res.await {
+                    Ok(res) => res,
+                    Err((status, err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "static file handler failed: {status} {err}"
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = (status, err);
+                        return internal_server_error();
+                    }
+                };
 
                 if res.status() == StatusCode::OK {
                     let owner = Owner::new();
@@ -2461,7 +2638,19 @@ async fn get_static_file(
         None => req,
     };
 
-    let req = req.body(Body::empty()).unwrap();
+    let req = match req.body(Body::empty()) {
+        Ok(req) => req,
+        Err(err) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("failed to build static file request: {err}");
+            #[cfg(not(feature = "tracing"))]
+            let _ = err;
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not build static file request".to_string(),
+            ));
+        }
+    };
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // This path is relative to the cargo root
     match ServeDir::new(root)
@@ -2518,4 +2707,124 @@ pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     }
     path.push_str("{*path}");
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request;
+
+    // A target URL that contains a newline cannot be encoded as a header
+    // value. `redirect` must skip the redirect instead of panicking, otherwise
+    // any client able to influence the target (e.g. a `next` parameter) can
+    // crash the request handler.
+    #[test]
+    fn redirect_ignores_invalid_header_value() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/login\r\nSet-Cookie: pwned=1");
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert!(parts.headers.get(LOCATION).is_none());
+        assert!(parts.status.is_none());
+    }
+
+    // A well-formed target is still applied.
+    #[test]
+    fn redirect_sets_location_for_valid_target() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard");
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(
+            parts.headers.get(LOCATION).map(|v| v.as_bytes()),
+            Some(&b"/dashboard"[..])
+        );
+    }
+
+    // When the render_route handler is mounted such that Axum's `MatchedPath`
+    // is absent (e.g. invoked outside the router), it must return a generic
+    // 500 instead of panicking and killing the worker.
+    #[cfg(feature = "default")]
+    #[tokio::test]
+    async fn render_route_without_matched_path_returns_500() {
+        let options = leptos::config::get_configuration(None)
+            .unwrap()
+            .leptos_options;
+
+        let handler = render_route_with_context(
+            Vec::<AxumRouteListing>::new(),
+            || {},
+            || "app",
+        );
+
+        // No `MatchedPath` extension is attached to this request.
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+
+        let res = handler(State(options), req).await;
+        assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn accept_header_plain_navigation_is_html() {
+        // typical browser navigation
+        assert!(accept_header_includes_html(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        ));
+        assert!(accept_header_includes_html("text/html"));
+        assert!(accept_header_includes_html("text/html; charset=utf-8"));
+        assert!(accept_header_includes_html("text/html;q=0.1"));
+    }
+
+    #[test]
+    fn accept_header_explicit_refusal_is_not_html() {
+        // `q=0` means the client explicitly does not want HTML
+        assert!(!accept_header_includes_html(
+            "text/html;q=0, application/json"
+        ));
+        assert!(!accept_header_includes_html("text/html;q=0.0"));
+    }
+
+    #[test]
+    fn accept_header_substring_is_not_html() {
+        // these contain the literal substring "text/html" but are not it
+        assert!(!accept_header_includes_html("application/x-text/html-fake"));
+        assert!(!accept_header_includes_html("application/json"));
+        assert!(!accept_header_includes_html("*/*"));
+    }
+
+    // The per-path header cache must never grow without bound: serving many
+    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
+    // per path for the life of the process.
+    #[cfg(feature = "default")]
+    #[test]
+    fn static_headers_cache_is_bounded() {
+        let mut cache: lru::LruCache<String, ResponseOptions> =
+            lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
+        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
+
+        for i in 0..(capacity + 10) {
+            cache.put(format!("/post/{i}"), ResponseOptions::default());
+        }
+
+        // never grows past capacity
+        assert_eq!(cache.len(), capacity);
+        // the earliest-inserted entries have been evicted
+        assert!(cache.get(&"/post/0".to_string()).is_none());
+        // a recently-inserted entry is still present
+        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
 }

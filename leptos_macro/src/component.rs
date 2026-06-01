@@ -1,3 +1,4 @@
+use crate::stable_hash::fnv1a_64;
 use attribute_derive::FromAttr;
 use convert_case::{
     Case::{Pascal, Snake},
@@ -9,7 +10,6 @@ use leptos_hot_reload::parsing::value_to_string;
 use proc_macro_error2::abort;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, format_ident, quote, quote_spanned};
-use std::hash::DefaultHasher;
 use syn::{
     AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
     GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent, Path,
@@ -291,12 +291,9 @@ impl ToTokens for Model {
 
         let component_id = name.to_string();
         let hydrate_fn_name = is_island.then(|| {
-            use std::hash::{Hash, Hasher};
-
-            let mut hasher = DefaultHasher::new();
-            island.hash(&mut hasher);
-            let caller = hasher.finish() as usize;
-            Ident::new(&format!("{component_id}_{caller:?}"), name.span())
+            let caller: u64 =
+                fnv1a_64(island.as_deref().unwrap_or_default().as_bytes());
+            Ident::new(&format!("{component_id}_{caller:016x}"), name.span())
         });
 
         let island_serialize_props = if is_island_with_other_props {
