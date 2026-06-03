@@ -699,8 +699,8 @@ fn node_to_tokens(
             disable_inert_html,
         ),
         Node::Block(block) => {
-            // When `--cfg box_closures` is set on the downstream crate (which
-            // activates `__internal_box_closures` here via the workaround in
+            // When `--cfg erase_components` is set on the downstream crate (which
+            // activates `__internal_erase_components` here via the workaround in
             // leptos/Cargo.toml), wrap reactive child closures in the
             // non-generic `__as_shared_reactive_fn` helper. Collapses every
             // `{move || …}` site into one `Render`/`Effect` monomorphization
@@ -718,7 +718,7 @@ fn node_to_tokens(
             } else {
                 false
             };
-            if cfg!(feature = "__internal_box_closures") && is_closure_block {
+            if cfg!(feature = "__internal_erase_components") && is_closure_block {
                 Some(quote! {
                     ::leptos::prelude::IntoRender::into_render(
                         ::leptos::__as_shared_reactive_fn(#block)
@@ -1687,13 +1687,13 @@ fn attribute_value(
                     }
                 }
 
-                // When `--cfg box_closures` is active and the attribute value
+                // When `--cfg erase_components` is active and the attribute value
                 // is a syntactic zero-argument closure (`move || …` / `|| …`),
                 // wrap it in `__as_shared_reactive_fn` so downstream
                 // `IntoAttributeValue` / `IntoClass` / `IntoStyle` / `IntoProperty`
                 // impls monomorphize per output type instead of per closure type.
                 // Event handlers (`move |ev| …`) have one input so they are skipped.
-                let wrap_closure = cfg!(feature = "__internal_box_closures")
+                let wrap_closure = cfg!(feature = "__internal_erase_components")
                     && matches!(expr, Expr::Closure(c) if c.inputs.is_empty());
 
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {

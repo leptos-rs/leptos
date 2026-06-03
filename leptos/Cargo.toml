@@ -144,13 +144,6 @@ rustc_version = { workspace = true, default-features = true }
 [target.'cfg(erase_components)'.dependencies]
 leptos_macro = { workspace = true, features = ["__internal_erase_components"] }
 
-# Same cargo issue #4423 workaround as for `erase_components`. When the
-# downstream sets RUSTFLAGS="--cfg box_closures", activates the
-# `__internal_box_closures` feature on the proc-macro crate, which would
-# otherwise not see the cfg (it compiles for the host target).
-[target.'cfg(box_closures)'.dependencies]
-leptos_macro = { workspace = true, features = ["__internal_box_closures"] }
-
 [package.metadata.cargo-all-features]
 denylist = [
   "tracing",
@@ -218,5 +211,5 @@ rustdoc-args = ["--generate-link-to-definition", "--cfg", "erase_components"]
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(rustc_nightly)',
-  'cfg(box_closures)',
+  'cfg(erase_components)',
 ] }

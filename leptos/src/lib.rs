@@ -261,7 +261,7 @@ pub use server_fn;
 
 /// Type-erase a reactive closure into a [`tachys::reactive_graph::SharedReactiveFunction`].
 ///
-/// Helper used by the `view!` macro when compiled with `RUSTFLAGS="--cfg box_closures"`.
+/// Helper used by the `view!` macro when compiled with `RUSTFLAGS="--cfg erase_components"`.
 /// Wrapping `move || expr` in this helper makes every reactive child closure resolve
 /// to the same type (`Arc<Mutex<dyn FnMut() -> T + Send>>`) instead of a unique
 /// anonymous closure type per call site, so downstream `Render`/`Effect` machinery
@@ -270,7 +270,7 @@ pub use server_fn;
 /// Trade-off: one `Arc<Mutex<_>>` allocation per closure + a vtable dispatch per render,
 /// in exchange for substantially less monomorphization (smaller WASM, faster compile).
 #[doc(hidden)]
-#[cfg(box_closures)]
+#[cfg(erase_components)]
 #[inline]
 pub fn __as_shared_reactive_fn<T, F>(
     f: F,
