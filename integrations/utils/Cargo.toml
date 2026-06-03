@@ -15,6 +15,7 @@ leptos = { workspace = true, features = ["nonce"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
+mime = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 
 [package.metadata.docs.rs]

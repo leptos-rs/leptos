@@ -2108,7 +2108,6 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "lru",
- "mime",
  "or_poisoned",
  "send_wrapper",
  "serde_json",
@@ -2133,7 +2132,6 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "lru",
- "mime",
  "or_poisoned",
  "reqwest",
  "server_fn",
@@ -2201,6 +2199,7 @@ dependencies = [
  "leptos_config",
  "leptos_meta",
  "leptos_router",
+ "mime",
  "reactive_graph",
 ]
 
