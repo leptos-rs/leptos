@@ -38,6 +38,7 @@ use leptos_router::{
     location::RequestUrl,
     static_routes::{RegenerationFn, ResolvedStaticPath},
 };
+use lru::LruCache;
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -48,6 +49,7 @@ use std::{
     collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
+    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     path::Path,
     sync::{Arc, LazyLock, RwLock},
@@ -1290,8 +1292,8 @@ impl StaticRouteGenerator {
 /// only drops the custom headers/status captured at generation time for the
 /// evicted path (re-populated on the next regeneration). 1024 covers a typical
 /// static site's working set for a worst case on the order of ~1 MB.
-const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
-    match std::num::NonZeroUsize::new(1024) {
+const STATIC_HEADERS_DEFAULT_CAPACITY: NonZeroUsize =
+    match NonZeroUsize::new(1024) {
         Some(capacity) => capacity,
         None => unreachable!(),
     };
@@ -1300,16 +1302,15 @@ const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
 /// A missing, unparseable, or zero value falls back to the default.
 const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
 
-static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<lru::LruCache<String, ResponseOptions>>,
-> = LazyLock::new(|| {
-    let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .and_then(std::num::NonZeroUsize::new)
-        .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
-    std::sync::RwLock::new(lru::LruCache::new(capacity))
-});
+static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseOptions>>> =
+    LazyLock::new(|| {
+        let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .and_then(NonZeroUsize::new)
+            .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
+        RwLock::new(LruCache::new(capacity))
+    });
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1819,6 +1820,7 @@ mod tests {
         unsupported_ssr_mode_route, write_static_route,
     };
     use actix_web::test::TestRequest;
+    use lru::LruCache;
 
     // A redirect target containing CR/LF cannot be encoded as a header value.
     // `redirect` must skip the redirect instead of panicking, otherwise any
@@ -1889,8 +1891,8 @@ mod tests {
     // per path for the life of the process.
     #[test]
     fn static_headers_cache_is_bounded() {
-        let mut cache: lru::LruCache<String, ResponseOptions> =
-            lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
+        let mut cache: LruCache<String, ResponseOptions> =
+            LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
         let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
 
         for i in 0..(capacity + 10) {
