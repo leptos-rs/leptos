@@ -1,6 +1,5 @@
 use crate::{
-    FromEncodedStr, IS_SUPPRESSING_RESOURCE_LOAD, IntoEncodedString,
-    initial_value,
+    FromEncodedStr, IntoEncodedString, initial_value, suppressing_resource_load,
 };
 #[cfg(feature = "serde-lite")]
 use codee::SerdeLite;
@@ -32,7 +31,7 @@ use reactive_graph::{
     unwrap_signal,
 };
 use std::{
-    future::IntoFuture,
+    future::{IntoFuture, pending},
     mem,
     panic::Location,
     pin::Pin,
@@ -117,15 +116,29 @@ where
 
         let fut = ScopedFuture::new(fut);
 
-        if !is_ready && !IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+        if !is_ready {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let loading = Arc::clone(&loading);
             let trigger = trigger.clone();
             reactive_graph::spawn(async move {
-                let loaded = fut.await;
+                // Check suppression when the loader is polled, not when the
+                // resource is constructed. Checking at construction time made
+                // a resource created inside a `SuppressResourceLoad` scope
+                // never load, even after the guard dropped; `Resource` checks
+                // at fetch time, and this keeps the two consistent.
+                let loaded = if suppressing_resource_load() {
+                    pending().await
+                } else {
+                    fut.await
+                };
                 *value.write().or_poisoned() = Some(loaded);
-                loading.store(false, Ordering::Relaxed);
+                // `Release` pairs with the `Acquire` load in
+                // `OnceResourceFuture::poll`: a poller that observes
+                // `loading == false` is then guaranteed to see the value write
+                // above. With `Relaxed` the value write could be invisible on
+                // weakly-ordered targets, panicking the `unwrap()` in `poll`.
+                loading.store(false, Ordering::Release);
                 for waker in mem::take(&mut *wakers.write().or_poisoned()) {
                     waker.wake();
                 }
@@ -159,8 +172,31 @@ where
                     Box::pin(async move {
                         ready_fut.await;
                         let value = value.read().or_poisoned();
-                        let value = value.as_ref().unwrap();
-                        Ser::encode(value).unwrap().into_encoded_string()
+                        match value.as_ref() {
+                            Some(value) => match Ser::encode(value) {
+                                Ok(encoded) => encoded.into_encoded_string(),
+                                #[allow(unused)]
+                                Err(e) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "error serializing resource for \
+                                         hydration: {e:?}"
+                                    );
+                                    String::new()
+                                }
+                            },
+                            // Emit an empty payload that fails to decode on the
+                            // client (so it reloads) instead of panicking and
+                            // aborting the SSR response stream.
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "resource value missing while serializing \
+                                     for hydration"
+                                );
+                                String::new()
+                            }
+                        }
                     }),
                 );
             }
@@ -322,10 +358,21 @@ where
             self.suspenses.write().or_poisoned().push(suspense_context);
         }
 
-        if self.loading.load(Ordering::Relaxed) {
-            self.wakers.write().or_poisoned().push(waker.clone());
+        // Register the waker while holding the `wakers` lock, and check
+        // `loading` inside the same critical section. The loading task clears
+        // `loading` and then drains this list under the same lock, so taking
+        // the lock here makes "check the flag, then register" atomic with
+        // respect to that drain: we either observe `loading == false` (the
+        // value is ready), or we push a waker that the drain is guaranteed to
+        // see and wake. Without this, the loader could drain the (still empty)
+        // list between our check and our push, losing the wake-up and hanging
+        // the future forever.
+        let mut wakers = self.wakers.write().or_poisoned();
+        if self.loading.load(Ordering::Acquire) {
+            wakers.push(waker.clone());
             Poll::Pending
         } else {
+            drop(wakers);
             Poll::Ready(
                 self.value.read().or_poisoned().as_ref().unwrap().clone(),
             )

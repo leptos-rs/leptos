@@ -2302,6 +2302,7 @@ dependencies = [
  "serde_json",
  "server_fn",
  "tachys",
+ "tokio",
  "tracing",
  "wasm-bindgen",
 ]
