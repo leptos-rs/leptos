@@ -1039,7 +1039,12 @@ where
                     Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
                     None => RequestUrl::new(path),
                 };
-                let (_, req_parts) = generate_request_and_parts(req);
+                // The body is never read during rendering (SSR is driven by the
+                // path string and the head we put in context) and we own `req`,
+                // so move the parts straight out instead of cloning them via
+                // `generate_request_and_parts`, which would allocate a fresh
+                // HeaderMap + Extensions and rebuild a Request we discard.
+                let (req_parts, _body) = req.into_parts();
                 provide_contexts(
                     request_url,
                     &meta_context,
