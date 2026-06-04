@@ -775,8 +775,22 @@ where
         app_fn.clone(),
     );
 
+    // Index the route listings by path once, at router-build time, so the
+    // per-request handler resolves a listing in O(1) by a borrowed `&str`
+    // instead of scanning `paths` linearly and allocating an owned path
+    // `String` on every request. `or_insert` preserves the first-match
+    // semantics of the previous `paths.iter().find(...)`.
+    use std::collections::HashMap;
+    let by_path: HashMap<String, AxumRouteListing> = {
+        let mut map = HashMap::with_capacity(paths.len());
+        for listing in paths {
+            map.entry(listing.path().to_owned()).or_insert(listing);
+        }
+        map
+    };
+
     move |state, req| {
-        // 1. Process route to match the values in routeListing.
+        // 1. Match the request to a RouteListing via Axum's MatchedPath.
         //
         // `MatchedPath` is only present when the request flowed through Axum's
         // matcher; mounting this handler outside the router (manual tower
@@ -784,11 +798,7 @@ where
         // absent. Rather than panic — which would kill the worker and 500 every
         // affected request — log and return a generic 500 so the misconfigured
         // route is diagnosable without taking the process down.
-        let Some(path) = req
-            .extensions()
-            .get::<MatchedPath>()
-            .map(|p| p.as_str().to_owned())
-        else {
+        let Some(matched) = req.extensions().get::<MatchedPath>() else {
             #[cfg(feature = "tracing")]
             tracing::error!(
                 "render_route handler invoked without a MatchedPath; the \
@@ -801,21 +811,22 @@ where
             );
             return Box::pin(async { internal_server_error() });
         };
-        // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
-        // search for this every time
-        let Some(listing) = paths.iter().find(|r| r.path() == path.as_str())
-        else {
+        // O(1) lookup by borrowed path; the `matched` borrow of `req` is
+        // released here, before `req` is moved into a render closure below.
+        let Some(listing) = by_path.get(matched.as_str()) else {
             #[cfg(feature = "tracing")]
             tracing::error!(
-                "Failed to find the route {path} requested by the user. This \
+                "Failed to find the route {} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 handler need to be edited."
+                 handler need to be edited.",
+                matched.as_str()
             );
             #[cfg(not(feature = "tracing"))]
             eprintln!(
-                "Failed to find the route {path} requested by the user. This \
+                "Failed to find the route {} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 handler need to be edited."
+                 handler need to be edited.",
+                matched.as_str()
             );
             return Box::pin(async { internal_server_error() });
         };
