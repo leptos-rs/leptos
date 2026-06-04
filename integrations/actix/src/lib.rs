@@ -784,9 +784,7 @@ fn provide_contexts(
     meta_context: &ServerMetaContext,
     res_options: &ResponseOptions,
 ) {
-    let path = leptos_corrected_path(&req);
-
-    provide_context(RequestUrl::new(&path));
+    provide_context(request_url(&req));
     provide_context(meta_context.clone());
     provide_context(res_options.clone());
     provide_context(req);
@@ -794,13 +792,19 @@ fn provide_contexts(
     leptos::nonce::provide_nonce();
 }
 
-fn leptos_corrected_path(req: &HttpRequest) -> String {
+fn request_url(req: &HttpRequest) -> RequestUrl {
+    // Prefix the real request origin (scheme://host) so that `Url::origin()`
+    // is correct server-side and matches the client after hydration.
+    // `connection_info` resolves the scheme and host, honoring reverse-proxy
+    // forwarding headers.
+    let conn = req.connection_info();
+    let origin = format!("{}://{}", conn.scheme(), conn.host());
     let path = req.path();
     let query = req.query_string();
     if query.is_empty() {
-        "http://leptos".to_string() + path
+        RequestUrl::new(&format!("{origin}{path}"))
     } else {
-        "http://leptos".to_string() + path + "?" + query
+        RequestUrl::new(&format!("{origin}{path}?{query}"))
     }
 }
 
