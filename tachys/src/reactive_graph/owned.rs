@@ -33,8 +33,12 @@ pub struct OwnedViewState<T>
 where
     T: Mountable,
 {
-    owner: Owner,
+    // note: the drop order of the fields matters here
+    // dropping `state` before `owner` ensures that cleanups happen
+    // from the bottom up: i.e., the child state is dropped before
+    // any other cleanups attached to this owner are fired
     state: T,
+    owner: Owner,
 }
 
 impl<T> OwnedViewState<T>
