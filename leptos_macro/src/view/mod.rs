@@ -718,7 +718,8 @@ fn node_to_tokens(
             } else {
                 false
             };
-            if cfg!(feature = "__internal_erase_components") && is_closure_block {
+            if cfg!(feature = "__internal_erase_components") && is_closure_block
+            {
                 Some(quote! {
                     ::leptos::prelude::IntoRender::into_render(
                         ::leptos::__as_shared_reactive_fn(#block)
@@ -1693,8 +1694,9 @@ fn attribute_value(
                 // `IntoAttributeValue` / `IntoClass` / `IntoStyle` / `IntoProperty`
                 // impls monomorphize per output type instead of per closure type.
                 // Event handlers (`move |ev| …`) have one input so they are skipped.
-                let wrap_closure = cfg!(feature = "__internal_erase_components")
-                    && matches!(expr, Expr::Closure(c) if c.inputs.is_empty());
+                let wrap_closure = cfg!(
+                    feature = "__internal_erase_components"
+                ) && matches!(expr, Expr::Closure(c) if c.inputs.is_empty());
 
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
                     if wrap_closure {
