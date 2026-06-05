@@ -3946,6 +3946,7 @@ dependencies = [
  "tokio-test",
  "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-test",
  "web-sys",
 ]
 
