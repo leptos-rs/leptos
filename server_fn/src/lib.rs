@@ -868,14 +868,16 @@ pub use inventory;
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
         std::sync::LazyLock::new(|| {
-            std::sync::RwLock::new(
-                $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
-                    .into_iter()
-                    .map(|obj| {
-                        ((obj.path().to_string(), obj.method()), obj.clone())
-                    })
-                    .collect(),
-            )
+            let mut map: std::collections::HashMap<
+                Method,
+                std::collections::HashMap<String, ServerFnTraitObj<$req, $res>>,
+            > = std::collections::HashMap::new();
+            for obj in $crate::inventory::iter::<ServerFnTraitObj<$req, $res>> {
+                map.entry(obj.method())
+                    .or_default()
+                    .insert(obj.path().to_string(), obj.clone());
+            }
+            std::sync::RwLock::new(map)
         })
     };
 }
@@ -987,8 +989,9 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 }
 
 #[allow(unused)] // used by server integrations
-type LazyServerFnMap<Req, Res> =
-    LazyLock<RwLock<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
+type LazyServerFnMap<Req, Res> = LazyLock<
+    RwLock<HashMap<Method, HashMap<String, ServerFnTraitObj<Req, Res>>>>,
+>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1071,10 +1074,17 @@ pub mod axum {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1083,6 +1093,7 @@ pub mod axum {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1119,11 +1130,11 @@ pub mod axum {
         path: &str,
         method: Method,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
-        let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&key)
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
@@ -1193,10 +1204,17 @@ pub mod actix {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1205,6 +1223,7 @@ pub mod actix {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1260,7 +1279,8 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&(path.into(), method))
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
