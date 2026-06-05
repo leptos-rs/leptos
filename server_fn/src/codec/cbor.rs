@@ -1,6 +1,6 @@
 use super::{Patch, Post, Put};
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// Serializes and deserializes CBOR with [`ciborium`].
@@ -24,6 +24,10 @@ where
         let mut buffer: Vec<u8> = Vec::new();
         ciborium::ser::into_writer(value, &mut buffer)?;
         Ok(Bytes::from(buffer))
+    }
+
+    fn encode_into(value: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        ciborium::ser::into_writer(value, buf.writer())
     }
 }
 

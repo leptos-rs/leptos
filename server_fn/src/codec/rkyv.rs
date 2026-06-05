@@ -2,7 +2,7 @@ use crate::{
     ContentType, Decodes, Encodes, Format, FormatType,
     codec::{Patch, Post, Put},
 };
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use rkyv::{
     Archive, Deserialize, Serialize,
     api::high::{HighDeserializer, HighSerializer, HighValidator},
@@ -39,6 +39,14 @@ where
     fn encode(value: &T) -> Result<Bytes, Self::Error> {
         let encoded = rkyv::to_bytes::<rancor::Error>(value)?;
         Ok(Bytes::copy_from_slice(encoded.as_ref()))
+    }
+
+    fn encode_into(value: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        // Copy the `AlignedVec` straight into the caller's buffer, skipping the
+        // intermediate `Bytes` that `encode` allocates and copies into.
+        let encoded = rkyv::to_bytes::<rancor::Error>(value)?;
+        buf.extend_from_slice(encoded.as_ref());
+        Ok(())
     }
 }
 
