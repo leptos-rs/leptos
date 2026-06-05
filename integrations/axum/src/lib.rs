@@ -1030,10 +1030,18 @@ where
                     .map(|p| p.as_str())
                     .unwrap_or("/");
 
-                let full_path = format!("http://leptos.dev{path}");
+                // Prefix the real request origin (scheme://host) so that
+                // `Url::origin()` is correct server-side and matches the
+                // client after hydration; fall back to a bare path when the
+                // host is unknown. Building the `RequestUrl` here, before the
+                // request is consumed below, keeps the borrow of `req` short.
+                let request_url = match request_origin(&req) {
+                    Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
+                    None => RequestUrl::new(path),
+                };
                 let (_, req_parts) = generate_request_and_parts(req);
                 provide_contexts(
-                    &full_path,
+                    request_url,
                     &meta_context,
                     req_parts,
                     res_options.clone(),
@@ -1065,17 +1073,42 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 fn provide_contexts(
-    path: &str,
+    request_url: RequestUrl,
     meta_context: &ServerMetaContext,
     parts: Parts,
     default_res_options: ResponseOptions,
 ) {
-    provide_context(RequestUrl::new(path));
+    provide_context(request_url);
     provide_context(meta_context.clone());
     provide_context(parts);
     provide_context(default_res_options);
     provide_server_redirect(redirect);
     leptos::nonce::provide_nonce();
+}
+
+/// Reconstructs the request's origin (`scheme://host`) for `Url::origin()`.
+///
+/// The host comes from the URI authority (absolute-form requests) or the
+/// `Host` header (the usual origin-form). The scheme comes from the URI or,
+/// behind a TLS-terminating proxy, the `X-Forwarded-Proto` header, defaulting
+/// to `http`. Returns `None` when no host is present, in which case only the
+/// path is used.
+fn request_origin(req: &Request<Body>) -> Option<String> {
+    let uri = req.uri();
+    let host = uri.authority().map(|a| a.as_str()).or_else(|| {
+        req.headers()
+            .get(header::HOST)
+            .and_then(|value| value.to_str().ok())
+    })?;
+    let scheme = uri
+        .scheme_str()
+        .or_else(|| {
+            req.headers()
+                .get("x-forwarded-proto")
+                .and_then(|value| value.to_str().ok())
+        })
+        .unwrap_or("http");
+    Some(format!("{scheme}://{host}"))
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1390,7 +1423,12 @@ where
             provide_context(RequestUrl::new(""));
             let (mock_parts, _) = Request::new(Body::from("")).into_parts();
             let (mock_meta, _) = ServerMetaContext::new();
-            provide_contexts("", &mock_meta, mock_parts, Default::default());
+            provide_contexts(
+                RequestUrl::new(""),
+                &mock_meta,
+                mock_parts,
+                Default::default(),
+            );
             additional_context();
             RouteList::generate(&app_fn)
         })
@@ -1459,7 +1497,6 @@ impl StaticRouteGenerator {
         let additional_context = {
             let add_context = additional_context.clone();
             move || {
-                let full_path = format!("http://leptos.dev{path}");
                 let mock_req = Request::builder()
                     .method(Method::GET)
                     .header("Accept", "text/html")
@@ -1467,8 +1504,9 @@ impl StaticRouteGenerator {
                     .unwrap();
                 let (mock_parts, _) = mock_req.into_parts();
                 let res_options = ResponseOptions::default();
+                // `mock_parts.uri` is `/`; pass the route path explicitly.
                 provide_contexts(
-                    &full_path,
+                    RequestUrl::new(&path),
                     &meta_context,
                     mock_parts,
                     res_options,
