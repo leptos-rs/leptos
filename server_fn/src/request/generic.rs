@@ -18,7 +18,7 @@ use crate::{
 };
 use bytes::Bytes;
 use futures::{
-    Sink, StreamExt,
+    Sink,
     stream::{self, Stream},
 };
 use http::{Request, Response};
@@ -47,9 +47,11 @@ where
         self,
     ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>
     {
-        Ok(stream::iter(self.into_body())
-            .ready_chunks(16)
-            .map(|chunk| Ok(Bytes::from(chunk))))
+        // The body is a single, contiguous, already-in-memory `Bytes`. Hand it
+        // back as one stream item instead of iterating it `u8`-by-`u8` and
+        // re-chunking, which would cost `N` polls plus `N/16` re-allocations and
+        // a full copy of a buffer we already own.
+        Ok(stream::once(async move { Ok(self.into_body()) }))
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
