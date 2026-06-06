@@ -3,12 +3,10 @@ use crate::{
     html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
     ssr::StreamBuilder,
 };
-use or_poisoned::OrPoisoned;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     future::Future,
     rc::Rc,
-    sync::{Arc, RwLock},
 };
 
 /// Add attributes to typed views.
@@ -471,29 +469,29 @@ pub trait ToTemplate {
 /// Keeps track of what position the item currently being hydrated is in, relative to its siblings
 /// and parents.
 #[derive(Debug, Default, Clone)]
-pub struct PositionState(Arc<RwLock<Position>>);
+pub struct PositionState(Rc<Cell<Position>>);
 
 impl PositionState {
     /// Creates a new position tracker.
     pub fn new(position: Position) -> Self {
-        Self(Arc::new(RwLock::new(position)))
+        Self(Rc::new(Cell::new(position)))
     }
 
     /// Sets the current position.
     pub fn set(&self, position: Position) {
-        *self.0.write().or_poisoned() = position;
+        self.0.set(position);
     }
 
     /// Gets the current position.
     pub fn get(&self) -> Position {
-        *self.0.read().or_poisoned()
+        self.0.get()
     }
 
     /// Creates a new [`PositionState`], which starts with the same [`Position`], but no longer
     /// shares data with this `PositionState`.
     pub fn deep_clone(&self) -> Self {
         let current = self.get();
-        Self(Arc::new(RwLock::new(current)))
+        Self(Rc::new(Cell::new(current)))
     }
 }
 
