@@ -19,7 +19,15 @@ pub fn AutoReload(
     /// Configuration options for this project.
     options: LeptosOptions,
 ) -> impl IntoView {
-    (!disable_watch && std::env::var("LEPTOS_WATCH").is_ok()).then(|| {
+    // `LEPTOS_WATCH` is fixed for the life of the process, but `AutoReload`
+    // renders once per page, so reading the env var each time takes the global
+    // environment lock (and allocates the value `String` when set) on every
+    // response. Resolve it once and cache the boolean.
+    static LEPTOS_WATCH: OnceLock<bool> = OnceLock::new();
+    let watch =
+        *LEPTOS_WATCH.get_or_init(|| std::env::var("LEPTOS_WATCH").is_ok());
+
+    (!disable_watch && watch).then(|| {
         #[cfg(feature = "nonce")]
         let nonce = crate::nonce::use_nonce();
         #[cfg(not(feature = "nonce"))]
