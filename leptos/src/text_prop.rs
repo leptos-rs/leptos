@@ -5,13 +5,22 @@ use tachys::prelude::IntoAttributeValue;
 /// Describes a value that is either a static or a reactive string, i.e.,
 /// a [`String`], a [`&str`], a `Signal` or a reactive `Fn() -> String`.
 #[derive(Clone)]
-pub struct TextProp(Arc<dyn Fn() -> Oco<'static, str> + Send + Sync>);
+pub enum TextProp {
+    /// A static (or owned) string. Reading it is an [`Oco`] clone (a pointer
+    /// bump for `Borrowed`/`Counted`), with no allocation or dynamic dispatch.
+    Static(Oco<'static, str>),
+    /// A reactive value, behind a reference-counted closure.
+    Fn(Arc<dyn Fn() -> Oco<'static, str> + Send + Sync>),
+}
 
 impl TextProp {
     /// Accesses the current value of the property.
     #[inline(always)]
     pub fn get(&self) -> Oco<'static, str> {
-        (self.0)()
+        match self {
+            TextProp::Static(value) => value.clone(),
+            TextProp::Fn(f) => f(),
+        }
     }
 }
 
@@ -23,28 +32,25 @@ impl core::fmt::Debug for TextProp {
 
 impl From<String> for TextProp {
     fn from(s: String) -> Self {
-        let s: Oco<'_, str> = Oco::Counted(Arc::from(s));
-        TextProp(Arc::new(move || s.clone()))
+        TextProp::Static(Oco::Counted(Arc::from(s)))
     }
 }
 
 impl From<&'static str> for TextProp {
     fn from(s: &'static str) -> Self {
-        let s: Oco<'_, str> = s.into();
-        TextProp(Arc::new(move || s.clone()))
+        TextProp::Static(s.into())
     }
 }
 
 impl From<Arc<str>> for TextProp {
     fn from(s: Arc<str>) -> Self {
-        let s: Oco<'_, str> = s.into();
-        TextProp(Arc::new(move || s.clone()))
+        TextProp::Static(s.into())
     }
 }
 
 impl From<Oco<'static, str>> for TextProp {
     fn from(s: Oco<'static, str>) -> Self {
-        TextProp(Arc::new(move || s.clone()))
+        TextProp::Static(s)
     }
 }
 
@@ -65,13 +71,13 @@ where
 {
     #[inline(always)]
     fn from(s: F) -> Self {
-        TextProp(Arc::new(move || s().into()))
+        TextProp::Fn(Arc::new(move || s().into()))
     }
 }
 
 impl Default for TextProp {
     fn default() -> Self {
-        Self(Arc::new(|| Oco::Borrowed("")))
+        TextProp::Static(Oco::Borrowed(""))
     }
 }
 
@@ -79,7 +85,10 @@ impl IntoAttributeValue for TextProp {
     type Output = Arc<dyn Fn() -> Oco<'static, str> + Send + Sync>;
 
     fn into_attribute_value(self) -> Self::Output {
-        self.0
+        match self {
+            TextProp::Static(value) => Arc::new(move || value.clone()),
+            TextProp::Fn(f) => f,
+        }
     }
 }
 
@@ -95,7 +104,7 @@ macro_rules! textprop_reactive {
         {
             #[inline(always)]
             fn from(s: $name<$($gen),*>) -> Self {
-                TextProp(Arc::new(move || s.get().into()))
+                TextProp::Fn(Arc::new(move || s.get().into()))
             }
         }
     };
@@ -170,5 +179,37 @@ pub trait OptionTextPropExt {
 impl OptionTextPropExt for Option<TextProp> {
     fn get(&self) -> Option<Oco<'static, str>> {
         self.as_ref().map(|text_prop| text_prop.get())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TextProp;
+    use tachys::prelude::IntoAttributeValue;
+
+    #[test]
+    fn variants_read_back_their_value() {
+        assert_eq!(&*TextProp::from("literal").get(), "literal");
+        assert_eq!(&*TextProp::from(String::from("owned")).get(), "owned");
+        assert_eq!(&*TextProp::from(|| "dynamic").get(), "dynamic");
+        assert_eq!(&*TextProp::default().get(), "");
+    }
+
+    #[test]
+    fn static_inputs_use_the_non_boxed_variant() {
+        assert!(matches!(TextProp::from("literal"), TextProp::Static(_)));
+        assert!(matches!(
+            TextProp::from(String::from("owned")),
+            TextProp::Static(_)
+        ));
+        assert!(matches!(TextProp::from(|| "dynamic"), TextProp::Fn(_)));
+    }
+
+    #[test]
+    fn into_attribute_value_preserves_the_value() {
+        let f = TextProp::from("literal").into_attribute_value();
+        assert_eq!(&*f(), "literal");
+        let f = TextProp::from(|| "dynamic").into_attribute_value();
+        assert_eq!(&*f(), "dynamic");
     }
 }
