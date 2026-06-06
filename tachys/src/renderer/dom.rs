@@ -8,7 +8,7 @@ use crate::{
     ok_or_debug, or_debug,
     view::{Mountable, ToTemplate},
 };
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
     any::TypeId,
     borrow::Cow,
@@ -23,7 +23,7 @@ pub struct Dom;
 
 thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
-    pub static TEMPLATE_CACHE: RefCell<Vec<(Cow<'static, str>, web_sys::Element)>> = Default::default();
+    pub static TEMPLATE_CACHE: RefCell<FxHashMap<Cow<'static, str>, web_sys::Element>> = Default::default();
 }
 
 pub type Node = web_sys::Node;
@@ -512,14 +512,12 @@ impl Dom {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
                 LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
-            static TEMPLATES: RefCell<Vec<(TypeId, HtmlTemplateElement)>> = Default::default();
+            static TEMPLATES: RefCell<FxHashMap<TypeId, HtmlTemplateElement>> = Default::default();
         }
 
         TEMPLATES.with_borrow_mut(|t| {
-            let id = TypeId::of::<V>();
-            t.iter()
-                .find_map(|entry| (entry.0 == id).then(|| entry.1.clone()))
-                .unwrap_or_else(|| {
+            t.entry(TypeId::of::<V>())
+                .or_insert_with(|| {
                     let tpl = TEMPLATE_ELEMENT.with(|t| {
                         t.clone_node()
                             .unwrap()
@@ -534,9 +532,9 @@ impl Dom {
                         &mut Default::default(),
                     );
                     tpl.set_inner_html(&buf);
-                    t.push((id, tpl.clone()));
                     tpl
                 })
+                .clone()
         })
     }
 
@@ -549,32 +547,21 @@ impl Dom {
 
     pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
-            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
-                (html == *key)
-                    .then_some(Self::clone_template(tpl.unchecked_ref()))
-            }) {
-                tpl_content
-            } else {
+            let tpl = cache.entry(html).or_insert_with_key(|html| {
                 let tpl = document()
                     .create_element(Self::intern("template"))
                     .unwrap();
-                tpl.set_inner_html(&html);
-                let tpl_content = Self::clone_template(tpl.unchecked_ref());
-                cache.push((html, tpl));
-                tpl_content
-            }
+                tpl.set_inner_html(html);
+                tpl
+            });
+            Self::clone_template(tpl.unchecked_ref())
         });
         tpl.first_element_child().unwrap_or(tpl)
     }
 
     pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
-            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
-                (html == *key)
-                    .then_some(Self::clone_template(tpl.unchecked_ref()))
-            }) {
-                tpl_content
-            } else {
+            let tpl = cache.entry(html).or_insert_with_key(|html| {
                 let tpl = document()
                     .create_element(Self::intern("template"))
                     .unwrap();
@@ -590,16 +577,15 @@ impl Dom {
                         Self::intern("g"),
                     )
                     .unwrap();
-                g.set_inner_html(&html);
+                g.set_inner_html(html);
                 svg.append_child(&g).unwrap();
                 tpl.unchecked_ref::<TemplateElement>()
                     .content()
                     .append_child(&svg)
                     .unwrap();
-                let tpl_content = Self::clone_template(tpl.unchecked_ref());
-                cache.push((html, tpl));
-                tpl_content
-            }
+                tpl
+            });
+            Self::clone_template(tpl.unchecked_ref())
         });
 
         let svg = tpl.first_element_child().unwrap();
