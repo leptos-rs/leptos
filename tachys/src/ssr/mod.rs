@@ -394,22 +394,38 @@ impl Stream for StreamBuilder {
                                     replace,
                                     nonce,
                                 }) => {
-                                    let opening = format!("<!--s-{id}o-->");
+                                    // Build the opening marker once. The
+                                    // closing marker differs only in the
+                                    // "o"/"c" flag, so reuse the same
+                                    // allocation instead of formatting a second
+                                    // needle.
+                                    let mut marker =
+                                        String::with_capacity(10 + id.len());
+                                    marker.push_str("<!--s-");
+                                    marker.push_str(&id);
+                                    marker.push_str("o-->");
+                                    let marker_len = marker.len();
                                     let placeholder_at =
-                                        this.sync_buf.find(&opening);
+                                        this.sync_buf.find(&marker);
                                     if let Some(start) = placeholder_at {
-                                        let closing = format!("<!--s-{id}c-->");
-                                        let end = this
-                                            .sync_buf
-                                            .find(&closing)
-                                            .unwrap();
+                                        // flip "o-->" to "c-->" (the flag is 4
+                                        // bytes from the end)
+                                        marker.replace_range(
+                                            marker_len - 4..marker_len - 3,
+                                            "c",
+                                        );
+                                        // the closing marker always follows the
+                                        // opening, so only scan the tail
+                                        let end = start
+                                            + this.sync_buf[start..]
+                                                .find(&marker)
+                                                .unwrap();
 
                                         // TODO can probably make this more efficient
                                         let (before, replaced) =
                                             this.sync_buf.split_at(start);
-                                        let (_, after) = replaced.split_at(
-                                            end - start + closing.len(),
-                                        );
+                                        let (_, after) = replaced
+                                            .split_at(end - start + marker_len);
                                         let mut buf = String::new();
                                         buf.push_str(before);
 
