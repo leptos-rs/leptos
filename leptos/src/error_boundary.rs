@@ -332,21 +332,24 @@ where
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let _hook = throw_error::set_error_hook(self.hook);
-        let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
+        // Render children straight into `buf`. If a child throws, roll back to
+        // this marker (`String::truncate` keeps the reserved capacity) and emit
+        // the fallback instead. This avoids the scratch `String` allocation plus
+        // a full second pass copying the whole subtree on the common no-error path.
+        let marker = buf.len();
         let mut new_pos = *position;
         self.children.to_html_with_buf(
-            &mut new_buf,
+            buf,
             &mut new_pos,
             escape,
             mark_branches,
             extra_attrs.clone(),
         );
 
-        // any thrown errors would've been caught here
-        if self.errors.with_untracked(|map| map.is_empty()) {
-            buf.push_str(&new_buf);
-        } else {
-            // otherwise, serialize the fallback instead
+        // any thrown errors would've been caught here; on error, discard the
+        // children bytes and serialize the fallback instead
+        if !self.errors.with_untracked(|map| map.is_empty()) {
+            buf.truncate(marker);
             (self.fallback)(self.errors).to_html_with_buf(
                 buf,
                 position,
@@ -355,6 +358,8 @@ where
                 extra_attrs,
             );
         }
+        // happy path: children are already in `buf`; nothing to copy. `*position`
+        // is intentionally left unchanged, matching prior behavior.
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
