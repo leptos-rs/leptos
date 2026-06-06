@@ -53,7 +53,15 @@ pub trait Render: Sized {
 pub trait MarkBranch {
     fn open_branch(&mut self, branch_id: &str);
 
+    /// Like [`open_branch`](Self::open_branch), but writes a formatted branch id
+    /// directly into the buffer, avoiding a transient `String` allocation.
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>);
+
     fn close_branch(&mut self, branch_id: &str);
+
+    /// Like [`close_branch`](Self::close_branch), but writes a formatted branch
+    /// id directly into the buffer, avoiding a transient `String` allocation.
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>);
 }
 
 impl MarkBranch for String {
@@ -63,9 +71,23 @@ impl MarkBranch for String {
         self.push_str("-->");
     }
 
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.push_str("<!--bo-");
+        let _ = self.write_fmt(branch_id);
+        self.push_str("-->");
+    }
+
     fn close_branch(&mut self, branch_id: &str) {
         self.push_str("<!--bc-");
         self.push_str(branch_id);
+        self.push_str("-->");
+    }
+
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.push_str("<!--bc-");
+        let _ = self.write_fmt(branch_id);
         self.push_str("-->");
     }
 }
@@ -77,9 +99,23 @@ impl MarkBranch for StreamBuilder {
         self.sync_buf.push_str("-->");
     }
 
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.sync_buf.push_str("<!--bo-");
+        let _ = self.sync_buf.write_fmt(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+
     fn close_branch(&mut self, branch_id: &str) {
         self.sync_buf.push_str("<!--bc-");
         self.sync_buf.push_str(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.sync_buf.push_str("<!--bc-");
+        let _ = self.sync_buf.write_fmt(branch_id);
         self.sync_buf.push_str("-->");
     }
 }
