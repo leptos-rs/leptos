@@ -3,7 +3,10 @@
 use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
-use std::{path::PathBuf, sync::OnceLock};
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.
 ///
@@ -122,38 +125,54 @@ pub fn HydrationScripts(
         provide_context(splits.clone());
     }
 
-    let mut js_file_name = options.output_name.to_string();
-    let mut wasm_file_name = options.output_name.to_string();
-    if options.hash_files {
-        let hash_path = std::env::current_exe()
-            .map(|path| {
-                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
-            })
-            .unwrap_or_default()
-            .join(options.hash_file.as_ref());
-        if hash_path.exists() {
-            let hashes = std::fs::read_to_string(&hash_path)
-                .expect("failed to read hash file");
-            for line in hashes.lines() {
-                let line = line.trim();
-                if !line.is_empty()
-                    && let Some((file, hash)) = line.split_once(':')
-                {
-                    if file == "js" {
-                        js_file_name.push_str(&format!(".{}", hash.trim()));
-                    } else if file == "wasm" {
-                        wasm_file_name.push_str(&format!(".{}", hash.trim()));
+    // The hashed asset file names are process-static: the running binary maps to
+    // exactly one set of `output.js` / `output.wasm` names for its whole lifetime.
+    // Resolve them once and memoize, mirroring the `SPLIT_MANIFEST` `OnceLock` above,
+    // so we don't re-run `current_exe()` + `stat` + `open`/`read` of the hash file
+    // (plus the surrounding allocations) on every SSR response.
+    static HASHED_NAMES: OnceLock<(Arc<str>, Arc<str>)> = OnceLock::new();
+
+    let (js_file_name, wasm_file_name) = HASHED_NAMES
+        .get_or_init(|| {
+            let mut js_file_name = options.output_name.to_string();
+            let mut wasm_file_name = options.output_name.to_string();
+            if options.hash_files {
+                let hash_path = std::env::current_exe()
+                    .map(|path| {
+                        path.parent()
+                            .map(|p| p.to_path_buf())
+                            .unwrap_or_default()
+                    })
+                    .unwrap_or_default()
+                    .join(options.hash_file.as_ref());
+                if hash_path.exists() {
+                    let hashes = std::fs::read_to_string(&hash_path)
+                        .expect("failed to read hash file");
+                    for line in hashes.lines() {
+                        let line = line.trim();
+                        if !line.is_empty()
+                            && let Some((file, hash)) = line.split_once(':')
+                        {
+                            if file == "js" {
+                                js_file_name.push('.');
+                                js_file_name.push_str(hash.trim());
+                            } else if file == "wasm" {
+                                wasm_file_name.push('.');
+                                wasm_file_name.push_str(hash.trim());
+                            }
+                        }
                     }
+                } else {
+                    leptos::logging::error!(
+                        "File hashing is active but no hash file was found"
+                    );
                 }
+            } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+                wasm_file_name.push_str("_bg");
             }
-        } else {
-            leptos::logging::error!(
-                "File hashing is active but no hash file was found"
-            );
-        }
-    } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
-        wasm_file_name.push_str("_bg");
-    }
+            (js_file_name.into(), wasm_file_name.into())
+        })
+        .clone();
 
     let pkg_path = &options.site_pkg_dir;
     #[cfg(feature = "nonce")]
