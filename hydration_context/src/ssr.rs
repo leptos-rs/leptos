@@ -3,13 +3,14 @@ use crate::{PinnedFuture, PinnedStream};
 use futures::{
     Stream, StreamExt,
     future::join_all,
-    stream::{self, once},
+    stream::{self, FuturesUnordered, once},
 };
 use or_poisoned::OrPoisoned;
 use std::{
     borrow::Cow,
     collections::HashSet,
     fmt::{Debug, Write},
+    future::Future,
     mem,
     pin::Pin,
     sync::{
@@ -257,6 +258,7 @@ impl SharedContext for SsrSharedContext {
 
         let async_data = AsyncDataStream {
             async_buf: Arc::clone(&self.async_buf),
+            in_flight: FuturesUnordered::new(),
             errors: Arc::clone(&self.errors),
             sealed_error_boundaries: Arc::clone(&self.sealed_error_boundaries),
             incomplete: Arc::clone(&self.incomplete),
@@ -323,8 +325,37 @@ impl SharedContext for SsrSharedContext {
     }
 }
 
+/// Pairs a registered resource future with its id so a [`FuturesUnordered`]
+/// can yield `(id, data)` on completion. The id is cloned only when the inner
+/// future resolves, never on a pending poll.
+struct IdFuture {
+    id: SerializedDataId,
+    fut: PinnedFuture<String>,
+}
+
+impl Future for IdFuture {
+    type Output = (SerializedDataId, String);
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // `IdFuture` is `Unpin` (the boxed future is `Unpin`), so projecting to
+        // the inner future through a plain `&mut` is sound.
+        let this = self.get_mut();
+        match this.fut.as_mut().poll(cx) {
+            Poll::Ready(data) => Poll::Ready((this.id.clone(), data)),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
 struct AsyncDataStream {
+    /// Staging buffer for futures registered via `write_async`, including
+    /// re-entrant registrations made while another future is being polled.
+    /// Each `poll_next` moves these into `in_flight`.
     async_buf: AsyncDataBuf,
+    /// The set of in-flight resource futures. `FuturesUnordered` routes each
+    /// leaf future's waker individually, so a wake re-polls only the futures
+    /// that advanced (O(N) total polls) rather than the whole backlog (O(N^2)).
+    in_flight: FuturesUnordered<IdFuture>,
     errors: ErrorBuf,
     sealed_error_boundaries: SealedErrors,
     incomplete: Arc<Mutex<Vec<SerializedDataId>>>,
@@ -348,67 +379,74 @@ impl Stream for AsyncDataStream {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
+        // `AsyncDataStream` is `Unpin` (every field is `Unpin`), so operating
+        // on a plain `&mut Self` for the rest of the method is sound.
+        let this = self.get_mut();
+
         let mut resolved = String::new();
 
-        // Drain the buffer under a *short* critical section, then drop the
-        // lock before polling user futures. Holding the write lock across
-        // `fut.poll(cx)` would deadlock if any polled future transitively
-        // calls back into `SsrSharedContext::write_async` (which also takes
-        // a write lock on the same RwLock).
-        let data = mem::take(&mut *self.async_buf.write().or_poisoned());
-
-        let mut still_pending = Vec::with_capacity(data.len());
-        for (id, mut fut) in data {
-            match fut.as_mut().poll(cx) {
-                Poll::Pending => still_pending.push((id, fut)),
-                Poll::Ready(data) => {
-                    // Any resource id that was not in the initial
-                    // `__PENDING_RESOURCES=[...]` snapshot must be
-                    // announced before its resolution arrives, so the
-                    // client never sees `__RESOLVED_RESOURCES[id] = ...`
-                    // for an id that never appeared in
-                    // `__PENDING_RESOURCES`.
-                    if !self.initial_pending_ids.contains(&id) {
-                        _ = write!(
-                            resolved,
-                            "__PENDING_RESOURCES.push({});",
-                            id.0
-                        );
-                    }
-                    let data = escape_lt(&data);
-                    _ = write!(
-                        resolved,
-                        "__RESOLVED_RESOURCES[{}] = {:?};",
-                        id.0, data
-                    );
+        // Move newly-registered futures into the in-flight set and drain every
+        // future that is *currently* ready, without re-polling the ones that
+        // are still pending. The lock is never held across a `poll`, so a
+        // polled future may call back into `SsrSharedContext::write_async`
+        // (re-entrant nested Suspense / child resources) without deadlocking;
+        // those registrations land in `async_buf` and are picked up by the next
+        // iteration of this loop, or by the next `poll_next` call.
+        loop {
+            {
+                let mut buf = this.async_buf.write().or_poisoned();
+                for (id, fut) in buf.drain(..) {
+                    this.in_flight.push(IdFuture { id, fut });
                 }
             }
-        }
 
-        // Re-acquire the write lock briefly to push back unfinished futures.
-        // Any futures registered *during* the polling above are already in
-        // `async_buf`; appending the still-pending ones preserves them.
-        let buf_empty = {
-            let mut async_buf = self.async_buf.write().or_poisoned();
-            async_buf.extend(still_pending);
-            async_buf.is_empty()
-        };
+            let mut any_ready = false;
+            while let Poll::Ready(Some((id, data))) =
+                this.in_flight.poll_next_unpin(cx)
+            {
+                any_ready = true;
+                // Any resource id that was not in the initial
+                // `__PENDING_RESOURCES=[...]` snapshot must be announced before
+                // its resolution arrives, so the client never sees a
+                // `__RESOLVED_RESOURCES[id] = ...` for an id that never appeared
+                // in `__PENDING_RESOURCES`.
+                if !this.initial_pending_ids.contains(&id) {
+                    _ = write!(resolved, "__PENDING_RESOURCES.push({});", id.0);
+                }
+                let data = escape_lt(&data);
+                _ = write!(
+                    resolved,
+                    "__RESOLVED_RESOURCES[{}] = {:?};",
+                    id.0, data
+                );
+            }
+
+            // A future resolved above may have registered new work via
+            // `write_async`; re-stage and poll it now so an immediately-ready
+            // re-entrant child is not stranded waiting for an unrelated wake.
+            // Loop only when there is actually something new to stage, which
+            // bounds the iteration count by the resource registration depth.
+            if any_ready && !this.async_buf.read().or_poisoned().is_empty() {
+                continue;
+            }
+            break;
+        }
 
         // Emit pushes for any incomplete-chunk markers added since the
         // last poll (or set by a future we just polled, e.g. a Suspense
         // boundary that flipped into the fallback state via
         // `SsrSharedContext::set_incomplete_chunk`).
         {
-            let lock = self.incomplete.lock().or_poisoned();
-            let from = self.incomplete_emitted.load(Ordering::Relaxed);
+            let lock = this.incomplete.lock().or_poisoned();
+            let from = this.incomplete_emitted.load(Ordering::Relaxed);
             for entry in lock.iter().skip(from) {
                 _ = write!(resolved, "__INCOMPLETE_CHUNKS.push({});", entry.0);
             }
-            self.incomplete_emitted.store(lock.len(), Ordering::Relaxed);
+            this.incomplete_emitted.store(lock.len(), Ordering::Relaxed);
         }
 
-        let sealed = self.sealed_error_boundaries.read().or_poisoned();
-        for error in mem::take(&mut *self.errors.write().or_poisoned()) {
+        let sealed = this.sealed_error_boundaries.read().or_poisoned();
+        for error in mem::take(&mut *this.errors.write().or_poisoned()) {
             if !sealed.contains(&error.0) {
                 // see the initial-chunk path: Debug-format, then single-
                 // backslash-escape `<` so the JS parser decodes it back to `<`
@@ -421,8 +459,16 @@ impl Stream for AsyncDataStream {
                 );
             }
         }
+        drop(sealed);
 
-        if buf_empty && resolved.is_empty() {
+        // The stream is exhausted only when nothing is in flight *and* no
+        // re-entrant registration is waiting to be staged. Any still-pending
+        // in-flight future had its waker registered by the drain loop above, so
+        // returning `Pending` here will be re-woken.
+        let done = this.in_flight.is_empty()
+            && this.async_buf.read().or_poisoned().is_empty();
+
+        if done && resolved.is_empty() {
             return Poll::Ready(None);
         }
         if resolved.is_empty() {
@@ -812,5 +858,110 @@ mod tests {
                 "serialized output changed for input {ser:?}"
             );
         }
+    }
+
+    /// When resources resolve at distinct times, a wake must re-poll only the
+    /// future that advanced, not the whole pending backlog. The previous
+    /// flat-`Vec` design re-polled every still-pending future on every wake
+    /// (N + N-1 + ... = O(N^2) leaf polls); the `FuturesUnordered` design
+    /// routes each leaf waker individually, giving O(N).
+    #[test]
+    fn async_stream_repolls_only_woken_futures_not_whole_backlog() {
+        use std::task::Waker;
+
+        // A leaf future that parks until armed. While parked it records its own
+        // (FuturesUnordered proxy) waker and returns Pending WITHOUT self-waking,
+        // so it is re-polled only when *that* waker fires. Every poll bumps a
+        // shared counter.
+        struct Gate {
+            polls: Arc<AtomicUsize>,
+            armed: Arc<AtomicBool>,
+            waker: Arc<Mutex<Option<Waker>>>,
+        }
+        impl Future for Gate {
+            type Output = String;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+            ) -> Poll<String> {
+                self.polls.fetch_add(1, Ordering::Relaxed);
+                if self.armed.load(Ordering::Relaxed) {
+                    Poll::Ready(String::from("\"x\""))
+                } else {
+                    *self.waker.lock().or_poisoned() = Some(cx.waker().clone());
+                    Poll::Pending
+                }
+            }
+        }
+
+        const N: usize = 64;
+        let polls = Arc::new(AtomicUsize::new(0));
+        let ctx = SsrSharedContext::new();
+        let mut armed = Vec::with_capacity(N);
+        let mut wakers = Vec::with_capacity(N);
+        for i in 0..N {
+            let a = Arc::new(AtomicBool::new(false));
+            let w = Arc::new(Mutex::new(None));
+            armed.push(Arc::clone(&a));
+            wakers.push(Arc::clone(&w));
+            ctx.write_async(
+                SerializedDataId(i),
+                Box::pin(Gate {
+                    polls: Arc::clone(&polls),
+                    armed: a,
+                    waker: w,
+                }),
+            );
+        }
+
+        // No-op task waker; FuturesUnordered wakes it, but the test drives
+        // polling by hand so it can wake exactly one leaf future per round.
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+        let mut cx = Context::from_waker(Waker::noop());
+
+        // initial chunk (does not touch the leaf futures)
+        assert!(matches!(
+            stream.poll_next_unpin(&mut cx),
+            Poll::Ready(Some(_))
+        ));
+        // first AsyncDataStream poll: stage + poll all N once -> all Pending
+        assert!(matches!(stream.poll_next_unpin(&mut cx), Poll::Pending));
+        assert_eq!(
+            polls.load(Ordering::Relaxed),
+            N,
+            "first poll must touch each future exactly once"
+        );
+
+        // resolve futures one at a time, waking only that future each round
+        for i in 0..N {
+            armed[i].store(true, Ordering::Relaxed);
+            if let Some(w) = wakers[i].lock().or_poisoned().take() {
+                w.wake();
+            }
+            let needle = format!("__RESOLVED_RESOURCES[{i}]");
+            loop {
+                match stream.poll_next_unpin(&mut cx) {
+                    Poll::Ready(Some(chunk)) => {
+                        assert!(
+                            chunk.contains(&needle),
+                            "round {i} expected {needle}, got: {chunk}"
+                        );
+                        break;
+                    }
+                    Poll::Ready(None) => break,
+                    Poll::Pending => {}
+                }
+            }
+        }
+
+        let total = polls.load(Ordering::Relaxed);
+        // O(N): ~N (initial) + ~N (one targeted re-poll each) = ~2N. The old
+        // flat-Vec design would be ~N(N+1)/2 here.
+        assert!(
+            total <= 4 * N,
+            "expected O(N) leaf polls (~2N) for N={N}, got {total}; a \
+             quadratic re-poll would be ~{}",
+            N * (N + 1) / 2
+        );
     }
 }
