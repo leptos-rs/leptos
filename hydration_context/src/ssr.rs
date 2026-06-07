@@ -7,6 +7,7 @@ use futures::{
 };
 use or_poisoned::OrPoisoned;
 use std::{
+    borrow::Cow,
     collections::HashSet,
     fmt::{Debug, Write},
     mem,
@@ -224,8 +225,8 @@ impl SharedContext for SsrSharedContext {
             // *after* `{:?}` keeps it one backslash, so the HTML tokenizer
             // never sees `</script>` while the browser's JS string parser
             // still decodes `<` straight back to `<` for the consumer.
-            let msg =
-                format!("{:?}", error.2.to_string()).replace('<', "\\u003c");
+            let formatted = format!("{:?}", error.2.to_string());
+            let msg = escape_lt(&formatted);
             _ = write!(initial_chunk, "[{}, {}, {}],", error.0.0, error.1, msg);
         }
         initial_chunk.push_str("];");
@@ -374,7 +375,7 @@ impl Stream for AsyncDataStream {
                             id.0
                         );
                     }
-                    let data = data.replace('<', "\\u003c");
+                    let data = escape_lt(&data);
                     _ = write!(
                         resolved,
                         "__RESOLVED_RESOURCES[{}] = {:?};",
@@ -411,8 +412,8 @@ impl Stream for AsyncDataStream {
             if !sealed.contains(&error.0) {
                 // see the initial-chunk path: Debug-format, then single-
                 // backslash-escape `<` so the JS parser decodes it back to `<`
-                let msg = format!("{:?}", error.2.to_string())
-                    .replace('<', "\\u003c");
+                let formatted = format!("{:?}", error.2.to_string());
+                let msg = escape_lt(&formatted);
                 _ = write!(
                     resolved,
                     "__SERIALIZED_ERRORS.push([{}, {}, {}]);",
@@ -432,6 +433,21 @@ impl Stream for AsyncDataStream {
     }
 }
 
+/// Escape `<` to its JS unicode escape `<`, allocating only when the input
+/// actually contains a `<`. `str::replace` always allocates a fresh `String`
+/// and copies the whole input even when the pattern is absent; `<` is rare in
+/// serialized payloads (it only appears when a string field carries markup), so
+/// guarding the replacement behind a single byte scan skips an allocation and a
+/// full O(len) copy on the common path. `{:?}`/`{}` format `&str` and `String`
+/// to identical bytes, so the emitted output is byte-for-byte unchanged.
+fn escape_lt(input: &str) -> Cow<'_, str> {
+    if input.as_bytes().contains(&b'<') {
+        Cow::Owned(input.replace('<', "\\u003c"))
+    } else {
+        Cow::Borrowed(input)
+    }
+}
+
 #[derive(Debug)]
 struct ResolvedData(SerializedDataId, String);
 
@@ -439,7 +455,7 @@ impl ResolvedData {
     pub fn write_to_buf(&self, buf: &mut String) {
         let ResolvedData(id, ser) = self;
         // escapes < to prevent it being interpreted as another opening HTML tag
-        let ser = ser.replace('<', "\\u003c");
+        let ser = escape_lt(ser);
         write!(buf, "{}: {:?}", id.0, ser).unwrap();
     }
 }
@@ -751,5 +767,50 @@ mod tests {
             push_pos.is_some() && resolve_pos.is_some(),
             "both push and resolve must appear in the live chunk: {live}"
         );
+    }
+
+    /// A payload without `<` must be returned borrowed (no allocation); a
+    /// payload containing `<` must have every occurrence rewritten to a
+    /// single-backslash `<` escape.
+    #[test]
+    fn escape_lt_guards_allocation_and_preserves_output() {
+        let clean = "{\"k\":\"value\",\"n\":42}";
+        assert!(
+            matches!(escape_lt(clean), Cow::Borrowed(s) if s == clean),
+            "a payload without `<` must be returned borrowed (no allocation)"
+        );
+
+        let dirty = "a<b<c";
+        assert!(
+            matches!(escape_lt(dirty), Cow::Owned(ref s) if s == "a\\u003cb\\u003cc"),
+            "every `<` must be rewritten to a single-backslash \\u003c escape"
+        );
+    }
+
+    /// The guarded escape must produce byte-for-byte the same serialized
+    /// output as the previous unconditional `str::replace` implementation,
+    /// for payloads both with and without `<`.
+    #[test]
+    fn resolved_data_serialization_matches_unconditional_replace() {
+        for ser in [
+            "{\"x\":1}",
+            "has<angle",
+            "</script><script>x</script>",
+            "no-bracket-here",
+            "",
+        ] {
+            let mut guarded = String::new();
+            ResolvedData(SerializedDataId(3), ser.to_string())
+                .write_to_buf(&mut guarded);
+
+            // byte-identical reference: the previous unconditional formulation
+            let reference =
+                format!("{}: {:?}", 3usize, ser.replace('<', "\\u003c"));
+
+            assert_eq!(
+                guarded, reference,
+                "serialized output changed for input {ser:?}"
+            );
+        }
     }
 }
