@@ -81,14 +81,26 @@ impl SsrSharedContext {
         let sync_data = mem::take(&mut *self.sync_buf.write().or_poisoned());
         let async_data = mem::take(&mut *self.async_buf.write().or_poisoned());
 
-        let mut all_data = Vec::new();
-        for resolved in sync_data {
-            all_data.push((resolved.0, resolved.1));
-        }
-        for (id, fut) in async_data {
-            let data = fut.await;
-            all_data.push((id, data));
-        }
+        let mut all_data: Vec<(SerializedDataId, String)> =
+            sync_data.into_iter().map(|r| (r.0, r.1)).collect();
+
+        // Resolve the async futures concurrently. Note this is *not* a
+        // wall-clock win for leptos's own resources: the futures they
+        // register via `write_async` are thin "wait until ready, then
+        // serialize" wrappers, and the actual work (DB query, fetch) runs on
+        // a task the resource spawns itself, so awaiting the wrappers
+        // sequentially already completed in max (not sum) latency. But
+        // `write_async` is public API, and a registered future that does its
+        // work inline is driven only here; `join_all` keeps such futures
+        // from serializing behind one another. It preserves input order, so
+        // the returned Vec is identical to the sequential version.
+        let resolved = join_all(
+            async_data
+                .into_iter()
+                .map(|(id, fut)| async move { (id, fut.await) }),
+        )
+        .await;
+        all_data.extend(resolved);
         all_data
     }
 }
@@ -962,6 +974,77 @@ mod tests {
             "expected O(N) leaf polls (~2N) for N={N}, got {total}; a \
              quadratic re-poll would be ~{}",
             N * (N + 1) / 2
+        );
+    }
+
+    /// `consume_buffers` must poll its async resources concurrently, not one
+    /// after another. A future that parks once on first poll lets the test
+    /// observe how many resources are in flight simultaneously: concurrent
+    /// resolution peaks at N, sequential awaiting peaks at 1. The returned
+    /// order must still match the registration order.
+    #[test]
+    fn consume_buffers_polls_async_resources_concurrently() {
+        // On its first poll a probe marks itself in-flight (and self-wakes so a
+        // second poll happens); on its second poll it leaves in-flight and
+        // resolves. The peak simultaneous in-flight count distinguishes
+        // concurrent (`join_all`) from sequential (`for fut in .. { fut.await }`)
+        // resolution.
+        struct Probe {
+            in_flight: Arc<AtomicUsize>,
+            peak: Arc<AtomicUsize>,
+            started: bool,
+        }
+        impl Future for Probe {
+            type Output = String;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+            ) -> Poll<String> {
+                let this = self.get_mut();
+                if this.started {
+                    this.in_flight.fetch_sub(1, Ordering::Relaxed);
+                    Poll::Ready(String::from("\"x\""))
+                } else {
+                    this.started = true;
+                    let now =
+                        this.in_flight.fetch_add(1, Ordering::Relaxed) + 1;
+                    this.peak.fetch_max(now, Ordering::Relaxed);
+                    cx.waker().wake_by_ref();
+                    Poll::Pending
+                }
+            }
+        }
+
+        const N: usize = 8;
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let ctx = SsrSharedContext::new();
+        for i in 0..N {
+            ctx.write_async(
+                SerializedDataId(i),
+                Box::pin(Probe {
+                    in_flight: Arc::clone(&in_flight),
+                    peak: Arc::clone(&peak),
+                    started: false,
+                }),
+            );
+        }
+
+        let data = block_on(ctx.consume_buffers());
+
+        assert_eq!(data.len(), N);
+        for (i, (id, _)) in data.iter().enumerate() {
+            assert_eq!(
+                *id,
+                SerializedDataId(i),
+                "consume_buffers must preserve registration order"
+            );
+        }
+        assert_eq!(
+            peak.load(Ordering::Relaxed),
+            N,
+            "all async resources must be in flight simultaneously; sequential \
+             awaiting would peak at 1"
         );
     }
 }
