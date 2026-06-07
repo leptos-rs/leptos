@@ -18,7 +18,11 @@ pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
 impl From<ServerFnError> for Error {
     fn from(e: ServerFnError) -> Self {
-        Error::from(ServerFnErrorWrapper(e))
+        // `ServerFnErrorWrapper` is a concrete, sized error type (it derives
+        // `std::error::Error`), so wrap it in a single allocation via
+        // `Error::new` instead of routing through `Box<dyn Error>` + `Arc`
+        // realloc.
+        Error::new(ServerFnErrorWrapper(e))
     }
 }
 
