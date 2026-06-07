@@ -1614,6 +1614,8 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::write_file_atomic;
+
     // Reject anything that would escape the site root before caching headers
     // or touching the filesystem.
     let Some(file_path) = static_path(options, path) else {
@@ -1631,12 +1633,9 @@ async fn write_static_route(
     }
 
     let path = Path::new(&file_path);
-    if let Some(path) = path.parent() {
-        tokio::fs::create_dir_all(path).await?;
-    }
-    tokio::fs::write(path, &html).await?;
-
-    Ok(())
+    // Write atomically: a crash mid-write must never leave a truncated or empty
+    // file that is then served (because `try_exists` reports it as present).
+    write_file_atomic(path, html.as_bytes()).await
 }
 
 #[cfg(feature = "default")]

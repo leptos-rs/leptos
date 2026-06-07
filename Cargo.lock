@@ -2201,6 +2201,7 @@ dependencies = [
  "leptos_router",
  "mime",
  "reactive_graph",
+ "tokio",
 ]
 
 [[package]]

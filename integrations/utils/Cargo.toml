@@ -17,6 +17,17 @@ leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
 mime = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
+tokio = { workspace = true, default-features = false, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, default-features = false, features = [
+  "macros",
+  "rt",
+  "fs",
+] }
+
+[features]
+fs = ["dep:tokio", "tokio/fs"]
 
 [package.metadata.docs.rs]
 all-features = true

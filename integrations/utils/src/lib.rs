@@ -307,6 +307,50 @@ pub fn static_file_path(options: &LeptosOptions, path: &str) -> Option<String> {
     Some(format!("{}/{}.html", options.site_root, path))
 }
 
+/// Writes `contents` to `path` atomically: the file appears with its full
+/// contents or not at all.
+///
+/// The bytes are written to a uniquely-named temp file in the same directory,
+/// which is then renamed over the target. `rename` is atomic on POSIX
+/// filesystems (and replaces the destination on Windows), so a concurrent
+/// reader or a crash never observes a half-written or truncated file. Writing
+/// in place (e.g. `tokio::fs::write`) truncates the target up front, which would
+/// leave an empty file visible (and served with `try_exists == true`) if the
+/// process died mid-write.
+///
+/// Missing parent directories are created first. If the rename fails, the temp
+/// file is removed on a best-effort basis so failures don't leave stray temp
+/// files accumulating in the site root.
+#[cfg(feature = "fs")]
+pub async fn write_file_atomic(
+    path: &std::path::Path,
+    contents: &[u8],
+) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+
+    let tmp_path = {
+        static COUNTER: std::sync::atomic::AtomicU64 =
+            std::sync::atomic::AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut file_name = path
+            .file_name()
+            .map(|name| name.to_os_string())
+            .unwrap_or_default();
+        file_name.push(format!(".tmp.{}.{n}", std::process::id()));
+        path.with_file_name(file_name)
+    };
+
+    tokio::fs::write(&tmp_path, contents).await?;
+    if let Err(err) = tokio::fs::rename(&tmp_path, path).await {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(err);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,5 +422,39 @@ mod tests {
         assert!(!accept_header_includes_html("application/x-text/html-fake"));
         assert!(!accept_header_includes_html("application/json"));
         assert!(!accept_header_includes_html("*/*"));
+    }
+
+    // `write_file_atomic` must create the file (and any missing parents) with
+    // its full contents and leave no temp file behind, so a crash mid-write can
+    // never expose a truncated or empty file to a reader.
+    #[cfg(feature = "fs")]
+    #[tokio::test]
+    async fn write_file_atomic_writes_full_contents_without_leftovers() {
+        let dir = std::env::temp_dir().join(format!(
+            "leptos_integration_utils_atomic_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        // a missing parent directory is created on the way to the target
+        let target = dir.join("nested").join("page.html");
+        let contents = b"<html><body>hello</body></html>";
+        write_file_atomic(&target, contents).await.unwrap();
+
+        // the target was written in full
+        assert_eq!(std::fs::read(&target).unwrap(), contents);
+
+        // no temp file was left behind alongside it
+        let leftovers = std::fs::read_dir(target.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
+            .count();
+        assert_eq!(leftovers, 0);
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

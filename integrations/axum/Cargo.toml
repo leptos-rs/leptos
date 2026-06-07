@@ -51,6 +51,7 @@ default = [
   "tower-http/fs",
   "tower/util",
   "server_fn/axum",
+  "leptos_integration_utils/fs",
 ]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]

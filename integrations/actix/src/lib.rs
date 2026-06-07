@@ -1341,6 +1341,8 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::write_file_atomic;
+
     // Reject anything that would escape the site root before caching headers
     // or touching the filesystem.
     let Some(file_path) = static_path(options, path) else {
@@ -1358,37 +1360,9 @@ async fn write_static_route(
     }
 
     let path = Path::new(&file_path);
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent).await?;
-    }
-
-    // Write to a uniquely-named temp file in the same directory and rename it
-    // over the target. `rename` is atomic on POSIX filesystems (and replaces
-    // the destination on Windows), so a concurrent reader or a crash never
-    // observes a half-written or truncated file. `tokio::fs::write` truncates
-    // the target up front, which would leave an empty file visible (and served
-    // with `try_exists == true`) if the process died mid-write.
-    let tmp_path = {
-        static COUNTER: std::sync::atomic::AtomicU64 =
-            std::sync::atomic::AtomicU64::new(0);
-        let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let mut file_name = path
-            .file_name()
-            .map(|name| name.to_os_string())
-            .unwrap_or_default();
-        file_name.push(format!(".tmp.{}.{n}", std::process::id()));
-        path.with_file_name(file_name)
-    };
-
-    tokio::fs::write(&tmp_path, html).await?;
-    if let Err(err) = tokio::fs::rename(&tmp_path, path).await {
-        // Best-effort cleanup so a failed rename does not leave temp files
-        // accumulating in the site root.
-        let _ = tokio::fs::remove_file(&tmp_path).await;
-        return Err(err);
-    }
-
-    Ok(())
+    // Write atomically: a crash mid-write must never leave a truncated or empty
+    // file that is then served (because `try_exists` reports it as present).
+    write_file_atomic(path, html.as_bytes()).await
 }
 
 fn handle_static_route<IV>(
