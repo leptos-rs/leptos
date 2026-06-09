@@ -5,7 +5,11 @@ use crate::{
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
-use reactive_graph::{computed::ScopedFuture, owner::Owner};
+use reactive_graph::{
+    computed::ScopedFuture,
+    owner::{on_cleanup, Owner},
+};
+use std::mem;
 
 /// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
 #[derive(Debug, Clone)]
@@ -65,7 +69,13 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let OwnedView { owner, view, .. } = self;
         owner.with(|| view.rebuild(&mut state.state));
-        state.owner = owner;
+        // Defer dropping the previous owner until after effects have run:
+        // render effects that do things like reading from context it provides
+        // may have already been triggered and queued to run. `spawn_local` will
+        // defer the drop to the end of the queue, while still deterministically
+        // cleaning up the memory to prevent leaks.
+        let old_owner = mem::replace(&mut state.owner, owner);
+        reactive_graph::spawn_local(async move { drop(old_owner) });
     }
 }
 
