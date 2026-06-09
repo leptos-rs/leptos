@@ -7,7 +7,7 @@ use crate::{
 };
 use reactive_graph::{
     computed::ScopedFuture,
-    owner::{on_cleanup, Owner},
+    owner::Owner,
 };
 use std::mem;
 
