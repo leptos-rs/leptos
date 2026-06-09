@@ -5,10 +5,7 @@ use crate::{
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
-use reactive_graph::{
-    computed::ScopedFuture,
-    owner::Owner,
-};
+use reactive_graph::{computed::ScopedFuture, owner::Owner};
 use std::mem;
 
 /// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
