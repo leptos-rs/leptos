@@ -858,24 +858,20 @@ impl ToTokens for PatchModel {
                 }
             }
             PatchModelTy::Enum { variants } => {
-                // Number every variant field with a path segment that is
-                // unique across the whole enum, mirroring the numbering used
-                // by the `Store` derive, so that `notify` targets the same
-                // triggers the field accessors subscribe to.
-                let mut next_segment = 0usize;
+                // Number every variant field with its index within the
+                // variant, mirroring the numbering used by the `Store`
+                // derive, so that `notify` targets the same triggers the
+                // field accessors subscribe to.
                 let arms = variants.iter().map(|variant| {
                     let Variant { ident, fields, .. } = variant;
-                    let base = next_segment;
                     match fields {
                         Fields::Unit => {
-                            next_segment += 0;
                             // same variant, no payload: nothing to patch
                             quote! {
                                 (#name::#ident, #name::#ident) => {}
                             }
                         }
                         Fields::Named(named) => {
-                            next_segment += named.named.len();
                             let self_binds = named.named.iter().map(|f| {
                                 let id = f.ident.as_ref().unwrap();
                                 let bind = Ident::new(&format!("self_{id}"), id.span());
@@ -890,7 +886,7 @@ impl ToTokens for PatchModel {
                                 let id = f.ident.as_ref().unwrap();
                                 let self_bind = Ident::new(&format!("self_{id}"), id.span());
                                 let new_bind = Ident::new(&format!("new_{id}"), id.span());
-                                let segment = base + i;
+                                let segment = i;
                                 let advance = if i == 0 {
                                     quote! { new_path.push(#segment); }
                                 } else {
@@ -914,7 +910,6 @@ impl ToTokens for PatchModel {
                             }
                         }
                         Fields::Unnamed(unnamed) => {
-                            next_segment += unnamed.unnamed.len();
                             let self_binds = (0..unnamed.unnamed.len()).map(|i| {
                                 Ident::new(&format!("self_{i}"), Span::call_site())
                             });
@@ -924,7 +919,7 @@ impl ToTokens for PatchModel {
                             let patches = (0..unnamed.unnamed.len()).map(|i| {
                                 let self_bind = Ident::new(&format!("self_{i}"), Span::call_site());
                                 let new_bind = Ident::new(&format!("new_{i}"), Span::call_site());
-                                let segment = base + i;
+                                let segment = i;
                                 let advance = if i == 0 {
                                     quote! { new_path.push(#segment); }
                                 } else {
