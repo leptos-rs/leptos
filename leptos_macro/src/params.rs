@@ -68,8 +68,11 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 
     let num_fields = fields_to_map.len();
 
+    let (impl_generics, ty_generics, where_clause) =
+        ast.generics.split_for_impl();
+
     let r#gen = quote! {
-        impl Params for #name {
+        impl #impl_generics Params for #name #ty_generics #where_clause {
             fn from_map(map: &::leptos_router::params::ParamsMap) -> ::core::result::Result<Self, ::leptos_router::params::ParamsError> {
                 use ::leptos_router::params::macro_helpers::Fallback as _;
 
