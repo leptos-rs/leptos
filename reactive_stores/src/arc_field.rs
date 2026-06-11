@@ -40,6 +40,7 @@ where
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
     track_field: Arc<dyn Fn() + Send + Sync>,
     notify: Arc<dyn Fn() + Send + Sync>,
+    is_disposed: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl<T> Debug for ArcField<T>
@@ -155,6 +156,7 @@ where
             keys: Arc::new(move || value.keys()),
             track_field: Arc::new(move || value.track_field()),
             notify: Arc::new(move || value.notify()),
+            is_disposed: Arc::new(move || value.is_disposed()),
         }
     }
 }
@@ -204,6 +206,10 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
+            is_disposed: Arc::new({
+                let value = value.clone();
+                move || value.is_disposed()
+            }),
         }
     }
 }
@@ -212,7 +218,7 @@ impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for ArcField<T>
 where
     T: Send + Sync,
     Subfield<Inner, Prev, T>: Clone,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
 {
     #[track_caller]
@@ -256,13 +262,17 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
+            is_disposed: Arc::new({
+                let value = value.clone();
+                move || value.is_disposed()
+            }),
         }
     }
 }
 
 impl<Inner, T> From<DerefedField<Inner>> for ArcField<T>
 where
-    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner: Clone + StoreField + IsDisposed + Send + Sync + 'static,
     Inner::Value: Deref<Target = T> + DerefMut,
     T: Sized + 'static,
 {
@@ -307,6 +317,10 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
+            is_disposed: Arc::new({
+                let value = value.clone();
+                move || value.is_disposed()
+            }),
         }
     }
 }
@@ -314,8 +328,8 @@ where
 impl<Inner, Prev> From<AtIndex<Inner, Prev>> for ArcField<Prev::Output>
 where
     AtIndex<Inner, Prev>: Clone,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
-    Prev: IndexMut<usize> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
+    Prev: IndexMut<usize> + crate::len::Len + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {
     #[track_caller]
@@ -359,6 +373,10 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
+            is_disposed: Arc::new({
+                let value = value.clone();
+                move || value.is_disposed()
+            }),
         }
     }
 }
@@ -370,7 +388,7 @@ where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     T: KeyedIterable,
     for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
     T: KeyedAccess<K> + 'static,
     T::Value: Sized,
@@ -416,6 +434,10 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
+            is_disposed: Arc::new({
+                let value = value.clone();
+                move || value.is_disposed()
+            }),
         }
     }
 }
@@ -434,6 +456,7 @@ impl<T> Clone for ArcField<T> {
             keys: Arc::clone(&self.keys),
             track_field: Arc::clone(&self.track_field),
             notify: Arc::clone(&self.notify),
+            is_disposed: Arc::clone(&self.is_disposed),
         }
     }
 }
@@ -489,6 +512,35 @@ impl<T> Write for ArcField<T> {
 
 impl<T> IsDisposed for ArcField<T> {
     fn is_disposed(&self) -> bool {
-        false
+        (self.is_disposed)()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as reactive_stores, ArcField, Store};
+    use reactive_graph::{owner::Owner, traits::IsDisposed};
+
+    #[derive(Default, reactive_stores_macro::Store)]
+    struct State {
+        value: i32,
+    }
+
+    #[test]
+    fn arc_field_reports_disposal_of_underlying_store() {
+        let owner = Owner::new();
+        let field: ArcField<i32> = owner.with(|| {
+            let store = Store::new(State { value: 42 });
+            store.value().into()
+        });
+
+        // while the owner is alive, the field is not disposed
+        assert!(!field.is_disposed());
+
+        // once the owner is disposed, the underlying store is gone and the
+        // field must report it, instead of always returning `false`
+        owner.cleanup();
+        drop(owner);
+        assert!(field.is_disposed());
     }
 }
