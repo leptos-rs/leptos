@@ -577,14 +577,7 @@ impl Dom {
                         Self::intern("svg"),
                     )
                     .unwrap();
-                let g = document()
-                    .create_element_ns(
-                        Some(Self::intern("http://www.w3.org/2000/svg")),
-                        Self::intern("g"),
-                    )
-                    .unwrap();
-                g.set_inner_html(html);
-                svg.append_child(&g).unwrap();
+                svg.set_inner_html(html);
                 tpl.unchecked_ref::<TemplateElement>()
                     .content()
                     .append_child(&svg)
@@ -595,6 +588,10 @@ impl Dom {
         });
 
         let svg = tpl.first_element_child().unwrap();
+        // The `<svg>` is only a parsing context that gives the fragment the SVG
+        // namespace; the element we actually want is its first child. Returning
+        // the `<svg>` itself would wrap every inert SVG child in a spurious
+        // `<svg>`.
         svg.first_element_child().unwrap_or(svg)
     }
 }

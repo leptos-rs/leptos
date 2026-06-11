@@ -60,6 +60,7 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+    accept_header_includes_html,
 };
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
@@ -181,33 +182,6 @@ pub(crate) fn extend_response<ResBody>(
         .extend(std::mem::take(&mut res_options.headers));
 }
 
-/// Returns whether an `Accept` header value indicates the client will accept
-/// an HTML response — i.e. an ordinary browser navigation or a plain `<form>`
-/// submission, as opposed to a programmatic client expecting structured data.
-///
-/// Unlike a naive `contains("text/html")` check, each comma-separated media
-/// range is parsed with the [`mime`] crate and an explicit `q=0` refusal is
-/// honoured. So `text/html;q=0` (the client refusing HTML) and
-/// `application/x-text/html-fake` (an unrelated, unparseable range) are both
-/// correctly treated as *not* accepting HTML.
-fn accept_header_includes_html(accept: &str) -> bool {
-    accept.split(',').any(|range| {
-        let Ok(media) = range.trim().parse::<mime::Mime>() else {
-            return false;
-        };
-        if media.type_() != mime::TEXT || media.subtype() != mime::HTML {
-            return false;
-        }
-        // honour an explicit `q=0`, which means the client refuses HTML
-        match media.get_param("q") {
-            Some(q) => {
-                q.as_str().parse::<f32>().map(|w| w > 0.0).unwrap_or(true)
-            }
-            None => true,
-        }
-    })
-}
-
 /// A generic `500 Internal Server Error` response with no body details, used
 /// when an integration handler hits an unrecoverable but non-fatal condition
 /// that previously panicked.
@@ -268,14 +242,15 @@ impl ExtendResponse for AxumResponse {
 ///
 /// If the route or server function in which this is called is being accessed
 /// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
-/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
-/// header contains `text/html` as it does for an ordinary navigation.)
+/// status code of `302` for a temporary redirect if `permanent` is false
+/// or a `301` for a permanent redirect if `permanent` is true.
+/// (This is determined by whether the `Accept` header contains `text/html` as it does for an ordinary navigation.)
 ///
 /// Otherwise, it sets a custom header that indicates to the client that it should redirect,
 /// without actually setting the status code. This means that the client will not follow the
 /// redirect, and can therefore return the value of the server function and then handle
 /// the redirect with client-side routing.
-pub fn redirect(path: &str) {
+pub fn redirect(path: &str, permanent: bool) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
     {
@@ -309,8 +284,15 @@ pub fn redirect(path: &str) {
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
-            // to have the 302 code set
-            res.set_status(StatusCode::FOUND);
+            // to have the redirect status code set
+            let status_code = if permanent {
+                // `301` permanent redirect
+                StatusCode::MOVED_PERMANENTLY
+            } else {
+                // `302` temporary redirect
+                StatusCode::FOUND
+            };
+            res.set_status(status_code);
         } else {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
@@ -775,8 +757,22 @@ where
         app_fn.clone(),
     );
 
+    // Index the route listings by path once, at router-build time, so the
+    // per-request handler resolves a listing in O(1) by a borrowed `&str`
+    // instead of scanning `paths` linearly and allocating an owned path
+    // `String` on every request. `or_insert` preserves the first-match
+    // semantics of the previous `paths.iter().find(...)`.
+    use std::collections::HashMap;
+    let by_path: HashMap<String, AxumRouteListing> = {
+        let mut map = HashMap::with_capacity(paths.len());
+        for listing in paths {
+            map.entry(listing.path().to_owned()).or_insert(listing);
+        }
+        map
+    };
+
     move |state, req| {
-        // 1. Process route to match the values in routeListing.
+        // 1. Match the request to a RouteListing via Axum's MatchedPath.
         //
         // `MatchedPath` is only present when the request flowed through Axum's
         // matcher; mounting this handler outside the router (manual tower
@@ -784,11 +780,7 @@ where
         // absent. Rather than panic — which would kill the worker and 500 every
         // affected request — log and return a generic 500 so the misconfigured
         // route is diagnosable without taking the process down.
-        let Some(path) = req
-            .extensions()
-            .get::<MatchedPath>()
-            .map(|p| p.as_str().to_owned())
-        else {
+        let Some(matched) = req.extensions().get::<MatchedPath>() else {
             #[cfg(feature = "tracing")]
             tracing::error!(
                 "render_route handler invoked without a MatchedPath; the \
@@ -801,21 +793,22 @@ where
             );
             return Box::pin(async { internal_server_error() });
         };
-        // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
-        // search for this every time
-        let Some(listing) = paths.iter().find(|r| r.path() == path.as_str())
-        else {
+        // O(1) lookup by borrowed path; the `matched` borrow of `req` is
+        // released here, before `req` is moved into a render closure below.
+        let Some(listing) = by_path.get(matched.as_str()) else {
             #[cfg(feature = "tracing")]
             tracing::error!(
-                "Failed to find the route {path} requested by the user. This \
+                "Failed to find the route {} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 handler need to be edited."
+                 handler need to be edited.",
+                matched.as_str()
             );
             #[cfg(not(feature = "tracing"))]
             eprintln!(
-                "Failed to find the route {path} requested by the user. This \
+                "Failed to find the route {} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 handler need to be edited."
+                 handler need to be edited.",
+                matched.as_str()
             );
             return Box::pin(async { internal_server_error() });
         };
@@ -1039,7 +1032,12 @@ where
                     Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
                     None => RequestUrl::new(path),
                 };
-                let (_, req_parts) = generate_request_and_parts(req);
+                // The body is never read during rendering (SSR is driven by the
+                // path string and the head we put in context) and we own `req`,
+                // so move the parts straight out instead of cloning them via
+                // `generate_request_and_parts`, which would allocate a fresh
+                // HeaderMap + Extensions and rebuild a Request we discard.
+                let (req_parts, _body) = req.into_parts();
                 provide_contexts(
                     request_url,
                     &meta_context,
@@ -1678,6 +1676,8 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::write_file_atomic;
+
     // Reject anything that would escape the site root before caching headers
     // or touching the filesystem.
     let Some(file_path) = static_path(options, path) else {
@@ -1695,12 +1695,9 @@ async fn write_static_route(
     }
 
     let path = Path::new(&file_path);
-    if let Some(path) = path.parent() {
-        tokio::fs::create_dir_all(path).await?;
-    }
-    tokio::fs::write(path, &html).await?;
-
-    Ok(())
+    // Write atomically: a crash mid-write must never leave a truncated or empty
+    // file that is then served (because `try_exists` reports it as present).
+    write_file_atomic(path, html.as_bytes()).await
 }
 
 #[cfg(feature = "default")]
@@ -2765,7 +2762,7 @@ mod tests {
             provide_context(parts);
             provide_context(res.clone());
 
-            redirect("/login\r\nSet-Cookie: pwned=1");
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -2783,7 +2780,7 @@ mod tests {
             provide_context(parts);
             provide_context(res.clone());
 
-            redirect("/dashboard");
+            redirect("/dashboard", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -2791,6 +2788,39 @@ mod tests {
             parts.headers.get(LOCATION).map(|v| v.as_bytes()),
             Some(&b"/dashboard"[..])
         );
+    }
+
+    // Test if the correct status code is set on the redirect
+    #[test]
+    fn redirect_sets_302() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::FOUND));
+    }
+
+    #[test]
+    fn redirect_sets_301() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", true);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::MOVED_PERMANENTLY));
     }
 
     // When the render_route handler is mounted such that Axum's `MatchedPath`
@@ -2814,34 +2844,6 @@ mod tests {
 
         let res = handler(State(options), req).await;
         assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    #[test]
-    fn accept_header_plain_navigation_is_html() {
-        // typical browser navigation
-        assert!(accept_header_includes_html(
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        ));
-        assert!(accept_header_includes_html("text/html"));
-        assert!(accept_header_includes_html("text/html; charset=utf-8"));
-        assert!(accept_header_includes_html("text/html;q=0.1"));
-    }
-
-    #[test]
-    fn accept_header_explicit_refusal_is_not_html() {
-        // `q=0` means the client explicitly does not want HTML
-        assert!(!accept_header_includes_html(
-            "text/html;q=0, application/json"
-        ));
-        assert!(!accept_header_includes_html("text/html;q=0.0"));
-    }
-
-    #[test]
-    fn accept_header_substring_is_not_html() {
-        // these contain the literal substring "text/html" but are not it
-        assert!(!accept_header_includes_html("application/x-text/html-fake"));
-        assert!(!accept_header_includes_html("application/json"));
-        assert!(!accept_header_includes_html("*/*"));
     }
 
     // The per-path header cache must never grow without bound: serving many

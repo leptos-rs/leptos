@@ -2107,6 +2107,7 @@ dependencies = [
  "leptos_macro",
  "leptos_meta",
  "leptos_router",
+ "lru",
  "or_poisoned",
  "send_wrapper",
  "serde_json",
@@ -2131,7 +2132,6 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "lru",
- "mime",
  "or_poisoned",
  "reqwest",
  "server_fn",
@@ -2199,7 +2199,9 @@ dependencies = [
  "leptos_config",
  "leptos_meta",
  "leptos_router",
+ "mime",
  "reactive_graph",
+ "tokio",
 ]
 
 [[package]]
@@ -3946,6 +3948,7 @@ dependencies = [
  "tokio-test",
  "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-test",
  "web-sys",
 ]
 
