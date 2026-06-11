@@ -512,12 +512,18 @@ impl Dom {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
                 LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
-            static TEMPLATES: RefCell<FxHashMap<TypeId, HtmlTemplateElement>> = Default::default();
+            // a linear scan over a Vec outperforms a hash map at the small
+            // number of `template!` call sites found in typical apps, and
+            // avoids re-inlining map machinery into every monomorphization
+            // of this generic function (~360 bytes of .wasm per call site)
+            static TEMPLATES: RefCell<Vec<(TypeId, HtmlTemplateElement)>> = Default::default();
         }
 
         TEMPLATES.with_borrow_mut(|t| {
-            t.entry(TypeId::of::<V>())
-                .or_insert_with(|| {
+            let id = TypeId::of::<V>();
+            t.iter()
+                .find_map(|entry| (entry.0 == id).then(|| entry.1.clone()))
+                .unwrap_or_else(|| {
                     let tpl = TEMPLATE_ELEMENT.with(|t| {
                         t.clone_node()
                             .unwrap()
@@ -532,9 +538,9 @@ impl Dom {
                         &mut Default::default(),
                     );
                     tpl.set_inner_html(&buf);
+                    t.push((id, tpl.clone()));
                     tpl
                 })
-                .clone()
         })
     }
 
