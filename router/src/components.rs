@@ -548,8 +548,8 @@ define_protected_parent_route!(crate::any_nested_route::AnyNestedRoute);
 define_protected_parent_route!(NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>);
 
 /// Redirects the user to a new URL, whether on the client side or on the server
-/// side. If rendered on the server, this sets a `302` status code and sets a `Location`
-/// header. If rendered in the browser, it uses client-side navigation to redirect.
+/// side. If rendered on the server, this sets a `302` status code if `permanent` is false or a `301` if `permanent` is true,
+/// and sets a `Location` header. If rendered in the browser, it uses client-side navigation to redirect.
 /// In either case, it resolves the route relative to the current route. (To use
 /// an absolute path, prefix it with `/`).
 ///
@@ -568,6 +568,13 @@ pub fn Redirect<P>(
     #[prop(optional)]
     #[allow(unused)]
     options: Option<NavigateOptions>,
+    /// Permanent redirect
+    ///
+    /// Only used on the server side to set a `301` if `permanent` is true
+    /// or a `302` if `permanent` is false (`false` by default)
+    #[prop(optional)]
+    #[allow(unused)]
+    permanent: bool,
 ) where
     P: core::fmt::Display + 'static,
 {
@@ -576,11 +583,10 @@ pub fn Redirect<P>(
 
     // redirect on the server
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>() {
-        (redirect_fn.f)(&resolve_path(
-            "",
-            &path,
-            Some(&use_matched().get_untracked()),
-        ));
+        (redirect_fn.f)(
+            &resolve_path("", &path, Some(&use_matched().get_untracked())),
+            permanent,
+        );
     }
     // redirect on the client
     else {
@@ -603,12 +609,13 @@ pub fn Redirect<P>(
     }
 }
 
+type ServerRedirectDynFunction = dyn Fn(&str, bool) + Send + Sync;
 /// Wrapping type for a function provided as context to allow for
 /// server-side redirects. See [`provide_server_redirect`]
 /// and [`Redirect`].
 #[derive(Clone)]
 pub struct ServerRedirectFunction {
-    f: Arc<dyn Fn(&str) + Send + Sync>,
+    f: Arc<ServerRedirectDynFunction>,
 }
 
 impl core::fmt::Debug for ServerRedirectFunction {
@@ -617,10 +624,16 @@ impl core::fmt::Debug for ServerRedirectFunction {
     }
 }
 
-/// Provides a function that can be used to redirect the user to another
-/// absolute path, on the server. This should set a `302` status code and an
-/// appropriate `Location` header.
-pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
+/// Provides a function that can be used to redirect the user to another absolute path, on the server.
+/// The passed function takes 2 arguments:
+/// - `path` (`&str`): the path to redirect the client to
+/// - `permanent` (`bool`): indicate if this is a permanent redirect
+///
+/// The passed function should set a `302` status code if `permanent` is false, or a `301` status code if `permanent` is true,
+/// and set an appropriate `Location` header.
+pub fn provide_server_redirect(
+    handler: impl Fn(&str, bool) + Send + Sync + 'static,
+) {
     provide_context(ServerRedirectFunction {
         f: Arc::new(handler),
     })

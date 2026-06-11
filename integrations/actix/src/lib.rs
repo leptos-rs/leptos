@@ -227,8 +227,9 @@ impl ExtendResponse for ActixResponse {
 ///
 /// If the route or server function in which this is called is being accessed
 /// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
-/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
-/// header contains `text/html` as it does for an ordinary navigation.)
+/// status code of `302` for a temporary redirect if `permanent` is false
+/// or a `301` for a permanent redirect if `permanent` is true.
+/// (This is determined by whether the `Accept` header contains `text/html` as it does for an ordinary navigation.)
 ///
 /// Otherwise, it sets a custom header that indicates to the client that it should redirect,
 /// without actually setting the status code. This means that the client will not follow the
@@ -238,7 +239,7 @@ impl ExtendResponse for ActixResponse {
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn redirect(path: &str) {
+pub fn redirect(path: &str, permanent: bool) {
     if let (Some(req), Some(res)) =
         (use_context::<Request>(), use_context::<ResponseOptions>())
     {
@@ -273,8 +274,15 @@ pub fn redirect(path: &str) {
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
-            // to have the 302 code set
-            res.set_status(StatusCode::FOUND);
+            // to have the redirect status code set
+            let status_code = if permanent {
+                // `301` permanent redirect
+                StatusCode::MOVED_PERMANENTLY
+            } else {
+                // `302` temporary redirect
+                StatusCode::FOUND
+            };
+            res.set_status(status_code);
         } else {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data

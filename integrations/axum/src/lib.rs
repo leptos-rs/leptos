@@ -242,14 +242,15 @@ impl ExtendResponse for AxumResponse {
 ///
 /// If the route or server function in which this is called is being accessed
 /// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
-/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
-/// header contains `text/html` as it does for an ordinary navigation.)
+/// status code of `302` for a temporary redirect if `permanent` is false
+/// or a `301` for a permanent redirect if `permanent` is true.
+/// (This is determined by whether the `Accept` header contains `text/html` as it does for an ordinary navigation.)
 ///
 /// Otherwise, it sets a custom header that indicates to the client that it should redirect,
 /// without actually setting the status code. This means that the client will not follow the
 /// redirect, and can therefore return the value of the server function and then handle
 /// the redirect with client-side routing.
-pub fn redirect(path: &str) {
+pub fn redirect(path: &str, permanent: bool) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
     {
@@ -283,8 +284,15 @@ pub fn redirect(path: &str) {
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
-            // to have the 302 code set
-            res.set_status(StatusCode::FOUND);
+            // to have the redirect status code set
+            let status_code = if permanent {
+                // `301` permanent redirect
+                StatusCode::MOVED_PERMANENTLY
+            } else {
+                // `302` temporary redirect
+                StatusCode::FOUND
+            };
+            res.set_status(status_code);
         } else {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
@@ -2754,7 +2762,7 @@ mod tests {
             provide_context(parts);
             provide_context(res.clone());
 
-            redirect("/login\r\nSet-Cookie: pwned=1");
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -2772,7 +2780,7 @@ mod tests {
             provide_context(parts);
             provide_context(res.clone());
 
-            redirect("/dashboard");
+            redirect("/dashboard", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -2780,6 +2788,39 @@ mod tests {
             parts.headers.get(LOCATION).map(|v| v.as_bytes()),
             Some(&b"/dashboard"[..])
         );
+    }
+
+    // Test if the correct status code is set on the redirect
+    #[test]
+    fn redirect_sets_302() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::FOUND));
+    }
+
+    #[test]
+    fn redirect_sets_301() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", true);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::MOVED_PERMANENTLY));
     }
 
     // When the render_route handler is mounted such that Axum's `MatchedPath`
