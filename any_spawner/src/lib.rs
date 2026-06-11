@@ -71,6 +71,35 @@ fn current_executor_fns() -> Option<ExecutorFns> {
         .or_else(|| EXECUTOR_FNS.get().copied())
 }
 
+// Non-generic dispatch tail shared by every `Executor::spawn` call site.
+// `#[inline(never)]` forces a single shared copy of the lookup + match +
+// indirect call rather than duplicating it into each monomorphization of the
+// generic `spawn`. `#[track_caller]` keeps the original call site flowing
+// through to `handle_uninitialized_spawn` for diagnostics.
+#[inline(never)]
+#[track_caller]
+fn dispatch_spawn(fut: PinnedFuture<()>) {
+    if let Some(fns) = current_executor_fns() {
+        (fns.spawn)(fut)
+    } else {
+        // No executor set for this thread or globally.
+        handle_uninitialized_spawn(fut);
+    }
+}
+
+// Non-generic dispatch tail shared by every `Executor::spawn_local` call site.
+// See `dispatch_spawn`.
+#[inline(never)]
+#[track_caller]
+fn dispatch_spawn_local(fut: PinnedLocalFuture<()>) {
+    if let Some(fns) = current_executor_fns() {
+        (fns.spawn_local)(fut)
+    } else {
+        // No executor set for this thread or globally.
+        handle_uninitialized_spawn_local(fut);
+    }
+}
+
 // No-op functions to use when an executor doesn't support a specific operation.
 #[cfg(any(feature = "tokio", feature = "wasm-bindgen", feature = "glib"))]
 #[cold]
@@ -129,34 +158,27 @@ impl Executor {
     ///
     /// Uses the globally configured executor.
     /// Panics if no global executor has been initialized.
-    #[inline(always)]
+    #[inline]
     #[track_caller]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-        let pinned_fut = Box::pin(fut);
-
-        if let Some(fns) = current_executor_fns() {
-            (fns.spawn)(pinned_fut)
-        } else {
-            // No executor set for this thread or globally.
-            handle_uninitialized_spawn(pinned_fut);
-        }
+        // Only the `Box::pin` coercion to `dyn Future` is generic over the
+        // concrete future type and must be monomorphized per call site; the
+        // executor lookup and dispatch live in the non-generic
+        // `dispatch_spawn`, so a single shared copy of that logic is emitted
+        // instead of one inlined copy per (call site × future type).
+        dispatch_spawn(Box::pin(fut));
     }
 
     /// Spawns a [`Future`] that cannot be sent across threads.
     ///
     /// Uses the globally configured executor.
     /// Panics if no global executor has been initialized.
-    #[inline(always)]
+    #[inline]
     #[track_caller]
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
-        let pinned_fut = Box::pin(fut);
-
-        if let Some(fns) = current_executor_fns() {
-            (fns.spawn_local)(pinned_fut)
-        } else {
-            // No executor set for this thread or globally.
-            handle_uninitialized_spawn_local(pinned_fut);
-        }
+        // See `spawn`: keep the per-type work to just `Box::pin` and route the
+        // shared dispatch through the outlined `dispatch_spawn_local`.
+        dispatch_spawn_local(Box::pin(fut));
     }
 
     /// Waits until the next "tick" of the current async executor.
