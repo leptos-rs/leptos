@@ -57,7 +57,7 @@ where
 
     async fn try_into_string(self) -> Result<String, Error> {
         let bytes = Req::<Error>::try_into_bytes(self).await?;
-        String::from_utf8(bytes.to_vec()).map_err(|e| {
+        String::from_utf8(bytes.into()).map_err(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
     }

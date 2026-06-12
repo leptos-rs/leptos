@@ -222,33 +222,35 @@ where
     CustErr: Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ServerFnError::Registration(s) => format!(
-                    "error while trying to register the server function: {s}"
-                ),
-                ServerFnError::Request(s) => format!(
-                    "error reaching server to call server function: {s}"
-                ),
-                ServerFnError::ServerError(s) =>
-                    format!("error running server function: {s}"),
-                ServerFnError::MiddlewareError(s) =>
-                    format!("error running middleware: {s}"),
-                ServerFnError::Deserialization(s) =>
-                    format!("error deserializing server function results: {s}"),
-                ServerFnError::Serialization(s) =>
-                    format!("error serializing server function arguments: {s}"),
-                ServerFnError::Args(s) => format!(
-                    "error deserializing server function arguments: {s}"
-                ),
-                ServerFnError::MissingArg(s) => format!("missing argument {s}"),
-                ServerFnError::Response(s) =>
-                    format!("error generating HTTP response: {s}"),
-                ServerFnError::WrappedServerError(e) => format!("{e}"),
+        match self {
+            ServerFnError::Registration(s) => write!(
+                f,
+                "error while trying to register the server function: {s}"
+            ),
+            ServerFnError::Request(s) => {
+                write!(f, "error reaching server to call server function: {s}")
             }
-        )
+            ServerFnError::ServerError(s) => {
+                write!(f, "error running server function: {s}")
+            }
+            ServerFnError::MiddlewareError(s) => {
+                write!(f, "error running middleware: {s}")
+            }
+            ServerFnError::Deserialization(s) => {
+                write!(f, "error deserializing server function results: {s}")
+            }
+            ServerFnError::Serialization(s) => {
+                write!(f, "error serializing server function arguments: {s}")
+            }
+            ServerFnError::Args(s) => {
+                write!(f, "error deserializing server function arguments: {s}")
+            }
+            ServerFnError::MissingArg(s) => write!(f, "missing argument {s}"),
+            ServerFnError::Response(s) => {
+                write!(f, "error generating HTTP response: {s}")
+            }
+            ServerFnError::WrappedServerError(e) => write!(f, "{e}"),
+        }
     }
 }
 
@@ -312,7 +314,7 @@ where
     type Error = String;
 
     fn decode(bytes: Bytes) -> Result<ServerFnError<CustErr>, Self::Error> {
-        let data = String::from_utf8(bytes.to_vec())
+        let data = String::from_utf8(bytes.into())
             .map_err(|err| format!("UTF-8 conversion error: {err}"))?;
 
         data.split_once('|')

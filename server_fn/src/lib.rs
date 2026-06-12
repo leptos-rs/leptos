@@ -652,17 +652,11 @@ where
         let output = server_fn(input.into()).await?;
 
         let output = output.stream.map(|output| {
-            let result = match output {
-                Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
-                    OutputStreamError::from_server_fn_error(
-                        ServerFnErrorErr::Serialization(e.to_string()),
-                    )
-                    .ser()
-                    .body
-                }),
-                Err(err) => Err(err.ser().body),
-            };
-            serialize_result(result)
+            encode_websocket_frame::<
+                OutputEncoding,
+                OutputItem,
+                OutputStreamError,
+            >(output)
         });
 
         Server::spawn(async move {
@@ -694,21 +688,11 @@ where
                 pin_mut!(input);
                 pin_mut!(sink);
                 while let Some(input) = input.stream.next().await {
-                    let result = match input {
-                        Ok(input) => {
-                            InputEncoding::encode(&input).map_err(|e| {
-                                InputStreamError::from_server_fn_error(
-                                    ServerFnErrorErr::Serialization(
-                                        e.to_string(),
-                                    ),
-                                )
-                                .ser()
-                                .body
-                            })
-                        }
-                        Err(err) => Err(err.ser().body),
-                    };
-                    let result = serialize_result(result);
+                    let result = encode_websocket_frame::<
+                        InputEncoding,
+                        InputItem,
+                        InputStreamError,
+                    >(input);
                     if sink.send(result).await.is_err() {
                         break;
                     }
@@ -763,6 +747,36 @@ fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
             buf.extend_from_slice(&bytes);
             buf.freeze()
         }
+    }
+}
+
+// Encodes one streamed websocket item directly into a tagged frame.
+// Format: [tag: u8][content: Bytes] (see `serialize_result`).
+//
+// The Ok payload is serialized straight after the tag byte via
+// `Encodes::encode_into`, so codecs with an incremental serializer avoid the
+// extra allocation and full copy that prepending the tag to an already-encoded
+// `Bytes` would otherwise require. The Err path (an already-serialized error
+// body, the rare case) is framed through `serialize_result`.
+fn encode_websocket_frame<Enc, T, E>(item: Result<T, E>) -> Bytes
+where
+    Enc: Encodes<T>,
+    E: FromServerFnError,
+{
+    match item {
+        Ok(value) => {
+            let mut buf = BytesMut::new();
+            buf.put_u8(0); // Tag for Ok variant
+            match Enc::encode_into(&value, &mut buf) {
+                Ok(()) => buf.freeze(),
+                Err(e) => serialize_result(Err(E::from_server_fn_error(
+                    ServerFnErrorErr::Serialization(e.to_string()),
+                )
+                .ser()
+                .body)),
+            }
+        }
+        Err(err) => serialize_result(Err(err.ser().body)),
     }
 }
 
@@ -848,6 +862,21 @@ pub trait Encodes<T>: ContentType + FormatType {
 
     /// Encodes the given value into a bytes.
     fn encode(output: &T) -> Result<Bytes, Self::Error>;
+
+    /// Encodes the given value by appending it to an existing buffer.
+    ///
+    /// This lets callers that need to prepend their own framing (for example the
+    /// websocket `[tag][payload]` format) serialize straight into a buffer they
+    /// already own, avoiding the extra allocation and full copy that prepending
+    /// to an already-encoded [`Bytes`] would require.
+    ///
+    /// The default implementation falls back to [`encode`](Encodes::encode) and
+    /// copies the result; codecs whose serializer can write incrementally should
+    /// override it to write directly into `buf`.
+    fn encode_into(output: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        buf.extend_from_slice(&Self::encode(output)?);
+        Ok(())
+    }
 }
 
 /// A trait for types that can be decoded from a bytes for a response body.
@@ -868,14 +897,16 @@ pub use inventory;
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
         std::sync::LazyLock::new(|| {
-            std::sync::RwLock::new(
-                $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
-                    .into_iter()
-                    .map(|obj| {
-                        ((obj.path().to_string(), obj.method()), obj.clone())
-                    })
-                    .collect(),
-            )
+            let mut map: std::collections::HashMap<
+                Method,
+                std::collections::HashMap<String, ServerFnTraitObj<$req, $res>>,
+            > = std::collections::HashMap::new();
+            for obj in $crate::inventory::iter::<ServerFnTraitObj<$req, $res>> {
+                map.entry(obj.method())
+                    .or_default()
+                    .insert(obj.path().to_string(), obj.clone());
+            }
+            std::sync::RwLock::new(map)
         })
     };
 }
@@ -987,8 +1018,9 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 }
 
 #[allow(unused)] // used by server integrations
-type LazyServerFnMap<Req, Res> =
-    LazyLock<RwLock<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
+type LazyServerFnMap<Req, Res> = LazyLock<
+    RwLock<HashMap<Method, HashMap<String, ServerFnTraitObj<Req, Res>>>>,
+>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1071,10 +1103,17 @@ pub mod axum {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1083,6 +1122,7 @@ pub mod axum {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1119,11 +1159,11 @@ pub mod axum {
         path: &str,
         method: Method,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
-        let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&key)
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
@@ -1193,10 +1233,17 @@ pub mod actix {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1205,6 +1252,7 @@ pub mod actix {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1260,7 +1308,8 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&(path.into(), method))
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();

@@ -2,7 +2,7 @@ use crate::{
     ContentType, Decodes, Encodes, Format, FormatType,
     codec::{Patch, Post, Put},
 };
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// A codec for Postcard.
@@ -24,6 +24,14 @@ where
 
     fn encode(value: &T) -> Result<Bytes, Self::Error> {
         postcard::to_allocvec(value).map(Bytes::from)
+    }
+
+    fn encode_into(value: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        // `to_extend` appends into the buffer we already own (which holds any
+        // framing written before it); `mem::take` hands it over by move, so the
+        // existing contents are not copied.
+        *buf = postcard::to_extend(value, std::mem::take(buf))?;
+        Ok(())
     }
 }
 
