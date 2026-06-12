@@ -1028,9 +1028,24 @@ where
                 // client after hydration; fall back to a bare path when the
                 // host is unknown. Building the `RequestUrl` here, before the
                 // request is consumed below, keeps the borrow of `req` short.
-                let request_url = match request_origin(&req) {
-                    Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
-                    None => RequestUrl::new(path),
+                let request_url = match request_scheme_and_host(&req) {
+                    (scheme, Some(host)) => {
+                        // assemble once in a pre-sized buffer;
+                        // `RequestUrl::new` then makes the one unavoidable
+                        // copy into its `Arc<str>`
+                        let mut url = String::with_capacity(
+                            scheme.len()
+                                + "://".len()
+                                + host.len()
+                                + path.len(),
+                        );
+                        url.push_str(scheme);
+                        url.push_str("://");
+                        url.push_str(host);
+                        url.push_str(path);
+                        RequestUrl::new(&url)
+                    }
+                    _ => RequestUrl::new(path),
                 };
                 // The body is never read during rendering (SSR is driven by the
                 // path string and the head we put in context) and we own `req`,
@@ -1084,20 +1099,22 @@ fn provide_contexts(
     leptos::nonce::provide_nonce();
 }
 
-/// Reconstructs the request's origin (`scheme://host`) for `Url::origin()`.
+/// Extracts the request's scheme and host for reconstructing its origin
+/// (`scheme://host`) for `Url::origin()`, borrowed from the request so the
+/// caller can assemble the full URL in a single allocation.
 ///
 /// The host comes from the URI authority (absolute-form requests) or the
 /// `Host` header (the usual origin-form). The scheme comes from the URI or,
 /// behind a TLS-terminating proxy, the `X-Forwarded-Proto` header, defaulting
-/// to `http`. Returns `None` when no host is present, in which case only the
-/// path is used.
-fn request_origin(req: &Request<Body>) -> Option<String> {
+/// to `http`. The host is `None` when the request carries none, in which case
+/// only the path is used.
+fn request_scheme_and_host(req: &Request<Body>) -> (&str, Option<&str>) {
     let uri = req.uri();
     let host = uri.authority().map(|a| a.as_str()).or_else(|| {
         req.headers()
             .get(header::HOST)
             .and_then(|value| value.to_str().ok())
-    })?;
+    });
     let scheme = uri
         .scheme_str()
         .or_else(|| {
@@ -1106,7 +1123,7 @@ fn request_origin(req: &Request<Body>) -> Option<String> {
                 .and_then(|value| value.to_str().ok())
         })
         .unwrap_or("http");
-    Some(format!("{scheme}://{host}"))
+    (scheme, host)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
