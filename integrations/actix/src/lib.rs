@@ -376,10 +376,10 @@ pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
     web::to(move |req: HttpRequest, payload: Payload| {
+        // the handler is `Fn`, so it clones the context closure for the
+        // `async move` block below, which owns that clone from then on
         let additional_context = additional_context.clone();
         async move {
-            let additional_context = additional_context.clone();
-
             let path = req.path();
             let method = req.method();
             if let Some(mut service) =
