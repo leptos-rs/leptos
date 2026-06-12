@@ -296,8 +296,14 @@ pub fn accept_header_includes_html(accept: &str) -> bool {
 /// into one (`%2e`, `%2f`, `%5c`), and a backslash (a path separator on
 /// Windows).
 fn is_path_traversal(path: &str) -> bool {
-    let lower = path.to_ascii_lowercase();
-    if lower.contains("%2e") || lower.contains("%2f") || lower.contains("%5c") {
+    // %2e/%2E, %2f/%2F, %5c/%5C — only the hex letter is case-insensitive,
+    // so fold case on that byte alone (`| 0x20` lowercases ASCII letters)
+    // instead of lowercasing a copy of the whole path
+    if path.as_bytes().windows(3).any(|w| {
+        w[0] == b'%'
+            && ((w[1] == b'2' && matches!(w[2] | 0x20, b'e' | b'f'))
+                || (w[1] == b'5' && (w[2] | 0x20) == b'c'))
+    }) {
         return true;
     }
     path.split('/')
