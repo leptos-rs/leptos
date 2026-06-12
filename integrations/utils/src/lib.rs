@@ -269,6 +269,18 @@ where
 /// `application/x-text/html-fake` (an unrelated, unparseable range) are both
 /// correctly treated as *not* accepting HTML.
 pub fn accept_header_includes_html(accept: &str) -> bool {
+    // necessary-condition gate: any matching `text/html` range must contain
+    // the substring "html", so a header without it can never match; this
+    // skips the per-range mime parse for the common `application/json`
+    // server-fn case. Only negatives short-circuit — anything that could
+    // match still flows through the full parser below.
+    if !accept
+        .as_bytes()
+        .windows(4)
+        .any(|w| w.eq_ignore_ascii_case(b"html"))
+    {
+        return false;
+    }
     accept.split(',').any(|range| {
         let Ok(media) = range.trim().parse::<mime::Mime>() else {
             return false;
