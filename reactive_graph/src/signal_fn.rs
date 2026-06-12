@@ -181,9 +181,39 @@ impl_readable_deref_arena_signal_types![
     Signal,
     ArcSignal,
     ArcMemo,
-    MaybeSignal,
-    MaybeProp
+    MaybeSignal
 ];
+
+#[allow(deprecated)]
+impl<
+    T: Clone + 'static,
+    S: Storage<T>
+        + Storage<Option<T>>
+        + Storage<SignalTypes<Option<T>, S>>
+        + 'static,
+> std::ops::Deref for MaybeProp<T, S>
+where
+    MaybeProp<T, S>: crate::traits::Get<Value = Option<T>>,
+{
+    type Target = dyn Fn() -> Option<T>;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { readable_deref_impl::ReadableDerefImpl::deref_impl(self) }
+    }
+}
+
+#[allow(deprecated)]
+impl<
+    T: Clone + 'static,
+    S: Storage<T>
+        + Storage<Option<T>>
+        + Storage<SignalTypes<Option<T>, S>>
+        + 'static,
+> readable_deref_impl::ReadableDerefImpl for MaybeProp<T, S>
+where
+    MaybeProp<T, S>: crate::traits::Get<Value = Option<T>>,
+{
+}
 
 // =============================================================================
 // Write-side Deref impls: Deref<Target = dyn Fn(T)>
