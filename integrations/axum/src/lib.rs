@@ -2790,13 +2790,19 @@ mod tests {
         );
     }
 
-    // Test if the correct status code is set on the redirect
+    // Test if the correct status code is set on the redirect. The redirect
+    // status is only set for requests that accept HTML (a plain navigation
+    // or form post); other clients get the redirect marker header instead.
     #[test]
     fn redirect_sets_302() {
         let owner = Owner::new();
         let res = ResponseOptions::default();
         owner.with(|| {
-            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            let (parts, _) = Request::builder()
+                .header(ACCEPT, "text/html")
+                .body(())
+                .unwrap()
+                .into_parts();
             provide_context(parts);
             provide_context(res.clone());
 
@@ -2812,7 +2818,11 @@ mod tests {
         let owner = Owner::new();
         let res = ResponseOptions::default();
         owner.with(|| {
-            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            let (parts, _) = Request::builder()
+                .header(ACCEPT, "text/html")
+                .body(())
+                .unwrap()
+                .into_parts();
             provide_context(parts);
             provide_context(res.clone());
 
