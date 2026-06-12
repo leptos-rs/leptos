@@ -101,7 +101,7 @@ pub trait ExtendResponse: Sized {
 
             let sc = owner.shared_context().unwrap();
 
-            let stream = stream.await.ready_chunks(32).map(|n| n.join(""));
+            let stream = stream.await.ready_chunks(32).map(flush_ready_chunks);
 
             while let Some(pending) = sc.await_deferred() {
                 pending.await;
@@ -177,6 +177,22 @@ pub trait ExtendResponse: Sized {
 
             res
         }
+    }
+}
+
+/// Collapses one `ready_chunks` batch of stream chunks into a single item.
+///
+/// Batching already-ready chunks is an I/O win: each item becomes one HTTP
+/// frame downstream. But while streaming, chunks usually become ready one
+/// resource resolution at a time, so the typical batch holds exactly one
+/// chunk — and `join("")` would allocate and copy even then. Move the only
+/// chunk out instead, and only pay for concatenation when there is something
+/// to concatenate.
+fn flush_ready_chunks(mut chunks: Vec<String>) -> String {
+    if chunks.len() == 1 {
+        chunks.pop().unwrap_or_default()
+    } else {
+        chunks.join("")
     }
 }
 
@@ -393,6 +409,20 @@ mod tests {
         assert_eq!(
             static_file_path(&options, "/a/./b"),
             Some("/var/www/site/static/a/./b.html".into())
+        );
+    }
+
+    #[test]
+    fn flush_ready_chunks_moves_singletons_and_joins_batches() {
+        assert_eq!(flush_ready_chunks(Vec::new()), "");
+        assert_eq!(flush_ready_chunks(vec!["a".to_string()]), "a");
+        assert_eq!(
+            flush_ready_chunks(vec![
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string()
+            ]),
+            "abc"
         );
     }
 
