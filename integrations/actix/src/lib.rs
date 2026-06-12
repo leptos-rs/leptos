@@ -1373,7 +1373,7 @@ async fn write_static_route(
 
     let path = Path::new(&file_path);
     // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that is then served (because `try_exists` reports it as present).
+    // file that a concurrent request could open and serve.
     write_file_atomic(path, html.as_bytes()).await
 }
 
@@ -1405,49 +1405,60 @@ where
                     return HttpResponse::NotFound().finish();
                 };
                 let path = Path::new(&file_path);
-                let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+                // Open the file directly instead of probing with `try_exists`
+                // first: a `NotFound` error is the signal that the route still
+                // needs to be generated. This saves a `stat` on every cached
+                // request, closes the TOCTOU window between check and open,
+                // and `open_async` keeps the open/stat syscalls off the
+                // reactor thread (the synchronous `NamedFile::open` would
+                // stall the worker on slow storage).
+                let opened = NamedFile::open_async(path).await;
 
-                let (response_options, html) = if !exists {
-                    let path = ResolvedStaticPath::new(orig_path);
+                let (opened, response_options, html) = match opened {
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        let path = ResolvedStaticPath::new(orig_path);
 
-                    let (owner, html) = path
-                        .build(
-                            move |path: &ResolvedStaticPath| {
-                                StaticRouteGenerator::render_route(
-                                    path.to_string(),
-                                    app_fn.clone(),
-                                    additional_context.clone(),
-                                )
-                            },
-                            move |path: &ResolvedStaticPath,
-                                  owner: &Owner,
-                                  html: String| {
-                                let options = options.clone();
-                                let path = path.to_owned();
-                                let response_options = owner.with(use_context);
-                                async move {
-                                    write_static_route(
-                                        &options,
-                                        response_options,
-                                        path.as_ref(),
-                                        &html,
+                        let (owner, html) = path
+                            .build(
+                                move |path: &ResolvedStaticPath| {
+                                    StaticRouteGenerator::render_route(
+                                        path.to_string(),
+                                        app_fn.clone(),
+                                        additional_context.clone(),
                                     )
-                                    .await
-                                }
-                            },
-                            was_404,
-                            regenerate,
-                        )
-                        .await;
-                    (owner.with(use_context::<ResponseOptions>), html)
-                } else {
-                    // `LruCache::get` updates recency, so it needs a write lock.
-                    let headers = STATIC_HEADERS
-                        .write()
-                        .or_poisoned()
-                        .get(orig_path)
-                        .cloned();
-                    (headers, None)
+                                },
+                                move |path: &ResolvedStaticPath,
+                                      owner: &Owner,
+                                      html: String| {
+                                    let options = options.clone();
+                                    let path = path.to_owned();
+                                    let response_options =
+                                        owner.with(use_context);
+                                    async move {
+                                        write_static_route(
+                                            &options,
+                                            response_options,
+                                            path.as_ref(),
+                                            &html,
+                                        )
+                                        .await
+                                    }
+                                },
+                                was_404,
+                                regenerate,
+                            )
+                            .await;
+                        (None, owner.with(use_context::<ResponseOptions>), html)
+                    }
+                    opened => {
+                        // `LruCache::get` updates recency, so it needs a write lock.
+                        let headers = STATIC_HEADERS
+                            .write()
+                            .or_poisoned()
+                            .get(orig_path)
+                            .cloned();
+                        (Some(opened), headers, None)
+                    }
                 };
 
                 // if html is Some(_), it means that `was_error_response` is true and we're not
@@ -1459,25 +1470,34 @@ where
                     Some(html) => {
                         HttpResponse::Ok().content_type("text/html").body(html)
                     }
-                    None => match NamedFile::open(path) {
-                        Ok(res) => res.into_response(&req),
-                        // The cached file can be removed or replaced between
-                        // the `try_exists` check above and this open (a TOCTOU
-                        // race). Do not render the raw filesystem error into
-                        // the body — that leaks server-side path and OS error
-                        // details — log it and return a generic 500.
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!(
-                                "failed to serve static file {}: {err}",
-                                path.display()
-                            );
-                            #[cfg(not(feature = "tracing"))]
-                            let _ = &err;
-                            HttpResponse::InternalServerError()
-                                .body("Internal Server Error")
+                    None => {
+                        // serve the file opened above or, when the route was
+                        // just generated, the freshly written file
+                        let opened = match opened {
+                            Some(opened) => opened,
+                            None => NamedFile::open_async(path).await,
+                        };
+                        match opened {
+                            Ok(file) => file.into_response(&req),
+                            // A non-NotFound error from the open above (e.g. a
+                            // permissions problem) and a failed open of a
+                            // just-generated file both land here. Do not
+                            // render the raw filesystem error into the body —
+                            // that leaks server-side path and OS error
+                            // details — log it and return a generic 500.
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::warn!(
+                                    "failed to serve static file {}: {err}",
+                                    path.display()
+                                );
+                                #[cfg(not(feature = "tracing"))]
+                                let _ = &err;
+                                HttpResponse::InternalServerError()
+                                    .body("Internal Server Error")
+                            }
                         }
-                    },
+                    }
                 });
 
                 if let Some(options) = response_options {
@@ -1928,8 +1948,8 @@ mod tests {
 
     // A static route must be written atomically: the file appears with its
     // full contents or not at all, and no temp file is left behind. Writing in
-    // place would let a crash mid-write leave a truncated/empty file that is
-    // then served (because `try_exists` reports it as present).
+    // place would let a crash mid-write leave a truncated/empty file that a
+    // concurrent request could open and serve.
     #[actix_web::test]
     async fn write_static_route_is_atomic() {
         let dir = std::env::temp_dir().join(format!(
