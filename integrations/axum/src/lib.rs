@@ -299,7 +299,7 @@ pub fn redirect(path: &str, permanent: bool) {
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
             res.insert_header(
                 HeaderName::from_static(REDIRECT_HEADER),
-                HeaderValue::from_str("").unwrap(),
+                HeaderValue::from_static(""),
             );
         }
     } else {
@@ -431,12 +431,14 @@ async fn handle_server_fns_inner(
     req: Request<Body>,
 ) -> impl IntoResponse {
     let method = req.method().clone();
-    let path = req.uri().path().to_string();
-    let (req, parts) = generate_request_and_parts(req);
 
+    // look up the service on the borrowed path before decomposing the
+    // request; the owned error-message String is only built on the cold
+    // (not-found) branch below
     if let Some(mut service) =
-        server_fn::axum::get_server_fn_service(&path, method)
+        server_fn::axum::get_server_fn_service(req.uri().path(), method)
     {
+        let (req, parts) = generate_request_and_parts(req);
         let owner = Owner::new();
         owner
             .with(|| {
@@ -476,6 +478,7 @@ async fn handle_server_fns_inner(
             })
             .await
     } else {
+        let path = req.uri().path();
         Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body(Body::from(format!(
