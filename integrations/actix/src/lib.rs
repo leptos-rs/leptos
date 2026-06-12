@@ -1821,7 +1821,7 @@ mod tests {
             provide_context(Request::new(&http_req));
             provide_context(res.clone());
 
-            redirect("/login\r\nSet-Cookie: pwned=1");
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -1839,7 +1839,7 @@ mod tests {
             provide_context(Request::new(&http_req));
             provide_context(res.clone());
 
-            redirect("/dashboard");
+            redirect("/dashboard", false);
         });
 
         let parts = res.0.read().or_poisoned();
