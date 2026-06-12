@@ -1696,7 +1696,7 @@ async fn write_static_route(
 
     let path = Path::new(&file_path);
     // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that is then served (because `try_exists` reports it as present).
+    // file that a concurrent request could open and serve.
     write_file_atomic(path, html.as_bytes()).await
 }
 
@@ -1725,7 +1725,11 @@ where
         let regenerate = regenerate.clone();
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
-            let orig_path = req.uri().path();
+            // hold an owned copy of the URI: the request itself is consumed
+            // by the `ServeFile` call below, but the path is still needed
+            // afterwards (`Uri` clones are cheap, reference-counted bytes)
+            let uri = req.uri().clone();
+            let orig_path = uri.path();
             // A `None` here means the request path would escape the site root
             // (path traversal); decline it before any filesystem access.
             let Some(file_path) = static_path(&options, orig_path) else {
@@ -1737,9 +1741,15 @@ where
                 return (StatusCode::NOT_FOUND, "Not Found").into_response();
             };
             let path = Path::new(&file_path);
-            let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+            // Serve the file directly instead of probing with `try_exists`
+            // first: `ServeFile` answers the existence question itself (a
+            // missing file becomes a 404 response, its documented behaviour),
+            // which saves a `stat` on every cached request and closes the
+            // TOCTOU window between check and open.
+            let served = ServeFile::new(path).oneshot(req).await;
+            let needs_generation = matches!(&served, Ok(res) if res.status() == StatusCode::NOT_FOUND);
 
-            let (response_options, html) = if !exists {
+            let (served, response_options, html) = if needs_generation {
                 let path = ResolvedStaticPath::new(orig_path);
 
                 let (owner, html) = path
@@ -1771,7 +1781,7 @@ where
                         regenerate,
                     )
                     .await;
-                (owner.with(use_context::<ResponseOptions>), html)
+                (None, owner.with(use_context::<ResponseOptions>), html)
             } else {
                 // `LruCache::get` updates recency, so it needs a write lock.
                 let headers = STATIC_HEADERS
@@ -1779,7 +1789,7 @@ where
                     .or_poisoned()
                     .get(orig_path)
                     .cloned();
-                (headers, None)
+                (Some(served), headers, None)
             };
 
             // if html is Some(_), it means that `was_error_response` is true and we're not
@@ -1800,23 +1810,49 @@ where
                     *response.status_mut() = StatusCode::NOT_FOUND;
                     response
                 }
-                None => match ServeFile::new(path).oneshot(req).await {
-                    Ok(res) => res.into_response(),
-                    // The cached file can be removed between the `try_exists`
-                    // check above and this read (a TOCTOU race). Do not render
-                    // the raw filesystem error into the body — that leaks
-                    // server paths — log it and return a generic 500.
-                    Err(err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::warn!(
-                            "failed to serve static file {}: {err}",
-                            path.display()
-                        );
-                        #[cfg(not(feature = "tracing"))]
-                        let _ = &err;
-                        internal_server_error()
+                None => {
+                    // use the response obtained above or, when the route was
+                    // just generated, serve the freshly written file; the
+                    // original request was consumed by the first `ServeFile`
+                    // call, so build a bare GET for the same URI (the
+                    // generation path never reads the body)
+                    let served = match served {
+                        Some(served) => served,
+                        None => match Request::builder()
+                            .uri(uri)
+                            .body(Body::empty())
+                        {
+                            Ok(req) => ServeFile::new(path).oneshot(req).await,
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::warn!(
+                                    "failed to build static file request: \
+                                     {err}"
+                                );
+                                #[cfg(not(feature = "tracing"))]
+                                let _ = &err;
+                                return internal_server_error();
+                            }
+                        },
+                    };
+                    match served {
+                        Ok(res) => res.into_response(),
+                        // A failed read of a just-generated file lands here.
+                        // Do not render the raw filesystem error into the
+                        // body — that leaks server paths — log it and return
+                        // a generic 500.
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::warn!(
+                                "failed to serve static file {}: {err}",
+                                path.display()
+                            );
+                            #[cfg(not(feature = "tracing"))]
+                            let _ = &err;
+                            internal_server_error()
+                        }
                     }
-                },
+                }
             });
 
             if let Some(options) = response_options {
