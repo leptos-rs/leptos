@@ -834,14 +834,28 @@ fn request_url(req: &HttpRequest) -> RequestUrl {
     // `connection_info` resolves the scheme and host, honoring reverse-proxy
     // forwarding headers.
     let conn = req.connection_info();
-    let origin = format!("{}://{}", conn.scheme(), conn.host());
+    let scheme = conn.scheme();
+    let host = conn.host();
     let path = req.path();
     let query = req.query_string();
-    if query.is_empty() {
-        RequestUrl::new(&format!("{origin}{path}"))
-    } else {
-        RequestUrl::new(&format!("{origin}{path}?{query}"))
+    // assemble once in a pre-sized buffer; `RequestUrl::new` then makes the
+    // one unavoidable copy into its `Arc<str>`
+    let mut url = String::with_capacity(
+        scheme.len()
+            + "://".len()
+            + host.len()
+            + path.len()
+            + if query.is_empty() { 0 } else { 1 + query.len() },
+    );
+    url.push_str(scheme);
+    url.push_str("://");
+    url.push_str(host);
+    url.push_str(path);
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(query);
     }
+    RequestUrl::new(&url)
 }
 
 #[allow(clippy::type_complexity)]
