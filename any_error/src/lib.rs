@@ -23,15 +23,7 @@ use std::{
 pub struct Error(Arc<dyn error::Error + Send + Sync>);
 
 impl Error {
-    /// Wraps a concrete, sized error in a single heap allocation.
-    ///
-    /// The blanket [`From`] conversion must first box the value into a
-    /// `Box<dyn Error>` and then move it again behind an `Arc` — two
-    /// allocations plus a `memcpy`, because `Arc::from(Box<T>)` cannot reuse the
-    /// box's allocation (the `Arc` needs to prepend its refcount header). This
-    /// constructor places the error directly into the `Arc`, costing exactly one
-    /// allocation and no copy. Prefer it on hot error paths whenever the
-    /// concrete error type is known at the call site.
+    /// Wraps a concrete, sized error.
     pub fn new<E>(err: E) -> Self
     where
         E: error::Error + Send + Sync + 'static,
