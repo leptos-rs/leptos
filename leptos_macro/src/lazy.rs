@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use proc_macro_error2::{abort, OptionExt, ResultExt};
+use proc_macro_error2::abort;
 use quote::{format_ident, quote};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
@@ -113,12 +113,17 @@ impl Parse for LazyPath {
 }
 
 pub fn lazy_preload_impl(s: proc_macro::TokenStream) -> TokenStream {
-    let LazyPath(mut path) = syn::parse::<LazyPath>(s).expect_or_abort(
-        "`lazy_preload` only takes a function path as argument",
-    );
-    let last_segment = path.segments.last_mut().expect_or_abort(
-        "`lazy_preload` needs a path ending with an identifier",
-    );
+    let LazyPath(mut path) = syn::parse::<LazyPath>(s).unwrap_or_else(|e| {
+        abort!(
+            e.span(),
+            "`lazy_preload` only takes a function path as argument"
+        )
+    });
+    let last_segment = path.segments.last_mut().unwrap_or_else(|| {
+        abort_call_site!(
+            "`lazy_preload` needs a path ending with an identifier"
+        )
+    });
     last_segment.ident = preload_name(&last_segment.ident);
 
     let preload_call = if cfg!(feature = "hydrate") {
