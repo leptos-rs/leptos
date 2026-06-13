@@ -23,10 +23,14 @@ use leptos::{
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::{ArcMemo, ScopedFuture},
+    computed::{ArcMemo, ScopedFuture, suspense::RouteSettleContext},
+    effect::Effect,
     owner::{Owner, provide_context, use_context},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
+    traits::{
+        Dispose, Get, GetUntracked, Notify, ReadUntracked, Set, Track, With,
+        Write,
+    },
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
@@ -179,9 +183,18 @@ where
                 }
             }
             Some(route) => {
-                if let Some(set_is_routing) = self.set_is_routing {
+                // when `set_is_routing` is used, set up a context that the new
+                // route's suspense boundaries register with, so we can keep
+                // `is_routing` true until the route — including content gated
+                // behind a `<ProtectedRoute>`, whose resources are only created
+                // when the route is built — has finished loading
+                let route_settle = self.set_is_routing.map(|set_is_routing| {
                     set_is_routing.set(true);
-                }
+                    let route_settle = RouteSettleContext::new();
+                    self.outer_owner
+                        .with(|| provide_context(route_settle.clone()));
+                    route_settle
+                });
 
                 let mut preloaders = Vec::new();
                 let mut full_loaders = Vec::new();
@@ -236,9 +249,17 @@ where
                 });
 
                 let abort_navigation = state.abort_navigation.clone();
+                let settle_owner = self.outer_owner.clone();
                 Executor::spawn_local(async move {
                     join_all(full_loaders).await;
                     _ = abort_navigation.write_value().take();
+                    // wait for the newly built route subtree (including any
+                    // `<ProtectedRoute>` content) to finish loading before
+                    // clearing `is_routing`
+                    if let Some(route_settle) = route_settle {
+                        wait_until_route_settled(route_settle, &settle_owner)
+                            .await;
+                    }
                     if let Some(set_is_routing) = self.set_is_routing {
                         set_is_routing.set(false);
                     }
@@ -1072,6 +1093,34 @@ where
 
     fn elements(&self) -> Vec<tachys::renderer::types::Element> {
         self.view.elements()
+    }
+}
+
+/// Resolves once every `<Suspense>`/`<Transition>` in the newly built route
+/// subtree has released its [`RouteSettleContext`] task — i.e. the route's async
+/// content (including anything gated behind a `<ProtectedRoute>`) has loaded.
+pub(crate) fn wait_until_route_settled(
+    route_settle: RouteSettleContext,
+    owner: &Owner,
+) -> impl Future<Output = ()> {
+    let tasks = route_settle.tasks();
+    let (tx, rx) = oneshot::channel::<()>();
+    let tx = Mutex::new(Some(tx));
+    // tracks the task set; resolves as soon as it is empty
+    let effect = owner.with(|| {
+        Effect::new_isomorphic(move |_| {
+            if !tasks.with(|tasks| tasks.is_empty()) {
+                return;
+            }
+            if let Some(tx) = tx.lock().or_poisoned().take() {
+                _ = tx.send(());
+            }
+        })
+    });
+    async move {
+        _ = rx.await;
+        // the effect lives on the route owner; dispose it now that we're done
+        effect.dispose();
     }
 }
 

@@ -26,3 +26,5 @@ tracing = "0.1.40"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["History"] }
