@@ -2125,6 +2125,7 @@ dependencies = [
  "anyhow",
  "axum",
  "futures",
+ "http-body-util",
  "hydration_context",
  "leptos",
  "leptos_integration_utils",
