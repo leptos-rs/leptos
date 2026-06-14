@@ -1328,7 +1328,7 @@ const STATIC_HEADERS_DEFAULT_CAPACITY: NonZeroUsize =
 /// A missing, unparseable, or zero value falls back to the default.
 const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
 
-static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseOptions>>> =
+static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseParts>>> =
     LazyLock::new(|| {
         let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
             .ok()
@@ -1337,6 +1337,23 @@ static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseOptions>>> =
             .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
         RwLock::new(LruCache::new(capacity))
     });
+
+/// Apply a cached [`ResponseParts`] snapshot to a response.
+///
+/// `STATIC_HEADERS` caches the headers and status captured when a route was
+/// generated. Unlike [`ExtendResponse::extend_response`], which drains its
+/// `ResponseOptions` with `std::mem::take` (fine for a single-use,
+/// request-scoped value), this clones the cached headers so the same snapshot
+/// can be re-applied to every cache hit without emptying the entry.
+fn apply_response_parts(res: &mut HttpResponse, parts: &ResponseParts) {
+    let headers = res.headers_mut();
+    for (key, value) in &parts.headers {
+        headers.append(key.clone(), value.clone());
+    }
+    if let Some(status) = parts.status {
+        *res.status_mut() = status;
+    }
+}
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1379,10 +1396,15 @@ async fn write_static_route(
     };
 
     if let Some(options) = response_options {
+        // Cache an immutable snapshot of the headers/status captured during this
+        // render, not the live request's `Arc<RwLock<..>>`. The generating
+        // request still owns and drains its own `ResponseOptions` when it serves
+        // the page; the cache keeps a private copy so repeated hits can re-apply
+        // it.
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .put(path.to_string(), options);
+            .put(path.to_string(), options.0.read().or_poisoned().clone());
     }
 
     let path = Path::new(&file_path);
@@ -1494,12 +1516,16 @@ where
                         // the headers captured when it was generated.
                         //
                         // `LruCache::get` updates recency, so it needs a write lock.
-                        let response_options = STATIC_HEADERS
+                        // Clone the cached snapshot out so the lock is released
+                        // before we touch the response, then apply it
+                        // non-destructively, leaving the entry intact for the
+                        // next hit.
+                        let response_parts = STATIC_HEADERS
                             .write()
                             .or_poisoned()
                             .get(orig_path)
                             .cloned();
-                        let mut res = ActixResponse(match opened {
+                        let mut response = match opened {
                             Ok(file) => file.into_response(&req),
                             // A non-NotFound error from the open above (e.g. a
                             // permissions problem) lands here. Do not render the
@@ -1517,11 +1543,11 @@ where
                                 HttpResponse::InternalServerError()
                                     .body("Internal Server Error")
                             }
-                        });
-                        if let Some(options) = response_options {
-                            res.extend_response(&options);
+                        };
+                        if let Some(parts) = response_parts {
+                            apply_response_parts(&mut response, &parts);
                         }
-                        res.0
+                        response
                     }
                 }
             }
@@ -1839,7 +1865,7 @@ mod tests {
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
-        Method, OrPoisoned, Owner, Request, ResponseOptions,
+        Method, OrPoisoned, Owner, Request, ResponseOptions, ResponseParts,
         STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, header, provide_context,
         redirect, render_app_to_stream_with_context,
         unsupported_ssr_mode_route, write_static_route,
@@ -1916,12 +1942,12 @@ mod tests {
     // per path for the life of the process.
     #[test]
     fn static_headers_cache_is_bounded() {
-        let mut cache: LruCache<String, ResponseOptions> =
+        let mut cache: LruCache<String, ResponseParts> =
             LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
         let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
 
         for i in 0..(capacity + 10) {
-            cache.put(format!("/post/{i}"), ResponseOptions::default());
+            cache.put(format!("/post/{i}"), ResponseParts::default());
         }
 
         // never grows past capacity
