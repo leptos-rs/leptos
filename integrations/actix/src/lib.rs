@@ -36,7 +36,7 @@ use leptos_router::{
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect,
     location::RequestUrl,
-    static_routes::{RegenerationFn, ResolvedStaticPath},
+    static_routes::{RegenerationFn, ResolvedStaticPath, StaticResponse},
 };
 use lru::LruCache;
 use or_poisoned::OrPoisoned;
@@ -1428,11 +1428,17 @@ where
                 // stall the worker on slow storage).
                 let opened = NamedFile::open_async(path).await;
 
-                let (opened, response_options, html) = match opened {
+                match opened {
                     Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        // On-demand regeneration. Serve the HTML we just
+                        // rendered together with the headers captured during
+                        // the *same* render. Re-reading the freshly written
+                        // file would race concurrent regenerations of this path
+                        // (last writer wins on disk), so a request could pair
+                        // its own headers with another render's body.
                         let path = ResolvedStaticPath::new(orig_path);
 
-                        let (owner, html) = path
+                        let (owner, static_response) = path
                             .build(
                                 move |path: &ResolvedStaticPath| {
                                     StaticRouteGenerator::render_route(
@@ -1462,43 +1468,44 @@ where
                                 regenerate,
                             )
                             .await;
-                        (None, owner.with(use_context::<ResponseOptions>), html)
+
+                        let response_options =
+                            owner.with(use_context::<ResponseOptions>);
+                        // Both a generated page and an uncached error page
+                        // (e.g. a 404, gated by `was_404`) are served from
+                        // memory here; the captured `ResponseOptions` carries
+                        // the real status, applied by `extend_response` below.
+                        let html = match static_response {
+                            StaticResponse::Generated(html)
+                            | StaticResponse::Error(html) => html,
+                        };
+                        let mut res = ActixResponse(
+                            HttpResponse::Ok()
+                                .content_type("text/html")
+                                .body(html),
+                        );
+                        if let Some(options) = response_options {
+                            res.extend_response(&options);
+                        }
+                        res.0
                     }
                     opened => {
+                        // Cached hit: serve the file opened above and re-apply
+                        // the headers captured when it was generated.
+                        //
                         // `LruCache::get` updates recency, so it needs a write lock.
-                        let headers = STATIC_HEADERS
+                        let response_options = STATIC_HEADERS
                             .write()
                             .or_poisoned()
                             .get(orig_path)
                             .cloned();
-                        (Some(opened), headers, None)
-                    }
-                };
-
-                // if html is Some(_), it means that `was_error_response` is true and we're not
-                // actually going to cache this route, just return it as HTML
-                //
-                // this if for thing like 404s, where we do not want to cache an endless series of
-                // typos (or malicious requests)
-                let mut res = ActixResponse(match html {
-                    Some(html) => {
-                        HttpResponse::Ok().content_type("text/html").body(html)
-                    }
-                    None => {
-                        // serve the file opened above or, when the route was
-                        // just generated, the freshly written file
-                        let opened = match opened {
-                            Some(opened) => opened,
-                            None => NamedFile::open_async(path).await,
-                        };
-                        match opened {
+                        let mut res = ActixResponse(match opened {
                             Ok(file) => file.into_response(&req),
                             // A non-NotFound error from the open above (e.g. a
-                            // permissions problem) and a failed open of a
-                            // just-generated file both land here. Do not
-                            // render the raw filesystem error into the body —
-                            // that leaks server-side path and OS error
-                            // details — log it and return a generic 500.
+                            // permissions problem) lands here. Do not render the
+                            // raw filesystem error into the body — that leaks
+                            // server-side path and OS error details — log it and
+                            // return a generic 500.
                             Err(err) => {
                                 #[cfg(feature = "tracing")]
                                 tracing::warn!(
@@ -1510,15 +1517,13 @@ where
                                 HttpResponse::InternalServerError()
                                     .body("Internal Server Error")
                             }
+                        });
+                        if let Some(options) = response_options {
+                            res.extend_response(&options);
                         }
+                        res.0
                     }
-                });
-
-                if let Some(options) = response_options {
-                    res.extend_response(&options);
                 }
-
-                res.0
             }
         })
     };

@@ -64,7 +64,7 @@ use leptos_integration_utils::{
 };
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
-use leptos_router::static_routes::ResolvedStaticPath;
+use leptos_router::static_routes::{ResolvedStaticPath, StaticResponse};
 use leptos_router::{
     ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect, location::RequestUrl,
@@ -1769,10 +1769,16 @@ where
             let served = ServeFile::new(path).oneshot(req).await;
             let needs_generation = matches!(&served, Ok(res) if res.status() == StatusCode::NOT_FOUND);
 
-            let (served, response_options, html) = if needs_generation {
+            if needs_generation {
+                // On-demand regeneration. Serve the HTML we just rendered
+                // together with the headers captured during the *same* render.
+                // Re-reading the freshly written file would race concurrent
+                // regenerations of this path (last writer wins on disk), so a
+                // request could pair its own headers with another render's
+                // body.
                 let path = ResolvedStaticPath::new(orig_path);
 
-                let (owner, html) = path
+                let (owner, static_response) = path
                     .build(
                         move |path: &ResolvedStaticPath| {
                             StaticRouteGenerator::render_route(
@@ -1801,85 +1807,58 @@ where
                         regenerate,
                     )
                     .await;
-                (None, owner.with(use_context::<ResponseOptions>), html)
+
+                let response_options =
+                    owner.with(use_context::<ResponseOptions>);
+                // `Error` is an uncached error response (e.g. a 404, gated by
+                // `was_404`). `Html(..)` defaults to 200, so make the error
+                // status explicit rather than relying on the captured
+                // `ResponseOptions` to carry it. A custom status set by the app
+                // still overrides this via `extend_response` below.
+                let (html, default_status) = match static_response {
+                    StaticResponse::Generated(html) => (html, StatusCode::OK),
+                    StaticResponse::Error(html) => {
+                        (html, StatusCode::NOT_FOUND)
+                    }
+                };
+                let mut response = axum::response::Html(html).into_response();
+                *response.status_mut() = default_status;
+                let mut res = AxumResponse(response);
+                if let Some(options) = response_options {
+                    res.extend_response(&options);
+                }
+                res.0
             } else {
+                // Cached hit: serve the file already opened above and re-apply
+                // the headers captured when it was generated.
+                //
                 // `LruCache::get` updates recency, so it needs a write lock.
-                let headers = STATIC_HEADERS
+                let response_options = STATIC_HEADERS
                     .write()
                     .or_poisoned()
                     .get(orig_path)
                     .cloned();
-                (Some(served), headers, None)
-            };
-
-            // if html is Some(_), it means that `was_error_response` is true and we're not
-            // actually going to cache this route, just return it as HTML
-            //
-            // this if for thing like 404s, where we do not want to cache an endless series of
-            // typos (or malicious requests)
-            let mut res = AxumResponse(match html {
-                // `html` is `Some` only for an uncached error response (the
-                // `was_404` predicate gated the build). `Html(..)` defaults to
-                // 200, so make the error status explicit rather than relying
-                // on the captured `ResponseOptions` to carry it. A custom
-                // status set by the app still overrides this via
-                // `extend_response` below.
-                Some(html) => {
-                    let mut response =
-                        axum::response::Html(html).into_response();
-                    *response.status_mut() = StatusCode::NOT_FOUND;
-                    response
-                }
-                None => {
-                    // use the response obtained above or, when the route was
-                    // just generated, serve the freshly written file; the
-                    // original request was consumed by the first `ServeFile`
-                    // call, so build a bare GET for the same URI (the
-                    // generation path never reads the body)
-                    let served = match served {
-                        Some(served) => served,
-                        None => match Request::builder()
-                            .uri(uri)
-                            .body(Body::empty())
-                        {
-                            Ok(req) => ServeFile::new(path).oneshot(req).await,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::warn!(
-                                    "failed to build static file request: \
-                                     {err}"
-                                );
-                                #[cfg(not(feature = "tracing"))]
-                                let _ = &err;
-                                return internal_server_error();
-                            }
-                        },
-                    };
-                    match served {
-                        Ok(res) => res.into_response(),
-                        // A failed read of a just-generated file lands here.
-                        // Do not render the raw filesystem error into the
-                        // body — that leaks server paths — log it and return
-                        // a generic 500.
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!(
-                                "failed to serve static file {}: {err}",
-                                path.display()
-                            );
-                            #[cfg(not(feature = "tracing"))]
-                            let _ = &err;
-                            internal_server_error()
-                        }
+                let mut res = AxumResponse(match served {
+                    Ok(res) => res.into_response(),
+                    // A failed read of the cached file lands here. Do not
+                    // render the raw filesystem error into the body — that
+                    // leaks server paths — log it and return a generic 500.
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "failed to serve static file {}: {err}",
+                            path.display()
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = &err;
+                        internal_server_error()
                     }
+                });
+                if let Some(options) = response_options {
+                    res.extend_response(&options);
                 }
-            });
-
-            if let Some(options) = response_options {
-                res.extend_response(&options);
+                res.0
             }
-
-            res.0
         })
     }
 }
