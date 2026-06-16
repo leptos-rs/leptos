@@ -243,6 +243,12 @@ impl ToTokens for Segments {
 /// add a [`lazy`] annotation to the `view` method, which will cause the code for the view
 /// to lazy-load concurrently with the `data` being loaded for the route.
 ///
+/// If the view's WASM chunk fails to load (e.g. a transient network error), the error is
+/// surfaced to the nearest [`ErrorBoundary`](leptos::prelude::ErrorBoundary) instead of
+/// panicking, and the (uncached) failure is retried on the next navigation. Wrap your
+/// `<Routes/>` in an `<ErrorBoundary>` to render a fallback; without one, a failed chunk
+/// renders nothing.
+///
 /// ```rust
 /// use leptos::prelude::*;
 /// use leptos_router::{lazy_route, LazyRoute};
@@ -321,8 +327,12 @@ fn lazy_route_impl(
                     // TODO for 0.9 this is not precise
                     // we don't split routes for wasm32 ssr
                     // but we don't require a `hydrate`/`csr` feature on leptos_router
+                    //
+                    // Best-effort prefetch: discard a load error here (it is not
+                    // cached) so a failed chunk does not panic; `view()` surfaces
+                    // the error on the retry, where an `<ErrorBoundary>` can catch it.
                     #[cfg(target_arch = "wasm32")]
-                    #preload_ident().await;
+                    let _ = #preload_ident().await;
                 }
             }
             .into(),
@@ -380,18 +390,32 @@ fn lazy_route_impl(
 
             let body = std::mem::replace(
                 &mut fun.block,
-                parse_quote!({ #lazy_view_ident(#this_ident).await }),
+                parse_quote!({
+                    // The split view fn is `fallible`, so it returns
+                    // `Result<AnyView, SplitLoaderError>`. Erase it with
+                    // `into_any()`: on `Err`, the `Result` renders to the
+                    // nearest `<ErrorBoundary>` instead of panicking.
+                    ::leptos::prelude::IntoAny::into_any(
+                        #lazy_view_ident(#this_ident).await,
+                    )
+                }),
             );
 
             quote! {
                 #[allow(non_snake_case)]
-                #[::leptos::lazy]
-                fn #lazy_view_ident(#user_pat: #self_ty) -> ::leptos::prelude::AnyView {
-                    #body
+                #[::leptos::lazy(fallible)]
+                fn #lazy_view_ident(
+                    #user_pat: #self_ty,
+                ) -> ::core::result::Result<
+                    ::leptos::prelude::AnyView,
+                    ::leptos::wasm_split::SplitLoaderError,
+                > {
+                    ::core::result::Result::Ok(#body)
                 }
 
                 #im
-            }.into()
+            }
+            .into()
         }
     }
 }

@@ -39,15 +39,22 @@ pub fn App() -> impl IntoView {
             </span>
         </nav>
         <Router set_is_routing>
-            <Routes fallback=|| "Not found.">
-                <Route path=StaticSegment("") view=ViewA/>
-                <Route path=StaticSegment("b") view=ViewB/>
-                <Route path=StaticSegment("c") view={Lazy::<ViewC>::new()}/>
-                // you can nest lazy routes, and there data and views will all load concurrently
-                <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
-                    <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
-                </ParentRoute>
-            </Routes>
+            // If a lazy route's chunk fails to load, its view renders an `Err`,
+            // which this `<ErrorBoundary>` catches to show a fallback instead of
+            // panicking. The failure isn't cached, so navigating again retries.
+            <ErrorBoundary fallback=|_errors| {
+                view! { <p id="chunk-error">"This page failed to load. Try navigating to it again."</p> }
+            }>
+                <Routes fallback=|| "Not found.">
+                    <Route path=StaticSegment("") view=ViewA/>
+                    <Route path=StaticSegment("b") view=ViewB/>
+                    <Route path=StaticSegment("c") view={Lazy::<ViewC>::new()}/>
+                    // you can nest lazy routes, and there data and views will all load concurrently
+                    <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
+                        <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
+                    </ParentRoute>
+                </Routes>
+            </ErrorBoundary>
         </Router>
     }
 }

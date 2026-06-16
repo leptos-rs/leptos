@@ -171,7 +171,9 @@ sha2 = { default-features = false, version = "0.11" }
 subsecond = { default-features = false, version = "0.7" }
 dioxus-cli-config = { default-features = false, version = "0.7" }
 dioxus-devtools = { default-features = false, version = "0.7" }
-wasm_split_helpers = { default-features = false, version = "0.2.1" }
+# 0.2.2 adds the `fallible` option that `#[lazy_route]` relies on to surface a
+# failed chunk load to an `<ErrorBoundary>` instead of panicking.
+wasm_split_helpers = { default-features = false, version = "0.2.2" }
 
 [profile.release]
 codegen-units = 1
@@ -187,3 +189,4 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
 ] }
+
