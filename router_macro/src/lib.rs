@@ -392,7 +392,7 @@ fn lazy_route_impl(
                 &mut fun.block,
                 parse_quote!({
                     // The split view fn is `fallible`, so it returns
-                    // `Result<AnyView, SplitLoaderError>`. Erase it with
+                    // `Result<AnyView, LazyViewError>`. Erase it with
                     // `into_any()`: on `Err`, the `Result` renders to the
                     // nearest `<ErrorBoundary>` instead of panicking.
                     ::leptos::prelude::IntoAny::into_any(
@@ -408,7 +408,7 @@ fn lazy_route_impl(
                     #user_pat: #self_ty,
                 ) -> ::core::result::Result<
                     ::leptos::prelude::AnyView,
-                    ::leptos::wasm_split::SplitLoaderError,
+                    ::leptos::LazyViewError,
                 > {
                     ::core::result::Result::Ok(#body)
                 }
