@@ -176,6 +176,16 @@ impl Nonce {
         rng.fill_bytes(&mut bytes);
         Nonce(NONCE_ENGINE.encode(bytes).into())
     }
+
+    /// Builds a nonce from a caller-supplied value rather than generating
+    /// one — e.g. a nonce minted by a reverse proxy and forwarded to the
+    /// application as a request header. The caller is responsible for the
+    /// value's randomness and for it being a valid CSP nonce. Provide it via
+    /// context before rendering so [`use_nonce`] and the hydration scripts
+    /// pick it up.
+    pub fn from_value(value: impl Into<Arc<str>>) -> Self {
+        Nonce(value.into())
+    }
 }
 
 impl Default for Nonce {
