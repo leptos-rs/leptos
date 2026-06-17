@@ -347,7 +347,7 @@ where
                 return Ok(());
             }
 
-            let url = parse_with_base(href.as_str(), &origin).unwrap();
+            let url = parse_with_base(href.as_str(), &origin)?;
             let path_name = Url::unescape_minimal(&url.path);
 
             // let browser handle this event if it leaves our domain
