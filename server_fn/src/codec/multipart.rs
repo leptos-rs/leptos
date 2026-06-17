@@ -1,6 +1,6 @@
 use super::{Encoding, FromReq};
 use crate::{
-    error::{FromServerFnError, ServerFnErrorWrapper},
+    error::{FromServerFnError, IntoAppError, ServerFnErrorErr, ServerFnErrorWrapper},
     request::{browser::BrowserFormData, ClientReq, Req},
     ContentType, IntoReq,
 };
@@ -85,7 +85,13 @@ where
         let boundary = req
             .to_content_type()
             .and_then(|ct| multer::parse_boundary(ct).ok())
-            .expect("couldn't parse boundary");
+            .ok_or_else(|| {
+                ServerFnErrorErr::Deserialization(
+                    "couldn't parse multipart boundary from Content-Type header"
+                        .to_string(),
+                )
+                .into_app_error()
+            })?;
         let stream = req.try_into_stream()?;
         let data = multer::Multipart::new(
             stream.map(|data| data.map_err(|e| ServerFnErrorWrapper(E::de(e)))),
