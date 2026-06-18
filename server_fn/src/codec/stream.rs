@@ -217,7 +217,7 @@ where
         Request::try_new_post_streaming(
             path,
             accepts,
-            Streaming::CONTENT_TYPE,
+            StreamingText::CONTENT_TYPE,
             data.0.map(|chunk| chunk.unwrap_or_default().into()),
         )
     }
@@ -253,7 +253,7 @@ where
 {
     async fn into_res(self) -> Result<Response, E> {
         Response::try_from_stream(
-            Streaming::CONTENT_TYPE,
+            StreamingText::CONTENT_TYPE,
             self.into_inner()
                 .map(|stream| stream.map(Into::into).map_err(|e| e.ser())),
         )
