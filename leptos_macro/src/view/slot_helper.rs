@@ -27,9 +27,9 @@ pub(crate) fn slot_to_tokens(
     let component_path = full_path_from_tag_name(node.name());
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error2::emit_error!(
+        crate::view::diagnostics::error(
             node.name().span(),
-            "slots cannot be used inside HTML elements"
+            "slots cannot be used inside HTML elements",
         );
         return;
     };
