@@ -1411,6 +1411,67 @@ mod tests {
         }
     }
 
+    // Regression: `Patch` derive for a struct with a `#[store(key: ...)]` field used the parent
+    // struct path (and an empty initializer) in the generated `path_at_key` closure instead of the
+    // keyed-field's own path.  This caused `store.patch(new)` to resolve every per-item path
+    // against the wrong `KeyMap` bucket, making `with_field_keys` return `None` for every key,
+    // so `patch_field_keyed` never called per-item `notify` — silently dropping all granular
+    // sub-field notifications and leaving observers of individual keyed items unnotified.
+    #[tokio::test]
+    async fn struct_patch_derive_keyed_field_granular_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(TodoVec::test_data());
+
+        let a_count = Arc::new(AtomicUsize::new(0));
+        let b_count = Arc::new(AtomicUsize::new(0));
+
+        let a = AtKeyed::new(store.todos(), 10);
+        let b = AtKeyed::new(store.todos(), 11);
+
+        Effect::new_sync({
+            let a_count = Arc::clone(&a_count);
+            move || {
+                a.track();
+                a_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let b_count = Arc::clone(&b_count);
+            move || {
+                b.track();
+                b_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+        assert_eq!(b_count.load(Ordering::Relaxed), 1);
+
+        // patch the whole struct, changing only item with id=10's label
+        let mut new_data = TodoVec::test_data();
+        new_data.todos[0].label = "Changed".to_string();
+        store.patch(new_data);
+
+        tick().await;
+
+        // item 10 changed -> its per-key observer must have fired
+        assert_eq!(
+            a_count.load(Ordering::Relaxed),
+            2,
+            "item 10 observer must fire after its label changed"
+        );
+        // item 11 did not change -> its per-key observer must NOT fire
+        assert_eq!(
+            b_count.load(Ordering::Relaxed),
+            1,
+            "item 11 observer must not fire when only item 10 changed"
+        );
+
+        // verify the data was actually applied
+        assert_eq!(store.read_untracked().todos[0].label, "Changed");
+    }
+
     #[tokio::test]
     async fn patching_keyed_field_only_notifies_changed_keys() {
         _ = any_spawner::Executor::init_tokio();

@@ -791,27 +791,33 @@ impl ToTokens for PatchModel {
                         }
                     } else if let Some(closure) = keyed {
                         quote! {
-                            #library_path::PatchFieldKeyed::patch_field_keyed(
-                                &mut self.#locator,
-                                new.#locator,
-                                notify,
-                                keys,
-                                #closure,
-                                |key| {
-                                    let keys = keys.as_ref()?;
-                                    let segment = keys
-                                        .with_field_keys(
-                                            path.clone(),
-                                            |keys| (keys.get(key), vec![]),
-                                            || vec![],
-                                        )
-                                        .flatten()
-                                        .map(|(_, idx)| idx)?;
-                                    let mut path = path.clone();
-                                    path.push(segment);
-                                    Some(path)
-                                }
-                            );
+                            {
+                                let field_path = new_path.clone();
+                                let initial_keys: Vec<_> = self.#locator.iter().map(#closure).collect();
+                                #library_path::PatchFieldKeyed::patch_field_keyed(
+                                    &mut self.#locator,
+                                    new.#locator,
+                                    notify,
+                                    keys,
+                                    #closure,
+                                    |key| {
+                                        let keys = keys.as_ref()?;
+                                        let idx = keys
+                                            .with_field_keys(
+                                                field_path.clone(),
+                                                |field_keys| match field_keys.get(key) {
+                                                    Some((segment, idx)) => (Some(idx), vec![(idx, segment)]),
+                                                    None => (None, vec![]),
+                                                },
+                                                || initial_keys.clone(),
+                                            )
+                                            .flatten()?;
+                                        let mut path = field_path.clone();
+                                        path.push(idx);
+                                        Some(path)
+                                    }
+                                );
+                            }
                             new_path.replace_last(#idx + 1);
                         }
                     } else {
