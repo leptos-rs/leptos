@@ -36,15 +36,18 @@ pub(crate) enum AsyncDerivedState {
 impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     fn mark_dirty(&self) {
         let mut lock = self.write().or_poisoned();
-        if lock.state != AsyncDerivedState::Notifying {
-            lock.state = AsyncDerivedState::Dirty;
-            lock.notifier.notify();
-        }
+        // Always set Dirty and notify, even if we are in the Notifying window.
+        // notify_subs temporarily sets state=Notifying and restores it afterward;
+        // if a source changes during that window we must not silently drop the
+        // update.  notify_subs will preserve Dirty when it restores state.
+        lock.state = AsyncDerivedState::Dirty;
+        lock.notifier.notify();
     }
 
     fn mark_check(&self) {
         let mut lock = self.write().or_poisoned();
-        if lock.state != AsyncDerivedState::Notifying {
+        // Same reasoning as mark_dirty: do not suppress during the Notifying window.
+        if lock.state != AsyncDerivedState::Dirty {
             lock.notifier.notify();
         }
     }
