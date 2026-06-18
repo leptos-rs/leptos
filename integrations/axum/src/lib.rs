@@ -228,12 +228,22 @@ pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
     {
+        let location = match header::HeaderValue::from_str(path) {
+            Ok(v) => v,
+            Err(_) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                #[cfg(not(feature = "tracing"))]
+                eprintln!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                return;
+            }
+        };
         // insert the Location header in any case
-        res.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
+        res.insert_header(header::LOCATION, location);
 
         let accepts_html = req
             .headers
