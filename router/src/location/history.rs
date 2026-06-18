@@ -276,19 +276,18 @@ impl LocationProvider for BrowserUrl {
 fn search_params_from_web_url(
     params: &web_sys::UrlSearchParams,
 ) -> Result<ParamsMap, JsValue> {
-    try_iter(params)?
-        .into_iter()
-        .flatten()
-        .map(|pair| {
-            pair.and_then(|pair| {
-                let row = pair.dyn_into::<Array>()?;
-                Ok((
-                    String::from(row.get(0).dyn_into::<JsString>()?),
-                    String::from(row.get(1).dyn_into::<JsString>()?),
-                ))
-            })
-        })
-        .collect()
+    // `web_sys::UrlSearchParams` already returns percent-decoded keys and values,
+    // so use `insert_raw` to avoid a second decode that would corrupt values
+    // containing a literal `%` (e.g. `?x=%2525` should yield `%25`, not `%`).
+    let mut map = ParamsMap::new();
+    for pair in try_iter(params)?.into_iter().flatten() {
+        let pair = pair?;
+        let row = pair.dyn_into::<Array>()?;
+        let key = String::from(row.get(0).dyn_into::<JsString>()?);
+        let value = String::from(row.get(1).dyn_into::<JsString>()?);
+        map.insert_raw(key, value);
+    }
+    Ok(map)
 }
 
 /// Resolves a redirect location to an (absolute) URL.

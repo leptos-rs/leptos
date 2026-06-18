@@ -25,9 +25,31 @@ impl ParamsMap {
     ///
     /// If a value with that key already exists, the new value will be added to it.
     /// To replace the value instead, see [`replace`](Self::replace).
+    ///
+    /// The value is percent-decoded before storage. Use [`insert_raw`](Self::insert_raw)
+    /// when the value is already decoded (e.g. from `url::Url::query_pairs()` or
+    /// `web_sys::UrlSearchParams`).
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = Url::unescape(&value);
 
+        let key = key.into();
+        if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
+            prev.1.push(value);
+        } else {
+            self.0.push((key, vec![value]));
+        }
+    }
+
+    /// Inserts an already-decoded value into the map without percent-decoding it again.
+    ///
+    /// Use this when the source (e.g. `url::Url::query_pairs()` or
+    /// `web_sys::UrlSearchParams`) already returns decoded values, to avoid
+    /// a second decode that would corrupt values containing a literal `%`.
+    pub(crate) fn insert_raw(
+        &mut self,
+        key: impl Into<Cow<'static, str>>,
+        value: String,
+    ) {
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
             prev.1.push(value);
