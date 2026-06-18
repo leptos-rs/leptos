@@ -9,7 +9,7 @@ static ROOT_URL: OnceLock<&'static str> = OnceLock::new();
 ///
 /// If this is not set, it defaults to the origin.
 pub fn set_server_url(url: &'static str) {
-    ROOT_URL.set(url).unwrap();
+    let _ = ROOT_URL.set(url);
 }
 
 /// Returns the root server URL for all server functions.
