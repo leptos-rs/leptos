@@ -916,7 +916,11 @@ where
             move || {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
+                let path = req
+                    .uri()
+                    .path_and_query()
+                    .map(|pq| pq.as_str())
+                    .unwrap_or("/");
 
                 let full_path = format!("http://leptos.dev{path}");
                 let (_, req_parts) = generate_request_and_parts(req);
