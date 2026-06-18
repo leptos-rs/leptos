@@ -160,7 +160,19 @@ where
                         ready_fut.await;
                         let value = value.read().or_poisoned();
                         let value = value.as_ref().unwrap();
-                        Ser::encode(value).unwrap().into_encoded_string()
+                        match Ser::encode(value)
+                            .map(|e| e.into_encoded_string())
+                        {
+                            Ok(s) => s,
+                            #[allow(unused_variables)]
+                            Err(e) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "couldn't serialize resource: {e:?}"
+                                );
+                                String::new()
+                            }
+                        }
                     }),
                 );
             }

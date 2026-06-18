@@ -346,10 +346,19 @@ where
                     Box::pin(async move {
                         ready_fut.await;
                         value.with_untracked(|data| match &data {
-                            // TODO handle serialization errors
-                            Some(val) => {
-                                Ser::encode(val).unwrap().into_encoded_string()
-                            }
+                            Some(val) => match Ser::encode(val)
+                                .map(|e| e.into_encoded_string())
+                            {
+                                Ok(s) => s,
+                                #[allow(unused_variables)]
+                                Err(e) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "couldn't serialize resource: {e:?}"
+                                    );
+                                    String::new()
+                                }
+                            },
                             _ => unreachable!(),
                         })
                     }),
