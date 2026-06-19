@@ -1138,7 +1138,7 @@ fn prop_builder_fields(
                     quote!()
                 };
 
-            let PatIdent { ident, by_ref, .. } = &name;
+            let PatIdent { ident, .. } = &name;
 
             quote! {
                 #docs
@@ -1146,7 +1146,7 @@ fn prop_builder_fields(
                 #builder_attrs
                 #allow_missing_docs
                 #skip_children_serde
-                #vis #by_ref #ident: #ty,
+                #vis #ident: #ty,
             }
         })
         .collect()
@@ -1169,12 +1169,12 @@ fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
                 let serde_attrs = builder_attrs.to_serde_tokens();
 
-                let PatIdent { ident, by_ref, .. } = &name;
+                let PatIdent { ident, .. } = &name;
 
                 Some(quote! {
                     #docs
                     #serde_attrs
-                    #vis #by_ref #ident: #ty,
+                    #vis #ident: #ty,
                 })
             }
         })
