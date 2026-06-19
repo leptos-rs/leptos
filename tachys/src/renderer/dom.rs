@@ -8,7 +8,7 @@ use crate::{
     ok_or_debug, or_debug,
     view::{Mountable, ToTemplate},
 };
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
     any::TypeId,
     borrow::Cow,
@@ -23,7 +23,7 @@ pub struct Dom;
 
 thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<FxHashSet<Cow<'static, str>>> = Default::default();
-    pub static TEMPLATE_CACHE: RefCell<Vec<(Cow<'static, str>, web_sys::Element)>> = Default::default();
+    pub static TEMPLATE_CACHE: RefCell<FxHashMap<Cow<'static, str>, web_sys::Element>> = Default::default();
 }
 
 pub type Node = web_sys::Node;
@@ -512,6 +512,10 @@ impl Dom {
         thread_local! {
             static TEMPLATE_ELEMENT: LazyCell<HtmlTemplateElement> =
                 LazyCell::new(|| document().create_element(Dom::intern("template")).unwrap().unchecked_into());
+            // a linear scan over a Vec outperforms a hash map at the small
+            // number of `template!` call sites found in typical apps, and
+            // avoids re-inlining map machinery into every monomorphization
+            // of this generic function (~360 bytes of .wasm per call site)
             static TEMPLATES: RefCell<Vec<(TypeId, HtmlTemplateElement)>> = Default::default();
         }
 
@@ -549,32 +553,21 @@ impl Dom {
 
     pub fn create_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
-            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
-                (html == *key)
-                    .then_some(Self::clone_template(tpl.unchecked_ref()))
-            }) {
-                tpl_content
-            } else {
+            let tpl = cache.entry(html).or_insert_with_key(|html| {
                 let tpl = document()
                     .create_element(Self::intern("template"))
                     .unwrap();
-                tpl.set_inner_html(&html);
-                let tpl_content = Self::clone_template(tpl.unchecked_ref());
-                cache.push((html, tpl));
-                tpl_content
-            }
+                tpl.set_inner_html(html);
+                tpl
+            });
+            Self::clone_template(tpl.unchecked_ref())
         });
         tpl.first_element_child().unwrap_or(tpl)
     }
 
     pub fn create_svg_element_from_html(html: Cow<'static, str>) -> Element {
         let tpl = TEMPLATE_CACHE.with_borrow_mut(|cache| {
-            if let Some(tpl_content) = cache.iter().find_map(|(key, tpl)| {
-                (html == *key)
-                    .then_some(Self::clone_template(tpl.unchecked_ref()))
-            }) {
-                tpl_content
-            } else {
+            let tpl = cache.entry(html).or_insert_with_key(|html| {
                 let tpl = document()
                     .create_element(Self::intern("template"))
                     .unwrap();
@@ -584,15 +577,14 @@ impl Dom {
                         Self::intern("svg"),
                     )
                     .unwrap();
-                svg.set_inner_html(&html);
+                svg.set_inner_html(html);
                 tpl.unchecked_ref::<TemplateElement>()
                     .content()
                     .append_child(&svg)
                     .unwrap();
-                let tpl_content = Self::clone_template(tpl.unchecked_ref());
-                cache.push((html, tpl));
-                tpl_content
-            }
+                tpl
+            });
+            Self::clone_template(tpl.unchecked_ref())
         });
 
         let svg = tpl.first_element_child().unwrap();

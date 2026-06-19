@@ -458,13 +458,8 @@ impl RenderHtml for AnyView {
     ) {
         #[cfg(feature = "ssr")]
         {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
             if mark_branches && escape {
-                buf.open_branch(&type_id);
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
             (self.to_html)(
                 self.value,
@@ -475,7 +470,7 @@ impl RenderHtml for AnyView {
                 extra_attrs,
             );
             if mark_branches && escape {
-                buf.close_branch(&type_id);
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
@@ -507,13 +502,8 @@ impl RenderHtml for AnyView {
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
             if mark_branches && escape {
-                buf.open_branch(&type_id);
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
             (self.to_html_async_ooo)(
                 self.value,
@@ -524,19 +514,14 @@ impl RenderHtml for AnyView {
                 extra_attrs,
             );
             if mark_branches && escape {
-                buf.close_branch(&type_id);
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
             }
         } else {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
             if mark_branches && escape {
-                buf.open_branch(&type_id);
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
             (self.to_html_async)(
                 self.value,
@@ -547,7 +532,7 @@ impl RenderHtml for AnyView {
                 extra_attrs,
             );
             if mark_branches && escape {
-                buf.close_branch(&type_id);
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
