@@ -40,29 +40,24 @@ impl PossibleRouteMatch for ParamSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        // the first char of the path is always consumed before scanning, but
+        // only counts toward the match when it is the leading `/`
+        let (param_offset, scan_start) = if has_leading_slash {
+            (1, 1)
+        } else {
+            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
+        };
+        // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
+        // equivalent to scanning chars without the UTF-8 decoding
+        let param_len = bytes[scan_start..]
+            .iter()
+            .position(|&byte| byte == b'/')
+            .unwrap_or(bytes.len() - scan_start);
+        let matched_len = param_offset + param_len;
 
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset = 1;
-        }
-        for char in test {
-            // when we get a closing /, stop matching
-            if char == '/' {
-                break;
-            }
-            // otherwise, push into the matched param
-            else {
-                matched_len += char.len_utf8();
-                param_len += char.len_utf8();
-            }
-        }
-
-        if matched_len == 0 || (matched_len == 1 && path.starts_with('/')) {
+        if matched_len == 0 || (matched_len == 1 && has_leading_slash) {
             return None;
         }
 
@@ -130,20 +125,19 @@ impl PossibleRouteMatch for WildcardSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
-
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset += 1;
-        }
-        for char in test {
-            matched_len += char.len_utf8();
-            param_len += char.len_utf8();
-        }
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        // the first char of the path is always consumed before scanning, but
+        // only counts toward the match when it is the leading `/`
+        let (param_offset, scan_start) = if has_leading_slash {
+            (1, 1)
+        } else {
+            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
+        };
+        // the wildcard consumes the entire remaining path, so no scan is
+        // needed at all
+        let param_len = bytes.len() - scan_start;
+        let matched_len = param_offset + param_len;
 
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = iter::once((
@@ -171,29 +165,24 @@ impl PossibleRouteMatch for OptionalParamSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        // the first char of the path is always consumed before scanning, but
+        // only counts toward the match when it is the leading `/`
+        let (param_offset, scan_start) = if has_leading_slash {
+            (1, 1)
+        } else {
+            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
+        };
+        // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
+        // equivalent to scanning chars without the UTF-8 decoding
+        let param_len = bytes[scan_start..]
+            .iter()
+            .position(|&byte| byte == b'/')
+            .unwrap_or(bytes.len() - scan_start);
+        let matched_len = param_offset + param_len;
 
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset = 1;
-        }
-        for char in test {
-            // when we get a closing /, stop matching
-            if char == '/' {
-                break;
-            }
-            // otherwise, push into the matched param
-            else {
-                matched_len += char.len_utf8();
-                param_len += char.len_utf8();
-            }
-        }
-
-        let matched_len = if matched_len == 1 && path.starts_with('/') {
+        let matched_len = if matched_len == 1 && has_leading_slash {
             0
         } else {
             matched_len
@@ -255,6 +244,39 @@ mod tests {
         let params = matched.params();
         assert_eq!(params[0], ("a".into(), "foo".into()));
         assert_eq!(params[1], ("b".into(), "bar".into()));
+    }
+
+    #[test]
+    fn multi_byte_param_match() {
+        let path = "/日本語/x";
+        let def = ParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/日本語");
+        assert_eq!(matched.remaining(), "/x");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "日本語".into()));
+    }
+
+    #[test]
+    fn multi_byte_wildcard_match() {
+        let path = "/日本語/x";
+        let def = WildcardSegment("rest");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/日本語/x");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("rest".into(), "日本語/x".into()));
+    }
+
+    #[test]
+    fn multi_byte_optional_param_match() {
+        let path = "/héllo";
+        let def = OptionalParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/héllo");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "héllo".into()));
     }
 
     #[test]
