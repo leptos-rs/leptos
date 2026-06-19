@@ -79,7 +79,11 @@ pub fn location_hash() -> Option<String> {
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
 pub fn location_pathname() -> Option<String> {
-    location().pathname().ok()
+    if is_server() {
+        None
+    } else {
+        location().pathname().ok()
+    }
 }
 
 /// Helper function to extract [`Event.target`](https://developer.mozilla.org/en-US/docs/Web/API/Event/target)
@@ -111,7 +115,7 @@ where
 /// This is useful in the `on:change` listeners for an `<input type="checkbox">` element.
 pub fn event_target_checked(ev: &web_sys::Event) -> bool {
     ev.target()
-        .unwrap()
+        .unwrap_throw()
         .unchecked_into::<web_sys::HtmlInputElement>()
         .checked()
 }
@@ -123,29 +127,92 @@ pub struct AnimationFrameRequestHandle(i32);
 
 impl AnimationFrameRequestHandle {
     /// Cancels the animation frame request to which this refers.
+    ///
+    /// The associated callback is freed when the reactive scope that created
+    /// the request is cleaned up (see [`request_animation_frame`]).
     /// See [`cancelAnimationFrame()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/cancelAnimationFrame)
     pub fn cancel(&self) {
         _ = window().cancel_animation_frame(self.0);
     }
 }
 
-// Closure::once_into_js only frees the callback when it's actually
-// called, so this instead uses into_js_value, which can be freed by
-// the host JS engine's GC if it supports weak references (which all
-// modern browser engines do).  The way this works is that the provided
-// callback's captured data is dropped immediately after being called,
-// as before, but it leaves behind a small stub closure rust-side that
-// will be freed "eventually" by the JS GC.  If the function is never
-// called (e.g., it's a cancelled timeout or animation frame callback)
-// then it will also be freed eventually.
-fn closure_once(cb: impl FnOnce() + 'static) -> JsValue {
+// Wraps a one-shot `FnOnce` in a `Closure`. The JS-callable shell is reusable
+// (invoking it more than once is a silent no-op); the captured data is dropped
+// the first time it runs. The returned `Closure` is owned by the caller, which
+// decides how to free it (see `own_closure`).
+fn closure_once(cb: impl FnOnce() + 'static) -> Closure<dyn FnMut()> {
     let mut wrapped_cb: Option<Box<dyn FnOnce()>> = Some(Box::new(cb));
-    let closure = Closure::new(move || {
+    Closure::new(move || {
         if let Some(cb) = wrapped_cb.take() {
             cb()
         }
-    });
-    closure.into_js_value()
+    })
+}
+
+/// The four kinds of scheduled JS callback, so a single non-generic cleanup
+/// path can cancel any of them. Keeping this one closure type (rather than four
+/// distinct ones) means [`Owner::on_cleanup`] is monomorphized only once.
+#[derive(Clone, Copy)]
+enum TimerKind {
+    AnimationFrame,
+    IdleCallback,
+    Timeout,
+    Interval,
+}
+
+/// Cancels a scheduled callback by kind and id. The ids are widened to `i64` so
+/// every kind shares the same [`own_closure`] cleanup closure; they are narrowed
+/// back to the exact type each `web-sys` API expects.
+fn cancel_timer(kind: TimerKind, id: i64) {
+    let window = window();
+    match kind {
+        TimerKind::AnimationFrame => {
+            _ = window.cancel_animation_frame(id as i32);
+        }
+        TimerKind::IdleCallback => window.cancel_idle_callback(id as u32),
+        TimerKind::Timeout => window.clear_timeout_with_handle(id as i32),
+        TimerKind::Interval => window.clear_interval_with_handle(id as i32),
+    }
+}
+
+/// Hands ownership of a scheduled callback's `Closure` to the reactive ownership
+/// tree instead of leaking it to the JS engine's GC.
+///
+/// The `web-sys` scheduling APIs only return an integer id, but the `Closure`
+/// must stay alive until the browser is done with it:
+///
+/// - If a reactive [`Owner`] is active, the closure is freed when that owner is
+///   cleaned up (e.g. the component unmounts) — deterministic cleanup via the
+///   framework's own lifecycle. The cleanup [`cancel_timer`]s first, so the
+///   browser can never invoke a freed closure: a scheduled callback does not
+///   outlive the scope that created it.
+/// - With no owner to attach to (e.g. scheduled outside any reactive scope,
+///   such as from within another timer's callback), the closure is handed to
+///   the JS engine via `into_js_value`, which keeps it alive until the callback
+///   fires / the timer is cancelled and then reclaims it via GC. This preserves
+///   Leptos's historical behaviour for those call sites.
+fn own_closure(kind: TimerKind, id: i64, closure: Closure<dyn FnMut()>) {
+    if Owner::current().is_some() {
+        let closure = SendWrapper::new(closure);
+        Owner::on_cleanup(move || {
+            cancel_timer(kind, id);
+            drop(closure);
+        });
+    } else {
+        let _ = closure.into_js_value();
+    }
+}
+
+/// Converts a [`Duration`] into the millisecond delay expected by
+/// `setTimeout`/`setInterval`.
+///
+/// The HTML standard types the timer delay as a signed 32-bit integer and
+/// clamps any larger value to `i32::MAX` rather than rejecting it (WHATWG HTML
+/// §8.6 "Timers"). `Duration::as_millis` returns a `u128`, so a delay longer
+/// than ~24.85 days would overflow an `i32`. We mirror the browser's clamping
+/// behaviour instead of overflowing.
+fn duration_to_ms(duration: Duration) -> i32 {
+    duration.as_millis().min(i32::MAX as u128) as i32
 }
 
 /// Runs the given function between the next repaint using
@@ -169,10 +236,13 @@ pub fn request_animation_frame(
     };
 
     #[inline(never)]
-    fn raf(cb: JsValue) -> Result<AnimationFrameRequestHandle, JsValue> {
-        window()
-            .request_animation_frame(cb.as_ref().unchecked_ref())
-            .map(AnimationFrameRequestHandle)
+    fn raf(
+        closure: Closure<dyn FnMut()>,
+    ) -> Result<AnimationFrameRequestHandle, JsValue> {
+        let id = window()
+            .request_animation_frame(closure.as_ref().unchecked_ref())?;
+        own_closure(TimerKind::AnimationFrame, id as i64, closure);
+        Ok(AnimationFrameRequestHandle(id))
     }
 
     raf(closure_once(cb))
@@ -185,7 +255,10 @@ pub struct IdleCallbackHandle(u32);
 
 impl IdleCallbackHandle {
     /// Cancels the idle callback to which this refers.
-    /// See [`cancelAnimationFrame()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/cancelIdleCallback)
+    ///
+    /// The associated callback is freed when the reactive scope that created
+    /// the request is cleaned up (see [`request_idle_callback`]).
+    /// See [`cancelIdleCallback()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/cancelIdleCallback)
     pub fn cancel(&self) {
         window().cancel_idle_callback(self.0);
     }
@@ -201,7 +274,7 @@ impl IdleCallbackHandle {
 #[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback(
-    cb: impl Fn() + 'static,
+    cb: impl FnOnce() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
     #[cfg(feature = "tracing")]
     let span = ::tracing::Span::current();
@@ -212,15 +285,16 @@ pub fn request_idle_callback(
     };
 
     #[inline(never)]
-    fn ric(cb: Box<dyn Fn()>) -> Result<IdleCallbackHandle, JsValue> {
-        let cb = Closure::wrap(cb).into_js_value();
-
-        window()
-            .request_idle_callback(cb.as_ref().unchecked_ref())
-            .map(IdleCallbackHandle)
+    fn ric(
+        closure: Closure<dyn FnMut()>,
+    ) -> Result<IdleCallbackHandle, JsValue> {
+        let id =
+            window().request_idle_callback(closure.as_ref().unchecked_ref())?;
+        own_closure(TimerKind::IdleCallback, id as i64, closure);
+        Ok(IdleCallbackHandle(id))
     }
 
-    ric(Box::new(cb))
+    ric(closure_once(cb))
 }
 
 /// A microtask is a short function which will run after the current task has
@@ -243,6 +317,9 @@ pub struct TimeoutHandle(i32);
 
 impl TimeoutHandle {
     /// Cancels the timeout to which this refers.
+    ///
+    /// The associated callback is freed when the reactive scope that created
+    /// the timeout is cleaned up (see [`set_timeout`]).
     /// See [`clearTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/clearTimeout)
     pub fn clear(&self) {
         window().clear_timeout_with_handle(self.0);
@@ -279,13 +356,17 @@ pub fn set_timeout(
     };
 
     #[inline(never)]
-    fn st(cb: JsValue, duration: Duration) -> Result<TimeoutHandle, JsValue> {
-        window()
+    fn st(
+        closure: Closure<dyn FnMut()>,
+        duration: Duration,
+    ) -> Result<TimeoutHandle, JsValue> {
+        let id = window()
             .set_timeout_with_callback_and_timeout_and_arguments_0(
-                cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
-            )
-            .map(TimeoutHandle)
+                closure.as_ref().unchecked_ref(),
+                duration_to_ms(duration),
+            )?;
+        own_closure(TimerKind::Timeout, id as i64, closure);
+        Ok(TimeoutHandle(id))
     }
 
     st(closure_once(cb), duration)
@@ -374,6 +455,9 @@ pub struct IntervalHandle(i32);
 
 impl IntervalHandle {
     /// Cancels the repeating event to which this refers.
+    ///
+    /// The associated callback is freed when the reactive scope that created
+    /// the interval is cleaned up (see [`set_interval`]).
     /// See [`clearInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/clearInterval)
     pub fn clear(&self) {
         window().clear_interval_with_handle(self.0);
@@ -414,14 +498,14 @@ pub fn set_interval(
         cb: Box<dyn FnMut()>,
         duration: Duration,
     ) -> Result<IntervalHandle, JsValue> {
-        let cb = Closure::wrap(cb).into_js_value();
-
-        window()
+        let closure = Closure::wrap(cb);
+        let id = window()
             .set_interval_with_callback_and_timeout_and_arguments_0(
-                cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
-            )
-            .map(IntervalHandle)
+                closure.as_ref().unchecked_ref(),
+                duration_to_ms(duration),
+            )?;
+        own_closure(TimerKind::Interval, id as i64, closure);
+        Ok(IntervalHandle(id))
     }
 
     si(Box::new(cb), duration)
@@ -550,4 +634,50 @@ pub fn is_server() -> bool {
 /// Returns `true` if the current environment is a browser.
 pub fn is_browser() -> bool {
     !is_server()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_to_ms_passes_small_durations_through() {
+        assert_eq!(duration_to_ms(Duration::ZERO), 0);
+        assert_eq!(duration_to_ms(Duration::from_millis(250)), 250);
+        assert_eq!(duration_to_ms(Duration::from_secs(1)), 1000);
+    }
+
+    #[test]
+    fn duration_to_ms_clamps_durations_over_i32_max() {
+        // 30 days is 2_592_000_000 ms, which exceeds i32::MAX (2_147_483_647).
+        // It must clamp to i32::MAX, matching the browser, rather than
+        // overflowing the `u128 -> i32` conversion.
+        let thirty_days = Duration::from_secs(60 * 60 * 24 * 30);
+        assert!(thirty_days.as_millis() > i32::MAX as u128);
+        assert_eq!(duration_to_ms(thirty_days), i32::MAX);
+
+        // The exact boundary maps to i32::MAX, and one past it still clamps.
+        let boundary = Duration::from_millis(i32::MAX as u64);
+        assert_eq!(duration_to_ms(boundary), i32::MAX);
+        let past_boundary = Duration::from_millis(i32::MAX as u64 + 1);
+        assert_eq!(duration_to_ms(past_boundary), i32::MAX);
+    }
+
+    // `request_idle_callback` must accept a one-shot closure that moves out of
+    // (consumes) its captures, exactly like `request_animation_frame`. The
+    // closures below are type-checked at compile time, which is where the
+    // `FnOnce` bound is enforced, but they are never invoked, so the DOM is
+    // never touched in this headless test. A regression to an `Fn` bound would
+    // make this fail to compile.
+    #[test]
+    fn request_idle_callback_accepts_consuming_closure() {
+        let _ric = || {
+            let owned = String::from("hello");
+            request_idle_callback(move || drop(owned))
+        };
+        let _raf = || {
+            let owned = String::from("hello");
+            request_animation_frame(move || drop(owned))
+        };
+    }
 }
