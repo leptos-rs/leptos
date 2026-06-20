@@ -298,6 +298,42 @@ pub fn accept_header_includes_html(accept: &str) -> bool {
     })
 }
 
+/// Assembles a request URL of the form `scheme://host{path}`, appending
+/// `?{query}` only when `query` is non-empty, into a single `String` whose
+/// capacity is reserved up front from the component lengths.
+///
+/// Both server integrations reconstruct the full request URL on every SSR
+/// render so that `Url::origin()` is correct server-side and matches the client
+/// after hydration. Routing the components through intermediate `format!`
+/// strings (a separate `scheme://host` origin, then the full URL) allocates
+/// twice for nothing; the only copy that has to happen is the final one into
+/// `RequestUrl`'s `Arc<str>`. When `path` already carries the query string
+/// (axum exposes it as a single `path_and_query`), the caller passes an empty
+/// `query`.
+pub fn build_request_url(
+    scheme: &str,
+    host: &str,
+    path: &str,
+    query: &str,
+) -> String {
+    let mut url = String::with_capacity(
+        scheme.len()
+            + "://".len()
+            + host.len()
+            + path.len()
+            + if query.is_empty() { 0 } else { 1 + query.len() },
+    );
+    url.push_str(scheme);
+    url.push_str("://");
+    url.push_str(host);
+    url.push_str(path);
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(query);
+    }
+    url
+}
+
 /// Returns `true` if `path` could escape the site root once interpolated into
 /// an on-disk path.
 ///

@@ -29,7 +29,7 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html,
+    accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
@@ -834,27 +834,13 @@ fn request_url(req: &HttpRequest) -> RequestUrl {
     // `connection_info` resolves the scheme and host, honoring reverse-proxy
     // forwarding headers.
     let conn = req.connection_info();
-    let scheme = conn.scheme();
-    let host = conn.host();
-    let path = req.path();
-    let query = req.query_string();
-    // assemble once in a pre-sized buffer; `RequestUrl::new` then makes the
-    // one unavoidable copy into its `Arc<str>`
-    let mut url = String::with_capacity(
-        scheme.len()
-            + "://".len()
-            + host.len()
-            + path.len()
-            + if query.is_empty() { 0 } else { 1 + query.len() },
+    // `RequestUrl::new` makes the one unavoidable copy into its `Arc<str>`.
+    let url = build_request_url(
+        conn.scheme(),
+        conn.host(),
+        req.path(),
+        req.query_string(),
     );
-    url.push_str(scheme);
-    url.push_str("://");
-    url.push_str(host);
-    url.push_str(path);
-    if !query.is_empty() {
-        url.push('?');
-        url.push_str(query);
-    }
     RequestUrl::new(&url)
 }
 

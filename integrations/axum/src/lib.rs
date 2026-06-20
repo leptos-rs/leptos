@@ -60,7 +60,7 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html,
+    accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
@@ -1031,23 +1031,13 @@ where
                 // client after hydration; fall back to a bare path when the
                 // host is unknown. Building the `RequestUrl` here, before the
                 // request is consumed below, keeps the borrow of `req` short.
+                // `path` already carries the query (`path_and_query`), so the
+                // query argument is empty; `RequestUrl::new` makes the one
+                // unavoidable copy into its `Arc<str>`.
                 let request_url = match request_scheme_and_host(&req) {
-                    (scheme, Some(host)) => {
-                        // assemble once in a pre-sized buffer;
-                        // `RequestUrl::new` then makes the one unavoidable
-                        // copy into its `Arc<str>`
-                        let mut url = String::with_capacity(
-                            scheme.len()
-                                + "://".len()
-                                + host.len()
-                                + path.len(),
-                        );
-                        url.push_str(scheme);
-                        url.push_str("://");
-                        url.push_str(host);
-                        url.push_str(path);
-                        RequestUrl::new(&url)
-                    }
+                    (scheme, Some(host)) => RequestUrl::new(
+                        &build_request_url(scheme, host, path, ""),
+                    ),
                     _ => RequestUrl::new(path),
                 };
                 // The body is never read during rendering (SSR is driven by the
