@@ -1441,13 +1441,6 @@ where
                     return HttpResponse::NotFound().finish();
                 };
                 let path = Path::new(&file_path);
-                // Open the file directly instead of probing with `try_exists`
-                // first: a `NotFound` error is the signal that the route still
-                // needs to be generated. This saves a `stat` on every cached
-                // request, closes the TOCTOU window between check and open,
-                // and `open_async` keeps the open/stat syscalls off the
-                // reactor thread (the synchronous `NamedFile::open` would
-                // stall the worker on slow storage).
                 let opened = NamedFile::open_async(path).await;
 
                 match opened {

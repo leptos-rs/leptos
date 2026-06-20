@@ -1784,11 +1784,6 @@ where
                 return (StatusCode::NOT_FOUND, "Not Found").into_response();
             };
             let path = Path::new(&file_path);
-            // Serve the file directly instead of probing with `try_exists`
-            // first: `ServeFile` answers the existence question itself (a
-            // missing file becomes a 404 response, its documented behaviour),
-            // which saves a `stat` on every cached request and closes the
-            // TOCTOU window between check and open.
             let served = ServeFile::new(path).oneshot(req).await;
             let needs_generation = matches!(&served, Ok(res) if res.status() == StatusCode::NOT_FOUND);
 
