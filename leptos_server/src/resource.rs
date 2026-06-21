@@ -350,10 +350,13 @@ where
                                 .map(|e| e.into_encoded_string())
                             {
                                 Ok(s) => s,
-                                #[allow(unused_variables)]
                                 Err(e) => {
                                     #[cfg(feature = "tracing")]
                                     tracing::error!(
+                                        "couldn't serialize resource: {e:?}"
+                                    );
+                                    #[cfg(not(feature = "tracing"))]
+                                    eprintln!(
                                         "couldn't serialize resource: {e:?}"
                                     );
                                     String::new()
