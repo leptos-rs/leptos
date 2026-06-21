@@ -170,9 +170,7 @@ where
                                     "couldn't serialize resource: {e:?}"
                                 );
                                 #[cfg(not(feature = "tracing"))]
-                                eprintln!(
-                                    "couldn't serialize resource: {e:?}"
-                                );
+                                eprintln!("couldn't serialize resource: {e:?}");
                                 String::new()
                             }
                         }
