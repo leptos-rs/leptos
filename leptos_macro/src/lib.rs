@@ -857,9 +857,12 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - `encoding`: (legacy, may be deprecated in future) specifies the encoding, which may be one
 ///   of the following (not case sensitive)
 ///     - `"Url"`: `POST` request with URL-encoded arguments and JSON response
-///     - `"GetUrl"`: `GET` request with URL-encoded arguments and JSON response
+///     - `"GetUrl"`: `GET` request with URL-encoded arguments and JSON response (see the
+///       CSRF warning under "Important Notes" below before using this for a function
+///       that mutates state)
 ///     - `"Cbor"`: `POST` request with CBOR-encoded arguments and response
-///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
+///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response (same
+///       CSRF warning as `"GetUrl"` applies)
 /// - `req` and `res` specify the HTTP request and response types to be used on the server (these
 ///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
 /// - `impl_from`: specifies whether to implement trait `From` for server function's type or not.
@@ -924,6 +927,23 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   ad hoc HTTP API endpoint, not a magic formula. Any server function can be accessed by any HTTP
 ///   client. You should take care to sanitize any data being returned from the function to ensure it
 ///   does not leak data that should exist only on the server.
+/// - **Server functions do not include CSRF protection, and using `GetUrl`/`GetCbor` for a
+///   mutating function can defeat your cookie's `SameSite` protection.** Leptos does not
+///   validate the `Origin`/`Referer` of server function requests — like Axum and Actix-web
+///   themselves, securing routes against cross-site requests is left to the application (see
+///   <https://github.com/leptos-rs/leptos/issues/3786> for why this isn't built into the
+///   framework: server functions must remain callable from plain HTML `<form>` submissions
+///   with no JS/WASM, which rules out a default scheme based on custom headers or tokens).
+///   This matters most for the `GetUrl`/`GetCbor` input encodings: browsers attach
+///   `SameSite=Lax` cookies (today's default for cookies that don't set `SameSite`
+///   explicitly) to top-level cross-site `GET` navigations — e.g. an attacker page that
+///   auto-submits `<form method="GET" action="https://your-app/api/...">` — whereas
+///   `SameSite=Lax` blocks cookies on cross-site `POST` navigations. So a `GET`-encoded
+///   function that mutates state can be triggered cross-site by a victim who merely visits
+///   an attacker-controlled page while logged in, even if an equivalent `PostUrl` function
+///   would not be vulnerable to the same attack. Prefer `PostUrl`/`Json`/`Cbor` (the
+///   defaults) for anything that mutates state, and add your own CSRF token or
+///   `Origin`-checking middleware if you need additional protection.
 /// - **Server functions can’t be generic.** Because each server function creates a separate API endpoint,
 ///   it is difficult to monomorphize. As a result, server functions cannot be generic (for now?) If you need to use
 ///   a generic function, you can define a generic inner function called by multiple concrete server functions.
