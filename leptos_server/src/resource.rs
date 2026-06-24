@@ -360,10 +360,14 @@ where
                         value.with_untracked(|data| match &data {
                             Some(val) => match Ser::encode(val) {
                                 Ok(encoded) => encoded.into_encoded_string(),
-                                #[allow(unused)]
                                 Err(e) => {
                                     #[cfg(feature = "tracing")]
                                     tracing::error!(
+                                        "error serializing resource for \
+                                         hydration: {e:?}"
+                                    );
+                                    #[cfg(not(feature = "tracing"))]
+                                    eprintln!(
                                         "error serializing resource for \
                                          hydration: {e:?}"
                                     );
@@ -377,6 +381,11 @@ where
                             None => {
                                 #[cfg(feature = "tracing")]
                                 tracing::error!(
+                                    "resource value missing while serializing \
+                                     for hydration"
+                                );
+                                #[cfg(not(feature = "tracing"))]
+                                eprintln!(
                                     "resource value missing while serializing \
                                      for hydration"
                                 );
