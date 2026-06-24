@@ -519,6 +519,10 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///   property is not specified.
 /// * `#[prop(name = "new_name")]`: Specifiy a different name for the property. Can be used to destructure
 ///   fields in component function parameters (see example below).
+/// * `#[prop(marker)]`: Specifiy that prop to be some kind of marker. This removes the prop
+///   from the docs and the builder (no setter is created).
+///   It is usefull when you want a generic component where no props actually use that generic,
+///   you can then use `#[prop(marker)] _marker: PhantomData<T>`.
 ///
 /// ```rust
 /// # use leptos::prelude::*;
