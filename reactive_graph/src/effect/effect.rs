@@ -1,6 +1,6 @@
 use crate::{
-    channel::{channel, Receiver},
-    effect::{inner::EffectInner, EffectFunction},
+    channel::{Receiver, channel},
+    effect::{EffectFunction, inner::EffectInner},
     graph::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
@@ -13,7 +13,7 @@ use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{
     mem,
-    sync::{atomic::AtomicBool, Arc, RwLock},
+    sync::{Arc, RwLock, atomic::AtomicBool},
 };
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -448,9 +448,9 @@ impl Effect<SyncStorage> {
     pub fn watch_sync<D, T>(
         mut dependency_fn: impl FnMut() -> D + Send + Sync + 'static,
         mut handler: impl FnMut(&D, Option<&D>, Option<T>) -> T
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
         immediate: bool,
     ) -> Self
     where

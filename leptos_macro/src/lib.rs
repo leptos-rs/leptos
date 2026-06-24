@@ -15,9 +15,9 @@ extern crate proc_macro_error2;
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::str::FromStr;
-use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
+use syn::{Visibility, parse_macro_input, spanned::Spanned, token::Pub};
 
 mod params;
 mod view;
@@ -27,6 +27,7 @@ mod lazy;
 mod memo;
 mod slice;
 mod slot;
+mod stable_hash;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -385,13 +386,34 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
             "the only supported argument is a string literal"
         );
     });
-    let file =
-        std::fs::read_to_string(file_name.value()).unwrap_or_else(|_| {
-            abort!(Span::call_site(), "could not open file");
-        });
+    let file = std::fs::read_to_string(file_name.value()).unwrap_or_else(|e| {
+        abort!(
+            Span::call_site(),
+            "could not open file `{}`: {e}",
+            file_name.value()
+        );
+    });
     let tokens = proc_macro2::TokenStream::from_str(&file)
         .unwrap_or_else(|e| abort!(Span::call_site(), e));
-    view(tokens.into())
+    let view = proc_macro2::TokenStream::from(view(tokens.into()));
+
+    // Register the included file in Cargo's recompilation graph. Like
+    // `read_to_string` above, the path is resolved relative to the crate
+    // root (the proc-macro's working directory), which is `CARGO_MANIFEST_DIR`
+    // in the consuming crate; absolute paths are passed through unchanged.
+    let tracked_path = if std::path::Path::new(&file_name.value()).is_absolute()
+    {
+        quote! { #file_name }
+    } else {
+        quote! { concat!(env!("CARGO_MANIFEST_DIR"), "/", #file_name) }
+    };
+    quote! {
+        {
+            const _: &[u8] = include_bytes!(#tracked_path);
+            #view
+        }
+    }
+    .into()
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
@@ -682,7 +704,7 @@ fn component_macro(
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+    if let (Ok(unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model
             .is_transparent(is_transparent)
             .is_lazy(is_lazy)
@@ -950,6 +972,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
         option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
+        None,
         None,
         None,
     ) {

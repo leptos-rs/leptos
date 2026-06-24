@@ -28,6 +28,7 @@ tokio = { default-features = false, features = [
 ] , workspace = true }
 wasm-bindgen-test = { workspace = true, default-features = true }
 serial_test = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
 
 [features]
 async-executor = ["dep:async-executor"]

@@ -5,15 +5,22 @@
 #![deny(missing_docs)]
 
 use proc_macro::{TokenStream, TokenTree};
-use proc_macro2::Span;
 use proc_macro_error2::{abort, proc_macro_error, set_dummy};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::Span;
+use quote::{ToTokens, format_ident, quote};
 use syn::{
-    spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath,
+    FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath, parse_quote,
+    spanned::Spanned,
 };
 
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
-const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
+// RFC 3986 `pchar` also allows `:`, `@`, and the `sub-delims` set
+// (`! $ & ' ( ) * + , ; =`). `*` is intentionally excluded here because the
+// `path!` DSL reserves it as the wildcard sigil (see `Segment::Wildcard`);
+// allowing it inside a static segment would mask misplaced-wildcard mistakes
+// such as `path!("/home/any*")`.
+const RFC3986_PCHAR_OTHER: [char; 12] =
+    ['@', ':', '!', '$', '&', '\'', '(', ')', '+', ',', ';', '='];
 
 /// Constructs a path for use in a [`Route`] definition.
 ///
@@ -24,8 +31,8 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 ///
 /// ```rust
 /// use leptos_router::{
-///     path, OptionalParamSegment, ParamSegment, StaticSegment,
-///     WildcardSegment,
+///     OptionalParamSegment, ParamSegment, StaticSegment, WildcardSegment,
+///     path,
 /// };
 ///
 /// let path = path!("/foo/:bar/:baz?/*any");
@@ -44,12 +51,19 @@ const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 pub fn path(tokens: TokenStream) -> TokenStream {
     let mut parser = SegmentParser::new(tokens);
     parser.parse_all();
-    let segments = Segments(parser.segments);
+    let segments = Segments {
+        span: parser.span,
+        segments: parser.segments,
+    };
     segments.into_token_stream().into()
 }
 
-#[derive(Debug, PartialEq)]
-struct Segments(pub Vec<Segment>);
+struct Segments {
+    segments: Vec<Segment>,
+    // Span of the path string literal, used to anchor validation errors at the
+    // literal rather than the whole `path!(...)` invocation.
+    span: Span,
+}
 
 #[derive(Debug, PartialEq)]
 enum Segment {
@@ -62,6 +76,7 @@ enum Segment {
 struct SegmentParser {
     input: proc_macro::token_stream::IntoIter,
     segments: Vec<Segment>,
+    span: Span,
 }
 
 impl SegmentParser {
@@ -69,34 +84,62 @@ impl SegmentParser {
         Self {
             input: input.into_iter(),
             segments: Vec::new(),
+            span: Span::call_site(),
         }
     }
 }
 
 impl SegmentParser {
     pub fn parse_all(&mut self) {
+        let mut parsed = false;
         for input in self.input.by_ref() {
             match input {
                 TokenTree::Literal(lit) => {
-                    let lit = lit.to_string();
-                    if lit.contains("//") {
+                    if parsed {
+                        let span: Span = lit.span().into();
                         abort!(
-                            proc_macro2::Span::call_site(),
-                            "Consecutive '/' is not allowed"
+                            span,
+                            "`path!` accepts a single string literal; use \
+                             `concat!` to build one from several pieces"
                         );
+                    }
+                    parsed = true;
+
+                    // Parse via `syn::LitStr` so we operate on the literal's
+                    // *value*, not its source text. This handles raw strings
+                    // (`r"…"`, `r#"…"#`) and escapes uniformly, whereas
+                    // `Literal::to_string()` returns the `r`/`#`/quote
+                    // characters as part of the text.
+                    let lit_str: syn::LitStr =
+                        syn::parse(TokenStream::from(TokenTree::Literal(lit)))
+                            .unwrap_or_else(|e| {
+                                abort!(
+                                    e.span(),
+                                    "`path!` expects a string literal"
+                                )
+                            });
+                    self.span = lit_str.span();
+                    let value = lit_str.value();
+
+                    if value.contains("//") {
+                        abort!(self.span, "Consecutive '/' is not allowed");
                     }
                     Self::parse_str(
                         &mut self.segments,
-                        lit.trim_start_matches(['"', '/'])
-                            .trim_end_matches(['"', '/']),
+                        value.trim_start_matches('/').trim_end_matches('/'),
                     );
-                    if lit.ends_with(r#"/""#) && lit != r#""/""# {
+                    if value.ends_with('/') && value != "/" {
                         self.segments.push(Segment::Static("/".to_string()));
                     }
                 }
-                TokenTree::Group(_) => unimplemented!(),
-                TokenTree::Ident(_) => unimplemented!(),
-                TokenTree::Punct(_) => unimplemented!(),
+                other => {
+                    let span: Span = other.span().into();
+                    abort!(
+                        span,
+                        "`path!` expects a string literal, e.g. \
+                         `path!(\"/users/:id\")`"
+                    );
+                }
             }
         }
     }
@@ -124,26 +167,27 @@ impl SegmentParser {
 
 impl Segment {
     fn is_valid(segment: &str) -> bool {
-        segment == "/"
-            || segment.chars().all(|c| {
-                c.is_ascii_digit()
-                    || c.is_ascii_lowercase()
-                    || c.is_ascii_uppercase()
-                    || RFC3986_UNRESERVED.contains(&c)
-                    || RFC3986_PCHAR_OTHER.contains(&c)
-            })
+        !segment.is_empty()
+            && (segment == "/"
+                || segment.chars().all(|c| {
+                    c.is_ascii_digit()
+                        || c.is_ascii_lowercase()
+                        || c.is_ascii_uppercase()
+                        || RFC3986_UNRESERVED.contains(&c)
+                        || RFC3986_PCHAR_OTHER.contains(&c)
+                }))
     }
 
-    fn ensure_valid(&self) {
+    fn ensure_valid(&self, span: Span) {
         match self {
             Self::Wildcard(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid wildcard segment: {}", s)
+                abort!(span, "Invalid wildcard segment: {}", s)
             }
             Self::Static(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid static segment: {}", s)
+                abort!(span, "Invalid static segment: {}", s)
             }
             Self::Param(s) if !Self::is_valid(s) => {
-                abort!(Span::call_site(), "Invalid param segment: {}", s)
+                abort!(span, "Invalid param segment: {}", s)
             }
             _ => (),
         }
@@ -152,19 +196,20 @@ impl Segment {
 
 impl Segments {
     fn ensure_valid(&self) {
-        if let Some((_last, segments)) = self.0.split_last() {
-            if let Some(Segment::Wildcard(s)) =
+        if let Some((_last, segments)) = self.segments.split_last()
+            && let Some(Segment::Wildcard(s)) =
                 segments.iter().find(|s| matches!(s, Segment::Wildcard(_)))
-            {
-                abort!(Span::call_site(), "Wildcard must be at end: {}", s)
-            }
+        {
+            abort!(self.span, "Wildcard must be at end: {}", s)
+        }
+        for segment in &self.segments {
+            segment.ensure_valid(self.span);
         }
     }
 }
 
 impl ToTokens for Segment {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        self.ensure_valid();
         match self {
             Segment::Wildcard(s) => {
                 tokens.extend(quote! { leptos_router::WildcardSegment(#s) });
@@ -186,7 +231,7 @@ impl ToTokens for Segment {
 impl ToTokens for Segments {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.ensure_valid();
-        match self.0.as_slice() {
+        match self.segments.as_slice() {
             [] => tokens.extend(quote! { () }),
             [segment] => tokens.extend(quote! { (#segment,) }),
             segments => tokens.extend(quote! { (#(#segments),*) }),
@@ -299,40 +344,49 @@ fn lazy_route_impl(
     });
 
     match item {
-        None => s,
+        None => abort!(
+            im.span(),
+            "`#[lazy_route]` requires a `view` method on the impl block"
+        ),
         Some(fun) => {
             if let Some(a) = fun.sig.asyncness {
                 abort!(a.span(), "`view` method should not be async")
             }
+            if fun.sig.inputs.len() != 1 {
+                abort!(
+                    fun.sig.inputs.span(),
+                    "`view` must take exactly one argument (`this: Self`)"
+                )
+            }
             fun.sig.asyncness = Some(Default::default());
 
-            let first_arg = fun.sig.inputs.first().unwrap_or_else(|| {
-                abort!(fun.sig.span(), "must have an argument")
-            });
-            let FnArg::Typed(first_arg) = first_arg else {
-                abort!(
-                    first_arg.span(),
+            let first_arg = match fun.sig.inputs.first_mut() {
+                Some(FnArg::Typed(arg)) => arg,
+                Some(other) => abort!(
+                    other.span(),
                     "this must be a typed argument like `this: Self`"
-                )
+                ),
+                None => abort!(fun.sig.span(), "must have an argument"),
             };
-            let first_arg_pat = &*first_arg.pat;
+
+            // Preserve the user's binding pattern (`mut this`, `Self { .. }`,
+            // `_`, …) on the generated lazy function, where pattern syntax is
+            // valid. The trait `view` method instead binds a fresh identifier
+            // and forwards it as an *expression*, since interpolating an
+            // arbitrary pattern into call position produces invalid code.
+            let user_pat = (*first_arg.pat).clone();
+            let this_ident = Ident::new("__this", Span::call_site());
+            first_arg.pat = parse_quote!(#this_ident);
+
             let body = std::mem::replace(
                 &mut fun.block,
-                syn::parse(
-                    quote! {
-                        {
-                            #lazy_view_ident(#first_arg_pat).await
-                        }
-                    }
-                    .into(),
-                )
-                .unwrap(),
+                parse_quote!({ #lazy_view_ident(#this_ident).await }),
             );
 
             quote! {
                 #[allow(non_snake_case)]
                 #[::leptos::lazy]
-                fn #lazy_view_ident(#first_arg_pat: #self_ty) -> ::leptos::prelude::AnyView {
+                fn #lazy_view_ident(#user_pat: #self_ty) -> ::leptos::prelude::AnyView {
                     #body
                 }
 

@@ -394,40 +394,56 @@ impl Stream for StreamBuilder {
                                     replace,
                                     nonce,
                                 }) => {
-                                    let opening = format!("<!--s-{id}o-->");
+                                    // Build the opening marker once. The
+                                    // closing marker differs only in the
+                                    // "o"/"c" flag, so reuse the same
+                                    // allocation instead of formatting a second
+                                    // needle.
+                                    let mut marker =
+                                        String::with_capacity(10 + id.len());
+                                    marker.push_str("<!--s-");
+                                    marker.push_str(&id);
+                                    marker.push_str("o-->");
+                                    let marker_len = marker.len();
                                     let placeholder_at =
-                                        this.sync_buf.find(&opening);
+                                        this.sync_buf.find(&marker);
                                     if let Some(start) = placeholder_at {
-                                        let closing = format!("<!--s-{id}c-->");
-                                        let end = this
-                                            .sync_buf
-                                            .find(&closing)
-                                            .unwrap();
-                                        let chunks_iter =
-                                            chunks.into_iter().rev();
+                                        // flip "o-->" to "c-->" (the flag is 4
+                                        // bytes from the end)
+                                        marker.replace_range(
+                                            marker_len - 4..marker_len - 3,
+                                            "c",
+                                        );
+                                        // the closing marker always follows the
+                                        // opening, so only scan the tail
+                                        let end = start
+                                            + this.sync_buf[start..]
+                                                .find(&marker)
+                                                .unwrap();
 
                                         // TODO can probably make this more efficient
                                         let (before, replaced) =
                                             this.sync_buf.split_at(start);
-                                        let (_, after) = replaced.split_at(
-                                            end - start + closing.len(),
-                                        );
+                                        let (_, after) = replaced
+                                            .split_at(end - start + marker_len);
                                         let mut buf = String::new();
                                         buf.push_str(before);
 
                                         let mut held_chunks = VecDeque::new();
-                                        for chunk in chunks_iter {
+                                        for chunk in chunks {
                                             if let StreamChunk::Sync(ready) =
                                                 chunk
                                             {
                                                 buf.push_str(&ready);
                                             } else {
-                                                held_chunks.push_front(chunk);
+                                                held_chunks.push_back(chunk);
                                             }
                                         }
                                         buf.push_str(after);
                                         this.sync_buf = buf;
-                                        for chunk in held_chunks {
+                                        while let Some(chunk) =
+                                            held_chunks.pop_back()
+                                        {
                                             this.chunks.push_front(chunk);
                                         }
                                     } else {
@@ -435,13 +451,14 @@ impl Stream for StreamBuilder {
                                             &id,
                                             &mut this.sync_buf,
                                         );
-                                        for chunk in chunks.into_iter().rev() {
+                                        let mut held_chunks = VecDeque::new();
+                                        for chunk in chunks {
                                             if let StreamChunk::Sync(ready) =
                                                 chunk
                                             {
                                                 this.sync_buf.push_str(&ready);
                                             } else {
-                                                this.chunks.push_front(chunk);
+                                                held_chunks.push_back(chunk);
                                             }
                                         }
                                         OooChunk::push_end_with_nonce(
@@ -450,6 +467,11 @@ impl Stream for StreamBuilder {
                                             &mut this.sync_buf,
                                             nonce.as_deref(),
                                         );
+                                        while let Some(chunk) =
+                                            held_chunks.pop_back()
+                                        {
+                                            this.chunks.push_front(chunk);
+                                        }
                                     }
                                 }
                                 Poll::Pending => {

@@ -1,0 +1,5 @@
+error: `path!` accepts a single string literal; use `concat!` to build one from several pieces
+ --> tests/ui/multiple_literals.rs:4:26
+  |
+4 |     let _ = path!("/foo" "/bar");
+  |                          ^^^^^^

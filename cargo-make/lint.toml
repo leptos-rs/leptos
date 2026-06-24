@@ -3,6 +3,7 @@ dependencies = ["check-format-flow", "clippy-each-feature"]
 
 [tasks.check-format]
 env = { LEPTOS_PROJECT_DIRECTORY = "../" }
+condition = { channels = ["nightly"] }
 args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]
 
 [tasks.clippy-each-feature]

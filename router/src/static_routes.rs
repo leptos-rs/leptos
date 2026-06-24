@@ -1,5 +1,5 @@
-use crate::{hooks::RawParamsMap, params::ParamsMap, PathSegment};
-use futures::{channel::oneshot, stream, Stream, StreamExt};
+use crate::{PathSegment, hooks::RawParamsMap, params::ParamsMap};
+use futures::{Stream, StreamExt, channel::oneshot, stream};
 use leptos::task::spawn;
 use reactive_graph::{owner::Owner, traits::GetUntracked};
 use std::{
@@ -297,9 +297,9 @@ impl ResolvedStaticPath {
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
         writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
-            + Send
-            + Clone
-            + 'static,
+        + Send
+        + Clone
+        + 'static,
         was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
         regenerate: Vec<RegenerationFn>,
     ) -> (Owner, Option<String>)
@@ -360,14 +360,14 @@ impl ResolvedStaticPath {
                 );
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
-                    if !was_error(&owner) {
-                        if let Err(e) = writer(&self, &owner, html).await {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!("{e}");
+                    if !was_error(&owner)
+                        && let Err(e) = writer(&self, &owner, html).await
+                    {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!("{e}");
 
-                            #[cfg(not(feature = "tracing"))]
-                            eprintln!("{e}");
-                        }
+                        #[cfg(not(feature = "tracing"))]
+                        eprintln!("{e}");
                     }
                     owner.unset_with_forced_cleanup();
                 }

@@ -1,14 +1,16 @@
 #![allow(deprecated)]
 
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use bytes::Bytes;
+use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Write},
     str::FromStr,
 };
 use throw_error::Error;
+use typed_builder::TypedBuilder;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
@@ -220,33 +222,35 @@ where
     CustErr: Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ServerFnError::Registration(s) => format!(
-                    "error while trying to register the server function: {s}"
-                ),
-                ServerFnError::Request(s) => format!(
-                    "error reaching server to call server function: {s}"
-                ),
-                ServerFnError::ServerError(s) =>
-                    format!("error running server function: {s}"),
-                ServerFnError::MiddlewareError(s) =>
-                    format!("error running middleware: {s}"),
-                ServerFnError::Deserialization(s) =>
-                    format!("error deserializing server function results: {s}"),
-                ServerFnError::Serialization(s) =>
-                    format!("error serializing server function arguments: {s}"),
-                ServerFnError::Args(s) => format!(
-                    "error deserializing server function arguments: {s}"
-                ),
-                ServerFnError::MissingArg(s) => format!("missing argument {s}"),
-                ServerFnError::Response(s) =>
-                    format!("error generating HTTP response: {s}"),
-                ServerFnError::WrappedServerError(e) => format!("{e}"),
+        match self {
+            ServerFnError::Registration(s) => write!(
+                f,
+                "error while trying to register the server function: {s}"
+            ),
+            ServerFnError::Request(s) => {
+                write!(f, "error reaching server to call server function: {s}")
             }
-        )
+            ServerFnError::ServerError(s) => {
+                write!(f, "error running server function: {s}")
+            }
+            ServerFnError::MiddlewareError(s) => {
+                write!(f, "error running middleware: {s}")
+            }
+            ServerFnError::Deserialization(s) => {
+                write!(f, "error deserializing server function results: {s}")
+            }
+            ServerFnError::Serialization(s) => {
+                write!(f, "error serializing server function arguments: {s}")
+            }
+            ServerFnError::Args(s) => {
+                write!(f, "error deserializing server function arguments: {s}")
+            }
+            ServerFnError::MissingArg(s) => write!(f, "missing argument {s}"),
+            ServerFnError::Response(s) => {
+                write!(f, "error generating HTTP response: {s}")
+            }
+            ServerFnError::WrappedServerError(e) => write!(f, "{e}"),
+        }
     }
 }
 
@@ -310,7 +314,7 @@ where
     type Error = String;
 
     fn decode(bytes: Bytes) -> Result<ServerFnError<CustErr>, Self::Error> {
-        let data = String::from_utf8(bytes.to_vec())
+        let data = String::from_utf8(bytes.into())
             .map_err(|err| format!("UTF-8 conversion error: {err}"))?;
 
         data.split_once('|')
@@ -474,7 +478,7 @@ impl<E: FromServerFnError> ServerFnUrlError<E> {
         let mut url = Url::parse(base)?;
         url.query_pairs_mut()
             .append_pair("__path", &self.path)
-            .append_pair("__err", &URL_SAFE.encode(self.error.ser()));
+            .append_pair("__err", &URL_SAFE.encode(self.error.ser().body));
         Ok(url)
     }
 
@@ -536,7 +540,7 @@ impl<E: FromServerFnError> Display for ServerFnErrorWrapper<E> {
         write!(
             f,
             "{}",
-            <E::Encoder as FormatType>::into_encoded_string(self.0.ser())
+            <E::Encoder as FormatType>::into_encoded_string(self.0.ser().body)
         )
     }
 }
@@ -560,6 +564,20 @@ impl<E: FromServerFnError> FromStr for ServerFnErrorWrapper<E> {
     }
 }
 
+/// Response parts returned by [`FromServerFnError::ser`] to be returned to the client.
+#[derive(TypedBuilder)]
+#[non_exhaustive]
+pub struct ServerFnErrorResponseParts {
+    /// The raw [`Bytes`] of the serialized error.
+    pub body: Bytes,
+    /// The value of the `CONTENT_TYPE` associated constant for the [`FromServerFnError`]
+    /// implementation. Used to set the `content-type` header of the http response.
+    pub content_type: &'static str,
+    /// The status code to set on the http response as provided by
+    /// [`FromServerFnError::status_code`].
+    pub status_code: StatusCode,
+}
+
 /// A trait for types that can be returned from a server function.
 pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// The encoding strategy used to serialize and deserialize this error type. Must implement the [`Encodes`](server_fn::Encodes) trait for references to the error type.
@@ -568,9 +586,16 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// Converts a [`ServerFnErrorErr`] into the application-specific custom error type.
     fn from_server_fn_error(value: ServerFnErrorErr) -> Self;
 
-    /// Serializes the custom error type to bytes, according to the encoding given by `Self::Encoding`.
-    fn ser(&self) -> Bytes {
-        Self::Encoder::encode(self).unwrap_or_else(|e| {
+    /// Allows customizing the [`StatusCode`] of the http response for the server function error.
+    fn status_code(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    /// Converts the custom error type to [`ServerFnErrorResponseParts`], according to the encoding
+    /// given by [`Self::Encoder`].
+    fn ser(&self) -> ServerFnErrorResponseParts {
+        let status_code = self.status_code();
+        let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
             Self::Encoder::encode(&Self::from_server_fn_error(
                 ServerFnErrorErr::Serialization(e.to_string()),
             ))
@@ -578,7 +603,12 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
                 "error serializing should success at least with the \
                  Serialization error",
             )
-        })
+        });
+        ServerFnErrorResponseParts::builder()
+            .body(body)
+            .content_type(Self::Encoder::CONTENT_TYPE)
+            .status_code(status_code)
+            .build()
     }
 
     /// Deserializes the custom error type, according to the encoding given by `Self::Encoding`.

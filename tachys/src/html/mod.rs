@@ -4,8 +4,8 @@ use crate::{
     no_attrs,
     prelude::{AddAnyAttr, Mountable},
     renderer::{
-        dom::{Element, Node},
         CastFrom, Rndr,
+        dom::{Element, Node},
     },
     view::{Position, PositionState, Render, RenderHtml},
 };

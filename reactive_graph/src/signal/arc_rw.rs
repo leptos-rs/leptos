@@ -1,7 +1,7 @@
 use super::{
+    ArcReadSignal, ArcWriteSignal,
     guards::{Plain, ReadGuard, UntrackedWriteGuard, WriteGuard},
     subscriber_traits::AsSubscriberSet,
-    ArcReadSignal, ArcWriteSignal,
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
@@ -67,11 +67,11 @@ use std::{
 /// let count = ArcRwSignal::new(0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// //    this can be `count()` on nightly
+/// //    this can also be called as `count()`
 /// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// //    this can be `set_count(1)` on nightly
+/// //    this can also be called as `count.set(1)`
 /// count.set(1);
 /// assert_eq!(count.get(), 1);
 ///
@@ -131,7 +131,7 @@ impl<T> Eq for ArcRwSignal<T> {}
 
 impl<T> Hash for ArcRwSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.value), state);
+        std::ptr::hash(Arc::as_ptr(&self.value), state);
     }
 }
 

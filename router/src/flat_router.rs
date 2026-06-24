@@ -1,19 +1,19 @@
 use crate::{
+    ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
+    RouteListing, RouteMatchId,
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::{MatchParams, RouteDefs},
     params::ParamsMap,
     view_transition::start_view_transition,
-    ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
-    RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
-use leptos::attr::{any_attribute::AnyAttribute, Attribute};
+use leptos::attr::{Attribute, any_attribute::AnyAttribute};
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
-    owner::{provide_context, Owner},
+    owner::{Owner, provide_context},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
     transition::AsyncTransition,
@@ -25,9 +25,9 @@ use tachys::{
     reactive_graph::OwnedView,
     ssr::StreamBuilder,
     view::{
+        MarkBranch, Mountable, Position, PositionState, Render, RenderHtml,
         add_attr::AddAnyAttr,
         any_view::{AnyView, AnyViewState, IntoAny},
-        MarkBranch, Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 

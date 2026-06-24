@@ -1,44 +1,43 @@
 use crate::{
-    initial_value, FromEncodedStr, IntoEncodedString,
-    IS_SUPPRESSING_RESOURCE_LOAD,
+    FromEncodedStr, IntoEncodedString, initial_value, suppressing_resource_load,
 };
+#[cfg(feature = "serde-lite")]
+use codee::SerdeLite;
 #[cfg(feature = "rkyv")]
 use codee::binary::RkyvCodec;
 #[cfg(feature = "serde-wasm-bindgen")]
 use codee::string::JsonSerdeWasmCodec;
 #[cfg(feature = "miniserde")]
 use codee::string::MiniserdeCodec;
-#[cfg(feature = "serde-lite")]
-use codee::SerdeLite;
 use codee::{
-    string::{FromToStringCodec, JsonSerdeCodec},
     Decoder, Encoder,
+    string::{FromToStringCodec, JsonSerdeCodec},
 };
 use core::{fmt::Debug, marker::PhantomData};
 use futures::{Future, FutureExt};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::SuspenseContext, AsyncDerivedReadyFuture, ScopedFuture,
+        AsyncDerivedReadyFuture, ScopedFuture, suspense::SuspenseContext,
     },
     diagnostics::{SpecialNonReactiveFuture, SpecialNonReactiveZone},
     graph::{AnySource, ToAnySource},
-    owner::{use_context, ArenaItem, Owner},
+    owner::{ArenaItem, Owner, use_context},
     prelude::*,
     signal::{
-        guards::{Plain, ReadGuard},
         ArcTrigger,
+        guards::{Plain, ReadGuard},
     },
     unwrap_signal,
 };
 use std::{
-    future::IntoFuture,
+    future::{IntoFuture, pending},
     mem,
     panic::Location,
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll, Waker},
 };
@@ -117,15 +116,29 @@ where
 
         let fut = ScopedFuture::new(fut);
 
-        if !is_ready && !IS_SUPPRESSING_RESOURCE_LOAD.load(Ordering::Relaxed) {
+        if !is_ready {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let loading = Arc::clone(&loading);
             let trigger = trigger.clone();
             reactive_graph::spawn(async move {
-                let loaded = fut.await;
+                // Check suppression when the loader is polled, not when the
+                // resource is constructed. Checking at construction time made
+                // a resource created inside a `SuppressResourceLoad` scope
+                // never load, even after the guard dropped; `Resource` checks
+                // at fetch time, and this keeps the two consistent.
+                let loaded = if suppressing_resource_load() {
+                    pending().await
+                } else {
+                    fut.await
+                };
                 *value.write().or_poisoned() = Some(loaded);
-                loading.store(false, Ordering::Relaxed);
+                // `Release` pairs with the `Acquire` load in
+                // `OnceResourceFuture::poll`: a poller that observes
+                // `loading == false` is then guaranteed to see the value write
+                // above. With `Relaxed` the value write could be invisible on
+                // weakly-ordered targets, panicking the `unwrap()` in `poll`.
+                loading.store(false, Ordering::Release);
                 for waker in mem::take(&mut *wakers.write().or_poisoned()) {
                     waker.wake();
                 }
@@ -159,8 +172,31 @@ where
                     Box::pin(async move {
                         ready_fut.await;
                         let value = value.read().or_poisoned();
-                        let value = value.as_ref().unwrap();
-                        Ser::encode(value).unwrap().into_encoded_string()
+                        match value.as_ref() {
+                            Some(value) => match Ser::encode(value) {
+                                Ok(encoded) => encoded.into_encoded_string(),
+                                #[allow(unused)]
+                                Err(e) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "error serializing resource for \
+                                         hydration: {e:?}"
+                                    );
+                                    String::new()
+                                }
+                            },
+                            // Emit an empty payload that fails to decode on the
+                            // client (so it reloads) instead of panicking and
+                            // aborting the SSR response stream.
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "resource value missing while serializing \
+                                     for hydration"
+                                );
+                                String::new()
+                            }
+                        }
                     }),
                 );
             }
@@ -255,22 +291,22 @@ where
     type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.read().or_poisoned().is_none() {
-                let handle = suspense_context.task_id();
-                let mut ready =
-                    Box::pin(SpecialNonReactiveFuture::new(self.ready()));
-                match ready.as_mut().now_or_never() {
-                    Some(_) => drop(handle),
-                    None => {
-                        reactive_graph::spawn(async move {
-                            ready.await;
-                            drop(handle);
-                        });
-                    }
+        if let Some(suspense_context) = use_context::<SuspenseContext>()
+            && self.value.read().or_poisoned().is_none()
+        {
+            let handle = suspense_context.task_id();
+            let mut ready =
+                Box::pin(SpecialNonReactiveFuture::new(self.ready()));
+            match ready.as_mut().now_or_never() {
+                Some(_) => drop(handle),
+                None => {
+                    reactive_graph::spawn(async move {
+                        ready.await;
+                        drop(handle);
+                    });
                 }
-                self.suspenses.write().or_poisoned().push(suspense_context);
             }
+            self.suspenses.write().or_poisoned().push(suspense_context);
         }
         Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
@@ -322,10 +358,21 @@ where
             self.suspenses.write().or_poisoned().push(suspense_context);
         }
 
-        if self.loading.load(Ordering::Relaxed) {
-            self.wakers.write().or_poisoned().push(waker.clone());
+        // Register the waker while holding the `wakers` lock, and check
+        // `loading` inside the same critical section. The loading task clears
+        // `loading` and then drains this list under the same lock, so taking
+        // the lock here makes "check the flag, then register" atomic with
+        // respect to that drain: we either observe `loading == false` (the
+        // value is ready), or we push a waker that the drain is guaranteed to
+        // see and wake. Without this, the loader could drain the (still empty)
+        // list between our check and our push, losing the wake-up and hanging
+        // the future forever.
+        let mut wakers = self.wakers.write().or_poisoned();
+        if self.loading.load(Ordering::Acquire) {
+            wakers.push(waker.clone());
             Poll::Pending
         } else {
+            drop(wakers);
             Poll::Ready(
                 self.value.read().or_poisoned().as_ref().unwrap().clone(),
             )

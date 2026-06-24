@@ -1,9 +1,9 @@
 use super::{Encoding, FromReq, FromRes, IntoReq};
 use crate::{
+    ContentType, IntoRes, ServerFnError,
     error::{FromServerFnError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, TryRes},
-    ContentType, IntoRes, ServerFnError,
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -120,7 +120,7 @@ where
     async fn into_res(self) -> Result<Response, E> {
         Response::try_from_stream(
             Streaming::CONTENT_TYPE,
-            self.into_inner().map_err(|e| e.ser()),
+            self.into_inner().map_err(|e| e.ser().body),
         )
     }
 }
@@ -217,7 +217,7 @@ where
         Request::try_new_post_streaming(
             path,
             accepts,
-            Streaming::CONTENT_TYPE,
+            StreamingText::CONTENT_TYPE,
             data.0.map(|chunk| chunk.unwrap_or_default().into()),
         )
     }
@@ -253,9 +253,9 @@ where
 {
     async fn into_res(self) -> Result<Response, E> {
         Response::try_from_stream(
-            Streaming::CONTENT_TYPE,
+            StreamingText::CONTENT_TYPE,
             self.into_inner()
-                .map(|stream| stream.map(Into::into).map_err(|e| e.ser())),
+                .map(|stream| stream.map(Into::into).map_err(|e| e.ser().body)),
         )
     }
 }

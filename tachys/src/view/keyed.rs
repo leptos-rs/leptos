@@ -1,9 +1,9 @@
 use super::{
-    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    MarkBranch, Mountable, Position, PositionState, Render, RenderHtml,
+    add_attr::AddAnyAttr,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
@@ -151,7 +151,7 @@ where
             parent,
             marker,
             hashed_items,
-            ref mut rendered_items,
+            rendered_items,
         } = state;
         let new_items = self.items.into_iter().flatten();
         let (capacity, _) = new_items.size_hint();
@@ -338,9 +338,8 @@ where
 
         #[cfg(feature = "ssr")]
         for (key, item) in self.ssr_items {
-            let branch_name = mark_branches.then(|| format!("item-{key}"));
             if mark_branches && escape {
-                buf.open_branch(branch_name.as_ref().unwrap());
+                buf.open_branch_fmt(format_args!("item-{key}"));
             }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
@@ -350,7 +349,7 @@ where
                 extra_attrs.clone(),
             );
             if mark_branches && escape {
-                buf.close_branch(branch_name.as_ref().unwrap());
+                buf.close_branch_fmt(format_args!("item-{key}"));
             }
             *position = Position::NextChild;
         }
@@ -559,20 +558,20 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             // 2) be moved (but not need to move in the DOM)
             //    * this would happen if, for example, 2 items
             //      have been added before it, and it has moved by 2
-            if let Some(from_item) = from_item {
-                if let Some(to_item) = to.get_full(from_item) {
-                    let moves_forward_by = (to_item.0 as i32) - (index as i32);
-                    let move_in_dom = moves_forward_by
-                        != (added.len() as i32) - (removed.len() as i32);
+            if let Some(from_item) = from_item
+                && let Some(to_item) = to.get_full(from_item)
+            {
+                let moves_forward_by = (to_item.0 as i32) - (index as i32);
+                let move_in_dom = moves_forward_by
+                    != (added.len() as i32) - (removed.len() as i32);
 
-                    let op = DiffOpMove {
-                        from: index,
-                        len: 1,
-                        to: to_item.0,
-                        move_in_dom,
-                    };
-                    moved.push(op);
-                }
+                let op = DiffOpMove {
+                    from: index,
+                    len: 1,
+                    to: to_item.0,
+                    move_in_dom,
+                };
+                moved.push(op);
             }
         }
     }
@@ -790,12 +789,12 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut moves_next = moves_iter.next().copied();
 
     for i in 0..diff.items_to_move + diff.added.len() + diff.removed.len() {
-        if let Some(DiffOpRemove { at, .. }) = removes_next {
-            if i == *at {
-                removes_next = removes_iter.next();
+        if let Some(DiffOpRemove { at, .. }) = removes_next
+            && i == *at
+        {
+            removes_next = removes_iter.next();
 
-                continue;
-            }
+            continue;
         }
 
         match (adds_next, &mut moves_next) {

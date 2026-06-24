@@ -1,11 +1,11 @@
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute, AttributeValue},
+    html::attribute::{Attribute, AttributeValue, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml, ToTemplate,
+        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr,
     },
 };
 use reactive_graph::effect::RenderEffect;
@@ -97,7 +97,7 @@ where
     T: Mountable,
 {
     fn unmount(&mut self) {
-        if let Some(ref mut inner) = self.0 {
+        if let Some(inner) = &mut self.0 {
             inner.unmount();
         }
     }
@@ -107,7 +107,7 @@ where
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        if let Some(ref mut inner) = self.0 {
+        if let Some(inner) = &mut self.0 {
             inner.mount(parent, marker);
         }
     }
@@ -351,7 +351,7 @@ where
     M: Mountable,
 {
     fn unmount(&mut self) {
-        if let Ok(ref mut inner) = self {
+        if let Ok(inner) = self {
             inner.unmount();
         }
     }
@@ -361,7 +361,7 @@ where
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        if let Ok(ref mut inner) = self {
+        if let Ok(inner) = self {
             inner.mount(parent, marker);
         }
     }
@@ -810,18 +810,17 @@ macro_rules! reactive_impl {
     };
 }
 
-#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use super::RenderEffectState;
     use crate::{
         html::attribute::{
-            any_attribute::AnyAttribute, Attribute, AttributeValue,
+            Attribute, AttributeValue, any_attribute::AnyAttribute,
         },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     };
     #[allow(deprecated)]
@@ -900,13 +899,13 @@ mod reactive_stores {
     use super::RenderEffectState;
     use crate::{
         html::attribute::{
-            any_attribute::AnyAttribute, Attribute, AttributeValue,
+            Attribute, AttributeValue, any_attribute::AnyAttribute,
         },
         hydration::Cursor,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     };
     #[allow(deprecated)]
@@ -936,7 +935,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     reactive_impl!(
@@ -948,7 +947,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     reactive_impl!(

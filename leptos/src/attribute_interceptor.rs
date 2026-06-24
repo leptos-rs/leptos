@@ -1,6 +1,6 @@
 use crate::attr::{
-    any_attribute::{AnyAttribute, IntoAnyAttribute},
     Attribute, NextAttribute,
+    any_attribute::{AnyAttribute, IntoAnyAttribute},
 };
 use leptos::prelude::*;
 

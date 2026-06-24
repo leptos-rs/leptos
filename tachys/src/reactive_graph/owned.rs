@@ -1,9 +1,9 @@
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     prelude::Mountable,
     ssr::StreamBuilder,
-    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
+    view::{Position, PositionState, Render, RenderHtml, add_attr::AddAnyAttr},
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
 use std::mem;

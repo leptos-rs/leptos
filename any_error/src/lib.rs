@@ -25,7 +25,10 @@ pub struct Error(Arc<dyn error::Error + Send + Sync>);
 impl Error {
     /// Converts the wrapper into the inner reference-counted error.
     pub fn into_inner(self) -> Arc<dyn error::Error + Send + Sync> {
-        Arc::clone(&self.0)
+        // Move the `Arc` out of the wrapper rather than cloning it: this
+        // consumes `self`, so there is no reason to bump and then immediately
+        // drop the reference count.
+        self.0
     }
 }
 
@@ -92,7 +95,16 @@ pub struct ResetErrorHookOnDrop(Option<Arc<dyn ErrorHook>>);
 
 impl Drop for ResetErrorHookOnDrop {
     fn drop(&mut self) {
-        ERROR_HOOK.with_borrow_mut(|this| *this = self.0.take())
+        // Best-effort restore. If `ERROR_HOOK` is currently borrowed (e.g. this
+        // guard is dropped from inside a hook callback that still holds the
+        // borrow) or already destroyed (thread teardown), skip the restore
+        // instead of panicking: a panic escaping `drop` during unwinding aborts
+        // the whole process.
+        let _ = ERROR_HOOK.try_with(|cell| {
+            if let Ok(mut slot) = cell.try_borrow_mut() {
+                *slot = self.0.take();
+            }
+        });
     }
 }
 
@@ -110,16 +122,22 @@ pub fn set_error_hook(hook: Arc<dyn ErrorHook>) -> ResetErrorHookOnDrop {
 
 /// Invokes the error hook set by [`set_error_hook`] with the given error.
 pub fn throw(error: impl Into<Error>) -> ErrorId {
-    ERROR_HOOK
-        .with_borrow(|hook| hook.as_ref().map(|hook| hook.throw(error.into())))
+    // Clone the hook out of the thread-local *before* invoking it, so the
+    // `RefCell` borrow is released for the duration of the callback. Holding the
+    // borrow across the call would make any re-entrant `set_error_hook` /
+    // `throw` / `clear` performed by the hook panic with `BorrowMutError`.
+    get_error_hook()
+        .map(|hook| hook.throw(error.into()))
         .unwrap_or_default()
 }
 
 /// Clears the given error from the current error hook.
 pub fn clear(id: &ErrorId) {
-    ERROR_HOOK
-        .with_borrow(|hook| hook.as_ref().map(|hook| hook.clear(id)))
-        .unwrap_or_default()
+    // See `throw`: release the borrow before calling into the hook so the hook
+    // may itself touch the error-hook slot without panicking.
+    if let Some(hook) = get_error_hook() {
+        hook.clear(id);
+    }
 }
 
 pin_project_lite::pin_project! {
@@ -151,10 +169,15 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        let _hook = this
-            .hook
-            .as_ref()
-            .map(|hook| set_error_hook(Arc::clone(hook)));
+        // Install the hook captured at construction time for the duration of
+        // this poll, *including* the `None` case. A future created before any
+        // hook was set must clear the slot while polling rather than silently
+        // inherit whatever hook happens to be installed on the polling thread.
+        // The guard restores the previous hook when the poll returns.
+        let _hook =
+            ResetErrorHookOnDrop(ERROR_HOOK.with_borrow_mut(|cur| {
+                std::mem::replace(cur, this.hook.clone())
+            }));
         this.inner.poll(cx)
     }
 }
@@ -185,5 +208,103 @@ mod tests {
 
         let e = anyhow::anyhow!("anyhow error");
         let _le = Error::from(e);
+    }
+
+    #[test]
+    fn into_inner_yields_uniquely_owned_arc() {
+        // `into_inner` consumes the only `Error`, so the returned `Arc` is the
+        // sole owner of the underlying error.
+        let e: Error = "boom".to_string().into();
+        let inner = e.into_inner();
+        assert_eq!(Arc::strong_count(&inner), 1);
+
+        // With another owner alive, the count is exactly that owner plus the
+        // returned `Arc`: `into_inner` introduces no extra references.
+        let e: Error = "boom".to_string().into();
+        let clone = e.clone();
+        let inner = e.into_inner();
+        assert_eq!(Arc::strong_count(&inner), 2);
+        drop(clone);
+        assert_eq!(Arc::strong_count(&inner), 1);
+    }
+
+    struct NoOpHook;
+    impl ErrorHook for NoOpHook {
+        fn throw(&self, _: Error) -> ErrorId {
+            ErrorId::default()
+        }
+        fn clear(&self, _: &ErrorId) {}
+    }
+
+    // A hook that re-enters the error-hook machinery from inside its own
+    // callbacks. Before the borrow was released ahead of the call, this
+    // panicked with `BorrowMutError`.
+    #[test]
+    fn hook_may_reenter_error_hook_machinery_from_callback() {
+        struct Reenter;
+        impl ErrorHook for Reenter {
+            fn throw(&self, _: Error) -> ErrorId {
+                let _guard = set_error_hook(Arc::new(NoOpHook));
+                ErrorId::default()
+            }
+            fn clear(&self, _id: &ErrorId) {
+                // Re-enter the mutable path from `clear` as well.
+                let _guard = set_error_hook(Arc::new(NoOpHook));
+            }
+        }
+
+        let _guard = set_error_hook(Arc::new(Reenter));
+        // Neither of these may panic.
+        let id = throw("boom");
+        clear(&id);
+    }
+
+    // A future built before any hook is installed captures `None`; polling it
+    // must clear the slot for the duration of the poll instead of routing
+    // `throw` to whatever hook happens to be installed on the polling thread.
+    #[test]
+    fn error_hook_future_with_no_captured_hook_clears_ambient_hook_during_poll()
+    {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct Counter(AtomicUsize);
+        impl ErrorHook for Counter {
+            fn throw(&self, _: Error) -> ErrorId {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                ErrorId::default()
+            }
+            fn clear(&self, _: &ErrorId) {}
+        }
+
+        // Built before any hook is installed -> captured hook is `None`.
+        let fut = ErrorHookFuture::new(async {
+            throw("inside future");
+        });
+
+        // Now install a counting hook on this thread.
+        let counter = Arc::new(Counter(AtomicUsize::new(0)));
+        let _g = set_error_hook(counter.clone());
+
+        // Drive the future to completion. The `throw` inside it must NOT reach
+        // the ambient `counter` hook, because the future captured `None`.
+        let mut fut = std::pin::pin!(fut);
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        assert!(fut.as_mut().poll(&mut cx).is_ready());
+
+        assert_eq!(counter.0.load(Ordering::SeqCst), 0);
+        // The ambient hook is restored once the poll returns.
+        assert!(get_error_hook().is_some());
+    }
+
+    // Dropping a `ResetErrorHookOnDrop` while the hook slot is already borrowed
+    // must not panic. Before the guard used `try_borrow_mut`, this panicked
+    // with `BorrowMutError` from inside `drop`.
+    #[test]
+    fn reset_guard_drop_is_silent_while_hook_slot_is_borrowed() {
+        let guard = set_error_hook(Arc::new(NoOpHook));
+        // Hold an immutable borrow of the slot, then drop the guard inside it.
+        ERROR_HOOK.with_borrow(|_held| {
+            drop(guard);
+        });
     }
 }

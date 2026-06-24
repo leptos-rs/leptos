@@ -4,7 +4,7 @@ use crate::{
         element::{ElementType, HtmlElement},
     },
     renderer::Rndr,
-    view::{add_attr::AddAnyAttr, RenderHtml},
+    view::{RenderHtml, add_attr::AddAnyAttr},
 };
 
 /// Applies ARIA attributes to an HTML element.

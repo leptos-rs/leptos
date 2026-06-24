@@ -1,5 +1,5 @@
 use super::{
-    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+    TagType, fragment_to_tokens, utils::is_nostrip_optional_and_update_key,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
@@ -12,7 +12,7 @@ use rstml::node::{
 };
 use std::collections::HashMap;
 use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
+    Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt, spanned::Spanned,
 };
 
 pub(crate) fn component_to_tokens(
@@ -111,16 +111,14 @@ pub(crate) fn component_to_tokens(
 
             let KeyedAttributeValue::Binding(binding) = &attr.possible_value
             else {
-                if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
-                    let span = match &attr.key {
-                        NodeName::Punctuated(path) => path[1].span(),
-                        _ => unreachable!(),
-                    };
-                    let ident1 = format_ident!("{ident}", span = span);
-                    return Some(quote_spanned! { span => #ident1 });
-                } else {
-                    return None;
-                }
+                let attr_key = attr.key.to_string();
+                let ident = attr_key.strip_prefix("let:")?;
+                let span = match &attr.key {
+                    NodeName::Punctuated(path) => path[1].span(),
+                    _ => unreachable!(),
+                };
+                let ident1 = format_ident!("{ident}", span = span);
+                return Some(quote_spanned! { span => #ident1 });
             };
 
             let inputs = &binding.inputs;
@@ -356,7 +354,8 @@ pub fn maybe_optimised_component_children(
         .iter()
         .filter(|child| !matches!(child, Node::Comment(_)));
 
-    let children = if let Some(child) = children_iter.next() {
+    let children = {
+        let child = children_iter.next()?;
         // If more than one child after filtering out comments, don't think we can optimise:
         if children_iter.next().is_some() {
             return None;
@@ -403,8 +402,6 @@ pub fn maybe_optimised_component_children(
             }
             _ => return None,
         }
-    } else {
-        return None;
     };
 
     // // Debug check to see how many use this optimisation:

@@ -22,9 +22,11 @@
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
 //! disables features necessary to support the normal native/Tokio runtime environment we create. This can
 //! generate errors like the following, which don’t point to an obvious culprit:
-//! `
+//!
+//! ```text
 //! `spawn_local` called from outside of a `task::LocalSet`
-//! `
+//! ```
+//!
 //! If you are not using the `wasm` feature, do not set `default-features = false` on this package.
 //!
 //!
@@ -40,39 +42,40 @@ use axum::{
     body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
-        header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
-        request::Parts,
         HeaderMap, Method, Request, Response, StatusCode,
+        header::{self, ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER},
+        request::Parts,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
-use futures::{stream::once, Future, Stream, StreamExt};
+use futures::{Future, Stream, StreamExt, stream::once};
 use hydration_context::SsrSharedContext;
 use leptos::{
+    IntoView,
     config::LeptosOptions,
     context::{provide_context, use_context},
     prelude::*,
     reactive::{computed::ScopedFuture, owner::Owner},
-    IntoView,
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+    accept_header_includes_html,
 };
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
+    ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect, location::RequestUrl,
-    static_routes::RegenerationFn, ExpandOptionals, PathSegment, RouteList,
-    RouteListing, SsrMode,
+    static_routes::RegenerationFn,
 };
 use or_poisoned::OrPoisoned;
 use server_fn::{error::ServerFnErrorErr, redirect::REDIRECT_HEADER};
 #[cfg(feature = "default")]
-use std::sync::LazyLock;
+use std::path::Path;
 #[cfg(feature = "default")]
-use std::{collections::HashMap, path::Path};
+use std::sync::LazyLock;
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -86,10 +89,19 @@ use tower::util::ServiceExt;
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
-#[cfg(feature = "default")]
+pub(crate) mod private {
+    use crate::RouterConfiguration;
+
+    pub trait Sealed {}
+
+    impl<S> Sealed for axum::Router<S> {}
+    impl<APP, CX, SH, S> Sealed for RouterConfiguration<APP, CX, SH, S> {}
+}
+
+mod config;
 mod service;
-#[cfg(feature = "default")]
-pub use service::ErrorHandler;
+pub use config::RouterConfiguration;
+pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -158,6 +170,25 @@ impl ResponseOptions {
     }
 }
 
+pub(crate) fn extend_response<ResBody>(
+    res: &mut Response<ResBody>,
+    res_options: &ResponseOptions,
+) {
+    let mut res_options = res_options.0.write().or_poisoned();
+    if let Some(status) = res_options.status {
+        *res.status_mut() = status;
+    }
+    res.headers_mut()
+        .extend(std::mem::take(&mut res_options.headers));
+}
+
+/// A generic `500 Internal Server Error` response with no body details, used
+/// when an integration handler hits an unrecoverable but non-fatal condition
+/// that previously panicked.
+fn internal_server_error() -> Response<Body> {
+    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+}
+
 struct AxumResponse(Response<Body>);
 
 impl ExtendResponse for AxumResponse {
@@ -175,13 +206,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
-        let mut res_options = res_options.0.write().or_poisoned();
-        if let Some(status) = res_options.status {
-            *self.0.status_mut() = status;
-        }
-        self.0
-            .headers_mut()
-            .extend(std::mem::take(&mut res_options.headers));
+        extend_response(&mut self.0, res_options);
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {
@@ -217,34 +242,57 @@ impl ExtendResponse for AxumResponse {
 ///
 /// If the route or server function in which this is called is being accessed
 /// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
-/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
-/// header contains `text/html` as it does for an ordinary navigation.)
+/// status code of `302` for a temporary redirect if `permanent` is false
+/// or a `301` for a permanent redirect if `permanent` is true.
+/// (This is determined by whether the `Accept` header contains `text/html` as it does for an ordinary navigation.)
 ///
 /// Otherwise, it sets a custom header that indicates to the client that it should redirect,
 /// without actually setting the status code. This means that the client will not follow the
 /// redirect, and can therefore return the value of the server function and then handle
 /// the redirect with client-side routing.
-pub fn redirect(path: &str) {
+pub fn redirect(path: &str, permanent: bool) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
     {
+        // The path ultimately derives from user input (e.g. a `next` URL
+        // parameter), so it may contain bytes that are illegal in a header
+        // value (CR, LF, NUL, ...). `HeaderValue::from_str` rejects those, and
+        // turning that recoverable error into a panic would let any client take
+        // down the worker handling the request. Skip the redirect instead.
+        let location = match header::HeaderValue::from_str(path) {
+            Ok(location) => location,
+            Err(_) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                #[cfg(not(feature = "tracing"))]
+                eprintln!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                return;
+            }
+        };
         // insert the Location header in any case
-        res.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
+        res.insert_header(header::LOCATION, location);
 
         let accepts_html = req
             .headers
             .get(ACCEPT)
             .and_then(|v| v.to_str().ok())
-            .map(|v| v.contains("text/html"))
+            .map(accept_header_includes_html)
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
-            // to have the 302 code set
-            res.set_status(StatusCode::FOUND);
+            // to have the redirect status code set
+            let status_code = if permanent {
+                // `301` permanent redirect
+                StatusCode::MOVED_PERMANENTLY
+            } else {
+                // `302` temporary redirect
+                StatusCode::FOUND
+            };
+            res.set_status(status_code);
         } else {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
@@ -275,9 +323,12 @@ pub fn redirect(path: &str) {
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
 /// original parts for further processing
-pub fn generate_request_and_parts(
-    req: Request<Body>,
-) -> (Request<Body>, Parts) {
+pub fn generate_request_and_parts<ReqBody>(
+    req: Request<ReqBody>,
+) -> (Request<ReqBody>, Parts)
+where
+    ReqBody: Send + 'static,
+{
     let (parts, body) = req.into_parts();
     let parts2 = parts.clone();
     (Request::from_parts(parts, body), parts2)
@@ -289,7 +340,7 @@ pub fn generate_request_and_parts(
 /// This can then be set up at an appropriate route in your application:
 ///
 /// ```no_run
-/// use axum::{handler::Handler, routing::post, Router};
+/// use axum::{Router, handler::Handler, routing::post};
 /// use leptos::prelude::*;
 /// use std::net::SocketAddr;
 ///
@@ -400,7 +451,7 @@ async fn handle_server_fns_inner(
                         .headers()
                         .get(ACCEPT)
                         .and_then(|v| v.to_str().ok())
-                        .map(|v| v.contains("text/html"))
+                        .map(accept_header_includes_html)
                         .unwrap_or(false);
                     let referrer = req.headers().get(REFERER).cloned();
 
@@ -409,14 +460,12 @@ async fn handle_server_fns_inner(
 
                     // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                     // Location set, then redirect to the Referer
-                    if accepts_html {
-                        if let Some(referrer) = referrer {
-                            let has_location =
-                                res.0.headers().get(LOCATION).is_some();
-                            if !has_location {
-                                *res.0.status_mut() = StatusCode::FOUND;
-                                res.0.headers_mut().insert(LOCATION, referrer);
-                            }
+                    if accepts_html && let Some(referrer) = referrer {
+                        let has_location =
+                            res.0.headers().get(LOCATION).is_some();
+                        if !has_location {
+                            *res.0.status_mut() = StatusCode::FOUND;
+                            res.0.headers_mut().insert(LOCATION, referrer);
                         }
                     }
 
@@ -440,7 +489,17 @@ async fn handle_server_fns_inner(
                  function type, somewhere in your `main` function.",
             )))
     }
-    .expect("could not build Response")
+    .unwrap_or_else(|err| {
+        // The branches above only set a status and a string body, so this is
+        // not reachable today; handle it gracefully anyway so a future edit
+        // that adds a fallible header to the builder cannot turn this
+        // diagnostic into a panic.
+        #[cfg(feature = "tracing")]
+        tracing::error!("could not build server function response: {err}");
+        #[cfg(not(feature = "tracing"))]
+        let _ = err;
+        internal_server_error()
+    })
 }
 
 /// A stream of bytes of HTML.
@@ -452,7 +511,7 @@ pub type PinnedHtmlStream =
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -498,9 +557,9 @@ pub fn render_app_to_stream<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -523,9 +582,9 @@ pub fn render_route<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     LeptosOptions: FromRef<S>,
@@ -541,7 +600,7 @@ where
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -587,9 +646,9 @@ pub fn render_app_to_stream_in_order<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -641,10 +700,10 @@ pub fn render_app_to_stream_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -672,9 +731,9 @@ pub fn render_route_with_context<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     LeptosOptions: FromRef<S>,
@@ -693,28 +752,66 @@ where
         additional_context.clone(),
         app_fn.clone(),
     );
-    let asyn = render_app_async_stream_with_context(
+    let asyn = render_app_async_with_context(
         additional_context.clone(),
         app_fn.clone(),
     );
 
+    // Index the route listings by path once, at router-build time, so the
+    // per-request handler resolves a listing in O(1) by a borrowed `&str`
+    // instead of scanning `paths` linearly and allocating an owned path
+    // `String` on every request. `or_insert` preserves the first-match
+    // semantics of the previous `paths.iter().find(...)`.
+    use std::collections::HashMap;
+    let by_path: HashMap<String, AxumRouteListing> = {
+        let mut map = HashMap::with_capacity(paths.len());
+        for listing in paths {
+            map.entry(listing.path().to_owned()).or_insert(listing);
+        }
+        map
+    };
+
     move |state, req| {
-        // 1. Process route to match the values in routeListing
-        let path = req
-            .extensions()
-            .get::<MatchedPath>()
-            .expect("Failed to get Axum router rule")
-            .as_str();
-        // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
-        // search for this every time
-        let listing: &AxumRouteListing =
-            paths.iter().find(|r| r.path() == path).unwrap_or_else(|| {
-                panic!(
-                    "Failed to find the route {path} requested by the user. \
-                     This suggests that the routing rules in the Router that \
-                     call this handler needs to be edited!"
-                )
-            });
+        // 1. Match the request to a RouteListing via Axum's MatchedPath.
+        //
+        // `MatchedPath` is only present when the request flowed through Axum's
+        // matcher; mounting this handler outside the router (manual tower
+        // composition, `nest`/`route_service`, direct calls in tests) leaves it
+        // absent. Rather than panic — which would kill the worker and 500 every
+        // affected request — log and return a generic 500 so the misconfigured
+        // route is diagnosable without taking the process down.
+        let Some(matched) = req.extensions().get::<MatchedPath>() else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "render_route handler invoked without a MatchedPath; the \
+                 handler must be mounted through the Axum router."
+            );
+            return Box::pin(async { internal_server_error() });
+        };
+        // O(1) lookup by borrowed path; the `matched` borrow of `req` is
+        // released here, before `req` is moved into a render closure below.
+        let Some(listing) = by_path.get(matched.as_str()) else {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                "Failed to find the route {} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited.",
+                matched.as_str()
+            );
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Failed to find the route {} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler need to be edited.",
+                matched.as_str()
+            );
+            return Box::pin(async { internal_server_error() });
+        };
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
             SsrMode::OutOfOrder => ooo(req),
@@ -774,10 +871,10 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -847,9 +944,9 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -874,10 +971,10 @@ fn handle_response<IV>(
         bool,
     ) -> PinnedFuture<PinnedStream<String>>,
 ) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>>
-       + Clone
-       + Send
-       + Sync
-       + 'static
++ Clone
++ Send
++ Sync
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -916,12 +1013,33 @@ where
             move || {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
+                //
+                // `path_and_query` is `None` for authority-form URIs (e.g. a
+                // `CONNECT host:port` request from a misconfigured proxy or a
+                // health probe). Fall back to the root rather than panicking.
+                let path = req
+                    .uri()
+                    .path_and_query()
+                    .map(|p| p.as_str())
+                    .unwrap_or("/");
 
-                let full_path = format!("http://leptos.dev{path}");
-                let (_, req_parts) = generate_request_and_parts(req);
+                // Prefix the real request origin (scheme://host) so that
+                // `Url::origin()` is correct server-side and matches the
+                // client after hydration; fall back to a bare path when the
+                // host is unknown. Building the `RequestUrl` here, before the
+                // request is consumed below, keeps the borrow of `req` short.
+                let request_url = match request_origin(&req) {
+                    Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
+                    None => RequestUrl::new(path),
+                };
+                // The body is never read during rendering (SSR is driven by the
+                // path string and the head we put in context) and we own `req`,
+                // so move the parts straight out instead of cloning them via
+                // `generate_request_and_parts`, which would allocate a fresh
+                // HeaderMap + Extensions and rebuild a Request we discard.
+                let (req_parts, _body) = req.into_parts();
                 provide_contexts(
-                    &full_path,
+                    request_url,
                     &meta_context,
                     req_parts,
                     res_options.clone(),
@@ -953,17 +1071,42 @@ where
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
 fn provide_contexts(
-    path: &str,
+    request_url: RequestUrl,
     meta_context: &ServerMetaContext,
     parts: Parts,
     default_res_options: ResponseOptions,
 ) {
-    provide_context(RequestUrl::new(path));
+    provide_context(request_url);
     provide_context(meta_context.clone());
     provide_context(parts);
     provide_context(default_res_options);
     provide_server_redirect(redirect);
     leptos::nonce::provide_nonce();
+}
+
+/// Reconstructs the request's origin (`scheme://host`) for `Url::origin()`.
+///
+/// The host comes from the URI authority (absolute-form requests) or the
+/// `Host` header (the usual origin-form). The scheme comes from the URI or,
+/// behind a TLS-terminating proxy, the `X-Forwarded-Proto` header, defaulting
+/// to `http`. Returns `None` when no host is present, in which case only the
+/// path is used.
+fn request_origin(req: &Request<Body>) -> Option<String> {
+    let uri = req.uri();
+    let host = uri.authority().map(|a| a.as_str()).or_else(|| {
+        req.headers()
+            .get(header::HOST)
+            .and_then(|value| value.to_str().ok())
+    })?;
+    let scheme = uri
+        .scheme_str()
+        .or_else(|| {
+            req.headers()
+                .get("x-forwarded-proto")
+                .and_then(|value| value.to_str().ok())
+        })
+        .unwrap_or("http");
+    Some(format!("{scheme}://{host}"))
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -972,7 +1115,7 @@ fn provide_contexts(
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```no_run
-/// use axum::{handler::Handler, Router};
+/// use axum::{Router, handler::Handler};
 /// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
@@ -1019,80 +1162,13 @@ pub fn render_app_async<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
     render_app_async_with_context(|| {}, app_fn)
-}
-
-/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` resources have loaded.
-///
-/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
-/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
-/// the data to leptos in a closure. An example is below
-/// ```
-/// use axum::{
-///     body::Body,
-///     extract::Path,
-///     http::Request,
-///     response::{IntoResponse, Response},
-/// };
-/// use leptos::context::provide_context;
-///
-/// async fn custom_handler(
-///     Path(id): Path<String>,
-///     req: Request<Body>,
-/// ) -> Response {
-///     let handler = leptos_axum::render_app_async_with_context(
-///         move || {
-///             provide_context(id.clone());
-///         },
-///         || { /* your application here */ },
-///     );
-///     handler(req).await.into_response()
-/// }
-/// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
-///
-/// ## Provided Context Types
-/// This function always provides context values including the following types:
-/// - [`Parts`]
-/// - [`ResponseOptions`]
-/// - [`ServerMetaContext`]
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(level = "trace", fields(error), skip_all)
-)]
-pub fn render_app_async_stream_with_context<IV>(
-    additional_context: impl Fn() + 'static + Clone + Send + Sync,
-    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
-) -> impl Fn(
-    Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
-where
-    IV: IntoView + 'static,
-{
-    handle_response(additional_context, app_fn, |app, chunks, _supports_ooo| {
-        Box::pin(async move {
-            let app = if cfg!(feature = "islands-router") {
-                app.to_html_stream_in_order_branching()
-            } else {
-                app.to_html_stream_in_order()
-            };
-            let app = app.collect::<String>().await;
-            let chunks = chunks();
-            Box::pin(once(async move { app }).chain(chunks))
-                as PinnedStream<String>
-        })
-    })
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1141,9 +1217,9 @@ pub fn render_app_async_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
 {
@@ -1345,7 +1421,12 @@ where
             provide_context(RequestUrl::new(""));
             let (mock_parts, _) = Request::new(Body::from("")).into_parts();
             let (mock_meta, _) = ServerMetaContext::new();
-            provide_contexts("", &mock_meta, mock_parts, Default::default());
+            provide_contexts(
+                RequestUrl::new(""),
+                &mock_meta,
+                mock_parts,
+                Default::default(),
+            );
             additional_context();
             RouteList::generate(&app_fn)
         })
@@ -1414,7 +1495,6 @@ impl StaticRouteGenerator {
         let additional_context = {
             let add_context = additional_context.clone();
             move || {
-                let full_path = format!("http://leptos.dev{path}");
                 let mock_req = Request::builder()
                     .method(Method::GET)
                     .header("Accept", "text/html")
@@ -1422,8 +1502,9 @@ impl StaticRouteGenerator {
                     .unwrap();
                 let (mock_parts, _) = mock_req.into_parts();
                 let res_options = ResponseOptions::default();
+                // `mock_parts.uri` is `/`; pass the route path explicitly.
                 provide_contexts(
-                    &full_path,
+                    RequestUrl::new(&path),
                     &meta_context,
                     mock_parts,
                     res_options,
@@ -1530,10 +1611,38 @@ impl StaticRouteGenerator {
     }
 }
 
+/// Default upper bound on the number of per-path [`ResponseOptions`] entries
+/// cached for static routes. Without a bound the cache grew for the life of the
+/// process, one entry per unique static path served (e.g. attacker-driven slugs
+/// on a regenerated `/posts/{slug}` route).
+///
+/// Eviction is graceful: the static file is still served from disk, the cache
+/// only drops the custom headers/status captured at generation time for the
+/// evicted path (re-populated on the next regeneration). 1024 covers a typical
+/// static site's working set for a worst case on the order of ~1 MB.
+#[cfg(feature = "default")]
+const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
+    match std::num::NonZeroUsize::new(1024) {
+        Some(capacity) => capacity,
+        None => unreachable!(),
+    };
+
+/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
+/// A missing, unparseable, or zero value falls back to the default.
+#[cfg(feature = "default")]
+const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
+
 #[cfg(feature = "default")]
 static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<HashMap<String, ResponseOptions>>,
-> = LazyLock::new(Default::default);
+    std::sync::RwLock<lru::LruCache<String, ResponseOptions>>,
+> = LazyLock::new(|| {
+    let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .and_then(std::num::NonZeroUsize::new)
+        .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
+    std::sync::RwLock::new(lru::LruCache::new(capacity))
+});
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
@@ -1548,7 +1657,7 @@ fn was_404(owner: &Owner) -> bool {
 }
 
 #[cfg(feature = "default")]
-fn static_path(options: &LeptosOptions, path: &str) -> String {
+fn static_path(options: &LeptosOptions, path: &str) -> Option<String> {
     use leptos_integration_utils::static_file_path;
 
     // If the path ends with a trailing slash, we generate the path
@@ -1567,21 +1676,28 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::write_file_atomic;
+
+    // Reject anything that would escape the site root before caching headers
+    // or touching the filesystem.
+    let Some(file_path) = static_path(options, path) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to write static file for a path-traversal request",
+        ));
+    };
+
     if let Some(options) = response_options {
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .insert(path.to_string(), options);
+            .put(path.to_string(), options);
     }
 
-    let path = static_path(options, path);
-    let path = Path::new(&path);
-    if let Some(path) = path.parent() {
-        tokio::fs::create_dir_all(path).await?;
-    }
-    tokio::fs::write(path, &html).await?;
-
-    Ok(())
+    let path = Path::new(&file_path);
+    // Write atomically: a crash mid-write must never leave a truncated or empty
+    // file that is then served (because `try_exists` reports it as present).
+    write_file_atomic(path, html.as_bytes()).await
 }
 
 #[cfg(feature = "default")]
@@ -1593,9 +1709,9 @@ fn handle_static_route<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     LeptosOptions: FromRef<S>,
     S: Send + 'static,
@@ -1610,8 +1726,17 @@ where
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
             let orig_path = req.uri().path();
-            let path = static_path(&options, orig_path);
-            let path = Path::new(&path);
+            // A `None` here means the request path would escape the site root
+            // (path traversal); decline it before any filesystem access.
+            let Some(file_path) = static_path(&options, orig_path) else {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "rejected static route request with path traversal: \
+                     {orig_path}"
+                );
+                return (StatusCode::NOT_FOUND, "Not Found").into_response();
+            };
+            let path = Path::new(&file_path);
             let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 
             let (response_options, html) = if !exists {
@@ -1648,8 +1773,12 @@ where
                     .await;
                 (owner.with(use_context::<ResponseOptions>), html)
             } else {
-                let headers =
-                    STATIC_HEADERS.read().or_poisoned().get(orig_path).cloned();
+                // `LruCache::get` updates recency, so it needs a write lock.
+                let headers = STATIC_HEADERS
+                    .write()
+                    .or_poisoned()
+                    .get(orig_path)
+                    .cloned();
                 (headers, None)
             };
 
@@ -1659,14 +1788,34 @@ where
             // this if for thing like 404s, where we do not want to cache an endless series of
             // typos (or malicious requests)
             let mut res = AxumResponse(match html {
-                Some(html) => axum::response::Html(html).into_response(),
+                // `html` is `Some` only for an uncached error response (the
+                // `was_404` predicate gated the build). `Html(..)` defaults to
+                // 200, so make the error status explicit rather than relying
+                // on the captured `ResponseOptions` to carry it. A custom
+                // status set by the app still overrides this via
+                // `extend_response` below.
+                Some(html) => {
+                    let mut response =
+                        axum::response::Html(html).into_response();
+                    *response.status_mut() = StatusCode::NOT_FOUND;
+                    response
+                }
                 None => match ServeFile::new(path).oneshot(req).await {
                     Ok(res) => res.into_response(),
-                    Err(err) => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Something went wrong: {err}"),
-                    )
-                        .into_response(),
+                    // The cached file can be removed between the `try_exists`
+                    // check above and this read (a TOCTOU race). Do not render
+                    // the raw filesystem error into the body — that leaks
+                    // server paths — log it and return a generic 500.
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "failed to serve static file {}: {err}",
+                            path.display()
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = &err;
+                        internal_server_error()
+                    }
                 },
             });
 
@@ -1681,7 +1830,10 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<S>
+///
+/// This trait is sealed and cannot be implemented for callers to avoid breaking backwards compatibility when
+/// new methods are added.
+pub trait LeptosRoutes<S>: private::Sealed
 where
     S: Clone + Send + Sync + 'static,
     LeptosOptions: FromRef<S>,
@@ -1689,6 +1841,47 @@ where
     /// Adds routes to the Axum router that have either
     /// 1) been generated by `leptos_router`, or
     /// 2) handle a server function.
+    ///
+    /// These routes are typically produced by applying the [`generate_route_list`] function on the root
+    /// application.
+    ///
+    /// The `app_fn` argument is typically the full application shell, which is normally a function that
+    /// returns a complete HTML document, with `<head>` including at the very least the [`HydrationScripts`],
+    /// and the `<body>` containing the application itself.  Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// let routes = generate_route_list(App);
+    ///
+    /// fn shell(options: LeptosOptions) -> impl IntoView {
+    ///     view! {
+    ///         <html>
+    ///             <head>
+    ///                 <HydrationScripts options/>
+    ///             </head>
+    ///             <body>
+    ///                 <App/>
+    ///             </body>
+    ///         </html>
+    ///     }
+    /// }
+    ///
+    /// let app = Router::new().leptos_routes(&leptos_options, routes, {
+    ///     let leptos_options = leptos_options.clone();
+    ///     move || shell(leptos_options.clone())
+    /// });
+    /// ```
+    ///
+    /// [`HydrationScripts`]: leptos::hydration::HydrationScripts
     fn leptos_routes<IV>(
         self,
         options: &S,
@@ -1724,6 +1917,274 @@ where
     where
         H: axum::handler::Handler<T, S>,
         T: 'static;
+
+    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
+    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
+    /// that resides under `LEPTOS_SITE_ROOT`.
+    ///
+    /// The shell will be used to generate the error fallback page for the resources that are not found;
+    /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
+    /// Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .leptos_route_site_pkg_dir(&leptos_options, shell);
+    /// ```
+    ///
+    /// Should no fallback or some other alternative fallback service be desired, the setup may be achieved
+    /// using the underlying helpers [`site_pkg_dir_service_route_path`] and [`site_pkg_dir_service`].
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .route_service(
+    ///         &leptos_axum::site_pkg_dir_service_route_path(&leptos_options),
+    ///         // modify the following `ServeDir` to suit your specific needs.
+    ///         leptos_axum::site_pkg_dir_service(&leptos_options),
+    ///     );
+    /// ```
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// [`leptos_routes`]: LeptosRoutes::leptos_routes
+    #[cfg(feature = "default")]
+    fn leptos_route_site_pkg_dir<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static;
+
+    /// Apply a default fallback service using the [`ErrorHandler`] service.
+    ///
+    /// The shell will be used to generate the error fallback page for the resources that are not found;
+    /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
+    /// Example:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::{LeptosRoutes, generate_route_list};
+    /// # use leptos_meta::MetaTags;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # let routes = generate_route_list(App);
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// let app = Router::new()
+    ///     .leptos_routes(&leptos_options, routes, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .leptos_route_fallback(&leptos_options, shell);
+    /// ```
+    ///
+    /// [`leptos_routes`]: LeptosRoutes::leptos_routes
+    fn leptos_route_fallback<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static;
+
+    /// With the provided [`RouterConfiguration`], add the routes and services to the Axum router.
+    ///
+    /// This is useful for reducing the manual cloning of values across the different configurations using
+    /// the standard methods.  For example, a router with an additional context may be set up as follows:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .fallback(file_and_error_handler_with_context(extra_cx, shell))
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Instead, the above configuration is functionally similar to the following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let app = Router::new().leptos_route_configure(
+    ///     RouterConfiguration::new()
+    ///         .app(App)
+    ///         .shell(shell)
+    ///         .state(leptos_options)
+    ///         .with_context(extra_cx),
+    /// );
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// The above does not use the `file_and_error_handler_with_context`, but instead sets up separate
+    /// tower services for serving of site pkg and error handler, and is functionally equivalent to the
+    /// following:
+    ///
+    /// ```
+    /// # use axum::Router;
+    /// # use leptos::prelude::*;
+    /// # use leptos_axum::*;
+    /// # use tower::builder::ServiceBuilder;
+    /// # #[component]
+    /// # fn App() -> impl IntoView {
+    /// #     view! { <main>"Hello, world!"</main> }
+    /// # }
+    /// # let conf = get_configuration(None).unwrap();
+    /// # let leptos_options = conf.leptos_options;
+    /// # fn shell(options: LeptosOptions) -> impl IntoView {
+    /// #     view! {
+    /// #         <html>
+    /// #             <head>
+    /// #                 <HydrationScripts options/>
+    /// #             </head>
+    /// #             <body>
+    /// #                 <App/>
+    /// #             </body>
+    /// #         </html>
+    /// #     }
+    /// # }
+    /// # let extra_cx = || {};
+    /// let routes = generate_route_list(App);
+    /// let error_handler =
+    ///     ErrorHandler::new_with_context(extra_cx, shell, leptos_options.clone());
+    /// # #[cfg(feature = "default")]
+    /// let app = Router::new()
+    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    ///         let leptos_options = leptos_options.clone();
+    ///         move || shell(leptos_options.clone())
+    ///     })
+    ///     .route_service(
+    ///         &site_pkg_dir_service_route_path(&leptos_options),
+    ///         ServiceBuilder::new()
+    ///             .layer(LeptosContextLayer::new_with_context(extra_cx))
+    ///             .service(
+    ///                 site_pkg_dir_service(&leptos_options)
+    ///                     .fallback(error_handler.clone()),
+    ///             ),
+    ///     )
+    ///     .fallback_service(error_handler)
+    ///     .with_state(leptos_options);
+    /// # #[cfg(feature = "default")]
+    /// # app.into_make_service();
+    /// ```
+    ///
+    /// Note that both configuration with this method with a `RouterConfiguration` builder and the verbose
+    /// manner of setting up the router will allow an alternative fallback be specified without removing the
+    /// site pkg routes, as in the case with the combined fallback handler.
+    fn leptos_route_configure<C, S2>(self, conf: C) -> axum::Router<S2>
+    where
+        C: config::traits::RouterConfiguration<S>;
 }
 
 trait AxumPath {
@@ -1977,6 +2438,53 @@ where
         }
         router
     }
+
+    #[cfg(feature = "default")]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_site_pkg_dir<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static,
+    {
+        // Note that this does not currently address the use case required by #4377(#4394) as
+        // `extend_response()` won't be called with the service as provided.
+        let options = LeptosOptions::from_ref(options);
+        let path = site_pkg_dir_service_route_path(&options);
+        let serve_dir = site_pkg_dir_service(&options)
+            .fallback(ErrorHandler::new(shell, options));
+        let mut router = self;
+        router = router.route_service(&path, serve_dir);
+        router
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_fallback<SH, IV>(self, options: &S, shell: SH) -> Self
+    where
+        SH: Fn(LeptosOptions) -> IV + 'static + Clone + Send + Sync,
+        IV: IntoView + 'static,
+    {
+        let options = LeptosOptions::from_ref(options);
+        let mut router = self;
+        router = router.fallback_service(ErrorHandler::new(shell, options));
+        router
+    }
+
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
+    fn leptos_route_configure<C, S2>(self, conf: C) -> axum::Router<S2>
+    where
+        C: config::traits::RouterConfiguration<S>,
+    {
+        conf.apply(self)
+    }
 }
 
 /// A helper to make it easier to use Axum extractors in server functions.
@@ -2049,9 +2557,9 @@ pub fn file_and_error_handler_with_context<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     S: Send + Sync + Clone + 'static,
@@ -2065,7 +2573,21 @@ where
                 let options = LeptosOptions::from_ref(&state);
                 let res =
                     get_static_file(uri, &options.site_root, req.headers());
-                let res = res.await.unwrap();
+                // `get_static_file` returns `Err` if the underlying `ServeDir`
+                // fails. This handler is the documented "reasonable default"
+                // fallback, so it must not panic: log and serve a generic 500.
+                let res = match res.await {
+                    Ok(res) => res,
+                    Err((status, err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "static file handler failed: {status} {err}"
+                        );
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = (status, err);
+                        return internal_server_error();
+                    }
+                };
 
                 if res.status() == StatusCode::OK {
                     let owner = Owner::new();
@@ -2090,19 +2612,7 @@ where
                         },
                         move || shell(options),
                         req,
-                        |app, chunks, _supports_ooo| {
-                            Box::pin(async move {
-                                let app = if cfg!(feature = "islands-router") {
-                                    app.to_html_stream_in_order_branching()
-                                } else {
-                                    app.to_html_stream_in_order()
-                                };
-                                let app = app.collect::<String>().await;
-                                let chunks = chunks();
-                                Box::pin(once(async move { app }).chain(chunks))
-                                    as PinnedStream<String>
-                            })
-                        },
+                        async_stream_builder,
                     )
                     .await;
 
@@ -2137,9 +2647,9 @@ pub fn file_and_error_handler<S, IV>(
     State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
++ Clone
++ Send
++ 'static
 where
     IV: IntoView + 'static,
     S: Send + Sync + Clone + 'static,
@@ -2163,7 +2673,19 @@ async fn get_static_file(
         None => req,
     };
 
-    let req = req.body(Body::empty()).unwrap();
+    let req = match req.body(Body::empty()) {
+        Ok(req) => req,
+        Err(err) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("failed to build static file request: {err}");
+            #[cfg(not(feature = "tracing"))]
+            let _ = err;
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not build static file request".to_string(),
+            ));
+        }
+    };
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // This path is relative to the cargo root
     match ServeDir::new(root)
@@ -2185,6 +2707,9 @@ async fn get_static_file(
 /// as the fallback service, or be attached as a service route on the router,
 /// typically with the path derived from [`site_pkg_dir_service_route_path`].
 ///
+/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]
 pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
@@ -2197,7 +2722,12 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
 /// in conjunction with the [`ServeDir`] service produced by [`site_pkg_dir_service`]
 /// for setting up a routed site pkg service with [`Router::route_service`].
 ///
+/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient shorthand
+/// as it will set all this up more directly.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
+///
+/// [`Router::route_service`]: axum::Router::route_service
 pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     // The path of the route being built will be constained to serve only the
     // contents of `site_pkg_dir` to avoid conflicts with the root routes.
@@ -2212,4 +2742,129 @@ pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     }
     path.push_str("{*path}");
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request;
+
+    // A target URL that contains a newline cannot be encoded as a header
+    // value. `redirect` must skip the redirect instead of panicking, otherwise
+    // any client able to influence the target (e.g. a `next` parameter) can
+    // crash the request handler.
+    #[test]
+    fn redirect_ignores_invalid_header_value() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert!(parts.headers.get(LOCATION).is_none());
+        assert!(parts.status.is_none());
+    }
+
+    // A well-formed target is still applied.
+    #[test]
+    fn redirect_sets_location_for_valid_target() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(
+            parts.headers.get(LOCATION).map(|v| v.as_bytes()),
+            Some(&b"/dashboard"[..])
+        );
+    }
+
+    // Test if the correct status code is set on the redirect
+    #[test]
+    fn redirect_sets_302() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::FOUND));
+    }
+
+    #[test]
+    fn redirect_sets_301() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            provide_context(parts);
+            provide_context(res.clone());
+
+            redirect("/dashboard", true);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(parts.status, Some(StatusCode::MOVED_PERMANENTLY));
+    }
+
+    // When the render_route handler is mounted such that Axum's `MatchedPath`
+    // is absent (e.g. invoked outside the router), it must return a generic
+    // 500 instead of panicking and killing the worker.
+    #[cfg(feature = "default")]
+    #[tokio::test]
+    async fn render_route_without_matched_path_returns_500() {
+        let options = leptos::config::get_configuration(None)
+            .unwrap()
+            .leptos_options;
+
+        let handler = render_route_with_context(
+            Vec::<AxumRouteListing>::new(),
+            || {},
+            || "app",
+        );
+
+        // No `MatchedPath` extension is attached to this request.
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+
+        let res = handler(State(options), req).await;
+        assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // The per-path header cache must never grow without bound: serving many
+    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
+    // per path for the life of the process.
+    #[cfg(feature = "default")]
+    #[test]
+    fn static_headers_cache_is_bounded() {
+        let mut cache: lru::LruCache<String, ResponseOptions> =
+            lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
+        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
+
+        for i in 0..(capacity + 10) {
+            cache.put(format!("/post/{i}"), ResponseOptions::default());
+        }
+
+        // never grows past capacity
+        assert_eq!(cache.len(), capacity);
+        // the earliest-inserted entries have been evicted
+        assert!(cache.get(&"/post/0".to_string()).is_none());
+        // a recently-inserted entry is still present
+        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
 }
