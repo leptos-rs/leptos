@@ -21,8 +21,11 @@ mod readable_deref_impl {
         /// This function relies on the size of the object you return from the deref
         /// being the same as the object you pass in
         #[doc(hidden)]
-        unsafe fn deref_impl<'a>(&self) -> &'a dyn Fn() -> Self::Value
+        unsafe fn deref_impl<'a>(
+            &self,
+        ) -> &'a (dyn Fn() -> Self::Value + Send + Sync)
         where
+            Self: Send + Sync,
             Self: Sized + 'a,
             Self::Value: Clone + 'static,
         {
@@ -67,8 +70,11 @@ mod writable_deref_impl {
         /// This function relies on the size of the object you return from the deref
         /// being the same as the object you pass in
         #[doc(hidden)]
-        unsafe fn deref_impl<'a>(&self) -> &'a dyn Fn(Self::Value)
+        unsafe fn deref_impl<'a>(
+            &self,
+        ) -> &'a (dyn Fn(Self::Value) + Send + Sync)
         where
+            Self: Send + Sync,
             Self: Sized + 'a,
         {
             let uninit_callable = std::mem::MaybeUninit::<Self>::uninit();
@@ -106,8 +112,9 @@ macro_rules! impl_readable_deref_arc {
             impl<T: Clone + 'static> std::ops::Deref for $ty<T>
             where
                 $ty<T>: crate::traits::Get<Value = T>,
+                T: Send + Sync,
             {
-                type Target = dyn Fn() -> T;
+                type Target = dyn Fn() -> T + Send + Sync;
 
                 fn deref(&self) -> &Self::Target {
                     unsafe { readable_deref_impl::ReadableDerefImpl::deref_impl(self) }
@@ -131,7 +138,7 @@ macro_rules! impl_readable_deref_arena {
             where
                 $ty<T, S>: crate::traits::Get<Value = T>,
             {
-                type Target = dyn Fn() -> T;
+                type Target = dyn Fn() -> T + Send + Sync;
 
                 fn deref(&self) -> &Self::Target {
                     unsafe { readable_deref_impl::ReadableDerefImpl::deref_impl(self) }
@@ -156,8 +163,9 @@ macro_rules! impl_readable_deref_arena_signal_types {
                 for $ty<T, S>
             where
                 $ty<T, S>: crate::traits::Get<Value = T>,
+                T: Send + Sync,
             {
-                type Target = dyn Fn() -> T;
+                type Target = dyn Fn() -> T + Send + Sync;
 
                 fn deref(&self) -> &Self::Target {
                     unsafe { readable_deref_impl::ReadableDerefImpl::deref_impl(self) }
@@ -195,7 +203,7 @@ impl<
 where
     MaybeProp<T, S>: crate::traits::Get<Value = Option<T>>,
 {
-    type Target = dyn Fn() -> Option<T>;
+    type Target = dyn Fn() -> Option<T> + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         unsafe { readable_deref_impl::ReadableDerefImpl::deref_impl(self) }
@@ -225,9 +233,10 @@ macro_rules! impl_writable_deref_arc {
         $(
             impl<T: 'static> std::ops::Deref for $ty<T>
             where
+            	T: Send + Sync,
                 $ty<T>: crate::traits::Set<Value = T>,
             {
-                type Target = dyn Fn(T);
+                type Target = dyn Fn(T) + Send + Sync;
 
                 fn deref(&self) -> &Self::Target {
                     unsafe { writable_deref_impl::WritableDerefImpl::deref_impl(self) }
@@ -251,7 +260,7 @@ impl<T: 'static, S: Storage<ArcWriteSignal<T>> + 'static> std::ops::Deref
 where
     WriteSignal<T, S>: crate::traits::Set<Value = T>,
 {
-    type Target = dyn Fn(T);
+    type Target = dyn Fn(T) + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         unsafe { writable_deref_impl::WritableDerefImpl::deref_impl(self) }
@@ -275,7 +284,7 @@ impl<
 where
     SignalSetter<T, S>: crate::traits::Set<Value = T>,
 {
-    type Target = dyn Fn(T);
+    type Target = dyn Fn(T) + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         unsafe { writable_deref_impl::WritableDerefImpl::deref_impl(self) }
