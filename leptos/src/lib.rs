@@ -166,8 +166,8 @@ pub mod prelude {
         pub use crate::nonce::*;
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
-            form::*, hydration::*, into_view::*, lazy_view_error::*, mount::*,
-            suspense::*, text_prop::*,
+            form::*, hydration::*, into_view::*, mount::*, suspense::*,
+            text_prop::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::helpers::*;
