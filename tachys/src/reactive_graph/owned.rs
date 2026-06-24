@@ -6,6 +6,7 @@ use crate::{
     view::{Position, PositionState, Render, RenderHtml, add_attr::AddAnyAttr},
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
+use std::mem;
 
 /// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
 #[derive(Debug, Clone)]
@@ -33,8 +34,12 @@ pub struct OwnedViewState<T>
 where
     T: Mountable,
 {
-    owner: Owner,
+    // note: the drop order of the fields matters here
+    // dropping `state` before `owner` ensures that cleanups happen
+    // from the bottom up: i.e., the child state is dropped before
+    // any other cleanups attached to this owner are fired
     state: T,
+    owner: Owner,
 }
 
 impl<T> OwnedViewState<T>
@@ -61,7 +66,13 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let OwnedView { owner, view, .. } = self;
         owner.with(|| view.rebuild(&mut state.state));
-        state.owner = owner;
+        // Defer dropping the previous owner until after effects have run:
+        // render effects that do things like reading from context it provides
+        // may have already been triggered and queued to run. `spawn_local` will
+        // defer the drop to the end of the queue, while still deterministically
+        // cleaning up the memory to prevent leaks.
+        let old_owner = mem::replace(&mut state.owner, owner);
+        reactive_graph::spawn_local(async move { drop(old_owner) });
     }
 }
 

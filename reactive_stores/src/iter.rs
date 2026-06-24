@@ -71,7 +71,7 @@ where
     type Value = Prev::Output;
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
-        MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
+        MappedMutArc<WriteGuard<Vec<ArcTrigger>, Inner::Writer>, Prev::Output>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -113,8 +113,10 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
+        let mut parent = self.inner.writer()?;
+        parent.untrack();
+        let triggers = self.triggers_for_current_path();
+        let inner = WriteGuard::new(triggers, parent);
         let index = self.index;
         // See `reader`: the write guard holds the inner lock, so a single
         // bounds check here is sufficient to keep the projection panic-free.
