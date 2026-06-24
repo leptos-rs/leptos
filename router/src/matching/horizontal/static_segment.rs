@@ -94,7 +94,7 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
                 }
                 break;
             } else if n.is_none() {
-                break;
+                return None;
             }
             // if the next character in the path matches the
             // next character in the segment, add it to the match
@@ -312,5 +312,11 @@ mod tests {
         assert!(def.test("/test/abc/").is_none());
         assert!(def.test("/tests/ab").is_none());
         assert!(def.test("/tests/ab/").is_none());
+    }
+
+    #[test]
+    fn no_partial_match_on_overlong_path() {
+        let def = StaticSegment("fo");
+        assert!(def.test("/foobar").is_none());
     }
 }
