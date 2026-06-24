@@ -1078,3 +1078,47 @@ pub fn memo(input: TokenStream) -> TokenStream {
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     lazy::lazy_impl(args, s)
 }
+
+/// Preloads a lazy function and returns a signal that evaluates to `true` once the function is loaded.
+///
+/// The first time a signal is created through this macro, the WebAssembly (WASM) binary containing
+/// the lazy function will be loaded and ready to call. This can be useful when the WASM binary is big
+/// and you want to display a placeholder view while it is loading.
+///
+/// When called from a server, the signal returned by `lazy_preload` will always return false to match
+/// with the client's expectation on first render.
+///
+/// Only a function marked as `#[lazy]` can be passed to `lazy_preload`.
+///
+/// ```rust
+/// # use leptos_macro::{lazy, lazy_preload};
+/// # use leptos::prelude::Get;
+///
+/// #[lazy]
+/// fn lazy_func() {}
+///
+/// fn preload_lazy() -> &'static str {
+///     let is_loaded = lazy_preload!(lazy_func);
+///     if is_loaded.get() {
+///         "Loaded"
+///     } else {
+///         "Loading..."
+///     }
+/// }
+///
+/// mod scoped {
+///     # use leptos_macro::lazy;
+///     #[lazy]
+///     pub fn lazy_func() {}
+/// }
+///
+/// // Also works with scoped lazy functions
+/// fn preload_scoped_lazy() {
+///     let is_loaded = lazy_preload!(scoped::lazy_func);
+/// }
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn lazy_preload(s: TokenStream) -> TokenStream {
+    lazy::lazy_preload_impl(s)
+}
