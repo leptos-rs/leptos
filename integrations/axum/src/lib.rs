@@ -60,11 +60,11 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html,
+    accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
-use leptos_router::static_routes::ResolvedStaticPath;
+use leptos_router::static_routes::{ResolvedStaticPath, StaticResponse};
 use leptos_router::{
     ExpandOptionals, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect, location::RequestUrl,
@@ -299,7 +299,7 @@ pub fn redirect(path: &str, permanent: bool) {
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
             res.insert_header(
                 HeaderName::from_static(REDIRECT_HEADER),
-                HeaderValue::from_str("").unwrap(),
+                HeaderValue::from_static(""),
             );
         }
     } else {
@@ -431,12 +431,14 @@ async fn handle_server_fns_inner(
     req: Request<Body>,
 ) -> impl IntoResponse {
     let method = req.method().clone();
-    let path = req.uri().path().to_string();
-    let (req, parts) = generate_request_and_parts(req);
 
+    // look up the service on the borrowed path before decomposing the
+    // request; the owned error-message String is only built on the cold
+    // (not-found) branch below
     if let Some(mut service) =
-        server_fn::axum::get_server_fn_service(&path, method)
+        server_fn::axum::get_server_fn_service(req.uri().path(), method)
     {
+        let (req, parts) = generate_request_and_parts(req);
         let owner = Owner::new();
         owner
             .with(|| {
@@ -476,6 +478,7 @@ async fn handle_server_fns_inner(
             })
             .await
     } else {
+        let path = req.uri().path();
         Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body(Body::from(format!(
@@ -1028,9 +1031,14 @@ where
                 // client after hydration; fall back to a bare path when the
                 // host is unknown. Building the `RequestUrl` here, before the
                 // request is consumed below, keeps the borrow of `req` short.
-                let request_url = match request_origin(&req) {
-                    Some(origin) => RequestUrl::new(&format!("{origin}{path}")),
-                    None => RequestUrl::new(path),
+                // `path` already carries the query (`path_and_query`), so the
+                // query argument is empty; `RequestUrl::new` makes the one
+                // unavoidable copy into its `Arc<str>`.
+                let request_url = match request_scheme_and_host(&req) {
+                    (scheme, Some(host)) => RequestUrl::new(
+                        &build_request_url(scheme, host, path, ""),
+                    ),
+                    _ => RequestUrl::new(path),
                 };
                 // The body is never read during rendering (SSR is driven by the
                 // path string and the head we put in context) and we own `req`,
@@ -1084,20 +1092,22 @@ fn provide_contexts(
     leptos::nonce::provide_nonce();
 }
 
-/// Reconstructs the request's origin (`scheme://host`) for `Url::origin()`.
+/// Extracts the request's scheme and host for reconstructing its origin
+/// (`scheme://host`) for `Url::origin()`, borrowed from the request so the
+/// caller can assemble the full URL in a single allocation.
 ///
 /// The host comes from the URI authority (absolute-form requests) or the
 /// `Host` header (the usual origin-form). The scheme comes from the URI or,
 /// behind a TLS-terminating proxy, the `X-Forwarded-Proto` header, defaulting
-/// to `http`. Returns `None` when no host is present, in which case only the
-/// path is used.
-fn request_origin(req: &Request<Body>) -> Option<String> {
+/// to `http`. The host is `None` when the request carries none, in which case
+/// only the path is used.
+fn request_scheme_and_host(req: &Request<Body>) -> (&str, Option<&str>) {
     let uri = req.uri();
     let host = uri.authority().map(|a| a.as_str()).or_else(|| {
         req.headers()
             .get(header::HOST)
             .and_then(|value| value.to_str().ok())
-    })?;
+    });
     let scheme = uri
         .scheme_str()
         .or_else(|| {
@@ -1106,7 +1116,7 @@ fn request_origin(req: &Request<Body>) -> Option<String> {
                 .and_then(|value| value.to_str().ok())
         })
         .unwrap_or("http");
-    Some(format!("{scheme}://{host}"))
+    (scheme, host)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1634,7 +1644,7 @@ const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
 
 #[cfg(feature = "default")]
 static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<lru::LruCache<String, ResponseOptions>>,
+    std::sync::RwLock<lru::LruCache<String, ResponseParts>>,
 > = LazyLock::new(|| {
     let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
         .ok()
@@ -1643,6 +1653,24 @@ static STATIC_HEADERS: LazyLock<
         .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
     std::sync::RwLock::new(lru::LruCache::new(capacity))
 });
+
+/// Apply a cached [`ResponseParts`] snapshot to a response.
+///
+/// `STATIC_HEADERS` caches the headers and status captured when a route was
+/// generated. Unlike [`extend_response`], which drains its `ResponseOptions`
+/// with `std::mem::take` (fine for a single-use, request-scoped value), this
+/// clones the cached headers so the same snapshot can be re-applied to every
+/// cache hit without emptying the entry.
+#[cfg(feature = "default")]
+fn apply_response_parts<ResBody>(
+    res: &mut Response<ResBody>,
+    parts: &ResponseParts,
+) {
+    if let Some(status) = parts.status {
+        *res.status_mut() = status;
+    }
+    res.headers_mut().extend(parts.headers.clone());
+}
 
 #[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
@@ -1688,15 +1716,20 @@ async fn write_static_route(
     };
 
     if let Some(options) = response_options {
+        // Cache an immutable snapshot of the headers/status captured during this
+        // render, not the live request's `Arc<RwLock<..>>`. The generating
+        // request still owns and drains its own `ResponseOptions` when it serves
+        // the page; the cache keeps a private copy so repeated hits can re-apply
+        // it.
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .put(path.to_string(), options);
+            .put(path.to_string(), options.0.read().or_poisoned().clone());
     }
 
     let path = Path::new(&file_path);
     // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that is then served (because `try_exists` reports it as present).
+    // file that a concurrent request could open and serve.
     write_file_atomic(path, html.as_bytes()).await
 }
 
@@ -1725,7 +1758,11 @@ where
         let regenerate = regenerate.clone();
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
-            let orig_path = req.uri().path();
+            // hold an owned copy of the URI: the request itself is consumed
+            // by the `ServeFile` call below, but the path is still needed
+            // afterwards (`Uri` clones are cheap, reference-counted bytes)
+            let uri = req.uri().clone();
+            let orig_path = uri.path();
             // A `None` here means the request path would escape the site root
             // (path traversal); decline it before any filesystem access.
             let Some(file_path) = static_path(&options, orig_path) else {
@@ -1737,12 +1774,19 @@ where
                 return (StatusCode::NOT_FOUND, "Not Found").into_response();
             };
             let path = Path::new(&file_path);
-            let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+            let served = ServeFile::new(path).oneshot(req).await;
+            let needs_generation = matches!(&served, Ok(res) if res.status() == StatusCode::NOT_FOUND);
 
-            let (response_options, html) = if !exists {
+            if needs_generation {
+                // On-demand regeneration. Serve the HTML we just rendered
+                // together with the headers captured during the *same* render.
+                // Re-reading the freshly written file would race concurrent
+                // regenerations of this path (last writer wins on disk), so a
+                // request could pair its own headers with another render's
+                // body.
                 let path = ResolvedStaticPath::new(orig_path);
 
-                let (owner, html) = path
+                let (owner, static_response) = path
                     .build(
                         move |path: &ResolvedStaticPath| {
                             StaticRouteGenerator::render_route(
@@ -1771,41 +1815,45 @@ where
                         regenerate,
                     )
                     .await;
-                (owner.with(use_context::<ResponseOptions>), html)
+
+                let response_options =
+                    owner.with(use_context::<ResponseOptions>);
+                // `Error` is an uncached error response (e.g. a 404, gated by
+                // `was_404`). `Html(..)` defaults to 200, so make the error
+                // status explicit rather than relying on the captured
+                // `ResponseOptions` to carry it. A custom status set by the app
+                // still overrides this via `extend_response` below.
+                let (html, default_status) = match static_response {
+                    StaticResponse::Generated(html) => (html, StatusCode::OK),
+                    StaticResponse::Error(html) => {
+                        (html, StatusCode::NOT_FOUND)
+                    }
+                };
+                let mut response = axum::response::Html(html).into_response();
+                *response.status_mut() = default_status;
+                let mut res = AxumResponse(response);
+                if let Some(options) = response_options {
+                    res.extend_response(&options);
+                }
+                res.0
             } else {
+                // Cached hit: serve the file already opened above and re-apply
+                // the headers captured when it was generated.
+                //
                 // `LruCache::get` updates recency, so it needs a write lock.
-                let headers = STATIC_HEADERS
+                // Clone the cached snapshot out so the lock is released before we
+                // touch the response, then apply it non-destructively, leaving
+                // the entry intact for the next hit.
+                let response_parts = STATIC_HEADERS
                     .write()
                     .or_poisoned()
                     .get(orig_path)
                     .cloned();
-                (headers, None)
-            };
-
-            // if html is Some(_), it means that `was_error_response` is true and we're not
-            // actually going to cache this route, just return it as HTML
-            //
-            // this if for thing like 404s, where we do not want to cache an endless series of
-            // typos (or malicious requests)
-            let mut res = AxumResponse(match html {
-                // `html` is `Some` only for an uncached error response (the
-                // `was_404` predicate gated the build). `Html(..)` defaults to
-                // 200, so make the error status explicit rather than relying
-                // on the captured `ResponseOptions` to carry it. A custom
-                // status set by the app still overrides this via
-                // `extend_response` below.
-                Some(html) => {
-                    let mut response =
-                        axum::response::Html(html).into_response();
-                    *response.status_mut() = StatusCode::NOT_FOUND;
-                    response
-                }
-                None => match ServeFile::new(path).oneshot(req).await {
+                let mut response = match served {
                     Ok(res) => res.into_response(),
-                    // The cached file can be removed between the `try_exists`
-                    // check above and this read (a TOCTOU race). Do not render
-                    // the raw filesystem error into the body — that leaks
-                    // server paths — log it and return a generic 500.
+                    // A failed read of the cached file lands here. Do not
+                    // render the raw filesystem error into the body — that
+                    // leaks server paths — log it and return a generic 500.
                     Err(err) => {
                         #[cfg(feature = "tracing")]
                         tracing::warn!(
@@ -1816,14 +1864,12 @@ where
                         let _ = &err;
                         internal_server_error()
                     }
-                },
-            });
-
-            if let Some(options) = response_options {
-                res.extend_response(&options);
+                };
+                if let Some(parts) = response_parts {
+                    apply_response_parts(&mut response, &parts);
+                }
+                response
             }
-
-            res.0
         })
     }
 }
@@ -2790,13 +2836,19 @@ mod tests {
         );
     }
 
-    // Test if the correct status code is set on the redirect
+    // Test if the correct status code is set on the redirect. The redirect
+    // status is only set for requests that accept HTML (a plain navigation
+    // or form post); other clients get the redirect marker header instead.
     #[test]
     fn redirect_sets_302() {
         let owner = Owner::new();
         let res = ResponseOptions::default();
         owner.with(|| {
-            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            let (parts, _) = Request::builder()
+                .header(ACCEPT, "text/html")
+                .body(())
+                .unwrap()
+                .into_parts();
             provide_context(parts);
             provide_context(res.clone());
 
@@ -2812,7 +2864,11 @@ mod tests {
         let owner = Owner::new();
         let res = ResponseOptions::default();
         owner.with(|| {
-            let (parts, _) = Request::builder().body(()).unwrap().into_parts();
+            let (parts, _) = Request::builder()
+                .header(ACCEPT, "text/html")
+                .body(())
+                .unwrap()
+                .into_parts();
             provide_context(parts);
             provide_context(res.clone());
 
@@ -2852,12 +2908,12 @@ mod tests {
     #[cfg(feature = "default")]
     #[test]
     fn static_headers_cache_is_bounded() {
-        let mut cache: lru::LruCache<String, ResponseOptions> =
+        let mut cache: lru::LruCache<String, ResponseParts> =
             lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
         let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
 
         for i in 0..(capacity + 10) {
-            cache.put(format!("/post/{i}"), ResponseOptions::default());
+            cache.put(format!("/post/{i}"), ResponseParts::default());
         }
 
         // never grows past capacity

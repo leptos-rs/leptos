@@ -101,7 +101,7 @@ pub trait ExtendResponse: Sized {
 
             let sc = owner.shared_context().unwrap();
 
-            let stream = stream.await.ready_chunks(32).map(|n| n.join(""));
+            let stream = stream.await.ready_chunks(32).map(flush_ready_chunks);
 
             while let Some(pending) = sc.await_deferred() {
                 pending.await;
@@ -180,6 +180,22 @@ pub trait ExtendResponse: Sized {
     }
 }
 
+/// Collapses one `ready_chunks` batch of stream chunks into a single item.
+///
+/// Batching already-ready chunks is an I/O win: each item becomes one HTTP
+/// frame downstream. But while streaming, chunks usually become ready one
+/// resource resolution at a time, so the typical batch holds exactly one
+/// chunk — and `join("")` would allocate and copy even then. Move the only
+/// chunk out instead, and only pay for concatenation when there is something
+/// to concatenate.
+fn flush_ready_chunks(mut chunks: Vec<String>) -> String {
+    if chunks.len() == 1 {
+        chunks.pop().unwrap_or_default()
+    } else {
+        chunks.join("")
+    }
+}
+
 pub fn build_response<IV>(
     app_fn: impl FnOnce() -> IV + Send + 'static,
     additional_context: impl FnOnce() + Send + 'static,
@@ -253,6 +269,18 @@ where
 /// `application/x-text/html-fake` (an unrelated, unparseable range) are both
 /// correctly treated as *not* accepting HTML.
 pub fn accept_header_includes_html(accept: &str) -> bool {
+    // necessary-condition gate: any matching `text/html` range must contain
+    // the substring "html", so a header without it can never match; this
+    // skips the per-range mime parse for the common `application/json`
+    // server-fn case. Only negatives short-circuit — anything that could
+    // match still flows through the full parser below.
+    if !accept
+        .as_bytes()
+        .windows(4)
+        .any(|w| w.eq_ignore_ascii_case(b"html"))
+    {
+        return false;
+    }
     accept.split(',').any(|range| {
         let Ok(media) = range.trim().parse::<mime::Mime>() else {
             return false;
@@ -270,6 +298,42 @@ pub fn accept_header_includes_html(accept: &str) -> bool {
     })
 }
 
+/// Assembles a request URL of the form `scheme://host{path}`, appending
+/// `?{query}` only when `query` is non-empty, into a single `String` whose
+/// capacity is reserved up front from the component lengths.
+///
+/// Both server integrations reconstruct the full request URL on every SSR
+/// render so that `Url::origin()` is correct server-side and matches the client
+/// after hydration. Routing the components through intermediate `format!`
+/// strings (a separate `scheme://host` origin, then the full URL) allocates
+/// twice for nothing; the only copy that has to happen is the final one into
+/// `RequestUrl`'s `Arc<str>`. When `path` already carries the query string
+/// (axum exposes it as a single `path_and_query`), the caller passes an empty
+/// `query`.
+pub fn build_request_url(
+    scheme: &str,
+    host: &str,
+    path: &str,
+    query: &str,
+) -> String {
+    let mut url = String::with_capacity(
+        scheme.len()
+            + "://".len()
+            + host.len()
+            + path.len()
+            + if query.is_empty() { 0 } else { 1 + query.len() },
+    );
+    url.push_str(scheme);
+    url.push_str("://");
+    url.push_str(host);
+    url.push_str(path);
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(query);
+    }
+    url
+}
+
 /// Returns `true` if `path` could escape the site root once interpolated into
 /// an on-disk path.
 ///
@@ -280,8 +344,14 @@ pub fn accept_header_includes_html(accept: &str) -> bool {
 /// into one (`%2e`, `%2f`, `%5c`), and a backslash (a path separator on
 /// Windows).
 fn is_path_traversal(path: &str) -> bool {
-    let lower = path.to_ascii_lowercase();
-    if lower.contains("%2e") || lower.contains("%2f") || lower.contains("%5c") {
+    // %2e/%2E, %2f/%2F, %5c/%5C — only the hex letter is case-insensitive,
+    // so fold case on that byte alone (`| 0x20` lowercases ASCII letters)
+    // instead of lowercasing a copy of the whole path
+    if path.as_bytes().windows(3).any(|w| {
+        w[0] == b'%'
+            && ((w[1] == b'2' && matches!(w[2] | 0x20, b'e' | b'f'))
+                || (w[1] == b'5' && (w[2] | 0x20) == b'c'))
+    }) {
         return true;
     }
     path.split('/')
@@ -393,6 +463,20 @@ mod tests {
         assert_eq!(
             static_file_path(&options, "/a/./b"),
             Some("/var/www/site/static/a/./b.html".into())
+        );
+    }
+
+    #[test]
+    fn flush_ready_chunks_moves_singletons_and_joins_batches() {
+        assert_eq!(flush_ready_chunks(Vec::new()), "");
+        assert_eq!(flush_ready_chunks(vec!["a".to_string()]), "a");
+        assert_eq!(
+            flush_ready_chunks(vec![
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string()
+            ]),
+            "abc"
         );
     }
 

@@ -29,14 +29,14 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html,
+    accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
     ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect,
     location::RequestUrl,
-    static_routes::{RegenerationFn, ResolvedStaticPath},
+    static_routes::{RegenerationFn, ResolvedStaticPath, StaticResponse},
 };
 use lru::LruCache;
 use or_poisoned::OrPoisoned;
@@ -289,7 +289,7 @@ pub fn redirect(path: &str, permanent: bool) {
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
             res.insert_header(
                 HeaderName::from_static(REDIRECT_HEADER),
-                HeaderValue::from_str("").unwrap(),
+                HeaderValue::from_static(""),
             );
         }
     } else {
@@ -376,10 +376,10 @@ pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
     web::to(move |req: HttpRequest, payload: Payload| {
+        // the handler is `Fn`, so it clones the context closure for the
+        // `async move` block below, which owns that clone from then on
         let additional_context = additional_context.clone();
         async move {
-            let additional_context = additional_context.clone();
-
             let path = req.path();
             let method = req.method();
             if let Some(mut service) =
@@ -834,14 +834,14 @@ fn request_url(req: &HttpRequest) -> RequestUrl {
     // `connection_info` resolves the scheme and host, honoring reverse-proxy
     // forwarding headers.
     let conn = req.connection_info();
-    let origin = format!("{}://{}", conn.scheme(), conn.host());
-    let path = req.path();
-    let query = req.query_string();
-    if query.is_empty() {
-        RequestUrl::new(&format!("{origin}{path}"))
-    } else {
-        RequestUrl::new(&format!("{origin}{path}?{query}"))
-    }
+    // `RequestUrl::new` makes the one unavoidable copy into its `Arc<str>`.
+    let url = build_request_url(
+        conn.scheme(),
+        conn.host(),
+        req.path(),
+        req.query_string(),
+    );
+    RequestUrl::new(&url)
 }
 
 #[allow(clippy::type_complexity)]
@@ -1314,7 +1314,7 @@ const STATIC_HEADERS_DEFAULT_CAPACITY: NonZeroUsize =
 /// A missing, unparseable, or zero value falls back to the default.
 const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
 
-static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseOptions>>> =
+static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseParts>>> =
     LazyLock::new(|| {
         let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
             .ok()
@@ -1323,6 +1323,23 @@ static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseOptions>>> =
             .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
         RwLock::new(LruCache::new(capacity))
     });
+
+/// Apply a cached [`ResponseParts`] snapshot to a response.
+///
+/// `STATIC_HEADERS` caches the headers and status captured when a route was
+/// generated. Unlike [`ExtendResponse::extend_response`], which drains its
+/// `ResponseOptions` with `std::mem::take` (fine for a single-use,
+/// request-scoped value), this clones the cached headers so the same snapshot
+/// can be re-applied to every cache hit without emptying the entry.
+fn apply_response_parts(res: &mut HttpResponse, parts: &ResponseParts) {
+    let headers = res.headers_mut();
+    for (key, value) in &parts.headers {
+        headers.append(key.clone(), value.clone());
+    }
+    if let Some(status) = parts.status {
+        *res.status_mut() = status;
+    }
+}
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1365,15 +1382,20 @@ async fn write_static_route(
     };
 
     if let Some(options) = response_options {
+        // Cache an immutable snapshot of the headers/status captured during this
+        // render, not the live request's `Arc<RwLock<..>>`. The generating
+        // request still owns and drains its own `ResponseOptions` when it serves
+        // the page; the cache keeps a private copy so repeated hits can re-apply
+        // it.
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .put(path.to_string(), options);
+            .put(path.to_string(), options.0.read().or_poisoned().clone());
     }
 
     let path = Path::new(&file_path);
     // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that is then served (because `try_exists` reports it as present).
+    // file that a concurrent request could open and serve.
     write_file_atomic(path, html.as_bytes()).await
 }
 
@@ -1405,86 +1427,108 @@ where
                     return HttpResponse::NotFound().finish();
                 };
                 let path = Path::new(&file_path);
-                let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+                let opened = NamedFile::open_async(path).await;
 
-                let (response_options, html) = if !exists {
-                    let path = ResolvedStaticPath::new(orig_path);
+                match opened {
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        // On-demand regeneration. Serve the HTML we just
+                        // rendered together with the headers captured during
+                        // the *same* render. Re-reading the freshly written
+                        // file would race concurrent regenerations of this path
+                        // (last writer wins on disk), so a request could pair
+                        // its own headers with another render's body.
+                        let path = ResolvedStaticPath::new(orig_path);
 
-                    let (owner, html) = path
-                        .build(
-                            move |path: &ResolvedStaticPath| {
-                                StaticRouteGenerator::render_route(
-                                    path.to_string(),
-                                    app_fn.clone(),
-                                    additional_context.clone(),
-                                )
-                            },
-                            move |path: &ResolvedStaticPath,
-                                  owner: &Owner,
-                                  html: String| {
-                                let options = options.clone();
-                                let path = path.to_owned();
-                                let response_options = owner.with(use_context);
-                                async move {
-                                    write_static_route(
-                                        &options,
-                                        response_options,
-                                        path.as_ref(),
-                                        &html,
+                        let (owner, static_response) = path
+                            .build(
+                                move |path: &ResolvedStaticPath| {
+                                    StaticRouteGenerator::render_route(
+                                        path.to_string(),
+                                        app_fn.clone(),
+                                        additional_context.clone(),
                                     )
-                                    .await
-                                }
-                            },
-                            was_404,
-                            regenerate,
-                        )
-                        .await;
-                    (owner.with(use_context::<ResponseOptions>), html)
-                } else {
-                    // `LruCache::get` updates recency, so it needs a write lock.
-                    let headers = STATIC_HEADERS
-                        .write()
-                        .or_poisoned()
-                        .get(orig_path)
-                        .cloned();
-                    (headers, None)
-                };
+                                },
+                                move |path: &ResolvedStaticPath,
+                                      owner: &Owner,
+                                      html: String| {
+                                    let options = options.clone();
+                                    let path = path.to_owned();
+                                    let response_options =
+                                        owner.with(use_context);
+                                    async move {
+                                        write_static_route(
+                                            &options,
+                                            response_options,
+                                            path.as_ref(),
+                                            &html,
+                                        )
+                                        .await
+                                    }
+                                },
+                                was_404,
+                                regenerate,
+                            )
+                            .await;
 
-                // if html is Some(_), it means that `was_error_response` is true and we're not
-                // actually going to cache this route, just return it as HTML
-                //
-                // this if for thing like 404s, where we do not want to cache an endless series of
-                // typos (or malicious requests)
-                let mut res = ActixResponse(match html {
-                    Some(html) => {
-                        HttpResponse::Ok().content_type("text/html").body(html)
-                    }
-                    None => match NamedFile::open(path) {
-                        Ok(res) => res.into_response(&req),
-                        // The cached file can be removed or replaced between
-                        // the `try_exists` check above and this open (a TOCTOU
-                        // race). Do not render the raw filesystem error into
-                        // the body — that leaks server-side path and OS error
-                        // details — log it and return a generic 500.
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!(
-                                "failed to serve static file {}: {err}",
-                                path.display()
-                            );
-                            #[cfg(not(feature = "tracing"))]
-                            let _ = &err;
-                            HttpResponse::InternalServerError()
-                                .body("Internal Server Error")
+                        let response_options =
+                            owner.with(use_context::<ResponseOptions>);
+                        // Both a generated page and an uncached error page
+                        // (e.g. a 404, gated by `was_404`) are served from
+                        // memory here; the captured `ResponseOptions` carries
+                        // the real status, applied by `extend_response` below.
+                        let html = match static_response {
+                            StaticResponse::Generated(html)
+                            | StaticResponse::Error(html) => html,
+                        };
+                        let mut res = ActixResponse(
+                            HttpResponse::Ok()
+                                .content_type("text/html")
+                                .body(html),
+                        );
+                        if let Some(options) = response_options {
+                            res.extend_response(&options);
                         }
-                    },
-                });
-
-                if let Some(options) = response_options {
-                    res.extend_response(&options);
+                        res.0
+                    }
+                    opened => {
+                        // Cached hit: serve the file opened above and re-apply
+                        // the headers captured when it was generated.
+                        //
+                        // `LruCache::get` updates recency, so it needs a write lock.
+                        // Clone the cached snapshot out so the lock is released
+                        // before we touch the response, then apply it
+                        // non-destructively, leaving the entry intact for the
+                        // next hit.
+                        let response_parts = STATIC_HEADERS
+                            .write()
+                            .or_poisoned()
+                            .get(orig_path)
+                            .cloned();
+                        let mut response = match opened {
+                            Ok(file) => file.into_response(&req),
+                            // A non-NotFound error from the open above (e.g. a
+                            // permissions problem) lands here. Do not render the
+                            // raw filesystem error into the body — that leaks
+                            // server-side path and OS error details — log it and
+                            // return a generic 500.
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::warn!(
+                                    "failed to serve static file {}: {err}",
+                                    path.display()
+                                );
+                                #[cfg(not(feature = "tracing"))]
+                                let _ = &err;
+                                HttpResponse::InternalServerError()
+                                    .body("Internal Server Error")
+                            }
+                        };
+                        if let Some(parts) = response_parts {
+                            apply_response_parts(&mut response, &parts);
+                        }
+                        response
+                    }
                 }
-
-                res.0
             }
         })
     };
@@ -1800,7 +1844,7 @@ mod tests {
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
-        Method, OrPoisoned, Owner, Request, ResponseOptions,
+        Method, OrPoisoned, Owner, Request, ResponseOptions, ResponseParts,
         STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, header, provide_context,
         redirect, render_app_to_stream_with_context,
         unsupported_ssr_mode_route, write_static_route,
@@ -1821,7 +1865,7 @@ mod tests {
             provide_context(Request::new(&http_req));
             provide_context(res.clone());
 
-            redirect("/login\r\nSet-Cookie: pwned=1");
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -1839,7 +1883,7 @@ mod tests {
             provide_context(Request::new(&http_req));
             provide_context(res.clone());
 
-            redirect("/dashboard");
+            redirect("/dashboard", false);
         });
 
         let parts = res.0.read().or_poisoned();
@@ -1877,12 +1921,12 @@ mod tests {
     // per path for the life of the process.
     #[test]
     fn static_headers_cache_is_bounded() {
-        let mut cache: LruCache<String, ResponseOptions> =
+        let mut cache: LruCache<String, ResponseParts> =
             LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
         let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
 
         for i in 0..(capacity + 10) {
-            cache.put(format!("/post/{i}"), ResponseOptions::default());
+            cache.put(format!("/post/{i}"), ResponseParts::default());
         }
 
         // never grows past capacity
@@ -1928,8 +1972,8 @@ mod tests {
 
     // A static route must be written atomically: the file appears with its
     // full contents or not at all, and no temp file is left behind. Writing in
-    // place would let a crash mid-write leave a truncated/empty file that is
-    // then served (because `try_exists` reports it as present).
+    // place would let a crash mid-write leave a truncated/empty file that a
+    // concurrent request could open and serve.
     #[actix_web::test]
     async fn write_static_route_is_atomic() {
         let dir = std::env::temp_dir().join(format!(

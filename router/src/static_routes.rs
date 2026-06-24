@@ -291,6 +291,25 @@ impl Display for ResolvedStaticPath {
     }
 }
 
+/// The outcome of building a static route on demand via
+/// [`ResolvedStaticPath::build`].
+///
+/// Both variants carry the HTML that was just rendered so the caller can serve
+/// those exact bytes. Serving this in-memory HTML — instead of re-reading the
+/// file that was just written — keeps the response body paired with the
+/// headers captured during the *same* render: concurrent regenerations of one
+/// path race on disk (last writer wins), so a re-read could hand back another
+/// render's body alongside this request's headers.
+#[derive(Debug, Clone)]
+pub enum StaticResponse {
+    /// The route rendered successfully and its HTML was written to the static
+    /// file cache. Serve this HTML with the route's normal status.
+    Generated(String),
+    /// The route rendered to an error response (e.g. a 404) and was therefore
+    /// *not* written to the cache. Serve this HTML with the error status.
+    Error(String),
+}
+
 impl ResolvedStaticPath {
     /// Builds the page that corresponds to this path.
     pub async fn build<Fut, WriterFut>(
@@ -302,7 +321,7 @@ impl ResolvedStaticPath {
         + 'static,
         was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
         regenerate: Vec<RegenerationFn>,
-    ) -> (Owner, Option<String>)
+    ) -> (Owner, StaticResponse)
     where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
@@ -327,16 +346,20 @@ impl ResolvedStaticPath {
                 if was_error(&owner) {
                     // can ignore errors from channel here, because it just means we're not
                     // awaiting the Future
-                    _ = tx.send((owner.clone(), Some(html)));
+                    _ = tx.send((owner.clone(), StaticResponse::Error(html)));
                 } else {
-                    if let Err(e) = writer(&self, &owner, html).await {
+                    // Clone once so the same bytes can be both written to the
+                    // cache and handed back to the caller to serve directly,
+                    // pairing the response body with this render's headers.
+                    if let Err(e) = writer(&self, &owner, html.clone()).await {
                         #[cfg(feature = "tracing")]
                         tracing::warn!("{e}");
 
                         #[cfg(not(feature = "tracing"))]
                         eprintln!("{e}");
                     }
-                    _ = tx.send((owner.clone(), None));
+                    _ = tx
+                        .send((owner.clone(), StaticResponse::Generated(html)));
                 }
 
                 // if there's a regeneration function, keep looping
