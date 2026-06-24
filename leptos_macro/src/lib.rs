@@ -517,11 +517,10 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///   specified as either `None` or `Some(T)`.
 /// * `#[prop(default = <expr>)]`: Optional property that specifies a default value, which is used when the
 ///   property is not specified.
-/// * `#[prop(name = "new_name")]`: Specifiy a different name for the property. Can be used to destructure
+/// * `#[prop(name = "new_name")]`: Specify a different name for the property. Can be used to destructure
 ///   fields in component function parameters (see example below).
-/// * `#[prop(marker)]`: Specifiy that prop to be some kind of marker. This removes the prop
-///   from the docs and the builder (no setter is created).
-///   It is usefull when you want a generic component where no props actually use that generic,
+/// * `#[prop(marker)]`: Specify that this prop is a default-only marker, which should be omitted from the docs
+///   and the builder. It is useful when you want a generic component where no props actually use that generic;
 ///   you can then use `#[prop(marker)] _marker: PhantomData<T>`.
 ///
 /// ```rust
