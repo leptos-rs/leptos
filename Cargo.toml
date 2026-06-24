@@ -189,4 +189,3 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(erase_components)',
 ] }
-
