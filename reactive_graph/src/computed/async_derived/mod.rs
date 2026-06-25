@@ -139,6 +139,56 @@ pub mod suspense {
         }
     }
 
+    /// Tracks readiness of the route view(s) being built during a router
+    /// transition.
+    ///
+    /// `<Router set_is_routing>` uses this to keep `is_routing` set to `true`
+    /// until the newly built route — including content gated behind a
+    /// `<ProtectedRoute>`'s `<Transition>`, whose resources are only created
+    /// once the route is built rather than during route matching — has loaded.
+    ///
+    /// Unlike [`SuspenseContext`], registering a task here does **not** affect
+    /// what any `<Suspense>` or `<Transition>` displays; a boundary holds a task
+    /// only to report routing readiness back to the router. The router walks the
+    /// task set to empty (each boundary holds its task until after it has built
+    /// its children, so nested boundaries register before their parent releases)
+    /// and only then clears `is_routing`.
+    #[derive(Clone, Debug)]
+    pub struct RouteSettleContext {
+        tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+    }
+
+    impl Default for RouteSettleContext {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl RouteSettleContext {
+        /// Creates a new, empty context.
+        pub fn new() -> Self {
+            Self {
+                tasks: ArcRwSignal::new(SlotMap::new()),
+            }
+        }
+
+        /// Registers a task that keeps the route "unsettled" until the returned
+        /// handle is dropped.
+        pub fn task(&self) -> TaskHandle {
+            let key = self.tasks.write().insert(());
+            TaskHandle {
+                tasks: self.tasks.clone(),
+                key,
+            }
+        }
+
+        /// The set of active tasks, so the router can track when it becomes
+        /// empty.
+        pub fn tasks(&self) -> ArcRwSignal<SlotMap<DefaultKey, ()>> {
+            self.tasks.clone()
+        }
+    }
+
     /// A unique identifier that removes itself from the set of tasks when it is dropped.
     #[derive(Debug)]
     pub struct TaskHandle {
