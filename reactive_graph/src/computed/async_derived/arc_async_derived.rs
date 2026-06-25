@@ -451,10 +451,14 @@ impl<T: 'static> ArcAsyncDerived<T> {
             waker.wake();
         }
 
-        // if this was marked dirty before notifications began, this means it
-        // had been notified while loading; marking it clean will cause it not to
-        // run on the next tick of the async loop, so here it should be left dirty
-        inner.write().or_poisoned().state = prev_state;
+        // Restore the state that existed before we entered the Notifying window.
+        // However, if a source was dirtied *during* the window (mark_dirty now
+        // always sets Dirty), we must keep Dirty so the async loop re-runs for
+        // that change rather than silently dropping it.
+        let mut guard = inner.write().or_poisoned();
+        if guard.state != AsyncDerivedState::Dirty {
+            guard.state = prev_state;
+        }
     }
 }
 
