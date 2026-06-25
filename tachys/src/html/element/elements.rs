@@ -403,7 +403,7 @@ html_elements! {
     /// The `<template>` HTML element is a mechanism for holding HTML that is not to be rendered immediately when a page is loaded but may be instantiated subsequently during runtime using JavaScript.
     template HtmlTemplateElement [] true,
     /// The `<textarea>` HTML element represents a multi-line plain-text editing control, useful when you want to allow users to enter a sizeable amount of free-form text, for example a comment on a review or feedback form.
-    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] false,
+    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] true,
     /// The `<tfoot>` HTML element defines a set of rows summarizing the columns of the table.
     tfoot HtmlTableSectionElement [] true,
     /// The `<th>` HTML element defines a cell as header of a group of table cells. The exact nature of this group is defined by the scope and headers attributes.
@@ -429,4 +429,26 @@ html_elements! {
 html_element_inner! {
     /// The `<option>` HTML element is used to define an item contained in a `<select>`, an` <optgroup>`, or a `<datalist>` element. As such, `<option>` can represent menu items in popups and other lists of items in an HTML document.
     option Option_ HtmlOptionElement [disabled, label, selected, value] true
+}
+
+#[cfg(all(test, feature = "ssr"))]
+mod tests {
+    use crate::{
+        html::element::{textarea, ElementChild},
+        view::RenderHtml,
+    };
+
+    #[test]
+    fn textarea_escapes_child_content() {
+        // `<textarea>` content is escapable raw text per the HTML spec, so a
+        // child string containing `</textarea>` or `<script>` must be escaped
+        // rather than written verbatim.
+        let untrusted = "</textarea><script>alert('xss')</script>".to_string();
+        let html = textarea().child(untrusted).to_html();
+        assert_eq!(
+            html,
+            "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&\
+             gt;</textarea>"
+        );
+    }
 }

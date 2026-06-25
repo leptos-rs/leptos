@@ -182,12 +182,18 @@ impl SharedContext for SsrSharedContext {
 
         initial_chunk.push_str("__SERIALIZED_ERRORS=[");
         for error in mem::take(&mut *self.errors.write().or_poisoned()) {
+            // Debug-format first to get a valid, quoted JS string literal
+            // (escaping `"`, `\`, control chars), then rewrite every remaining
+            // `<` to a single-backslash `<` JS unicode escape. Escaping
+            // *after* `{:?}` keeps it one backslash, so the HTML tokenizer
+            // never sees `</script>` while the browser's JS string parser
+            // still decodes `<` straight back to `<` for the consumer.
+            let msg =
+                format!("{:?}", error.2.to_string()).replace('<', "\\u003c");
             _ = write!(
                 initial_chunk,
-                "[{}, {}, {:?}],",
-                error.0 .0,
-                error.1,
-                error.2.to_string()
+                "[{}, {}, {}],",
+                error.0 .0, error.1, msg
             );
         }
         initial_chunk.push_str("];");
@@ -293,12 +299,14 @@ impl Stream for AsyncDataStream {
         let sealed = self.sealed_error_boundaries.read().or_poisoned();
         for error in mem::take(&mut *self.errors.write().or_poisoned()) {
             if !sealed.contains(&error.0) {
+                // see the initial-chunk path: Debug-format, then single-
+                // backslash-escape `<` so the JS parser decodes it back to `<`
+                let msg = format!("{:?}", error.2.to_string())
+                    .replace('<', "\\u003c");
                 _ = write!(
                     resolved,
-                    "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
-                    error.0 .0,
-                    error.1,
-                    error.2.to_string()
+                    "__SERIALIZED_ERRORS.push([{}, {}, {}]);",
+                    error.0 .0, error.1, msg
                 );
             }
         }
@@ -323,5 +331,103 @@ impl ResolvedData {
         // escapes < to prevent it being interpreted as another opening HTML tag
         let ser = ser.replace('<', "\\u003c");
         write!(buf, "{}: {:?}", id.0, ser).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::{executor::block_on, StreamExt};
+    use std::fmt;
+
+    #[derive(Debug)]
+    struct CustomError(&'static str);
+
+    impl fmt::Display for CustomError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl std::error::Error for CustomError {}
+
+    /// An error message containing `</script>` must not be able to escape
+    /// the surrounding <script> tag in the streamed initial chunk.
+    #[test]
+    fn error_in_initial_chunk_escapes_script_close_tag() {
+        let ctx = SsrSharedContext::new();
+        ctx.register_error(
+            SerializedDataId(0),
+            ErrorId::from(0_usize),
+            Error::from(CustomError(
+                "boom</script><script>alert('pwned')</script><script>",
+            )),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+        let initial = block_on(stream.next()).expect("at least one chunk");
+
+        assert!(
+            !initial.contains("</script>"),
+            "initial chunk must not contain a literal `</script>` substring, \
+             got: {initial}"
+        );
+        assert!(
+            !initial.contains('<'),
+            "initial chunk must not contain a literal `<` character anywhere \
+             inside the serialized errors, got: {initial}"
+        );
+        assert!(
+            initial.contains("\\u003c") && !initial.contains("\\\\u003c"),
+            "expected a single-backslash `\\u003c` escape in place of `<` (a \
+             double backslash would be decoded to a literal `\\u003c` and \
+             shown raw to the user), got: {initial}"
+        );
+    }
+
+    /// The same escape must be applied to errors emitted later via the
+    /// async stream (AsyncDataStream::poll_next).
+    #[test]
+    fn error_in_async_stream_escapes_script_close_tag() {
+        let ctx = SsrSharedContext::new();
+
+        // park one async resource so AsyncDataStream emits a follow-up chunk
+        ctx.write_async(
+            SerializedDataId(1),
+            Box::pin(async { String::from("\"ok\"") }),
+        );
+
+        let mut stream = ctx.pending_data().expect("pending_data on ssr");
+        // skip the initial setup chunk; we want the next one
+        let _initial = block_on(stream.next()).expect("initial chunk");
+
+        // register an error after pending_data() has been called so it is
+        // serialized through the streaming path rather than the initial chunk
+        ctx.register_error(
+            SerializedDataId(2),
+            ErrorId::from(7_usize),
+            Error::from(CustomError("late</script><script>x</script>")),
+        );
+
+        let mut saw_error = false;
+        while let Some(chunk) = block_on(stream.next()) {
+            if chunk.contains("__SERIALIZED_ERRORS.push") {
+                saw_error = true;
+                assert!(
+                    !chunk.contains("</script>"),
+                    "streamed error chunk must not contain `</script>`: \
+                     {chunk}"
+                );
+                assert!(
+                    chunk.contains("\\u003c") && !chunk.contains("\\\\u003c"),
+                    "streamed error chunk should carry a single-backslash \
+                     escaped `<`: {chunk}"
+                );
+            }
+        }
+        assert!(
+            saw_error,
+            "expected at least one streamed __SERIALIZED_ERRORS.push chunk"
+        );
     }
 }
