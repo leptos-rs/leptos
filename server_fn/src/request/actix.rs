@@ -1,4 +1,5 @@
 use crate::{
+    body_limit::default_body_limit,
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
     response::actix::ActixResponse,
@@ -70,7 +71,16 @@ where
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
             let payload = self.0.take().1;
-            payload.to_bytes().await.map_err(|e| {
+            let bytes = payload
+                .to_bytes_limited(default_body_limit())
+                .await
+                .map_err(|_| {
+                    ServerFnErrorErr::Deserialization(
+                        "maximum body size exceeded".into(),
+                    )
+                    .into_app_error()
+                })?;
+            bytes.map_err(|e| {
                 ServerFnErrorErr::Deserialization(e.to_string())
                     .into_app_error()
             })

@@ -111,6 +111,7 @@ pub mod codec;
 #[macro_use]
 /// Error types and utilities.
 pub mod error;
+mod body_limit;
 /// Types to add server middleware to a server function.
 pub mod middleware;
 /// Utilities to allow client-side redirects.

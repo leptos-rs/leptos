@@ -1,4 +1,5 @@
 use crate::{
+    body_limit::default_body_limit,
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::Req,
 };
@@ -48,6 +49,7 @@ where
     async fn try_into_bytes(self) -> Result<Bytes, Error> {
         let (_parts, body) = self.into_parts();
 
+        let body = http_body_util::Limited::new(body, default_body_limit());
         body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
