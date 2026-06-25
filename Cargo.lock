@@ -1713,7 +1713,7 @@ dependencies = [
 
 [[package]]
 name = "hydration_context"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "futures",
  "js-sys",
@@ -2026,7 +2026,7 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "leptos"
-version = "0.8.19"
+version = "0.8.20"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2109,7 +2109,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.8.9"
+version = "0.8.10"
 dependencies = [
  "any_spawner",
  "anyhow",
@@ -2193,7 +2193,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.16"
+version = "0.8.17"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -2238,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.8.13"
+version = "0.8.14"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -3040,7 +3040,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-error2",
@@ -3563,7 +3563,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.8.12"
+version = "0.8.13"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3901,7 +3901,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "any_spawner",
  "async-trait",
