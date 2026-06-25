@@ -190,7 +190,11 @@ impl SharedContext for SsrSharedContext {
             // still decodes `<` straight back to `<` for the consumer.
             let msg =
                 format!("{:?}", error.2.to_string()).replace('<', "\\u003c");
-            _ = write!(initial_chunk, "[{}, {}, {}],", error.0.0, error.1, msg);
+            _ = write!(
+                initial_chunk,
+                "[{}, {}, {}],",
+                error.0 .0, error.1, msg
+            );
         }
         initial_chunk.push_str("];");
 
@@ -302,7 +306,7 @@ impl Stream for AsyncDataStream {
                 _ = write!(
                     resolved,
                     "__SERIALIZED_ERRORS.push([{}, {}, {}]);",
-                    error.0.0, error.1, msg
+                    error.0 .0, error.1, msg
                 );
             }
         }
@@ -333,7 +337,7 @@ impl ResolvedData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::{StreamExt, executor::block_on};
+    use futures::{executor::block_on, StreamExt};
     use std::fmt;
 
     #[derive(Debug)]

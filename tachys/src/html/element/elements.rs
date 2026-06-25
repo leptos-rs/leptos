@@ -434,7 +434,7 @@ html_element_inner! {
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use crate::{
-        html::element::{ElementChild, textarea},
+        html::element::{textarea, ElementChild},
         view::RenderHtml,
     };
 
