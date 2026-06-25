@@ -256,7 +256,7 @@ where
 
     fn dry_resolve(&mut self) {
         #[cfg(feature = "ssr")]
-        for view in &mut self.ssr_items {
+        for (_, view) in &mut self.ssr_items {
             view.dry_resolve();
         }
     }
@@ -301,7 +301,7 @@ where
         }
 
         #[cfg(feature = "ssr")]
-        for item in self.ssr_items {
+        for (_, item) in self.ssr_items {
             if mark_branches && escape {
                 buf.open_branch("item");
             }
