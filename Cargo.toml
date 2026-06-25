@@ -68,7 +68,7 @@ reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.4.3" }
 server_fn = { path = "./server_fn", version = "0.8.13" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.10" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
-tachys = { path = "./tachys", version = "0.2.16" }
+tachys = { path = "./tachys", version = "0.2.17" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5" }
