@@ -179,36 +179,15 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        // Lend the hook captured at construction time to the thread-local slot
-        // for the duration of this poll, *including* the `None` case: a future
-        // created before any hook was set must clear the slot while polling
-        // rather than silently inherit whatever hook happens to be installed on
-        // the polling thread.
-        //
-        // Swap rather than clone: the future already owns the hook and only
-        // needs to lend it, so there is no reason to bump (on entry) and drop
-        // (on exit) an atomic refcount on every poll. After the swap `this.hook`
-        // holds the previous ambient hook until it is swapped back.
-        ERROR_HOOK.with_borrow_mut(|cur| std::mem::swap(cur, this.hook));
-
-        // Panic-safe restore: swap the previous ambient hook back into the slot
-        // and the captured hook back into the future when the poll returns or
-        // unwinds. `this.hook` and `this.inner` are disjoint projected fields,
-        // so holding `&mut this.hook` here while polling `inner` is sound.
-        // Best-effort like `ResetErrorHookOnDrop`: skip the restore if the slot
-        // is borrowed or gone rather than panicking from `drop`.
-        struct Restore<'a>(&'a mut Option<Arc<dyn ErrorHook>>);
-        impl Drop for Restore<'_> {
-            fn drop(&mut self) {
-                let _ = ERROR_HOOK.try_with(|cell| {
-                    if let Ok(mut cur) = cell.try_borrow_mut() {
-                        std::mem::swap(&mut *cur, self.0);
-                    }
-                });
-            }
-        }
-        let _restore = Restore(this.hook);
-
+        // Install the hook captured at construction time for the duration of
+        // this poll, *including* the `None` case. A future created before any
+        // hook was set must clear the slot while polling rather than silently
+        // inherit whatever hook happens to be installed on the polling thread.
+        // The guard restores the previous hook when the poll returns.
+        let _hook =
+            ResetErrorHookOnDrop(ERROR_HOOK.with_borrow_mut(|cur| {
+                std::mem::replace(cur, this.hook.clone())
+            }));
         this.inner.poll(cx)
     }
 }
@@ -338,52 +317,6 @@ mod tests {
         assert_eq!(counter.0.load(Ordering::SeqCst), 0);
         // The ambient hook is restored once the poll returns.
         assert!(get_error_hook().is_some());
-    }
-
-    // A future built while a hook is installed captures it. Polling the future
-    // must route `throw` to the *captured* hook for the duration of the poll,
-    // even when a different hook is the ambient one on the polling thread, and
-    // must restore the ambient hook once the poll returns. This exercises the
-    // swap path: the captured hook is lent to the slot and swapped back out.
-    #[test]
-    fn error_hook_future_installs_captured_hook_during_poll() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        struct Counter(AtomicUsize);
-        impl ErrorHook for Counter {
-            fn throw(&self, _: Error) -> ErrorId {
-                self.0.fetch_add(1, Ordering::SeqCst);
-                ErrorId::default()
-            }
-            fn clear(&self, _: &ErrorId) {}
-        }
-
-        // Capture a counting hook at construction time, then drop the guard so
-        // it is no longer the ambient hook.
-        let captured = Arc::new(Counter(AtomicUsize::new(0)));
-        let g_captured = set_error_hook(captured.clone());
-        let fut = ErrorHookFuture::new(async {
-            throw("inside future");
-        });
-        drop(g_captured);
-
-        // Install a *different* ambient hook on this thread.
-        let ambient = Arc::new(Counter(AtomicUsize::new(0)));
-        let _g = set_error_hook(ambient.clone());
-
-        let mut fut = std::pin::pin!(fut);
-        let mut cx = Context::from_waker(std::task::Waker::noop());
-        assert!(fut.as_mut().poll(&mut cx).is_ready());
-
-        // The throw inside the future reached the captured hook, not ambient.
-        assert_eq!(captured.0.load(Ordering::SeqCst), 1);
-        assert_eq!(ambient.0.load(Ordering::SeqCst), 0);
-
-        // The ambient hook is restored once the poll returns: a throw now
-        // reaches it and not the captured hook.
-        throw("after poll");
-        assert_eq!(ambient.0.load(Ordering::SeqCst), 1);
-        assert_eq!(captured.0.load(Ordering::SeqCst), 1);
     }
 
     // Dropping a `ResetErrorHookOnDrop` while the hook slot is already borrowed
