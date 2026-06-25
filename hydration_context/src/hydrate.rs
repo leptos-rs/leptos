@@ -45,7 +45,9 @@ fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
                 Some((
                     SerializedDataId(error_boundary_id),
                     ErrorId::from(error_id),
-                    Error::from(SerializedError(msg)),
+                    // `SerializedError` is a concrete `std::error::Error`, so
+                    // build it in a single allocation via `Error::new`.
+                    Error::new(SerializedError(msg)),
                 ))
             })
             .collect()

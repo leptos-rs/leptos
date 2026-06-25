@@ -23,6 +23,16 @@ use std::{
 pub struct Error(Arc<dyn error::Error + Send + Sync>);
 
 impl Error {
+    /// Wraps a concrete, sized error.
+    pub fn new<E>(err: E) -> Self
+    where
+        E: error::Error + Send + Sync + 'static,
+    {
+        // `Arc<E>` coerces to `Arc<dyn Error + Send + Sync>` in place; no
+        // intermediate `Box`, no reallocation.
+        Error(Arc::new(err))
+    }
+
     /// Converts the wrapper into the inner reference-counted error.
     pub fn into_inner(self) -> Arc<dyn error::Error + Send + Sync> {
         // Move the `Arc` out of the wrapper rather than cloning it: this
@@ -208,6 +218,19 @@ mod tests {
 
         let e = anyhow::anyhow!("anyhow error");
         let _le = Error::from(e);
+    }
+
+    #[test]
+    fn new_wraps_concrete_error_in_single_arc() {
+        // `Error::new` takes the concrete error type directly and dereferences
+        // to the original error.
+        let e = Error::new(MyError);
+        assert_eq!(e.to_string(), "MyError");
+        // Parity with the `From` path for a concrete error type.
+        assert_eq!(e.to_string(), Error::from(MyError).to_string());
+        // The freshly-constructed error is the sole owner of its `Arc`.
+        let inner = e.into_inner();
+        assert_eq!(Arc::strong_count(&inner), 1);
     }
 
     #[test]
