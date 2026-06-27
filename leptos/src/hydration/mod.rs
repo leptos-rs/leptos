@@ -131,7 +131,11 @@ pub fn HydrationScripts(
         let file = std::fs::read_to_string(path).ok()?;
 
         let manifest = WasmSplitManifest(ArcStoredValue::new((
-            format!("{root}/{pkg_dir}"),
+            format!(
+                "{}/{}",
+                root.trim_end_matches('/'),
+                options.pkg_url_path()
+            ),
             serde_json::from_str(&file).expect("could not read manifest file"),
             wasm_split_js,
         )));
@@ -190,7 +194,7 @@ pub fn HydrationScripts(
         })
         .clone();
 
-    let pkg_path = &options.site_pkg_dir;
+    let pkg_path = options.pkg_url_path();
     let nonce = crate::nonce::use_nonce();
     let script = if islands {
         if let Some(sc) = Owner::current_shared_context() {
@@ -206,6 +210,8 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
+    // Trim a trailing slash so the base URL joins cleanly with `pkg_path`.
+    let root = root.trim_end_matches('/');
     view! {
         <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link

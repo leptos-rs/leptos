@@ -2148,6 +2148,10 @@ where
     /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
     /// that resides under `LEPTOS_SITE_ROOT`.
     ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route instead, and the files are
+    /// served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute) by
+    /// [`file_and_error_handler`].
+    ///
     /// The shell will be used to generate the error fallback page for the resources that are not found;
     /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
     /// Example:
@@ -2185,7 +2189,8 @@ where
     /// ```
     ///
     /// Should no fallback or some other alternative fallback service be desired, the setup may be achieved
-    /// using the underlying helpers [`site_pkg_dir_service_route_path`] and [`site_pkg_dir_service`].
+    /// using the underlying helpers [`site_pkg_dir_service_route_path`] and [`site_pkg_dir_service`],
+    /// as long as `LEPTOS_SITE_PKG_URL` is unset.
     ///
     /// ```
     /// # use axum::Router;
@@ -2742,6 +2747,14 @@ where
         // Note that this does not currently address the use case required by #4377(#4394) as
         // `extend_response()` won't be called with the service as provided.
         let options = LeptosOptions::from_ref(options);
+        if options.site_pkg_url.is_some() {
+            // The url no longer mirrors the pkg dir's location under
+            // `site_root`; `file_and_error_handler` maps it to the pkg dir.
+            return self.route(
+                &format!("{}{{*path}}", options.site_pkg_dir_route_base()),
+                get(file_and_error_handler(shell)),
+            );
+        }
         let path = site_pkg_dir_service_route_path(&options);
         let serve_dir = site_pkg_dir_service(&options)
             .fallback(ErrorHandler::new(shell, options));
@@ -2861,8 +2874,7 @@ where
             let shell = shell.clone();
             async move {
                 let options = LeptosOptions::from_ref(&state);
-                let res =
-                    get_static_file(uri, &options.site_root, req.headers());
+                let res = get_static_file(uri, &options, req.headers());
                 // `get_static_file` returns `Err` if the underlying `ServeDir`
                 // fails. This handler is the documented "reasonable default"
                 // fallback, so it must not panic: log and serve a generic 500.
@@ -2951,12 +2963,21 @@ where
 #[cfg(feature = "default")]
 async fn get_static_file(
     uri: Uri,
-    root: &str,
+    options: &LeptosOptions,
     headers: &HeaderMap<HeaderValue>,
 ) -> Result<Response<Body>, (StatusCode, String)> {
     use axum::http::header::ACCEPT_ENCODING;
 
-    let req = Request::builder().uri(uri);
+    // Resolve the directory to serve from and the path within it. This honors
+    // an absolute `LEPTOS_SITE_PKG_DIR` (whose assets live outside `site_root`)
+    // and rejects path traversal.
+    let Some((dir, path)) =
+        leptos_integration_utils::resolve_static_dir(options, uri.path())
+    else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+
+    let req = Request::builder().uri(path.as_ref());
 
     let req = match headers.get(ACCEPT_ENCODING) {
         Some(value) => req.header(ACCEPT_ENCODING, value),
@@ -2977,8 +2998,7 @@ async fn get_static_file(
         }
     };
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
-    // This path is relative to the cargo root
-    match ServeDir::new(root)
+    match ServeDir::new(dir.as_ref())
         .precompressed_gzip()
         .precompressed_br()
         .oneshot(req)
@@ -3013,7 +3033,8 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
 /// for setting up a routed site pkg service with [`Router::route_service`].
 ///
 /// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient shorthand
-/// as it will set all this up more directly.
+/// as it will set all this up more directly. Unlike it, this always routes on
+/// `site_pkg_dir`, ignoring `site_pkg_url`.
 ///
 /// [`ServeDir`]: tower_http::services::ServeDir
 ///
