@@ -146,7 +146,7 @@ fn leptos_options_css_path() {
 
     let options = LeptosOptions::builder()
         .output_name("test.css")
-        .site_pkg_dir("my/pkg")
+        .site_pkg_url("my/pkg")
         .build();
     assert_eq!(options.css_path(), "/my/pkg/test.css.css");
 
@@ -158,7 +158,7 @@ fn leptos_options_css_path() {
 
     let options = LeptosOptions::builder()
         .output_name("test")
-        .site_pkg_dir("")
+        .site_pkg_url("")
         .build();
     assert_eq!(options.css_path(), "/test.css");
 }

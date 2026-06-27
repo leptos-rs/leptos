@@ -134,7 +134,11 @@ pub fn HydrationScripts(
         let file = std::fs::read_to_string(path).ok()?;
 
         let manifest = WasmSplitManifest(ArcStoredValue::new((
-            format!("{root}/{pkg_dir}"),
+            format!(
+                "{}/{}",
+                root.trim_end_matches('/'),
+                options.pkg_url_path()
+            ),
             serde_json::from_str(&file).expect("could not read manifest file"),
             wasm_split_js,
         )));
@@ -193,7 +197,10 @@ pub fn HydrationScripts(
         })
         .clone();
 
-    let pkg_path = &options.site_pkg_dir;
+    // The URL path the client loads assets from. An absolute `site_pkg_dir` is
+    // a server-side filesystem location, so this resolves to the default `pkg`
+    // path rather than leaking it; the server integrations map it back to disk.
+    let pkg_path = options.pkg_url_path();
     #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
     #[cfg(not(feature = "nonce"))]
@@ -212,6 +219,8 @@ pub fn HydrationScripts(
         .unwrap_or_default();
 
     let root = root.unwrap_or_default();
+    // Trim a trailing slash so the base URL joins cleanly with `pkg_path`.
+    let root = root.trim_end_matches('/');
     view! {
         <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
         <link
