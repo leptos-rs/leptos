@@ -51,6 +51,13 @@ pub struct LeptosOptions {
     #[builder(setter(into), default=default_site_pkg_dir())]
     #[serde(default = "default_site_pkg_dir")]
     pub site_pkg_dir: Arc<str>,
+    /// The URL path the pkg assets (JS/WASM/CSS) are served under, when it
+    /// should differ from `site_pkg_dir`, e.g. for an absolute `site_pkg_dir`.
+    ///
+    /// Defaults to `site_pkg_dir`.
+    #[builder(default, setter(into, strip_option))]
+    #[serde(default)]
+    pub site_pkg_url: Option<Arc<str>>,
     /// Used to configure the running environment of Leptos.
     /// Can be used to load dev constants and keys v prod,
     /// or change things based on the deployment environment.
@@ -182,17 +189,27 @@ impl LeptosOptions {
         path
     }
 
-    /// Returns the base route to the `site_pkg_dir` with a leading and trailing slash added as necessary.
+    /// Returns the URL path segment the pkg assets (JS/WASM/CSS) are served
+    /// under: [`site_pkg_url`](Self::site_pkg_url) if set, otherwise
+    /// [`site_pkg_dir`](Self::site_pkg_dir).
+    pub fn pkg_url_path(&self) -> &str {
+        self.site_pkg_url
+            .as_deref()
+            .unwrap_or(&self.site_pkg_dir)
+            .trim_matches('/')
+    }
+
+    /// Returns [`pkg_url_path`](Self::pkg_url_path) as a route base, with a
+    /// leading and trailing slash.
     pub fn site_pkg_dir_route_base(&self) -> String {
-        let mut path = String::new();
-        // While it shouldn't start with a '/', but check anyway.
-        if !self.site_pkg_dir.starts_with('/') {
-            path.push('/');
+        let pkg = self.pkg_url_path();
+        if pkg.is_empty() {
+            return "/".to_string();
         }
-        path.push_str(&self.site_pkg_dir);
-        if !path.ends_with('/') {
-            path.push('/');
-        }
+        let mut path = String::with_capacity(pkg.len() + 2);
+        path.push('/');
+        path.push_str(pkg);
+        path.push('/');
         path
     }
 
@@ -216,6 +233,8 @@ impl LeptosOptions {
             output_name: output_name.into(),
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?.into(),
+            site_pkg_url: env_wo_default("LEPTOS_SITE_PKG_URL")?
+                .map(Into::into),
             env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
             site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
