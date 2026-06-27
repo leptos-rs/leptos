@@ -29,7 +29,7 @@ use leptos::{
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html, build_request_url,
+    accept_header_includes_html, build_request_url, resolve_static_dir,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
@@ -725,6 +725,89 @@ where
     )
 }
 
+/// Returns an Actix [struct@Route](actix_web::Route) that serves static files
+/// and renders your application as the `404 Not Found` page for any request that
+/// does not match a file.
+///
+/// This mirrors `leptos_axum`'s `file_and_error_handler`. Register it as the
+/// app's `default_service` so requests that are neither a routed page nor a
+/// static file render your app's not-found view.
+///
+/// Static files are served relative to `LEPTOS_SITE_ROOT`, except when
+/// `LEPTOS_SITE_PKG_DIR` is set to an *absolute* path: the compiled JS/WASM
+/// assets live there instead, and requests under that pkg URL prefix are served
+/// from it. This requires [`LeptosOptions`] to be supplied as application data
+/// (e.g. via [`web::Data`]), as the other render handlers also expect.
+///
+/// `shell` receives the [`LeptosOptions`] from application data, mirroring the
+/// `shell` argument of the routed render handlers.
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
+pub fn file_and_error_handler<IV>(
+    shell: impl Fn(LeptosOptions) -> IV + Clone + Send + 'static,
+) -> Route
+where
+    IV: IntoView + 'static,
+{
+    let handler = move |req: HttpRequest, options: Data<LeptosOptions>| {
+        let shell = shell.clone();
+        async move {
+            let options = options.into_inner();
+            // Own the request path so the request can be moved into the
+            // renderer on the fallback path below.
+            let req_path = req.uri().path().to_owned();
+
+            // Serve the backing static file if there is one, honoring an
+            // absolute `LEPTOS_SITE_PKG_DIR` (whose assets live outside
+            // `site_root`) and rejecting path traversal.
+            if let Some((dir, rel)) = resolve_static_dir(&options, &req_path) {
+                let file_path =
+                    Path::new(dir.as_ref()).join(rel.trim_start_matches('/'));
+                if let Ok(file) = NamedFile::open_async(&file_path).await {
+                    return file.into_response(&req);
+                }
+            }
+
+            // Otherwise render the application as the 404 page.
+            let shell_options = (*options).clone();
+            let app_fn = move || shell(shell_options.clone());
+            let mut res = render_app_response(
+                req,
+                || {},
+                app_fn,
+                |app, chunks, supports_ooo| {
+                    Box::pin(async move {
+                        let app = if cfg!(feature = "islands-router") {
+                            if supports_ooo {
+                                app.to_html_stream_out_of_order_branching()
+                            } else {
+                                app.to_html_stream_in_order_branching()
+                            }
+                        } else if supports_ooo {
+                            app.to_html_stream_out_of_order()
+                        } else {
+                            app.to_html_stream_in_order()
+                        };
+                        Box::pin(app.chain(chunks())) as PinnedStream<String>
+                    })
+                },
+            )
+            .await;
+
+            // Don't clobber a status the app set itself (e.g. a redirect).
+            if res.status() == StatusCode::OK {
+                *res.status_mut() = StatusCode::NOT_FOUND;
+            }
+            res
+        }
+    };
+    web::route()
+        .guard(guard::Any(guard::Get()).or(guard::Head()))
+        .to(handler)
+}
+
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 ///
@@ -844,6 +927,56 @@ fn request_url(req: &HttpRequest) -> RequestUrl {
     RequestUrl::new(&url)
 }
 
+/// Renders the app to an [`HttpResponse`] for a single request, providing the
+/// standard Leptos contexts (and the islands-router navigation marker when
+/// applicable). Shared by the routed render handlers and the static-file
+/// fallback so they render identically.
+#[allow(clippy::type_complexity)]
+async fn render_app_response<IV>(
+    req: HttpRequest,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    stream_builder: fn(
+        IV,
+        BoxedFnOnce<PinnedStream<String>>,
+        bool,
+    ) -> PinnedFuture<PinnedStream<String>>,
+) -> HttpResponse
+where
+    IV: IntoView + 'static,
+{
+    let is_island_router_navigation = cfg!(feature = "islands-router")
+        && req.headers().get("Islands-Router").is_some();
+
+    let res_options = ResponseOptions::default();
+    let (meta_context, meta_output) = ServerMetaContext::new();
+
+    let additional_context = {
+        let meta_context = meta_context.clone();
+        let res_options = res_options.clone();
+        let req = Request::new(&req);
+        move || {
+            provide_contexts(req, &meta_context, &res_options);
+            additional_context();
+
+            if is_island_router_navigation {
+                provide_context(IslandsRouterNavigation);
+            }
+        }
+    };
+
+    ActixResponse::from_app(
+        app_fn,
+        meta_output,
+        additional_context,
+        res_options,
+        stream_builder,
+        !is_island_router_navigation,
+    )
+    .await
+    .0
+}
+
 #[allow(clippy::type_complexity)]
 fn handle_response<IV>(
     method: Method,
@@ -863,37 +996,7 @@ where
         let add_context = additional_context.clone();
 
         async move {
-            let is_island_router_navigation = cfg!(feature = "islands-router")
-                && req.headers().get("Islands-Router").is_some();
-
-            let res_options = ResponseOptions::default();
-            let (meta_context, meta_output) = ServerMetaContext::new();
-
-            let additional_context = {
-                let meta_context = meta_context.clone();
-                let res_options = res_options.clone();
-                let req = Request::new(&req);
-                move || {
-                    provide_contexts(req, &meta_context, &res_options);
-                    add_context();
-
-                    if is_island_router_navigation {
-                        provide_context(IslandsRouterNavigation);
-                    }
-                }
-            };
-
-            let res = ActixResponse::from_app(
-                app_fn,
-                meta_output,
-                additional_context,
-                res_options,
-                stream_builder,
-                !is_island_router_navigation,
-            )
-            .await;
-
-            res.0
+            render_app_response(req, add_context, app_fn, stream_builder).await
         }
     };
     match method {
