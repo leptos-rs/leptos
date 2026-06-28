@@ -8,6 +8,7 @@ use crate::{
 use std::fmt::Debug;
 
 macro_rules! html_element_inner {
+    // Single escape literal: hydration follows escaping (the common case).
     (
         #[$meta:meta]
         $tag:ident
@@ -15,6 +16,27 @@ macro_rules! html_element_inner {
         $ty:ident
         [$($attr:ty),*]
         $escape:literal
+    ) => {
+        html_element_inner! {
+            #[$meta]
+            $tag
+            $struct_name
+            $ty
+            [$($attr),*]
+            $escape
+            $escape
+        }
+    };
+    // Explicit escape + hydrate literals: decouples escaping from hydration, for escapable
+    // raw-text elements (`<textarea>`/`<title>`) that are escaped but must not be hydrated.
+    (
+        #[$meta:meta]
+        $tag:ident
+        $struct_name:ident
+        $ty:ident
+        [$($attr:ty),*]
+        $escape:literal
+        $hydrate:literal
     ) => {
         paste::paste! {
             #[$meta]
@@ -79,6 +101,7 @@ macro_rules! html_element_inner {
                 const TAG: &'static str = stringify!($tag);
                 const SELF_CLOSING: bool = false;
                 const ESCAPE_CHILDREN: bool = $escape;
+                const HYDRATES_CHILDREN: bool = $hydrate;
                 const NAMESPACE: Option<&'static str> = None;
 
                 #[inline(always)]
@@ -99,6 +122,7 @@ macro_rules! html_elements {
         $ty:ident
         [$($attr:ty),*]
         $escape:literal
+        $($hydrate:literal)?
       ),*
       $(,)?
     ) => {
@@ -110,6 +134,7 @@ macro_rules! html_elements {
                 $ty
                 [$($attr),*]
                 $escape
+                $($hydrate)?
             })*
         }
     }
@@ -403,7 +428,7 @@ html_elements! {
     /// The `<template>` HTML element is a mechanism for holding HTML that is not to be rendered immediately when a page is loaded but may be instantiated subsequently during runtime using JavaScript.
     template HtmlTemplateElement [] true,
     /// The `<textarea>` HTML element represents a multi-line plain-text editing control, useful when you want to allow users to enter a sizeable amount of free-form text, for example a comment on a review or feedback form.
-    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] true,
+    textarea HtmlTextAreaElement [autocomplete, cols, dirname, disabled, form, maxlength, minlength, name, placeholder, readonly, required, rows, wrap] true false,
     /// The `<tfoot>` HTML element defines a set of rows summarizing the columns of the table.
     tfoot HtmlTableSectionElement [] true,
     /// The `<th>` HTML element defines a cell as header of a group of table cells. The exact nature of this group is defined by the scope and headers attributes.
@@ -413,7 +438,7 @@ html_elements! {
     /// The `<time>` HTML element represents a specific period in time. It may include the datetime attribute to translate dates into machine-readable format, allowing for better search engine results or custom features such as reminders.
     time HtmlTimeElement [datetime] true,
     ///	The `<title>` HTML element defines the document's title that is shown in a Browser's title bar or a page's tab. It only contains text; tags within the element are ignored.
-    title HtmlTitleElement [] true,
+    title HtmlTitleElement [] true false,
     /// The `<tr>` HTML element defines a row of cells in a table. The row's cells can then be established using a mix of td (data cell) and th (header cell) elements.
     tr HtmlTableRowElement [] true,
     /// The `<u>` HTML element represents a span of inline text which should be rendered in a way that indicates that it has a non-textual annotation. This is rendered by default as a simple solid underline, but may be altered using CSS.
@@ -434,7 +459,9 @@ html_element_inner! {
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use crate::{
-        html::element::{ElementChild, textarea},
+        html::element::{
+            ElementChild, noscript, script, style, textarea, title,
+        },
         view::RenderHtml,
     };
 
@@ -450,5 +477,47 @@ mod tests {
             "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&\
              gt;</textarea>"
         );
+    }
+
+    #[test]
+    fn title_escapes_child_content() {
+        // `<title>` is escapable raw text just like `<textarea>`, so it is
+        // escaped (and, like `<textarea>`, not hydrated).
+        let untrusted = "</title><script>alert('xss')</script>".to_string();
+        let html = title().child(untrusted).to_html();
+        assert_eq!(
+            html,
+            "<title>&lt;/title&gt;&lt;script&gt;alert('xss')&lt;/script&gt;</\
+             title>"
+        );
+    }
+
+    #[test]
+    fn raw_text_elements_render_children_verbatim() {
+        // Raw-text elements emit children verbatim: `<`/`&` are NOT
+        // entity-escaped (escaping would corrupt the embedded JS/CSS). The
+        // content below is breakout-safe (no `</tag` delimiter).
+        assert_eq!(
+            script().child("if (1 < 2 && 3 > 2) load();").to_html(),
+            "<script>if (1 < 2 && 3 > 2) load();</script>"
+        );
+        assert_eq!(
+            style().child("a::before { content: '<'; }").to_html(),
+            "<style>a::before { content: '<'; }</style>"
+        );
+        assert_eq!(
+            noscript().child("<p>enable JS</p>").to_html(),
+            "<noscript><p>enable JS</p></noscript>"
+        );
+    }
+
+    // Raw text cannot be escaped, so the only defense against end-tag breakout
+    // is the debug-only guard, which must fire on untrusted breakout content.
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic = "break out of `<script>`"]
+    fn raw_text_breakout_is_caught_in_debug() {
+        let untrusted = "</script><script>alert('xss')</script>".to_string();
+        let _ = script().child(untrusted).to_html();
     }
 }
