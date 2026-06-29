@@ -9,8 +9,8 @@ use leptos::{
         html::attribute::Attribute,
         hydration::Cursor,
         view::{
-            Mountable, Position, PositionState, Render, RenderHtml,
-            add_attr::AddAnyAttr,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
 };
@@ -121,8 +121,7 @@ where
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {

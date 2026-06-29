@@ -4,8 +4,8 @@ use crate::{
     renderer::Rndr,
     ssr::StreamBuilder,
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
-        add_attr::AddAnyAttr,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+        ToTemplate, add_attr::AddAnyAttr,
     },
 };
 use reactive_graph::effect::RenderEffect;
@@ -155,26 +155,18 @@ where
         mut self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         let value = self.invoke();
-        value.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        )
+        value.to_html_with_buf(buf, position, flags, extra_attrs)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -183,8 +175,7 @@ where
         value.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }
@@ -702,16 +693,14 @@ macro_rules! reactive_impl {
                 self,
                 buf: &mut String,
                 position: &mut Position,
-                escape: bool,
-                mark_branches: bool,
+                flags: $crate::view::RenderFlags,
                 extra_attrs: Vec<AnyAttribute>,
             ) {
                 let value = self.get();
                 value.to_html_with_buf(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 )
             }
@@ -720,8 +709,7 @@ macro_rules! reactive_impl {
                 self,
                 buf: &mut StreamBuilder,
                 position: &mut Position,
-                escape: bool,
-                mark_branches: bool,
+                flags: $crate::view::RenderFlags,
                 extra_attrs: Vec<AnyAttribute>,
             ) where
                 Self: Sized,
@@ -730,8 +718,7 @@ macro_rules! reactive_impl {
                 value.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
             }

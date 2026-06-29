@@ -1,6 +1,6 @@
 use crate::{
     html::attribute::any_attribute::AnyAttribute,
-    view::{Position, RenderHtml},
+    view::{Position, RenderFlags, RenderHtml},
 };
 use futures::Stream;
 use std::{
@@ -118,8 +118,7 @@ impl StreamBuilder {
         fallback.to_html_with_buf(
             &mut self.sync_buf,
             position,
-            true,
-            mark_branches,
+            RenderFlags::HYDRATE.with_mark_branches(mark_branches),
             extra_attrs,
         );
         self.write_chunk_marker(false);
@@ -216,8 +215,7 @@ impl StreamBuilder {
                 view.to_html_async_with_buf::<true>(
                     &mut subbuilder,
                     &mut position,
-                    true,
-                    mark_branches,
+                    RenderFlags::HYDRATE.with_mark_branches(mark_branches),
                     extra_attrs,
                 );
                 let chunks = subbuilder.finish().take_chunks();

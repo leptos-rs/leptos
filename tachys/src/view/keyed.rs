@@ -1,6 +1,6 @@
 use super::{
-    MarkBranch, Mountable, Position, PositionState, Render, RenderHtml,
-    add_attr::AddAnyAttr,
+    MarkBranch, Mountable, Position, PositionState, Render, RenderFlags,
+    RenderHtml, add_attr::AddAnyAttr,
 };
 use crate::{
     html::attribute::{Attribute, any_attribute::AnyAttribute},
@@ -292,32 +292,25 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches && escape {
+        if flags.mark_branches && flags.escape {
             buf.open_branch("for");
         }
 
         #[cfg(feature = "ssr")]
         for item in self.ssr_items {
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.open_branch("item");
             }
-            item.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs.clone(),
-            );
-            if mark_branches && escape {
+            item.to_html_with_buf(buf, position, flags, extra_attrs.clone());
+            if flags.mark_branches && flags.escape {
                 buf.close_branch("item");
             }
             *position = Position::NextChild;
         }
-        if mark_branches && escape {
+        if flags.mark_branches && flags.escape {
             buf.close_branch("for");
         }
         buf.push_str("<!>");
@@ -328,33 +321,31 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        if mark_branches && escape {
+        if flags.mark_branches && flags.escape {
             buf.open_branch("for");
         }
 
         #[cfg(feature = "ssr")]
         for (key, item) in self.ssr_items {
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.open_branch_fmt(format_args!("item-{key}"));
             }
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs.clone(),
             );
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.close_branch_fmt(format_args!("item-{key}"));
             }
             *position = Position::NextChild;
         }
 
-        if mark_branches && escape {
+        if flags.mark_branches && flags.escape {
             buf.close_branch("for");
         }
         buf.push_sync("<!>");

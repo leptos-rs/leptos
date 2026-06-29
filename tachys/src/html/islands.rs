@@ -3,7 +3,7 @@ use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
     ssr::StreamBuilder,
-    view::{Position, PositionState, add_attr::AddAnyAttr},
+    view::{Position, PositionState, RenderFlags, add_attr::AddAnyAttr},
 };
 
 /// An island of interactivity in an otherwise-inert HTML document.
@@ -151,21 +151,15 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         let has_element = self.has_element_representation;
         if has_element {
             Self::open_tag(self.component, &self.props_json, buf);
         }
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, flags, extra_attrs);
         if has_element {
             Self::close_tag(buf);
         }
@@ -175,8 +169,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -193,8 +186,7 @@ where
         self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
 
@@ -334,18 +326,12 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         Self::open_tag(buf);
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, flags, extra_attrs);
         Self::close_tag(buf);
     }
 
@@ -353,8 +339,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -368,8 +353,7 @@ where
         self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
 

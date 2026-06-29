@@ -58,8 +58,8 @@ use leptos::{
         },
         hydration::Cursor,
         view::{
-            Mountable, Position, PositionState, Render, RenderHtml,
-            add_attr::AddAnyAttr,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
 };
@@ -427,8 +427,7 @@ where
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
@@ -439,8 +438,7 @@ where
             self.el.to_html_with_buf(
                 &mut buf,
                 &mut Position::NextChild,
-                false,
-                false,
+                RenderFlags::new(false, false, false),
                 vec![],
             );
             _ = cx.elements.send(buf); // fails only if the receiver is already dropped
@@ -570,8 +568,7 @@ impl RenderHtml for MetaTagsView {
         self,
         buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!--HEAD-->");

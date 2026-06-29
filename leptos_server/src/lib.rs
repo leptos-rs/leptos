@@ -86,7 +86,8 @@ mod view_implementations {
         reactive_graph::{RenderEffectState, Suspend, SuspendState},
         ssr::StreamBuilder,
         view::{
-            Position, PositionState, Render, RenderHtml, add_attr::AddAnyAttr,
+            Position, PositionState, Render, RenderFlags, RenderHtml,
+            add_attr::AddAnyAttr,
         },
     };
 
@@ -153,15 +154,13 @@ mod view_implementations {
             self,
             buf: &mut String,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             (move || Suspend::new(async move { self.await })).to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
         }
@@ -170,8 +169,7 @@ mod view_implementations {
             self,
             buf: &mut StreamBuilder,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) where
             Self: Sized,
@@ -180,8 +178,7 @@ mod view_implementations {
                 .to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
         }

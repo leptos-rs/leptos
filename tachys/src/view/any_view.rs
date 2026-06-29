@@ -14,6 +14,7 @@ use crate::{
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
+    view::RenderFlags,
 };
 use futures::future::{join, join_all};
 use std::{any::TypeId, fmt::Debug};
@@ -43,14 +44,13 @@ pub struct AnyView {
     html_len: usize,
     #[cfg(feature = "ssr")]
     to_html:
-        fn(Erased, &mut String, &mut Position, bool, bool, Vec<AnyAttribute>),
+        fn(Erased, &mut String, &mut Position, RenderFlags, Vec<AnyAttribute>),
     #[cfg(feature = "ssr")]
     to_html_async: fn(
         Erased,
         &mut StreamBuilder,
         &mut Position,
-        bool,
-        bool,
+        RenderFlags,
         Vec<AnyAttribute>,
     ),
     #[cfg(feature = "ssr")]
@@ -58,8 +58,7 @@ pub struct AnyView {
         Erased,
         &mut StreamBuilder,
         &mut Position,
-        bool,
-        bool,
+        RenderFlags,
         Vec<AnyAttribute>,
     ),
     #[cfg(feature = "ssr")]
@@ -219,15 +218,13 @@ where
             value: Erased,
             buf: &mut String,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -240,15 +237,13 @@ where
             value: Erased,
             buf: &mut StreamBuilder,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_async_with_buf::<false>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -261,15 +256,13 @@ where
             value: Erased,
             buf: &mut StreamBuilder,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_async_with_buf::<true>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -452,24 +445,16 @@ impl RenderHtml for AnyView {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(feature = "ssr")]
         {
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
-            (self.to_html)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
-            if mark_branches && escape {
+            (self.to_html)(self.value, buf, position, flags, extra_attrs);
+            if flags.mark_branches && flags.escape {
                 buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
@@ -478,10 +463,9 @@ impl RenderHtml for AnyView {
         }
         #[cfg(not(feature = "ssr"))]
         {
-            _ = mark_branches;
+            _ = flags;
             _ = buf;
             _ = position;
-            _ = escape;
             _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
@@ -494,44 +478,35 @@ impl RenderHtml for AnyView {
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
             (self.to_html_async_ooo)(
                 self.value,
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
             }
         } else {
-            if mark_branches && escape {
+            if flags.mark_branches && flags.escape {
                 buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
-            (self.to_html_async)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
-            if mark_branches && escape {
+            (self.to_html_async)(self.value, buf, position, flags, extra_attrs);
+            if flags.mark_branches && flags.escape {
                 buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
@@ -542,8 +517,7 @@ impl RenderHtml for AnyView {
         {
             _ = buf;
             _ = position;
-            _ = escape;
-            _ = mark_branches;
+            _ = flags;
             _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
@@ -736,28 +710,21 @@ impl RenderHtml for AnyViewWithAttrs {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         mut extra_attrs: Vec<AnyAttribute>,
     ) {
         // `extra_attrs` will be empty here in most cases, but it will have
         // attributes in it already if this is, itself, receiving additional attrs
         extra_attrs.extend(self.attrs);
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         mut extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -766,8 +733,7 @@ impl RenderHtml for AnyViewWithAttrs {
         self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

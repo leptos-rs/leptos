@@ -8,8 +8,8 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        IntoRender, Mountable, Position, PositionState, Render, RenderHtml,
-        ToTemplate, add_attr::AddAnyAttr,
+        IntoRender, Mountable, Position, PositionState, Render, RenderFlags,
+        RenderHtml, ToTemplate, add_attr::AddAnyAttr,
     },
 };
 use const_str_slice_concat::{
@@ -284,6 +284,20 @@ pub trait ElementType: Send + 'static {
     /// like `<style>` and `<script>`, which include other languages that should not use HTML
     /// entity escaping.
     const ESCAPE_CHILDREN: bool;
+    /// Whether the element's children should be hydrated (walked as DOM nodes on the client).
+    ///
+    /// This is `true` for normal elements, but `false` for raw-text and escapable-raw-text
+    /// elements — `<script>`, `<style>`, `<noscript>`, `<textarea>`, `<title>` — whose textual
+    /// content the HTML parser reconstructs as the element's *value*, not as cursor-walkable child
+    /// nodes. Hydration markers (`<!>` separators, the empty-text space, branch markers) are only
+    /// parsed as nodes in normal "data" context; inside raw-text/escapable-raw-text content they are
+    /// swallowed as literal text, so walking such children desyncs the hydration cursor.
+    ///
+    /// Defaults to [`ESCAPE_CHILDREN`](Self::ESCAPE_CHILDREN). Override it to decouple escaping from
+    /// hydration: e.g. `<textarea>`/`<title>` are escapable raw text, so their children *are*
+    /// HTML-escaped (`ESCAPE_CHILDREN = true`) yet must *not* be hydrated (`HYDRATES_CHILDREN =
+    /// false`).
+    const HYDRATES_CHILDREN: bool = Self::ESCAPE_CHILDREN;
     /// The element's namespace, if it is not HTML.
     const NAMESPACE: Option<&'static str>;
 
@@ -423,8 +437,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) {
         // opening tag
@@ -442,11 +455,16 @@ where
             } else if Ch::EXISTS {
                 // children
                 *position = Position::FirstChild;
+                // `ESCAPE_CHILDREN` and `HYDRATES_CHILDREN` are independent: escapable raw-text
+                // elements (`<textarea>`/`<title>`) escape their children but are not hydrated, so
+                // their children must not emit hydration markers (which would surface as literal
+                // text in the raw-text content).
                 self.children.to_html_with_buf(
                     buf,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
             }
@@ -463,8 +481,7 @@ where
         self,
         buffer: &mut StreamBuilder,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -489,8 +506,9 @@ where
                 self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buffer,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
             }
@@ -551,7 +569,7 @@ where
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         // hydrate children
-        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+        let children = if !Ch::EXISTS || !E::HYDRATES_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);
@@ -622,7 +640,7 @@ where
         let attrs = self.attributes.hydrate::<true>(&el);
 
         // hydrate children
-        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+        let children = if !Ch::EXISTS || !E::HYDRATES_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);

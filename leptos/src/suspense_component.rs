@@ -29,7 +29,7 @@ use tachys::{
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
     },
@@ -309,25 +309,18 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.fallback.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.fallback
+            .to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -496,8 +489,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -506,8 +498,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -521,13 +512,13 @@ where
                     buf.push_fallback(
                         self.fallback,
                         &mut fallback_position,
-                        mark_branches,
+                        flags.mark_branches,
                         extra_attrs.clone(),
                     );
                     buf.push_async_out_of_order_with_nonce(
                         fut,
                         position,
-                        mark_branches,
+                        flags.mark_branches,
                         nonce_or_not(),
                         extra_attrs,
                     );
@@ -548,8 +539,7 @@ where
                             value.to_html_async_with_buf::<OUT_OF_ORDER>(
                                 &mut builder,
                                 &mut position,
-                                escape,
-                                mark_branches,
+                                flags,
                                 extra_attrs,
                             );
                             builder.finish().take_chunks()
@@ -670,25 +660,17 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        (self.0)().to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        (self.0)().to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -696,8 +678,7 @@ where
         (self.0)().to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }
