@@ -62,6 +62,7 @@ pub fn ViewA() -> impl IntoView {
     let result = RwSignal::new("Click a button to see the result".to_string());
 
     view! {
+	<textarea>"hey"</textarea>
         <p id="page">"View A"</p>
         <pre id="result">{result}</pre>
         <button id="First" on:click=move |_| spawn_local(async move { result.set(first_value().await); })>"First"</button>

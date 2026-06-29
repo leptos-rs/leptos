@@ -120,6 +120,75 @@ impl MarkBranch for StreamBuilder {
     }
 }
 
+/// Flags that control how a view is serialized to HTML.
+///
+/// These are threaded through [`RenderHtml::to_html_with_buf`] and the streaming variants. The
+/// axes are independent on purpose — for example, escapable raw-text elements (`<textarea>`,
+/// `<title>`) escape their children (`escape`) but are *not* hydrated (`hydrate`), so their
+/// content must be escaped without emitting hydration markers that would surface as literal text.
+///
+/// This type is `#[non_exhaustive]`: build it with [`RenderFlags::new`] or the presets and adjust
+/// it with the `with_*` methods, and thread it opaquely through child calls. New rendering axes can
+/// then be added as fields without breaking existing [`RenderHtml`] implementors.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct RenderFlags {
+    /// Whether text content should be HTML-escaped.
+    pub escape: bool,
+    /// Whether hydration position/boundary markers should be emitted: the `<!>` separators between
+    /// adjacent text nodes, the empty-text placeholder space, and the variable-length-list end
+    /// markers. These matter only for content the hydration cursor will walk on the client; content
+    /// that is rendered but never hydrated (raw text, server-only subtrees) must not carry them.
+    pub hydrate: bool,
+    /// Whether branch markers should be emitted, to support libraries that diff HTML pages against
+    /// one another by marking sections of the view that branch to different types.
+    pub mark_branches: bool,
+}
+
+impl RenderFlags {
+    /// Standard flags for hydratable server rendering: escape text and emit hydration markers, but
+    /// no branch markers.
+    pub const HYDRATE: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: false,
+    };
+
+    /// Like [`HYDRATE`](Self::HYDRATE), but also emits branch markers.
+    pub const HYDRATE_BRANCHING: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: true,
+    };
+
+    /// Creates a new set of flags.
+    pub const fn new(escape: bool, hydrate: bool, mark_branches: bool) -> Self {
+        Self {
+            escape,
+            hydrate,
+            mark_branches,
+        }
+    }
+
+    /// Returns a copy of these flags with `escape` set to the given value.
+    pub const fn with_escape(mut self, escape: bool) -> Self {
+        self.escape = escape;
+        self
+    }
+
+    /// Returns a copy of these flags with `hydrate` set to the given value.
+    pub const fn with_hydrate(mut self, hydrate: bool) -> Self {
+        self.hydrate = hydrate;
+        self
+    }
+
+    /// Returns a copy of these flags with `mark_branches` set to the given value.
+    pub const fn with_mark_branches(mut self, mark_branches: bool) -> Self {
+        self.mark_branches = mark_branches;
+        self
+    }
+}
+
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
 ///
@@ -174,8 +243,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         buf
@@ -192,8 +260,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         buf
@@ -208,8 +275,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -226,8 +292,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
@@ -245,8 +310,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -265,20 +329,25 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
     }
 
     /// Renders a view to HTML, writing it into the given buffer.
+    ///
+    /// `escape` controls whether text content is HTML-escaped. `hydrate` controls whether
+    /// hydration position/boundary markers (the `<!>` separators, empty-text placeholders, and
+    /// variable-length-list end markers) are emitted; these are only meaningful for content that
+    /// will be walked by the hydration cursor on the client. The two axes are independent: e.g.
+    /// `<textarea>`/`<title>` content is escaped (`escape = true`) but not hydrated
+    /// (`hydrate = false`), so it must not carry markers that would surface as literal text.
     fn to_html_with_buf(
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     );
 
@@ -287,20 +356,13 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.with_buf(|buf| {
-            self.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            )
+            self.to_html_with_buf(buf, position, flags, extra_attrs)
         });
     }
 

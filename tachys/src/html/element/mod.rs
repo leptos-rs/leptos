@@ -8,8 +8,8 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        IntoRender, Mountable, Position, PositionState, Render, RenderHtml,
-        ToTemplate, add_attr::AddAnyAttr,
+        IntoRender, Mountable, Position, PositionState, Render, RenderFlags,
+        RenderHtml, ToTemplate, add_attr::AddAnyAttr,
     },
 };
 use const_str_slice_concat::{
@@ -488,8 +488,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) {
         // opening tag
@@ -509,11 +508,16 @@ where
                 *position = Position::FirstChild;
                 #[cfg(debug_assertions)]
                 let children_start = buf.len();
+                // `ESCAPE_CHILDREN` and `HYDRATES_CHILDREN` are independent: escapable raw-text
+                // elements (`<textarea>`/`<title>`) escape their children but are not hydrated, so
+                // their children must not emit hydration markers (which would surface as literal
+                // text in the raw-text content).
                 self.children.to_html_with_buf(
                     buf,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
                 // Raw-text elements emit children verbatim, so guard against end-tag breakout.
@@ -538,8 +542,7 @@ where
         self,
         buffer: &mut StreamBuilder,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -566,8 +569,9 @@ where
                 self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buffer,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
                 // Raw-text elements emit children verbatim, so guard against end-tag breakout.

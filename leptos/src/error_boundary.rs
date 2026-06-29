@@ -23,7 +23,7 @@ use tachys::{
     reactive_graph::OwnedView,
     ssr::{StreamBuilder, StreamChunk},
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
     },
 };
@@ -326,8 +326,7 @@ where
         mut self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
@@ -341,8 +340,7 @@ where
         self.children.to_html_with_buf(
             buf,
             &mut new_pos,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs.clone(),
         );
 
@@ -353,8 +351,7 @@ where
             (self.fallback)(self.errors).to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
         }
@@ -366,8 +363,7 @@ where
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -380,8 +376,7 @@ where
         self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
             &mut new_buf,
             &mut new_pos,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs.clone(),
         );
 
@@ -399,8 +394,7 @@ where
                 (self.fallback)(self.errors).to_html_with_buf(
                     &mut fallback,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
                 buf.push_sync(&fallback);
@@ -445,8 +439,7 @@ where
                     (self.fallback)(self.errors).to_html_with_buf(
                         &mut fallback,
                         &mut position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
                     my_chunks.clear();

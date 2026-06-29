@@ -45,7 +45,7 @@ use tachys::{
     reactive_graph::{OwnedView, Suspend},
     ssr::StreamBuilder,
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
         any_view::{AnyView, IntoAny},
         either::EitherOf3State,
@@ -303,8 +303,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
@@ -385,13 +384,7 @@ where
                     Either::Right(top_level_outlet(&outlets, &outer_owner))
                 }
             };
-            view.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
+            view.to_html_with_buf(buf, position, flags, extra_attrs);
         }
     }
 
@@ -399,8 +392,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -449,8 +441,7 @@ where
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

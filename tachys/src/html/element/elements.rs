@@ -480,6 +480,40 @@ mod tests {
     }
 
     #[test]
+    fn escapable_raw_text_children_have_no_hydration_marker() {
+        // Variable-length child containers (`Vec`/`StaticVec`, used to hold an
+        // element's children in erased/lazy mode) append a trailing `<!>`
+        // hydration marker. `<textarea>`/`<title>` escape their children but are
+        // *not* hydrated, so that marker must not leak into their raw-text content
+        // (it would render as literal text, e.g. `hey<!>`).
+        assert_eq!(
+            textarea().child(vec!["hey"]).to_html(),
+            "<textarea>hey</textarea>"
+        );
+        assert_eq!(title().child(vec!["hey"]).to_html(), "<title>hey</title>");
+        // Escaping still applies to the (marker-free) rendered content.
+        assert_eq!(
+            textarea().child(vec!["a < b"]).to_html(),
+            "<textarea>a &lt; b</textarea>"
+        );
+    }
+
+    #[tokio::test]
+    async fn escapable_raw_text_children_have_no_hydration_marker_streaming() {
+        // The axum/actix integrations render via out-of-order streaming, so the
+        // async path must suppress the marker too.
+        use futures::StreamExt;
+
+        let mut stream =
+            textarea().child(vec!["hey"]).to_html_stream_out_of_order();
+        let mut html = String::new();
+        while let Some(chunk) = stream.next().await {
+            html.push_str(&chunk);
+        }
+        assert_eq!(html, "<textarea>hey</textarea>");
+    }
+
+    #[test]
     fn title_escapes_child_content() {
         // `<title>` is escapable raw text just like `<textarea>`, so it is
         // escaped (and, like `<textarea>`, not hydrated).

@@ -10,8 +10,8 @@ use leptos::{
         dom::document,
         hydration::Cursor,
         view::{
-            Mountable, Position, PositionState, Render, RenderHtml,
-            add_attr::AddAnyAttr,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
     text_prop::TextProp,
@@ -334,8 +334,7 @@ impl RenderHtml for TitleView {
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context

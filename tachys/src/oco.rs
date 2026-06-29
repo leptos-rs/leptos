@@ -10,7 +10,9 @@ use crate::{
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
     renderer::Rndr,
-    view::{Position, PositionState, ToTemplate, strings::StrState},
+    view::{
+        Position, PositionState, RenderFlags, ToTemplate, strings::StrState,
+    },
 };
 use oco_ref::Oco;
 use wasm_bindgen::JsValue;
@@ -56,16 +58,14 @@ impl RenderHtml for Oco<'static, str> {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }
