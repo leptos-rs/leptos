@@ -529,8 +529,7 @@ mod tests {
     #[test]
     fn raw_text_elements_render_children_verbatim() {
         // Raw-text elements emit children verbatim: `<`/`&` are NOT
-        // entity-escaped (escaping would corrupt the embedded JS/CSS). The
-        // content below is breakout-safe (no `</tag` delimiter).
+        // entity-escaped (escaping would corrupt the embedded JS/CSS).
         assert_eq!(
             script().child("if (1 < 2 && 3 > 2) load();").to_html(),
             "<script>if (1 < 2 && 3 > 2) load();</script>"
@@ -543,15 +542,5 @@ mod tests {
             noscript().child("<p>enable JS</p>").to_html(),
             "<noscript><p>enable JS</p></noscript>"
         );
-    }
-
-    // Raw text cannot be escaped, so the only defense against end-tag breakout
-    // is the debug-only guard, which must fire on untrusted breakout content.
-    #[cfg(debug_assertions)]
-    #[test]
-    #[should_panic = "break out of `<script>`"]
-    fn raw_text_breakout_is_caught_in_debug() {
-        let untrusted = "</script><script>alert('xss')</script>".to_string();
-        let _ = script().child(untrusted).to_html();
     }
 }

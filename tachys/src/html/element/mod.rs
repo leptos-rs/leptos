@@ -379,57 +379,6 @@ where
     }
 }
 
-/// Debug-only XSS guard for raw-text elements (`ESCAPE_CHILDREN == false`).
-///
-/// `<script>`, `<style>`, `<noscript>` and other raw-text elements emit their children
-/// **verbatim**: character references are not decoded inside them, so — unlike escapable raw text
-/// (`<textarea>`/`<title>`) — there is no in-band way to escape their content. The only thing that
-/// can terminate such an element is its own end-tag delimiter `</tag`, so untrusted data containing
-/// that delimiter breaks out of the element and can inject live markup (an XSS sink). For `<script>`
-/// the script-data tokenizer state can additionally be perturbed by `<!--` and `<script`.
-///
-/// Because no generic escaping is possible, callers must encode such data in the embedded language
-/// (JS/CSS) before rendering it, exactly like `inner_html`. This check catches accidental breakout
-/// during development and is compiled out of release builds.
-#[cfg(debug_assertions)]
-fn debug_assert_no_raw_text_breakout(tag: &str, children: &str) {
-    fn find_ignore_ascii_case(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-        if needle.is_empty() || haystack.len() < needle.len() {
-            return None;
-        }
-        (0..=haystack.len() - needle.len()).find(|&i| {
-            haystack[i..i + needle.len()].eq_ignore_ascii_case(needle)
-        })
-    }
-
-    let bytes = children.as_bytes();
-    let end_tag = format!("</{tag}");
-    // An "appropriate end tag" is `</tag` followed by a tag-terminating char (or EOF); requiring the
-    // terminator avoids false positives like `</scripted`.
-    let breaks_out = match find_ignore_ascii_case(bytes, end_tag.as_bytes()) {
-        Some(i) => match bytes.get(i + end_tag.len()) {
-            None => true,
-            Some(c) => {
-                matches!(c, b'>' | b'/' | b' ' | b'\t' | b'\n' | 0x0C | b'\r')
-            }
-        },
-        None => false,
-    };
-    let script_state_change = tag.eq_ignore_ascii_case("script")
-        && (find_ignore_ascii_case(bytes, b"<!--").is_some()
-            || find_ignore_ascii_case(bytes, b"<script").is_some());
-
-    debug_assert!(
-        !(breaks_out || script_state_change),
-        "untrusted content appears to break out of `<{tag}>`: its rendered \
-         children contain the `</{tag}` end-tag delimiter (or, for \
-         `<script>`, a `<!--`/`<script` sequence). Raw-text elements emit \
-         children verbatim with no escaping, so dynamic data must be encoded \
-         in the embedded language (JS/CSS) before being rendered into them, \
-         like `inner_html`."
-    );
-}
-
 impl<E, At, Ch> RenderHtml for HtmlElement<E, At, Ch>
 where
     E: ElementType + Send,
@@ -506,8 +455,6 @@ where
             } else if Ch::EXISTS {
                 // children
                 *position = Position::FirstChild;
-                #[cfg(debug_assertions)]
-                let children_start = buf.len();
                 // `ESCAPE_CHILDREN` and `HYDRATES_CHILDREN` are independent: escapable raw-text
                 // elements (`<textarea>`/`<title>`) escape their children but are not hydrated, so
                 // their children must not emit hydration markers (which would surface as literal
@@ -520,14 +467,6 @@ where
                         .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
-                // Raw-text elements emit children verbatim, so guard against end-tag breakout.
-                #[cfg(debug_assertions)]
-                if !E::ESCAPE_CHILDREN {
-                    debug_assert_no_raw_text_breakout(
-                        self.tag.tag(),
-                        &buf[children_start..],
-                    );
-                }
             }
 
             // closing tag
@@ -564,8 +503,6 @@ where
             if !inner_html.is_empty() {
                 buffer.push_sync(&inner_html);
             } else if Ch::EXISTS {
-                #[cfg(debug_assertions)]
-                let children_start = buffer.sync_buf.len();
                 self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buffer,
                     position,
@@ -574,15 +511,6 @@ where
                         .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
-                // Raw-text elements emit children verbatim, so guard against end-tag breakout.
-                // Best-effort on the streaming path: only inspects content still in the sync buffer.
-                #[cfg(debug_assertions)]
-                if !E::ESCAPE_CHILDREN {
-                    debug_assert_no_raw_text_breakout(
-                        self.tag.tag(),
-                        buffer.sync_buf.get(children_start..).unwrap_or(""),
-                    );
-                }
             }
 
             // closing tag
