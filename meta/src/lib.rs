@@ -18,7 +18,7 @@
 //!     // Provides a [`MetaContext`], if there is not already one provided.
 //!     provide_meta_context();
 //!
-//!     let (name, set_name) = create_signal("Alice".to_string());
+//!     let (name, set_name) = signal("Alice".to_string());
 //!
 //!     view! {
 //!       <Title
