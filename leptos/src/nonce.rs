@@ -1,60 +1,80 @@
-use crate::context::{provide_context, use_context};
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-    Engine,
-};
-use rand::{rng, RngCore};
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
-/// A cryptographic nonce ("number used once") which can be
-/// used by Content Security Policy to determine whether or not a given
-/// resource will be allowed to load.
-///
-/// When the `nonce` feature is enabled on one of the server integrations,
-/// a nonce is generated during server rendering and added to all inline
-/// scripts used for HTML streaming and resource loading.
-///
-/// The nonce being used during the current server response can be
-/// accessed using [`use_nonce`].
-///
-/// ```rust,ignore
-/// #[component]
-/// pub fn App() -> impl IntoView {
-///     provide_meta_context;
-///
-///     view! {
-///         // use `leptos_meta` to insert a <meta> tag with the CSP
-///         <Meta
-///             http_equiv="Content-Security-Policy"
-///             content=move || {
-///                 // this will insert the CSP with nonce on the server, be empty on client
-///                 use_nonce()
-///                     .map(|nonce| {
-///                         format!(
-///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
-///                             'wasm-unsafe-eval'; style-src 'nonce-{nonce}';"
-///                         )
-///                     })
-///                     .unwrap_or_default()
-///             }
-///         />
-///         // manually insert nonce during SSR on inline script
-///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
-///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
-///         <Style>"body { color: blue; }"</Style>
-///         <p>"Test"</p>
-///     }
-/// }
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Nonce(pub(crate) Arc<str>);
+macro_rules! nonce_type {
+    ($($inner:tt)+) => {
+        /// A cryptographic nonce ("number used once") which can be
+        /// used by Content Security Policy to determine whether or not a given
+        /// resource will be allowed to load.
+        ///
+        /// When the `nonce` feature is enabled on one of the server integrations,
+        /// a nonce is generated during server rendering and added to all inline
+        /// scripts used for HTML streaming and resource loading.
+        ///
+        /// The nonce being used during the current server response can be
+        /// accessed using [`use_nonce`].
+        ///
+        /// ```rust,ignore
+        /// #[component]
+        /// pub fn App() -> impl IntoView {
+        ///     provide_meta_context;
+        ///
+        ///     view! {
+        ///         // use `leptos_meta` to insert a <meta> tag with the CSP
+        ///         <Meta
+        ///             http_equiv="Content-Security-Policy"
+        ///             content=move || {
+        ///                 // this will insert the CSP with nonce on the server, be empty on client
+        ///                 use_nonce()
+        ///                     .map(|nonce| {
+        ///                         format!(
+        ///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
+        ///                             'wasm-unsafe-eval'; style-src 'nonce-{nonce}';"
+        ///                         )
+        ///                     })
+        ///                     .unwrap_or_default()
+        ///             }
+        ///         />
+        ///         // manually insert nonce during SSR on inline script
+        ///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
+        ///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
+        ///         <Style>"body { color: blue; }"</Style>
+        ///         <p>"Test"</p>
+        ///     }
+        /// }
+        /// ```
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct Nonce($($inner)+);
+    }
+}
+
+cfg_select! {
+    feature = "nonce" =>
+        nonce_type!{pub(crate) Arc<str>},
+    _ =>
+        nonce_type!{()},
+}
+
+#[cfg(not(feature = "nonce"))]
+macro_rules! not_constructable {
+    ($($($unused_var:ident),+)?) => {
+        $(_ = ($($unused_var),+);)?
+        cfg_select! {
+            debug_assertions =>
+                unreachable!("Nonce cannot be constructed without the \"nonce\" feature"),
+            _ =>
+                unreachable!(),
+        }
+    };
+}
 
 impl Nonce {
     /// Returns a reference to the inner reference-counted string slice representing the nonce.
     pub fn as_inner(&self) -> &Arc<str> {
-        &self.0
+        cfg_select! {
+            feature = "nonce" => &self.0,
+            _ => not_constructable!(),
+        }
     }
 }
 
@@ -62,28 +82,48 @@ impl Deref for Nonce {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        cfg_select! {
+            feature = "nonce" => &self.0,
+            _ => not_constructable!(),
+        }
     }
 }
 
 impl Display for Nonce {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0)
+        cfg_select! {
+            feature = "nonce" => write!(f, "{}", self.0),
+            _ => not_constructable!(f),
+        }
     }
 }
 
 impl AttributeValue for Nonce {
     type AsyncOutput = Self;
-    type State = <Arc<str> as AttributeValue>::State;
+    cfg_select! {
+        feature = "nonce" => {
+            type State = <Arc<str> as AttributeValue>::State;
+        }
+        _ => {
+            type State = <() as AttributeValue>::State;
+        }
+    }
     type Cloneable = Self;
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        self.0.len()
+        cfg_select! {
+            feature = "nonce" => self.0.len(),
+            _ => not_constructable!(),
+        }
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
-        <Arc<str> as AttributeValue>::to_html(self.0, key, buf)
+        cfg_select! {
+            feature = "nonce" =>
+                <Arc<str> as AttributeValue>::to_html(self.0, key, buf),
+            _ => not_constructable!(key, buf),
+        }
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -93,7 +133,11 @@ impl AttributeValue for Nonce {
         key: &str,
         el: &tachys::renderer::types::Element,
     ) -> Self::State {
-        <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(self.0, key, el)
+        cfg_select! {
+            feature = "nonce" =>
+                <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(self.0, key, el),
+            _ => not_constructable!(key, el),
+        }
     }
 
     fn build(
@@ -101,11 +145,19 @@ impl AttributeValue for Nonce {
         el: &tachys::renderer::types::Element,
         key: &str,
     ) -> Self::State {
-        <Arc<str> as AttributeValue>::build(self.0, el, key)
+        cfg_select! {
+            feature = "nonce" =>
+                <Arc<str> as AttributeValue>::build(self.0, el, key),
+            _ => not_constructable!(el, key),
+        }
     }
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
-        <Arc<str> as AttributeValue>::rebuild(self.0, key, state)
+        cfg_select! {
+            feature = "nonce" =>
+                <Arc<str> as AttributeValue>::rebuild(self.0, key, state),
+            _ => not_constructable!(key, state),
+        }
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -127,6 +179,9 @@ impl AttributeValue for Nonce {
 /// server response. This can be added to inline `<script>` and
 /// `<style>` tags for compatibility with a Content Security Policy.
 ///
+/// This function can be called without the `nonce` feature enabled,
+/// in which case it will always return [`None::<Nonce>`].
+///
 /// ```rust,ignore
 /// #[component]
 /// pub fn App() -> impl IntoView {
@@ -156,21 +211,36 @@ impl AttributeValue for Nonce {
 ///     }
 /// }
 /// ```
+#[inline(always)]
 pub fn use_nonce() -> Option<Nonce> {
-    use_context::<Nonce>()
+    cfg_select! {
+        feature = "nonce" => crate::context::use_context::<Nonce>(),
+        _ => None,
+    }
 }
 
 /// Generates a nonce and provides it via context.
+#[cfg(feature = "nonce")]
 pub fn provide_nonce() {
-    provide_context(Nonce::new())
+    crate::context::provide_context(Nonce::new())
 }
 
-const NONCE_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
-
+#[cfg(feature = "nonce")]
 impl Nonce {
     /// Generates a new nonce from 16 bytes (128 bits) of random data.
     pub fn new() -> Self {
+        use base64::{
+            alphabet,
+            engine::{self, general_purpose},
+            Engine as _,
+        };
+        use rand::{rng, RngCore as _};
+        const NONCE_ENGINE: engine::GeneralPurpose =
+            engine::GeneralPurpose::new(
+                &alphabet::URL_SAFE,
+                general_purpose::NO_PAD,
+            );
+
         let mut rng = rng();
         let mut bytes = [0; 16];
         rng.fill_bytes(&mut bytes);
@@ -188,6 +258,7 @@ impl Nonce {
     }
 }
 
+#[cfg(feature = "nonce")]
 impl Default for Nonce {
     fn default() -> Self {
         Self::new()
