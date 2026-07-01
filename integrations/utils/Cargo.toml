@@ -18,6 +18,8 @@ leptos_config = { workspace = true }
 mime = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 tokio = { workspace = true, default-features = false, optional = true }
+lru = { workspace = true, optional = true }
+or_poisoned = { workspace = true, default-features = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, default-features = false, features = [
@@ -27,7 +29,7 @@ tokio = { workspace = true, default-features = false, features = [
 ] }
 
 [features]
-fs = ["dep:tokio", "tokio/fs"]
+fs = ["dep:tokio", "tokio/fs", "dep:lru", "dep:or_poisoned"]
 
 [package.metadata.docs.rs]
 all-features = true
