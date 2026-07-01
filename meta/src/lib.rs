@@ -47,6 +47,7 @@ use leptos::{
     attr::{any_attribute::AnyAttribute, NextAttribute},
     component,
     logging::debug_warn,
+    nonce::use_nonce,
     oco::Oco,
     reactive::owner::{provide_context, use_context},
     tachys::{
@@ -595,18 +596,9 @@ pub(crate) trait OrDefaultNonce {
 
 impl OrDefaultNonce for Option<Oco<'static, str>> {
     fn or_default_nonce(self) -> Option<Oco<'static, str>> {
-        #[cfg(feature = "nonce")]
-        {
-            use leptos::nonce::use_nonce;
-
-            match self {
-                Some(nonce) => Some(nonce),
-                None => use_nonce().map(|n| Arc::clone(n.as_inner()).into()),
-            }
-        }
-        #[cfg(not(feature = "nonce"))]
-        {
-            self
+        match self {
+            Some(nonce) => Some(nonce),
+            None => use_nonce().map(|n| Arc::clone(n.as_inner()).into()),
         }
     }
 }
