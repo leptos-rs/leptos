@@ -48,32 +48,36 @@ macro_rules! nonce_type {
     }
 }
 
-cfg_select! {
-    feature = "nonce" =>
-        nonce_type!{pub(crate) Arc<str>},
-    _ =>
-        nonce_type!{()},
-}
-
+#[cfg(feature = "nonce")]
+nonce_type! {pub(crate) Arc<str>}
 #[cfg(not(feature = "nonce"))]
-macro_rules! not_constructable {
-    ($($($unused_var:ident),+)?) => {
-        $(_ = ($($unused_var),+);)?
-        cfg_select! {
-            debug_assertions =>
-                unreachable!("Nonce cannot be constructed without the \"nonce\" feature"),
-            _ =>
-                unreachable!(),
+nonce_type! {()}
+
+macro_rules! if_constructable {
+    ($(($($unused_var:ident),*))? => $($rest:tt)*) => {
+        #[cfg(feature = "nonce")]
+        {
+            $($rest)*
         }
+        #[cfg(not(feature = "nonce"))]
+        {
+            $(_ = ($($unused_var),*);)?
+            #[cfg(debug_assertions)]
+            unreachable!("Nonce cannot be constructed without the \"nonce\" feature");
+            #[cfg(not(debug_assertions))]
+            unreachable!();
+        }
+    };
+    ($($rest:tt)*) => {
+        if_constructable!{ => $($rest)* }
     };
 }
 
 impl Nonce {
     /// Returns a reference to the inner reference-counted string slice representing the nonce.
     pub fn as_inner(&self) -> &Arc<str> {
-        cfg_select! {
-            feature = "nonce" => &self.0,
-            _ => not_constructable!(),
+        if_constructable! {
+            &self.0
         }
     }
 }
@@ -82,47 +86,38 @@ impl Deref for Nonce {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        cfg_select! {
-            feature = "nonce" => &self.0,
-            _ => not_constructable!(),
+        if_constructable! {
+            &self.0
         }
     }
 }
 
 impl Display for Nonce {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        cfg_select! {
-            feature = "nonce" => write!(f, "{}", self.0),
-            _ => not_constructable!(f),
+        if_constructable! { (f) =>
+            write!(f, "{}", self.0)
         }
     }
 }
 
 impl AttributeValue for Nonce {
     type AsyncOutput = Self;
-    cfg_select! {
-        feature = "nonce" => {
-            type State = <Arc<str> as AttributeValue>::State;
-        }
-        _ => {
-            type State = <() as AttributeValue>::State;
-        }
-    }
+    #[cfg(feature = "nonce")]
+    type State = <Arc<str> as AttributeValue>::State;
+    #[cfg(not(feature = "nonce"))]
+    type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
-        cfg_select! {
-            feature = "nonce" => self.0.len(),
-            _ => not_constructable!(),
+        if_constructable! {
+            self.0.len()
         }
     }
 
     fn to_html(self, key: &str, buf: &mut String) {
-        cfg_select! {
-            feature = "nonce" =>
-                <Arc<str> as AttributeValue>::to_html(self.0, key, buf),
-            _ => not_constructable!(key, buf),
+        if_constructable! { (key, buf) =>
+            <Arc<str> as AttributeValue>::to_html(self.0, key, buf)
         }
     }
 
@@ -133,10 +128,10 @@ impl AttributeValue for Nonce {
         key: &str,
         el: &tachys::renderer::types::Element,
     ) -> Self::State {
-        cfg_select! {
-            feature = "nonce" =>
-                <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(self.0, key, el),
-            _ => not_constructable!(key, el),
+        if_constructable! { (key, el) =>
+            <Arc<str> as AttributeValue>::hydrate::<FROM_SERVER>(
+                self.0, key, el,
+            )
         }
     }
 
@@ -145,18 +140,14 @@ impl AttributeValue for Nonce {
         el: &tachys::renderer::types::Element,
         key: &str,
     ) -> Self::State {
-        cfg_select! {
-            feature = "nonce" =>
-                <Arc<str> as AttributeValue>::build(self.0, el, key),
-            _ => not_constructable!(el, key),
+        if_constructable! { (el, key) =>
+            <Arc<str> as AttributeValue>::build(self.0, el, key)
         }
     }
 
     fn rebuild(self, key: &str, state: &mut Self::State) {
-        cfg_select! {
-            feature = "nonce" =>
-                <Arc<str> as AttributeValue>::rebuild(self.0, key, state),
-            _ => not_constructable!(key, state),
+        if_constructable! { (key, state) =>
+            <Arc<str> as AttributeValue>::rebuild(self.0, key, state)
         }
     }
 
@@ -213,10 +204,10 @@ impl AttributeValue for Nonce {
 /// ```
 #[inline(always)]
 pub fn use_nonce() -> Option<Nonce> {
-    cfg_select! {
-        feature = "nonce" => crate::context::use_context::<Nonce>(),
-        _ => None,
-    }
+    #[cfg(feature = "nonce")]
+    return crate::context::use_context::<Nonce>();
+    #[cfg(not(feature = "nonce"))]
+    return None;
 }
 
 /// Generates a nonce and provides it via context.
