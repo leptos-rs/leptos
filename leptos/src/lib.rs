@@ -166,12 +166,10 @@ pub mod prelude {
     // In the future, maybe we should remove this blanket export
     // However, it is definitely useful relative to looking up every struct etc.
     mod export_types {
-        #[cfg(feature = "nonce")]
-        pub use crate::nonce::*;
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
-            form::*, hydration::*, into_view::*, mount::*, suspense::*,
-            text_prop::*,
+            form::*, hydration::*, into_view::*, mount::*, nonce::*,
+            suspense::*, text_prop::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::helpers::*;
@@ -241,7 +239,6 @@ pub mod portal;
 pub mod hydration;
 
 /// Utilities for exporting nonces to be used for a Content Security Policy.
-#[cfg(feature = "nonce")]
 pub mod nonce;
 
 /// Components to load asynchronous data.
