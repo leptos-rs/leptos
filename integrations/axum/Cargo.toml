@@ -21,7 +21,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
-httpdate = { version = "1", optional = true }
+httpdate = { workspace = true, default-features = true, optional = true }
 tachys = { workspace = true }
 tokio = { default-features = false, workspace = true }
 tower = { features = ["util"], workspace = true, default-features = true }
