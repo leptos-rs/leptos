@@ -47,6 +47,7 @@ pub struct Nonce(pub(crate) Arc<str>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg(not(feature = "nonce"))]
+#[expect(missing_docs)]
 pub struct Nonce(pub(crate) Arc<str>, std::convert::Infallible);
 
 impl Nonce {
