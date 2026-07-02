@@ -5,14 +5,31 @@ use proc_macro_error2::abort;
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
 use std::mem;
-use syn::{ItemFn, ReturnType, Stmt, parse_macro_input, parse_quote};
+use syn::{
+    ItemFn, ReturnType, Stmt, Token, parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+};
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let name = if !args.is_empty() {
-        Some(parse_macro_input!(args as syn::Ident))
-    } else {
-        None
-    };
+    // Optional, comma-separated args: an explicit module name (a bare ident)
+    // and/or the `fallible` flag. `fallible` forwards to
+    // `#[wasm_split(.., fallible)]`, so the annotated function must return
+    // `Result<_, E: From<SplitLoaderError>>` and a failed chunk load is
+    // surfaced as `Err` instead of panicking.
+    let parsed_args = parse_macro_input!(
+        args with Punctuated::<Ident, Token![,]>::parse_terminated
+    );
+    let mut name = None;
+    let mut fallible = false;
+    for ident in parsed_args {
+        if ident == "fallible" {
+            fallible = true;
+        } else if name.is_none() {
+            name = Some(ident);
+        } else {
+            abort!(ident.span(), "unexpected `lazy` argument");
+        }
+    }
 
     let fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
         abort!(e.span(), "`lazy` can only be used on a function")
@@ -70,11 +87,17 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             });
         }
         let preload_name = format_ident!("__preload_{}", fun.sig.ident);
+        let fallible_opt = if fallible {
+            quote! { fallible, }
+        } else {
+            quote! {}
+        };
 
         quote! {
             #[::leptos::wasm_split::wasm_split(
                 #unique_name,
                 wasm_split_path = ::leptos::wasm_split,
+                #fallible_opt
                 preload(#[doc(hidden)] #[allow(non_snake_case)] #preload_name),
                 #return_wrapper
             )]
