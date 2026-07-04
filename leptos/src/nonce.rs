@@ -1,3 +1,4 @@
+use crate::context::use_context;
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
@@ -42,13 +43,12 @@ use tachys::html::attribute::AttributeValue;
 /// }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg(feature = "nonce")]
-pub struct Nonce(pub(crate) Arc<str>);
+pub struct Nonce(pub(crate) Arc<str>, NonceAppendix);
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg(feature = "nonce")]
+type NonceAppendix = ();
 #[cfg(not(feature = "nonce"))]
-#[expect(missing_docs)]
-pub struct Nonce(pub(crate) Arc<str>, std::convert::Infallible);
+type NonceAppendix = std::convert::Infallible;
 
 impl Nonce {
     /// Returns a reference to the inner reference-counted string slice representing the nonce.
@@ -160,10 +160,7 @@ impl AttributeValue for Nonce {
 /// ```
 #[inline(always)]
 pub fn use_nonce() -> Option<Nonce> {
-    #[cfg(feature = "nonce")]
-    return crate::context::use_context::<Nonce>();
-    #[cfg(not(feature = "nonce"))]
-    return None;
+    cfg!(feature = "nonce").then(use_context).flatten()
 }
 
 /// Generates a nonce and provides it via context.
@@ -191,7 +188,7 @@ impl Nonce {
         let mut rng = rng();
         let mut bytes = [0; 16];
         rng.fill_bytes(&mut bytes);
-        Nonce(NONCE_ENGINE.encode(bytes).into())
+        Nonce(NONCE_ENGINE.encode(bytes).into(), ())
     }
 
     /// Builds a nonce from a caller-supplied value rather than generating
@@ -201,7 +198,7 @@ impl Nonce {
     /// context before rendering so [`use_nonce`] and the hydration scripts
     /// pick it up.
     pub fn from_value(value: impl Into<Arc<str>>) -> Self {
-        Nonce(value.into())
+        Nonce(value.into(), ())
     }
 }
 
