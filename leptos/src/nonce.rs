@@ -1,10 +1,4 @@
-use crate::context::{provide_context, use_context};
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-    Engine,
-};
-use rand::{rng, RngCore};
+use crate::context::use_context;
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
@@ -127,6 +121,9 @@ impl AttributeValue for Nonce {
 /// server response. This can be added to inline `<script>` and
 /// `<style>` tags for compatibility with a Content Security Policy.
 ///
+/// This function can be called without the `nonce` feature enabled,
+/// in which case it will always return [`None::<Nonce>`].
+///
 /// ```rust,ignore
 /// #[component]
 /// pub fn App() -> impl IntoView {
@@ -156,21 +153,33 @@ impl AttributeValue for Nonce {
 ///     }
 /// }
 /// ```
+#[inline(always)]
 pub fn use_nonce() -> Option<Nonce> {
-    use_context::<Nonce>()
+    cfg!(feature = "nonce").then(use_context).flatten()
 }
 
 /// Generates a nonce and provides it via context.
+#[cfg(feature = "nonce")]
 pub fn provide_nonce() {
-    provide_context(Nonce::new())
+    crate::context::provide_context(Nonce::new())
 }
 
-const NONCE_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
-
+#[cfg(feature = "nonce")]
 impl Nonce {
     /// Generates a new nonce from 16 bytes (128 bits) of random data.
     pub fn new() -> Self {
+        use base64::{
+            alphabet,
+            engine::{self, general_purpose},
+            Engine as _,
+        };
+        use rand::{rng, RngCore as _};
+        const NONCE_ENGINE: engine::GeneralPurpose =
+            engine::GeneralPurpose::new(
+                &alphabet::URL_SAFE,
+                general_purpose::NO_PAD,
+            );
+
         let mut rng = rng();
         let mut bytes = [0; 16];
         rng.fill_bytes(&mut bytes);
@@ -188,6 +197,7 @@ impl Nonce {
     }
 }
 
+#[cfg(feature = "nonce")]
 impl Default for Nonce {
     fn default() -> Self {
         Self::new()
