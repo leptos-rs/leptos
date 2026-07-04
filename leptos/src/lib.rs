@@ -413,7 +413,14 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
     use reactive_graph::traits::WriteValue;
 
     if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
-        prefetches.0.write_value().insert(id);
+        // try_write_value, not write_value: a lazy component can render after
+        // the client aborted the response, when the set's lock is no longer
+        // writable — write_value() would panic the server worker with a
+        // spurious "already been disposed" message. The prefetch hint is
+        // best-effort; dropping it for a dead response is correct.
+        if let Some(mut set) = prefetches.0.try_write_value() {
+            set.insert(id);
+        }
     }
 }
 
