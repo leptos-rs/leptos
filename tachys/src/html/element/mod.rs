@@ -285,18 +285,6 @@ pub trait ElementType: Send + 'static {
     /// entity escaping.
     const ESCAPE_CHILDREN: bool;
     /// Whether the element's children should be hydrated (walked as DOM nodes on the client).
-    ///
-    /// This is `true` for normal elements, but `false` for raw-text and escapable-raw-text
-    /// elements — `<script>`, `<style>`, `<noscript>`, `<textarea>`, `<title>` — whose textual
-    /// content the HTML parser reconstructs as the element's *value*, not as cursor-walkable child
-    /// nodes. Hydration markers (`<!>` separators, the empty-text space, branch markers) are only
-    /// parsed as nodes in normal "data" context; inside raw-text/escapable-raw-text content they are
-    /// swallowed as literal text, so walking such children desyncs the hydration cursor.
-    ///
-    /// Defaults to [`ESCAPE_CHILDREN`](Self::ESCAPE_CHILDREN). Override it to decouple escaping from
-    /// hydration: e.g. `<textarea>`/`<title>` are escapable raw text, so their children *are*
-    /// HTML-escaped (`ESCAPE_CHILDREN = true`) yet must *not* be hydrated (`HYDRATES_CHILDREN =
-    /// false`).
     const HYDRATES_CHILDREN: bool = Self::ESCAPE_CHILDREN;
     /// The element's namespace, if it is not HTML.
     const NAMESPACE: Option<&'static str>;
@@ -455,10 +443,6 @@ where
             } else if Ch::EXISTS {
                 // children
                 *position = Position::FirstChild;
-                // `ESCAPE_CHILDREN` and `HYDRATES_CHILDREN` are independent: escapable raw-text
-                // elements (`<textarea>`/`<title>`) escape their children but are not hydrated, so
-                // their children must not emit hydration markers (which would surface as literal
-                // text in the raw-text content).
                 self.children.to_html_with_buf(
                     buf,
                     position,

@@ -123,22 +123,13 @@ impl MarkBranch for StreamBuilder {
 /// Flags that control how a view is serialized to HTML.
 ///
 /// These are threaded through [`RenderHtml::to_html_with_buf`] and the streaming variants. The
-/// axes are independent on purpose — for example, escapable raw-text elements (`<textarea>`,
-/// `<title>`) escape their children (`escape`) but are *not* hydrated (`hydrate`), so their
-/// content must be escaped without emitting hydration markers that would surface as literal text.
-///
-/// This type is `#[non_exhaustive]`: build it with [`RenderFlags::new`] or the presets and adjust
-/// it with the `with_*` methods, and thread it opaquely through child calls. New rendering axes can
-/// then be added as fields without breaking existing [`RenderHtml`] implementors.
+/// axes are independent on purpose.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct RenderFlags {
     /// Whether text content should be HTML-escaped.
     pub escape: bool,
-    /// Whether hydration position/boundary markers should be emitted: the `<!>` separators between
-    /// adjacent text nodes, the empty-text placeholder space, and the variable-length-list end
-    /// markers. These matter only for content the hydration cursor will walk on the client; content
-    /// that is rendered but never hydrated (raw text, server-only subtrees) must not carry them.
+    /// Whether hydration position/boundary markers should be emitted.
     pub hydrate: bool,
     /// Whether branch markers should be emitted, to support libraries that diff HTML pages against
     /// one another by marking sections of the view that branch to different types.
@@ -336,13 +327,6 @@ where
     }
 
     /// Renders a view to HTML, writing it into the given buffer.
-    ///
-    /// `escape` controls whether text content is HTML-escaped. `hydrate` controls whether
-    /// hydration position/boundary markers (the `<!>` separators, empty-text placeholders, and
-    /// variable-length-list end markers) are emitted; these are only meaningful for content that
-    /// will be walked by the hydration cursor on the client. The two axes are independent: e.g.
-    /// `<textarea>`/`<title>` content is escaped (`escape = true`) but not hydrated
-    /// (`hydrate = false`), so it must not carry markers that would surface as literal text.
     fn to_html_with_buf(
         self,
         buf: &mut String,
