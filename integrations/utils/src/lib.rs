@@ -62,38 +62,57 @@ pub trait ExtendResponse: Sized {
                 pending.await;
             }
 
-            if !prefetches.0.read_value().is_empty() {
-                use leptos::prelude::*;
+            // try_read_value, not read_value: the prefetch set's lock can be
+            // unavailable here — a late/OOO-streamed component may hold the
+            // write lock via prefetch_lazy_fn_on_server, and an aborted
+            // response can leave it poisoned. read_value() would panic the
+            // server worker with a spurious "already disposed" message. The
+            // prefetch hints are best-effort <link rel=preload> tags, so
+            // skipping them beats crashing the response task.
+            //
+            // Scoped block: the ReadGuards must drop before the await below.
+            {
+                let prefetch_keys = prefetches.0.try_read_value();
+                if prefetch_keys.as_ref().is_some_and(|p| !p.is_empty()) {
+                    use leptos::prelude::*;
 
-                let nonce =
-                    use_nonce().map(|n| n.to_string()).unwrap_or_default();
-                if let Some(manifest) = use_context::<WasmSplitManifest>() {
-                    let (pkg_path, manifest, wasm_split_file) =
-                        &*manifest.0.read_value();
-                    let prefetches = prefetches.0.read_value();
+                    let prefetches =
+                        prefetch_keys.expect("checked is_some above");
+                    let nonce =
+                        use_nonce().map(|n| n.to_string()).unwrap_or_default();
+                    // The ReadGuard holds its own Arc to the value, so it can
+                    // outlive the context handle it was read from.
+                    if let Some(manifest_read) =
+                        use_context::<WasmSplitManifest>()
+                            .and_then(|m| m.0.try_read_value())
+                    {
+                        let (pkg_path, manifest, wasm_split_file) =
+                            &*manifest_read;
 
-                    let all_prefetches = prefetches.iter().flat_map(|key| {
-                        manifest.get(*key).into_iter().flatten()
-                    });
+                        let all_prefetches =
+                            prefetches.iter().flat_map(|key| {
+                                manifest.get(*key).into_iter().flatten()
+                            });
 
-                    for module in all_prefetches {
-                        // to_html() on leptos_meta components registers them with the meta context,
-                        // rather than returning HTML directly
-                        _ = view! {
-                            <Link
-                                rel="preload"
-                                href=format!("{pkg_path}/{module}.wasm")
-                                as_="fetch"
-                                type_="application/wasm"
-                                crossorigin=nonce.clone()
-                            />
+                        for module in all_prefetches {
+                            // to_html() on leptos_meta components registers them with the meta context,
+                            // rather than returning HTML directly
+                            _ = view! {
+                                <Link
+                                    rel="preload"
+                                    href=format!("{pkg_path}/{module}.wasm")
+                                    as_="fetch"
+                                    type_="application/wasm"
+                                    crossorigin=nonce.clone()
+                                />
+                            }
+                            .to_html();
                         }
-                        .to_html();
-                    }
-                    _ = view! {
+                        _ = view! {
                         <Link rel="modulepreload" href=format!("{pkg_path}/{wasm_split_file}") crossorigin=nonce/>
                     }
                     .to_html();
+                    }
                 }
             }
 
