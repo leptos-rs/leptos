@@ -38,12 +38,14 @@ pub fn App() -> impl IntoView {
             <nav>
                 <a href="/">"Home"</a>
                 <a href="/about">"About"</a>
+                <a href="/marker-first">"Marker First"</a>
             </nav>
             <main>
                 <Routes fallback=|| "Not found.">
                     <Route path=path!("") view=Home/>
                     <Route path=path!("user/:id") view=Details/>
                     <Route path=path!("about") view=About/>
+                    <Route path=path!("marker-first") view=MarkerFirst/>
                 </Routes>
             </main>
         </Router>
@@ -186,6 +188,30 @@ pub fn Details() -> impl IntoView {
                 }),
             })
         })
+    }
+}
+
+/// A component that renders no element, only view-tree marker comments
+/// (like `leptos_meta`'s `<Title/>` and friends).
+#[component]
+pub fn NoElement() -> impl IntoView {}
+
+/// Regression test page for the islands router.
+///
+/// The route view's *first* node is a component that renders to marker
+/// comments rather than an element. `replaceBranch` in the islands routing
+/// script used to skip the first node after a branch marker while counting
+/// nested branches, so a leading marker comment made it close the branch
+/// range at the wrong place and navigating away left this page's HTML in
+/// the DOM.
+#[component]
+pub fn MarkerFirst() -> impl IntoView {
+    view! {
+        <NoElement/>
+        <section class="page">
+            <h2 id="marker-first-heading">"Marker First"</h2>
+            <p>"This page's view starts with a component that renders no element."</p>
+        </section>
     }
 }
 
