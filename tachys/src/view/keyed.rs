@@ -301,7 +301,7 @@ where
         }
 
         #[cfg(feature = "ssr")]
-        for item in self.ssr_items {
+        for (_, item) in self.ssr_items {
             if mark_branches && escape {
                 buf.open_branch("item");
             }
