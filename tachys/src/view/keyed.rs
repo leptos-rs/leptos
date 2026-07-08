@@ -301,9 +301,10 @@ where
         }
 
         #[cfg(feature = "ssr")]
-        for item in self.ssr_items {
+        for (key, item) in self.ssr_items {
+            let branch_name = mark_branches.then(|| format!("item-{key}"));
             if mark_branches && escape {
-                buf.open_branch("item");
+                buf.open_branch(branch_name.as_ref().unwrap());
             }
             item.to_html_with_buf(
                 buf,
@@ -313,7 +314,7 @@ where
                 extra_attrs.clone(),
             );
             if mark_branches && escape {
-                buf.close_branch("item");
+                buf.close_branch(branch_name.as_ref().unwrap());
             }
             *position = Position::NextChild;
         }
