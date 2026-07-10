@@ -8,8 +8,8 @@ use crate::{
     renderer::{CastFrom, Rndr},
     ssr::StreamBuilder,
     view::{
-        IntoRender, Mountable, Position, PositionState, Render, RenderHtml,
-        ToTemplate, add_attr::AddAnyAttr,
+        IntoRender, Mountable, Position, PositionState, Render, RenderFlags,
+        RenderHtml, ToTemplate, add_attr::AddAnyAttr,
     },
 };
 use const_str_slice_concat::{
@@ -284,6 +284,8 @@ pub trait ElementType: Send + 'static {
     /// like `<style>` and `<script>`, which include other languages that should not use HTML
     /// entity escaping.
     const ESCAPE_CHILDREN: bool;
+    /// Whether the element's children should be hydrated (walked as DOM nodes on the client).
+    const HYDRATES_CHILDREN: bool = Self::ESCAPE_CHILDREN;
     /// The element's namespace, if it is not HTML.
     const NAMESPACE: Option<&'static str>;
 
@@ -423,8 +425,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) {
         // opening tag
@@ -445,8 +446,9 @@ where
                 self.children.to_html_with_buf(
                     buf,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
             }
@@ -463,8 +465,7 @@ where
         self,
         buffer: &mut StreamBuilder,
         position: &mut Position,
-        _escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attributes: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -489,8 +490,9 @@ where
                 self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buffer,
                     position,
-                    E::ESCAPE_CHILDREN,
-                    mark_branches,
+                    flags
+                        .with_escape(E::ESCAPE_CHILDREN)
+                        .with_hydrate(E::HYDRATES_CHILDREN),
                     vec![],
                 );
             }
@@ -551,7 +553,7 @@ where
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         // hydrate children
-        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+        let children = if !Ch::EXISTS || !E::HYDRATES_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);
@@ -622,7 +624,7 @@ where
         let attrs = self.attributes.hydrate::<true>(&el);
 
         // hydrate children
-        let children = if !Ch::EXISTS || !E::ESCAPE_CHILDREN {
+        let children = if !Ch::EXISTS || !E::HYDRATES_CHILDREN {
             None
         } else {
             position.set(Position::FirstChild);

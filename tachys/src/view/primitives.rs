@@ -1,4 +1,6 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use super::{
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+};
 use crate::{
     html::attribute::any_attribute::AnyAttribute,
     hydration::Cursor,
@@ -80,9 +82,9 @@ macro_rules! render_primitive {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, _mark_branches: bool, _extra_attrs: Vec<AnyAttribute>) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, flags: RenderFlags, _extra_attrs: Vec<AnyAttribute>) {
 					// add a comment node to separate from previous sibling, if any
-					if matches!(position, Position::NextChildAfterText) {
+					if flags.hydrate && matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
 					}
 					// `$escape` is `true` only for types whose `Display` output can
@@ -90,7 +92,7 @@ macro_rules! render_primitive {
 					// primitives emit a syntactic subset of HTML text and are written
 					// directly to avoid an intermediate allocation.
 					if $escape {
-						if escape {
+						if flags.escape {
 							buf.push_str(&html_escape::encode_text(&self.to_string()));
 						} else {
 							_ = write!(buf, "{}", self);
@@ -200,7 +202,7 @@ render_primitive![true; char];
 
 #[cfg(test)]
 mod tests {
-    use crate::view::{Position, RenderHtml};
+    use crate::view::{Position, RenderFlags, RenderHtml};
 
     #[test]
     fn char_escapes_html_special_characters() {
@@ -208,8 +210,7 @@ mod tests {
         '<'.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::new(true, false, false),
             vec![],
         );
         assert_eq!(buf, "&lt;");
@@ -223,8 +224,7 @@ mod tests {
         '<'.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            false,
-            false,
+            RenderFlags::new(false, false, false),
             vec![],
         );
         assert_eq!(buf, "<");
@@ -236,8 +236,7 @@ mod tests {
         42u32.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::new(true, false, false),
             vec![],
         );
         assert_eq!(buf, "42");

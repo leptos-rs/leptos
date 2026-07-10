@@ -4,7 +4,7 @@ use tachys::{
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
-        Position, PositionState, Render, RenderHtml, ToTemplate,
+        Position, PositionState, Render, RenderFlags, RenderHtml, ToTemplate,
         add_attr::AddAnyAttr,
     },
 };
@@ -104,8 +104,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(debug_assertions)]
@@ -120,13 +119,8 @@ impl<T: RenderHtml> RenderHtml for View<T> {
             buf.push_str(&format!("<!--hot-reload|{vm}|open-->"));
         }
 
-        self.inner.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.inner
+            .to_html_with_buf(buf, position, flags, extra_attrs);
 
         #[cfg(debug_assertions)]
         if let Some(vm) = vm.as_ref() {
@@ -138,8 +132,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -159,8 +152,7 @@ impl<T: RenderHtml> RenderHtml for View<T> {
         self.inner.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
 

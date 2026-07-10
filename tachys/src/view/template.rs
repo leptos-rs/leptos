@@ -1,6 +1,6 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
-    add_attr::AddAnyAttr,
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+    ToTemplate, add_attr::AddAnyAttr,
 };
 use crate::{
     html::attribute::{Attribute, any_attribute::AnyAttribute},
@@ -81,17 +81,11 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        )
+        self.view
+            .to_html_with_buf(buf, position, flags, extra_attrs)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -120,6 +120,66 @@ impl MarkBranch for StreamBuilder {
     }
 }
 
+/// Flags that control how a view is serialized to HTML.
+///
+/// These are threaded through [`RenderHtml::to_html_with_buf`] and the streaming variants. The
+/// axes are independent on purpose.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct RenderFlags {
+    /// Whether text content should be HTML-escaped.
+    pub escape: bool,
+    /// Whether hydration position/boundary markers should be emitted.
+    pub hydrate: bool,
+    /// Whether branch markers should be emitted, to support libraries that diff HTML pages against
+    /// one another by marking sections of the view that branch to different types.
+    pub mark_branches: bool,
+}
+
+impl RenderFlags {
+    /// Standard flags for hydratable server rendering: escape text and emit hydration markers, but
+    /// no branch markers.
+    pub const HYDRATE: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: false,
+    };
+
+    /// Like [`HYDRATE`](Self::HYDRATE), but also emits branch markers.
+    pub const HYDRATE_BRANCHING: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: true,
+    };
+
+    /// Creates a new set of flags.
+    pub const fn new(escape: bool, hydrate: bool, mark_branches: bool) -> Self {
+        Self {
+            escape,
+            hydrate,
+            mark_branches,
+        }
+    }
+
+    /// Returns a copy of these flags with `escape` set to the given value.
+    pub const fn with_escape(mut self, escape: bool) -> Self {
+        self.escape = escape;
+        self
+    }
+
+    /// Returns a copy of these flags with `hydrate` set to the given value.
+    pub const fn with_hydrate(mut self, hydrate: bool) -> Self {
+        self.hydrate = hydrate;
+        self
+    }
+
+    /// Returns a copy of these flags with `mark_branches` set to the given value.
+    pub const fn with_mark_branches(mut self, mark_branches: bool) -> Self {
+        self.mark_branches = mark_branches;
+        self
+    }
+}
+
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
 ///
@@ -174,8 +234,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         buf
@@ -192,8 +251,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         buf
@@ -208,8 +266,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -226,8 +283,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
@@ -245,8 +301,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -265,8 +320,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
@@ -277,8 +331,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     );
 
@@ -287,20 +340,13 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.with_buf(|buf| {
-            self.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            )
+            self.to_html_with_buf(buf, position, flags, extra_attrs)
         });
     }
 
