@@ -172,7 +172,7 @@ subsecond = { default-features = false, version = "0.7" }
 dioxus-cli-config = { default-features = false, version = "0.7" }
 dioxus-devtools = { default-features = false, version = "0.7" }
 wasm_split_helpers = { default-features = false, version = "0.2.1" }
-rust-embed = { default-features = false, version = "8" }
+rust-embed = { default-features = false, version = "8.12" }
 
 [profile.release]
 codegen-units = 1
