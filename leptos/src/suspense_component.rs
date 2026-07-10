@@ -13,7 +13,7 @@ use reactive_graph::{
         ArcMemo, ScopedFuture,
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, Owner},
+    owner::{provide_context, use_context, ArcStoredValue, Owner},
     signal::ArcRwSignal,
     traits::{
         Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
@@ -322,12 +322,12 @@ where
         let suspense_context = use_context::<SuspenseContext>().unwrap();
         let owner = Owner::current().unwrap();
 
-        let mut notify_error_boundary =
-            self.error_boundary_parent.map(|children| {
+        let notify_error_boundary =
+            ArcStoredValue::new(self.error_boundary_parent.map(|children| {
                 let (tx, rx) = oneshot::channel();
                 children.write_value().push(rx);
                 tx
-            });
+            }));
 
         // we need to wait for one of two things: either
         // 1. all tasks are finished loading, or
@@ -352,6 +352,7 @@ where
         // check the set of tasks to see if it is empty, now or later
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             let children = Arc::clone(&children);
+            let notify_error_boundary = notify_error_boundary.clone();
             move |double_checking: Option<bool>| {
                 // on the first run, always track the tasks
                 if double_checking.is_none() {
@@ -369,7 +370,9 @@ where
                                 // dropped, so it doesn't matter if we manage to send this.
                                 _ = tx.send(());
                             }
-                            if let Some(tx) = notify_error_boundary.take() {
+                            if let Some(tx) =
+                                notify_error_boundary.write_value().take()
+                            {
                                 _ = tx.send(());
                             }
                         } else {
@@ -394,7 +397,9 @@ where
                                     // dropped, so it doesn't matter if we manage to send this.
                                     _ = tx.send(());
                                 }
-                                if let Some(tx) = notify_error_boundary.take() {
+                                if let Some(tx) =
+                                    notify_error_boundary.write_value().take()
+                                {
                                     _ = tx.send(());
                                 }
                             }
@@ -429,6 +434,11 @@ where
                     _ = local_rx => {
                         let sc = Owner::current_shared_context().expect("no shared context");
                         sc.set_incomplete_chunk(self.id);
+                        if let Some(tx) =
+                            notify_error_boundary.write_value().take()
+                        {
+                            let _ = tx.send(());
+                        }
                         None
                     }
                     _ = tasks_rx => {
@@ -450,6 +460,11 @@ where
                             _ = local_rx => {
                                 let sc = Owner::current_shared_context().expect("no shared context");
                                 sc.set_incomplete_chunk(self.id);
+                                if let Some(tx) =
+                                    notify_error_boundary.write_value().take()
+                                {
+                                    let _ = tx.send(());
+                                }
                                 None
                             }
                             children = children => {
