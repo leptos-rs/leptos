@@ -2153,6 +2153,7 @@ dependencies = [
  "leptos_macro",
  "leptos_meta",
  "leptos_router",
+ "mime_guess",
  "or_poisoned",
  "reqwest",
  "rust-embed",

@@ -511,6 +511,40 @@ async fn conf_new_with_assets_with_context() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn conf_embed() -> anyhow::Result<()> {
+    // FIXME this test may not pass as the front-end may finish compiling _after_ the backend, resulting
+    // in the backend not having the front-end files being included.
+    let service = start_test_service("service_mode", "conf-embed").await;
+    let res = service.get("/")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // no fallback rendering anywhere
+    let res = service.get("/pkg/no_such_path")?.send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length().unwrap_or_default(), 0);
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length().unwrap_or_default(), 0);
+
+    // The favicon is included.
+    assert_favicon_ico(&service).await?;
+
+    // However robots.txt is not included to be served (even though it may be embedded).
+    let res = service.get("/robots.txt")?.send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length().unwrap_or_default(), 0);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn leptos_options_css_base() -> anyhow::Result<()> {
     let service =
         start_test_service("service_mode", "leptos-options-css-base").await;
