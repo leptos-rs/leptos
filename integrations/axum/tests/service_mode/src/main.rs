@@ -8,6 +8,7 @@ mod router {
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
     use leptos_axum::{
+        rust_embed::{self, Embed},
         ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
     };
     use service_mode::app::{App, shell};
@@ -39,8 +40,15 @@ mod router {
         ConfNewServeAssetServeDir,
         ConfNewWithAssetsWithContext,
 
+        ConfEmbed,
+
         LeptosOptionsCssBase,
     }
+
+    #[derive(Clone, Copy, Embed)]
+    #[folder = "$LEPTOS_SITE_ROOT"]
+    #[prefix = "/"]
+    struct SiteRoot;
 
     impl From<Cli> for Router {
         fn from(cli: Cli) -> Self {
@@ -265,6 +273,13 @@ mod router {
                                 );
                             }),
                     ),
+
+                Mode::ConfEmbed => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
 
                 Mode::LeptosOptionsCssBase => Router::new().nest(
                     &leptos_options.css_path(),

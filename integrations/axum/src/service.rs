@@ -342,4 +342,4 @@ where
 #[cfg(feature = "embed")]
 mod embed;
 #[cfg(feature = "embed")]
-pub use embed::EmbededSiteRoot;
+pub use embed::EmbeddedSiteRoot;

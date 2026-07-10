@@ -14,7 +14,7 @@ clap = { version = "4.5", features = ["derive"], optional = true }
 console_error_panic_hook = "0.1.7"
 leptos = { path = "../../../../leptos", features = ["tracing"] }
 leptos_meta = { path = "../../../../meta" }
-leptos_axum = { path = "../../../../integrations/axum", optional = true }
+leptos_axum = { path = "../../../../integrations/axum", features = ["embed"], optional = true }
 leptos_router = { path = "../../../../router" }
 tokio = { version = "1.39", features = [
   "rt-multi-thread",

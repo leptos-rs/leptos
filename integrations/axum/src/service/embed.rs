@@ -1,6 +1,10 @@
-use axum::http::{Request, Response};
+use axum::{
+    body::{Body, Bytes, HttpBody},
+    http::{Request, Response, StatusCode, header},
+    response::IntoResponse,
+};
 use futures::Future;
-use rust_embed::Embed;
+use rust_embed::RustEmbed;
 use std::{
     convert::Infallible,
     pin::Pin,
@@ -9,45 +13,59 @@ use std::{
 use tower::Service;
 use tower_http::services::fs::DefaultServeDirFallback;
 
-#[derive(Embed)]
-#[folder = "$LEPTOS_SITE_ROOT"]
-#[allow_missing = true]
-struct SiteRoot;
-
 /// Service for serving error pages generated with the provided application shell.
 #[derive(Clone, Debug)]
-pub struct EmbededSiteRoot<F = DefaultServeDirFallback> {
+pub struct EmbeddedSiteRoot<SR, F = DefaultServeDirFallback> {
     fallback: Option<F>,
+    site_root: SR,
 }
 
-impl EmbededSiteRoot {
-    pub fn new() -> Self {
-        EmbededSiteRoot { fallback: None }
-    }
-}
-
-impl<F> EmbededSiteRoot<F> {
-    pub fn fallback<F2>(self, fallback: F2) -> EmbededSiteRoot<F2> {
-        EmbededSiteRoot {
-            fallback: Some(fallback),
+impl<SR> EmbeddedSiteRoot<SR> {
+    pub fn new(site_root: SR) -> Self {
+        EmbeddedSiteRoot {
+            fallback: None,
+            site_root,
         }
     }
 }
 
-impl<ReqBody, F, ResBody> Service<Request<ReqBody>> for EmbededSiteRoot<F>
+impl<SR, F> EmbeddedSiteRoot<SR, F> {
+    pub fn fallback<F2>(self, fallback: F2) -> EmbeddedSiteRoot<SR, F2> {
+        EmbeddedSiteRoot {
+            fallback: Some(fallback),
+            site_root: self.site_root,
+        }
+    }
+}
+
+impl<ReqBody, SR, F, ResBody> Service<Request<ReqBody>>
+    for EmbeddedSiteRoot<SR, F>
 where
     F: Service<
             Request<ReqBody>,
             Response = Response<ResBody>,
             Error = Infallible,
-        > + Clone,
+        > + Clone
+        + Send
+        + 'static,
     F::Future: Send + 'static,
+    SR: RustEmbed,
+    ReqBody: Send + 'static,
+    ResBody: HttpBody<Data = Bytes> + Send + 'static,
+    <ResBody as HttpBody>::Error: Into<
+        Box<
+            dyn std::error::Error
+                + std::marker::Send
+                + std::marker::Sync
+                + 'static,
+        >,
+    >,
 {
-    type Response = Response<ReqBody>;
+    type Response = Response<Body>;
     type Error = Infallible;
     type Future = Pin<
         Box<
-            dyn Future<Output = Result<Response<ReqBody>, Infallible>>
+            dyn Future<Output = Result<Response<Body>, Infallible>>
                 + Send
                 + 'static,
         >,
@@ -64,7 +82,26 @@ where
         }
     }
 
-    fn call(&mut self, _req: Request<ReqBody>) -> Self::Future {
-        todo!()
+    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+        match SR::get(req.uri().path()) {
+            Some(embedded) => Box::pin(async move {
+                let mime = mime_guess::from_path(req.uri().path())
+                    .first_or_octet_stream();
+                Ok(([(header::CONTENT_TYPE, mime.as_ref())], embedded.data)
+                    .into_response())
+            }),
+            None => {
+                if let Some(mut fallback) = self.fallback.clone() {
+                    Box::pin(async move {
+                        fallback.call(req).await.map(|b| b.into_response())
+                    })
+                } else {
+                    Box::pin(async move {
+                        Ok((StatusCode::NOT_FOUND, "404 Not Found")
+                            .into_response())
+                    })
+                }
+            }
+        }
     }
 }
