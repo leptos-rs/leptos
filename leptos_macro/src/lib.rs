@@ -324,16 +324,17 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
             .chain(tokens)
             .collect()
     };
-    let config = rstml::ParserConfig::default().recover_block(true);
-    let parser = rstml::Parser::new(config);
-    let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
-    let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+    let (mut nodes, errors) = view::parse_nodes(tokens);
     let nodes_output = view::render_view(
         &mut nodes,
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
         template,
     );
+
+    // Surface every diagnostic recorded during lowering, de-duplicated and
+    // capped. This is the single sink for `view::diagnostics`.
+    view::diagnostics::emit_all();
 
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
@@ -342,7 +343,7 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
         {
             #[allow(unused_braces)]
             {
-                #(#errors;)*
+                #errors
                 #nodes_output
             }
         }

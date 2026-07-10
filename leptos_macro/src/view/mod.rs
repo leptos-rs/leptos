@@ -1,5 +1,8 @@
 mod component_builder;
+pub(crate) mod diagnostics;
 mod slot_helper;
+#[cfg(test)]
+mod tests;
 mod utils;
 
 use self::{
@@ -36,6 +39,66 @@ pub(crate) enum TagType {
     Html,
     Svg,
     Math,
+}
+
+/// Parse `view!`/`template!` input into nodes, plus a token stream carrying any
+/// parse-error diagnostics (ready to splice into the macro output).
+///
+/// In debug builds this adds a recovery pass for rust-analyzer. While you are
+/// still typing an opening tag — e.g. `view! { <A/> <Counter ` — the half-typed
+/// tag has no closing `/>`, so rstml discards that element and no props are
+/// offered for completion. We retry with a synthetic `/>` appended and keep the
+/// retry only if it *strictly reduces* the number of parse errors without
+/// losing any nodes. Together with rust-analyzer's own cursor fix-up, that lets
+/// a half-typed component still expand into its props builder so the editor can
+/// complete its props.
+///
+/// A complete view parses with **zero** errors, so the retry is never even
+/// attempted for valid code — this can only ever affect incomplete, mid-edit
+/// input.
+pub fn parse_nodes(tokens: TokenStream) -> (Vec<Node>, TokenStream) {
+    let new_parser = || {
+        rstml::Parser::new(rstml::ParserConfig::default().recover_block(true))
+    };
+
+    #[cfg(debug_assertions)]
+    let retry_tokens = (!tokens.is_empty()).then(|| tokens.clone());
+
+    #[allow(unused_mut)] // mutated only by the debug-only recovery below
+    let (mut nodes, mut errors) =
+        new_parser().parse_recoverable(tokens).split_vec();
+
+    // Only incomplete input has parse errors; a valid view has none and is
+    // left completely untouched.
+    #[cfg(debug_assertions)]
+    if !errors.is_empty()
+        && let Some(retry_tokens) = retry_tokens
+    {
+        let mut patched = retry_tokens;
+        patched.extend([
+            TokenTree::Punct(proc_macro2::Punct::new(
+                '/',
+                proc_macro2::Spacing::Joint,
+            )),
+            TokenTree::Punct(proc_macro2::Punct::new(
+                '>',
+                proc_macro2::Spacing::Alone,
+            )),
+        ]);
+        let (recovered_nodes, recovered_errors) =
+            new_parser().parse_recoverable(patched).split_vec();
+        // Accept the recovery only if it genuinely improved the parse:
+        // strictly fewer errors and no nodes lost.
+        if recovered_errors.len() < errors.len()
+            && recovered_nodes.len() >= nodes.len()
+        {
+            nodes = recovered_nodes;
+            errors = recovered_errors;
+        }
+    }
+
+    let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+    (nodes, quote! { #(#errors;)* })
 }
 
 pub fn render_view(
@@ -833,9 +896,9 @@ pub(crate) fn element_to_tokens(
                 }
             }
             if names.contains(&name) && !allow_multiples(&name, attr) {
-                proc_macro_error2::emit_error!(
+                diagnostics::error(
                     attr.span(),
-                    format!("This element already has a `{name}` attribute.")
+                    format!("This element already has a `{name}` attribute."),
                 );
             } else {
                 names.insert(name);
@@ -991,12 +1054,12 @@ pub(crate) fn element_to_tokens(
         } else {
             if !node.children.is_empty() {
                 let name = node.name();
-                proc_macro_error2::emit_error!(
+                diagnostics::error(
                     name.span(),
                     format!(
                         "Self-closing elements like <{name}> cannot have \
                          children."
-                    )
+                    ),
                 );
             };
             None
@@ -1140,7 +1203,7 @@ fn attribute_to_tokens(
                     && node.value().and_then(value_to_string).is_none()
                 {
                     let span = node.key.span();
-                    proc_macro_error2::emit_error!(
+                    diagnostics::error(
                         span,
                         "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
@@ -1251,13 +1314,14 @@ pub(crate) fn attribute_absolute(
                                 quote! { ::leptos::tachys::html::event::#on(#ty, #handler) },
                             )
                         } else {
-                            proc_macro_error2::abort!(
+                            diagnostics::error(
                                 id.span(),
-                                &format!(
+                                format!(
                                     "`{id}:` syntax is not supported on \
                                      components"
-                                )
+                                ),
                             );
+                            None
                         }
                     }
                     _ => None,
@@ -1331,7 +1395,8 @@ pub(crate) fn event_type_and_handler(
 ) -> (TokenStream, TokenStream, TokenStream) {
     let handler = attribute_value(node, false);
 
-    let (event_type, is_custom, options) = parse_event_name(name);
+    let (event_type, is_custom, options) =
+        parse_event_name(name, node.key.span());
 
     let event_name_ident = match &node.key {
         NodeName::Punctuated(parts) => {
@@ -1421,7 +1486,10 @@ fn class_to_tokens(
                     }) => quote! {
                         .#class((#s, #value))
                     },
-                    _ => proc_macro_error2::abort!(elem.span(), "invalid name"),
+                    _ => {
+                        diagnostics::error(elem.span(), "invalid name");
+                        quote! {}
+                    }
                 })
                 .collect();
         }
@@ -1597,15 +1665,30 @@ fn is_ambiguous_element(tag: &str) -> bool {
     tag == "a" || tag == "script" || tag == "title"
 }
 
-fn parse_event(event_name: &str) -> (String, EventNameOptions) {
+fn parse_event(event_name: &str, span: Span) -> (String, EventNameOptions) {
     match try_parse_event(event_name) {
         Ok(parsed) => parsed,
-        Err(modifier) => abort!(
-            Span::call_site(),
-            "unknown event modifier `:{}`; expected one of `:undelegated`, \
-             `:target`, or `:capture`",
-            modifier
-        ),
+        Err(modifier) => {
+            diagnostics::error(
+                span,
+                format!(
+                    "unknown event modifier `:{modifier}`; expected one of \
+                     `:undelegated`, `:target`, or `:capture`"
+                ),
+            );
+            // Recover so the rest of the view can still be checked: keep the
+            // base event name and drop the unknown modifier(s).
+            let name =
+                event_name.split(':').next().unwrap_or_default().to_string();
+            (
+                name,
+                EventNameOptions {
+                    undelegated: false,
+                    targeted: false,
+                    captured: false,
+                },
+            )
+        }
     }
 }
 
@@ -1842,8 +1925,9 @@ pub(crate) struct EventNameOptions {
 
 pub(crate) fn parse_event_name(
     name: &str,
+    span: Span,
 ) -> (TokenStream, bool, EventNameOptions) {
-    let (name, options) = parse_event(name);
+    let (name, options) = parse_event(name, span);
 
     let (event_type, is_custom) = TYPED_EVENTS
         .binary_search(&name.as_str())
@@ -1881,10 +1965,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error2::emit_error!(
-                span,
-                "blocks not allowed in tag-name position"
-            );
+            diagnostics::error(span, "blocks not allowed in tag-name position");
             Ident::new("", span)
         }
         _ => Ident::new(
@@ -1899,18 +1980,12 @@ pub(crate) fn full_path_from_tag_name(tag_name: &NodeName) -> Option<ExprPath> {
         NodeName::Path(path) => Some(path.clone()),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error2::emit_error!(
-                span,
-                "blocks not allowed in tag-name position"
-            );
+            diagnostics::error(span, "blocks not allowed in tag-name position");
             None
         }
         _ => {
             let span = tag_name.span();
-            proc_macro_error2::emit_error!(
-                span,
-                "punctuated names not allowed in slots"
-            );
+            diagnostics::error(span, "punctuated names not allowed in slots");
             None
         }
     }
@@ -1952,10 +2027,13 @@ fn tuple_name(name: &str, node: &KeyedAttribute) -> TupleName {
                                 Expr::Lit(ExprLit {
                                     lit: Lit::Str(s), ..
                                 }) => Some(s.value()),
-                                _ => proc_macro_error2::abort!(
-                                    elem.span(),
-                                    "invalid name"
-                                ),
+                                _ => {
+                                    diagnostics::error(
+                                        elem.span(),
+                                        "invalid name",
+                                    );
+                                    None
+                                }
                             })
                             .collect(),
                     );
