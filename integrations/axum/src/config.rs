@@ -1,17 +1,19 @@
 //! Provides a builder and implementation for wholesale configuration of [`axum::Router`].
 
 #[cfg(feature = "embed")]
-use crate::service::EmbededSiteRoot;
-use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
+use crate::service::EmbeddedSiteRoot;
 #[cfg(feature = "default")]
-use crate::{
-    LeptosContextLayer, site_pkg_dir_service, site_pkg_dir_service_route_path,
-};
+use crate::site_pkg_dir_service;
+use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
+#[cfg(any(feature = "default", feature = "embed"))]
+use crate::{LeptosContextLayer, site_pkg_dir_service_route_path};
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
-#[cfg(feature = "default")]
+#[cfg(feature = "embed")]
+use rust_embed::{EmbeddedFile, RustEmbed};
+#[cfg(any(feature = "default", feature = "embed"))]
 use std::borrow::Cow;
-#[cfg(feature = "default")]
+#[cfg(any(feature = "default", feature = "embed"))]
 use tower::builder::ServiceBuilder;
 
 pub(crate) mod traits {
@@ -78,6 +80,20 @@ enum Site {
     Embed(Cow<'static, str>),
 }
 
+#[derive(Copy, Clone)]
+pub struct NoEmbedSiteRoot;
+
+#[cfg(feature = "embed")]
+impl RustEmbed for NoEmbedSiteRoot {
+    fn get(_: &str) -> Option<EmbeddedFile> {
+        None
+    }
+
+    fn iter() -> impl Iterator<Item = Cow<'static, str>> + 'static {
+        [].into_iter()
+    }
+}
+
 /// A configuration builder that simplifies the set up of a Leptos application onto an Axum router.
 ///
 /// This builder is used in conjunction with [`LeptosRoutes::leptos_route_configure`], please refer to it for
@@ -86,7 +102,13 @@ enum Site {
 /// Note that an incomplete configuration should lead to a compilation error rather than a runtime error due
 /// to the trait bounds.  The required fields are `app`, `shell`, and `state`.
 #[derive(Clone)]
-pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
+pub struct RouterConfiguration<
+    APP,
+    CX = fn(),
+    SH = (),
+    S = (),
+    SR = NoEmbedSiteRoot,
+> {
     app_fn: Option<APP>,
     shell: Option<SH>,
     state: Option<S>,
@@ -95,6 +117,7 @@ pub struct RouterConfiguration<APP, CX = fn(), SH = (), S = ()> {
     favicon_mode: ResourceMode,
     serve_asset: AssetMode,
     error_handler: bool,
+    site_root: SR,
 }
 
 /// Create a new configuration with all toggles disabled.
@@ -109,6 +132,7 @@ impl<APP> Default for RouterConfiguration<APP> {
             favicon_mode: ResourceMode::default(),
             serve_asset: AssetMode::default(),
             error_handler: false,
+            site_root: NoEmbedSiteRoot,
         }
     }
 }
@@ -145,6 +169,8 @@ impl<APP> RouterConfiguration<APP> {
 
             serve_asset: AssetMode::Disable,
             error_handler: true,
+
+            site_root: NoEmbedSiteRoot,
         }
     }
 
@@ -175,11 +201,51 @@ impl<APP> RouterConfiguration<APP> {
             favicon_mode: ResourceMode::Filesystem,
             serve_asset: AssetMode::ServeDir("/".into()),
             error_handler: true,
+            site_root: NoEmbedSiteRoot,
         }
     }
 }
 
-impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
+#[cfg(feature = "embed")]
+impl<APP, SR> RouterConfiguration<APP, fn(), (), (), SR>
+where
+    SR: RustEmbed,
+{
+    /// Create a new configuration with all toggles set to the recommended value with the configuration
+    /// that enables the embedding of binary data into the resulting binary.  A [`RustEmbed`] implementation
+    /// derived from [`Embed`] must be provided as the argument, and that it must be constructed as such:
+    ///
+    /// ```rust
+    /// use leptos_axum::rust_embed::{self, Embed};
+    ///
+    /// #[derive(Clone, Copy, Embed)]
+    /// #[folder = "$LEPTOS_SITE_ROOT"]
+    /// #[prefix = "/"]
+    /// ##[allow_missing = true]
+    /// struct SiteRoot;
+    /// ```
+    ///
+    /// When the embed feature is enabled, this enables the internal service to serve the files that are
+    /// embedded in the resulting binary, with the [`ErrorHandler`] service as the fallback handler, along
+    /// with a route to `/favicon.ico`.
+    ///
+    /// [`Embed`]: rust_embed::Embed
+    pub fn embed(site_root: SR) -> Self {
+        Self {
+            app_fn: None,
+            shell: None,
+            state: None,
+            extra_cx: None,
+            site_pkg_mode: ResourceMode::Embed,
+            favicon_mode: ResourceMode::Embed,
+            serve_asset: AssetMode::Disable,
+            error_handler: true,
+            site_root,
+        }
+    }
+}
+
+impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// Provide the `App` to the configuration.  This is required.
     pub fn app<IV>(mut self, app: APP) -> Self
     where
@@ -211,7 +277,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     pub fn shell<SH2, S2, IV>(
         self,
         shell: SH2,
-    ) -> RouterConfiguration<APP, CX, SH2, S>
+    ) -> RouterConfiguration<APP, CX, SH2, S, SR>
     where
         SH2: Fn(S2) -> IV + Clone + Send + Sync + 'static,
         S2: Clone + Send + Sync + 'static,
@@ -227,6 +293,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             favicon_mode: self.favicon_mode,
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
+            site_root: self.site_root,
         }
     }
 
@@ -236,7 +303,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     pub fn with_context<CX2>(
         self,
         extra_cx: CX2,
-    ) -> RouterConfiguration<APP, CX2, SH, S>
+    ) -> RouterConfiguration<APP, CX2, SH, S, SR>
     where
         CX2: Fn() + 'static + Clone + Send + Sync,
     {
@@ -249,6 +316,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             favicon_mode: self.favicon_mode,
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
+            site_root: self.site_root,
         }
     }
 
@@ -257,7 +325,10 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     /// This must be a value of the same type as the singular argument that will be passed to [`.shell`].
     ///
     /// [`.shell`]: RouterConfiguration::shell
-    pub fn state<S2>(self, state: S2) -> RouterConfiguration<APP, CX, SH, S2>
+    pub fn state<S2>(
+        self,
+        state: S2,
+    ) -> RouterConfiguration<APP, CX, SH, S2, SR>
     where
         S2: Clone + Send + Sync + 'static,
         LeptosOptions: FromRef<S2>,
@@ -271,6 +342,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
             favicon_mode: self.favicon_mode,
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
+            site_root: self.site_root,
         }
     }
 }
@@ -323,6 +395,10 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
         self.site_pkg_mode(ResourceMode::Filesystem)
     }
 
+    // TODO see if this should even be offered, as setting this up and tearing back down again is
+    // now rather wasteful given how the `RustEmbed` must be provided, so let's just leave it to the
+    // ::embedded configuration.
+    /*
     /// Compile the files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` found during compile
     /// time.  At runtime the routes will be created to serve these embed files.
     ///
@@ -331,6 +407,7 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     pub fn enable_embed_site_pkg(self) -> Self {
         self.site_pkg_mode(ResourceMode::Embed)
     }
+    */
 
     /// Disables the routing of `LEPTOS_SITE_PKG` files.
     pub fn disable_site_pkg(self) -> Self {
@@ -361,13 +438,35 @@ impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
     }
 }
 
-impl<APP, CX, SH, S, IV1, IV2> traits::RouterConfiguration<S>
-    for RouterConfiguration<APP, CX, SH, S>
+#[cfg(feature = "embed")]
+pub trait SiteRootBound:
+    Clone + Copy + Send + Sync + RustEmbed + 'static
+{
+}
+#[cfg(feature = "embed")]
+impl<T> SiteRootBound for T where
+    T: Clone + Copy + Send + Sync + RustEmbed + 'static
+{
+}
+
+#[cfg(not(feature = "embed"))]
+pub trait SiteRootBound: Clone + Copy + Send + Sync + 'static {}
+#[cfg(not(feature = "embed"))]
+impl<T> SiteRootBound for T where T: Clone + Copy + Send + Sync + 'static {}
+
+impl<APP, CX, SH, S, SR, IV1, IV2> traits::RouterConfiguration<S>
+    for RouterConfiguration<APP, CX, SH, S, SR>
 where
     APP: Fn() -> IV1 + Clone + Copy + Send + Sync + 'static,
     CX: Fn() + Clone + Copy + Send + Sync + 'static,
     SH: Fn(S) -> IV2 + Clone + Copy + Send + Sync + 'static,
     S: Clone + Send + Sync + 'static,
+    // Can't do the following yet because of <https://github.com/rust-lang/rust/issues/115590>.
+    // #[cfg(feature = "embed")] SR: Clone + Copy + Send + Sync + RustEmbed + 'static,
+    // #[cfg(not(feature = "embed"))] SR: Clone + Copy + Send + Sync + 'static,
+    // Hence we have this surrogate trait with the bounds as its supertraits which has been defined
+    // conditionally above.
+    SR: SiteRootBound,
     LeptosOptions: FromRef<S>,
     IV1: IntoView + 'static,
     IV2: IntoView + 'static,
@@ -467,7 +566,7 @@ where
                     }
                     #[cfg(feature = "embed")]
                     Site::Embed(path) => {
-                        let serve_dir = EmbededSiteRoot::new();
+                        let serve_dir = EmbeddedSiteRoot::new(self.site_root);
                         if let Some(error_handler) = error_handler.clone() {
                             router.route_service(
                                 &path,

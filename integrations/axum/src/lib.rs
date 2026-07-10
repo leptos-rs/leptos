@@ -95,12 +95,14 @@ pub(crate) mod private {
     pub trait Sealed {}
 
     impl<S> Sealed for axum::Router<S> {}
-    impl<APP, CX, SH, S> Sealed for RouterConfiguration<APP, CX, SH, S> {}
+    impl<APP, CX, SH, S, SR> Sealed for RouterConfiguration<APP, CX, SH, S, SR> {}
 }
 
 mod config;
 mod service;
 pub use config::RouterConfiguration;
+#[cfg(feature = "embed")]
+pub use rust_embed;
 pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function

@@ -2154,6 +2154,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "lru",
+ "mime_guess",
  "or_poisoned",
  "reqwest",
  "rust-embed",
