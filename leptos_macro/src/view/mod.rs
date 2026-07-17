@@ -752,7 +752,37 @@ fn node_to_tokens(
             disable_inert_html,
         ),
         Node::Block(block) => {
-            Some(quote! { ::leptos::prelude::IntoRender::into_render(#block) })
+            // When `--cfg erase_components` is set on the downstream crate (which
+            // activates `__internal_erase_components` here via the workaround in
+            // leptos/Cargo.toml), wrap reactive child closures in the
+            // non-generic `__as_shared_reactive_fn` helper. Collapses every
+            // `{move || …}` site into one `Render`/`Effect` monomorphization
+            // per output type instead of one per closure type. Trade-off: one
+            // `Arc<Mutex<_>>` allocation per closure + a vtable dispatch per
+            // render.
+            //
+            // Only applies when the block body is syntactically a closure
+            // expression (`{move || …}` or `{|| …}`). Plain expressions like
+            // `{format!(…)}` or `{my_string}` are left untouched — they
+            // aren't `FnMut() -> T`.
+            let is_closure_block = if let NodeBlock::ValidBlock(b) = block {
+                b.stmts.len() == 1
+                    && matches!(&b.stmts[0], Stmt::Expr(Expr::Closure(_), _),)
+            } else {
+                false
+            };
+            if cfg!(feature = "__internal_erase_components") && is_closure_block
+            {
+                Some(quote! {
+                    ::leptos::prelude::IntoRender::into_render(
+                        ::leptos::__as_shared_reactive_fn(#block)
+                    )
+                })
+            } else {
+                Some(
+                    quote! { ::leptos::prelude::IntoRender::into_render(#block) },
+                )
+            }
         }
         Node::Text(text) => Some(text_to_tokens(&text.value)),
         Node::RawText(raw) => {
@@ -1757,9 +1787,31 @@ fn attribute_value(
                     };
                 }
 
+                // When `--cfg erase_components` is active and the attribute value
+                // is a syntactic zero-argument closure (`move || …` / `|| …`),
+                // wrap it in `__as_shared_reactive_fn` so downstream
+                // `IntoAttributeValue` / `IntoClass` / `IntoStyle` / `IntoProperty`
+                // impls monomorphize per output type instead of per closure type.
+                // Event handlers (`move |ev| …`) have one input so they are skipped.
+                let wrap_closure = cfg!(
+                    feature = "__internal_erase_components"
+                ) && matches!(expr, Expr::Closure(c) if c.inputs.is_empty());
+
                 if matches!(expr, Expr::Lit(_)) || !is_attribute_proper {
+                    if wrap_closure {
+                        quote! {
+                            ::leptos::__as_shared_reactive_fn(#expr)
+                        }
+                    } else {
+                        quote! {
+                            #expr
+                        }
+                    }
+                } else if wrap_closure {
                     quote! {
-                        #expr
+                        ::leptos::prelude::IntoAttributeValue::into_attribute_value(
+                            ::leptos::__as_shared_reactive_fn(#expr)
+                        )
                     }
                 } else {
                     quote! {

@@ -8,8 +8,27 @@ static ROOT_URL: OnceLock<&'static str> = OnceLock::new();
 /// Set the root server URL that all server function paths are relative to for the client.
 ///
 /// If this is not set, it defaults to the origin.
+///
+/// # Panics
+///
+/// Panics if the server URL has already been set. Setting it twice is almost
+/// always a bug: requests would otherwise be silently sent to a different URL
+/// than intended. If you need to handle the already-set case gracefully, use
+/// [`try_set_server_url`] instead.
 pub fn set_server_url(url: &'static str) {
     ROOT_URL.set(url).unwrap();
+}
+
+/// Attempts to set the root server URL that all server function paths are
+/// relative to for the client.
+///
+/// Unlike [`set_server_url`], this does not panic if the URL has already been
+/// set. Instead it returns `Err` containing the `url` that could not be set,
+/// leaving the previously set value unchanged.
+///
+/// If this is not set, it defaults to the origin.
+pub fn try_set_server_url(url: &'static str) -> Result<(), &'static str> {
+    ROOT_URL.set(url)
 }
 
 /// Returns the root server URL for all server functions.

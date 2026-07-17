@@ -3,7 +3,7 @@ use crate::{
     request::Req,
     response::actix::ActixResponse,
 };
-use actix_web::{HttpRequest, web::Payload};
+use actix_web::{FromRequest, HttpRequest, web::Payload};
 use actix_ws::Message;
 use bytes::Bytes;
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
@@ -69,8 +69,9 @@ where
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
-            let payload = self.0.take().1;
-            payload.to_bytes().await.map_err(|e| {
+            let (req, payload) = self.0.take();
+            let mut payload = payload.into_inner();
+            Bytes::from_request(&req, &mut payload).await.map_err(|e| {
                 ServerFnErrorErr::Deserialization(e.to_string())
                     .into_app_error()
             })
@@ -83,12 +84,14 @@ where
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
-            let payload = self.0.take().1;
-            let bytes = payload.to_bytes().await.map_err(|e| {
-                Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
-                    e.to_string(),
-                ))
-            })?;
+            let (req, payload) = self.0.take();
+            let mut payload = payload.into_inner();
+            let bytes =
+                Bytes::from_request(&req, &mut payload).await.map_err(|e| {
+                    Error::from_server_fn_error(
+                        ServerFnErrorErr::Deserialization(e.to_string()),
+                    )
+                })?;
             String::from_utf8(bytes.into()).map_err(|e| {
                 Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
                     e.to_string(),

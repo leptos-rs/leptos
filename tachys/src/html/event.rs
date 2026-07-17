@@ -15,6 +15,7 @@ use std::{
     ops::{Deref, DerefMut},
     rc::Rc,
 };
+use wasm_bindgen::convert::FromWasmAbi;
 
 /// A cloneable event callback.
 pub type SharedEventCallback<E> = Rc<RefCell<dyn FnMut(E)>>;
@@ -391,7 +392,7 @@ impl<E, F> ToTemplate for On<E, F> {
 /// A trait for converting types into [web_sys events](web_sys).
 pub trait EventDescriptor: Clone {
     /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].
-    type EventType;
+    type EventType: FromWasmAbi;
 
     /// Indicates if this event bubbles. For example, `click` bubbles,
     /// but `focus` does not.
@@ -445,13 +446,13 @@ impl<E: EventDescriptor> EventDescriptor for Capture<E> {
 
 /// A custom event.
 #[derive(Debug)]
-pub struct Custom<E = web_sys::Event> {
+pub struct Custom<E: FromWasmAbi = web_sys::Event> {
     name: Cow<'static, str>,
     options: Option<SendWrapper<web_sys::AddEventListenerOptions>>,
     _event_type: PhantomData<fn() -> E>,
 }
 
-impl<E> Clone for Custom<E> {
+impl<E: FromWasmAbi> Clone for Custom<E> {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
@@ -461,7 +462,7 @@ impl<E> Clone for Custom<E> {
     }
 }
 
-impl<E> EventDescriptor for Custom<E> {
+impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
     type EventType = E;
 
     fn name(&self) -> Cow<'static, str> {
@@ -480,7 +481,7 @@ impl<E> EventDescriptor for Custom<E> {
     }
 }
 
-impl<E> Custom<E> {
+impl<E: FromWasmAbi> Custom<E> {
     /// Creates a custom event type that can be used within
     /// [`OnAttribute::on`](crate::prelude::OnAttribute::on), for events
     /// which are not covered in the [`ev`](crate::html::event) module.

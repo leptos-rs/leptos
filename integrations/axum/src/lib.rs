@@ -671,7 +671,7 @@ where
 ///     http::Request,
 ///     response::{IntoResponse, Response},
 /// };
-/// use leptos::{config::LeptosOptions, context::provide_context, prelude::*};
+/// use leptos::{context::provide_context, prelude::*};
 ///
 /// async fn custom_handler(
 ///     Path(id): Path<String>,

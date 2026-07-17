@@ -102,7 +102,10 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
                 }
                 break;
             } else if expected.is_none() {
-                break;
+                // segment is exhausted but the path continues with a
+                // non-`/` byte: an overlong path must not match a shorter
+                // static segment (e.g. `/foobar` must not match `fo`)
+                return None;
             }
             // if the next byte in the path matches the
             // next byte in the segment, add it to the match
@@ -345,5 +348,11 @@ mod tests {
         assert!(def.test("/test/abc/").is_none());
         assert!(def.test("/tests/ab").is_none());
         assert!(def.test("/tests/ab/").is_none());
+    }
+
+    #[test]
+    fn no_partial_match_on_overlong_path() {
+        let def = StaticSegment("fo");
+        assert!(def.test("/foobar").is_none());
     }
 }

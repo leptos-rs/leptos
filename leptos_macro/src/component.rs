@@ -995,20 +995,23 @@ impl ToTokens for UnknownAttrs {
 #[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
 struct PropOpt {
-    #[attribute(conflicts = [optional_no_strip, strip_option])]
+    #[attribute(conflicts = [optional_no_strip, strip_option, marker])]
     optional: bool,
-    #[attribute(conflicts = [optional, strip_option])]
+    #[attribute(conflicts = [optional, strip_option, marker])]
     optional_no_strip: bool,
-    #[attribute(conflicts = [optional, optional_no_strip])]
+    #[attribute(conflicts = [optional, optional_no_strip, marker])]
     strip_option: bool,
     #[attribute(example = "5 * 10")]
     default: Option<syn::Expr>,
     into: bool,
     attrs: bool,
     name: Option<String>,
+    #[attribute(conflicts = [optional, optional_no_strip, strip_option, default, into, attrs, name])]
+    marker: bool,
 }
 
 struct TypedBuilderOpts<'a> {
+    marker: bool,
     default: bool,
     default_with_value: Option<syn::Expr>,
     strip_option: bool,
@@ -1019,6 +1022,7 @@ struct TypedBuilderOpts<'a> {
 impl<'a> TypedBuilderOpts<'a> {
     fn from_opts(opts: &PropOpt, ty: &'a Type) -> Self {
         Self {
+            marker: opts.marker,
             default: opts.optional || opts.optional_no_strip || opts.attrs,
             default_with_value: opts.default.clone(),
             strip_option: opts.strip_option || opts.optional && is_option(ty),
@@ -1049,6 +1053,13 @@ impl TypedBuilderOpts<'_> {
 
 impl ToTokens for TypedBuilderOpts<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        if self.marker {
+            tokens.append_all(quote! {
+                #[builder(default, setter(skip))]
+            });
+            return;
+        }
+
         let default = if let Some(v) = &self.default_with_value {
             let v = v.to_token_stream().to_string();
             quote! { default_code=#v, }
@@ -1116,31 +1127,33 @@ fn prop_builder_fields(
                 ty,
             } = prop;
 
+            let PatIdent { ident, by_ref, .. } = &name;
+
             let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
-            // Children won't need documentation in many cases
-            let allow_missing_docs = if name.ident == "children" {
+            // Children and markers won't need documentation in many cases
+            let allow_missing_docs = if prop_opts.marker || ident == "children"
+            {
                 quote!(#[allow(missing_docs)])
             } else {
                 quote!()
             };
-            let skip_children_serde =
-                if is_island_with_other_props && name.ident == "children" {
-                    quote!(#[serde(skip)])
-                } else {
-                    quote!()
-                };
-
-            let PatIdent { ident, by_ref, .. } = &name;
+            let serde_skip = if is_island_with_other_props
+                && (prop_opts.marker || ident == "children")
+            {
+                quote!(#[serde(skip)])
+            } else {
+                quote!()
+            };
 
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
                 #allow_missing_docs
-                #skip_children_serde
+                #serde_skip
                 #vis #by_ref #ident: #ty,
             }
         })
@@ -1196,6 +1209,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
                 || prop_opts.optional_no_strip
                 || prop_opts.default.is_some())
         })
+        .filter(|prop| !prop.prop_opts.marker)
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
@@ -1206,6 +1220,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
                 || prop_opts.optional_no_strip
                 || prop_opts.default.is_some()
         })
+        .filter(|prop| !prop.prop_opts.marker)
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 

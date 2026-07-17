@@ -112,8 +112,11 @@ where
                     ..Default::default()
                 };
 
-                let (form, method, action, enctype) =
-                    extract_form_attributes(&ev);
+                let Some((form, method, action, enctype)) =
+                    extract_form_attributes(&ev)
+                else {
+                    return;
+                };
 
                 let form_data =
                     web_sys::FormData::new_with_form(&form).unwrap_throw();
@@ -345,12 +348,12 @@ fn current_window_origin() -> String {
 
 fn extract_form_attributes(
     ev: &web_sys::Event,
-) -> (web_sys::HtmlFormElement, String, String, String) {
+) -> Option<(web_sys::HtmlFormElement, String, String, String)> {
     let submitter = ev.unchecked_ref::<web_sys::SubmitEvent>().submitter();
     match &submitter {
         Some(el) => {
             if let Some(form) = el.dyn_ref::<web_sys::HtmlFormElement>() {
-                (
+                Some((
                     form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string())
@@ -361,7 +364,7 @@ fn extract_form_attributes(
                             "application/x-www-form-urlencoded".to_string()
                         })
                         .to_lowercase(),
-                )
+                ))
             } else if let Some(input) =
                 el.dyn_ref::<web_sys::HtmlInputElement>()
             {
@@ -369,7 +372,7 @@ fn extract_form_attributes(
                     .target()
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
-                (
+                Some((
                     form.clone(),
                     input.get_attribute("method").unwrap_or_else(|| {
                         form.get_attribute("method")
@@ -386,7 +389,7 @@ fn extract_form_attributes(
                             })
                             .to_lowercase()
                     }),
-                )
+                ))
             } else if let Some(button) =
                 el.dyn_ref::<web_sys::HtmlButtonElement>()
             {
@@ -394,7 +397,7 @@ fn extract_form_attributes(
                     .target()
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
-                (
+                Some((
                     form.clone(),
                     button.get_attribute("method").unwrap_or_else(|| {
                         form.get_attribute("method")
@@ -411,13 +414,13 @@ fn extract_form_attributes(
                             })
                             .to_lowercase()
                     }),
-                )
+                ))
             } else {
                 leptos::logging::debug_warn!(
                     "<Form/> cannot be submitted from a tag other than \
                      <form>, <input>, or <button>"
                 );
-                panic!()
+                None
             }
         }
         None => match ev.target() {
@@ -425,11 +428,11 @@ fn extract_form_attributes(
                 leptos::logging::debug_warn!(
                     "<Form/> SubmitEvent fired without a target."
                 );
-                panic!()
+                None
             }
             Some(form) => {
                 let form = form.unchecked_into::<web_sys::HtmlFormElement>();
-                (
+                Some((
                     form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string()),
@@ -437,7 +440,7 @@ fn extract_form_attributes(
                     form.get_attribute("enctype").unwrap_or_else(|| {
                         "application/x-www-form-urlencoded".to_string()
                     }),
-                )
+                ))
             }
         },
     }

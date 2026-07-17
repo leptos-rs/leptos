@@ -5,7 +5,14 @@ use proc_macro_error2::abort;
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
 use std::mem;
-use syn::{ItemFn, ReturnType, Stmt, parse_macro_input, parse_quote};
+use syn::{
+    ItemFn, Path, ReturnType, Stmt, parse::Parse, parse_macro_input,
+    parse_quote,
+};
+
+fn preload_name(ident: &Ident) -> Ident {
+    format_ident!("__preload_{}", ident)
+}
 
 pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let name = if !args.is_empty() {
@@ -69,7 +76,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 return_wrapper(let future = _; { future.await } #async_output),
             });
         }
-        let preload_name = format_ident!("__preload_{}", fun.sig.ident);
+        let preload_name = preload_name(&fun.sig.ident);
 
         quote! {
             #[::leptos::wasm_split::wasm_split(
@@ -94,5 +101,49 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         statements.extend(old_statements);
         quote! { #fun }
     }
+    .into()
+}
+
+struct LazyPath(Path);
+
+impl Parse for LazyPath {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self(Path::parse_mod_style(input)?))
+    }
+}
+
+pub fn lazy_preload_impl(s: proc_macro::TokenStream) -> TokenStream {
+    let LazyPath(mut path) = syn::parse::<LazyPath>(s).unwrap_or_else(|e| {
+        abort!(
+            e.span(),
+            "`lazy_preload` only takes a function path as argument"
+        )
+    });
+    let last_segment = path.segments.last_mut().unwrap_or_else(|| {
+        abort_call_site!(
+            "`lazy_preload` needs a path ending with an identifier"
+        )
+    });
+    last_segment.ident = preload_name(&last_segment.ident);
+
+    let preload_call = if cfg!(feature = "hydrate") {
+        quote! {
+            ::leptos::task::spawn_local(async move {
+
+                #path().await;
+                set_loaded.set(true);
+            });
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {{
+        use ::leptos::prelude::Set;
+
+        let (loaded, set_loaded) = ::leptos::prelude::signal(false);
+        #preload_call
+        loaded
+    }}
     .into()
 }

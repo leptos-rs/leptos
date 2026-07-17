@@ -162,12 +162,10 @@ pub mod prelude {
     // In the future, maybe we should remove this blanket export
     // However, it is definitely useful relative to looking up every struct etc.
     mod export_types {
-        #[cfg(feature = "nonce")]
-        pub use crate::nonce::*;
         pub use crate::{
             callback::*, children::*, component::*, control_flow::*, error::*,
-            form::*, hydration::*, into_view::*, mount::*, suspense::*,
-            text_prop::*,
+            form::*, hydration::*, into_view::*, mount::*, nonce::*,
+            suspense::*, text_prop::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::helpers::*;
@@ -237,7 +235,6 @@ pub mod portal;
 pub mod hydration;
 
 /// Utilities for exporting nonces to be used for a Content Security Policy.
-#[cfg(feature = "nonce")]
 pub mod nonce;
 
 /// Components to load asynchronous data.
@@ -254,6 +251,29 @@ mod transition;
 pub use leptos_macro::*;
 #[doc(inline)]
 pub use server_fn;
+
+/// Type-erase a reactive closure into a [`tachys::reactive_graph::SharedReactiveFunction`].
+///
+/// Helper used by the `view!` macro when compiled with `RUSTFLAGS="--cfg erase_components"`.
+/// Wrapping `move || expr` in this helper makes every reactive child closure resolve
+/// to the same type (`Arc<Mutex<dyn FnMut() -> T + Send>>`) instead of a unique
+/// anonymous closure type per call site, so downstream `Render`/`Effect` machinery
+/// monomorphizes per output type `T` rather than per closure `F`.
+///
+/// Trade-off: one `Arc<Mutex<_>>` allocation per closure + a vtable dispatch per render,
+/// in exchange for substantially less monomorphization (smaller WASM, faster compile).
+#[doc(hidden)]
+#[cfg(erase_components)]
+#[inline]
+pub fn __as_shared_reactive_fn<T, F>(
+    f: F,
+) -> ::std::sync::Arc<::std::sync::Mutex<dyn FnMut() -> T + Send>>
+where
+    F: FnMut() -> T + Send + 'static,
+    T: 'static,
+{
+    ::std::sync::Arc::new(::std::sync::Mutex::new(f))
+}
 #[doc(hidden)]
 pub use typed_builder;
 #[doc(hidden)]

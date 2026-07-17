@@ -815,7 +815,7 @@ impl ToTokens for PatchModel {
                         }
                     } else if let Some(closure) = keyed {
                         quote! {
-                            #library_path::PatchFieldKeyed::patch_field_keyed(
+                            let structure_changed = #library_path::PatchFieldKeyed::patch_field_keyed(
                                 &mut self.#locator,
                                 new.#locator,
                                 notify,
@@ -836,6 +836,9 @@ impl ToTokens for PatchModel {
                                     Some(path)
                                 }
                             );
+                            if structure_changed {
+                                notify(&new_path);
+                            }
                             new_path.replace_last(#idx + 1);
                         }
                     } else {

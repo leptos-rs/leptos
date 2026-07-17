@@ -5,6 +5,7 @@ use crate::{
 use axum::{
     body::{Body, Bytes},
     response::Response,
+    RequestExt,
 };
 #[cfg(feature = "axum")]
 use futures::SinkExt;
@@ -48,8 +49,7 @@ where
     }
 
     async fn try_into_bytes(self) -> Result<Bytes, Error> {
-        let (_parts, body) = self.into_parts();
-
+        let body = self.into_limited_body();
         body.collect().await.map(|c| c.to_bytes()).map_err(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })

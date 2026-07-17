@@ -212,4 +212,5 @@ rustdoc-args = ["--generate-link-to-definition", "--cfg", "erase_components"]
 unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(leptos_debuginfo)',
   'cfg(rustc_nightly)',
+  'cfg(erase_components)',
 ] }

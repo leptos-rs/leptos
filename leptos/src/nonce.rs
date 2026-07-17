@@ -1,9 +1,4 @@
-use crate::context::{provide_context, use_context};
-use base64::{
-    Engine, alphabet,
-    engine::{self, general_purpose},
-};
-use rand::{Rng, rng};
+use crate::context::use_context;
 use std::{fmt::Display, ops::Deref, sync::Arc};
 use tachys::html::attribute::AttributeValue;
 
@@ -126,6 +121,9 @@ impl AttributeValue for Nonce {
 /// server response. This can be added to inline `<script>` and
 /// `<style>` tags for compatibility with a Content Security Policy.
 ///
+/// This function can be called without the `nonce` feature enabled,
+/// in which case it will always return [`None::<Nonce>`].
+///
 /// ```rust,ignore
 /// #[component]
 /// pub fn App() -> impl IntoView {
@@ -155,28 +153,50 @@ impl AttributeValue for Nonce {
 ///     }
 /// }
 /// ```
+#[inline(always)]
 pub fn use_nonce() -> Option<Nonce> {
-    use_context::<Nonce>()
+    cfg!(feature = "nonce").then(use_context).flatten()
 }
 
 /// Generates a nonce and provides it via context.
+#[cfg(feature = "nonce")]
 pub fn provide_nonce() {
-    provide_context(Nonce::new())
+    crate::context::provide_context(Nonce::new())
 }
 
-const NONCE_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
-
+#[cfg(feature = "nonce")]
 impl Nonce {
     /// Generates a new nonce from 16 bytes (128 bits) of random data.
     pub fn new() -> Self {
+        use base64::{
+            Engine as _, alphabet,
+            engine::{self, general_purpose},
+        };
+        use rand::{Rng as _, rng};
+        const NONCE_ENGINE: engine::GeneralPurpose =
+            engine::GeneralPurpose::new(
+                &alphabet::URL_SAFE,
+                general_purpose::NO_PAD,
+            );
+
         let mut rng = rng();
         let mut bytes = [0; 16];
         rng.fill_bytes(&mut bytes);
         Nonce(NONCE_ENGINE.encode(bytes).into())
     }
+
+    /// Builds a nonce from a caller-supplied value rather than generating
+    /// one — e.g. a nonce minted by a reverse proxy and forwarded to the
+    /// application as a request header. The caller is responsible for the
+    /// value's randomness and for it being a valid CSP nonce. Provide it via
+    /// context before rendering so [`use_nonce`] and the hydration scripts
+    /// pick it up.
+    pub fn from_value(value: impl Into<Arc<str>>) -> Self {
+        Nonce(value.into())
+    }
 }
 
+#[cfg(feature = "nonce")]
 impl Default for Nonce {
     fn default() -> Self {
         Self::new()
