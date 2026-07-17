@@ -3,7 +3,7 @@ use leptos_macro::component;
 use reactive_graph::{
     owner::Owner,
     signal::{ArcRwSignal, ReadSignal},
-    traits::Set,
+    traits::{Set, SignalOrFn},
 };
 use std::hash::Hash;
 use tachys::{
@@ -119,7 +119,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + Send + 'static,
+    IF: SignalOrFn<Output = I> + Send + 'static,
     I: IntoIterator<Item = T> + Send + 'static,
     EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
@@ -141,7 +141,7 @@ where
         let view = owner.with(|| children(child));
         (drop, OwnedView::new_with_owner(view, owner))
     };
-    move || keyed(each(), key.clone(), children.clone())
+    move || keyed(each.run(), key.clone(), children.clone())
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -193,7 +193,7 @@ pub fn ForEnumerate<IF, I, T, EF, N, KF, K>(
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + Send + 'static,
+    IF: SignalOrFn<Output = I> + Send + 'static,
     I: IntoIterator<Item = T> + Send + 'static,
     EF: Fn(ReadSignal<usize>, T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
@@ -219,7 +219,7 @@ where
             OwnedView::new_with_owner(view, owner),
         )
     };
-    move || keyed(each(), key.clone(), children.clone())
+    move || keyed(each.run(), key.clone(), children.clone())
 }
 
 /*
@@ -282,3 +282,48 @@ mod tests {
     }
 }
  */
+
+#[cfg(feature = "ssr")]
+#[cfg(test)]
+mod signal_or_fn_tests {
+    use crate::prelude::*;
+    use leptos_macro::view;
+    use tachys::{html::element::HtmlElement, prelude::ElementChild};
+
+    #[test]
+    fn for_accepts_bare_signal_each() {
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
+            let list: View<HtmlElement<_, _, _>> = view! {
+                <ol>
+                    <For each=values key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol> <li>1</li> <li>2</li> <li>3</li> <li>4</li> \
+                 <li>5</li><!></ol>"
+            );
+        });
+    }
+
+    #[test]
+    fn for_still_accepts_closure_each() {
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3]);
+            let list: View<HtmlElement<_, _, _>> = view! {
+                <ol>
+                    <For each=move || values.get() key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol> <li>1</li> <li>2</li> <li>3</li><!></ol>"
+            );
+        });
+    }
+}

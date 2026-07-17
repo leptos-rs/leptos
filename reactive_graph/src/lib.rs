@@ -97,6 +97,7 @@ pub mod callback;
 use computed::ScopedFuture;
 
 mod signal_fn;
+mod signal_or_fn;
 
 /// Reexports frequently-used traits.
 pub mod prelude {

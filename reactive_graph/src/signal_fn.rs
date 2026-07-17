@@ -126,6 +126,17 @@ macro_rules! impl_readable_deref_arc {
                 $ty<T>: crate::traits::Get<Value = T>,
             {
             }
+
+            impl<T: Clone + 'static> crate::signal_or_fn::SignalOrFn for $ty<T>
+            where
+                $ty<T>: crate::traits::Get<Value = T>,
+            {
+                type Output = T;
+
+                fn run(&self) -> T {
+                    crate::traits::Get::get(self)
+                }
+            }
         )*
     };
 }
@@ -149,6 +160,17 @@ macro_rules! impl_readable_deref_arena {
             where
                 $ty<T, S>: crate::traits::Get<Value = T>,
             {
+            }
+
+            impl<T: Clone + 'static, S: Storage<T> + 'static> crate::signal_or_fn::SignalOrFn for $ty<T, S>
+            where
+                $ty<T, S>: crate::traits::Get<Value = T>,
+            {
+                type Output = T;
+
+                fn run(&self) -> T {
+                    crate::traits::Get::get(self)
+                }
             }
         )*
     };
@@ -178,6 +200,19 @@ macro_rules! impl_readable_deref_arena_signal_types {
             where
                 $ty<T, S>: crate::traits::Get<Value = T>,
             {
+            }
+
+            #[allow(deprecated)]
+            impl<T: Clone + 'static, S: Storage<T> + Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>> + 'static> crate::signal_or_fn::SignalOrFn
+                for $ty<T, S>
+            where
+                $ty<T, S>: crate::traits::Get<Value = T>,
+            {
+                type Output = T;
+
+                fn run(&self) -> T {
+                    crate::traits::Get::get(self)
+                }
             }
         )*
     };
@@ -221,6 +256,21 @@ impl<
 where
     MaybeProp<T, S>: crate::traits::Get<Value = Option<T>>,
 {
+}
+
+#[allow(deprecated)]
+impl<T, S> crate::signal_or_fn::SignalOrFn for MaybeProp<T, S>
+where
+    T: Clone + 'static,
+    MaybeProp<T, S>: crate::traits::Get<Value = Option<T>>,
+    S: Storage<Option<T>> + Storage<SignalTypes<Option<T>, S>>,
+    S: Send + Sync + 'static,
+{
+    type Output = Option<T>;
+
+    fn run(&self) -> Option<T> {
+        crate::traits::Get::get(self)
+    }
 }
 
 // =============================================================================
