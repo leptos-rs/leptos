@@ -271,9 +271,9 @@ mod len;
 mod option;
 mod patch;
 mod path;
-mod signal_or_fn;
 #[cfg(feature = "serde")]
 mod serde;
+mod signal_or_fn;
 #[cfg(feature = "slotmap")]
 mod slotmap;
 mod store_field;

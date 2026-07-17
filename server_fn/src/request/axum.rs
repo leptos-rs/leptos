@@ -3,9 +3,9 @@ use crate::{
     request::Req,
 };
 use axum::{
+    RequestExt,
     body::{Body, Bytes},
     response::Response,
-    RequestExt,
 };
 #[cfg(feature = "axum")]
 use futures::SinkExt;

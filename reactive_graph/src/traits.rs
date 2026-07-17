@@ -48,14 +48,13 @@
 //! there isn't an `RwLock` so you can't wrap in a [`ReadGuard`](crate::signal::guards::ReadGuard),
 //! but you can still implement [`WithUntracked`] and [`Track`], the same traits will still be implemented.
 
-pub use crate::signal_or_fn::SignalOrFn;
-pub use crate::trait_options::*;
 use crate::{
     effect::Effect,
     graph::{Observer, Source, Subscriber, ToAnySource},
     owner::Owner,
     signal::{ArcReadSignal, arc_signal, guards::UntrackedWriteGuard},
 };
+pub use crate::{signal_or_fn::SignalOrFn, trait_options::*};
 use any_spawner::Executor;
 use futures::{Stream, StreamExt};
 use std::{
