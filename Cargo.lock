@@ -1690,7 +1690,7 @@ dependencies = [
 
 [[package]]
 name = "hydration_context"
-version = "0.3.1"
+version = "0.4.0-beta"
 dependencies = [
  "futures",
  "js-sys",
@@ -2035,7 +2035,7 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "leptos"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2094,7 +2094,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "actix-files",
  "actix-http",
@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "any_spawner",
  "anyhow",
@@ -2146,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "config",
  "serde",
@@ -2159,7 +2159,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "js-sys",
  "leptos",
@@ -2176,7 +2176,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_hot_reload"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "anyhow",
  "camino",
@@ -2192,7 +2192,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "futures",
  "hydration_context",
@@ -2207,7 +2207,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "attribute-derive",
  "cfg-if",
@@ -2228,7 +2228,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "server_fn",
- "server_fn_macro 0.9.0-alpha",
+ "server_fn_macro 0.9.0-beta",
  "syn 2.0.117",
  "tracing",
  "trybuild",
@@ -2238,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_meta"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "futures",
  "indexmap",
@@ -2252,7 +2252,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -2276,7 +2276,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router_macro"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "leptos",
  "leptos_macro",
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.9.0-alpha"
+version = "0.9.0-beta2"
 dependencies = [
  "any_spawner",
  "base64",
@@ -2995,7 +2995,7 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "reactive_graph"
-version = "0.3.0-alpha"
+version = "0.3.0-beta2"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -3022,7 +3022,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.5.0-alpha"
+version = "0.5.0-beta"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -3043,7 +3043,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.5.0-alpha"
+version = "0.5.0-beta"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-error2",
@@ -3567,7 +3567,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3633,7 +3633,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
  "const_format",
  "convert_case 0.11.0",
@@ -3646,9 +3646,9 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro_default"
-version = "0.9.0-alpha"
+version = "0.9.0-beta"
 dependencies = [
- "server_fn_macro 0.9.0-alpha",
+ "server_fn_macro 0.9.0-beta",
  "syn 2.0.117",
 ]
 
@@ -3917,7 +3917,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.3.0-alpha"
+version = "0.3.0-beta2"
 dependencies = [
  "any_spawner",
  "async-trait",
@@ -4019,7 +4019,7 @@ dependencies = [
 
 [[package]]
 name = "throw_error"
-version = "0.3.1"
+version = "0.4.0-beta"
 dependencies = [
  "anyhow",
  "pin-project-lite",
