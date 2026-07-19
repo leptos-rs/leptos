@@ -324,7 +324,8 @@ async fn protected_route_with_async_condition_holds_is_routing() {
     let document = document();
     let wrapper = document.create_element("section").unwrap();
     document.body().unwrap().append_child(&wrapper).unwrap();
-    let _handle = mount_to(wrapper.clone().unchecked_into(), async_condition_app);
+    let _handle =
+        mount_to(wrapper.clone().unchecked_into(), async_condition_app);
 
     tick_n(10).await;
     assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
@@ -353,8 +354,8 @@ async fn protected_route_with_async_condition_holds_is_routing() {
     assert_eq!(
         text_of(&wrapper, "#status").as_deref(),
         Some("routing"),
-        "is_routing should still be held while the protected view's \
-         resource is pending"
+        "is_routing should still be held while the protected view's resource \
+         is pending"
     );
     assert_eq!(gate_count(), 1, "the protected view should now be fetching");
 
@@ -399,8 +400,8 @@ async fn protected_route_with_async_condition_in_flat_routes_holds_is_routing()
     assert_eq!(
         text_of(&wrapper, "#status").as_deref(),
         Some("routing"),
-        "is_routing should still be held while the protected view's \
-         resource is pending"
+        "is_routing should still be held while the protected view's resource \
+         is pending"
     );
     assert_eq!(gate_count(), 1, "the protected view should now be fetching");
 
