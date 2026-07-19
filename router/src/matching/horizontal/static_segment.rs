@@ -365,7 +365,9 @@ mod tests {
     #[test]
     fn empty_segment_is_passthrough_parent() {
         let def = StaticSegment("");
-        let m = def.test("/lang").expect("empty segment should pass through");
+        let m = def
+            .test("/lang")
+            .expect("empty segment should pass through");
         assert_eq!(m.matched(), "");
         assert_eq!(m.remaining(), "/lang");
 
