@@ -99,7 +99,10 @@ pub mod suspense {
     use futures::channel::oneshot::Sender;
     use or_poisoned::OrPoisoned;
     use slotmap::{DefaultKey, SlotMap};
-    use std::sync::{Arc, Mutex};
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
 
     /// Sends a one-time notification that the resource being read from is "local only," i.e.,
     /// that it will only run on the client, not the server.
@@ -156,6 +159,7 @@ pub mod suspense {
     #[derive(Clone, Debug)]
     pub struct RouteSettleContext {
         tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+        active: Arc<AtomicBool>,
     }
 
     impl Default for RouteSettleContext {
@@ -169,17 +173,32 @@ pub mod suspense {
         pub fn new() -> Self {
             Self {
                 tasks: ArcRwSignal::new(SlotMap::new()),
+                active: Arc::new(AtomicBool::new(true)),
             }
         }
 
         /// Registers a task that keeps the route "unsettled" until the returned
         /// handle is dropped.
-        pub fn task(&self) -> TaskHandle {
+        ///
+        /// Returns `None` if the context has been [deactivated](Self::deactivate),
+        /// i.e., if the navigation it belonged to has already settled: the
+        /// context may still be found via `use_context` by boundaries created
+        /// after the navigation, and those should not register.
+        pub fn task(&self) -> Option<TaskHandle> {
+            if !self.active.load(Ordering::Acquire) {
+                return None;
+            }
             let key = self.tasks.write().insert(());
-            TaskHandle {
+            Some(TaskHandle {
                 tasks: self.tasks.clone(),
                 key,
-            }
+            })
+        }
+
+        /// Marks the navigation this context belonged to as settled, so that
+        /// [`task`](Self::task) no longer registers anything.
+        pub fn deactivate(&self) {
+            self.active.store(false, Ordering::Release);
         }
 
         /// The set of active tasks, so the router can track when it becomes

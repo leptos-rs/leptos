@@ -1119,6 +1119,10 @@ pub(crate) fn wait_until_route_settled(
     });
     async move {
         _ = rx.await;
+        // the route has settled: boundaries created from here on are not part
+        // of this navigation and must not register with this context, which
+        // may outlive the navigation in the owner tree
+        route_settle.deactivate();
         // the effect lives on the route owner; dispose it now that we're done
         effect.dispose();
     }

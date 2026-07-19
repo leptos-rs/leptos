@@ -149,7 +149,7 @@ where
         // if a router transition is underway, report this boundary's readiness
         // back to the router so `set_is_routing` waits for it to settle
         let route_settle_task =
-            use_context::<RouteSettleContext>().map(|ctx| ctx.task());
+            use_context::<RouteSettleContext>().and_then(|ctx| ctx.task());
 
         OwnedView::new(SuspenseBoundary::<false, _, _> {
             id,
