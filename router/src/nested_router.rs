@@ -265,8 +265,7 @@ where
                     // `<ProtectedRoute>` content) to finish loading before
                     // clearing `is_routing`
                     if let Some(route_settle) = route_settle {
-                        if current_url.read_untracked().path() == spawned_path
-                        {
+                        if current_url.read_untracked().path() == spawned_path {
                             wait_until_route_settled(
                                 route_settle,
                                 &settle_owner,
@@ -278,8 +277,7 @@ where
                         // only clear is_routing if no newer navigation has
                         // started in the meantime; the newest navigation
                         // clears it when it completes
-                        if current_url.read_untracked().path() == spawned_path
-                        {
+                        if current_url.read_untracked().path() == spawned_path {
                             set_is_routing.set(false);
                         }
                     }

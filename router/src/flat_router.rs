@@ -329,10 +329,9 @@ where
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
-                            let is_current = current_url
-                                .read_untracked()
-                                .path()
-                                == spawned_path;
+                            let is_current =
+                                current_url.read_untracked().path()
+                                    == spawned_path;
                             let id_state = Rc::clone(&state);
                             if is_current {
                                 let rebuild = move || {
