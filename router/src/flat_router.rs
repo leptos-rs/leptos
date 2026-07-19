@@ -269,6 +269,12 @@ where
                     provide_context(Matched(ArcMemo::from(new_matched)));
                     fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
+                // navigating to the fallback completes immediately; clear
+                // is_routing here, because a superseded in-flight navigation
+                // no longer clears it itself
+                if let Some(set_is_routing) = set_is_routing {
+                    set_is_routing.set(false);
+                }
                 if let Some(location) = location {
                     location.ready_to_complete();
                 }
@@ -284,6 +290,7 @@ where
                 }
 
                 let spawned_path = url_snapshot.path().to_string();
+                let spawned_id = new_id;
 
                 let is_back = location
                     .as_ref()
@@ -322,9 +329,12 @@ where
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
-                            if current_url.read_untracked().path()
-                                == spawned_path
-                            {
+                            let is_current = current_url
+                                .read_untracked()
+                                .path()
+                                == spawned_path;
+                            let id_state = Rc::clone(&state);
+                            if is_current {
                                 let rebuild = move || {
                                     view.into_any()
                                         .rebuild(&mut state.borrow_mut().view);
@@ -339,13 +349,22 @@ where
                             // wait for the built route to settle before clearing
                             // is_routing
                             if let Some(route_settle) = route_settle {
-                                wait_until_route_settled(
-                                    route_settle,
-                                    &settle_owner,
-                                )
-                                .await;
+                                if is_current {
+                                    wait_until_route_settled(
+                                        route_settle,
+                                        &settle_owner,
+                                    )
+                                    .await;
+                                }
                                 if let Some(set_is_routing) = set_is_routing {
-                                    set_is_routing.set(false);
+                                    // only clear is_routing if this route is
+                                    // still the one being displayed; if a newer
+                                    // navigation has replaced it, that
+                                    // navigation is now responsible for
+                                    // clearing it
+                                    if id_state.borrow().id == spawned_id {
+                                        set_is_routing.set(false);
+                                    }
                                 }
                             }
 

@@ -178,6 +178,12 @@ where
                 EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
+                // navigating to the fallback completes immediately; clear
+                // is_routing here, because a superseded in-flight navigation
+                // no longer clears it itself
+                if let Some(set_is_routing) = self.set_is_routing {
+                    set_is_routing.set(false);
+                }
                 if let Some(loc) = self.location {
                     loc.ready_to_complete();
                 }
@@ -250,6 +256,8 @@ where
 
                 let abort_navigation = state.abort_navigation.clone();
                 let settle_owner = self.outer_owner.clone();
+                let current_url = state.current_url.clone();
+                let spawned_path = state.path.clone();
                 Executor::spawn_local(async move {
                     join_all(full_loaders).await;
                     _ = abort_navigation.write_value().take();
@@ -257,11 +265,23 @@ where
                     // `<ProtectedRoute>` content) to finish loading before
                     // clearing `is_routing`
                     if let Some(route_settle) = route_settle {
-                        wait_until_route_settled(route_settle, &settle_owner)
+                        if current_url.read_untracked().path() == spawned_path
+                        {
+                            wait_until_route_settled(
+                                route_settle,
+                                &settle_owner,
+                            )
                             .await;
+                        }
                     }
                     if let Some(set_is_routing) = self.set_is_routing {
-                        set_is_routing.set(false);
+                        // only clear is_routing if no newer navigation has
+                        // started in the meantime; the newest navigation
+                        // clears it when it completes
+                        if current_url.read_untracked().path() == spawned_path
+                        {
+                            set_is_routing.set(false);
+                        }
                     }
                     if let Some(loc) = location {
                         loc.ready_to_complete();

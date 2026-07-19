@@ -73,6 +73,16 @@ fn gate_count() -> usize {
     GATES.with(|g| g.borrow().len())
 }
 
+/// Release only the oldest pending gated resource.
+fn release_first_gate() {
+    GATES.with(|g| {
+        let mut g = g.borrow_mut();
+        if !g.is_empty() {
+            _ = g.remove(0).send(());
+        }
+    });
+}
+
 /// Let every pending gated auth check resolve.
 fn release_auth_gates() {
     AUTH_GATES.with(|g| {
@@ -429,4 +439,147 @@ async fn protected_route_holds_is_routing_until_resources_load() {
     tick_n(20).await;
     assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
     assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// A navigation that is superseded by a newer one must not clear `is_routing`
+/// while the newer navigation is still loading: the newest navigation is the
+/// one responsible for clearing it.
+#[wasm_bindgen_test]
+async fn superseded_navigation_does_not_clear_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // First navigation: the protected page is built and waiting on its gate.
+    navigate("/protected");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(gate_count(), 1);
+
+    // Second navigation supersedes the first while it is still pending.
+    navigate("/normal");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 2);
+
+    // Releasing only the first page's gate settles the superseded navigation;
+    // it must not clear is_routing while the second is still loading.
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a superseded navigation must not clear is_routing while the newest \
+         navigation is still loading"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Same as `superseded_navigation_does_not_clear_is_routing`, but through
+/// `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn superseded_navigation_in_flat_routes_does_not_clear_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    navigate("/protected");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(gate_count(), 1);
+
+    navigate("/normal");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 2);
+
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a superseded navigation must not clear is_routing while the newest \
+         navigation is still loading"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Navigating to an unmatched URL (the fallback) while another navigation is
+/// still loading must clear `is_routing`: the fallback renders immediately,
+/// and the superseded navigation no longer clears the flag itself.
+#[wasm_bindgen_test]
+async fn navigation_to_fallback_clears_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    navigate("/normal");
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    navigate("/does-not-exist");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "navigating to the fallback must clear is_routing even if a \
+         superseded navigation is still pending"
+    );
+
+    // releasing the abandoned page's gate must not bring routing back
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+}
+
+/// Same as `navigation_to_fallback_clears_is_routing`, but through
+/// `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn navigation_to_fallback_in_flat_routes_clears_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    navigate("/normal");
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    navigate("/does-not-exist");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "navigating to the fallback must clear is_routing even if a \
+         superseded navigation is still pending"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
 }
