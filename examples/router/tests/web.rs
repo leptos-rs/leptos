@@ -36,6 +36,11 @@ thread_local! {
     /// Receivers handed to the resource fetcher, one per built page.
     static RECEIVERS: RefCell<Vec<oneshot::Receiver<()>>> =
         const { RefCell::new(Vec::new()) };
+    /// Senders for the gated auth checks; releasing them resolves `condition`.
+    static AUTH_GATES: RefCell<Vec<oneshot::Sender<()>>> = const { RefCell::new(Vec::new()) };
+    /// Receivers handed to the auth-check fetcher.
+    static AUTH_RECEIVERS: RefCell<Vec<oneshot::Receiver<()>>> =
+        const { RefCell::new(Vec::new()) };
     /// The current `<Router>`'s navigate function, grabbed from inside it.
     static NAVIGATE: RefCell<Option<NavigateFn>> = const { RefCell::new(None) };
 }
@@ -44,6 +49,8 @@ thread_local! {
 fn reset() {
     GATES.with(|g| g.borrow_mut().clear());
     RECEIVERS.with(|r| r.borrow_mut().clear());
+    AUTH_GATES.with(|g| g.borrow_mut().clear());
+    AUTH_RECEIVERS.with(|r| r.borrow_mut().clear());
     NAVIGATE.with(|n| *n.borrow_mut() = None);
     window()
         .history()
@@ -55,6 +62,20 @@ fn reset() {
 /// Let every pending gated resource resolve.
 fn release_all_gates() {
     GATES.with(|g| {
+        for tx in g.borrow_mut().drain(..) {
+            _ = tx.send(());
+        }
+    });
+}
+
+/// The number of gated page resources created so far.
+fn gate_count() -> usize {
+    GATES.with(|g| g.borrow().len())
+}
+
+/// Let every pending gated auth check resolve.
+fn release_auth_gates() {
+    AUTH_GATES.with(|g| {
         for tx in g.borrow_mut().drain(..) {
             _ = tx.send(());
         }
@@ -107,6 +128,23 @@ fn GatedPage() -> impl IntoView {
     }
 }
 
+/// A gated auth check: `None` until the auth gate is released, then
+/// `Some(true)`. Reading it while pending suspends the boundary it is read
+/// under, like a real resource-backed auth check.
+fn gated_auth() -> AsyncDerived<bool> {
+    let (tx, rx) = oneshot::channel::<()>();
+    AUTH_GATES.with(|g| g.borrow_mut().push(tx));
+    AUTH_RECEIVERS.with(|r| r.borrow_mut().push(rx));
+
+    AsyncDerived::new(move || async move {
+        let rx = AUTH_RECEIVERS.with(|r| r.borrow_mut().pop());
+        if let Some(rx) = rx {
+            _ = rx.await;
+        }
+        true
+    })
+}
+
 #[component]
 fn NavGrabber() -> impl IntoView {
     let nav = use_navigate();
@@ -151,6 +189,55 @@ fn flat_router_app() -> impl IntoView {
                 <ProtectedRoute
                     path=path!("protected")
                     condition=|| Some(true)
+                    redirect_path=|| "/"
+                    view=GatedPage
+                />
+            </FlatRoutes>
+        </Router>
+    }
+}
+
+/// Like `router_app`, but the `<ProtectedRoute>` condition is itself async,
+/// modeling an auth check that must load before the protected view may render.
+fn async_condition_app() -> impl IntoView {
+    let (is_routing, set_is_routing) = signal(false);
+    let auth = gated_auth();
+
+    view! {
+        <Router set_is_routing>
+            <span id="status">
+                {move || if is_routing.get() { "routing" } else { "idle" }}
+            </span>
+            <NavGrabber/>
+            <Routes fallback=|| view! { <span>"not found"</span> }>
+                <Route path=path!("") view=|| view! { <span id="home">"home"</span> }/>
+                <ProtectedRoute
+                    path=path!("protected")
+                    condition=move || auth.get()
+                    redirect_path=|| "/"
+                    view=GatedPage
+                />
+            </Routes>
+        </Router>
+    }
+}
+
+/// Flat-router version of [`async_condition_app`].
+fn flat_async_condition_app() -> impl IntoView {
+    let (is_routing, set_is_routing) = signal(false);
+    let auth = gated_auth();
+
+    view! {
+        <Router set_is_routing>
+            <span id="status">
+                {move || if is_routing.get() { "routing" } else { "idle" }}
+            </span>
+            <NavGrabber/>
+            <FlatRoutes fallback=|| view! { <span>"not found"</span> }>
+                <Route path=path!("") view=|| view! { <span id="home">"home"</span> }/>
+                <ProtectedRoute
+                    path=path!("protected")
+                    condition=move || auth.get()
                     redirect_path=|| "/"
                     view=GatedPage
                 />
@@ -210,6 +297,102 @@ async fn protected_route_in_flat_routes_holds_is_routing() {
         "ProtectedRoute in FlatRoutes should hold is_routing while its \
          resource is pending"
     );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// An async `condition` must hold `is_routing` through both phases: while the
+/// auth check is pending (during which the protected view — and its data
+/// fetch — must not yet be created), and then while the protected view's own
+/// resource loads.
+#[wasm_bindgen_test]
+async fn protected_route_with_async_condition_holds_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), async_condition_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    navigate("/protected");
+    tick_n(20).await;
+
+    // Phase 1: the auth check is pending. Navigation must still be in
+    // progress, and the protected page must not have started fetching.
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "is_routing should be held while the async condition is pending"
+    );
+    assert_eq!(
+        gate_count(),
+        0,
+        "protected data must not be fetched before the condition resolves"
+    );
+
+    release_auth_gates();
+    tick_n(20).await;
+
+    // Phase 2: the condition has resolved, so the protected view has been
+    // created and its resource is now pending: still routing.
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "is_routing should still be held while the protected view's \
+         resource is pending"
+    );
+    assert_eq!(gate_count(), 1, "the protected view should now be fetching");
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Same as `protected_route_with_async_condition_holds_is_routing`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn protected_route_with_async_condition_in_flat_routes_holds_is_routing()
+{
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle =
+        mount_to(wrapper.clone().unchecked_into(), flat_async_condition_app);
+
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    navigate("/protected");
+    tick_n(20).await;
+
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "is_routing should be held while the async condition is pending"
+    );
+    assert_eq!(
+        gate_count(),
+        0,
+        "protected data must not be fetched before the condition resolves"
+    );
+
+    release_auth_gates();
+    tick_n(20).await;
+
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "is_routing should still be held while the protected view's \
+         resource is pending"
+    );
+    assert_eq!(gate_count(), 1, "the protected view should now be fetching");
 
     release_all_gates();
     tick_n(20).await;
