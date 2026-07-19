@@ -264,15 +264,14 @@ where
                     // wait for the newly built route subtree (including any
                     // `<ProtectedRoute>` content) to finish loading before
                     // clearing `is_routing`
-                    if let Some(route_settle) = route_settle {
-                        if current_url.read_untracked().path() == spawned_path {
+                    if let Some(route_settle) = route_settle
+                        && current_url.read_untracked().path() == spawned_path {
                             wait_until_route_settled(
                                 route_settle,
                                 &settle_owner,
                             )
                             .await;
                         }
-                    }
                     if let Some(set_is_routing) = self.set_is_routing {
                         // only clear is_routing if no newer navigation has
                         // started in the meantime; the newest navigation
