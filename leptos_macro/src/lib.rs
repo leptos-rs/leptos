@@ -1,6 +1,5 @@
 //! Macros for use with the Leptos framework.
 
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
