@@ -104,7 +104,13 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
             } else if expected.is_none() {
                 // segment is exhausted but the path continues with a
                 // non-`/` byte: an overlong path must not match a shorter
-                // static segment (e.g. `/foobar` must not match `fo`)
+                // static segment (e.g. `/foobar` must not match `fo`).
+                // `""` and `"/"` are the exceptions: they are pass-through
+                // parents (e.g. nested wrapper routes) that consume nothing
+                // and leave the rest of the path to their children.
+                if segment.is_empty() || segment == "/" {
+                    break;
+                }
                 return None;
             }
             // if the next byte in the path matches the
@@ -354,5 +360,20 @@ mod tests {
     fn no_partial_match_on_overlong_path() {
         let def = StaticSegment("fo");
         assert!(def.test("/foobar").is_none());
+    }
+
+    #[test]
+    fn empty_segment_is_passthrough_parent() {
+        let def = StaticSegment("");
+        let m = def
+            .test("/lang")
+            .expect("empty segment should pass through");
+        assert_eq!(m.matched(), "");
+        assert_eq!(m.remaining(), "/lang");
+
+        let def = StaticSegment("/");
+        let m = def.test("/lang").expect("root segment should pass through");
+        assert_eq!(m.matched(), "/");
+        assert_eq!(m.remaining(), "/lang");
     }
 }
