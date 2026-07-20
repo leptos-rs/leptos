@@ -32,7 +32,7 @@ async fn main() -> std::io::Result<()> {
     // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
-    println!("listening on http://{}", &addr);
+    println!("listening on http://{addr}");
 
     HttpServer::new(move || {
         // Generate the list of routes in your Leptos App
