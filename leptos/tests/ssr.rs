@@ -223,21 +223,32 @@ fn ssr_textarea_escapes_static_content() {
     );
 }
 
-#[cfg(feature = "ssr")]
-#[test]
-fn ssr_textarea_escapes_dynamic_content() {
-    use leptos::prelude::*;
+// NOTE: This test was added in 12e1d7c.
+//
+// It never ran in CI due to issues described in https://github.com/leptos-rs/leptos/pull/4840
+// It was added as a test for the code changes in that commmit. However, the changes are irrelevant
+// here; this example does not actually exercise the InertElement path, because it contains
+// a non-inert text node `{untrusted}`. (`is_inert_element` bails on anything that is not an element
+// or static text node.)
+//
+// This scenario has already been fixed with a new approach on the `leptos_0.9` branch. Leaving this
+// here for clarity, but the test will be restored for 0.9.
+//
+// #[cfg(feature = "ssr")]
+// #[test]
+// fn ssr_textarea_escapes_dynamic_content() {
+//     use leptos::prelude::*;
 
-    // A dynamic child makes the textarea non-inert, exercising the runtime
-    // render path; its content must also be HTML-escaped.
-    let untrusted = "</textarea><script>alert('xss')</script>".to_string();
-    let rendered: View<HtmlElement<_, _, _>> = view! {
-        <textarea>{untrusted}</textarea>
-    };
+//     // A dynamic child makes the textarea non-inert, exercising the runtime
+//     // render path; its content must also be HTML-escaped.
+//     let untrusted = "</textarea><script>alert('xss')</script>".to_string();
+//     let rendered: View<HtmlElement<_, _, _>> = view! {
+//         <textarea>{untrusted}</textarea>
+//     };
 
-    assert_eq!(
-        rendered.to_html(),
-        "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&gt;\
-         </textarea>"
-    );
-}
+//     assert_eq!(
+//         rendered.to_html(),
+//         "<textarea>&lt;/textarea&gt;&lt;script&gt;alert('xss')&lt;/script&gt;\
+//          </textarea>"
+//     );
+// }
