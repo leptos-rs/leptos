@@ -367,7 +367,7 @@ where
                 + &url.hash;
             let state = Reflect::get(&a, &JsValue::from_str("state"))
                 .ok()
-                .filter(|value| *value != JsValue::UNDEFINED);
+                .filter(|value| value != &JsValue::UNDEFINED);
 
             let replace = Reflect::get(&a, &JsValue::from_str("replace"))
                 .ok()
