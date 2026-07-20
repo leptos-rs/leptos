@@ -303,7 +303,7 @@ mod signal_or_fn_tests {
             };
             assert_eq!(
                 list.to_html(),
-                "<ol> <li>1</li> <li>2</li> <li>3</li> <li>4</li> \
+                "<ol><li>1</li><li>2</li><li>3</li><li>4</li>\
                  <li>5</li><!></ol>"
             );
         });
@@ -322,7 +322,7 @@ mod signal_or_fn_tests {
             };
             assert_eq!(
                 list.to_html(),
-                "<ol> <li>1</li> <li>2</li> <li>3</li><!></ol>"
+                "<ol><li>1</li><li>2</li><li>3</li><!></ol>"
             );
         });
     }
