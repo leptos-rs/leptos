@@ -23,7 +23,7 @@ async fn main() {
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    println!("listening on http://{}", &addr);
+    println!("listening on http://{addr}");
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
