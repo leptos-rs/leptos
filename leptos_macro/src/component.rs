@@ -860,12 +860,12 @@ impl Docs {
                                 .trim_start();
                             vec![
                                 format!("{leading_ws}{quotes}{rust_options}"),
-                                format!("{leading_ws}"),
+                                leading_ws.to_string(),
                             ]
                         }
                         ViewCodeFenceState::Rust if trimmed_doc == quotes => {
                             view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![format!("{leading_ws}"), doc.to_owned()]
+                            vec![leading_ws.to_string(), doc.to_owned()]
                         }
                         ViewCodeFenceState::Rust
                             if trimmed_doc.starts_with('<') =>
