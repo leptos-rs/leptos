@@ -111,16 +111,14 @@ pub(crate) fn component_to_tokens(
 
             let KeyedAttributeValue::Binding(binding) = &attr.possible_value
             else {
-                if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
-                    let span = match &attr.key {
-                        NodeName::Punctuated(path) => path[1].span(),
-                        _ => unreachable!(),
-                    };
-                    let ident1 = format_ident!("{ident}", span = span);
-                    return Some(quote_spanned! { span => #ident1 });
-                } else {
-                    return None;
-                }
+                let ident = attr.key.to_string();
+                let ident = ident.strip_prefix("let:")?;
+                let span = match &attr.key {
+                    NodeName::Punctuated(path) => path[1].span(),
+                    _ => unreachable!(),
+                };
+                let ident1 = format_ident!("{ident}", span = span);
+                return Some(quote_spanned! { span => #ident1 });
             };
 
             let inputs = &binding.inputs;
@@ -356,7 +354,8 @@ pub fn maybe_optimised_component_children(
         .iter()
         .filter(|child| !matches!(child, Node::Comment(_)));
 
-    let children = if let Some(child) = children_iter.next() {
+    let children = {
+        let child = children_iter.next()?;
         // If more than one child after filtering out comments, don't think we can optimise:
         if children_iter.next().is_some() {
             return None;
@@ -403,8 +402,6 @@ pub fn maybe_optimised_component_children(
             }
             _ => return None,
         }
-    } else {
-        return None;
     };
 
     // // Debug check to see how many use this optimisation:

@@ -152,7 +152,7 @@ where
                     .unwrap_or_else(|| {
                         panic!(
                             "could not find key for index {:?} at {}",
-                            &(path.clone(), segment.0),
+                            (path.clone(), segment.0),
                             caller
                         )
                     });

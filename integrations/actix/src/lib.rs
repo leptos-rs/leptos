@@ -264,7 +264,7 @@ pub fn redirect(path: &str) {
         tracing::warn!("{}", &msg);
 
         #[cfg(not(feature = "tracing"))]
-        eprintln!("{}", &msg);
+        eprintln!("{}", msg);
     }
 }
 

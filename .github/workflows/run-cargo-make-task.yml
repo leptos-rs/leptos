@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, nightly-2026-02-24]
+        toolchain: [stable, nightly-2026-07-20]
         erased_mode: [true, false]
     steps:
       - name: Free Disk Space
@@ -29,6 +29,7 @@ jobs:
           timeout_minutes: 15
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             echo "Disk space before cleanup:"
             df -h
             sudo rm -rf /usr/local/.ghcup
@@ -62,6 +63,7 @@ jobs:
           timeout_minutes: 15
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             sudo apt-get update
             sudo apt-get install -y libglib2.0-dev
       - uses: actions/checkout@v7
@@ -153,7 +155,9 @@ jobs:
           timeout_minutes: 15
           retry_wait_seconds: 15
           command: |
-            echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+            set -eo pipefail
+            STORE_PATH=$(pnpm store path)
+            echo "STORE_PATH=$STORE_PATH" >> $GITHUB_OUTPUT
       - uses: actions/cache@v6
         if: contains(inputs.directory, 'examples')
         name: Setup pnpm cache
@@ -170,8 +174,9 @@ jobs:
           timeout_minutes: 30
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             project_makefile='${{inputs.directory}}/Makefile.toml'
-            webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
+            webdriver_count=$(grep -c "cargo-make/webdriver.toml" "$project_makefile" || true)
             if [ $webdriver_count -eq 1 ]; then
                 if ! command -v chromedriver &>/dev/null; then
                     echo chromedriver required
@@ -191,6 +196,7 @@ jobs:
           timeout_minutes: 30
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             for pw_path in $(find '${{inputs.directory}}' -name playwright.config.ts)
             do
               pw_dir=$(dirname $pw_path)
@@ -224,6 +230,7 @@ jobs:
           timeout_minutes: 30
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             cd '${{ inputs.directory }}'
             tailwindcss_version=$(echo "$LEPTOS_TAILWIND_VERSION" | sed 's/^v//')
             sass_version="$LEPTOS_SASS_VERSION"
@@ -238,10 +245,11 @@ jobs:
       - name: ${{ inputs.cargo_make_task }}
         uses: nick-fields/retry@v4
         with:
-          max_attempts: 3
+          max_attempts: 1
           timeout_minutes: 60
           retry_wait_seconds: 15
           command: |
+            set -eo pipefail
             cd '${{ inputs.directory }}'
             cargo make --no-workspace --profile=github-actions ci
             # check the direct-minimal-versions on release

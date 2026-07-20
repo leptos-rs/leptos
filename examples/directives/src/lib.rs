@@ -26,7 +26,7 @@ pub fn copy_to_clipboard(el: Element, content: &str) {
 
         let _ = window().navigator().clipboard().write_text(&content);
 
-        el.set_inner_html(&format!("Copied \"{}\"", &content));
+        el.set_inner_html(&format!("Copied \"{}\"", content));
     });
     on_cleanup(move || drop(handle));
 }

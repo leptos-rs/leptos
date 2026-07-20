@@ -150,9 +150,6 @@
 //! }
 //! ```
 
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(fn_traits))]
-#![cfg_attr(all(feature = "nightly", rustc_nightly), feature(unboxed_closures))]
-
 extern crate self as leptos;
 
 /// Exports all the core types of the library.
