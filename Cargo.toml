@@ -39,36 +39,36 @@ members = [
 exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 
 [workspace.dependencies]
 # members
-throw_error = { path = "./any_error/", version = "0.3.1" }
+throw_error = { path = "./any_error/", version = "0.4.0-beta" }
 any_spawner = { path = "./any_spawner/", version = "0.3.0" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
 either_of = { path = "./either_of/", version = "0.1.9" }
-hydration_context = { path = "./hydration_context", version = "0.3.1" }
-leptos = { path = "./leptos", version = "0.8.20" }
-leptos_config = { path = "./leptos_config", version = "0.8.10" }
-leptos_dom = { path = "./leptos_dom", version = "0.8.8" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.6" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.8.8" }
-leptos_macro = { path = "./leptos_macro", version = "0.8.17" }
-leptos_router = { path = "./router", version = "0.8.14" }
-leptos_router_macro = { path = "./router_macro", version = "0.8.6" }
-leptos_server = { path = "./leptos_server", version = "0.8.7" }
-leptos_meta = { path = "./meta", version = "0.8.6" }
+hydration_context = { path = "./hydration_context", version = "0.4.0-beta" }
+leptos = { path = "./leptos", version = "0.9.0-beta" }
+leptos_config = { path = "./leptos_config", version = "0.9.0-beta" }
+leptos_dom = { path = "./leptos_dom", version = "0.9.0-beta" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.9.0-beta" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.9.0-beta" }
+leptos_macro = { path = "./leptos_macro", version = "0.9.0-beta" }
+leptos_router = { path = "./router", version = "0.9.0-beta1" }
+leptos_router_macro = { path = "./router_macro", version = "0.9.0-beta" }
+leptos_server = { path = "./leptos_server", version = "0.9.0-beta2" }
+leptos_meta = { path = "./meta", version = "0.9.0-beta" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
-reactive_graph = { path = "./reactive_graph", version = "0.2.14" }
-reactive_stores = { path = "./reactive_stores", version = "0.4.3" }
-reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.4.3" }
-server_fn = { path = "./server_fn", version = "0.8.13" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.8.10" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
-tachys = { path = "./tachys", version = "0.2.18" }
+reactive_graph = { path = "./reactive_graph", version = "0.3.0-beta2" }
+reactive_stores = { path = "./reactive_stores", version = "0.5.0-beta" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.5.0-beta" }
+server_fn = { path = "./server_fn", version = "0.9.0-beta" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.9.0-beta" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.9.0-beta" }
+tachys = { path = "./tachys", version = "0.3.0-beta2" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5" }
@@ -94,9 +94,11 @@ pin-project-lite = { default-features = false, version = "0.2" }
 send_wrapper = { default-features = false, version = "0.6" }
 tokio-test = { default-features = false, version = "0.4" }
 html-escape = { default-features = false, version = "0.2" }
+lru = { default-features = false, version = "0.18" }
+mime = { default-features = false, version = "0.3" }
 proc-macro-error2 = { default-features = false, version = "2.0" }
 const_format = { default-features = false, version = "0.2" }
-gloo-net = { default-features = false, version = "0.6" }
+gloo-net = { default-features = false, version = "0.7" }
 url = { default-features = false, version = "2.5" }
 tokio = { default-features = false, version = "1.49" }
 base64 = { default-features = false, version = "0.22" }
@@ -107,23 +109,23 @@ proc-macro2 = { default-features = false, version = "1.0" }
 serde = { default-features = false, version = "1.0" }
 parking_lot = { default-features = false, version = "0.12" }
 axum = { default-features = false, version = "0.8" }
-serde_qs = { default-features = false, version = "0.15" }
+serde_qs = { default-features = false, version = "1.1" }
 syn = { default-features = false, version = "2.0" }
 xxhash-rust = { default-features = false, version = "0.8" }
 paste = { default-features = false, version = "1.0" }
 quote = { default-features = false, version = "1.0" }
 web-sys = { default-features = false, version = "0.3" }
 js-sys = { default-features = false, version = "0.3" }
-rand = { default-features = false, version = "0.9" }
+rand = { default-features = false, version = "0.10" }
 serde-lite = { default-features = false, version = "0.5" }
-tokio-tungstenite = { default-features = false, version = "0.28" }
+tokio-tungstenite = { default-features = false, version = "0.29" }
 serial_test = { default-features = false, version = "3.3" }
 erased = { default-features = false, version = "0.1" }
-glib = { default-features = false, version = "0.21" }
+glib = { default-features = false, version = "0.22" }
 async-trait = { default-features = false, version = "0.1" }
 anyhow = { default-features = false, version = "1.0" }
 walkdir = { default-features = false, version = "2.5" }
-actix-ws = { default-features = false, version = "0.3" }
+actix-ws = { default-features = false, version = "0.4" }
 tower-http = { default-features = false, version = "0.6" }
 prettyplease = { default-features = false, version = "0.2" }
 inventory = { default-features = false, version = "0.3" }
@@ -164,8 +166,8 @@ getrandom = { default-features = false, version = "0.4" }
 actix-files = { default-features = false, version = "0.6" }
 async-lock = { default-features = false, version = "3.4" }
 base16 = { default-features = false, version = "0.2" }
-digest = { default-features = false, version = "0.10" }
-sha2 = { default-features = false, version = "0.10" }
+digest = { default-features = false, version = "0.11" }
+sha2 = { default-features = false, version = "0.11" }
 subsecond = { default-features = false, version = "0.7" }
 dioxus-cli-config = { default-features = false, version = "0.7" }
 dioxus-devtools = { default-features = false, version = "0.7" }

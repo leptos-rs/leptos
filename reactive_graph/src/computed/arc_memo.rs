@@ -6,8 +6,8 @@ use crate::{
     },
     owner::{Storage, StorageAccess, SyncStorage},
     signal::{
-        guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal, ArcRwSignal,
+        guards::{Mapped, Plain, ReadGuard},
     },
     traits::{DefinedAt, Get, IsDisposed, ReadUntracked},
 };
@@ -61,7 +61,7 @@ use std::{
 /// // 🆗 run #1: the calculation runs once immediately
 /// let memoized = ArcMemo::new(move |_| really_expensive_computation(value.get()));
 /// // 🆗 reads the current value of the memo
-/// //    can be `memoized()` on nightly
+/// //    this can also be called as `memoized()`
 /// println!("memoized = {}", memoized.get());
 /// // ✅ reads the current value **without re-running the calculation**
 /// let some_value = memoized.get();
@@ -228,7 +228,7 @@ where
     S: Storage<T>,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.inner), state);
+        std::ptr::hash(Arc::as_ptr(&self.inner), state);
     }
 }
 

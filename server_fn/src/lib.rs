@@ -132,7 +132,7 @@ pub use ::bytes as bytes_export;
 #[cfg(feature = "generic")]
 #[doc(hidden)]
 pub use ::http as http_export;
-use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+use base64::{DecodeError, Engine, engine::general_purpose::STANDARD_NO_PAD};
 #[cfg(feature = "bitcode")]
 pub use bitcode;
 // re-exported to make it possible to implement a custom Client without adding a separate
@@ -149,7 +149,7 @@ pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
 use error::{FromServerFnError, ServerFnErrorErr};
-use futures::{pin_mut, SinkExt, Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt, pin_mut};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use redirect::call_redirect_hook;
@@ -222,31 +222,23 @@ pub trait ServerFn: Send + Sized {
     /// The type of the HTTP client that will send the request from the client side.
     ///
     /// For example, this might be `gloo-net` in the browser, or `reqwest` for a desktop app.
-    type Client: Client<
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+    type Client: Client<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
 
     /// The type of the HTTP server that will send the response from the server side.
     ///
     /// For example, this might be `axum` or `actix-web`.
-    type Server: Server<
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+    type Server: Server<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
 
     /// The protocol the server function uses to communicate with the client.
     type Protocol: Protocol<
-        Self,
-        Self::Output,
-        Self::Client,
-        Self::Server,
-        Self::Error,
-        Self::InputStreamError,
-        Self::OutputStreamError,
-    >;
+            Self,
+            Self::Output,
+            Self::Client,
+            Self::Server,
+            Self::Error,
+            Self::InputStreamError,
+            Self::OutputStreamError,
+        >;
 
     /// The return type of the server function.
     ///
@@ -272,10 +264,7 @@ pub trait ServerFn: Send + Sized {
     /// Middleware that should be applied to this server function.
     fn middlewares() -> Vec<
         Arc<
-            dyn Layer<
-                ServerFnServerRequest<Self>,
-                ServerFnServerResponse<Self>,
-            >,
+            dyn Layer<ServerFnServerRequest<Self>, ServerFnServerResponse<Self>>,
         >,
     > {
         Vec::new()
@@ -309,18 +298,16 @@ pub trait ServerFn: Send + Sized {
                     .await
                     .map(|res| (res, None))
                     .unwrap_or_else(|e| {
-                        let mut response =
+                        (
                             <<Self as ServerFn>::Server as crate::Server<
                                 Self::Error,
                                 Self::InputStreamError,
                                 Self::OutputStreamError,
                             >>::Response::error_response(
                                 Self::PATH, e.ser()
-                            );
-                        let content_type =
-                    <Self::Error as FromServerFnError>::Encoder::CONTENT_TYPE;
-                        response.content_type(content_type);
-                        (response, Some(e))
+                            ),
+                            Some(e),
+                        )
                     });
 
             // if it accepts HTML, we'll redirect to the Referer
@@ -588,17 +575,17 @@ where
 }
 
 impl<
-        Input,
-        InputItem,
-        OutputItem,
-        InputEncoding,
-        OutputEncoding,
-        Client,
-        Server,
-        Error,
-        InputStreamError,
-        OutputStreamError,
-    >
+    Input,
+    InputItem,
+    OutputItem,
+    InputEncoding,
+    OutputEncoding,
+    Client,
+    Server,
+    Error,
+    InputStreamError,
+    OutputStreamError,
+>
     Protocol<
         Input,
         BoxedStream<OutputItem, OutputStreamError>,
@@ -665,16 +652,11 @@ where
         let output = server_fn(input.into()).await?;
 
         let output = output.stream.map(|output| {
-            let result = match output {
-                Ok(output) => OutputEncoding::encode(&output).map_err(|e| {
-                    OutputStreamError::from_server_fn_error(
-                        ServerFnErrorErr::Serialization(e.to_string()),
-                    )
-                    .ser()
-                }),
-                Err(err) => Err(err.ser()),
-            };
-            serialize_result(result)
+            encode_websocket_frame::<
+                OutputEncoding,
+                OutputItem,
+                OutputStreamError,
+            >(output)
         });
 
         Server::spawn(async move {
@@ -706,20 +688,11 @@ where
                 pin_mut!(input);
                 pin_mut!(sink);
                 while let Some(input) = input.stream.next().await {
-                    let result = match input {
-                        Ok(input) => {
-                            InputEncoding::encode(&input).map_err(|e| {
-                                InputStreamError::from_server_fn_error(
-                                    ServerFnErrorErr::Serialization(
-                                        e.to_string(),
-                                    ),
-                                )
-                                .ser()
-                            })
-                        }
-                        Err(err) => Err(err.ser()),
-                    };
-                    let result = serialize_result(result);
+                    let result = encode_websocket_frame::<
+                        InputEncoding,
+                        InputItem,
+                        InputStreamError,
+                    >(input);
                     if sink.send(result).await.is_err() {
                         break;
                     }
@@ -777,6 +750,36 @@ fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     }
 }
 
+// Encodes one streamed websocket item directly into a tagged frame.
+// Format: [tag: u8][content: Bytes] (see `serialize_result`).
+//
+// The Ok payload is serialized straight after the tag byte via
+// `Encodes::encode_into`, so codecs with an incremental serializer avoid the
+// extra allocation and full copy that prepending the tag to an already-encoded
+// `Bytes` would otherwise require. The Err path (an already-serialized error
+// body, the rare case) is framed through `serialize_result`.
+fn encode_websocket_frame<Enc, T, E>(item: Result<T, E>) -> Bytes
+where
+    Enc: Encodes<T>,
+    E: FromServerFnError,
+{
+    match item {
+        Ok(value) => {
+            let mut buf = BytesMut::new();
+            buf.put_u8(0); // Tag for Ok variant
+            match Enc::encode_into(&value, &mut buf) {
+                Ok(()) => buf.freeze(),
+                Err(e) => serialize_result(Err(E::from_server_fn_error(
+                    ServerFnErrorErr::Serialization(e.to_string()),
+                )
+                .ser()
+                .body)),
+            }
+        }
+        Err(err) => serialize_result(Err(err.ser().body)),
+    }
+}
+
 // Deserializes a Bytes instance back into a Result<Bytes, Bytes>.
 fn deserialize_result<E: FromServerFnError>(
     bytes: Bytes,
@@ -785,7 +788,8 @@ fn deserialize_result<E: FromServerFnError>(
         return Err(E::from_server_fn_error(
             ServerFnErrorErr::Deserialization("Data is empty".into()),
         )
-        .ser());
+        .ser()
+        .body);
     }
 
     let tag = bytes[0];
@@ -797,7 +801,8 @@ fn deserialize_result<E: FromServerFnError>(
         _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
             "Invalid data tag".into(),
         ))
-        .ser()), // Invalid tag
+        .ser()
+        .body), // Invalid tag
     }
 }
 
@@ -820,11 +825,22 @@ pub trait FormatType {
     const FORMAT_TYPE: Format;
 
     /// Encodes data into a string.
+    ///
+    /// For [`Format::Text`], any bytes that are not valid UTF-8 are replaced
+    /// with the Unicode replacement character (`U+FFFD`) rather than panicking.
+    /// A well-behaved [`Encodes`] implementation for a text format should
+    /// produce valid UTF-8; the lossy fallback exists so that error-reporting
+    /// paths (e.g. [`ServerFnErrorWrapper`](crate::error::ServerFnErrorWrapper))
+    /// cannot themselves panic when given malformed bytes.
     fn into_encoded_string(bytes: Bytes) -> String {
         match Self::FORMAT_TYPE {
             Format::Binary => STANDARD_NO_PAD.encode(bytes),
-            Format::Text => String::from_utf8(bytes.into())
-                .expect("Valid text format type with utf-8 comptabile string"),
+            Format::Text => {
+                let vec: Vec<u8> = bytes.into();
+                String::from_utf8(vec).unwrap_or_else(|e| {
+                    String::from_utf8_lossy(e.as_bytes()).into_owned()
+                })
+            }
         }
     }
 
@@ -846,6 +862,21 @@ pub trait Encodes<T>: ContentType + FormatType {
 
     /// Encodes the given value into a bytes.
     fn encode(output: &T) -> Result<Bytes, Self::Error>;
+
+    /// Encodes the given value by appending it to an existing buffer.
+    ///
+    /// This lets callers that need to prepend their own framing (for example the
+    /// websocket `[tag][payload]` format) serialize straight into a buffer they
+    /// already own, avoiding the extra allocation and full copy that prepending
+    /// to an already-encoded [`Bytes`] would require.
+    ///
+    /// The default implementation falls back to [`encode`](Encodes::encode) and
+    /// copies the result; codecs whose serializer can write incrementally should
+    /// override it to write directly into `buf`.
+    fn encode_into(output: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        buf.extend_from_slice(&Self::encode(output)?);
+        Ok(())
+    }
 }
 
 /// A trait for types that can be decoded from a bytes for a response body.
@@ -866,14 +897,16 @@ pub use inventory;
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
         std::sync::LazyLock::new(|| {
-            std::sync::RwLock::new(
-                $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
-                    .into_iter()
-                    .map(|obj| {
-                        ((obj.path().to_string(), obj.method()), obj.clone())
-                    })
-                    .collect(),
-            )
+            let mut map: std::collections::HashMap<
+                Method,
+                std::collections::HashMap<String, ServerFnTraitObj<$req, $res>>,
+            > = std::collections::HashMap::new();
+            for obj in $crate::inventory::iter::<ServerFnTraitObj<$req, $res>> {
+                map.entry(obj.method())
+                    .or_default()
+                    .insert(obj.path().to_string(), obj.clone());
+            }
+            std::sync::RwLock::new(map)
         })
     };
 }
@@ -889,7 +922,7 @@ pub struct ServerFnTraitObj<Req, Res> {
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> MiddlewareSet<Req, Res>,
-    ser: fn(ServerFnErrorErr) -> Bytes,
+    ser: middleware::ServerFnErrorSerializer,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
@@ -965,7 +998,7 @@ where
     fn run(
         &mut self,
         req: Req,
-        _ser: fn(ServerFnErrorErr) -> Bytes,
+        _err_ser: middleware::ServerFnErrorSerializer,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
         let handler = self.handler;
         Box::pin(async move { handler(req).await })
@@ -985,8 +1018,9 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 }
 
 #[allow(unused)] // used by server integrations
-type LazyServerFnMap<Req, Res> =
-    LazyLock<RwLock<HashMap<(String, Method), ServerFnTraitObj<Req, Res>>>>;
+type LazyServerFnMap<Req, Res> = LazyLock<
+    RwLock<HashMap<Method, HashMap<String, ServerFnTraitObj<Req, Res>>>>,
+>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1003,8 +1037,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        error::FromServerFnError, middleware::BoxedService, LazyServerFnMap,
-        Protocol, Server, ServerFn, ServerFnTraitObj,
+        LazyServerFnMap, Protocol, Server, ServerFn, ServerFnTraitObj,
+        error::FromServerFnError, middleware::BoxedService,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -1069,10 +1103,17 @@ pub mod axum {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1081,6 +1122,7 @@ pub mod axum {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1117,11 +1159,11 @@ pub mod axum {
         path: &str,
         method: Method,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
-        let key = (path.into(), method);
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&key)
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
@@ -1137,11 +1179,12 @@ pub mod axum {
 #[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
+        LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
         error::FromServerFnError, middleware::BoxedService,
         request::actix::ActixRequest, response::actix::ActixResponse,
-        server::Server, LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
+        server::Server,
     };
-    use actix_web::{web::Payload, HttpRequest, HttpResponse};
+    use actix_web::{HttpRequest, HttpResponse, web::Payload};
     use http::Method;
     use or_poisoned::OrPoisoned;
     #[doc(hidden)]
@@ -1190,10 +1233,17 @@ pub mod actix {
                 >,
             > + 'static,
     {
-        REGISTERED_SERVER_FUNCTIONS.write().or_poisoned().insert(
-            (T::PATH.into(), T::Protocol::METHOD),
-            ServerFnTraitObj::new::<T>(|req| Box::pin(T::run_on_server(req))),
-        );
+        REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .or_poisoned()
+            .entry(T::Protocol::METHOD)
+            .or_default()
+            .insert(
+                T::PATH.into(),
+                ServerFnTraitObj::new::<T>(|req| {
+                    Box::pin(T::run_on_server(req))
+                }),
+            );
     }
 
     /// The set of all registered server function paths.
@@ -1202,6 +1252,7 @@ pub mod actix {
             .read()
             .unwrap()
             .values()
+            .flat_map(|by_path| by_path.values())
             .map(|item| (item.path(), item.method()))
             .collect();
 
@@ -1257,7 +1308,8 @@ pub mod actix {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .or_poisoned()
-            .get(&(path.into(), method))
+            .get(&method)
+            .and_then(|by_path| by_path.get(path))
             .map(|server_fn| {
                 let middleware = (server_fn.middleware)();
                 let mut service = server_fn.clone().boxed();
@@ -1338,6 +1390,78 @@ mod tests {
         assert_eq!(
             deserialized.unwrap_err(),
             Bytes::from_static(b"error details")
+        );
+    }
+
+    #[test]
+    fn into_encoded_string_text_passes_valid_utf8_through() {
+        let bytes = Bytes::from_static("hello — world".as_bytes());
+        let out = <JsonEncoding as FormatType>::into_encoded_string(bytes);
+        assert_eq!(out, "hello — world");
+    }
+
+    #[test]
+    fn into_encoded_string_text_does_not_panic_on_invalid_utf8() {
+        // 0xFF / 0xFE are never valid UTF-8 start bytes.
+        let bytes = Bytes::from_static(&[0xFFu8, 0xFE, b'a']);
+        let out = <JsonEncoding as FormatType>::into_encoded_string(bytes);
+        // The Unicode replacement character must appear; the valid trailing
+        // byte must be preserved.
+        assert!(
+            out.contains('\u{FFFD}'),
+            "expected replacement char in {out:?}"
+        );
+        assert!(out.ends_with('a'), "expected 'a' preserved in {out:?}");
+    }
+
+    /// A `Format::Text` encoder that intentionally emits non-UTF-8 bytes.
+    /// This is the "fail-during-fail" reproduction from KNOWN_BUGS.md #2:
+    /// without the lossy fallback in `into_encoded_string`, formatting an
+    /// error through `ServerFnErrorWrapper` would panic.
+    struct BadTextEncoder;
+
+    impl ContentType for BadTextEncoder {
+        const CONTENT_TYPE: &'static str = "text/plain";
+    }
+
+    impl FormatType for BadTextEncoder {
+        const FORMAT_TYPE: Format = Format::Text;
+    }
+
+    #[derive(Debug)]
+    struct BadTextError;
+
+    impl Encodes<BadTextError> for BadTextEncoder {
+        type Error = std::convert::Infallible;
+
+        fn encode(_: &BadTextError) -> Result<Bytes, Self::Error> {
+            Ok(Bytes::from_static(&[0xFFu8, 0xFE, 0xFD]))
+        }
+    }
+
+    impl Decodes<BadTextError> for BadTextEncoder {
+        type Error = std::convert::Infallible;
+
+        fn decode(_: Bytes) -> Result<BadTextError, Self::Error> {
+            Ok(BadTextError)
+        }
+    }
+
+    impl FromServerFnError for BadTextError {
+        type Encoder = BadTextEncoder;
+
+        fn from_server_fn_error(_value: ServerFnErrorErr) -> Self {
+            BadTextError
+        }
+    }
+
+    #[test]
+    fn server_fn_error_wrapper_display_does_not_panic_on_bad_bytes() {
+        let wrapper = crate::error::ServerFnErrorWrapper(BadTextError);
+        let s = format!("{wrapper}");
+        assert!(
+            s.contains('\u{FFFD}'),
+            "expected replacement char in lossy output, got {s:?}"
         );
     }
 }

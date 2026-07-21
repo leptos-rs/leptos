@@ -38,7 +38,7 @@ use std::{
 /// let (count, set_count) = arc_signal(0);
 ///
 /// // ✅ calling the setter sets the value
-/// //    `set_count(1)` on nightly
+/// //    this can also be called as `set_count(1)`
 /// set_count.set(1);
 /// assert_eq!(count.get(), 1);
 ///
@@ -91,7 +91,7 @@ impl<T> Eq for ArcWriteSignal<T> {}
 
 impl<T> Hash for ArcWriteSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.value), state);
+        std::ptr::hash(Arc::as_ptr(&self.value), state);
     }
 }
 

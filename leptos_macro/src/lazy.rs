@@ -1,15 +1,13 @@
+use crate::stable_hash::fnv1a_64;
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use proc_macro_error2::abort;
+use proc_macro2::Ident;
 use quote::{format_ident, quote};
-use std::{
-    hash::{DefaultHasher, Hash, Hasher},
-    mem,
-};
+use std::mem;
 use syn::{
-    parse::Parse, parse_macro_input, parse_quote, ItemFn, Path, ReturnType,
-    Stmt,
+    ItemFn, Path, ReturnType, Stmt, parse::Parse, parse_macro_input,
+    parse_quote,
 };
 
 fn preload_name(ident: &Ident) -> Ident {
@@ -38,11 +36,13 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
     let (unique_name, unique_name_str) = {
         let span = proc_macro::Span::call_site();
-        let location = (span.line(), span.start().column(), span.file());
-
-        let mut hasher = DefaultHasher::new();
-        location.hash(&mut hasher);
-        let hash = hasher.finish();
+        let location = format!(
+            "{}:{}:{}",
+            span.line(),
+            span.start().column(),
+            span.file()
+        );
+        let hash = fnv1a_64(location.as_bytes());
 
         let unique_name_str = format!("{converted_name}_{hash}");
 

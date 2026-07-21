@@ -44,7 +44,8 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
-    attr::{any_attribute::AnyAttribute, NextAttribute},
+    IntoView,
+    attr::{NextAttribute, any_attribute::AnyAttribute},
     component,
     logging::debug_warn,
     nonce::use_nonce,
@@ -58,18 +59,17 @@ use leptos::{
         },
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
-    IntoView,
 };
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         Arc, LazyLock,
+        mpsc::{Receiver, Sender, channel},
     },
 };
 use wasm_bindgen::JsCast;
@@ -268,20 +268,20 @@ impl ServerMetaContextOutput {
             buf
         };
 
-        if !html_attrs.is_empty() {
-            if let Some(index) = modified_chunk.find("<html") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<html".len();
-                modified_chunk.insert_str(insert_pos, &html_attrs);
-            }
+        if !html_attrs.is_empty()
+            && let Some(index) = modified_chunk.find("<html")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<html".len();
+            modified_chunk.insert_str(insert_pos, &html_attrs);
         }
 
-        if !body_attrs.is_empty() {
-            if let Some(index) = modified_chunk.find("<body") {
-                // Calculate the position where the new string should be inserted
-                let insert_pos = index + "<body".len();
-                modified_chunk.insert_str(insert_pos, &body_attrs);
-            }
+        if !body_attrs.is_empty()
+            && let Some(index) = modified_chunk.find("<body")
+        {
+            // Calculate the position where the new string should be inserted
+            let insert_pos = index + "<body".len();
+            modified_chunk.insert_str(insert_pos, &body_attrs);
         }
 
         futures::stream::once(async move { modified_chunk }).chain(stream)
@@ -428,8 +428,7 @@ where
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context
@@ -440,8 +439,7 @@ where
             self.el.to_html_with_buf(
                 &mut buf,
                 &mut Position::NextChild,
-                false,
-                false,
+                RenderFlags::new(false, false, false),
                 vec![],
             );
             _ = cx.elements.send(buf); // fails only if the receiver is already dropped
@@ -571,8 +569,7 @@ impl RenderHtml for MetaTagsView {
         self,
         buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!--HEAD-->");

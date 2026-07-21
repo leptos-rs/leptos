@@ -1,9 +1,12 @@
 #![allow(clippy::needless_lifetimes)]
 
-use crate::{prelude::*, WasmSplitManifest};
+use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
-use std::{path::PathBuf, sync::OnceLock};
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.
 ///
@@ -16,7 +19,15 @@ pub fn AutoReload(
     /// Configuration options for this project.
     options: LeptosOptions,
 ) -> impl IntoView {
-    (!disable_watch && std::env::var("LEPTOS_WATCH").is_ok()).then(|| {
+    // `LEPTOS_WATCH` is fixed for the life of the process, but `AutoReload`
+    // renders once per page, so reading the env var each time takes the global
+    // environment lock (and allocates the value `String` when set) on every
+    // response. Resolve it once and cache the boolean.
+    static LEPTOS_WATCH: OnceLock<bool> = OnceLock::new();
+    let watch =
+        *LEPTOS_WATCH.get_or_init(|| std::env::var("LEPTOS_WATCH").is_ok());
+
+    (!disable_watch && watch).then(|| {
         #[cfg(feature = "nonce")]
         let nonce = crate::nonce::use_nonce();
         #[cfg(not(feature = "nonce"))]
@@ -26,9 +37,20 @@ pub fn AutoReload(
             Some(val) => val,
             None => options.reload_port,
         };
+
         let protocol = match options.reload_ws_protocol {
+            leptos_config::ReloadWSProtocol::Auto => "null",
             leptos_config::ReloadWSProtocol::WS => "'ws://'",
             leptos_config::ReloadWSProtocol::WSS => "'wss://'",
+
+            unrecognized => {
+                leptos::logging::error!(
+                    "Unrecognized live reload protocol option '{}'",
+                    unrecognized,
+                );
+
+                "null"
+            }
         };
 
         let script = format!(
@@ -80,20 +102,20 @@ pub fn HydrationScripts(
             let mut manifest = "__wasm_split_manifest.json".to_string();
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "manifest" {
-                            manifest.clear();
-                            manifest.push_str("__wasm_split_manifest.");
-                            manifest.push_str(hash.trim());
-                            manifest.push_str(".json");
-                        }
-                        if file == "split" {
-                            split.clear();
-                            split.push_str("__wasm_split.");
-                            split.push_str(hash.trim());
-                            split.push_str(".js");
-                        }
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':')
+                {
+                    if file == "manifest" {
+                        manifest.clear();
+                        manifest.push_str("__wasm_split_manifest.");
+                        manifest.push_str(hash.trim());
+                        manifest.push_str(".json");
+                    }
+                    if file == "split" {
+                        split.clear();
+                        split.push_str("__wasm_split.");
+                        split.push_str(hash.trim());
+                        split.push_str(".js");
                     }
                 }
             }
@@ -122,39 +144,54 @@ pub fn HydrationScripts(
         provide_context(splits.clone());
     }
 
-    let mut js_file_name = options.output_name.to_string();
-    let mut wasm_file_name = options.output_name.to_string();
-    if options.hash_files {
-        let hash_path = std::env::current_exe()
-            .map(|path| {
-                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
-            })
-            .unwrap_or_default()
-            .join(options.hash_file.as_ref());
-        if hash_path.exists() {
-            let hashes = std::fs::read_to_string(&hash_path)
-                .expect("failed to read hash file");
-            for line in hashes.lines() {
-                let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "js" {
-                            js_file_name.push_str(&format!(".{}", hash.trim()));
-                        } else if file == "wasm" {
-                            wasm_file_name
-                                .push_str(&format!(".{}", hash.trim()));
+    // The hashed asset file names are process-static: the running binary maps to
+    // exactly one set of `output.js` / `output.wasm` names for its whole lifetime.
+    // Resolve them once and memoize, mirroring the `SPLIT_MANIFEST` `OnceLock` above,
+    // so we don't re-run `current_exe()` + `stat` + `open`/`read` of the hash file
+    // (plus the surrounding allocations) on every SSR response.
+    static HASHED_NAMES: OnceLock<(Arc<str>, Arc<str>)> = OnceLock::new();
+
+    let (js_file_name, wasm_file_name) = HASHED_NAMES
+        .get_or_init(|| {
+            let mut js_file_name = options.output_name.to_string();
+            let mut wasm_file_name = options.output_name.to_string();
+            if options.hash_files {
+                let hash_path = std::env::current_exe()
+                    .map(|path| {
+                        path.parent()
+                            .map(|p| p.to_path_buf())
+                            .unwrap_or_default()
+                    })
+                    .unwrap_or_default()
+                    .join(options.hash_file.as_ref());
+                if hash_path.exists() {
+                    let hashes = std::fs::read_to_string(&hash_path)
+                        .expect("failed to read hash file");
+                    for line in hashes.lines() {
+                        let line = line.trim();
+                        if !line.is_empty()
+                            && let Some((file, hash)) = line.split_once(':')
+                        {
+                            if file == "js" {
+                                js_file_name.push('.');
+                                js_file_name.push_str(hash.trim());
+                            } else if file == "wasm" {
+                                wasm_file_name.push('.');
+                                wasm_file_name.push_str(hash.trim());
+                            }
                         }
                     }
+                } else {
+                    leptos::logging::error!(
+                        "File hashing is active but no hash file was found"
+                    );
                 }
+            } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+                wasm_file_name.push_str("_bg");
             }
-        } else {
-            leptos::logging::error!(
-                "File hashing is active but no hash file was found"
-            );
-        }
-    } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
-        wasm_file_name.push_str("_bg");
-    }
+            (js_file_name.into(), wasm_file_name.into())
+        })
+        .clone();
 
     let pkg_path = &options.site_pkg_dir;
     #[cfg(feature = "nonce")]

@@ -1,6 +1,7 @@
 use crate::ServerMetaContext;
 use leptos::{
-    attr::{any_attribute::AnyAttribute, NextAttribute},
+    IntoView,
+    attr::{NextAttribute, any_attribute::AnyAttribute},
     component, html,
     reactive::owner::use_context,
     tachys::{
@@ -8,11 +9,10 @@ use leptos::{
         html::attribute::Attribute,
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
-    IntoView,
 };
 
 /// A component to set metadata on the document’s `<body>` element from
@@ -121,8 +121,7 @@ where
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
@@ -173,9 +172,11 @@ where
     }
 
     fn elements(&self) -> Vec<leptos::tachys::renderer::types::Element> {
-        vec![document()
-            .body()
-            .expect("there to be a <body> element")
-            .into()]
+        vec![
+            document()
+                .body()
+                .expect("there to be a <body> element")
+                .into(),
+        ]
     }
 }

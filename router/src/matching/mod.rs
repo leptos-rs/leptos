@@ -9,7 +9,7 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use crate::{static_routes::RegenerationFn, Method, SsrMode};
+use crate::{Method, SsrMode, static_routes::RegenerationFn};
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, collections::HashSet, sync::atomic::Ordering};
@@ -158,8 +158,8 @@ pub struct GeneratedRouteData {
 mod tests {
     use super::{NestedRoute, ParamSegment, RouteDefs};
     use crate::{
-        matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
-        WildcardSegment,
+        MatchInterface, PathSegment, StaticSegment, WildcardSegment,
+        matching::MatchParams,
     };
     use either_of::{Either, EitherOf4};
 
@@ -289,6 +289,28 @@ mod tests {
         let matched = routes.match_route("/blog/post/42").unwrap();
         let params = matched.to_params();
         assert_eq!(params, vec![("id".into(), "42".into())]);
+    }
+
+    #[test]
+    pub fn nested_tuple_preserves_inner_route_match_id() {
+        use crate::matching::MatchNestedRoutes;
+
+        // Each NestedRoute is assigned a unique RouteMatchId at construction.
+        let three = (
+            NestedRoute::new(StaticSegment("a"), || ()),
+            NestedRoute::new(StaticSegment("b"), || ()),
+            NestedRoute::new(StaticSegment("c"), || ()),
+        );
+
+        // For each position, the id returned by the tuple's `match_nested`
+        // must be the matched route's own id (as reported by `as_id`), not the
+        // child's positional index within the tuple.
+        for path in ["/a", "/b", "/c"] {
+            let (matched, _) = three.match_nested(path);
+            let (id, m) = matched
+                .unwrap_or_else(|| panic!("`{path}` should match a route"));
+            assert_eq!(id, m.as_id());
+        }
     }
 
     #[test]

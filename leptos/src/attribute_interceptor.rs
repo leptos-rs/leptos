@@ -1,8 +1,8 @@
 use crate::attr::{
-    any_attribute::{AnyAttribute, IntoAnyAttribute},
     Attribute, NextAttribute,
+    any_attribute::{AnyAttribute, IntoAnyAttribute},
 };
-use leptos::prelude::*;
+use leptos::{prelude::*, tachys::view::RenderFlags};
 
 /// Function stored to build/rebuild the wrapped children when attributes are added.
 type ChildBuilder<T> = dyn Fn(AnyAttribute) -> T + Send + Sync + 'static;
@@ -136,17 +136,10 @@ impl<T: IntoView + 'static, A: Attribute> RenderHtml
         self,
         buf: &mut String,
         position: &mut leptos::tachys::view::Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.children.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            vec![],
-        )
+        self.children.to_html_with_buf(buf, position, flags, vec![])
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -1,5 +1,5 @@
 use super::{
-    fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
+    TagType, fragment_to_tokens, utils::is_nostrip_optional_and_update_key,
 };
 use crate::view::{
     attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
@@ -12,7 +12,7 @@ use rstml::node::{
 };
 use std::collections::HashMap;
 use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt,
+    Expr, ExprPath, ExprRange, Item, RangeLimits, Stmt, spanned::Spanned,
 };
 
 pub(crate) fn component_to_tokens(
@@ -286,6 +286,10 @@ pub(crate) fn component_to_tokens(
     };
 
     let name = node.name();
+    // Span `.build()` to the component name so that TypedBuilder's
+    // "missing required field" error (raised on `build`) points at this
+    // specific `<Component/>` instead of at the whole `view!` invocation.
+    let build = quote_spanned! { name.span() => .build() };
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         {
@@ -300,7 +304,7 @@ pub(crate) fn component_to_tokens(
                         #(#required_props)*
                         #(#slots)*
                         #children
-                        .build();
+                        #build;
                     #(#optional_props)*
                     props
                 }

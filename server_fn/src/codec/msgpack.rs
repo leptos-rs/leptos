@@ -1,9 +1,9 @@
 use crate::{
-    codec::{Patch, Post, Put},
     ContentType, Decodes, Encodes, Format, FormatType,
+    codec::{Patch, Post, Put},
 };
-use bytes::Bytes;
-use serde::{de::DeserializeOwned, Serialize};
+use bytes::{BufMut, Bytes, BytesMut};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Serializes and deserializes MessagePack with [`rmp_serde`].
 pub struct MsgPackEncoding;
@@ -24,6 +24,10 @@ where
 
     fn encode(value: &T) -> Result<Bytes, Self::Error> {
         rmp_serde::to_vec(value).map(Bytes::from)
+    }
+
+    fn encode_into(value: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        rmp_serde::encode::write(&mut buf.writer(), value)
     }
 }
 

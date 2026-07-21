@@ -22,8 +22,6 @@ use crate::params::ParamsMap;
 pub use history::*;
 pub use server::*;
 
-pub(crate) const BASE: &str = "https://leptos.dev";
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Url {
     origin: String,
@@ -251,9 +249,7 @@ pub trait LocationProvider: Clone + 'static {
     /// Update the browser's history to reflect a new location.
     fn complete_navigation(&self, loc: &LocationChange);
 
-    fn parse(url: &str) -> Result<Url, Self::Error> {
-        Self::parse_with_base(url, BASE)
-    }
+    fn parse(url: &str) -> Result<Url, Self::Error>;
 
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 

@@ -10,12 +10,12 @@ use js_sys::Array;
 use std::{
     fmt::Display,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         LazyLock,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 use throw_error::{Error, ErrorId};
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
+use wasm_bindgen::{JsCast, prelude::wasm_bindgen};
 
 #[wasm_bindgen]
 extern "C" {
@@ -30,34 +30,38 @@ extern "C" {
 }
 
 fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
+    // Treat `__SERIALIZED_ERRORS` as untrusted input: a truncated stream,
+    // a version mismatch between server and client, a proxy that mangles
+    // the script, or any other source of malformed entries would
+    // otherwise panic the entire hydration step. Skip-and-continue is
+    // safer than unwrap-and-die.
     __SERIALIZED_ERRORS.with(|s| {
         s.iter()
-            .flat_map(|value| {
-                value.dyn_ref::<Array>().map(|value| {
-                    let error_boundary_id =
-                        value.get(0).as_f64().unwrap() as usize;
-                    let error_id = value.get(1).as_f64().unwrap() as usize;
-                    let value = value
-                        .get(2)
-                        .as_string()
-                        .expect("Expected a [number, string] tuple");
-                    (
-                        SerializedDataId(error_boundary_id),
-                        ErrorId::from(error_id),
-                        Error::from(SerializedError(value)),
-                    )
-                })
+            .filter_map(|value| {
+                let entry = value.dyn_ref::<Array>()?;
+                let error_boundary_id = entry.get(0).as_f64()? as usize;
+                let error_id = entry.get(1).as_f64()? as usize;
+                let msg = entry.get(2).as_string()?;
+                Some((
+                    SerializedDataId(error_boundary_id),
+                    ErrorId::from(error_id),
+                    // `SerializedError` is a concrete `std::error::Error`, so
+                    // build it in a single allocation via `Error::new`.
+                    Error::new(SerializedError(msg)),
+                ))
             })
             .collect()
     })
 }
 
 fn incomplete_chunks() -> Vec<SerializedDataId> {
+    // Same robustness contract as `serialized_errors`: a malformed entry
+    // is dropped rather than panicking hydration.
     __INCOMPLETE_CHUNKS.with(|i| {
         i.iter()
-            .map(|value| {
-                let id = value.as_f64().unwrap() as usize;
-                SerializedDataId(id)
+            .filter_map(|value| {
+                let id = value.as_f64()? as usize;
+                Some(SerializedDataId(id))
             })
             .collect()
     })

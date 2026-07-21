@@ -2,22 +2,23 @@
 #[cfg(feature = "ssr")]
 use super::MarkBranch;
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    Mountable, Position, PositionState, Render, RenderHtml,
+    add_attr::AddAnyAttr,
 };
 use crate::{
     erased::{Erased, ErasedLocal},
     html::attribute::{
-        any_attribute::{AnyAttribute, AnyAttributeState, IntoAnyAttribute},
         Attribute,
+        any_attribute::{AnyAttribute, AnyAttributeState, IntoAnyAttribute},
     },
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
+    view::RenderFlags,
 };
 use futures::future::{join, join_all};
 use std::{any::TypeId, fmt::Debug};
-#[cfg(any(feature = "ssr", feature = "hydrate"))]
+#[cfg(any(feature = "ssr", all(feature = "hydrate", feature = "lazy")))]
 use std::{future::Future, pin::Pin};
 
 /// A type-erased view. This can be used if control flow requires that multiple different types of
@@ -43,14 +44,13 @@ pub struct AnyView {
     html_len: usize,
     #[cfg(feature = "ssr")]
     to_html:
-        fn(Erased, &mut String, &mut Position, bool, bool, Vec<AnyAttribute>),
+        fn(Erased, &mut String, &mut Position, RenderFlags, Vec<AnyAttribute>),
     #[cfg(feature = "ssr")]
     to_html_async: fn(
         Erased,
         &mut StreamBuilder,
         &mut Position,
-        bool,
-        bool,
+        RenderFlags,
         Vec<AnyAttribute>,
     ),
     #[cfg(feature = "ssr")]
@@ -58,8 +58,7 @@ pub struct AnyView {
         Erased,
         &mut StreamBuilder,
         &mut Position,
-        bool,
-        bool,
+        RenderFlags,
         Vec<AnyAttribute>,
     ),
     #[cfg(feature = "ssr")]
@@ -67,10 +66,10 @@ pub struct AnyView {
     resolve: fn(Erased) -> Pin<Box<dyn Future<Output = AnyView> + Send>>,
     #[cfg(feature = "ssr")]
     dry_resolve: fn(&mut Erased),
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
     #[allow(clippy::type_complexity)]
     hydrate_from_server: fn(Erased, &Cursor, &PositionState) -> AnyViewState,
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", feature = "lazy"))]
     #[allow(clippy::type_complexity)]
     hydrate_async: fn(
         Erased,
@@ -219,15 +218,13 @@ where
             value: Erased,
             buf: &mut String,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -240,15 +237,13 @@ where
             value: Erased,
             buf: &mut StreamBuilder,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_async_with_buf::<false>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -261,15 +256,13 @@ where
             value: Erased,
             buf: &mut StreamBuilder,
             position: &mut Position,
-            escape: bool,
-            mark_branches: bool,
+            flags: RenderFlags,
             extra_attrs: Vec<AnyAttribute>,
         ) {
             value.into_inner::<T>().to_html_async_with_buf::<true>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
             if !T::EXISTS {
@@ -291,7 +284,7 @@ where
             }
         }
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         fn hydrate_from_server<T: RenderHtml + 'static>(
             value: Erased,
             cursor: &Cursor,
@@ -313,7 +306,7 @@ where
             }
         }
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
         fn hydrate_async<T: RenderHtml + 'static>(
             value: Erased,
             cursor: &Cursor,
@@ -367,9 +360,9 @@ where
             to_html_async: to_html_async::<T::Owned>,
             #[cfg(feature = "ssr")]
             to_html_async_ooo: to_html_async_ooo::<T::Owned>,
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
             hydrate_from_server: hydrate_from_server::<T::Owned>,
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", feature = "lazy"))]
             hydrate_async: hydrate_async::<T::Owned>,
             value: Erased::new(value),
         }
@@ -452,30 +445,17 @@ impl RenderHtml for AnyView {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         #[cfg(feature = "ssr")]
         {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
-            if mark_branches && escape {
-                buf.open_branch(&type_id);
+            if flags.mark_branches && flags.escape {
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
-            (self.to_html)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
-            if mark_branches && escape {
-                buf.close_branch(&type_id);
+            (self.to_html)(self.value, buf, position, flags, extra_attrs);
+            if flags.mark_branches && flags.escape {
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
@@ -483,10 +463,9 @@ impl RenderHtml for AnyView {
         }
         #[cfg(not(feature = "ssr"))]
         {
-            _ = mark_branches;
+            _ = flags;
             _ = buf;
             _ = position;
-            _ = escape;
             _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
@@ -499,55 +478,36 @@ impl RenderHtml for AnyView {
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
-            if mark_branches && escape {
-                buf.open_branch(&type_id);
+            if flags.mark_branches && flags.escape {
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
             (self.to_html_async_ooo)(
                 self.value,
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
-            if mark_branches && escape {
-                buf.close_branch(&type_id);
+            if flags.mark_branches && flags.escape {
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
             }
         } else {
-            let type_id = if mark_branches && escape {
-                format!("{:?}", self.type_id)
-            } else {
-                Default::default()
-            };
-            if mark_branches && escape {
-                buf.open_branch(&type_id);
+            if flags.mark_branches && flags.escape {
+                buf.open_branch_fmt(format_args!("{:?}", self.type_id));
             }
-            (self.to_html_async)(
-                self.value,
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
-            if mark_branches && escape {
-                buf.close_branch(&type_id);
+            (self.to_html_async)(self.value, buf, position, flags, extra_attrs);
+            if flags.mark_branches && flags.escape {
+                buf.close_branch_fmt(format_args!("{:?}", self.type_id));
                 if *position == Position::NextChildAfterText {
                     *position = Position::NextChild;
                 }
@@ -557,8 +517,7 @@ impl RenderHtml for AnyView {
         {
             _ = buf;
             _ = position;
-            _ = escape;
-            _ = mark_branches;
+            _ = flags;
             _ = extra_attrs;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
@@ -572,7 +531,7 @@ impl RenderHtml for AnyView {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
         {
             if FROM_SERVER {
                 (self.hydrate_from_server)(self.value, cursor, position)
@@ -582,6 +541,14 @@ impl RenderHtml for AnyView {
                      supported."
                 );
             }
+        }
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
+        {
+            use futures::FutureExt;
+
+            (self.hydrate_async)(self.value, cursor, position)
+                .now_or_never()
+                .unwrap()
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -599,11 +566,21 @@ impl RenderHtml for AnyView {
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", feature = "lazy"))]
         {
+            #[cfg(all(feature = "hydrate", feature = "lazy"))]
             let state =
                 (self.hydrate_async)(self.value, cursor, position).await;
             state
+        }
+        #[cfg(all(feature = "hydrate", not(feature = "lazy")))]
+        {
+            _ = cursor;
+            _ = position;
+            panic!(
+                "the `lazy` feature on `tachys` must be activated to use lazy \
+                 hydration"
+            );
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -733,28 +710,21 @@ impl RenderHtml for AnyViewWithAttrs {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         mut extra_attrs: Vec<AnyAttribute>,
     ) {
         // `extra_attrs` will be empty here in most cases, but it will have
         // attributes in it already if this is, itself, receiving additional attrs
         extra_attrs.extend(self.attrs);
-        self.view.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.view
+            .to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         mut extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -763,8 +733,7 @@ impl RenderHtml for AnyViewWithAttrs {
         self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

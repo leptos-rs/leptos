@@ -1,18 +1,18 @@
-use crate::{children::Children, component, prelude::*, IntoView};
+use crate::{IntoView, children::Children, component, prelude::*};
 use leptos_dom::helpers::window;
 use leptos_server::{ServerAction, ServerMultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
+    Http, ServerFn,
     client::Client,
     codec::PostUrl,
     error::{IntoAppError, ServerFnErrorErr},
     request::ClientReq,
-    Http, ServerFn,
 };
 use tachys::{
     either::Either,
     html::{
-        element::{form, Form},
+        element::{Form, form},
         event::submit,
     },
     reactive_graph::node_ref::NodeRef,
@@ -287,7 +287,9 @@ where
             web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
                 .unwrap_throw();
         let data = data.to_string().as_string().unwrap_or_default();
-        serde_qs::Config::new(5, false).deserialize_str::<Self>(&data)
+        serde_qs::Config::new()
+            .use_form_encoding(true)
+            .deserialize_str::<Self>(&data)
     }
 }
 

@@ -1,9 +1,9 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 use crate::{
+    ContentType, Decodes, Encodes,
     error::{FromServerFnError, IntoAppError, ServerFnErrorErr},
     request::{ClientReq, Req},
     response::{ClientRes, TryRes},
-    ContentType, Decodes, Encodes,
 };
 use std::marker::PhantomData;
 

@@ -1,19 +1,19 @@
 use crate::{
+    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
+    RouteList, RouteListing, RouteMatchId,
     flat_router::MatchedRoute,
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::RouteDefs,
     params::ParamsMap,
     view_transition::start_view_transition,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
-    RouteList, RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::{
-    channel::oneshot,
-    future::{join_all, AbortHandle, Abortable},
     FutureExt,
+    channel::oneshot,
+    future::{AbortHandle, Abortable, join_all},
 };
 use leptos::{
     attr::any_attribute::AnyAttribute,
@@ -24,7 +24,7 @@ use leptos::{
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
-    owner::{provide_context, use_context, Owner},
+    owner::{Owner, provide_context, use_context},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
     transition::AsyncTransition,
@@ -45,10 +45,10 @@ use tachys::{
     reactive_graph::{OwnedView, Suspend},
     ssr::StreamBuilder,
     view::{
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
         any_view::{AnyView, IntoAny},
         either::EitherOf3State,
-        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 
@@ -303,8 +303,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
@@ -385,13 +384,7 @@ where
                     Either::Right(top_level_outlet(&outlets, &outer_owner))
                 }
             };
-            view.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
+            view.to_html_with_buf(buf, position, flags, extra_attrs);
         }
     }
 
@@ -399,8 +392,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -449,8 +441,7 @@ where
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

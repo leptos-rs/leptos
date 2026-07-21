@@ -3,12 +3,10 @@ use crate::{
     html::attribute::any_attribute::AnyAttribute, hydration::Cursor,
     ssr::StreamBuilder,
 };
-use or_poisoned::OrPoisoned;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     future::Future,
     rc::Rc,
-    sync::{Arc, RwLock},
 };
 
 /// Add attributes to typed views.
@@ -55,7 +53,15 @@ pub trait Render: Sized {
 pub trait MarkBranch {
     fn open_branch(&mut self, branch_id: &str);
 
+    /// Like [`open_branch`](Self::open_branch), but writes a formatted branch id
+    /// directly into the buffer, avoiding a transient `String` allocation.
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>);
+
     fn close_branch(&mut self, branch_id: &str);
+
+    /// Like [`close_branch`](Self::close_branch), but writes a formatted branch
+    /// id directly into the buffer, avoiding a transient `String` allocation.
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>);
 }
 
 impl MarkBranch for String {
@@ -65,9 +71,23 @@ impl MarkBranch for String {
         self.push_str("-->");
     }
 
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.push_str("<!--bo-");
+        let _ = self.write_fmt(branch_id);
+        self.push_str("-->");
+    }
+
     fn close_branch(&mut self, branch_id: &str) {
         self.push_str("<!--bc-");
         self.push_str(branch_id);
+        self.push_str("-->");
+    }
+
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.push_str("<!--bc-");
+        let _ = self.write_fmt(branch_id);
         self.push_str("-->");
     }
 }
@@ -79,10 +99,84 @@ impl MarkBranch for StreamBuilder {
         self.sync_buf.push_str("-->");
     }
 
+    fn open_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.sync_buf.push_str("<!--bo-");
+        let _ = self.sync_buf.write_fmt(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+
     fn close_branch(&mut self, branch_id: &str) {
         self.sync_buf.push_str("<!--bc-");
         self.sync_buf.push_str(branch_id);
         self.sync_buf.push_str("-->");
+    }
+
+    fn close_branch_fmt(&mut self, branch_id: std::fmt::Arguments<'_>) {
+        use std::fmt::Write;
+        self.sync_buf.push_str("<!--bc-");
+        let _ = self.sync_buf.write_fmt(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+}
+
+/// Flags that control how a view is serialized to HTML.
+///
+/// These are threaded through [`RenderHtml::to_html_with_buf`] and the streaming variants. The
+/// axes are independent on purpose.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct RenderFlags {
+    /// Whether text content should be HTML-escaped.
+    pub escape: bool,
+    /// Whether hydration position/boundary markers should be emitted.
+    pub hydrate: bool,
+    /// Whether branch markers should be emitted, to support libraries that diff HTML pages against
+    /// one another by marking sections of the view that branch to different types.
+    pub mark_branches: bool,
+}
+
+impl RenderFlags {
+    /// Standard flags for hydratable server rendering: escape text and emit hydration markers, but
+    /// no branch markers.
+    pub const HYDRATE: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: false,
+    };
+
+    /// Like [`HYDRATE`](Self::HYDRATE), but also emits branch markers.
+    pub const HYDRATE_BRANCHING: Self = Self {
+        escape: true,
+        hydrate: true,
+        mark_branches: true,
+    };
+
+    /// Creates a new set of flags.
+    pub const fn new(escape: bool, hydrate: bool, mark_branches: bool) -> Self {
+        Self {
+            escape,
+            hydrate,
+            mark_branches,
+        }
+    }
+
+    /// Returns a copy of these flags with `escape` set to the given value.
+    pub const fn with_escape(mut self, escape: bool) -> Self {
+        self.escape = escape;
+        self
+    }
+
+    /// Returns a copy of these flags with `hydrate` set to the given value.
+    pub const fn with_hydrate(mut self, hydrate: bool) -> Self {
+        self.hydrate = hydrate;
+        self
+    }
+
+    /// Returns a copy of these flags with `mark_branches` set to the given value.
+    pub const fn with_mark_branches(mut self, mark_branches: bool) -> Self {
+        self.mark_branches = mark_branches;
+        self
     }
 }
 
@@ -140,8 +234,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         buf
@@ -158,8 +251,7 @@ where
         self.to_html_with_buf(
             &mut buf,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         buf
@@ -174,8 +266,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -192,8 +283,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
@@ -211,8 +301,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            false,
+            RenderFlags::HYDRATE,
             vec![],
         );
         builder.finish()
@@ -231,8 +320,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
-            true,
-            true,
+            RenderFlags::HYDRATE_BRANCHING,
             vec![],
         );
         builder.finish()
@@ -243,8 +331,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     );
 
@@ -253,20 +340,13 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         buf.with_buf(|buf| {
-            self.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            )
+            self.to_html_with_buf(buf, position, flags, extra_attrs)
         });
     }
 
@@ -381,7 +461,7 @@ where
     T: Mountable,
 {
     fn unmount(&mut self) {
-        if let Some(ref mut mounted) = self {
+        if let Some(mounted) = self {
             mounted.unmount()
         }
     }
@@ -391,7 +471,7 @@ where
         parent: &crate::renderer::types::Element,
         marker: Option<&crate::renderer::types::Node>,
     ) {
-        if let Some(ref mut inner) = self {
+        if let Some(inner) = self {
             inner.mount(parent, marker);
         }
     }
@@ -471,29 +551,29 @@ pub trait ToTemplate {
 /// Keeps track of what position the item currently being hydrated is in, relative to its siblings
 /// and parents.
 #[derive(Debug, Default, Clone)]
-pub struct PositionState(Arc<RwLock<Position>>);
+pub struct PositionState(Rc<Cell<Position>>);
 
 impl PositionState {
     /// Creates a new position tracker.
     pub fn new(position: Position) -> Self {
-        Self(Arc::new(RwLock::new(position)))
+        Self(Rc::new(Cell::new(position)))
     }
 
     /// Sets the current position.
     pub fn set(&self, position: Position) {
-        *self.0.write().or_poisoned() = position;
+        self.0.set(position);
     }
 
     /// Gets the current position.
     pub fn get(&self) -> Position {
-        *self.0.read().or_poisoned()
+        self.0.get()
     }
 
     /// Creates a new [`PositionState`], which starts with the same [`Position`], but no longer
     /// shares data with this `PositionState`.
     pub fn deep_clone(&self) -> Self {
         let current = self.get();
-        Self(Arc::new(RwLock::new(current)))
+        Self(Rc::new(Cell::new(current)))
     }
 }
 

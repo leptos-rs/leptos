@@ -1,11 +1,12 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+    ToTemplate,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
-    view::{add_attr::AddAnyAttr, StreamBuilder},
+    view::{StreamBuilder, add_attr::AddAnyAttr},
 };
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
@@ -32,11 +33,10 @@ impl RenderHtml for () {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        _mark_branches: bool,
+        flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
-        if escape {
+        if flags.hydrate {
             buf.push_str("<!>");
             *position = Position::NextChild;
         }
@@ -144,25 +144,17 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.0.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.0.to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -170,8 +162,7 @@ where
         self.0.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }
@@ -289,30 +280,28 @@ macro_rules! impl_view_for_tuples {
                 self,
                 buf: &mut String,
                 position: &mut Position,
-                escape: bool,
-                mark_branches: bool,
+                flags: RenderFlags,
                 extra_attrs: Vec<AnyAttribute>
             ) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone());
-                $($ty.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs.clone()));*
+                $first.to_html_with_buf(buf, position, flags, extra_attrs.clone());
+                $($ty.to_html_with_buf(buf, position, flags, extra_attrs.clone()));*
 			}
 
 			fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
 				self,
 				buf: &mut StreamBuilder,
                 position: &mut Position,
-                escape: bool,
-                mark_branches: bool,
+                flags: RenderFlags,
                 extra_attrs: Vec<AnyAttribute>
             ) where
 				Self: Sized,
 			{
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone());
-                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs.clone()));*
+                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, flags, extra_attrs.clone());
+                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, flags, extra_attrs.clone()));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor, position: &PositionState) -> Self::State {

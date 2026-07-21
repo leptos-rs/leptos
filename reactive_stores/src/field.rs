@@ -1,8 +1,9 @@
 use crate::{
+    ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
+    KeyedIterable, KeyedSubfield, Store, StoreField, StoreFieldTrigger,
+    Subfield,
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, ArcStore, AtIndex, AtKeyed, DerefedField, KeyMap, KeyedAccess,
-    KeyedSubfield, Store, StoreField, StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::{ArenaItem, Storage, SyncStorage},
@@ -143,7 +144,7 @@ where
     T: Send + Sync,
     S: Storage<ArcField<T>>,
     Subfield<Inner, Prev, T>: Clone,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
 {
     #[track_caller]
@@ -158,7 +159,7 @@ where
 
 impl<Inner, T> From<DerefedField<Inner>> for Field<T>
 where
-    Inner: Clone + StoreField + Send + Sync + 'static,
+    Inner: Clone + StoreField + IsDisposed + Send + Sync + 'static,
     Inner::Value: Deref<Target = T> + DerefMut,
     T: Sized + 'static,
 {
@@ -176,8 +177,8 @@ impl<Inner, Prev, S> From<AtIndex<Inner, Prev>> for Field<Prev::Output, S>
 where
     AtIndex<Inner, Prev>: Clone,
     S: Storage<ArcField<Prev::Output>>,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
-    Prev: IndexMut<usize> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
+    Prev: IndexMut<usize> + crate::len::Len + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {
     #[track_caller]
@@ -197,8 +198,9 @@ where
     AtKeyed<Inner, Prev, K, T>: Clone,
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
-    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
     Prev: 'static,
     T: KeyedAccess<K> + 'static,
     T::Value: Sized,
@@ -269,7 +271,10 @@ where
     }
 }
 
-impl<T> Write for Field<T> {
+impl<T, S> Write for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
@@ -290,5 +295,32 @@ impl<T> Write for Field<T> {
 impl<T, S> IsDisposed for Field<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as reactive_stores, Field, Store};
+    use reactive_graph::{
+        owner::{LocalStorage, Owner},
+        traits::{ReadUntracked, Write},
+    };
+
+    #[derive(Default, reactive_stores_macro::Store)]
+    struct State {
+        value: i32,
+    }
+
+    #[test]
+    fn write_is_available_for_non_default_storage() {
+        let owner = Owner::new();
+        owner.set();
+
+        let store: Store<State, LocalStorage> =
+            Store::new_local(State::default());
+        let field: Field<i32, LocalStorage> = store.value().into();
+
+        *field.write() = 7;
+        assert_eq!(*field.read_untracked(), 7);
     }
 }

@@ -1,6 +1,6 @@
 use dioxus_devtools::DevserverMsg;
-use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{js_sys::JsString, MessageEvent, WebSocket};
+use wasm_bindgen::{JsCast, prelude::Closure};
+use web_sys::{MessageEvent, WebSocket, js_sys::JsString};
 
 /// Sets up a websocket connect to the `dx` CLI, waiting for incoming hot-patching messages
 /// and patching the WASM binary appropriately.
@@ -38,20 +38,17 @@ pub fn connect_to_hot_patch_messages() {
 
             if let Ok(DevserverMsg::HotReload(msg)) =
                 serde_json::from_str::<DevserverMsg>(string)
+                && let Some(jump_table) = msg.jump_table.as_ref().cloned()
+                && msg.for_build_id == Some(dioxus_cli_config::build_id())
             {
-                if let Some(jump_table) = msg.jump_table.as_ref().cloned() {
-                    if msg.for_build_id == Some(dioxus_cli_config::build_id()) {
-                        let our_pid = if cfg!(target_family = "wasm") {
-                            None
-                        } else {
-                            Some(std::process::id())
-                        };
+                let our_pid = if cfg!(target_family = "wasm") {
+                    None
+                } else {
+                    Some(std::process::id())
+                };
 
-                        if msg.for_pid == our_pid {
-                            unsafe { subsecond::apply_patch(jump_table) }
-                                .unwrap();
-                        }
-                    }
+                if msg.for_pid == our_pid {
+                    unsafe { subsecond::apply_patch(jump_table) }.unwrap();
                 }
             }
         })

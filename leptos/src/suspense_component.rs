@@ -1,19 +1,19 @@
 use crate::{
+    IntoView,
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
-    IntoView,
 };
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, select};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::{LocalResourceNotifier, SuspenseContext},
         ArcMemo, ScopedFuture,
+        suspense::{LocalResourceNotifier, SuspenseContext},
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, ArcStoredValue, Owner},
+    owner::{ArcStoredValue, Owner, provide_context, use_context},
     signal::ArcRwSignal,
     traits::{
         Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
@@ -24,14 +24,14 @@ use slotmap::{DefaultKey, SlotMap};
 use std::sync::{Arc, Mutex};
 use tachys::{
     either::Either,
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
     view::{
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
-        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 use throw_error::ErrorHookFuture;
@@ -100,6 +100,13 @@ pub fn Suspense<Chil>(
     /// Children will be rendered once initially to catch any resource reads, then hidden until all
     /// data have loaded.
     children: TypedChildren<Chil>,
+    /// If `true`, disables the SSR "double-check" pass that re-walks the
+    /// children after initial resources resolve in order to discover
+    /// conditional/nested resource reads. Enable this when the children body
+    /// has no conditional resource reads but does have side effects that
+    /// should not fire more than once per render.
+    #[prop(optional)]
+    strict: bool,
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
@@ -143,6 +150,7 @@ where
             children,
             error_boundary_parent,
             has_tasks,
+            strict,
         })
     })
 }
@@ -166,6 +174,10 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub children: Chil,
     pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
     pub has_tasks: Arc<dyn Fn() -> bool + Send + Sync>,
+    /// If `true`, the children are only walked once to register resources.
+    /// Conditional resource reads that depend on other resources will not be
+    /// discovered, but side effects in the children body run fewer times.
+    pub strict: bool,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -260,6 +272,7 @@ where
             children,
             error_boundary_parent,
             has_tasks,
+            strict,
         } = self;
         SuspenseBoundary {
             id,
@@ -268,6 +281,7 @@ where
             children: children.add_any_attr(attr),
             error_boundary_parent,
             has_tasks,
+            strict,
         }
     }
 }
@@ -295,25 +309,18 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.fallback.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.fallback
+            .to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -350,9 +357,15 @@ where
         let children = Arc::new(Mutex::new(Some(self.children)));
 
         // check the set of tasks to see if it is empty, now or later
+        let strict = self.strict;
         let eff = reactive_graph::effect::Effect::new_isomorphic({
             let children = Arc::clone(&children);
             let notify_error_boundary = notify_error_boundary.clone();
+            // tracks whether a task has ever been registered in this Suspense.
+            // if none ever has, no resolving resource could gate a nested
+            // read, so the double-check pass would do no work and we can skip
+            // it (avoiding an extra invocation of the children body).
+            let mut any_task_ever_seen = false;
             move |double_checking: Option<bool>| {
                 // on the first run, always track the tasks
                 if double_checking.is_none() {
@@ -361,9 +374,15 @@ where
 
                 if let Some(curr_tasks) = tasks.try_read_untracked() {
                     if curr_tasks.is_empty() {
-                        if double_checking == Some(true) {
-                            // we have finished loading, and checking the children again told us there are
-                            // no more pending tasks. so we can render both the children and the error boundary
+                        if strict
+                            || double_checking == Some(true)
+                            || !any_task_ever_seen
+                        {
+                            // either we've finished the confirming dry-walk,
+                            // or no task has ever been registered — in both
+                            // cases there is nothing more to discover, so we
+                            // can render both the children and the error
+                            // boundary
 
                             if let Some(tx) = tasks_tx.take() {
                                 // If the receiver has dropped, it means the ScopedFuture has already
@@ -408,6 +427,7 @@ where
                             return true;
                         }
                     } else {
+                        any_task_ever_seen = true;
                         tasks.track();
                     }
                 }
@@ -484,8 +504,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -494,8 +513,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -509,13 +527,13 @@ where
                     buf.push_fallback(
                         self.fallback,
                         &mut fallback_position,
-                        mark_branches,
+                        flags.mark_branches,
                         extra_attrs.clone(),
                     );
                     buf.push_async_out_of_order_with_nonce(
                         fut,
                         position,
-                        mark_branches,
+                        flags.mark_branches,
                         nonce_or_not(),
                         extra_attrs,
                     );
@@ -536,8 +554,7 @@ where
                             value.to_html_async_with_buf::<OUT_OF_ORDER>(
                                 &mut builder,
                                 &mut position,
-                                escape,
-                                mark_branches,
+                                flags,
                                 extra_attrs,
                             );
                             builder.finish().take_chunks()
@@ -658,25 +675,17 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        (self.0)().to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        (self.0)().to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -684,8 +693,7 @@ where
         (self.0)().to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

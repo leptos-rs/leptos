@@ -83,9 +83,8 @@
 //!
 //! # Feature Flags
 //!
-//! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
-//!   Also enables some experimental optimizations that improve the handling of static strings and
-//!   the performance of the `template! {}` macro.
+//! - **`nightly`**: On `nightly` Rust, enables some experimental optimizations that improve the
+//!   handling of static strings and the performance of the `template! {}` macro.
 //! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
 //! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
 //! - **`islands`** Activates “islands mode,” in which components are not made interactive on the
@@ -187,7 +186,7 @@ pub mod prelude {
             error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
         };
         pub use tachys::{
-            reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
+            reactive_graph::{Suspend, bind::BindAttribute, node_ref::*},
             view::{fragment::Fragment, template::ViewTemplate},
         };
     }

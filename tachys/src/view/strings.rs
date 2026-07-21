@@ -1,5 +1,6 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+    ToTemplate,
 };
 use crate::{
     html::attribute::any_attribute::AnyAttribute,
@@ -57,17 +58,16 @@ impl RenderHtml for &str {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        _mark_branches: bool,
+        flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // add a comment node to separate from previous sibling, if any
-        if matches!(position, Position::NextChildAfterText) {
+        if flags.hydrate && matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        if self.is_empty() && escape {
+        if self.is_empty() && flags.hydrate {
             buf.push(' ');
-        } else if escape {
+        } else if flags.escape {
             let escaped = html_escape::encode_text(self);
             buf.push_str(&escaped);
         } else {
@@ -193,16 +193,14 @@ impl RenderHtml for String {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             self.as_str(),
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }
@@ -399,16 +397,14 @@ impl RenderHtml for Arc<str> {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }
@@ -510,16 +506,14 @@ impl RenderHtml for Cow<'_, str> {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         <&str as RenderHtml>::to_html_with_buf(
             &self,
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }

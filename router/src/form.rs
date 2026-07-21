@@ -1,8 +1,8 @@
 use crate::{
+    NavigateOptions,
     components::ToHref,
     hooks::{has_router, use_navigate, use_resolved_path},
     location::{BrowserUrl, LocationProvider},
-    NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
@@ -358,9 +358,7 @@ fn extract_form_attributes(
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string())
                         .to_lowercase(),
-                    form.get_attribute("action")
-                        .unwrap_or_default()
-                        .to_lowercase(),
+                    form.get_attribute("action").unwrap_or_default(),
                     form.get_attribute("enctype")
                         .unwrap_or_else(|| {
                             "application/x-www-form-urlencoded".to_string()
@@ -382,9 +380,7 @@ fn extract_form_attributes(
                             .to_lowercase()
                     }),
                     input.get_attribute("action").unwrap_or_else(|| {
-                        form.get_attribute("action")
-                            .unwrap_or_default()
-                            .to_lowercase()
+                        form.get_attribute("action").unwrap_or_default()
                     }),
                     input.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")
@@ -409,9 +405,7 @@ fn extract_form_attributes(
                             .to_lowercase()
                     }),
                     button.get_attribute("action").unwrap_or_else(|| {
-                        form.get_attribute("action")
-                            .unwrap_or_default()
-                            .to_lowercase()
+                        form.get_attribute("action").unwrap_or_default()
                     }),
                     button.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")

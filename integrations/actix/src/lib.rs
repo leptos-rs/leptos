@@ -8,7 +8,7 @@
 //! directory in the Leptos repository.
 
 use actix_files::NamedFile;
-use actix_http::header::{HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER};
+use actix_http::header::{ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER};
 use actix_web::{
     dev::{ServiceFactory, ServiceRequest},
     http::header,
@@ -16,27 +16,29 @@ use actix_web::{
     web::{Data, Payload, ServiceConfig},
     *,
 };
-use futures::{stream::once, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::once};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
 use leptos::{
+    IntoView,
     config::LeptosOptions,
     context::{provide_context, use_context},
     hydration::IslandsRouterNavigation,
     prelude::expect_context,
     reactive::{computed::ScopedFuture, owner::Owner},
-    IntoView,
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+    accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
+    ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
     components::provide_server_redirect,
     location::RequestUrl,
-    static_routes::{RegenerationFn, ResolvedStaticPath},
-    ExpandOptionals, Method, PathSegment, RouteList, RouteListing, SsrMode,
+    static_routes::{RegenerationFn, ResolvedStaticPath, StaticResponse},
 };
+use lru::LruCache;
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -44,9 +46,10 @@ use server_fn::{
     request::actix::ActixRequest,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
+    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     path::Path,
     sync::{Arc, LazyLock, RwLock},
@@ -186,11 +189,20 @@ impl ExtendResponse for ActixResponse {
         let headers = self.0.headers_mut();
         if !headers.contains_key(header::CONTENT_TYPE) {
             // Set the Content Type headers on all responses. This makes Firefox show the page source
-            // without complaining
-            headers.insert(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str(content_type).unwrap(),
-            );
+            // without complaining.
+            //
+            // `content_type` is a `&str`, so it may not be a valid header
+            // value (e.g. if it contains a NUL byte). Skip the header rather
+            // than unwrapping, which would panic and take down the worker.
+            if let Ok(value) = HeaderValue::from_str(content_type) {
+                headers.insert(header::CONTENT_TYPE, value);
+            } else {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "skipped default Content-Type: {content_type:?} is not a \
+                     valid header value"
+                );
+            }
         }
     }
 }
@@ -215,8 +227,9 @@ impl ExtendResponse for ActixResponse {
 ///
 /// If the route or server function in which this is called is being accessed
 /// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
-/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
-/// header contains `text/html` as it does for an ordinary navigation.)
+/// status code of `302` for a temporary redirect if `permanent` is false
+/// or a `301` for a permanent redirect if `permanent` is true.
+/// (This is determined by whether the `Accept` header contains `text/html` as it does for an ordinary navigation.)
 ///
 /// Otherwise, it sets a custom header that indicates to the client that it should redirect,
 /// without actually setting the status code. This means that the client will not follow the
@@ -226,34 +239,57 @@ impl ExtendResponse for ActixResponse {
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn redirect(path: &str) {
+pub fn redirect(path: &str, permanent: bool) {
     if let (Some(req), Some(res)) =
         (use_context::<Request>(), use_context::<ResponseOptions>())
     {
+        // The target string ultimately derives from user input (e.g. a `next`
+        // URL parameter or a form field), so it may contain bytes that are
+        // illegal in a header value (CR, LF, NUL, ...). `HeaderValue::from_str`
+        // rejects those, and turning that recoverable error into a panic would
+        // let any client able to influence the target take down the worker
+        // handling the request. Skip the redirect instead.
+        let location = match header::HeaderValue::from_str(path) {
+            Ok(location) => location,
+            Err(_) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                #[cfg(not(feature = "tracing"))]
+                eprintln!(
+                    "redirect() ignored: target is not a valid header value"
+                );
+                return;
+            }
+        };
         // insert the Location header in any case
-        res.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
+        res.insert_header(header::LOCATION, location);
 
         let accepts_html = req
             .headers()
             .get(ACCEPT)
             .and_then(|v| v.to_str().ok())
-            .map(|v| v.contains("text/html"))
+            .map(accept_header_includes_html)
             .unwrap_or(false);
         if accepts_html {
             // if the request accepts text/html, it's a plain form request and needs
-            // to have the 302 code set
-            res.set_status(StatusCode::FOUND);
+            // to have the redirect status code set
+            let status_code = if permanent {
+                // `301` permanent redirect
+                StatusCode::MOVED_PERMANENTLY
+            } else {
+                // `302` temporary redirect
+                StatusCode::FOUND
+            };
+            res.set_status(status_code);
         } else {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
             res.insert_header(
                 HeaderName::from_static(REDIRECT_HEADER),
-                HeaderValue::from_str("").unwrap(),
+                HeaderValue::from_static(""),
             );
         }
     } else {
@@ -340,10 +376,10 @@ pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
     web::to(move |req: HttpRequest, payload: Payload| {
+        // the handler is `Fn`, so it clones the context closure for the
+        // `async move` block below, which owns that clone from then on
         let additional_context = additional_context.clone();
         async move {
-            let additional_context = additional_context.clone();
-
             let path = req.path();
             let method = req.method();
             if let Some(mut service) =
@@ -363,7 +399,7 @@ pub fn handle_server_fns_with_context(
                                 .headers()
                                 .get(ACCEPT)
                                 .and_then(|v| v.to_str().ok())
-                                .map(|v| v.contains("text/html"))
+                                .map(accept_header_includes_html)
                                 .unwrap_or(false);
                             let referrer = req.headers().get(REFERER).cloned();
 
@@ -377,16 +413,14 @@ pub fn handle_server_fns_with_context(
 
                             // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
                             // Location set, then redirect to the Referer
-                            if accepts_html {
-                                if let Some(referrer) = referrer {
-                                    let has_location =
-                                        res.0.headers().get(LOCATION).is_some();
-                                    if !has_location {
-                                        *res.0.status_mut() = StatusCode::FOUND;
-                                        res.0
-                                            .headers_mut()
-                                            .insert(LOCATION, referrer);
-                                    }
+                            if accepts_html && let Some(referrer) = referrer {
+                                let has_location =
+                                    res.0.headers().get(LOCATION).is_some();
+                                if !has_location {
+                                    *res.0.status_mut() = StatusCode::FOUND;
+                                    res.0
+                                        .headers_mut()
+                                        .insert(LOCATION, referrer);
                                 }
                             }
 
@@ -786,9 +820,7 @@ fn provide_contexts(
     meta_context: &ServerMetaContext,
     res_options: &ResponseOptions,
 ) {
-    let path = leptos_corrected_path(&req);
-
-    provide_context(RequestUrl::new(&path));
+    provide_context(request_url(&req));
     provide_context(meta_context.clone());
     provide_context(res_options.clone());
     provide_context(req);
@@ -796,14 +828,20 @@ fn provide_contexts(
     leptos::nonce::provide_nonce();
 }
 
-fn leptos_corrected_path(req: &HttpRequest) -> String {
-    let path = req.path();
-    let query = req.query_string();
-    if query.is_empty() {
-        "http://leptos".to_string() + path
-    } else {
-        "http://leptos".to_string() + path + "?" + query
-    }
+fn request_url(req: &HttpRequest) -> RequestUrl {
+    // Prefix the real request origin (scheme://host) so that `Url::origin()`
+    // is correct server-side and matches the client after hydration.
+    // `connection_info` resolves the scheme and host, honoring reverse-proxy
+    // forwarding headers.
+    let conn = req.connection_info();
+    // `RequestUrl::new` makes the one unavoidable copy into its `Arc<str>`.
+    let url = build_request_url(
+        conn.scheme(),
+        conn.host(),
+        req.path(),
+        req.query_string(),
+    );
+    RequestUrl::new(&url)
 }
 
 #[allow(clippy::type_complexity)]
@@ -857,6 +895,41 @@ where
 
             res.0
         }
+    };
+    match method {
+        // Per RFC 9110 §9.3.2 a HEAD must return the same status and headers
+        // as the equivalent GET. Actix does not run a GET handler for HEAD on
+        // its own, so register the GET render handler for both methods; the
+        // HTTP/1 encoder drops the body for HEAD responses.
+        Method::Get => web::route()
+            .guard(guard::Any(guard::Get()).or(guard::Head()))
+            .to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
+}
+
+/// Builds a route that responds with `500 Internal Server Error` for an
+/// [`SsrMode`] this integration does not know how to render.
+///
+/// `SsrMode` is a public, non-`#[non_exhaustive]` enum in `leptos_router`, but
+/// the rendering `match` used a `_ => unreachable!()` catch-all. That defeats
+/// the compiler's exhaustiveness check: a newly added variant would compile
+/// here and then panic the worker at runtime the first time a route used it.
+/// Serve a typed 500 instead of panicking.
+fn unsupported_ssr_mode_route(method: Method, mode: &SsrMode) -> Route {
+    #[cfg(feature = "tracing")]
+    tracing::error!(
+        "unsupported SSR mode {mode:?} for this route; serving 500"
+    );
+    #[cfg(not(feature = "tracing"))]
+    let _ = mode;
+
+    let handler = || async {
+        HttpResponse::InternalServerError()
+            .body("This rendering mode is not supported.")
     };
     match method {
         Method::Get => web::get().to(handler),
@@ -1222,9 +1295,51 @@ impl StaticRouteGenerator {
     }
 }
 
-static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<HashMap<String, ResponseOptions>>,
-> = LazyLock::new(Default::default);
+/// Default upper bound on the number of per-path [`ResponseOptions`] entries
+/// cached for static routes. Without a bound the cache grew for the life of the
+/// process, one entry per unique static path served (e.g. attacker-driven slugs
+/// on a regenerated `/posts/{slug}` route).
+///
+/// Eviction is graceful: the static file is still served from disk, the cache
+/// only drops the custom headers/status captured at generation time for the
+/// evicted path (re-populated on the next regeneration). 1024 covers a typical
+/// static site's working set for a worst case on the order of ~1 MB.
+const STATIC_HEADERS_DEFAULT_CAPACITY: NonZeroUsize =
+    match NonZeroUsize::new(1024) {
+        Some(capacity) => capacity,
+        None => unreachable!(),
+    };
+
+/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
+/// A missing, unparseable, or zero value falls back to the default.
+const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
+
+static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseParts>>> =
+    LazyLock::new(|| {
+        let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .and_then(NonZeroUsize::new)
+            .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
+        RwLock::new(LruCache::new(capacity))
+    });
+
+/// Apply a cached [`ResponseParts`] snapshot to a response.
+///
+/// `STATIC_HEADERS` caches the headers and status captured when a route was
+/// generated. Unlike [`ExtendResponse::extend_response`], which drains its
+/// `ResponseOptions` with `std::mem::take` (fine for a single-use,
+/// request-scoped value), this clones the cached headers so the same snapshot
+/// can be re-applied to every cache hit without emptying the entry.
+fn apply_response_parts(res: &mut HttpResponse, parts: &ResponseParts) {
+    let headers = res.headers_mut();
+    for (key, value) in &parts.headers {
+        headers.append(key.clone(), value.clone());
+    }
+    if let Some(status) = parts.status {
+        *res.status_mut() = status;
+    }
+}
 
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
@@ -1237,7 +1352,7 @@ fn was_404(owner: &Owner) -> bool {
     false
 }
 
-fn static_path(options: &LeptosOptions, path: &str) -> String {
+fn static_path(options: &LeptosOptions, path: &str) -> Option<String> {
     use leptos_integration_utils::static_file_path;
 
     // If the path ends with a trailing slash, we generate the path
@@ -1255,21 +1370,33 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::write_file_atomic;
+
+    // Reject anything that would escape the site root before caching headers
+    // or touching the filesystem.
+    let Some(file_path) = static_path(options, path) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to write static file for a path-traversal request",
+        ));
+    };
+
     if let Some(options) = response_options {
+        // Cache an immutable snapshot of the headers/status captured during this
+        // render, not the live request's `Arc<RwLock<..>>`. The generating
+        // request still owns and drains its own `ResponseOptions` when it serves
+        // the page; the cache keeps a private copy so repeated hits can re-apply
+        // it.
         STATIC_HEADERS
             .write()
             .or_poisoned()
-            .insert(path.to_string(), options);
+            .put(path.to_string(), options.0.read().or_poisoned().clone());
     }
 
-    let path = static_path(options, path);
-    let path = Path::new(&path);
-    if let Some(path) = path.parent() {
-        tokio::fs::create_dir_all(path).await?;
-    }
-    tokio::fs::write(path, &html).await?;
-
-    Ok(())
+    let path = Path::new(&file_path);
+    // Write atomically: a crash mid-write must never leave a truncated or empty
+    // file that a concurrent request could open and serve.
+    write_file_atomic(path, html.as_bytes()).await
 }
 
 fn handle_static_route<IV>(
@@ -1288,73 +1415,120 @@ where
             async move {
                 let options = data.into_inner();
                 let orig_path = req.uri().path();
-                let path = static_path(&options, orig_path);
-                let path = Path::new(&path);
-                let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
-
-                let (response_options, html) = if !exists {
-                    let path = ResolvedStaticPath::new(orig_path);
-
-                    let (owner, html) = path
-                        .build(
-                            move |path: &ResolvedStaticPath| {
-                                StaticRouteGenerator::render_route(
-                                    path.to_string(),
-                                    app_fn.clone(),
-                                    additional_context.clone(),
-                                )
-                            },
-                            move |path: &ResolvedStaticPath,
-                                  owner: &Owner,
-                                  html: String| {
-                                let options = options.clone();
-                                let path = path.to_owned();
-                                let response_options = owner.with(use_context);
-                                async move {
-                                    write_static_route(
-                                        &options,
-                                        response_options,
-                                        path.as_ref(),
-                                        &html,
-                                    )
-                                    .await
-                                }
-                            },
-                            was_404,
-                            regenerate,
-                        )
-                        .await;
-                    (owner.with(use_context::<ResponseOptions>), html)
-                } else {
-                    let headers = STATIC_HEADERS
-                        .read()
-                        .or_poisoned()
-                        .get(orig_path)
-                        .cloned();
-                    (headers, None)
+                // A `None` here means the request path would escape the site
+                // root (path traversal); decline it before any filesystem
+                // access.
+                let Some(file_path) = static_path(&options, orig_path) else {
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!(
+                        "rejected static route request with path traversal: \
+                         {orig_path}"
+                    );
+                    return HttpResponse::NotFound().finish();
                 };
+                let path = Path::new(&file_path);
+                let opened = NamedFile::open_async(path).await;
 
-                // if html is Some(_), it means that `was_error_response` is true and we're not
-                // actually going to cache this route, just return it as HTML
-                //
-                // this if for thing like 404s, where we do not want to cache an endless series of
-                // typos (or malicious requests)
-                let mut res = ActixResponse(match html {
-                    Some(html) => {
-                        HttpResponse::Ok().content_type("text/html").body(html)
+                match opened {
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        // On-demand regeneration. Serve the HTML we just
+                        // rendered together with the headers captured during
+                        // the *same* render. Re-reading the freshly written
+                        // file would race concurrent regenerations of this path
+                        // (last writer wins on disk), so a request could pair
+                        // its own headers with another render's body.
+                        let path = ResolvedStaticPath::new(orig_path);
+
+                        let (owner, static_response) = path
+                            .build(
+                                move |path: &ResolvedStaticPath| {
+                                    StaticRouteGenerator::render_route(
+                                        path.to_string(),
+                                        app_fn.clone(),
+                                        additional_context.clone(),
+                                    )
+                                },
+                                move |path: &ResolvedStaticPath,
+                                      owner: &Owner,
+                                      html: String| {
+                                    let options = options.clone();
+                                    let path = path.to_owned();
+                                    let response_options =
+                                        owner.with(use_context);
+                                    async move {
+                                        write_static_route(
+                                            &options,
+                                            response_options,
+                                            path.as_ref(),
+                                            &html,
+                                        )
+                                        .await
+                                    }
+                                },
+                                was_404,
+                                regenerate,
+                            )
+                            .await;
+
+                        let response_options =
+                            owner.with(use_context::<ResponseOptions>);
+                        // Both a generated page and an uncached error page
+                        // (e.g. a 404, gated by `was_404`) are served from
+                        // memory here; the captured `ResponseOptions` carries
+                        // the real status, applied by `extend_response` below.
+                        let html = match static_response {
+                            StaticResponse::Generated(html)
+                            | StaticResponse::Error(html) => html,
+                        };
+                        let mut res = ActixResponse(
+                            HttpResponse::Ok()
+                                .content_type("text/html")
+                                .body(html),
+                        );
+                        if let Some(options) = response_options {
+                            res.extend_response(&options);
+                        }
+                        res.0
                     }
-                    None => match NamedFile::open(path) {
-                        Ok(res) => res.into_response(&req),
-                        Err(err) => HttpResponse::InternalServerError()
-                            .body(err.to_string()),
-                    },
-                });
-
-                if let Some(options) = response_options {
-                    res.extend_response(&options);
+                    opened => {
+                        // Cached hit: serve the file opened above and re-apply
+                        // the headers captured when it was generated.
+                        //
+                        // `LruCache::get` updates recency, so it needs a write lock.
+                        // Clone the cached snapshot out so the lock is released
+                        // before we touch the response, then apply it
+                        // non-destructively, leaving the entry intact for the
+                        // next hit.
+                        let response_parts = STATIC_HEADERS
+                            .write()
+                            .or_poisoned()
+                            .get(orig_path)
+                            .cloned();
+                        let mut response = match opened {
+                            Ok(file) => file.into_response(&req),
+                            // A non-NotFound error from the open above (e.g. a
+                            // permissions problem) lands here. Do not render the
+                            // raw filesystem error into the body — that leaks
+                            // server-side path and OS error details — log it and
+                            // return a generic 500.
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::warn!(
+                                    "failed to serve static file {}: {err}",
+                                    path.display()
+                                );
+                                #[cfg(not(feature = "tracing"))]
+                                let _ = &err;
+                                HttpResponse::InternalServerError()
+                                    .body("Internal Server Error")
+                            }
+                        };
+                        if let Some(parts) = response_parts {
+                            apply_response_parts(&mut response, &parts);
+                        }
+                        response
+                    }
                 }
-
-                res.0
             }
         })
     };
@@ -1396,11 +1570,11 @@ pub trait LeptosRoutes {
 impl<T> LeptosRoutes for actix_web::App<T>
 where
     T: ServiceFactory<
-        ServiceRequest,
-        Config = (),
-        Error = Error,
-        InitError = (),
-    >,
+            ServiceRequest,
+            Config = (),
+            Error = Error,
+            InitError = (),
+        >,
 {
     #[cfg_attr(
         feature = "tracing",
@@ -1470,7 +1644,6 @@ where
                     )
                 } else {
                     router
-                        .route(path, web::head().to(HttpResponse::Ok))
                         .route(
                             path,
                             match mode {
@@ -1501,7 +1674,9 @@ where
                                     app_fn.clone(),
                                     method,
                                 ),
-                                _ => unreachable!()
+                                ref mode => {
+                                    unsupported_ssr_mode_route(method, mode)
+                                }
                             },
                         )
                 };
@@ -1607,7 +1782,9 @@ impl LeptosRoutes for &mut ServiceConfig {
                                     app_fn.clone(),
                                     method,
                                 ),
-                                _ => unreachable!()
+                                ref mode => {
+                                    unsupported_ssr_mode_route(method, mode)
+                                }
                             },
                         );
                 }
@@ -1659,4 +1836,197 @@ where
             .map_err(|e| ServerFnErrorErr::ServerError(e.to_string()))
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    // Targeted imports rather than `use super::*`: the crate root glob-imports
+    // `actix_web::test`, which would shadow the `#[test]` attribute macro.
+    use super::{
+        ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
+        Method, OrPoisoned, Owner, Request, ResponseOptions, ResponseParts,
+        STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, header, provide_context,
+        redirect, render_app_to_stream_with_context,
+        unsupported_ssr_mode_route, write_static_route,
+    };
+    use actix_web::test::TestRequest;
+    use lru::LruCache;
+
+    // A redirect target containing CR/LF cannot be encoded as a header value.
+    // `redirect` must skip the redirect instead of panicking, otherwise any
+    // client able to influence the target (e.g. a `next` parameter) can crash
+    // the request handler.
+    #[test]
+    fn redirect_ignores_invalid_header_value() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let http_req = TestRequest::default().to_http_request();
+            provide_context(Request::new(&http_req));
+            provide_context(res.clone());
+
+            redirect("/login\r\nSet-Cookie: pwned=1", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert!(parts.headers.get(LOCATION).is_none());
+        assert!(parts.status.is_none());
+    }
+
+    // A well-formed target is still applied.
+    #[test]
+    fn redirect_sets_location_for_valid_target() {
+        let owner = Owner::new();
+        let res = ResponseOptions::default();
+        owner.with(|| {
+            let http_req = TestRequest::default().to_http_request();
+            provide_context(Request::new(&http_req));
+            provide_context(res.clone());
+
+            redirect("/dashboard", false);
+        });
+
+        let parts = res.0.read().or_poisoned();
+        assert_eq!(
+            parts.headers.get(LOCATION).map(|v| v.as_bytes()),
+            Some(&b"/dashboard"[..])
+        );
+    }
+
+    // A content type that is not a valid header value (e.g. it contains a NUL
+    // byte) must be skipped rather than unwrapped, which would panic.
+    #[test]
+    fn set_default_content_type_skips_invalid_value() {
+        let mut res = ActixResponse(HttpResponse::Ok().finish());
+        res.set_default_content_type("text/html\0bad");
+        assert!(res.0.headers().get(header::CONTENT_TYPE).is_none());
+    }
+
+    // A valid content type is still applied when none is set yet.
+    #[test]
+    fn set_default_content_type_sets_valid_value() {
+        let mut res = ActixResponse(HttpResponse::Ok().finish());
+        res.set_default_content_type("text/html; charset=utf-8");
+        assert_eq!(
+            res.0
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .map(|v| v.as_bytes()),
+            Some(&b"text/html; charset=utf-8"[..])
+        );
+    }
+
+    // The per-path header cache must never grow without bound: serving many
+    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
+    // per path for the life of the process.
+    #[test]
+    fn static_headers_cache_is_bounded() {
+        let mut cache: LruCache<String, ResponseParts> =
+            LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
+        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
+
+        for i in 0..(capacity + 10) {
+            cache.put(format!("/post/{i}"), ResponseParts::default());
+        }
+
+        // never grows past capacity
+        assert_eq!(cache.len(), capacity);
+        // the earliest-inserted entries have been evicted
+        assert!(cache.get(&"/post/0".to_string()).is_none());
+        // a recently-inserted entry is still present
+        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
+
+    // A HEAD request to a render route must reach the GET handler and return
+    // the same status (RFC 9110 §9.3.2), not a hardcoded 200 or a 404. Both
+    // `App` and `&mut ServiceConfig` route HEAD through the same render path.
+    #[actix_web::test]
+    async fn head_request_reaches_render_handler() {
+        use actix_web::{App, http::Method as HttpMethod, test, web::Data};
+
+        // the render path spawns futures on the global executor
+        let _ = any_spawner::Executor::init_tokio();
+
+        let options = LeptosOptions::builder().output_name("test").build();
+        let route =
+            render_app_to_stream_with_context(|| {}, || "hello", Method::Get);
+
+        let app = test::init_service(
+            App::new().app_data(Data::new(options)).route("/", route),
+        )
+        .await;
+
+        let get = test::TestRequest::get().uri("/").to_request();
+        let get_status = test::call_service(&app, get).await.status();
+
+        let head = TestRequest::default()
+            .method(HttpMethod::HEAD)
+            .uri("/")
+            .to_request();
+        let head_status = test::call_service(&app, head).await.status();
+
+        // HEAD reaches the handler rather than 404-ing, and mirrors GET.
+        assert_ne!(head_status, actix_web::http::StatusCode::NOT_FOUND);
+        assert_eq!(head_status, get_status);
+    }
+
+    // A static route must be written atomically: the file appears with its
+    // full contents or not at all, and no temp file is left behind. Writing in
+    // place would let a crash mid-write leave a truncated/empty file that a
+    // concurrent request could open and serve.
+    #[actix_web::test]
+    async fn write_static_route_is_atomic() {
+        let dir = std::env::temp_dir().join(format!(
+            "leptos_actix_static_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let options = LeptosOptions::builder()
+            .output_name("test")
+            .site_root(dir.to_string_lossy().into_owned())
+            .build();
+
+        let html = "<html><body>hello</body></html>";
+        write_static_route(&options, None, "/page", html)
+            .await
+            .unwrap();
+
+        // the target was written in full
+        let written = std::fs::read_to_string(dir.join("page.html")).unwrap();
+        assert_eq!(written, html);
+
+        // no temp file was left behind
+        let leftovers = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
+            .count();
+        assert_eq!(leftovers, 0);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    // An unknown `SsrMode` must serve a 500 rather than panicking the worker
+    // via `unreachable!()`. `SsrMode::Async` stands in for "some variant the
+    // dedicated arms don't handle" — the route the helper builds is what a
+    // future variant would fall through to.
+    #[actix_web::test]
+    async fn unsupported_ssr_mode_serves_500() {
+        use actix_web::{App, http::StatusCode, test};
+
+        let app = test::init_service(App::new().route(
+            "/",
+            unsupported_ssr_mode_route(Method::Get, &SsrMode::Async),
+        ))
+        .await;
+
+        let req = test::TestRequest::get().uri("/").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }

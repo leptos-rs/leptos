@@ -1,6 +1,6 @@
-use crate::{register, OrDefaultNonce};
+use crate::{OrDefaultNonce, register};
 use leptos::{
-    component, oco::Oco, prelude::*, tachys::html::element::style, IntoView,
+    IntoView, component, oco::Oco, prelude::*, tachys::html::element::style,
 };
 
 /// Injects an [`HTMLStyleElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document

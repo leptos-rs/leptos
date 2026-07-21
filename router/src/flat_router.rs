@@ -1,19 +1,19 @@
 use crate::{
+    ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
+    RouteListing, RouteMatchId,
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::{MatchParams, RouteDefs},
     params::ParamsMap,
     view_transition::start_view_transition,
-    ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
-    RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
-use leptos::attr::{any_attribute::AnyAttribute, Attribute};
+use leptos::attr::{Attribute, any_attribute::AnyAttribute};
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
-    owner::{provide_context, Owner},
+    owner::{Owner, provide_context},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
     transition::AsyncTransition,
@@ -25,9 +25,10 @@ use tachys::{
     reactive_graph::OwnedView,
     ssr::StreamBuilder,
     view::{
+        MarkBranch, Mountable, Position, PositionState, Render, RenderFlags,
+        RenderHtml,
         add_attr::AddAnyAttr,
         any_view::{AnyView, AnyViewState, IntoAny},
-        MarkBranch, Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 
@@ -416,21 +417,15 @@ impl RenderHtml for MatchedRoute {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        let branch_name = (mark_branches && escape).then(|| self.branch_name());
+        let branch_name =
+            (flags.mark_branches && flags.escape).then(|| self.branch_name());
         if let Some(bn) = &branch_name {
             buf.open_branch(bn);
         }
-        self.1.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.1.to_html_with_buf(buf, position, flags, extra_attrs);
         if let Some(bn) = &branch_name {
             buf.close_branch(bn);
             if *position == Position::NextChildAfterText {
@@ -443,21 +438,20 @@ impl RenderHtml for MatchedRoute {
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
-        let branch_name = (mark_branches && escape).then(|| self.branch_name());
+        let branch_name =
+            (flags.mark_branches && flags.escape).then(|| self.branch_name());
         if let Some(bn) = &branch_name {
             buf.open_branch(bn);
         }
         self.1.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
         if let Some(bn) = &branch_name {
@@ -564,8 +558,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
@@ -613,13 +606,7 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let view = self.choose_ssr();
-            view.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
+            view.to_html_with_buf(buf, position, flags, extra_attrs);
         }
     }
 
@@ -627,8 +614,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -637,8 +623,7 @@ where
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }
