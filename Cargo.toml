@@ -135,7 +135,7 @@ multer = { default-features = false, version = "3.1" }
 leptos-spin-macro = { default-features = false, version = "0.2" }
 sledgehammer_utils = { default-features = false, version = "0.3" }
 sledgehammer_bindgen = { default-features = false, version = "0.6" }
-wasm-streams = { default-features = false, version = "0.5" }
+wasm-streams = { default-features = false, version = "0.6" }
 rkyv = { default-features = false, version = "0.8" }
 temp-env = { default-features = false, version = "0.3" }
 uuid = { default-features = false, version = "1.20" }
