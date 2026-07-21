@@ -2252,7 +2252,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.9.0-beta"
+version = "0.9.0-beta1"
 dependencies = [
  "any_spawner",
  "either_of",
