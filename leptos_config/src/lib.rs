@@ -51,6 +51,19 @@ pub struct LeptosOptions {
     #[builder(setter(into), default=default_site_pkg_dir())]
     #[serde(default = "default_site_pkg_dir")]
     pub site_pkg_dir: Arc<str>,
+    /// The URL path under which the pkg assets (JS/WASM/CSS) are served to the
+    /// client.
+    ///
+    /// This is the public URL counterpart of [`site_pkg_dir`](Self::site_pkg_dir)
+    /// (the on-disk location). Keeping them separate means an absolute
+    /// `site_pkg_dir` — a server-side filesystem location that must not be
+    /// exposed to the client — is still served under a clean URL, with the
+    /// server integrations mapping this path back to the directory on disk.
+    ///
+    /// Defaults to `pkg`.
+    #[builder(setter(into), default=default_site_pkg_url())]
+    #[serde(default = "default_site_pkg_url")]
+    pub site_pkg_url: Arc<str>,
     /// Used to configure the running environment of Leptos.
     /// Can be used to load dev constants and keys v prod,
     /// or change things based on the deployment environment.
@@ -182,17 +195,30 @@ impl LeptosOptions {
         path
     }
 
-    /// Returns the base route to the `site_pkg_dir` with a leading and trailing slash added as necessary.
+    /// Returns the URL path segment under which the pkg assets (JS/WASM/CSS) are
+    /// served to the client.
+    ///
+    /// This is [`site_pkg_url`](Self::site_pkg_url) (default `pkg`), the public
+    /// URL counterpart of the on-disk [`site_pkg_dir`](Self::site_pkg_dir). It is
+    /// used for both relative and absolute `site_pkg_dir` values, so the absolute
+    /// on-disk path is never exposed to the client.
+    pub fn pkg_url_path(&self) -> &str {
+        self.site_pkg_url.trim_matches('/')
+    }
+
+    /// Returns the base route to the pkg assets with a leading and trailing slash.
+    ///
+    /// This uses [`pkg_url_path`](Self::pkg_url_path), so an absolute
+    /// `site_pkg_dir` is never exposed in the route.
     pub fn site_pkg_dir_route_base(&self) -> String {
-        let mut path = String::new();
-        // While it shouldn't start with a '/', but check anyway.
-        if !self.site_pkg_dir.starts_with('/') {
-            path.push('/');
+        let pkg = self.pkg_url_path();
+        if pkg.is_empty() {
+            return "/".to_string();
         }
-        path.push_str(&self.site_pkg_dir);
-        if !path.ends_with('/') {
-            path.push('/');
-        }
+        let mut path = String::with_capacity(pkg.len() + 2);
+        path.push('/');
+        path.push_str(pkg);
+        path.push('/');
         path
     }
 
@@ -216,6 +242,7 @@ impl LeptosOptions {
             output_name: output_name.into(),
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?.into(),
+            site_pkg_url: env_w_default("LEPTOS_SITE_PKG_URL", "pkg")?.into(),
             env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
             site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
@@ -248,6 +275,10 @@ fn default_site_root() -> Arc<str> {
 }
 
 fn default_site_pkg_dir() -> Arc<str> {
+    "pkg".into()
+}
+
+fn default_site_pkg_url() -> Arc<str> {
     "pkg".into()
 }
 

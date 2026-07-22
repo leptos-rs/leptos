@@ -11,7 +11,7 @@ use leptos::{
 };
 use leptos_config::LeptosOptions;
 use leptos_meta::{Link, ServerMetaContextOutput};
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{borrow::Cow, future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
@@ -377,6 +377,52 @@ pub fn static_file_path(options: &LeptosOptions, path: &str) -> Option<String> {
     Some(format!("{}/{}.html", options.site_root, path))
 }
 
+/// Resolves the on-disk directory a static-asset request should be served from,
+/// together with the request path relative to that directory. Returns `None`
+/// when the request would escape that directory via path traversal; callers
+/// must treat `None` as a rejected request (respond `404`).
+///
+/// The pkg assets are served to the client under
+/// [`pkg_url_path`](LeptosOptions::pkg_url_path) (default `pkg`), independent of
+/// where they live on disk: requests under that URL prefix are mapped to the
+/// pkg directory ([`site_pkg_dir`](LeptosOptions::site_pkg_dir) resolved against
+/// `site_root`, so an absolute `site_pkg_dir` is used as-is) with the prefix
+/// stripped. Every other request is served from `site_root` unchanged. Both
+/// server integrations share this logic.
+pub fn resolve_static_dir<'a>(
+    options: &'a LeptosOptions,
+    request_path: &'a str,
+) -> Option<(Cow<'a, str>, Cow<'a, str>)> {
+    if is_path_traversal(request_path) {
+        return None;
+    }
+    let url_prefix = options.pkg_url_path();
+    if !url_prefix.is_empty() {
+        let after_root = request_path.strip_prefix('/').unwrap_or(request_path);
+        if let Some(rel) = after_root
+            .strip_prefix(url_prefix)
+            .filter(|rest| rest.is_empty() || rest.starts_with('/'))
+        {
+            let rel = if rel.is_empty() { "/" } else { rel };
+            let pkg_dir = &*options.site_pkg_dir;
+            let dir = if pkg_dir.starts_with('/') {
+                Cow::Borrowed(pkg_dir.trim_end_matches('/'))
+            } else {
+                Cow::Owned(format!(
+                    "{}/{}",
+                    options.site_root.trim_end_matches('/'),
+                    pkg_dir.trim_matches('/')
+                ))
+            };
+            return Some((dir, Cow::Borrowed(rel)));
+        }
+    }
+    Some((
+        Cow::Borrowed(&*options.site_root),
+        Cow::Borrowed(request_path),
+    ))
+}
+
 /// Writes `contents` to `path` atomically: the file appears with its full
 /// contents or not at all.
 ///
@@ -464,6 +510,95 @@ mod tests {
             static_file_path(&options, "/a/./b"),
             Some("/var/www/site/static/a/./b.html".into())
         );
+    }
+
+    fn opts_with_pkg(pkg_dir: &str) -> LeptosOptions {
+        LeptosOptions::builder()
+            .output_name("ignored")
+            .site_root("/var/www/site/static")
+            .site_pkg_dir(pkg_dir.to_string())
+            .build()
+    }
+
+    fn opts_with_pkg_url(pkg_dir: &str, pkg_url: &str) -> LeptosOptions {
+        LeptosOptions::builder()
+            .output_name("ignored")
+            .site_root("/var/www/site/static")
+            .site_pkg_dir(pkg_dir.to_string())
+            .site_pkg_url(pkg_url.to_string())
+            .build()
+    }
+
+    #[test]
+    fn resolve_static_dir_relative_pkg_serves_from_pkg_subdir() {
+        let options = opts_with_pkg("pkg");
+        // pkg assets come from `site_root/pkg`, with the url prefix stripped
+        assert_eq!(
+            resolve_static_dir(&options, "/pkg/app.js"),
+            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
+        );
+        // non-pkg assets come from site_root unchanged
+        assert_eq!(
+            resolve_static_dir(&options, "/favicon.ico"),
+            Some(("/var/www/site/static".into(), "/favicon.ico".into()))
+        );
+        // a path that only shares a textual prefix is not treated as pkg
+        assert_eq!(
+            resolve_static_dir(&options, "/pkgX/app.js"),
+            Some(("/var/www/site/static".into(), "/pkgX/app.js".into()))
+        );
+    }
+
+    #[test]
+    fn resolve_static_dir_absolute_pkg_serves_from_that_dir() {
+        let options = opts_with_pkg("/tmp/testsplit/");
+        // the client requests under the public `/pkg/` prefix; serve those from
+        // the absolute directory with the prefix stripped
+        assert_eq!(
+            resolve_static_dir(&options, "/pkg/app.js"),
+            Some(("/tmp/testsplit".into(), "/app.js".into()))
+        );
+        // the absolute path is never a client URL, so it is not special-cased
+        assert_eq!(
+            resolve_static_dir(&options, "/tmp/testsplit/app.js"),
+            Some((
+                "/var/www/site/static".into(),
+                "/tmp/testsplit/app.js".into()
+            ))
+        );
+        // everything else still comes from site_root
+        assert_eq!(
+            resolve_static_dir(&options, "/favicon.ico"),
+            Some(("/var/www/site/static".into(), "/favicon.ico".into()))
+        );
+    }
+
+    #[test]
+    fn resolve_static_dir_uses_configurable_pkg_url() {
+        // a custom `site_pkg_url` decouples the public path from the on-disk
+        // dir, for both relative and absolute `site_pkg_dir`
+        let rel = opts_with_pkg_url("pkg", "assets");
+        assert_eq!(
+            resolve_static_dir(&rel, "/assets/app.js"),
+            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
+        );
+        let abs = opts_with_pkg_url("/tmp/testsplit/", "assets");
+        assert_eq!(
+            resolve_static_dir(&abs, "/assets/app.js"),
+            Some(("/tmp/testsplit".into(), "/app.js".into()))
+        );
+        // the default `/pkg/` is not special once a custom url is configured
+        assert_eq!(
+            resolve_static_dir(&abs, "/pkg/app.js"),
+            Some(("/var/www/site/static".into(), "/pkg/app.js".into()))
+        );
+    }
+
+    #[test]
+    fn resolve_static_dir_rejects_traversal() {
+        let options = opts_with_pkg("/tmp/testsplit/");
+        assert_eq!(resolve_static_dir(&options, "/../../etc/passwd"), None);
+        assert_eq!(resolve_static_dir(&options, "/pkg/..%2f..%2fetc"), None);
     }
 
     #[test]
