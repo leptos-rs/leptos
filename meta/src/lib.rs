@@ -75,6 +75,7 @@ use std::{
 use wasm_bindgen::JsCast;
 use web_sys::HtmlHeadElement;
 
+mod base;
 mod body;
 mod html;
 mod link;
@@ -83,6 +84,7 @@ mod script;
 mod style;
 mod stylesheet;
 mod title;
+pub use base::*;
 pub use body::*;
 pub use html::*;
 pub use link::*;
