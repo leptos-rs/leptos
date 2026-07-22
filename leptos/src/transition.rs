@@ -6,7 +6,10 @@ use crate::{
 };
 use leptos_macro::component;
 use reactive_graph::{
-    computed::{ArcMemo, suspense::SuspenseContext},
+    computed::{
+        ArcMemo,
+        suspense::{RouteSettleContext, SuspenseContext},
+    },
     effect::Effect,
     owner::{Owner, provide_context, use_context},
     signal::ArcRwSignal,
@@ -134,6 +137,11 @@ where
             });
         }
 
+        // if a router transition is underway, report this boundary's readiness
+        // back to the router so `set_is_routing` waits for it to settle
+        let route_settle_task =
+            use_context::<RouteSettleContext>().and_then(|ctx| ctx.task());
+
         OwnedView::new(SuspenseBoundary::<true, _, _> {
             id,
             none_pending,
@@ -142,6 +150,7 @@ where
             error_boundary_parent,
             has_tasks,
             strict,
+            route_settle_task,
         })
     })
 }
