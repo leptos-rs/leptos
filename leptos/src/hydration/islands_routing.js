@@ -323,37 +323,35 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 	}
 }
 
+// Advances the walker from a branch's opening marker comment to its matching
+// closing marker, leaving it as the walker's currentNode. Every node after
+// the opening marker is examined (including the first one: a branch may
+// begin with a nested branch marker, e.g. when a view starts with a
+// component that renders no element). Returns false if the walker is
+// exhausted before the branch is balanced.
+function seekBranchClose(walker) {
+	let branches = 1;
+	while(walker.nextNode()) {
+		const node = walker.currentNode;
+		if(node.nodeType === Node.COMMENT_NODE) {
+			if(node.textContent.startsWith("bo")) {
+				branches += 1;
+			} else if(node.textContent.startsWith("bc")) {
+				branches -= 1;
+				if(branches === 0) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 function replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode) {
-	oldDocWalker.nextNode();
-	newDocWalker.nextNode();
 	const oldRange = new Range();
 	const newRange = new Range();
-	let oldBranches = 1;
-	let newBranches = 1;
-	while(oldBranches > 0) {
-		if(oldDocWalker.nextNode()) {
-			if(oldDocWalker.currentNode.nodeType === Node.COMMENT_NODE) {
-				if(oldDocWalker.currentNode.textContent.startsWith("bo")) {
-					oldBranches += 1;
-				} else if(oldDocWalker.currentNode.textContent.startsWith("bc")) {
-
-					oldBranches -= 1;
-				}
-			}
-		}
-	}
-	while(newBranches > 0) {
-		if(newDocWalker.nextNode()) {
-			if(newDocWalker.currentNode.nodeType === Node.COMMENT_NODE) {
-				if(newDocWalker.currentNode.textContent.startsWith("bo")) {
-					newBranches += 1;
-				} else if(newDocWalker.currentNode.textContent.startsWith("bc")) {
-
-					newBranches -= 1;
-				}
-			}
-		}
-	}
+	seekBranchClose(oldDocWalker);
+	seekBranchClose(newDocWalker);
 
 	try {
 		oldRange.setStartAfter(oldNode);
