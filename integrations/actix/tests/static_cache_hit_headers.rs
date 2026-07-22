@@ -1,3 +1,5 @@
+#![cfg(feature = "default")]
+
 #[cfg(test)]
 mod tests {
     use actix_web::{App, test, web::Data};
