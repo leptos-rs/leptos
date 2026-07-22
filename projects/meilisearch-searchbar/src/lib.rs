@@ -18,7 +18,7 @@ pub fn hydrate() {
 pub fn App() -> impl IntoView {
     provide_meta_context();
     // Provide this two our search components, they'll share a read and write handle to a Vec<StockRow>.
-    let search_results = create_rw_signal(Vec::<StockRow>::new());
+    let search_results = RwSignal::new(Vec::<StockRow>::new());
     provide_context(search_results);
     view! {
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
@@ -65,7 +65,7 @@ pub async fn search_query(query: String) -> Result<Vec<StockRow>, ServerFnError>
         .await
         .map_err(|err| ServerFnError::new(err.to_string()))?
         .hits;
-    
+
     Ok(hits
         .into_iter()
         .map(|search_result| search_result.result)
@@ -76,7 +76,7 @@ pub async fn search_query(query: String) -> Result<Vec<StockRow>, ServerFnError>
 pub fn SearchBar() -> impl IntoView {
     let write_search_results = expect_context::<RwSignal<Vec<StockRow>>>().write_only();
     let search_query = create_server_action::<SearchQuery>();
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(value) = search_query.value()() {
             match value {
                 Ok(search_results) => {

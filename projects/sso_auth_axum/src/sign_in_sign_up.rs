@@ -47,7 +47,7 @@ pub async fn google_sso() -> Result<String, ServerFnError> {
 pub fn SignIn() -> impl IntoView {
     let g_auth = Action::<GoogleSso, _>::server();
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(Ok(redirect)) = g_auth.value().get() {
             window().location().set_href(&redirect).unwrap();
         }
@@ -169,7 +169,7 @@ pub fn HandleGAuth() -> impl IntoView {
     let navigate = leptos_router::use_navigate();
     let rw_email = expect_context::<Email>().0;
     let rw_expires_in = expect_context::<ExpiresIn>().0;
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Some(Ok((email, expires_in))) =
             handle_g_auth_redirect.value().get()
         {
@@ -179,7 +179,7 @@ pub fn HandleGAuth() -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Ok(OAuthParams { code, state }) = query.get_untracked() {
             handle_g_auth_redirect.dispatch(HandleGAuthRedirect {
                 provided_csrf: state.unwrap(),
