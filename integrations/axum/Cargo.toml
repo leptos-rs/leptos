@@ -28,6 +28,8 @@ tower = { features = ["util"], workspace = true, default-features = true }
 tower-http = { workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 or_poisoned = { workspace = true, default-features = true }
+rust-embed = { optional = true, workspace = true, features = ["debug-embed", "interpolate-folder-path"] }
+mime_guess = { optional = true, workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -55,6 +57,7 @@ default = [
   "server_fn/axum",
   "leptos_integration_utils/fs",
 ]
+embed = ["dep:mime_guess", "dep:rust-embed"]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]
 
