@@ -216,6 +216,9 @@ pub mod error {
     pub use throw_error::*;
 }
 
+mod lazy_view_error;
+pub use lazy_view_error::LazyViewError;
+
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
     pub use crate::{
