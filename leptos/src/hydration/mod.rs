@@ -17,10 +17,7 @@ pub fn AutoReload(
     options: LeptosOptions,
 ) -> impl IntoView {
     (!disable_watch && std::env::var("LEPTOS_WATCH").is_ok()).then(|| {
-        #[cfg(feature = "nonce")]
         let nonce = crate::nonce::use_nonce();
-        #[cfg(not(feature = "nonce"))]
-        let nonce = None::<()>;
 
         let reload_port = match options.reload_external_port {
             Some(val) => val,
@@ -157,10 +154,7 @@ pub fn HydrationScripts(
     }
 
     let pkg_path = &options.site_pkg_dir;
-    #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
-    #[cfg(not(feature = "nonce"))]
-    let nonce = None::<String>;
     let script = if islands {
         if let Some(sc) = Owner::current_shared_context() {
             sc.set_is_hydrating(false);
@@ -182,7 +176,7 @@ pub fn HydrationScripts(
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
-            crossorigin=nonce.clone().unwrap_or_default()
+            crossorigin=nonce.clone()
         />
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
