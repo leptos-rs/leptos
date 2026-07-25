@@ -112,14 +112,14 @@ where
                     ..Default::default()
                 };
 
-                let Some((form, method, action, enctype)) =
+                let Some((method, action, enctype)) =
                     extract_form_attributes(&ev)
                 else {
                     return;
                 };
 
                 let form_data =
-                    web_sys::FormData::new_with_form(&form).unwrap_throw();
+                    leptos::form::form_data_from_event(&ev).unwrap_throw();
                 if let Some(on_form_data) = on_form_data.clone() {
                     on_form_data(&form_data);
                 }
@@ -347,14 +347,13 @@ fn current_window_origin() -> String {
 }
 
 fn extract_form_attributes(
-    ev: &web_sys::Event,
-) -> Option<(web_sys::HtmlFormElement, String, String, String)> {
-    let submitter = ev.unchecked_ref::<web_sys::SubmitEvent>().submitter();
+    ev: &web_sys::SubmitEvent,
+) -> Option<(String, String, String)> {
+    let submitter = ev.submitter();
     match &submitter {
         Some(el) => {
             if let Some(form) = el.dyn_ref::<web_sys::HtmlFormElement>() {
                 Some((
-                    form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string())
                         .to_lowercase(),
@@ -375,7 +374,6 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     input.get_attribute("method").unwrap_or_else(|| {
                         form.get_attribute("method")
                             .unwrap_or_else(|| "get".to_string())
@@ -402,7 +400,6 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     button.get_attribute("method").unwrap_or_else(|| {
                         form.get_attribute("method")
                             .unwrap_or_else(|| "get".to_string())
@@ -439,7 +436,6 @@ fn extract_form_attributes(
             Some(form) => {
                 let form = form.unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string()),
                     form.get_attribute("action").unwrap_or_default(),
