@@ -2,6 +2,7 @@ use leptos::{
     either::{Either, EitherOf3},
     prelude::*,
 };
+use leptos_meta::{provide_meta_context, MetaTags, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     hooks::{use_params_map, use_query_map},
@@ -18,6 +19,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone()/>
                 <HydrationScripts options=options islands=true islands_router=true/>
+                <MetaTags/>
                 <link rel="stylesheet" id="leptos" href="/pkg/islands.css"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
             </head>
@@ -30,6 +32,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 
 #[component]
 pub fn App() -> impl IntoView {
+    provide_meta_context();
+
     view! {
         <Router>
             <header>
@@ -38,14 +42,12 @@ pub fn App() -> impl IntoView {
             <nav>
                 <a href="/">"Home"</a>
                 <a href="/about">"About"</a>
-                <a href="/marker-first">"Marker First"</a>
             </nav>
             <main>
                 <Routes fallback=|| "Not found.">
                     <Route path=path!("") view=Home/>
                     <Route path=path!("user/:id") view=Details/>
                     <Route path=path!("about") view=About/>
-                    <Route path=path!("marker-first") view=MarkerFirst/>
                 </Routes>
             </main>
         </Router>
@@ -139,6 +141,7 @@ pub fn Home() -> impl IntoView {
         })
     };
     view! {
+        <Title text="Home | My Contacts"/>
         <section class="page">
             <form method="GET" class="search">
                 <input type="search" name="q" value=q autofocus oninput="this.form.requestSubmit()"/>
@@ -191,33 +194,10 @@ pub fn Details() -> impl IntoView {
     }
 }
 
-/// A component that renders no element, only view-tree marker comments
-/// (like `leptos_meta`'s `<Title/>` and friends).
-#[component]
-pub fn NoElement() -> impl IntoView {}
-
-/// Regression test page for the islands router.
-///
-/// The route view's *first* node is a component that renders to marker
-/// comments rather than an element. `replaceBranch` in the islands routing
-/// script used to skip the first node after a branch marker while counting
-/// nested branches, so a leading marker comment made it close the branch
-/// range at the wrong place and navigating away left this page's HTML in
-/// the DOM.
-#[component]
-pub fn MarkerFirst() -> impl IntoView {
-    view! {
-        <NoElement/>
-        <section class="page">
-            <h2 id="marker-first-heading">"Marker First"</h2>
-            <p>"This page's view starts with a component that renders no element."</p>
-        </section>
-    }
-}
-
 #[component]
 pub fn About() -> impl IntoView {
     view! {
+        <Title text="About | My Contacts"/>
         <section class="page">
             <h2>"About"</h2>
             <p>"This demo is intended to show off an experimental “islands router” feature, which mimics the smooth transitions and user experience of client-side routing while minimizing the amount of code that actually runs in the browser."</p>

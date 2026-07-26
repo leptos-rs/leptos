@@ -1,8 +1,8 @@
 # islands_router e2e tests
 
-Playwright tests for the islands router's client-side navigation, including a
-regression test for `replaceBranch`'s branch counting when a route view starts
-with marker comments instead of an element.
+Playwright tests for the islands router's client-side navigation, including
+regression coverage for navigating away from the Home route, whose `<Title/>`
+metadata component renders no element in the route body.
 
 ## Running
 
