@@ -4,6 +4,7 @@ use crate::{
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::{MatchParams, RouteDefs},
+    nested_router::wait_until_route_settled,
     params::ParamsMap,
     view_transition::start_view_transition,
 };
@@ -12,7 +13,7 @@ use either_of::Either;
 use futures::FutureExt;
 use leptos::attr::{Attribute, any_attribute::AnyAttribute};
 use reactive_graph::{
-    computed::{ArcMemo, ScopedFuture},
+    computed::{ArcMemo, ScopedFuture, suspense::RouteSettleContext},
     owner::{Owner, provide_context},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
@@ -269,6 +270,12 @@ where
                     provide_context(Matched(ArcMemo::from(new_matched)));
                     fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
+                // navigating to the fallback completes immediately; clear
+                // is_routing here, because a superseded in-flight navigation
+                // no longer clears it itself
+                if let Some(set_is_routing) = set_is_routing {
+                    set_is_routing.set(false);
+                }
                 if let Some(location) = location {
                     location.ready_to_complete();
                 }
@@ -284,11 +291,13 @@ where
                 }
 
                 let spawned_path = url_snapshot.path().to_string();
+                let spawned_id = new_id;
 
                 let is_back = location
                     .as_ref()
                     .map(|nav| nav.is_back().get_untracked())
                     .unwrap_or(false);
+                let settle_owner = owner.clone();
                 Executor::spawn_local(owner.with(|| {
                     provide_context(url);
                     provide_context(params_memo);
@@ -297,24 +306,35 @@ where
                     ScopedFuture::new({
                         let state = Rc::clone(state);
                         async move {
-                            let view = OwnedView::new(
-                                if let Some(set_is_routing) = set_is_routing {
+                            // when set_is_routing is used, register a context the
+                            // route's suspense boundaries report readiness to, so
+                            // we can keep is_routing true until the built route
+                            // (including any <ProtectedRoute> content, whose
+                            // resources are only created when the route is built)
+                            // has loaded
+                            let route_settle =
+                                set_is_routing.map(|set_is_routing| {
                                     set_is_routing.set(true);
-                                    let value =
-                                        AsyncTransition::run(|| view.choose())
-                                            .await;
-                                    set_is_routing.set(false);
-                                    value
+                                    let route_settle =
+                                        RouteSettleContext::new();
+                                    provide_context(route_settle.clone());
+                                    route_settle
+                                });
+
+                            let view =
+                                OwnedView::new(if set_is_routing.is_some() {
+                                    AsyncTransition::run(|| view.choose()).await
                                 } else {
                                     view.choose().await
-                                },
-                            );
+                                });
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
-                            if current_url.read_untracked().path()
-                                == spawned_path
-                            {
+                            let is_current =
+                                current_url.read_untracked().path()
+                                    == spawned_path;
+                            let id_state = Rc::clone(&state);
+                            if is_current {
                                 let rebuild = move || {
                                     view.into_any()
                                         .rebuild(&mut state.borrow_mut().view);
@@ -323,6 +343,28 @@ where
                                     start_view_transition(0, is_back, rebuild);
                                 } else {
                                     rebuild();
+                                }
+                            }
+
+                            // wait for the built route to settle before clearing
+                            // is_routing
+                            if let Some(route_settle) = route_settle {
+                                if is_current {
+                                    wait_until_route_settled(
+                                        route_settle,
+                                        &settle_owner,
+                                    )
+                                    .await;
+                                }
+                                if let Some(set_is_routing) = set_is_routing {
+                                    // only clear is_routing if this route is
+                                    // still the one being displayed; if a newer
+                                    // navigation has replaced it, that
+                                    // navigation is now responsible for
+                                    // clearing it
+                                    if id_state.borrow().id == spawned_id {
+                                        set_is_routing.set(false);
+                                    }
                                 }
                             }
 

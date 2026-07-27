@@ -10,7 +10,10 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
         ArcMemo, ScopedFuture,
-        suspense::{LocalResourceNotifier, SuspenseContext},
+        suspense::{
+            LocalResourceNotifier, RouteSettleContext, SuspenseContext,
+            TaskHandle,
+        },
     },
     effect::RenderEffect,
     owner::{ArcStoredValue, Owner, provide_context, use_context},
@@ -143,6 +146,11 @@ where
         let has_tasks =
             Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
 
+        // if a router transition is underway, report this boundary's readiness
+        // back to the router so `set_is_routing` waits for it to settle
+        let route_settle_task =
+            use_context::<RouteSettleContext>().and_then(|ctx| ctx.task());
+
         OwnedView::new(SuspenseBoundary::<false, _, _> {
             id,
             none_pending,
@@ -151,6 +159,7 @@ where
             error_boundary_parent,
             has_tasks,
             strict,
+            route_settle_task,
         })
     })
 }
@@ -178,6 +187,11 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     /// Conditional resource reads that depend on other resources will not be
     /// discovered, but side effects in the children body run fewer times.
     pub strict: bool,
+    /// Held while a router transition is in progress (see [`RouteSettleContext`])
+    /// and released once this boundary has built its children and has no pending
+    /// tasks, so `<Router set_is_routing>` waits for content gated behind a
+    /// `<ProtectedRoute>`. `None` outside of a routing transition.
+    pub route_settle_task: Option<TaskHandle>,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -196,6 +210,8 @@ where
         let none_pending = self.none_pending;
         let mut nth_run = 0;
         let outer_owner = Owner::new();
+        // dropped once this boundary has settled, to report routing readiness
+        let mut route_settle_task = self.route_settle_task;
 
         RenderEffect::new(move |prev| {
             // show the fallback if
@@ -231,6 +247,16 @@ where
                 // to be displayed for the first time
                 // see https://github.com/leptos-rs/leptos/issues/3868, https://github.com/leptos-rs/leptos/issues/4492
                 nth_run += 1;
+            }
+
+            if route_settle_task.is_some() && !(self.has_tasks)() {
+                // The children have been built (so any nested boundaries have
+                // already registered their own route-settle tasks) and this
+                // boundary has no pending tasks of its own. Release our task so
+                // the router can observe this subtree as settled; for a
+                // `<ProtectedRoute>` this is what makes `set_is_routing` wait
+                // until the protected view's resources have loaded.
+                route_settle_task = None;
             }
 
             state
@@ -273,6 +299,7 @@ where
             error_boundary_parent,
             has_tasks,
             strict,
+            route_settle_task,
         } = self;
         SuspenseBoundary {
             id,
@@ -282,6 +309,7 @@ where
             error_boundary_parent,
             has_tasks,
             strict,
+            route_settle_task,
         }
     }
 }
