@@ -176,7 +176,10 @@ pub fn HydrationScripts(
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
-            crossorigin=nonce.clone()
+            crossorigin=nonce
+                .as_ref()
+                .map(|n| Oco::Counted(n.as_inner().clone()))
+                .unwrap_or(Oco::Borrowed(""))
         />
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
