@@ -2,6 +2,7 @@ use leptos::{
     either::{Either, EitherOf3},
     prelude::*,
 };
+use leptos_meta::{provide_meta_context, MetaTags, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     hooks::{use_params_map, use_query_map},
@@ -18,6 +19,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone()/>
                 <HydrationScripts options=options islands=true islands_router=true/>
+                <MetaTags/>
                 <link rel="stylesheet" id="leptos" href="/pkg/islands.css"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
             </head>
@@ -30,6 +32,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 
 #[component]
 pub fn App() -> impl IntoView {
+    provide_meta_context();
+
     view! {
         <Router>
             <header>
@@ -137,6 +141,7 @@ pub fn Home() -> impl IntoView {
         })
     };
     view! {
+        <Title text="Home | My Contacts"/>
         <section class="page">
             <form method="GET" class="search">
                 <input type="search" name="q" value=q autofocus oninput="this.form.requestSubmit()"/>
@@ -192,6 +197,7 @@ pub fn Details() -> impl IntoView {
 #[component]
 pub fn About() -> impl IntoView {
     view! {
+        <Title text="About | My Contacts"/>
         <section class="page">
             <h2>"About"</h2>
             <p>"This demo is intended to show off an experimental “islands router” feature, which mimics the smooth transitions and user experience of client-side routing while minimizing the amount of code that actually runs in the browser."</p>

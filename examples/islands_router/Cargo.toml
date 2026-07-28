@@ -16,6 +16,7 @@ leptos = { path = "../../leptos", features = [
   "islands-router",
 ] }
 leptos_router = { path = "../../router" }
+leptos_meta = { path = "../../meta" }
 server_fn = { path = "../../server_fn", features = ["serde-lite"] }
 leptos_axum = { path = "../../integrations/axum", features = [
   "islands-router",
@@ -37,6 +38,7 @@ ssr = [
   "dep:tower-http",
   "dep:tokio",
   "leptos/ssr",
+  "leptos_meta/ssr",
   "dep:leptos_axum",
 ]
 
@@ -67,6 +69,9 @@ assets-dir = "public"
 site-addr = "127.0.0.1:3009"
 # The port to use for automatic reload monitoring
 reload-port = 3001
+# The command used to run end-to-end tests, from the end-to-end directory.
+end2end-cmd = "npx playwright test"
+end2end-dir = "e2e"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
 # Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head

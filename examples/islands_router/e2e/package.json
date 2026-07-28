@@ -1,0 +1,14 @@
+{
+  "name": "islands-router-e2e",
+  "version": "1.0.0",
+  "description": "e2e tests for the islands_router example",
+  "scripts": {
+    "e2e": "npx playwright test"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
+  }
+}
