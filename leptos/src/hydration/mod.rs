@@ -185,9 +185,9 @@ pub fn HydrationScripts(
         ""
     } else if has_base {
         // Remove all leading `/` to make href path-relative
-        root.trim_start_matches("/")
+        &format!("{}/", root.trim_start_matches("/"))
     } else {
-        &root
+        &format!("{}/", root.clone())
     };
 
     // JS import base
