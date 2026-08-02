@@ -181,11 +181,15 @@ pub fn HydrationScripts(
 
     // Prefix for HTML hrefs, which are path-absolute (with leading `/`)
     // or path-relative (without) depending on whether LEPTOS_SITE_BASE is set.
-    let base_and_root_prefix = if has_base && root.is_empty() {
-        ""
-    } else if has_base {
+    let base_and_root_prefix = if has_base {
         // Remove all leading `/` to make href path-relative
-        &format!("{}/", root.trim_start_matches("/"))
+        let trimmed = root.trim_start_matches("/");
+
+        if trimmed.is_empty() {
+            ""
+        } else {
+            &format!("{}/", root.trim_start_matches("/"))
+        }
     } else {
         &format!("{}/", root.clone())
     };
