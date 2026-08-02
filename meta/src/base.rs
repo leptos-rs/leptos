@@ -7,5 +7,6 @@ pub fn Base(
     /// we use as the `href` for the `<base>` element.
     options: LeptosOptions,
 ) -> impl IntoView {
-    base().href(options.site_base)
+    let base_href = format!("{}{}", options.site_addr, options.site_base);
+    base().href(base_href)
 }
