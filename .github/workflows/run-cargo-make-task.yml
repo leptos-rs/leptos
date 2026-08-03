@@ -142,7 +142,7 @@ jobs:
       - name: Install pnpm
         if: contains(inputs.directory, 'examples')
         id: pnpm-install
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
         with:
           version: 8
           run_install: false
