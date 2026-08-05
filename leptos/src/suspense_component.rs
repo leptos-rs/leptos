@@ -16,8 +16,7 @@ use reactive_graph::{
     owner::{provide_context, use_context, ArcStoredValue, Owner},
     signal::ArcRwSignal,
     traits::{
-        Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
-        WriteValue,
+        Dispose, Get, ReadUntracked, Track, With, WithUntracked, WriteValue,
     },
 };
 use slotmap::{DefaultKey, SlotMap};
@@ -354,12 +353,31 @@ where
             let children = Arc::clone(&children);
             let notify_error_boundary = notify_error_boundary.clone();
             move |double_checking: Option<bool>| {
-                // on the first run, always track the tasks
-                if double_checking.is_none() {
+                // Subscribe to `tasks` before reading on every run, unless the notification
+                // has already been sent via `tasks_tx`
+                //
+                // Because dependencies are dynamic, the signal<>effect set of links is cleared
+                // on every run, it's possible for a run that reads first and subscribes second to lose
+                // a notification that fires in between on another thread. It reads a non-empty task
+                // set, the last task finishes and notifies its subscribers, but this run has not
+                // subscribed yet. This run then subscribes... but the signal won't be updated again.
+                //
+                // This is the primary source of the hangs described in a few issues
+                // - https://github.com/leptos-rs/leptos/issues/4851
+                // - https://github.com/leptos-rs/leptos/issues/4673
+                // - https://github.com/leptos-rs/leptos/pull/4698
+                //
+                // It's important not to *over*-run this effect though; `dry_resolve` walks the view tree
+                // and re-runs child closures, which can have side effects (like creating new Resources, etc.)
+                //
+                // Tracking only if the notification has not already been sent should block those spurious reruns.
+                if tasks_tx.is_some() {
                     tasks.track();
                 }
 
-                if let Some(curr_tasks) = tasks.try_read_untracked() {
+                let curr_tasks = tasks.try_read_untracked();
+
+                if let Some(curr_tasks) = curr_tasks {
                     if curr_tasks.is_empty() {
                         if double_checking == Some(true) {
                             // we have finished loading, and checking the children again told us there are
@@ -387,7 +405,7 @@ where
                             }
 
                             if tasks
-                                .try_read()
+                                .try_read_untracked()
                                 .map(|n| n.is_empty())
                                 .unwrap_or(false)
                             {
@@ -407,8 +425,6 @@ where
                             // tell ourselves that we're just double-checking
                             return true;
                         }
-                    } else {
-                        tasks.track();
                     }
                 }
                 false
