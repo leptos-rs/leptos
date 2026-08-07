@@ -125,8 +125,14 @@ where
             reactive_graph::spawn(async move {
                 let loaded = fut.await;
                 *value.write().or_poisoned() = Some(loaded);
-                loading.store(false, Ordering::Relaxed);
-                for waker in mem::take(&mut *wakers.write().or_poisoned()) {
+                // clear `loading` and take the workers under one lock, to prevent polling
+                // from registering a waker that's never woken
+                let pending_wakers = {
+                    let mut wakers = wakers.write().or_poisoned();
+                    loading.store(false, Ordering::Relaxed);
+                    mem::take(&mut *wakers)
+                };
+                for waker in pending_wakers {
                     waker.wake();
                 }
                 trigger.notify();
@@ -322,8 +328,10 @@ where
             self.suspenses.write().or_poisoned().push(suspense_context);
         }
 
+        // hold the `wakers` lock across the change in `loading`
+        let mut wakers = self.wakers.write().or_poisoned();
         if self.loading.load(Ordering::Relaxed) {
-            self.wakers.write().or_poisoned().push(waker.clone());
+            wakers.push(waker.clone());
             Poll::Pending
         } else {
             Poll::Ready(
