@@ -211,6 +211,6 @@ pub fn About() -> impl IntoView {
 pub fn Counter() -> impl IntoView {
     let count = RwSignal::new(0);
     view! {
-        <button class="counter" on:click=move |_| *count.write() += 1>{count}</button>
+        <button class="counter" on:click=move |_| *count.write() += 1>"Click Me: "{count}</button>
     }
 }

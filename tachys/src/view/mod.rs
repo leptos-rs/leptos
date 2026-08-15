@@ -86,6 +86,19 @@ impl MarkBranch for StreamBuilder {
     }
 }
 
+#[doc(hidden)]
+#[inline]
+pub fn close_branch_marker(position: &PositionState) {
+    #[cfg(feature = "mark_branches")]
+    if position.get() == Position::NextChildAfterText {
+        position.set(Position::NextChild);
+    }
+    #[cfg(not(feature = "mark_branches"))]
+    {
+        _ = position;
+    }
+}
+
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
 ///
