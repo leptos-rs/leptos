@@ -366,7 +366,7 @@ pub(crate) struct MatchedRoute(pub String, pub AnyView);
 
 impl MatchedRoute {
     fn branch_name(&self) -> String {
-        format!("{:?}", self.1.as_type_id())
+        format!("{}|{:?}", self.0, self.1.as_type_id())
     }
 }
 
