@@ -259,7 +259,9 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 				oldKeys[k].close = c;
 			}
 		}
-		oldDocWalker.nextNode();
+		if(!oldDocWalker.nextNode()) {
+			break;
+		}
 	}
 	while(newBranches > 0) {
 		const c = newDocWalker.currentNode;
@@ -278,7 +280,9 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 				newKeys[k].close = c;
 			}
 		}
-		newDocWalker.nextNode();
+		if(!newDocWalker.nextNode()) {
+			break;
+		}
 	}
 
 	for(const key in oldKeys) {
