@@ -250,20 +250,12 @@ pub(crate) fn use_resolved_path(
         if path.starts_with('/') {
             path
         } else {
-            let has_site_base = option_env!("LEPTOS_SITE_BASE").is_some();
-
-            let resolved_path = router
+            router
                 .resolve_path(
                     &path,
                     matched.as_ref().map(|n| n.get()).as_deref(),
                 )
-                .to_string();
-
-            if has_site_base {
-                resolved_path.trim_start_matches("/").to_string()
-            } else {
-                resolved_path
-            }
+                .to_string()
         }
     })
 }
