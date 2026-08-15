@@ -357,16 +357,19 @@ function replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode) {
 	seekBranchClose(oldDocWalker);
 	seekBranchClose(newDocWalker);
 
+	const oldClose = oldDocWalker.currentNode;
+	const newClose = newDocWalker.currentNode;
+
 	try {
 		oldRange.setStartAfter(oldNode);
-		oldRange.setEndBefore(oldDocWalker.currentNode);
+		oldRange.setEndBefore(oldClose);
 		newRange.setStartAfter(newNode);
-		newRange.setEndAfter(newDocWalker.currentNode);
+		newRange.setEndBefore(newClose);
 		const newContents = newRange.extractContents();
 		oldRange.deleteContents();
 		oldRange.insertNode(newContents);
-		oldNode.replaceWith(newNode);
-		oldDocWalker.currentNode.replaceWith(newDocWalker.currentNode);
+		oldNode.textContent = newNode.textContent;
+		oldClose.textContent = newClose.textContent;
 	} catch (e) {
 		console.error(e);
 	}
