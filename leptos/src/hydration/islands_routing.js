@@ -259,7 +259,9 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 				oldKeys[k].close = c;
 			}
 		}
-		oldDocWalker.nextNode();
+		if(!oldDocWalker.nextNode()) {
+			break;
+		}
 	}
 	while(newBranches > 0) {
 		const c = newDocWalker.currentNode;
@@ -278,7 +280,9 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 				newKeys[k].close = c;
 			}
 		}
-		newDocWalker.nextNode();
+		if(!newDocWalker.nextNode()) {
+			break;
+		}
 	}
 
 	for(const key in oldKeys) {
@@ -353,16 +357,19 @@ function replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode) {
 	seekBranchClose(oldDocWalker);
 	seekBranchClose(newDocWalker);
 
+	const oldClose = oldDocWalker.currentNode;
+	const newClose = newDocWalker.currentNode;
+
 	try {
 		oldRange.setStartAfter(oldNode);
-		oldRange.setEndBefore(oldDocWalker.currentNode);
+		oldRange.setEndBefore(oldClose);
 		newRange.setStartAfter(newNode);
-		newRange.setEndAfter(newDocWalker.currentNode);
+		newRange.setEndBefore(newClose);
 		const newContents = newRange.extractContents();
 		oldRange.deleteContents();
 		oldRange.insertNode(newContents);
-		oldNode.replaceWith(newNode);
-		oldDocWalker.currentNode.replaceWith(newDocWalker.currentNode);
+		oldNode.textContent = newNode.textContent;
+		oldClose.textContent = newClose.textContent;
 	} catch (e) {
 		console.error(e);
 	}

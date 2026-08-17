@@ -575,7 +575,10 @@ impl RenderHtml for AnyView {
         #[cfg(feature = "hydrate")]
         {
             if FROM_SERVER {
-                (self.hydrate_from_server)(self.value, cursor, position)
+                let state =
+                    (self.hydrate_from_server)(self.value, cursor, position);
+                super::close_branch_marker(position);
+                state
             } else {
                 panic!(
                     "hydrating AnyView from inside a ViewTemplate is not \
@@ -603,6 +606,7 @@ impl RenderHtml for AnyView {
         {
             let state =
                 (self.hydrate_async)(self.value, cursor, position).await;
+            super::close_branch_marker(position);
             state
         }
         #[cfg(not(feature = "hydrate"))]
