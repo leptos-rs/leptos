@@ -12,11 +12,11 @@ pub fn Login(
     api: UnauthorizedApi,
     #[prop(into)] on_success: Callback<AuthorizedApi>,
 ) -> impl IntoView {
-    let (login_error, set_login_error) = create_signal(None::<String>);
-    let (wait_for_response, set_wait_for_response) = create_signal(false);
+    let (login_error, set_login_error) = signal(None::<String>);
+    let (wait_for_response, set_wait_for_response) = signal(false);
 
     let login_action =
-        create_action(move |(email, password): &(String, String)| {
+        Action::new(move |(email, password): &(String, String)| {
             log::debug!("Try to login with {email}");
             let email = email.to_string();
             let password = password.to_string();

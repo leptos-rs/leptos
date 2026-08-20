@@ -46,16 +46,16 @@ fn HomePage() -> impl IntoView {
     let hello_1 = create_local_resource(move || (), |_| shared_server::shared_server_function());
     //  this won't work : let hello_1 = create_resource(move || (), |_| shared_server::shared_server_function());
     // A resource is initialized on the rendering server when using SSR.
-    
+
     let hello_1_action = Action::<SharedServerFunction,_>::server();
     let hello_2_action = Action::<SharedServerFunction2,_>::server();
 
-    let value_1 = create_rw_signal(String::from("waiting for update from shared server."));
-    let value_2 = create_rw_signal(String::from("waiting for update from shared server 2."));
+    let value_1 = RwSignal::new(String::from("waiting for update from shared server."));
+    let value_2 = RwSignal::new(String::from("waiting for update from shared server 2."));
 
     //let hello_2 = create_resource(move || (), shared_server_2::shared_server_function);
-    create_effect(move|_|{if let Some(Ok(msg)) = hello_1_action.value().get(){value_1.set(msg)}});
-    create_effect(move|_|{if let Some(Ok(msg)) = hello_2_action.value().get(){value_2.set(msg)}});
+    Effect::new(move|_|{if let Some(Ok(msg)) = hello_1_action.value().get(){value_1.set(msg)}});
+    Effect::new(move|_|{if let Some(Ok(msg)) = hello_2_action.value().get(){value_2.set(msg)}});
 
     view! {
         <h1> App 1</h1>
