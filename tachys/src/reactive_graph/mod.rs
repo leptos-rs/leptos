@@ -801,7 +801,11 @@ macro_rules! reactive_impl {
                 self
             }
 
-            fn dry_resolve(&mut self) {}
+            fn dry_resolve(&mut self) {
+                if $dry_resolve {
+                    _ = self.get();
+                }
+            }
 
             async fn resolve(self) -> Self::AsyncOutput {
                 self
@@ -891,7 +895,7 @@ mod stable {
     );
     reactive_impl!(ArcRwSignal, <V>, V, false, ArcRwSignal<V>: Get<Value = V>);
     reactive_impl!(ArcReadSignal, <V>, V, false, ArcReadSignal<V>: Get<Value = V>);
-    reactive_impl!(ArcMemo, <V>, V, false, ArcMemo<V>: Get<Value = V>);
+    reactive_impl!(ArcMemo, <V>, V, true, ArcMemo<V>: Get<Value = V>);
     reactive_impl!(ArcSignal, <V>, V, true, ArcSignal<V>: Get<Value = V>);
 }
 

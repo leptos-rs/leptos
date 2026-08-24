@@ -87,7 +87,7 @@ where
 }
 
 macro_rules! inner_html_reactive {
-    ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+    ($name:ident, <$($gen:ident),*>, $v:ty, $dry_resolve:literal, $( $where_clause:tt )*) =>
     {
         #[allow(deprecated)]
         impl<$($gen),*> InnerHtmlValue for $name<$($gen),*>
@@ -138,7 +138,11 @@ macro_rules! inner_html_reactive {
                 self
             }
 
-            fn dry_resolve(&mut self) {}
+            fn dry_resolve(&mut self) {
+                if $dry_resolve {
+                    _ = self.get();
+                }
+            }
 
             async fn resolve(self) -> Self::AsyncOutput {
                 self
@@ -165,6 +169,7 @@ mod stable {
         RwSignal,
         <V, S>,
         V,
+        false,
         RwSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -173,6 +178,7 @@ mod stable {
         ReadSignal,
         <V, S>,
         V,
+        false,
         ReadSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -181,6 +187,7 @@ mod stable {
         Memo,
         <V, S>,
         V,
+        true,
         Memo<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -189,6 +196,7 @@ mod stable {
         Signal,
         <V, S>,
         V,
+        true,
         Signal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -197,14 +205,15 @@ mod stable {
         MaybeSignal,
         <V, S>,
         V,
+        true,
         MaybeSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    inner_html_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
-    inner_html_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
-    inner_html_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
-    inner_html_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+    inner_html_reactive!(ArcRwSignal, <V>, V, false, ArcRwSignal<V>: Get<Value = V>);
+    inner_html_reactive!(ArcReadSignal, <V>, V, false, ArcReadSignal<V>: Get<Value = V>);
+    inner_html_reactive!(ArcMemo, <V>, V, true, ArcMemo<V>: Get<Value = V>);
+    inner_html_reactive!(ArcSignal, <V>, V, true, ArcSignal<V>: Get<Value = V>);
 }
 
 #[cfg(feature = "reactive_stores")]
@@ -222,6 +231,7 @@ mod reactive_stores {
         Subfield,
         <Inner, Prev, V>,
         V,
+        false,
         Subfield<Inner, Prev, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -231,6 +241,7 @@ mod reactive_stores {
         AtKeyed,
         <Inner, Prev, K, V>,
         V,
+        false,
         AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -242,6 +253,7 @@ mod reactive_stores {
         KeyedSubfield,
         <Inner, Prev, K, V>,
         V,
+        false,
         KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -253,6 +265,7 @@ mod reactive_stores {
         DerefedField,
         <S>,
         <S::Value as Deref>::Target,
+        false,
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
@@ -261,6 +274,7 @@ mod reactive_stores {
         AtIndex,
         <Inner, Prev>,
         <Prev as Index<usize>>::Output,
+        false,
         AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
         Prev: Send + Sync + IndexMut<usize> + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -269,6 +283,7 @@ mod reactive_stores {
         Store,
         <V, S>,
         V,
+        false,
         Store<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -277,10 +292,11 @@ mod reactive_stores {
         Field,
         <V, S>,
         V,
+        false,
         Field<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    inner_html_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
-    inner_html_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
+    inner_html_reactive!(ArcStore, <V>, V, false, ArcStore<V>: Get<Value = V>);
+    inner_html_reactive!(ArcField, <V>, V, false, ArcField<V>: Get<Value = V>);
 }
