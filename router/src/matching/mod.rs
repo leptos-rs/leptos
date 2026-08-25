@@ -60,12 +60,17 @@ where
         let path = match &self.base {
             None => path,
             Some(base) => {
-                let (base, path) = if base.starts_with('/') {
-                    (base.trim_start_matches('/'), path.trim_start_matches('/'))
+                let base = base.trim_matches('/');
+                if base.is_empty() {
+                    path
                 } else {
-                    (base.as_ref(), path)
-                };
-                path.strip_prefix(base)?
+                    let rest =
+                        path.trim_start_matches('/').strip_prefix(base)?;
+                    if !(rest.is_empty() || rest.starts_with('/')) {
+                        return None;
+                    }
+                    rest
+                }
             }
         };
 
@@ -359,6 +364,47 @@ mod tests {
         let matched = routes.match_route("/portfolio/contact/foobar").unwrap();
         let params = matched.to_params();
         assert_eq!(params, vec![("any".into(), "foobar".into())]);
+    }
+
+    #[test]
+    pub fn base_with_root_or_trailing_slash_matches() {
+        for (base, path) in [
+            ("/", "/about"),
+            ("/app/", "/app/about"),
+            ("/app", "/app/about"),
+            ("app", "/app/about"),
+            ("", "/about"),
+        ] {
+            let routes = RouteDefs::new_with_base(
+                NestedRoute::new(StaticSegment("about"), || ()),
+                base,
+            );
+            assert!(routes.match_route(path).is_some(), "base {base:?}");
+        }
+
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(StaticSegment(""), || ()),
+            "/app",
+        );
+        assert!(routes.match_route("/app").is_some());
+
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(ParamSegment("id"), || ()),
+            "/",
+        );
+        let matched = routes.match_route("/123").unwrap();
+        assert_eq!(matched.to_params(), vec![("id".into(), "123".into())]);
+    }
+
+    #[test]
+    pub fn base_must_match_whole_segment() {
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(StaticSegment("about"), || ()),
+            "/app",
+        );
+
+        assert!(routes.match_route("/apple/about").is_none());
+        assert!(routes.match_route("/about").is_none());
     }
 
     #[test]
