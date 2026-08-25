@@ -42,29 +42,27 @@ impl PossibleRouteMatch for ParamSegment {
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let bytes = path.as_bytes();
         let has_leading_slash = bytes.first() == Some(&b'/');
-        // the first char of the path is always consumed before scanning, but
-        // only counts toward the match when it is the leading `/`
-        let (param_offset, scan_start) = if has_leading_slash {
-            (1, 1)
-        } else {
-            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
-        };
+        if !has_leading_slash && !path.is_empty() {
+            return None;
+        }
+        let offset = usize::from(has_leading_slash);
         // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
         // equivalent to scanning chars without the UTF-8 decoding
-        let param_len = bytes[scan_start..]
+        let param_len = bytes[offset..]
             .iter()
             .position(|&byte| byte == b'/')
-            .unwrap_or(bytes.len() - scan_start);
-        let matched_len = param_offset + param_len;
+            .unwrap_or(bytes.len() - offset);
+        let matched_len = offset + param_len;
 
         if matched_len == 0 || (matched_len == 1 && has_leading_slash) {
             return None;
         }
 
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = vec![(
             Cow::Borrowed(self.0),
-            path[param_offset..param_len + param_offset].to_string(),
+            path[offset..param_len + offset].to_string(),
         )];
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
@@ -127,22 +125,20 @@ impl PossibleRouteMatch for WildcardSegment {
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let bytes = path.as_bytes();
         let has_leading_slash = bytes.first() == Some(&b'/');
-        // the first char of the path is always consumed before scanning, but
-        // only counts toward the match when it is the leading `/`
-        let (param_offset, scan_start) = if has_leading_slash {
-            (1, 1)
-        } else {
-            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
-        };
+        if !has_leading_slash && !path.is_empty() {
+            return None;
+        }
+        let offset = usize::from(has_leading_slash);
         // the wildcard consumes the entire remaining path, so no scan is
         // needed at all
-        let param_len = bytes.len() - scan_start;
-        let matched_len = param_offset + param_len;
+        let param_len = bytes.len() - offset;
+        let matched_len = offset + param_len;
 
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = iter::once((
             Cow::Borrowed(self.0),
-            path[param_offset..param_len + param_offset].to_string(),
+            path[offset..param_len + offset].to_string(),
         ));
         Some(PartialPathMatch::new(
             remaining,
@@ -167,32 +163,30 @@ impl PossibleRouteMatch for OptionalParamSegment {
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
         let bytes = path.as_bytes();
         let has_leading_slash = bytes.first() == Some(&b'/');
-        // the first char of the path is always consumed before scanning, but
-        // only counts toward the match when it is the leading `/`
-        let (param_offset, scan_start) = if has_leading_slash {
-            (1, 1)
-        } else {
-            (0, path.chars().next().map(char::len_utf8).unwrap_or(0))
-        };
+        if !has_leading_slash && !path.is_empty() {
+            return Some(PartialPathMatch::new(path, Vec::new(), ""));
+        }
+        let offset = usize::from(has_leading_slash);
         // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
         // equivalent to scanning chars without the UTF-8 decoding
-        let param_len = bytes[scan_start..]
+        let param_len = bytes[offset..]
             .iter()
             .position(|&byte| byte == b'/')
-            .unwrap_or(bytes.len() - scan_start);
-        let matched_len = param_offset + param_len;
+            .unwrap_or(bytes.len() - offset);
+        let matched_len = offset + param_len;
 
         let matched_len = if matched_len == 1 && has_leading_slash {
             0
         } else {
             matched_len
         };
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = (matched_len > 0)
             .then(|| {
                 (
                     Cow::Borrowed(self.0),
-                    path[param_offset..param_len + param_offset].to_string(),
+                    path[offset..param_len + offset].to_string(),
                 )
             })
             .into_iter()
@@ -277,6 +271,56 @@ mod tests {
         assert_eq!(matched.remaining(), "");
         let params = matched.params();
         assert_eq!(params[0], ("a".into(), "héllo".into()));
+    }
+
+    #[test]
+    fn non_slash_multi_byte_param_does_not_match() {
+        let def = ParamSegment("a");
+        for path in ["éx", "日本語"] {
+            assert!(def.test(path).is_none());
+        }
+    }
+
+    #[test]
+    fn non_slash_multi_byte_wildcard_does_not_match() {
+        let def = WildcardSegment("rest");
+        for path in ["éx", "日本語"] {
+            assert!(def.test(path).is_none());
+        }
+    }
+
+    #[test]
+    fn non_slash_multi_byte_optional_param_matches_nothing() {
+        let def = OptionalParamSegment("a");
+        for path in ["éx", "日本語"] {
+            let matched = def.test(path).expect("couldn't match route");
+            assert_eq!(matched.matched(), "");
+            assert_eq!(matched.remaining(), path);
+            assert!(matched.params().is_empty());
+        }
+    }
+
+    #[test]
+    fn non_slash_ascii_param_segments_do_not_match() {
+        assert!(ParamSegment("a").test("abc").is_none());
+        assert!(WildcardSegment("rest").test("abc").is_none());
+    }
+
+    #[test]
+    fn leading_slash_multi_byte_segments_match_fully() {
+        let path = "/é";
+        for matched in [
+            ParamSegment("a").test(path).expect("couldn't match route"),
+            WildcardSegment("rest")
+                .test(path)
+                .expect("couldn't match route"),
+            OptionalParamSegment("a")
+                .test(path)
+                .expect("couldn't match route"),
+        ] {
+            assert_eq!(matched.matched(), path);
+            assert_eq!(matched.remaining(), "");
+        }
     }
 
     #[test]
