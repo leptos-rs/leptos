@@ -162,6 +162,7 @@ where
                         matched,
                     })),
                     None => {
+                        let spawned_owner = owner.clone();
                         let state =
                             Rc::new(RefCell::new(FlatRoutesViewState {
                                 view: ().into_any().build(),
@@ -177,8 +178,12 @@ where
                             let state = Rc::clone(&state);
                             async move {
                                 let view = view.await;
-                                view.into_any()
-                                    .rebuild(&mut state.borrow_mut().view);
+                                let is_current =
+                                    state.borrow().owner == spawned_owner;
+                                if is_current {
+                                    view.into_any()
+                                        .rebuild(&mut state.borrow_mut().view);
+                                }
                             }
                         });
 

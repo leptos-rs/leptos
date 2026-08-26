@@ -63,7 +63,13 @@ default-features = true
 rustc_version = { workspace = true, default-features = true }
 
 [dev-dependencies]
+leptos = { workspace = true, features = ["csr"] }
 wasm-bindgen-test = { workspace = true, default-features = true }
+
+[dev-dependencies.web-sys]
+features = ["Element", "HtmlElement", "Node"]
+workspace = true
+default-features = true
 
 [features]
 tracing = ["dep:tracing"]
