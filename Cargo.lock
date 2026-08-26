@@ -2267,10 +2267,10 @@ dependencies = [
  "leptos",
  "leptos_macro",
  "leptos_router",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
+ "trybuild",
 ]
 
 [[package]]
