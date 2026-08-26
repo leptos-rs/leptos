@@ -282,6 +282,20 @@ pub trait SharedContext: Debug {
     /// initial hydration in the client.
     fn during_hydration(&self) -> bool;
 
+    /// Returns a [`Future`] that resolves once hydration has completed, or
+    /// `None` when no deferral is needed — on the server, when
+    /// client-rendering, or once hydration is already complete.
+    ///
+    /// Effects created while the page is hydrating await this before their
+    /// first run. The hydration walk matches the browser tree against the
+    /// server-rendered HTML, and an effect that runs at one of the walk's
+    /// await points can flip state the server never saw — the walk then
+    /// builds a different branch than the server rendered and fails with a
+    /// hydration mismatch.
+    fn hydration_barrier(&self) -> Option<PinnedFuture<()>> {
+        None
+    }
+
     /// Tells the shared context that the hydration process is complete.
     fn hydration_complete(&self);
 

@@ -79,6 +79,26 @@ impl Display for SerializedError {
 
 impl std::error::Error for SerializedError {}
 
+/// One-shot event resolving when hydration completes, cloneable into every
+/// effect created during hydration — see
+/// [`SharedContext::hydration_barrier`].
+struct HydrationBarrier {
+    tx: std::sync::Mutex<Option<futures::channel::oneshot::Sender<()>>>,
+    rx: futures::future::Shared<futures::channel::oneshot::Receiver<()>>,
+}
+
+impl Default for HydrationBarrier {
+    fn default() -> Self {
+        use futures::FutureExt;
+
+        let (tx, rx) = futures::channel::oneshot::channel();
+        Self {
+            tx: std::sync::Mutex::new(Some(tx)),
+            rx: rx.shared(),
+        }
+    }
+}
+
 #[derive(Default)]
 /// The shared context that should be used in the browser while hydrating.
 pub struct HydrateSharedContext {
@@ -87,6 +107,7 @@ pub struct HydrateSharedContext {
     during_hydration: AtomicBool,
     errors: LazyLock<Vec<(SerializedDataId, ErrorId, Error)>>,
     incomplete: LazyLock<Vec<SerializedDataId>>,
+    barrier: HydrationBarrier,
 }
 
 impl HydrateSharedContext {
@@ -98,6 +119,7 @@ impl HydrateSharedContext {
             during_hydration: AtomicBool::new(true),
             errors: LazyLock::new(serialized_errors),
             incomplete: LazyLock::new(incomplete_chunks),
+            barrier: HydrationBarrier::default(),
         }
     }
 
@@ -112,6 +134,7 @@ impl HydrateSharedContext {
             during_hydration: AtomicBool::new(true),
             errors: LazyLock::new(serialized_errors),
             incomplete: LazyLock::new(incomplete_chunks),
+            barrier: HydrationBarrier::default(),
         }
     }
 }
@@ -160,8 +183,22 @@ impl SharedContext for HydrateSharedContext {
         self.during_hydration.load(Ordering::Relaxed)
     }
 
+    fn hydration_barrier(&self) -> Option<PinnedFuture<()>> {
+        use futures::FutureExt;
+
+        if !self.during_hydration() {
+            return None;
+        }
+        Some(Box::pin(self.barrier.rx.clone().map(|_| ())))
+    }
+
     fn hydration_complete(&self) {
-        self.during_hydration.store(false, Ordering::Relaxed)
+        self.during_hydration.store(false, Ordering::Relaxed);
+        if let Ok(mut tx) = self.barrier.tx.lock()
+            && let Some(tx) = tx.take()
+        {
+            _ = tx.send(());
+        }
     }
 
     fn get_is_hydrating(&self) -> bool {

@@ -16,6 +16,28 @@ use std::{
     sync::{Arc, RwLock, atomic::AtomicBool},
 };
 
+/// The hydration barrier for the current shared context, if the page is
+/// currently hydrating — see `SharedContext::hydration_barrier`.
+///
+/// Every effect awaits it before its first run: the hydration walk matches
+/// the browser tree against the server-rendered HTML, and an effect that
+/// runs at one of the walk's await points can flip state the server never
+/// saw, making the walk build a different branch than the server rendered.
+/// Holding effects until hydration completes preserves the synchronous
+/// walk's ordering, under which no effect could run mid-hydration.
+fn hydration_barrier(
+) -> Option<std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + Sync>>>
+{
+    #[cfg(feature = "hydration")]
+    {
+        Owner::current_shared_context().and_then(|sc| sc.hydration_barrier())
+    }
+    #[cfg(not(feature = "hydration"))]
+    {
+        None
+    }
+}
+
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 ///
 /// Creating an effect runs the given function once after any current synchronous work is done.
@@ -174,11 +196,15 @@ impl Effect<LocalStorage> {
             let value = Arc::new(RwLock::new(None::<T>));
             let mut first_run = true;
 
+            let barrier = hydration_barrier();
             Executor::spawn_local({
                 let value = Arc::clone(&value);
                 let subscriber = inner.to_any_subscriber();
 
                 async move {
+                    if let Some(barrier) = barrier {
+                        barrier.await;
+                    }
                     while rx.next().await.is_some() {
                         if !owner.paused()
                             && (subscriber.with_observer(|| {
@@ -325,12 +351,16 @@ impl Effect<LocalStorage> {
             let dep_value = Arc::new(RwLock::new(None::<D>));
             let watch_value = Arc::new(RwLock::new(None::<T>));
 
+            let barrier = hydration_barrier();
             Executor::spawn_local({
                 let dep_value = Arc::clone(&dep_value);
                 let watch_value = Arc::clone(&watch_value);
                 let subscriber = inner.to_any_subscriber();
 
                 async move {
+                    if let Some(barrier) = barrier {
+                        barrier.await;
+                    }
                     while rx.next().await.is_some() {
                         if !owner.paused()
                             && (subscriber.with_observer(|| {
@@ -410,11 +440,15 @@ impl Effect<SyncStorage> {
         let mut first_run = true;
         let value = Arc::new(RwLock::new(None::<T>));
 
+        let barrier = hydration_barrier();
         let task = {
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
 
             async move {
+                if let Some(barrier) = barrier {
+                    barrier.await;
+                }
                 while rx.next().await.is_some() {
                     if !owner.paused()
                         && (subscriber
@@ -463,12 +497,16 @@ impl Effect<SyncStorage> {
         let watch_value = Arc::new(RwLock::new(None::<T>));
 
         let inner = cfg!(feature = "effects").then(|| {
+            let barrier = hydration_barrier();
             crate::spawn({
                 let dep_value = Arc::clone(&dep_value);
                 let watch_value = Arc::clone(&watch_value);
                 let subscriber = inner.to_any_subscriber();
 
                 async move {
+                    if let Some(barrier) = barrier {
+                        barrier.await;
+                    }
                     while rx.next().await.is_some() {
                         if !owner.paused()
                             && (subscriber.with_observer(|| {
