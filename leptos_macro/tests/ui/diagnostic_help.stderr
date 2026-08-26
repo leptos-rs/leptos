@@ -1,0 +1,46 @@
+error: To create a scope class with the view! macro you must put a comma `,` after the value
+
+         = help: e.g., view!{ class="my-class", <div>...</div>}
+
+ --> tests/ui/diagnostic_help.rs:4:27
+  |
+4 |     let _ = view! { class = "scope" <div/> };
+  |                           ^
+
+error: only `transparent` is supported
+
+         = help: try `#[component(transparent)]` or `#[component]`
+
+ --> tests/ui/diagnostic_help.rs:7:13
+  |
+7 | #[component(unsupported)]
+  |             ^^^^^^^^^^^
+
+error: only `transparent` or `lazy` are supported
+
+         = help: try `#[island(transparent)]`, `#[island(lazy)]`, or `#[island]`
+
+  --> tests/ui/diagnostic_help.rs:10:10
+   |
+10 | #[island(unsupported)]
+   |          ^^^^^^^^^^^
+
+error: no arguments are supported
+
+         = help: try just `#[slot]`
+
+  --> tests/ui/diagnostic_help.rs:13:1
+   |
+13 | #[slot(unsupported)]
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `slot` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: `Option` must be `std::option::Option`
+
+         = help: make sure you're not shadowing the `std::option::Option` type that is automatically imported from the standard prelude
+
+  --> tests/ui/diagnostic_help.rs:18:40
+   |
+18 |     #[prop(strip_option, into)] value: bool,
+   |                                        ^^^^
