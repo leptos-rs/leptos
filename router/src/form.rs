@@ -27,6 +27,7 @@ extern "C" {
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
+/// Cross-origin actions fall back to the browser's native form submission.
 #[component]
 pub fn Form<A>(
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
@@ -129,6 +130,9 @@ where
                 else {
                     return;
                 };
+                if !is_same_origin(&action) {
+                    return;
+                }
 
                 let submitter = ev.submitter();
                 let form_data = form_data(&form, submitter.as_ref());
@@ -358,6 +362,14 @@ fn current_window_origin() -> String {
     )
 }
 
+fn is_same_origin(action: &str) -> bool {
+    <crate::location::BrowserUrl as crate::location::LocationProvider>::parse(
+        action,
+    )
+    .map(|url| url.origin() == current_window_origin())
+    .unwrap_or(false)
+}
+
 fn form_data(
     form: &web_sys::HtmlFormElement,
     submitter: Option<&web_sys::HtmlElement>,
@@ -493,7 +505,7 @@ fn extract_form_attributes(
 
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
-    use super::{extract_form_attributes, form_data};
+    use super::{extract_form_attributes, form_data, is_same_origin};
     use std::{cell::RefCell, rc::Rc};
     use wasm_bindgen::{JsCast, UnwrapThrowExt, closure::Closure};
     use wasm_bindgen_test::*;
@@ -643,5 +655,19 @@ mod wasm_tests {
         assert_eq!(intents.length(), 1);
         assert_eq!(intents.get(0).as_string().as_deref(), Some("delete"));
         assert_eq!(empty_intents.length(), 0);
+    }
+
+    #[wasm_bindgen_test]
+    fn form_actions_are_classified_by_origin() {
+        let location = leptos::prelude::window().location();
+        let origin = location.origin().unwrap_throw();
+        let hostname = location.hostname().unwrap_throw();
+
+        assert!(is_same_origin(""));
+        assert!(is_same_origin("/x"));
+        assert!(is_same_origin("?q=1"));
+        assert!(is_same_origin(&format!("{origin}/x")));
+        assert!(!is_same_origin("http://example.com/x"));
+        assert!(!is_same_origin(&format!("https://{hostname}:1/x")));
     }
 }
