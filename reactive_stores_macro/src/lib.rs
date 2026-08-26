@@ -1,28 +1,30 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error2::{abort, abort_call_site, proc_macro_error, OptionExt};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    ExprClosure, Field, Fields, GenericParam, Generics, Ident, Index, Meta,
-    Result, Token, Type, TypeParam, Variant, Visibility, WhereClause,
+    Attribute, Error, ExprClosure, Field, Fields, GenericParam, Generics,
+    Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility,
+    WhereClause,
 };
 
-#[proc_macro_error]
 #[proc_macro_derive(Store, attributes(store))]
 pub fn derive_store(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    syn::parse_macro_input!(input as Model)
-        .into_token_stream()
+    let input = syn::parse_macro_input!(input as Model);
+    input
+        .expand()
+        .unwrap_or_else(Error::into_compile_error)
         .into()
 }
 
-#[proc_macro_error]
 #[proc_macro_derive(Patch, attributes(store, patch))]
 pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    syn::parse_macro_input!(input as PatchModel)
-        .into_token_stream()
+    let input = syn::parse_macro_input!(input as PatchModel);
+    input
+        .expand()
+        .unwrap_or_else(Error::into_compile_error)
         .into()
 }
 
@@ -143,7 +145,10 @@ impl Parse for Model {
             syn::Data::Struct(s) => {
                 let fields = match s.fields {
                     syn::Fields::Unit => {
-                        abort!(s.semi_token, "unit structs are not supported");
+                        return Err(Error::new_spanned(
+                            s.semi_token,
+                            "unit structs are not supported",
+                        ));
                     }
                     syn::Fields::Named(fields) => {
                         fields.named.into_iter().collect::<Vec<_>>()
@@ -159,9 +164,10 @@ impl Parse for Model {
                 variants: e.variants.into_iter().collect(),
             },
             _ => {
-                abort_call_site!(
-                    "only structs and enums can be used with `Store`"
-                );
+                return Err(Error::new(
+                    Span::call_site(),
+                    "only structs and enums can be used with `Store`",
+                ));
             }
         };
 
@@ -197,8 +203,8 @@ impl Parse for SubfieldMode {
     }
 }
 
-impl ToTokens for Model {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl Model {
+    fn expand(&self) -> Result<TokenStream> {
         let library_path = quote! { reactive_stores };
         let Model {
             vis,
@@ -238,10 +244,10 @@ impl ToTokens for Model {
             &clear_generics,
             &any_store_field,
             name,
-        );
+        )?;
 
         // read access
-        tokens.extend(quote! {
+        Ok(quote! {
             #[allow(missing_docs)]
             #vis trait #trait_name <AnyStoreField, #params>
             #where_with_orig
@@ -255,7 +261,7 @@ impl ToTokens for Model {
             {
                #(#read_fields)*
             }
-        });
+        })
     }
 }
 
@@ -267,7 +273,7 @@ impl ModelTy {
         clear_generics: &Generics,
         any_store_field: &Ident,
         name: &Ident,
-    ) -> (Vec<TokenStream>, Vec<TokenStream>) {
+    ) -> Result<(Vec<TokenStream>, Vec<TokenStream>)> {
         match self {
             ModelTy::Struct { fields } => fields
                 .iter()
@@ -276,34 +282,9 @@ impl ModelTy {
                     let Field {
                         ident, ty, attrs, ..
                     } = &field;
-                    let modes = attrs
-                        .iter()
-                        .find_map(|attr| {
-                            attr.meta.path().is_ident("store").then(|| {
-                                match &attr.meta {
-                                    Meta::List(list) => {
-                                        match Punctuated::<
-                                                SubfieldMode,
-                                                Comma,
-                                            >::parse_terminated
-                                                .parse2(list.tokens.clone())
-                                            {
-                                                Ok(modes) => Some(
-                                                    modes
-                                                        .iter()
-                                                        .cloned()
-                                                        .collect::<Vec<_>>(),
-                                                ),
-                                                Err(e) => abort!(list, e),
-                                            }
-                                    }
-                                    _ => None,
-                                }
-                            })
-                        })
-                        .flatten();
+                    let modes = parse_store_modes(attrs)?;
 
-                    (
+                    Ok((
                         field_to_tokens(
                             idx,
                             false,
@@ -315,7 +296,7 @@ impl ModelTy {
                             any_store_field,
                             name,
                             ty,
-                        ),
+                        )?,
                         field_to_tokens(
                             idx,
                             true,
@@ -327,11 +308,12 @@ impl ModelTy {
                             any_store_field,
                             name,
                             ty,
-                        ),
-                    )
+                        )?,
+                    ))
                 })
-                .unzip(),
-            ModelTy::Enum { variants } => variants
+                .collect::<Result<Vec<_>>>()
+                .map(|fields| fields.into_iter().unzip()),
+            ModelTy::Enum { variants } => Ok(variants
                 .iter()
                 .map(|variant| {
                     let Variant { ident, fields, .. } = variant;
@@ -359,8 +341,24 @@ impl ModelTy {
                         ),
                     )
                 })
-                .unzip(),
+                .unzip()),
         }
+    }
+}
+
+fn parse_store_modes(attrs: &[Attribute]) -> Result<Option<Vec<SubfieldMode>>> {
+    let Some(attr) =
+        attrs.iter().find(|attr| attr.meta.path().is_ident("store"))
+    else {
+        return Ok(None);
+    };
+
+    match &attr.meta {
+        Meta::List(list) => Punctuated::<SubfieldMode, Comma>::parse_terminated
+            .parse2(list.tokens.clone())
+            .map(|modes| Some(modes.into_iter().collect()))
+            .map_err(|error| Error::new_spanned(list, error)),
+        _ => Ok(None),
     }
 }
 
@@ -376,7 +374,7 @@ fn field_to_tokens(
     any_store_field: &Ident,
     name: &Ident,
     ty: &Type,
-) -> proc_macro2::TokenStream {
+) -> Result<TokenStream> {
     let ident = if orig_ident.is_none() {
         let idx = Ident::new(&format!("field{idx}"), Span::call_site());
         quote! { #idx }
@@ -399,7 +397,7 @@ fn field_to_tokens(
                         #[track_caller]
                         fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #clear_generics, #key_ty, #ty>
                     };
-                    return if include_body {
+                    return Ok(if include_body {
                         quote! {
                             #signature {
                                 #library_path::KeyedSubfield::new(
@@ -413,22 +411,22 @@ fn field_to_tokens(
                         }
                     } else {
                         quote! { #signature; }
-                    };
+                    });
                 }
-                SubfieldMode::Skip => return quote! {},
+                SubfieldMode::Skip => return Ok(quote! {}),
             }
         } else {
-            abort!(
+            return Err(Error::new(
                 orig_ident
                     .map(|ident| ident.span())
                     .unwrap_or_else(Span::call_site),
-                "multiple modes not currently supported"
-            );
+                "multiple modes not currently supported",
+            ));
         }
     }
 
     // default subfield
-    if include_body {
+    Ok(if include_body {
         quote! {
             fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty> {
                 #library_path::Subfield::new(
@@ -443,7 +441,7 @@ fn field_to_tokens(
         quote! {
             fn #ident(self) ->  #library_path::Subfield<#any_store_field, #name #clear_generics, #ty>;
         }
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -670,7 +668,10 @@ impl Parse for PatchModel {
             syn::Data::Struct(s) => {
                 let fields = match s.fields {
                     syn::Fields::Unit => {
-                        abort!(s.semi_token, "unit structs are not supported");
+                        return Err(Error::new_spanned(
+                            s.semi_token,
+                            "unit structs are not supported",
+                        ));
                     }
                     syn::Fields::Named(fields) => {
                         fields.named.into_iter().collect::<Vec<_>>()
@@ -683,7 +684,10 @@ impl Parse for PatchModel {
                 PatchModelTy::Struct { fields }
             }
             syn::Data::Enum(_e) => {
-                abort_call_site!("only structs can be used with `Patch`");
+                return Err(Error::new(
+                    Span::call_site(),
+                    "only structs can be used with `Patch`",
+                ));
 
                 // TODO: support enums later on
                 // PatchModelTy::Enum {
@@ -691,9 +695,10 @@ impl Parse for PatchModel {
                 // }
             }
             _ => {
-                abort_call_site!(
-                    "only structs and enums can be used with `Store`"
-                );
+                return Err(Error::new(
+                    Span::call_site(),
+                    "only structs and enums can be used with `Store`",
+                ));
             }
         };
 
@@ -705,8 +710,8 @@ impl Parse for PatchModel {
     }
 }
 
-impl ToTokens for PatchModel {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl PatchModel {
+    fn expand(&self) -> Result<TokenStream> {
         let library_path = quote! { reactive_stores };
         let PatchModel { name, generics, ty } = &self;
 
@@ -720,63 +725,16 @@ impl ToTokens for PatchModel {
                         Some(ident) => Either::Left(ident),
                         None => Either::Right(Index::from(idx)),
                     };
-                    let closure = attrs
-                        .iter()
-                        .find_map(|attr| {
-                            attr.meta.path().is_ident("patch").then(
-                                || match &attr.meta {
-                                    Meta::List(list) => {
-                                        match Punctuated::<
-                                                ExprClosure,
-                                                Comma,
-                                            >::parse_terminated
-                                                .parse2(list.tokens.clone())
-                                            {
-                                                Ok(closures) => {
-                                                    let closure = closures.iter().next().cloned().expect_or_abort("should have ONE closure");
-                                                    if closure.inputs.len() != 2 {
-                                                        abort!(closure.inputs, "patch closure should have TWO params as in #[patch(|this, new| ...)]");
-                                                    }
-                                                    closure
-                                                },
-                                                Err(e) => abort!(list, e),
-                                            }
-                                    }
-                                    _ => abort!(attr.meta, "needs to be as `#[patch(|this, new| ...)]`"),
-                                },
-                            )
+                    let closure = parse_patch_closure(attrs)?;
+                    let keyed = parse_store_modes(attrs)?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .find_map(|subfield| match subfield {
+                            SubfieldMode::Keyed(closure, _ty) => Some(closure),
+                            SubfieldMode::Skip => None,
                         });
-                    let keyed = attrs
-                        .iter()
-                        .find_map(|attr| {
-                            attr.meta.path().is_ident("store").then(|| {
-                                match &attr.meta {
-                                    Meta::List(list) => {
-                                        let subfields = match Punctuated::<
-                                                SubfieldMode,
-                                                Comma,
-                                            >::parse_terminated
-                                                .parse2(list.tokens.clone())
-                                            {
-                                                Ok(modes) => Some(
-                                                    modes
-                                                        .iter()
-                                                        .cloned()
-                                                        .collect::<Vec<_>>(),
-                                                ),
-                                                Err(e) => abort!(list, e),
-                                            }.unwrap_or_default();
-                                            subfields.into_iter().find_map(|subfield| match subfield {
-                                                SubfieldMode::Keyed(closure, _ty) => Some(closure),
-                                                SubfieldMode::Skip => None,
-                                            })
-                                    }
-                                    _ => None,
-                                }
-                            })
-                        }).flatten();
 
-                    if let Some(closure) = closure {
+                    Ok(if let Some(closure) = closure {
                         let params = closure.inputs;
                         let body = closure.body;
                         quote! {
@@ -828,8 +786,8 @@ impl ToTokens for PatchModel {
                             );
                             new_path.replace_last(#idx + 1);
                         }
-                    }
-                }).collect::<Vec<_>>()
+                    })
+                }).collect::<Result<Vec<_>>>()?
             }
             PatchModelTy::Enum { variants: _ } => {
                 unreachable!("not implemented currently")
@@ -841,7 +799,7 @@ impl ToTokens for PatchModel {
         let where_clause = &generics.where_clause;
 
         // read access
-        tokens.extend(quote! {
+        Ok(quote! {
             #[automatically_derived]
             impl #generics #library_path::PatchField for #name <#params>
                #where_clause
@@ -858,8 +816,37 @@ impl ToTokens for PatchModel {
                     #(#fields)*
                 }
             }
-        });
+        })
     }
+}
+
+fn parse_patch_closure(attrs: &[Attribute]) -> Result<Option<ExprClosure>> {
+    let Some(attr) =
+        attrs.iter().find(|attr| attr.meta.path().is_ident("patch"))
+    else {
+        return Ok(None);
+    };
+
+    let Meta::List(list) = &attr.meta else {
+        return Err(Error::new_spanned(
+            &attr.meta,
+            "needs to be as `#[patch(|this, new| ...)]`",
+        ));
+    };
+    let closures = Punctuated::<ExprClosure, Comma>::parse_terminated
+        .parse2(list.tokens.clone())
+        .map_err(|error| Error::new_spanned(list, error))?;
+    let closure = closures.first().cloned().ok_or_else(|| {
+        Error::new(Span::call_site(), "should have ONE closure")
+    })?;
+    if closure.inputs.len() != 2 {
+        return Err(Error::new_spanned(
+            &closure.inputs,
+            "patch closure should have TWO params as in #[patch(|this, new| \
+             ...)]",
+        ));
+    }
+    Ok(Some(closure))
 }
 
 enum Either<A, B> {
