@@ -8,20 +8,18 @@
 #![allow(private_macro_use)]
 #![deny(missing_docs)]
 
-#[macro_use]
-extern crate proc_macro_error2;
-
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, ToTokens};
 use std::str::FromStr;
-use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
+use syn::{spanned::Spanned, token::Pub, Visibility};
 
 mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod diagnostics;
 mod lazy;
 mod memo;
 mod slice;
@@ -265,29 +263,48 @@ mod slot;
 ///     }
 /// }
 /// ```
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn view(tokens: TokenStream) -> TokenStream {
-    view_macro_impl(tokens, false)
+    view_macro_output(view_macro_impl(tokens, false))
 }
 
 /// The `template` macro behaves like [`view`](view!), except that it wraps the entire tree in a
 /// [`ViewTemplate`](https://docs.rs/leptos/0.7.0-gamma3/leptos/prelude/struct.ViewTemplate.html). This optimizes creation speed by rendering
 /// most of the view into a `<template>` tag with HTML rendered at compile time, then hydrating it.
 /// In exchange, there is a small binary size overhead.
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn template(tokens: TokenStream) -> TokenStream {
     if cfg!(feature = "__internal_erase_components") {
         view(tokens)
     } else {
-        view_macro_impl(tokens, true)
+        view_macro_output(view_macro_impl(tokens, true))
     }
 }
 
-fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
+fn view_macro_output(
+    result: syn::Result<proc_macro2::TokenStream>,
+) -> TokenStream {
+    result
+        .unwrap_or_else(|error| {
+            let errors = error.into_compile_error();
+            // A view macro expands in expression position. Keeping combined
+            // errors inside one valid block expression lets rustc report each
+            // one without parser follow-on errors.
+            quote!({ #errors })
+        })
+        .into()
+}
+
+fn macro_output(result: syn::Result<proc_macro2::TokenStream>) -> TokenStream {
+    result.unwrap_or_else(syn::Error::into_compile_error).into()
+}
+
+fn view_macro_impl(
+    tokens: TokenStream,
+    template: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
 
@@ -304,10 +321,14 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
                     third.clone()
                 }
                 _ => {
-                    abort!(
-                        second, "To create a scope class with the view! macro you must put a comma `,` after the value";
-                        help = r#"e.g., view!{ class="my-class", <div>...</div>}"#
-                    )
+                    return Err(syn::Error::new(
+                        second.span(),
+                        diagnostics::message_with_help(
+                            "To create a scope class with the view! macro you \
+                             must put a comma `,` after the value",
+                            r#"e.g., view!{ class="my-class", <div>...</div>}"#,
+                        ),
+                    ));
                 }
             }
         }
@@ -331,7 +352,7 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
         template,
-    );
+    )?;
 
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
@@ -346,14 +367,13 @@ fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
         }
     };
 
-    if template {
+    Ok(if template {
         quote! {
             ::leptos::prelude::ViewTemplate::new(#output)
         }
     } else {
         output
-    }
-    .into()
+    })
 }
 
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
@@ -375,22 +395,26 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
 ///
 /// The file is loaded and parsed during proc-macro execution, and its path is resolved relative to
 /// the crate root rather than relative to the file from which it is called.
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn include_view(tokens: TokenStream) -> TokenStream {
-    let file_name = syn::parse::<syn::LitStr>(tokens).unwrap_or_else(|_| {
-        abort!(
+    view_macro_output(include_view_impl(tokens))
+}
+
+fn include_view_impl(
+    tokens: TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let file_name = syn::parse::<syn::LitStr>(tokens).map_err(|_| {
+        syn::Error::new(
             Span::call_site(),
-            "the only supported argument is a string literal"
-        );
-    });
-    let file =
-        std::fs::read_to_string(file_name.value()).unwrap_or_else(|_| {
-            abort!(Span::call_site(), "could not open file");
-        });
+            "the only supported argument is a string literal",
+        )
+    })?;
+    let file = std::fs::read_to_string(file_name.value()).map_err(|_| {
+        syn::Error::new(Span::call_site(), "could not open file")
+    })?;
     let tokens = proc_macro2::TokenStream::from_str(&file)
-        .unwrap_or_else(|e| abort!(Span::call_site(), e));
-    view(tokens.into())
+        .map_err(|e| syn::Error::new(Span::call_site(), e))?;
+    view_macro_impl(tokens.into(), false)
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
@@ -559,18 +583,26 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///     pub user_id: &'static str,
 /// }
 /// ```
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    macro_output(component_impl(args, s))
+}
+
+fn component_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
+        let transparent = syn::parse::<syn::Ident>(args)?;
 
         if transparent != "transparent" {
-            abort!(
+            return Err(syn::Error::new_spanned(
                 transparent,
-                "only `transparent` is supported";
-                help = "try `#[component(transparent)]` or `#[component]`"
-            );
+                diagnostics::message_with_help(
+                    "only `transparent` is supported",
+                    "try `#[component(transparent)]` or `#[component]`",
+                ),
+            ));
         }
 
         true
@@ -652,18 +684,27 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    macro_output(island_impl(args, s))
+}
+
+fn island_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     let (is_transparent, is_lazy) = if !args.is_empty() {
-        let arg = parse_macro_input!(args as syn::Ident);
+        let arg = syn::parse::<syn::Ident>(args)?;
 
         if arg != "transparent" && arg != "lazy" {
-            abort!(
+            return Err(syn::Error::new_spanned(
                 arg,
-                "only `transparent` or `lazy` are supported";
-                help = "try `#[island(transparent)]`, `#[island(lazy)]`, or `#[island]`"
-            );
+                diagnostics::message_with_help(
+                    "only `transparent` or `lazy` are supported",
+                    "try `#[island(transparent)]`, `#[island(lazy)]`, or \
+                     `#[island]`",
+                ),
+            ));
         }
 
         (arg == "transparent", arg == "lazy")
@@ -680,16 +721,17 @@ fn component_macro(
     is_transparent: bool,
     is_lazy: bool,
     island: Option<String>,
-) -> TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+        let mut errors = diagnostics::Errors::default();
         let expanded = model
             .is_transparent(is_transparent)
             .is_lazy(is_lazy)
             .with_island(island)
-            .into_token_stream();
+            .expand(&mut errors);
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -698,28 +740,26 @@ fn component_macro(
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
 
-        quote! {
-            #expanded
+        let output = expanded.map(|expanded| {
+            quote! {
+                #expanded
 
-            #[doc(hidden)]
-            #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
-            #unexpanded
-        }
+                #[doc(hidden)]
+                #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
+                #unexpanded
+            }
+        });
+        errors.finish(output)
     } else {
-        match dummy {
-            Ok(mut dummy) => {
-                dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
-                quote! {
-                    #[doc(hidden)]
-                    #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
-                    #dummy
-                }
+        dummy.map(|mut dummy| {
+            dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+            quote! {
+                #[doc(hidden)]
+                #[allow(clippy::too_many_arguments, clippy::needless_lifetimes)]
+                #dummy
             }
-            Err(e) => {
-                proc_macro_error2::abort!(e.span(), e);
-            }
-        }
-    }.into()
+        })
+    }
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.
@@ -822,20 +862,26 @@ fn component_macro(
 ///     }
 /// }
 /// ```
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    macro_output(slot_impl(args, s))
+}
+
+fn slot_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     if !args.is_empty() {
-        abort!(
+        return Err(syn::Error::new(
             Span::call_site(),
-            "no arguments are supported";
-            help = "try just `#[slot]`"
-        );
+            diagnostics::message_with_help(
+                "no arguments are supported",
+                "try just `#[slot]`",
+            ),
+        ));
     }
 
-    parse_macro_input!(s as slot::Model)
-        .into_token_stream()
-        .into()
+    syn::parse::<slot::Model>(s)?.expand()
 }
 
 /// Declares that a function is a [server function](https://docs.rs/server_fn/latest/server_fn/index.html).
@@ -945,7 +991,6 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   are unique. You cannot define two server functions with the same URL prefix and endpoint path,
 ///   even if they have different URL encodings, e.g. a POST method at `/api/foo` and a GET method at `/api/foo`.
 #[proc_macro_attribute]
-#[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_fn_macro::server_macro_impl(
         args.into(),
@@ -1072,9 +1117,8 @@ pub fn memo(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-#[proc_macro_error]
 pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    lazy::lazy_impl(args, s)
+    macro_output(lazy::lazy_impl(args, s))
 }
 
 /// Preloads a lazy function and returns a signal that evaluates to `true` once the function is loaded.
@@ -1116,7 +1160,6 @@ pub fn lazy(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro]
-#[proc_macro_error]
 pub fn lazy_preload(s: TokenStream) -> TokenStream {
-    lazy::lazy_preload_impl(s)
+    macro_output(lazy::lazy_preload_impl(s))
 }

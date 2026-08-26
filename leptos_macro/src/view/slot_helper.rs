@@ -2,7 +2,10 @@ use super::{
     component_builder::maybe_optimised_component_children,
     convert_to_snake_case, full_path_from_tag_name,
 };
-use crate::view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType};
+use crate::{
+    diagnostics::Errors,
+    view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType},
+};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
@@ -15,7 +18,8 @@ pub(crate) fn slot_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     disable_inert_html: bool,
-) {
+    errors: &mut Errors,
+) -> syn::Result<()> {
     let name = slot.key.to_string();
     let name = name.trim();
     let name = convert_to_snake_case(if name.starts_with("slot:") {
@@ -24,14 +28,14 @@ pub(crate) fn slot_to_tokens(
         node.name().to_string()
     });
 
-    let component_path = full_path_from_tag_name(node.name());
+    let component_path = full_path_from_tag_name(node.name(), errors);
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error2::emit_error!(
-            node.name().span(),
-            "slots cannot be used inside HTML elements"
-        );
-        return;
+        errors.push(syn::Error::new_spanned(
+            node.name(),
+            "slots cannot be used inside HTML elements",
+        ));
+        return Ok(());
     };
 
     let attrs = node
@@ -116,7 +120,8 @@ pub(crate) fn slot_to_tokens(
             global_class,
             None,
             disable_inert_html,
-        );
+            errors,
+        )?;
 
         // TODO view markers for hot-reloading
         /*
@@ -209,6 +214,8 @@ pub(crate) fn slot_to_tokens(
         .entry(name)
         .and_modify(|entry| entry.push(slot.clone()))
         .or_insert(vec![slot]);
+
+    Ok(())
 }
 
 pub(crate) fn is_slot(node: &KeyedAttribute) -> bool {

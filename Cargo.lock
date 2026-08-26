@@ -2207,7 +2207,6 @@ dependencies = [
  "leptos_router",
  "log",
  "prettyplease",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "rstml",
