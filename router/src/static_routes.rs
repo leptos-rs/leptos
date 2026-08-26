@@ -259,7 +259,28 @@ impl StaticPath {
                     }
                     paths = new_paths;
                 }
-                OptionalParam(_) => todo!(),
+                OptionalParam(name) => {
+                    let mut new_paths = vec![];
+                    for path in paths {
+                        new_paths.push(path.clone());
+                        if let Some(params) =
+                            params.as_ref().and_then(|params| params.get(name))
+                        {
+                            for val in params.iter() {
+                                new_paths.push(if val.starts_with("/") {
+                                    ResolvedStaticPath {
+                                        path: format!("{}{}", path.path, val),
+                                    }
+                                } else {
+                                    ResolvedStaticPath {
+                                        path: format!("{}/{}", path.path, val),
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    paths = new_paths;
+                }
             }
         }
         paths
@@ -460,6 +481,73 @@ mod tests {
             vec![
                 ResolvedStaticPath::new("/post/first"),
                 ResolvedStaticPath::new("/post/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_without_params() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/blog")]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_with_values() {
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["first".into(), "second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog"),
+                ResolvedStaticPath::new("/blog/first"),
+                ResolvedStaticPath::new("/blog/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_no_double_slash() {
+        let mut params = StaticParamsMap::new();
+        params.0.push(("slug".into(), vec!["/first".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog"),
+                ResolvedStaticPath::new("/blog/first")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_before_static() {
+        let mut params = StaticParamsMap::new();
+        params.0.push(("slug".into(), vec!["first".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+            PathSegment::Static("edit".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog/edit"),
+                ResolvedStaticPath::new("/blog/first/edit")
             ]
         );
     }
