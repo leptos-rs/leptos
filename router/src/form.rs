@@ -6,12 +6,24 @@ use crate::{
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, prelude::wasm_bindgen};
 use web_sys::{FormData, RequestRedirect, Response};
 
 type OnFormData = Arc<dyn Fn(&FormData)>;
 type OnResponse = Arc<dyn Fn(&Response)>;
 type OnError = Arc<dyn Fn(&gloo_net::Error)>;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(extends = web_sys::FormData, js_name = FormData)]
+    type FormDataWithSubmitter;
+
+    #[wasm_bindgen(constructor, catch, js_class = "FormData")]
+    fn new_with_form_and_submitter(
+        form: &web_sys::HtmlFormElement,
+        submitter: &web_sys::HtmlElement,
+    ) -> Result<FormDataWithSubmitter, JsValue>;
+}
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
@@ -118,8 +130,8 @@ where
                     return;
                 };
 
-                let form_data =
-                    web_sys::FormData::new_with_form(&form).unwrap_throw();
+                let submitter = ev.submitter();
+                let form_data = form_data(&form, submitter.as_ref());
                 if let Some(on_form_data) = on_form_data.clone() {
                     on_form_data(&form_data);
                 }
@@ -346,6 +358,25 @@ fn current_window_origin() -> String {
     )
 }
 
+fn form_data(
+    form: &web_sys::HtmlFormElement,
+    submitter: Option<&web_sys::HtmlElement>,
+) -> FormData {
+    let with_submitter = submitter
+        .filter(|submitter| {
+            submitter.dyn_ref::<web_sys::HtmlButtonElement>().is_some()
+                || submitter.dyn_ref::<web_sys::HtmlInputElement>().is_some()
+        })
+        .and_then(|submitter| {
+            FormDataWithSubmitter::new_with_form_and_submitter(form, submitter)
+                .ok()
+        })
+        .map(|data| data.unchecked_into::<FormData>());
+
+    with_submitter
+        .unwrap_or_else(|| FormData::new_with_form(form).unwrap_throw())
+}
+
 fn extract_form_attributes(
     ev: &web_sys::Event,
 ) -> Option<(web_sys::HtmlFormElement, String, String, String)> {
@@ -462,7 +493,7 @@ fn extract_form_attributes(
 
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
-    use super::extract_form_attributes;
+    use super::{extract_form_attributes, form_data};
     use std::{cell::RefCell, rc::Rc};
     use wasm_bindgen::{JsCast, UnwrapThrowExt, closure::Closure};
     use wasm_bindgen_test::*;
@@ -589,5 +620,28 @@ mod wasm_tests {
             (method.as_str(), action.as_str(), enctype.as_str()),
             ("post", "/InputAction", "text/plain")
         );
+    }
+
+    #[wasm_bindgen_test]
+    fn form_data_includes_only_the_activated_submitter() {
+        let form = append_form();
+        let save = element::<HtmlButtonElement>("button");
+        save.set_attribute("name", "intent").unwrap_throw();
+        save.set_attribute("value", "save").unwrap_throw();
+        let delete = element::<HtmlButtonElement>("button");
+        delete.set_attribute("name", "intent").unwrap_throw();
+        delete.set_attribute("value", "delete").unwrap_throw();
+        form.append_child(&save).unwrap_throw();
+        form.append_child(&delete).unwrap_throw();
+
+        let submitted = form_data(&form, Some(delete.unchecked_ref()));
+        let without_submitter = form_data(&form, None);
+        let intents = submitted.get_all("intent");
+        let empty_intents = without_submitter.get_all("intent");
+        form.remove();
+
+        assert_eq!(intents.length(), 1);
+        assert_eq!(intents.get(0).as_string().as_deref(), Some("delete"));
+        assert_eq!(empty_intents.length(), 0);
     }
 }
