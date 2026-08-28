@@ -1303,7 +1303,7 @@ pub mod actix {
             ActixMethod::TRACE => Method::TRACE,
             ActixMethod::OPTIONS => Method::OPTIONS,
             ActixMethod::CONNECT => Method::CONNECT,
-            _ => unreachable!(),
+            _ => return None,
         };
         REGISTERED_SERVER_FUNCTIONS
             .read()
@@ -1318,6 +1318,25 @@ pub mod actix {
                 }
                 service
             })
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::get_server_fn_service;
+        use actix_web::http::Method;
+
+        #[test]
+        fn extension_method_matches_no_server_fn() {
+            let method = Method::from_bytes(b"PROPFIND").unwrap();
+            assert!(get_server_fn_service("/api/whatever", &method).is_none());
+        }
+
+        #[test]
+        fn standard_method_on_unregistered_path_matches_no_server_fn() {
+            assert!(
+                get_server_fn_service("/api/whatever", &Method::GET).is_none()
+            );
+        }
     }
 }
 
