@@ -1,6 +1,8 @@
 //! An integration test for a `<ProtectedRoute/>` whose condition comes from a blocking resource.
 //! This needs to hold the head long enough to redirect under streaming SSR.
 
+#![cfg(all(feature = "default", not(feature = "wasm")))]
+
 #[cfg(test)]
 mod tests {
     use axum::{Router, body::Body, http::Request};
