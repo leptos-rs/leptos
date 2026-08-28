@@ -3,7 +3,7 @@ use crate::{
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
 };
-use futures::{FutureExt, channel::oneshot, select};
+use futures::{FutureExt, channel::oneshot, future::poll_fn, select};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
@@ -15,13 +15,13 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{ArcStoredValue, Owner, provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{
-        Dispose, Get, Read, ReadUntracked, Track, With, WithUntracked,
-        WriteValue,
-    },
+    traits::{Get, Track, With, WithUntracked, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    task::Poll,
+};
 use tachys::{
     either::Either,
     html::attribute::{Attribute, any_attribute::AnyAttribute},
@@ -126,9 +126,7 @@ where
         let fallback = fallback.run();
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
-        provide_context(SuspenseContext {
-            tasks: tasks.clone(),
-        });
+        provide_context(SuspenseContext::new(tasks.clone()));
         let none_pending = ArcMemo::new({
             let tasks = tasks.clone();
             move |prev: Option<&bool>| {
@@ -340,100 +338,46 @@ where
         // 1. all tasks are finished loading, or
         // 2. we read from a local resource, meaning this Suspense can never resolve on the server
 
-        // first, create listener for tasks
-        let tasks = suspense_context.tasks.clone();
-        let (tasks_tx, mut tasks_rx) =
-            futures::channel::oneshot::channel::<()>();
-
-        let mut tasks_tx = Some(tasks_tx);
-
-        // now, create listener for local resources
+        // first, create listener for local resources
         let (local_tx, mut local_rx) =
             futures::channel::oneshot::channel::<()>();
         provide_context(LocalResourceNotifier::from(local_tx));
 
-        // walk over the tree of children once to make sure that all resource loads are registered
-        self.children.dry_resolve();
         let children = Arc::new(Mutex::new(Some(self.children)));
 
-        // check the set of tasks to see if it is empty, now or later
+        // `tasks_ready` is a `Future` that is ready once every task registered with this
+        // `<Suspense/>` has finished.
         let strict = self.strict;
-        let eff = reactive_graph::effect::Effect::new_isomorphic({
-            let children = Arc::clone(&children);
-            let notify_error_boundary = notify_error_boundary.clone();
-            // tracks whether a task has ever been registered in this Suspense.
-            // if none ever has, no resolving resource could gate a nested
-            // read, so the double-check pass would do no work and we can skip
-            // it (avoiding an extra invocation of the children body).
-            let mut any_task_ever_seen = false;
-            move |double_checking: Option<bool>| {
-                // on the first run, always track the tasks
-                if double_checking.is_none() {
-                    tasks.track();
-                }
-
-                if let Some(curr_tasks) = tasks.try_read_untracked() {
-                    if curr_tasks.is_empty() {
-                        if strict
-                            || double_checking == Some(true)
-                            || !any_task_ever_seen
-                        {
-                            // either we've finished the confirming dry-walk,
-                            // or no task has ever been registered — in both
-                            // cases there is nothing more to discover, so we
-                            // can render both the children and the error
-                            // boundary
-
-                            if let Some(tx) = tasks_tx.take() {
-                                // If the receiver has dropped, it means the ScopedFuture has already
-                                // dropped, so it doesn't matter if we manage to send this.
-                                _ = tx.send(());
-                            }
-                            if let Some(tx) =
-                                notify_error_boundary.write_value().take()
-                            {
-                                _ = tx.send(());
-                            }
-                        } else {
-                            // release the read guard on tasks, as we'll be updating it again
-                            drop(curr_tasks);
-                            // check the children for additional pending tasks
-                            // the will catch additional resource reads nested inside a conditional depending on initial resource reads
-                            if let Some(children) =
-                                children.lock().or_poisoned().as_mut()
-                            {
-                                children.dry_resolve();
-                            }
-
-                            if tasks
-                                .try_read()
-                                .map(|n| n.is_empty())
-                                .unwrap_or(false)
-                            {
-                                // there are no additional pending tasks, and we can simply return
-                                if let Some(tx) = tasks_tx.take() {
-                                    // If the receiver has dropped, it means the ScopedFuture has already
-                                    // dropped, so it doesn't matter if we manage to send this.
-                                    _ = tx.send(());
-                                }
-                                if let Some(tx) =
-                                    notify_error_boundary.write_value().take()
-                                {
-                                    _ = tx.send(());
-                                }
-                            }
-
-                            // tell ourselves that we're just double-checking
-                            return true;
+        let mut tasks_ready = Box::pin(
+            {
+                let suspense_context = suspense_context.clone();
+                let children = Arc::clone(&children);
+                // whether walking the tree again could reveal a resource read
+                // we haven't tracked yet
+                let mut may_reveal_more = true;
+                poll_fn(move |cx| {
+                    loop {
+                        if !suspense_context.poll_empty(cx.waker()) {
+                            return Poll::Pending;
                         }
-                    } else {
-                        any_task_ever_seen = true;
-                        tasks.track();
+
+                        if !may_reveal_more {
+                            return Poll::Ready(());
+                        }
+
+                        if let Some(children) =
+                            children.lock().or_poisoned().as_mut()
+                        {
+                            children.dry_resolve();
+                        }
+
+                        may_reveal_more =
+                            !strict && !suspense_context.poll_empty(cx.waker());
                     }
-                }
-                false
+                })
             }
-        });
+            .fuse(),
+        );
 
         let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
             async move {
@@ -461,7 +405,15 @@ where
                         }
                         None
                     }
-                    _ = tasks_rx => {
+                    _ = tasks_ready => {
+                        // every task has finished, so the error boundary can
+                        // render its children too
+                        if let Some(tx) =
+                            notify_error_boundary.write_value().take()
+                        {
+                            let _ = tx.send(());
+                        }
+
                         let children = {
                             let mut children_lock = children.lock().or_poisoned();
                             children_lock.take().expect("children should not be removed until we render here")
@@ -488,9 +440,6 @@ where
                                 None
                             }
                             children = children => {
-                                // clean up the (now useless) effect
-                                eff.dispose();
-
                                 Some(OwnedView::new_with_owner(children, owner))
                             }
                         }

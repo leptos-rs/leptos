@@ -109,9 +109,7 @@ where
         let fallback = fallback.run();
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
-        provide_context(SuspenseContext {
-            tasks: tasks.clone(),
-        });
+        provide_context(SuspenseContext::new(tasks.clone()));
         let none_pending = ArcMemo::new({
             let tasks = tasks.clone();
             move |prev: Option<&bool>| {
