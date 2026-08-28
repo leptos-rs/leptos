@@ -1,5 +1,10 @@
 use crate::error::{ServerFnErrorErr, ServerFnErrorResponseParts};
-use std::{future::Future, pin::Pin};
+use or_poisoned::OrPoisoned;
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 /// An abstraction over a middleware layer, which can be used to add additional
 /// middleware layer to a [`Service`].
@@ -13,8 +18,17 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 pub struct BoxedService<Req, Res> {
     /// A function that converts a [`ServerFnErrorErr`] into [`ServerFnErrorResponseParts`].
     pub err_ser: ServerFnErrorSerializer,
-    /// The inner service.
-    pub service: Box<dyn Service<Req, Res> + Send>,
+    /// The shared inner service, allowing tower middleware to clone it.
+    pub service: Arc<Mutex<Box<dyn Service<Req, Res> + Send>>>,
+}
+
+impl<Req, Res> Clone for BoxedService<Req, Res> {
+    fn clone(&self) -> Self {
+        Self {
+            err_ser: self.err_ser,
+            service: Arc::clone(&self.service),
+        }
+    }
 }
 
 impl<Req, Res> BoxedService<Req, Res> {
@@ -25,7 +39,7 @@ impl<Req, Res> BoxedService<Req, Res> {
     ) -> Self {
         Self {
             err_ser: ser,
-            service: Box::new(service),
+            service: Arc::new(Mutex::new(Box::new(service))),
         }
     }
 
@@ -34,7 +48,7 @@ impl<Req, Res> BoxedService<Req, Res> {
         &mut self,
         req: Req,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
-        self.service.run(req, self.err_ser)
+        self.service.lock().or_poisoned().run(req, self.err_ser)
     }
 }
 
@@ -59,11 +73,15 @@ mod axum {
     use crate::{ServerFnError, error::ServerFnErrorErr, response::Res};
     use axum::body::Body;
     use http::{Request, Response};
+    use or_poisoned::OrPoisoned;
     use std::{future::Future, pin::Pin};
 
     impl<S> super::Service<Request<Body>, Response<Body>> for S
     where
-        S: tower::Service<Request<Body>, Response = Response<Body>>,
+        S: tower::Service<Request<Body>, Response = Response<Body>>
+            + Clone
+            + Send
+            + 'static,
         S::Future: Send + 'static,
         S::Error: std::fmt::Display + Send + 'static,
     {
@@ -73,9 +91,19 @@ mod axum {
             err_ser: ServerFnErrorSerializer,
         ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send>> {
             let path = req.uri().path().to_string();
-            let inner = self.call(req);
+            // Clone-and-replace moves the called instance into the `'static`
+            // future so it can be polled ready first.
+            let clone = self.clone();
+            let mut svc = std::mem::replace(self, clone);
             Box::pin(async move {
-                inner.await.unwrap_or_else(|e| {
+                let res =
+                    match futures::future::poll_fn(|cx| svc.poll_ready(cx))
+                        .await
+                    {
+                        Ok(()) => svc.call(req).await,
+                        Err(e) => Err(e),
+                    };
+                res.unwrap_or_else(|e| {
                     let err = err_ser(ServerFnErrorErr::MiddlewareError(
                         e.to_string(),
                     ));
@@ -106,7 +134,8 @@ mod axum {
         }
 
         fn call(&mut self, req: Request<Body>) -> Self::Future {
-            let inner = self.service.run(req, self.err_ser);
+            let inner =
+                self.service.lock().or_poisoned().run(req, self.err_ser);
             Box::pin(async move { Ok(inner.await) })
         }
     }
@@ -185,5 +214,84 @@ mod actix {
                 }))
             })
         }
+    }
+}
+
+#[cfg(all(test, feature = "axum"))]
+mod tests {
+    use super::{BoxedService, ServerFnErrorSerializer};
+    use crate::error::{ServerFnErrorErr, ServerFnErrorResponseParts};
+    use axum::body::Body;
+    use bytes::Bytes;
+    use http::{Request, Response, StatusCode};
+    use std::{
+        future::Future,
+        pin::Pin,
+        task::{Context, Poll},
+    };
+
+    struct Inner;
+
+    impl super::Service<Request<Body>, Response<Body>> for Inner {
+        fn run(
+            &mut self,
+            _req: Request<Body>,
+            _err_ser: ServerFnErrorSerializer,
+        ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send>> {
+            Box::pin(async { Response::new(Body::from("ok")) })
+        }
+    }
+
+    fn ser(_: ServerFnErrorErr) -> ServerFnErrorResponseParts {
+        ServerFnErrorResponseParts::builder()
+            .body(Bytes::new())
+            .content_type("text/plain")
+            .status_code(StatusCode::INTERNAL_SERVER_ERROR)
+            .build()
+    }
+
+    #[tokio::test]
+    async fn concurrency_limit_layer_is_polled_ready_before_call() {
+        let layer = tower::limit::ConcurrencyLimitLayer::new(1);
+        let mut svc = <tower::limit::ConcurrencyLimitLayer as super::Layer<
+            Request<Body>,
+            Response<Body>,
+        >>::layer(&layer, BoxedService::new(ser, Inner));
+
+        let response = svc.run(Request::new(Body::empty())).await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = svc.run(Request::new(Body::empty())).await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[derive(Clone)]
+    struct NotReady;
+
+    impl tower::Service<Request<Body>> for NotReady {
+        type Response = Response<Body>;
+        type Error = &'static str;
+        type Future =
+            futures::future::Ready<Result<Self::Response, Self::Error>>;
+
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Err("not ready"))
+        }
+
+        fn call(&mut self, _req: Request<Body>) -> Self::Future {
+            futures::future::ready(Ok(Response::new(Body::from("ok"))))
+        }
+    }
+
+    #[tokio::test]
+    async fn readiness_error_becomes_middleware_error_response() {
+        let mut svc = BoxedService::new(ser, NotReady);
+
+        let response = svc.run(Request::new(Body::empty())).await;
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
