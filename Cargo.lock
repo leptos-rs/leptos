@@ -2271,6 +2271,7 @@ dependencies = [
  "tracing",
  "url",
  "wasm-bindgen",
+ "wasm-bindgen-test",
  "web-sys",
 ]
 
