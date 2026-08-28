@@ -149,7 +149,7 @@ pub use error::ServerFnError;
 #[cfg(feature = "form-redirects")]
 use error::ServerFnUrlError;
 use error::{FromServerFnError, ServerFnErrorErr};
-use futures::{SinkExt, Stream, StreamExt, pin_mut};
+use futures::{FutureExt, SinkExt, Stream, StreamExt, pin_mut};
 use http::Method;
 use middleware::{BoxedService, Layer, Service};
 use redirect::call_redirect_hook;
@@ -624,7 +624,7 @@ where
                 >,
             > + Send,
     {
-        let (request_bytes, response_stream, response) =
+        let (request_bytes, response_stream, closed, response) =
             request.try_into_websocket().await?;
         let input = request_bytes.map(|request_bytes| {
             let request_bytes = request_bytes
@@ -660,11 +660,22 @@ where
         });
 
         Server::spawn(async move {
+            let output = output.fuse();
+            let closed = closed.fuse();
             pin_mut!(response_stream);
             pin_mut!(output);
-            while let Some(output) = output.next().await {
-                if response_stream.send(output).await.is_err() {
-                    break;
+            pin_mut!(closed);
+            loop {
+                futures::select! {
+                    item = output.next() => match item {
+                        Some(item) => {
+                            if response_stream.send(item).await.is_err() {
+                                break;
+                            }
+                        }
+                        None => break,
+                    },
+                    _ = closed => break,
                 }
             }
         })?;

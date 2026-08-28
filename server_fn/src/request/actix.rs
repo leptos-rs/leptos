@@ -122,6 +122,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl futures::Sink<Bytes> + Send + 'static,
+            impl Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -138,6 +139,7 @@ where
             futures::channel::mpsc::channel(2048);
         let (response_sink_tx, mut response_sink_rx) =
             futures::channel::mpsc::channel::<Bytes>(2048);
+        let (closed_tx, closed_rx) = futures::channel::oneshot::channel::<()>();
 
         actix_web::rt::spawn(async move {
             loop {
@@ -186,11 +188,13 @@ where
                 }
             }
             let _ = session.close(None).await;
+            drop(closed_tx);
         });
 
         Ok((
             response_stream_rx,
             response_sink_tx,
+            closed_rx.map(|_| ()),
             ActixResponse::from(response),
         ))
     }
