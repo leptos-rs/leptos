@@ -101,6 +101,18 @@ rustc_version = { workspace = true, default-features = true }
 [dev-dependencies]
 trybuild = { workspace = true, default-features = true }
 
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+tokio = { workspace = true, features = [
+  "macros",
+  "rt-multi-thread",
+  "net",
+  "time",
+  "sync",
+] }
+axum = { workspace = true, default-features = true, features = ["ws"] }
+tokio-tungstenite = { workspace = true }
+serde_json = { workspace = true }
+
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = { workspace = true, default-features = true }
 

@@ -472,13 +472,13 @@ where
             // otherwise, deserialize the body as is
             let output = Output::from_res(res).await?;
             Ok(output)
-        }?;
+        };
 
         // if redirected, call the redirect hook (if that's been set)
         if (300..=399).contains(&status) || has_redirect_header {
             call_redirect_hook(&location);
         }
-        Ok(res)
+        res
     }
 }
 
