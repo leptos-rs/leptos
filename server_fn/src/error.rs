@@ -599,18 +599,24 @@ pub trait FromServerFnError: std::fmt::Debug + Sized + 'static {
     /// given by [`Self::Encoder`].
     fn ser(&self) -> ServerFnErrorResponseParts {
         let status_code = self.status_code();
-        let body = Self::Encoder::encode(self).unwrap_or_else(|e| {
-            Self::Encoder::encode(&Self::from_server_fn_error(
-                ServerFnErrorErr::Serialization(e.to_string()),
-            ))
-            .expect(
-                "error serializing should success at least with the \
-                 Serialization error",
-            )
-        });
+        let (body, content_type) = match Self::Encoder::encode(self) {
+            Ok(body) => (body, Self::Encoder::CONTENT_TYPE),
+            Err(error) => {
+                let message = error.to_string();
+                match Self::Encoder::encode(&Self::from_server_fn_error(
+                    ServerFnErrorErr::Serialization(message.clone()),
+                )) {
+                    Ok(body) => (body, Self::Encoder::CONTENT_TYPE),
+                    Err(_) => {
+                        // The encoder rejected both error shapes, so bypass it.
+                        (Bytes::from(message), "text/plain")
+                    }
+                }
+            }
+        };
         ServerFnErrorResponseParts::builder()
             .body(body)
-            .content_type(Self::Encoder::CONTENT_TYPE)
+            .content_type(content_type)
             .status_code(status_code)
             .build()
     }
@@ -663,9 +669,65 @@ impl<T, E> ServerFnMustReturnResult for Result<T, E> {
     type Ok = T;
 }
 
-#[test]
-fn assert_from_server_fn_error_impl() {
-    fn assert_impl<T: FromServerFnError>() {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::codec::JsonEncoding;
 
-    assert_impl::<ServerFnError>();
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
+    enum AppError {
+        Internal(String),
+    }
+
+    impl FromServerFnError for AppError {
+        type Encoder = JsonEncoding;
+
+        fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+            Self::Internal(value.to_string())
+        }
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    enum EncodableError {
+        Internal(String),
+    }
+
+    impl FromServerFnError for EncodableError {
+        type Encoder = JsonEncoding;
+
+        fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
+            Self::Internal(value.to_string())
+        }
+    }
+
+    #[test]
+    fn assert_from_server_fn_error_impl() {
+        fn assert_impl<T: FromServerFnError>() {}
+
+        assert_impl::<ServerFnError>();
+    }
+
+    #[test]
+    fn ser_does_not_panic_when_fallback_cannot_be_encoded() {
+        let parts = AppError::Internal("x".into()).ser();
+
+        assert_eq!(parts.status_code, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(parts.content_type, "text/plain");
+        assert!(!parts.body.is_empty());
+    }
+
+    #[test]
+    fn ser_uses_encoder_for_normally_encodable_error() {
+        let error = EncodableError::Internal("x".into());
+        let parts = error.ser();
+
+        assert_eq!(parts.status_code, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(parts.content_type, JsonEncoding::CONTENT_TYPE);
+        assert_eq!(
+            serde_json::from_slice::<EncodableError>(&parts.body)
+                .expect("JSON error response should decode"),
+            error
+        );
+    }
 }
