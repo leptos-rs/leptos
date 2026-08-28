@@ -107,7 +107,7 @@ async fn body_runs_with_conditional_nested_resource() {
     let inner = Resource::new(
         || (),
         |_| async move {
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
             "inner-data".to_string()
         },
     );
@@ -133,7 +133,7 @@ async fn body_runs_with_conditional_nested_resource() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("nested-resource case: body ran {runs} times");
-    assert_eq!(runs, 3, "expected 3 runs in the nested-resource case");
+    assert_eq!(runs, 4, "expected 4 runs in the nested-resource case");
 }
 
 /// `strict=true` disables the double-check pass, so a Suspense with one
