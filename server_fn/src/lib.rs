@@ -626,20 +626,29 @@ where
     {
         let (request_bytes, response_stream, closed, response) =
             request.try_into_websocket().await?;
-        let input = request_bytes.map(|request_bytes| {
-            let request_bytes = request_bytes
-                .map(|bytes| deserialize_result::<InputStreamError>(bytes))
-                .unwrap_or_else(Err);
-            match request_bytes {
-                Ok(request_bytes) => InputEncoding::decode(request_bytes)
-                    .map_err(|e| {
-                        InputStreamError::from_server_fn_error(
-                            ServerFnErrorErr::Deserialization(e.to_string()),
-                        )
-                    }),
-                Err(err) => Err(InputStreamError::de(err)),
-            }
-        });
+        let input = request_bytes
+            .take_while(|frame| {
+                std::future::ready(!matches!(
+                    frame,
+                    Ok(bytes) if is_websocket_end_frame(bytes)
+                ))
+            })
+            .map(|request_bytes| {
+                let request_bytes = request_bytes
+                    .map(|bytes| deserialize_result::<InputStreamError>(bytes))
+                    .unwrap_or_else(Err);
+                match request_bytes {
+                    Ok(request_bytes) => InputEncoding::decode(request_bytes)
+                        .map_err(|e| {
+                            InputStreamError::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    e.to_string(),
+                                ),
+                            )
+                        }),
+                    Err(err) => Err(InputStreamError::de(err)),
+                }
+            });
         let boxed = Box::pin(input)
             as Pin<
                 Box<
@@ -693,25 +702,44 @@ where
 
         async move {
             let (stream, sink) = Client::open_websocket(path).await?;
+            let (closed_tx, closed_rx) =
+                futures::channel::oneshot::channel::<()>();
 
             // Forward the input stream to the websocket
             Client::spawn(async move {
-                pin_mut!(input);
-                pin_mut!(sink);
-                while let Some(input) = input.stream.next().await {
-                    let result = encode_websocket_frame::<
-                        InputEncoding,
-                        InputItem,
-                        InputStreamError,
-                    >(input);
-                    if sink.send(result).await.is_err() {
-                        break;
+                let input = input.stream.fuse();
+                let closed = closed_rx.fuse();
+                pin_mut!(input, sink, closed);
+                loop {
+                    futures::select! {
+                        item = input.next() => match item {
+                            Some(item) => {
+                                let frame = encode_websocket_frame::<
+                                    InputEncoding,
+                                    InputItem,
+                                    InputStreamError,
+                                >(item);
+                                if sink.send(frame).await.is_err() {
+                                    break;
+                                }
+                            }
+                            None => {
+                                if sink.send(websocket_end_frame()).await.is_err() {
+                                    break;
+                                }
+                                let _ = (&mut closed).await;
+                                break;
+                            }
+                        },
+                        _ = closed => break,
                     }
                 }
+                let _ = sink.close().await;
             });
 
             // Return the output stream
-            let stream = stream.map(|request_bytes| {
+            let stream = stream.map(move |request_bytes| {
+                let _keep_closed_tx_alive = &closed_tx;
                 let request_bytes = request_bytes
                     .map(|bytes| deserialize_result::<OutputStreamError>(bytes))
                     .unwrap_or_else(Err);
@@ -740,6 +768,20 @@ where
     }
 }
 
+const WS_TAG_OK: u8 = 0;
+const WS_TAG_ERR: u8 = 1;
+const WS_TAG_END: u8 = 2;
+
+// END marks the sender's stream complete while leaving the connection open.
+// A websocket Close frame would end the connection and lose the peer's reply.
+fn websocket_end_frame() -> Bytes {
+    Bytes::from_static(&[WS_TAG_END])
+}
+
+fn is_websocket_end_frame(bytes: &Bytes) -> bool {
+    bytes.len() == 1 && bytes[0] == WS_TAG_END
+}
+
 // Serializes a Result<Bytes, Bytes> into a single Bytes instance.
 // Format: [tag: u8][content: Bytes]
 // - Tag 0: Ok variant
@@ -748,13 +790,13 @@ fn serialize_result(result: Result<Bytes, Bytes>) -> Bytes {
     match result {
         Ok(bytes) => {
             let mut buf = BytesMut::with_capacity(1 + bytes.len());
-            buf.put_u8(0); // Tag for Ok variant
+            buf.put_u8(WS_TAG_OK);
             buf.extend_from_slice(&bytes);
             buf.freeze()
         }
         Err(bytes) => {
             let mut buf = BytesMut::with_capacity(1 + bytes.len());
-            buf.put_u8(1); // Tag for Err variant
+            buf.put_u8(WS_TAG_ERR);
             buf.extend_from_slice(&bytes);
             buf.freeze()
         }
@@ -777,7 +819,7 @@ where
     match item {
         Ok(value) => {
             let mut buf = BytesMut::new();
-            buf.put_u8(0); // Tag for Ok variant
+            buf.put_u8(WS_TAG_OK);
             match Enc::encode_into(&value, &mut buf) {
                 Ok(()) => buf.freeze(),
                 Err(e) => serialize_result(Err(E::from_server_fn_error(
@@ -807,8 +849,8 @@ fn deserialize_result<E: FromServerFnError>(
     let content = bytes.slice(1..);
 
     match tag {
-        0 => Ok(content),
-        1 => Err(content),
+        WS_TAG_OK => Ok(content),
+        WS_TAG_ERR => Err(content),
         _ => Err(E::from_server_fn_error(ServerFnErrorErr::Deserialization(
             "Invalid data tag".into(),
         ))

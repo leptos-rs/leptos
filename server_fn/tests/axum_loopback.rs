@@ -34,6 +34,9 @@ static SERVER: OnceLock<SocketAddr> = OnceLock::new();
 static HOOK: OnceLock<()> = OnceLock::new();
 static LOCATIONS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static LIVE: AtomicUsize = AtomicUsize::new(0);
+static PULLED: AtomicUsize = AtomicUsize::new(0);
+static WEBSOCKET_TEST: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 struct Msg {
@@ -51,15 +54,28 @@ impl Drop for LiveGuard {
 async fn idle(
     input: BoxedStream<Msg, ServerFnError>,
 ) -> Result<BoxedStream<Msg, ServerFnError>, ServerFnError> {
-    drop(input);
     LIVE.fetch_add(1, Ordering::SeqCst);
     let guard = LiveGuard;
     Ok(stream::pending::<Result<Msg, ServerFnError>>()
         .map(move |item| {
-            let _keep = &guard;
+            let _keep = (&guard, &input);
             item
         })
         .into())
+}
+
+async fn sum(
+    input: BoxedStream<Msg, ServerFnError>,
+) -> Result<BoxedStream<Msg, ServerFnError>, ServerFnError> {
+    Ok(stream::once(async move {
+        let mut total = 0;
+        let mut input = input;
+        while let Some(Ok(message)) = input.next().await {
+            total += message.v;
+        }
+        Ok(Msg { v: total })
+    })
+    .into())
 }
 
 struct Idle {
@@ -104,9 +120,52 @@ impl ServerFn for Idle {
     }
 }
 
+struct Sum {
+    input: BoxedStream<Msg, ServerFnError>,
+}
+
+impl Deref for Sum {
+    type Target = BoxedStream<Msg, ServerFnError>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.input
+    }
+}
+
+impl From<Sum> for BoxedStream<Msg, ServerFnError> {
+    fn from(value: Sum) -> Self {
+        value.input
+    }
+}
+
+impl From<BoxedStream<Msg, ServerFnError>> for Sum {
+    fn from(input: BoxedStream<Msg, ServerFnError>) -> Self {
+        Self { input }
+    }
+}
+
+impl ServerFn for Sum {
+    const PATH: &'static str = "/api/sum";
+
+    type Client = ReqwestClient;
+    type Server = server_fn::axum::AxumServerFnBackend;
+    type Protocol = Websocket<JsonEncoding, JsonEncoding>;
+    type Output = BoxedStream<Msg, ServerFnError>;
+    type Error = ServerFnError;
+    type InputStreamError = ServerFnError;
+    type OutputStreamError = ServerFnError;
+
+    fn run_body(
+        self,
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
+        sum(self.input)
+    }
+}
+
 fn server_addr() -> SocketAddr {
     *SERVER.get_or_init(|| {
         server_fn::axum::register_explicit::<Idle>();
+        server_fn::axum::register_explicit::<Sum>();
         let listener = std::net::TcpListener::bind("127.0.0.1:0")
             .expect("loopback listener should bind");
         listener
@@ -145,6 +204,8 @@ fn server_addr() -> SocketAddr {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn server_forwarder_stops_when_client_disconnects() {
+    let _guard = WEBSOCKET_TEST.lock().await;
+    let before = LIVE.load(Ordering::SeqCst);
     let addr = server_addr();
     let (ws, _) =
         tokio_tungstenite::connect_async(format!("ws://{addr}{}", Idle::PATH))
@@ -152,7 +213,7 @@ async fn server_forwarder_stops_when_client_disconnects() {
             .expect("websocket client should connect");
 
     timeout(Duration::from_secs(5), async {
-        while LIVE.load(Ordering::SeqCst) != 1 {
+        while LIVE.load(Ordering::SeqCst) != before + 1 {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })
@@ -162,12 +223,79 @@ async fn server_forwarder_stops_when_client_disconnects() {
     drop(ws);
 
     timeout(Duration::from_secs(5), async {
-        while LIVE.load(Ordering::SeqCst) != 0 {
+        while LIVE.load(Ordering::SeqCst) != before {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })
     .await
     .expect("idle output stream should be dropped after disconnect");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn client_signals_end_of_input_so_the_server_can_reply() {
+    let _ = server_addr();
+    let input =
+        stream::iter([Ok(Msg { v: 1 }), Ok(Msg { v: 2 }), Ok(Msg { v: 3 })]);
+    let mut out =
+        <Websocket<JsonEncoding, JsonEncoding> as Protocol<
+            Sum,
+            BoxedStream<Msg, ServerFnError>,
+            ReqwestClient,
+            server_fn::axum::AxumServerFnBackend,
+            ServerFnError,
+        >>::run_client(Sum::PATH, Sum::from(BoxedStream::from(input)))
+        .await
+        .expect("websocket client should connect");
+
+    let result = timeout(Duration::from_secs(5), out.next())
+        .await
+        .expect("sum response should arrive before timeout");
+    assert_eq!(result, Some(Ok(Msg { v: 6 })));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn dropping_the_output_stream_closes_the_socket_and_stops_the_pump() {
+    let _guard = WEBSOCKET_TEST.lock().await;
+    let _ = server_addr();
+    let before = LIVE.load(Ordering::SeqCst);
+    PULLED.store(0, Ordering::SeqCst);
+    let input = stream::repeat(Ok(Msg { v: 0 })).inspect(|_| {
+        PULLED.fetch_add(1, Ordering::SeqCst);
+    });
+    let out =
+        <Websocket<JsonEncoding, JsonEncoding> as Protocol<
+            Idle,
+            BoxedStream<Msg, ServerFnError>,
+            ReqwestClient,
+            server_fn::axum::AxumServerFnBackend,
+            ServerFnError,
+        >>::run_client(Idle::PATH, Idle::from(BoxedStream::from(input)))
+        .await
+        .expect("websocket client should connect");
+
+    timeout(Duration::from_secs(5), async {
+        while LIVE.load(Ordering::SeqCst) != before + 1 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("idle output stream should become live");
+
+    drop(out);
+
+    timeout(Duration::from_secs(5), async {
+        while LIVE.load(Ordering::SeqCst) != before {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("idle output stream should be dropped after client closes");
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let first = PULLED.load(Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let second = PULLED.load(Ordering::SeqCst);
+    assert_eq!(first, second, "input pump should stop polling");
 }
 
 async fn needs_login()
