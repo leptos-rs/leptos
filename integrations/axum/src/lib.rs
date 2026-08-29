@@ -2617,8 +2617,7 @@ where
             let shell = shell.clone();
             async move {
                 let options = LeptosOptions::from_ref(&state);
-                let res =
-                    get_static_file(uri, &options.site_root, req.headers());
+                let res = get_static_file(uri, &options, req.headers());
                 // `get_static_file` returns `Err` if the underlying `ServeDir`
                 // fails. This handler is the documented "reasonable default"
                 // fallback, so it must not panic: log and serve a generic 500.
@@ -2707,12 +2706,21 @@ where
 #[cfg(feature = "default")]
 async fn get_static_file(
     uri: Uri,
-    root: &str,
+    options: &LeptosOptions,
     headers: &HeaderMap<HeaderValue>,
 ) -> Result<Response<Body>, (StatusCode, String)> {
     use axum::http::header::ACCEPT_ENCODING;
 
-    let req = Request::builder().uri(uri);
+    // Resolve the directory to serve from and the path within it. This honors
+    // an absolute `LEPTOS_SITE_PKG_DIR` (whose assets live outside `site_root`)
+    // and rejects path traversal.
+    let Some((dir, path)) =
+        leptos_integration_utils::resolve_static_dir(options, uri.path())
+    else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+
+    let req = Request::builder().uri(path.as_ref());
 
     let req = match headers.get(ACCEPT_ENCODING) {
         Some(value) => req.header(ACCEPT_ENCODING, value),
@@ -2733,8 +2741,7 @@ async fn get_static_file(
         }
     };
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
-    // This path is relative to the cargo root
-    match ServeDir::new(root)
+    match ServeDir::new(dir.as_ref())
         .precompressed_gzip()
         .precompressed_br()
         .oneshot(req)
