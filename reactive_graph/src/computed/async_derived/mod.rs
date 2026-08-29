@@ -99,7 +99,10 @@ pub mod suspense {
     use futures::channel::oneshot::Sender;
     use or_poisoned::OrPoisoned;
     use slotmap::{DefaultKey, SlotMap};
-    use std::sync::{Arc, Mutex};
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
 
     /// Sends a one-time notification that the resource being read from is "local only," i.e.,
     /// that it will only run on the client, not the server.
@@ -136,6 +139,72 @@ pub mod suspense {
                 tasks: self.tasks.clone(),
                 key,
             }
+        }
+    }
+
+    /// Tracks readiness of the route view(s) being built during a router
+    /// transition.
+    ///
+    /// `<Router set_is_routing>` uses this to keep `is_routing` set to `true`
+    /// until the newly built route — including content gated behind a
+    /// `<ProtectedRoute>`'s `<Transition>`, whose resources are only created
+    /// once the route is built rather than during route matching — has loaded.
+    ///
+    /// Unlike [`SuspenseContext`], registering a task here does **not** affect
+    /// what any `<Suspense>` or `<Transition>` displays; a boundary holds a task
+    /// only to report routing readiness back to the router. The router walks the
+    /// task set to empty (each boundary holds its task until after it has built
+    /// its children, so nested boundaries register before their parent releases)
+    /// and only then clears `is_routing`.
+    #[derive(Clone, Debug)]
+    pub struct RouteSettleContext {
+        tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+        active: Arc<AtomicBool>,
+    }
+
+    impl Default for RouteSettleContext {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl RouteSettleContext {
+        /// Creates a new, empty context.
+        pub fn new() -> Self {
+            Self {
+                tasks: ArcRwSignal::new(SlotMap::new()),
+                active: Arc::new(AtomicBool::new(true)),
+            }
+        }
+
+        /// Registers a task that keeps the route "unsettled" until the returned
+        /// handle is dropped.
+        ///
+        /// Returns `None` if the context has been [deactivated](Self::deactivate),
+        /// i.e., if the navigation it belonged to has already settled: the
+        /// context may still be found via `use_context` by boundaries created
+        /// after the navigation, and those should not register.
+        pub fn task(&self) -> Option<TaskHandle> {
+            if !self.active.load(Ordering::Acquire) {
+                return None;
+            }
+            let key = self.tasks.write().insert(());
+            Some(TaskHandle {
+                tasks: self.tasks.clone(),
+                key,
+            })
+        }
+
+        /// Marks the navigation this context belonged to as settled, so that
+        /// [`task`](Self::task) no longer registers anything.
+        pub fn deactivate(&self) {
+            self.active.store(false, Ordering::Release);
+        }
+
+        /// The set of active tasks, so the router can track when it becomes
+        /// empty.
+        pub fn tasks(&self) -> ArcRwSignal<SlotMap<DefaultKey, ()>> {
+            self.tasks.clone()
         }
     }
 
