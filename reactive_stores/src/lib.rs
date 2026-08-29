@@ -1427,4 +1427,32 @@ mod tests {
         tick().await;
         assert_eq!(name_count.load(Ordering::Relaxed), 2);
     }
+
+    #[derive(Debug, Clone, Store, Patch, Default)]
+    struct Settings {
+        label: Option<String>,
+        retries: u8,
+    }
+
+    #[tokio::test]
+    async fn subfield_converts_into_maybe_prop() {
+        use reactive_graph::{traits::GetUntracked, wrappers::read::MaybeProp};
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let store = Store::new(Settings::default());
+        let label: MaybeProp<String> = store.label().into();
+        let retries: MaybeProp<u8> = store.retries().into();
+
+        assert_eq!(label.get_untracked(), None);
+        assert_eq!(retries.get_untracked(), Some(0));
+
+        // The conversion derives from the field rather than copying it, so a
+        // later write is visible through the prop.
+        store.label().set(Some("ready".to_string()));
+        store.retries().set(3);
+
+        assert_eq!(label.get_untracked(), Some("ready".to_string()));
+        assert_eq!(retries.get_untracked(), Some(3));
+    }
 }
