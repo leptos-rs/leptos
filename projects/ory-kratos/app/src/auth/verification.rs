@@ -102,8 +102,8 @@ pub fn VerificationPage() -> impl IntoView {
         |flow_id| async move { init_verification(flow_id).await },
     );
     let verfication_resp =
-        create_rw_signal(None::<Result<Option<ViewableVerificationFlow>, ServerFnError>>);
-    create_effect(move |_| {
+        RwSignal::new(None::<Result<Option<ViewableVerificationFlow>, ServerFnError>>);
+    Effect::new(move |_| {
         if let Some(resp) = verify.value().get() {
             verfication_resp.set(Some(resp))
         }
@@ -115,7 +115,7 @@ pub fn VerificationPage() -> impl IntoView {
             init_verification.get()
         }
     });
-    let body = create_rw_signal(HashMap::new());
+    let body = RwSignal::new(HashMap::new());
     view! {
         <Suspense fallback=||view!{Loading Verification Details}>
         <ErrorBoundary fallback=|errors|format!("ERRORS: {:?}",errors.get_untracked()).into_view()>

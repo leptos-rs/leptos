@@ -288,7 +288,7 @@ pub fn SettingsPage() -> impl IntoView {
             init_settings_flow_resource.get()
         }
     });
-    let body = create_rw_signal(HashMap::new());
+    let body = RwSignal::new(HashMap::new());
     view! {
     <Suspense fallback=||"loading settings...".into_view()>
         <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
@@ -300,7 +300,7 @@ pub fn SettingsPage() -> impl IntoView {
                         ) => {
                             let form_inner_html = nodes.into_iter().map(|node|kratos_html(node,body)).collect_view();
                         body.update(move|map|{_=map.insert(String::from("action"),action);});
-                        let id = create_rw_signal(id);
+                        let id = RwSignal::new(id);
                             view!{
                                 <form id=ids::SETTINGS_FORM_ID
                                 on:submit=move|e|{
