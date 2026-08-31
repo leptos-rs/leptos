@@ -212,8 +212,8 @@ mod slot;
 /// ```
 ///
 /// 10. You can add the same class to every element in the view by passing in a special
-///    `class = {/* ... */},` argument after ``. This is useful for injecting a class
-///    provided by a scoped styling library.
+///     `class = {/* ... */},` argument after ``. This is useful for injecting a class
+///     provided by a scoped styling library.
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -470,14 +470,14 @@ fn include_view_impl(
 /// Here are some important details about how Leptos components work within the framework:
 ///
 /// * **The component function only runs once.** Your component function is not a “render” function
-///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
-///    create the user interface, and sets up a reactive system to update it. This means it’s okay
-///    to do relatively expensive work within the component function, as it will only happen once,
-///    not on every state change.
+///   that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
+///   create the user interface, and sets up a reactive system to update it. This means it’s okay
+///   to do relatively expensive work within the component function, as it will only happen once,
+///   not on every state change.
 ///
 /// * Component names are usually in `PascalCase`. If you use a `snake_case` name, then the generated
-///    component's name will still be in `PascalCase`. This is how the framework recognizes that
-///    a particular tag is a component, not an HTML element.
+///   component's name will still be in `PascalCase`. This is how the framework recognizes that
+///   a particular tag is a component, not an HTML element.
 ///
 /// ```
 /// # use leptos::prelude::*;
@@ -630,19 +630,19 @@ fn component_impl(
 ///
 /// Only code included in an island itself is compiled to WASM. This means:
 /// 1. `children` can be provided from a server `#[component]` to an `#[island]`
-/// without the island needing to be able to hydrate them.
+///    without the island needing to be able to hydrate them.
 /// 2. Props can be passed from the server to an island.
 ///
 /// ## Present Limitations
 /// A few noteworthy limitations, at the moment:
 /// 1. `children` are completely opaque in islands. You can't iterate over `children`;
-/// in fact they're all bundled into a single `<leptos-children>` HTML element.
+///    in fact they're all bundled into a single `<leptos-children>` HTML element.
 /// 2. Similarly, `children` need to be used in the HTML rendered on the server.
-/// If they need to be displayed conditionally, they should be included in the HTML
-/// and rendered or not using `display: none` rather than `<Show>` or ordinary control flow.
-/// This is because the children aren't serialized at all, other than as HTML: if that
-/// HTML isn't present in the DOM, even if hidden, it is never sent and not available
-/// to the client at all.
+///    If they need to be displayed conditionally, they should be included in the HTML
+///    and rendered or not using `display: none` rather than `<Show>` or ordinary control flow.
+///    This is because the children aren't serialized at all, other than as HTML: if that
+///    HTML isn't present in the DOM, even if hidden, it is never sent and not available
+///    to the client at all.
 ///
 /// ## Example
 /// ```rust,ignore
@@ -805,7 +805,7 @@ fn component_macro(
 /// 1. Most of the same rules from [`macro@component`] macro should also be followed on slots.
 ///
 /// 2. Specifying only `slot` without a name (such as in `<HelloSlot slot>`) will default the chosen slot to
-/// the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
+///    the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
 ///
 /// 3. Event handlers cannot be specified directly on the slot.
 ///
@@ -894,9 +894,9 @@ fn slot_impl(
 ///
 /// You can provide any combination of the following named arguments:
 /// - `name`: sets the identifier for the server function’s type, which is a struct created
-///    to hold the arguments (defaults to the function identifier in PascalCase)
+///   to hold the arguments (defaults to the function identifier in PascalCase)
 /// - `prefix`: a prefix at which the server function handler will be mounted (defaults to `/api`)
-///    your prefix must begin with `/`. Otherwise your function won't be found.
+///   your prefix must begin with `/`. Otherwise your function won't be found.
 /// - `endpoint`: specifies the exact path at which the server function handler will be mounted,
 ///   relative to the prefix (defaults to the function name followed by unique hash)
 /// - `input`: the encoding for the arguments (defaults to `PostUrl`)
