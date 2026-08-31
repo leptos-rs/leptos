@@ -319,7 +319,8 @@ where
     }
 }
 
-fn form_data_from_event(
+/// Retrieves the `FormData` of a form given the `submit` event
+pub fn form_data_from_event(
     ev: &SubmitEvent,
 ) -> Result<FormData, FromFormDataError> {
     let form = ev

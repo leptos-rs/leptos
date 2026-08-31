@@ -107,15 +107,17 @@ pub trait ExtendResponse: Sized {
                 pending.await;
             }
 
-            if !prefetches.0.read_value().is_empty() {
+            if let Some(prefetches) =
+                prefetches.0.try_read_value().filter(|p| !p.is_empty())
+            {
                 use leptos::prelude::*;
 
                 let nonce =
                     use_nonce().map(|n| n.to_string()).unwrap_or_default();
-                if let Some(manifest) = use_context::<WasmSplitManifest>() {
-                    let (pkg_path, manifest, wasm_split_file) =
-                        &*manifest.0.read_value();
-                    let prefetches = prefetches.0.read_value();
+                if let Some(manifest_read) = use_context::<WasmSplitManifest>()
+                    .and_then(|m| m.0.try_read_value())
+                {
+                    let (pkg_path, manifest, wasm_split_file) = &*manifest_read;
 
                     let all_prefetches = prefetches.iter().flat_map(|key| {
                         manifest.get(*key).into_iter().flatten()

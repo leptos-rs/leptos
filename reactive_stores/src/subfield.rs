@@ -12,7 +12,7 @@ use reactive_graph::{
         DefinedAt, Get as _, IsDisposed, Notify, ReadUntracked, Track,
         UntrackableGuard, Write,
     },
-    wrappers::read::Signal,
+    wrappers::read::{MaybeProp, Signal},
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
@@ -233,5 +233,27 @@ where
 {
     fn from(subfield: Subfield<Inner, Prev, T>) -> Self {
         Signal::derive(move || subfield.get())
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, Option<T>>> for MaybeProp<T>
+where
+    Inner: StoreField<Value = Prev> + Track + Send + Sync + 'static,
+    Prev: 'static,
+    T: Send + Sync + Clone + 'static,
+{
+    fn from(subfield: Subfield<Inner, Prev, Option<T>>) -> Self {
+        MaybeProp::derive(move || subfield.get())
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for MaybeProp<T>
+where
+    Inner: StoreField<Value = Prev> + Track + Send + Sync + 'static,
+    Prev: 'static,
+    T: Send + Sync + Clone + 'static,
+{
+    fn from(subfield: Subfield<Inner, Prev, T>) -> Self {
+        MaybeProp::derive(move || Some(subfield.get()))
     }
 }

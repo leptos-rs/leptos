@@ -425,7 +425,13 @@ impl<T: 'static> ArcAsyncDerived<T> {
         loading: &Arc<AtomicBool>,
         ready_tx: Option<oneshot::Sender<()>>,
     ) {
-        loading.store(false, Ordering::Relaxed);
+        // clear `loading` and take the workers under one lock, to prevent polling
+        // from registering a waker that's never woken
+        let pending_wakers = {
+            let mut wakers = wakers.write().or_poisoned();
+            loading.store(false, Ordering::Relaxed);
+            mem::take(&mut *wakers)
+        };
 
         let prev_state = mem::replace(
             &mut inner.write().or_poisoned().state,
@@ -447,7 +453,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         }
 
         // notify async .awaiters
-        for waker in mem::take(&mut *wakers.write().or_poisoned()) {
+        for waker in pending_wakers {
             waker.wake();
         }
 

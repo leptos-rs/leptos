@@ -395,14 +395,16 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        match self {
+        let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
-        }
+        };
+        super::close_branch_marker(position);
+        state
     }
 
     async fn hydrate_async(
@@ -410,14 +412,16 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        match self {
+        let state = match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate_async(cursor, position).await)
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate_async(cursor, position).await)
             }
-        }
+        };
+        super::close_branch_marker(position);
+        state
     }
 
     fn into_owned(self) -> Self::Owned {
@@ -930,6 +934,7 @@ macro_rules! tuples {
                             [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
                         })*
                     };
+                    $crate::view::close_branch_marker(position);
 
                     Self::State { state }
                 }
@@ -944,6 +949,7 @@ macro_rules! tuples {
                             [<EitherOf $num>]::$ty(this.hydrate_async(cursor, position).await)
                         })*
                     };
+                    $crate::view::close_branch_marker(position);
 
                     Self::State { state }
                 }

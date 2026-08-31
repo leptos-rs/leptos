@@ -525,7 +525,7 @@ where
 */
 
 macro_rules!  tuple_class_reactive {
-    ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*> , $( $where_clause:tt )*) =>
+    ($name:ident, <$($impl_gen:ident),*>, <$($gen:ident),*>, $dry_resolve:literal, $( $where_clause:tt )*) =>
     {
         #[allow(deprecated)]
         impl<$($impl_gen),*>  IntoClass for (&'static str, $name<$($gen),*>)
@@ -581,7 +581,11 @@ macro_rules!  tuple_class_reactive {
                 self
             }
 
-            fn dry_resolve(&mut self) {}
+            fn dry_resolve(&mut self) {
+                if $dry_resolve {
+                    _ = self.1.get();
+                }
+            }
 
             async fn resolve(self) -> Self::AsyncOutput {
                 self
@@ -611,7 +615,7 @@ macro_rules!  tuple_class_reactive {
 }
 
 macro_rules!  class_reactive {
-    ($name:ident, <$($gen:ident),*>, $v:ty, $( $where_clause:tt )*) =>
+    ($name:ident, <$($gen:ident),*>, $v:ty, $dry_resolve:literal, $( $where_clause:tt )*) =>
     {
         #[allow(deprecated)]
         impl<$($gen),*> IntoClass for $name<$($gen),*>
@@ -660,7 +664,11 @@ macro_rules!  class_reactive {
                 self
             }
 
-            fn dry_resolve(&mut self) {}
+            fn dry_resolve(&mut self) {
+                if $dry_resolve {
+                    _ = self.get();
+                }
+            }
 
             async fn resolve(self) -> Self::AsyncOutput {
                 self
@@ -699,6 +707,7 @@ mod stable {
         RwSignal,
         <V, S>,
         V,
+        false,
         RwSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -707,6 +716,7 @@ mod stable {
         ReadSignal,
         <V, S>,
         V,
+        false,
         ReadSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -715,6 +725,7 @@ mod stable {
         Memo,
         <V, S>,
         V,
+        true,
         Memo<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -723,6 +734,7 @@ mod stable {
         Signal,
         <V, S>,
         V,
+        true,
         Signal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -731,19 +743,21 @@ mod stable {
         MaybeSignal,
         <V, S>,
         V,
+        true,
         MaybeSignal<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    class_reactive!(ArcRwSignal, <V>, V, ArcRwSignal<V>: Get<Value = V>);
-    class_reactive!(ArcReadSignal, <V>, V, ArcReadSignal<V>: Get<Value = V>);
-    class_reactive!(ArcMemo, <V>, V, ArcMemo<V>: Get<Value = V>);
-    class_reactive!(ArcSignal, <V>, V, ArcSignal<V>: Get<Value = V>);
+    class_reactive!(ArcRwSignal, <V>, V, false, ArcRwSignal<V>: Get<Value = V>);
+    class_reactive!(ArcReadSignal, <V>, V, false, ArcReadSignal<V>: Get<Value = V>);
+    class_reactive!(ArcMemo, <V>, V, true, ArcMemo<V>: Get<Value = V>);
+    class_reactive!(ArcSignal, <V>, V, true, ArcSignal<V>: Get<Value = V>);
 
     tuple_class_reactive!(
         RwSignal,
         <S>,
         <bool, S>,
+        false,
         RwSignal<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send  + 'static,
@@ -752,6 +766,7 @@ mod stable {
         ReadSignal,
         <S>,
         <bool, S>,
+        false,
         ReadSignal<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send + 'static,
@@ -760,6 +775,7 @@ mod stable {
         Memo,
         <S>,
         <bool, S>,
+        true,
         Memo<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send + 'static,
@@ -768,6 +784,7 @@ mod stable {
         Signal,
         <S>,
         <bool, S>,
+        true,
         Signal<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send + 'static,
@@ -776,14 +793,15 @@ mod stable {
         MaybeSignal,
         <S>,
         <bool, S>,
+        true,
         MaybeSignal<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send + 'static,
     );
-    tuple_class_reactive!(ArcRwSignal,<>, <bool>, ArcRwSignal<bool>: Get<Value = bool>);
-    tuple_class_reactive!(ArcReadSignal,<>, <bool>, ArcReadSignal<bool>: Get<Value = bool>);
-    tuple_class_reactive!(ArcMemo,<>, <bool>, ArcMemo<bool>: Get<Value = bool>);
-    tuple_class_reactive!(ArcSignal,<>, <bool>, ArcSignal<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcRwSignal,<>, <bool>, false, ArcRwSignal<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcReadSignal,<>, <bool>, false, ArcReadSignal<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcMemo,<>, <bool>, true, ArcMemo<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcSignal,<>, <bool>, true, ArcSignal<bool>: Get<Value = bool>);
 }
 
 #[cfg(feature = "reactive_stores")]
@@ -802,6 +820,7 @@ mod reactive_stores {
         Subfield,
         <Inner, Prev, V>,
         V,
+        false,
         Subfield<Inner, Prev, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -811,6 +830,7 @@ mod reactive_stores {
         AtKeyed,
         <Inner, Prev, K, V>,
         V,
+        false,
         AtKeyed<Inner, Prev, K, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -822,6 +842,7 @@ mod reactive_stores {
         KeyedSubfield,
         <Inner, Prev, K, V>,
         V,
+        false,
         KeyedSubfield<Inner, Prev, K, V>: Get<Value = V>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -833,6 +854,7 @@ mod reactive_stores {
         DerefedField,
         <S>,
         <S::Value as Deref>::Target,
+        false,
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref + DerefMut
     );
@@ -841,6 +863,7 @@ mod reactive_stores {
         AtIndex,
         <Inner, Prev>,
         <Prev as Index<usize>>::Output,
+        false,
         AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
         Prev: Send + Sync + IndexMut<usize> + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -849,6 +872,7 @@ mod reactive_stores {
         Store,
         <V, S>,
         V,
+        false,
         Store<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
@@ -857,17 +881,19 @@ mod reactive_stores {
         Field,
         <V, S>,
         V,
+        false,
         Field<V, S>: Get<Value = V>,
         S: Storage<V> + Storage<Option<V>>,
         S: Send + Sync + 'static,
     );
-    class_reactive!(ArcStore, <V>, V, ArcStore<V>: Get<Value = V>);
-    class_reactive!(ArcField, <V>, V, ArcField<V>: Get<Value = V>);
+    class_reactive!(ArcStore, <V>, V, false, ArcStore<V>: Get<Value = V>);
+    class_reactive!(ArcField, <V>, V, false, ArcField<V>: Get<Value = V>);
 
     tuple_class_reactive!(
         Subfield,
         <Inner, Prev>,
         <Inner, Prev, bool>,
+        false,
         Subfield<Inner, Prev, bool>: Get<Value = bool>,
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -880,6 +906,7 @@ mod reactive_stores {
         DerefedField,
         <S>,
         <S>,
+        false,
         S: Clone + StoreField + Send + Sync + 'static,
         <S as StoreField>::Value: Deref<Target = bool> + DerefMut
     );
@@ -888,6 +915,7 @@ mod reactive_stores {
         AtIndex,
         <Inner, Prev>,
         <Inner, Prev>,
+        false,
         AtIndex<Inner, Prev>: Get<Value = Prev::Output>,
         Prev: Send + Sync + IndexMut<usize,Output = bool> + 'static,
         Inner: Send + Sync + Clone + 'static,
@@ -896,6 +924,7 @@ mod reactive_stores {
         Store,
         <S>,
         <bool, S>,
+        false,
         Store<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send  + 'static,
@@ -904,12 +933,13 @@ mod reactive_stores {
         Field,
         <S>,
         <bool, S>,
+        false,
         Field<bool, S>: Get<Value = bool>,
         S: Storage<bool>,
         S: Send  + 'static,
     );
-    tuple_class_reactive!(ArcStore,<>, <bool>, ArcStore<bool>: Get<Value = bool>);
-    tuple_class_reactive!(ArcField,<>, <bool>, ArcField<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcStore,<>, <bool>, false, ArcStore<bool>: Get<Value = bool>);
+    tuple_class_reactive!(ArcField,<>, <bool>, false, ArcField<bool>: Get<Value = bool>);
 }
 
 /*

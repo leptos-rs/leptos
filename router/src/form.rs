@@ -113,7 +113,7 @@ where
                     ..Default::default()
                 };
 
-                let Some((form, method, action, enctype)) =
+                let Some((method, action, enctype)) =
                     extract_form_attributes(&ev)
                 else {
                     return;
@@ -122,11 +122,8 @@ where
                     return;
                 }
 
-                let form_data = leptos::form::form_data_with_submitter(
-                    &form,
-                    ev.submitter().as_ref(),
-                )
-                .unwrap_throw();
+                let form_data =
+                    leptos::form::form_data_from_event(&ev).unwrap_throw();
                 if let Some(on_form_data) = on_form_data.clone() {
                     on_form_data(&form_data);
                 }
@@ -362,14 +359,13 @@ fn is_same_origin(action: &str) -> bool {
 }
 
 fn extract_form_attributes(
-    ev: &web_sys::Event,
-) -> Option<(web_sys::HtmlFormElement, String, String, String)> {
-    let submitter = ev.unchecked_ref::<web_sys::SubmitEvent>().submitter();
+    ev: &web_sys::SubmitEvent,
+) -> Option<(String, String, String)> {
+    let submitter = ev.submitter();
     match &submitter {
         Some(el) => {
             if let Some(form) = el.dyn_ref::<web_sys::HtmlFormElement>() {
                 Some((
-                    form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string())
                         .to_lowercase(),
@@ -388,7 +384,6 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     input
                         .get_attribute("formmethod")
                         .map(|method| method.to_lowercase())
@@ -420,7 +415,6 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     button
                         .get_attribute("formmethod")
                         .map(|method| method.to_lowercase())
@@ -462,7 +456,6 @@ fn extract_form_attributes(
             Some(form) => {
                 let form = form.unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    form.clone(),
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string()),
                     form.get_attribute("action").unwrap_or_default(),
@@ -509,15 +502,16 @@ mod wasm_tests {
     fn extracted_attributes(
         form: &HtmlFormElement,
         submitter: &HtmlElement,
-    ) -> (HtmlFormElement, String, String, String) {
+    ) -> (String, String, String) {
         let init = SubmitEventInit::new();
         init.set_submitter(Some(submitter));
         let event = SubmitEvent::new_with_event_init_dict("submit", &init)
             .unwrap_throw();
         let attributes = Rc::new(RefCell::new(None));
         let captured = Rc::clone(&attributes);
-        let listener = Closure::<dyn Fn(Event)>::new(move |event| {
-            *captured.borrow_mut() = extract_form_attributes(&event);
+        let listener = Closure::<dyn Fn(Event)>::new(move |event: Event| {
+            *captured.borrow_mut() =
+                extract_form_attributes(event.unchecked_ref());
         });
         form.add_event_listener_with_callback(
             "submit",
@@ -551,7 +545,7 @@ mod wasm_tests {
             .unwrap_throw();
         form.append_child(&button).unwrap_throw();
 
-        let (_, method, action, enctype) =
+        let (method, action, enctype) =
             extracted_attributes(&form, button.unchecked_ref());
         form.remove();
 
@@ -571,7 +565,7 @@ mod wasm_tests {
         button.set_attribute("type", "submit").unwrap_throw();
         form.append_child(&button).unwrap_throw();
 
-        let (_, method, action, enctype) =
+        let (method, action, enctype) =
             extracted_attributes(&form, button.unchecked_ref());
         form.remove();
 
@@ -597,7 +591,7 @@ mod wasm_tests {
             .unwrap_throw();
         form.append_child(&input).unwrap_throw();
 
-        let (_, method, action, enctype) =
+        let (method, action, enctype) =
             extracted_attributes(&form, input.unchecked_ref());
         form.remove();
 

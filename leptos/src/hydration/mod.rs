@@ -28,10 +28,7 @@ pub fn AutoReload(
         *LEPTOS_WATCH.get_or_init(|| std::env::var("LEPTOS_WATCH").is_ok());
 
     (!disable_watch && watch).then(|| {
-        #[cfg(feature = "nonce")]
         let nonce = crate::nonce::use_nonce();
-        #[cfg(not(feature = "nonce"))]
-        let nonce = None::<()>;
 
         let reload_port = match options.reload_external_port {
             Some(val) => val,
@@ -194,10 +191,7 @@ pub fn HydrationScripts(
         .clone();
 
     let pkg_path = &options.site_pkg_dir;
-    #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
-    #[cfg(not(feature = "nonce"))]
-    let nonce = None::<String>;
     let script = if islands {
         if let Some(sc) = Owner::current_shared_context() {
             sc.set_is_hydrating(false);
@@ -219,7 +213,10 @@ pub fn HydrationScripts(
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
-            crossorigin=nonce.clone().unwrap_or_default()
+            crossorigin=nonce
+                .as_ref()
+                .map(|n| Oco::Counted(n.as_inner().clone()))
+                .unwrap_or(Oco::Borrowed(""))
         />
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}

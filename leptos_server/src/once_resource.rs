@@ -133,13 +133,20 @@ where
                     fut.await
                 };
                 *value.write().or_poisoned() = Some(loaded);
+                // clear `loading` and take the wakers under one lock, to prevent polling
+                // from registering a waker that's never woken
+                //
                 // `Release` pairs with the `Acquire` load in
                 // `OnceResourceFuture::poll`: a poller that observes
                 // `loading == false` is then guaranteed to see the value write
                 // above. With `Relaxed` the value write could be invisible on
                 // weakly-ordered targets, panicking the `unwrap()` in `poll`.
-                loading.store(false, Ordering::Release);
-                for waker in mem::take(&mut *wakers.write().or_poisoned()) {
+                let pending_wakers = {
+                    let mut wakers = wakers.write().or_poisoned();
+                    loading.store(false, Ordering::Release);
+                    mem::take(&mut *wakers)
+                };
+                for waker in pending_wakers {
                     waker.wake();
                 }
                 trigger.notify();

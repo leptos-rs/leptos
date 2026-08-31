@@ -409,7 +409,9 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
     use reactive_graph::traits::WriteValue;
 
     if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
-        prefetches.0.write_value().insert(id);
+        if let Some(mut set) = prefetches.0.try_write_value() {
+            set.insert(id);
+        }
     }
 }
 
