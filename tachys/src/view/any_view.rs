@@ -549,9 +549,11 @@ impl RenderHtml for AnyView {
         {
             use futures::FutureExt;
 
-            (self.hydrate_async)(self.value, cursor, position)
+            let state = (self.hydrate_async)(self.value, cursor, position)
                 .now_or_never()
-                .unwrap()
+                .unwrap();
+            super::close_branch_marker(position);
+            state
         }
         #[cfg(not(feature = "hydrate"))]
         {
