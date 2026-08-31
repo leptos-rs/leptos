@@ -109,14 +109,13 @@ pub mod suspense {
     impl LocalResourceNotifier {
         /// Send the notification. If the inner channel has already been used, this does nothing.
         pub fn notify(&mut self) {
-            if let Some(tx) = self.0.lock().or_poisoned().take() {
-                if tx.send(()).is_err() {
+            if let Some(tx) = self.0.lock().or_poisoned().take()
+                && tx.send(()).is_err() {
                     crate::log_warning(format_args!(
                         "A local-resource notification could not be delivered \
                          because its listener was already dropped."
                     ));
                 }
-            }
         }
     }
 

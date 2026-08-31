@@ -408,11 +408,10 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
     use crate::context::use_context;
     use reactive_graph::traits::WriteValue;
 
-    if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
-        if let Some(mut set) = prefetches.0.try_write_value() {
+    if let Some(prefetches) = use_context::<PrefetchLazyFn>()
+        && let Some(mut set) = prefetches.0.try_write_value() {
             set.insert(id);
         }
-    }
 }
 
 #[doc(hidden)]
