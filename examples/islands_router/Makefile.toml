@@ -1,4 +1,5 @@
 extend = [
     { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/cargo-leptos.toml" },
+    { path = "../cargo-make/playwright.toml" },
+    { path = "../cargo-make/cargo-leptos-test.toml" },
 ]

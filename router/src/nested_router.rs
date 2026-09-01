@@ -127,15 +127,22 @@ where
             }
         };
 
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let abort_navigation = ArcStoredValue::new(Some(abort_handle));
         Executor::spawn_local({
             let view = Rc::clone(&view);
             let loaders = mem::take(&mut loaders);
+            let abort_navigation = abort_navigation.clone();
             ScopedFuture::new(async move {
-                let triggers = join_all(loaders).await;
-                for trigger in triggers {
-                    trigger.notify();
+                let triggers =
+                    Abortable::new(join_all(loaders), abort_registration).await;
+                if let Ok(triggers) = triggers {
+                    _ = abort_navigation.write_value().take();
+                    for trigger in triggers {
+                        trigger.notify();
+                    }
+                    matched_view.rebuild(&mut *view.borrow_mut());
                 }
-                matched_view.rebuild(&mut *view.borrow_mut());
             })
         });
 
@@ -145,7 +152,7 @@ where
             outlets,
             view,
             outer_owner,
-            abort_navigation: Default::default(),
+            abort_navigation,
         }
     }
 
@@ -247,8 +254,9 @@ where
                     }
                 });
 
-                // if it was on the fallback, show the view instead
-                if matches!(state.view.borrow().state, EitherOf3::B(_)) {
+                // if the top-level outlet is not rendered yet (fallback, or
+                // the initial load was still pending), show the view instead
+                if !matches!(state.view.borrow().state, EitherOf3::C(_)) {
                     EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
                         &state.outlets,
                         &self.outer_owner,

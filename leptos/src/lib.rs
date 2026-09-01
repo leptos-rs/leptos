@@ -216,6 +216,9 @@ pub mod error {
     pub use throw_error::*;
 }
 
+mod lazy_view_error;
+pub use lazy_view_error::LazyViewError;
+
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
     pub use crate::{
@@ -405,8 +408,10 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
     use crate::context::use_context;
     use reactive_graph::traits::WriteValue;
 
-    if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
-        prefetches.0.write_value().insert(id);
+    if let Some(prefetches) = use_context::<PrefetchLazyFn>()
+        && let Some(mut set) = prefetches.0.try_write_value()
+    {
+        set.insert(id);
     }
 }
 

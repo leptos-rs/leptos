@@ -1,3 +1,5 @@
+#![cfg(all(feature = "default", not(feature = "wasm")))]
+
 #[cfg(test)]
 mod tests {
     use axum::{Router, body::Body, http::Request};

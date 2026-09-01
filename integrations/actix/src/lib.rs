@@ -1838,7 +1838,7 @@ where
     .await
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "default"))]
 mod tests {
     // Targeted imports rather than `use super::*`: the crate root glob-imports
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.

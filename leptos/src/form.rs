@@ -18,11 +18,37 @@ use tachys::{
     reactive_graph::node_ref::NodeRef,
 };
 use thiserror::Error;
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
-use web_sys::{
-    Event, FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
-    SubmitEvent,
-};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, prelude::wasm_bindgen};
+use web_sys::{Event, FormData, HtmlElement, HtmlFormElement, SubmitEvent};
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(extends = FormData, js_name = FormData)]
+    type FormDataWithSubmitter;
+
+    #[wasm_bindgen(constructor, catch, js_class = "FormData")]
+    fn new_with_form_and_submitter(
+        form: &HtmlFormElement,
+        submitter: &HtmlElement,
+    ) -> Result<FormDataWithSubmitter, JsValue>;
+}
+
+/// Builds the [`FormData`] for `form` as a native submission would, including
+/// the entry contributed by `submitter` (the button that triggered the
+/// submission). `new FormData(form)` alone leaves that entry out, so servers
+/// that branch on the button's `name`/`value` cannot tell which was activated.
+pub fn form_data_with_submitter(
+    form: &HtmlFormElement,
+    submitter: Option<&HtmlElement>,
+) -> Result<FormData, JsValue> {
+    match submitter {
+        Some(submitter) => {
+            FormDataWithSubmitter::new_with_form_and_submitter(form, submitter)
+                .map(|data| data.unchecked_into())
+        }
+        None => FormData::new_with_form(form),
+    }
+}
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
@@ -293,37 +319,14 @@ where
     }
 }
 
-fn form_data_from_event(
+/// Retrieves the `FormData` of a form given the `submit` event
+pub fn form_data_from_event(
     ev: &SubmitEvent,
 ) -> Result<FormData, FromFormDataError> {
-    let submitter = ev.submitter();
-    let mut submitter_name_value = None;
-    let opt_form = match &submitter {
-        Some(el) => {
-            if let Some(form) = el.dyn_ref::<HtmlFormElement>() {
-                Some(form.clone())
-            } else if let Some(input) = el.dyn_ref::<HtmlInputElement>() {
-                submitter_name_value = Some((input.name(), input.value()));
-                Some(ev.target().unwrap().unchecked_into())
-            } else if let Some(button) = el.dyn_ref::<HtmlButtonElement>() {
-                submitter_name_value = Some((button.name(), button.value()));
-                Some(ev.target().unwrap().unchecked_into())
-            } else {
-                None
-            }
-        }
-        None => ev.target().map(|form| form.unchecked_into()),
-    };
-    match opt_form.as_ref().map(FormData::new_with_form) {
-        None => Err(FromFormDataError::MissingForm(ev.clone().into())),
-        Some(Err(e)) => Err(FromFormDataError::FormData(e)),
-        Some(Ok(form_data)) => {
-            if let Some((name, value)) = submitter_name_value {
-                form_data
-                    .append_with_str(&name, &value)
-                    .map_err(FromFormDataError::FormData)?;
-            }
-            Ok(form_data)
-        }
-    }
+    let form = ev
+        .target()
+        .and_then(|target| target.dyn_into::<HtmlFormElement>().ok())
+        .ok_or_else(|| FromFormDataError::MissingForm(ev.clone().into()))?;
+    form_data_with_submitter(&form, ev.submitter().as_ref())
+        .map_err(FromFormDataError::FormData)
 }
