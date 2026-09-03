@@ -18,7 +18,8 @@ use futures::{Future, FutureExt};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        AsyncDerivedReadyFuture, ScopedFuture, suspense::SuspenseContext,
+        AsyncDerivedReadyFuture, ScopedFuture,
+        suspense::{SharedTaskHandle, SuspenseContext},
     },
     diagnostics::{SpecialNonReactiveFuture, SpecialNonReactiveZone},
     graph::{AnySource, ToAnySource},
@@ -57,6 +58,7 @@ pub struct ArcOnceResource<T, Ser = JsonSerdeCodec> {
     value: Arc<RwLock<Option<T>>>,
     wakers: Arc<RwLock<Vec<Waker>>>,
     suspenses: Arc<RwLock<Vec<SuspenseContext>>>,
+    pending_suspenses: Arc<RwLock<Vec<SharedTaskHandle>>>,
     loading: Arc<AtomicBool>,
     ser: PhantomData<fn() -> Ser>,
     #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -70,6 +72,7 @@ impl<T, Ser> Clone for ArcOnceResource<T, Ser> {
             value: self.value.clone(),
             wakers: self.wakers.clone(),
             suspenses: self.suspenses.clone(),
+            pending_suspenses: self.pending_suspenses.clone(),
             loading: self.loading.clone(),
             ser: self.ser,
             #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -111,6 +114,8 @@ where
         let value = Arc::new(RwLock::new(initial));
         let wakers = Arc::new(RwLock::new(Vec::<Waker>::new()));
         let suspenses = Arc::new(RwLock::new(Vec::<SuspenseContext>::new()));
+        let pending_suspenses =
+            Arc::new(RwLock::new(Vec::<SharedTaskHandle>::new()));
         let loading = Arc::new(AtomicBool::new(!is_ready));
         let trigger = ArcTrigger::new();
 
@@ -119,6 +124,7 @@ where
         if !is_ready {
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
+            let pending_suspenses = Arc::clone(&pending_suspenses);
             let loading = Arc::clone(&loading);
             let trigger = trigger.clone();
             reactive_graph::spawn(async move {
@@ -133,6 +139,11 @@ where
                     fut.await
                 };
                 *value.write().or_poisoned() = Some(loaded);
+                for handle in
+                    mem::take(&mut *pending_suspenses.write().or_poisoned())
+                {
+                    handle.release();
+                }
                 // clear `loading` and take the wakers under one lock, to prevent polling
                 // from registering a waker that's never woken
                 //
@@ -159,6 +170,7 @@ where
             loading,
             wakers,
             suspenses,
+            pending_suspenses,
             ser: PhantomData,
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
@@ -316,9 +328,14 @@ where
             match ready.as_mut().now_or_never() {
                 Some(_) => drop(handle),
                 None => {
+                    let handle = SharedTaskHandle::new(handle);
+                    self.pending_suspenses
+                        .write()
+                        .or_poisoned()
+                        .push(handle.clone());
                     reactive_graph::spawn(async move {
                         ready.await;
-                        drop(handle);
+                        handle.release();
                     });
                 }
             }

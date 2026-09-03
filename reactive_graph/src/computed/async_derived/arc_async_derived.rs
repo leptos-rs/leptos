@@ -6,7 +6,7 @@ use super::{
 use crate::owner::Sandboxed;
 use crate::{
     channel::channel,
-    computed::suspense::SuspenseContext,
+    computed::suspense::{SharedTaskHandle, SuspenseContext},
     diagnostics::SpecialNonReactiveFuture,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
@@ -371,7 +371,7 @@ macro_rules! spawn_derived {
                                         let version = guard.version;
                                         let suspense_ids = mem::take(&mut guard.suspenses)
                                             .into_iter()
-                                            .map(|sc| sc.task_id())
+                                            .map(|sc| SharedTaskHandle::new(sc.task_id()))
                                             .collect::<Vec<_>>();
                                         guard.pending_suspenses.extend(suspense_ids);
                                         version
@@ -381,7 +381,9 @@ macro_rules! spawn_derived {
 
                                     let latest_version = {
                                         let mut guard = inner.write().or_poisoned();
-                                        drop(mem::take(&mut guard.pending_suspenses));
+                                        for handle in mem::take(&mut guard.pending_suspenses) {
+                                            handle.release();
+                                        }
                                         guard.version
                                     };
 
@@ -652,11 +654,15 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
                     drop(handle);
                 }
                 None => {
-                    // otherwise, spawn a task to wait for it to be ready, then drop the handle,
-                    // which will notify the suspense
+                    let handle = SharedTaskHandle::new(handle);
+                    self.inner
+                        .write()
+                        .or_poisoned()
+                        .pending_suspenses
+                        .push(handle.clone());
                     crate::spawn(async move {
                         ready.await;
-                        drop(handle);
+                        handle.release();
                     });
                 }
             }
@@ -690,7 +696,9 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
         guard.version += 1;
 
         // tell any suspenses to stop waiting for this
-        drop(mem::take(&mut guard.pending_suspenses));
+        for handle in mem::take(&mut guard.pending_suspenses) {
+            handle.release();
+        }
 
         Some(MappedMut::new(
             WriteGuard::new(self.clone(), self.value.blocking_write()),
@@ -708,7 +716,9 @@ impl<T: 'static> Write for ArcAsyncDerived<T> {
         guard.version += 1;
 
         // tell any suspenses to stop waiting for this
-        drop(mem::take(&mut guard.pending_suspenses));
+        for handle in mem::take(&mut guard.pending_suspenses) {
+            handle.release();
+        }
 
         Some(MappedMut::new(
             self.value.blocking_write(),

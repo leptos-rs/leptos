@@ -107,7 +107,7 @@ async fn body_runs_with_conditional_nested_resource() {
     let inner = Resource::new(
         || (),
         |_| async move {
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
             "inner-data".to_string()
         },
     );
@@ -133,7 +133,7 @@ async fn body_runs_with_conditional_nested_resource() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("nested-resource case: body ran {runs} times");
-    assert_eq!(runs, 3, "expected 3 runs in the nested-resource case");
+    assert_eq!(runs, 4, "expected 4 runs in the nested-resource case");
 }
 
 /// `strict=true` disables the double-check pass, so a Suspense with one
@@ -202,4 +202,101 @@ async fn body_runs_with_strict_transition() {
     let runs = count.load(Ordering::SeqCst);
     println!("strict transition case: body ran {runs} times");
     assert_eq!(runs, 2, "expected 2 runs in strict transition mode");
+}
+
+#[tokio::test]
+async fn out_of_order_body_runs_with_conditional_nested_resource() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let count_in = Arc::clone(&count);
+
+    let outer = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            true
+        },
+    );
+    let inner = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            "inner-data".to_string()
+        },
+    );
+
+    let app = view! {
+        <Suspense>{move || {
+            count_in.fetch_add(1, Ordering::SeqCst);
+            outer.get().and_then(|flag| {
+                if flag { inner.get() } else { None }
+            })
+        }}</Suspense>
+    };
+
+    let html = app.to_html_stream_out_of_order().collect::<String>().await;
+    assert!(
+        html.contains("inner-data"),
+        "conditional nested resource must resolve before the out-of-order \
+         fragment renders; got: {html:?}"
+    );
+
+    let runs = count.load(Ordering::SeqCst);
+    println!("out-of-order nested case: body ran {runs} times");
+    assert_eq!(runs, 4, "expected 4 runs in the out-of-order nested case");
+}
+
+#[tokio::test]
+async fn body_runs_with_two_levels_of_nesting() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let count_in = Arc::clone(&count);
+
+    let a = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            true
+        },
+    );
+    let b = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            true
+        },
+    );
+    let c = Resource::new(
+        || (),
+        |_| async move {
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            "deep-data".to_string()
+        },
+    );
+
+    let app = view! {
+        <Suspense>{move || {
+            count_in.fetch_add(1, Ordering::SeqCst);
+            a.get().and_then(|a| if a { b.get() } else { None })
+                   .and_then(|b| if b { c.get() } else { None })
+        }}</Suspense>
+    };
+
+    let html = render(app).await;
+    assert!(
+        html.contains("deep-data"),
+        "a read gated behind two rounds of resources must still be waited \
+         for; got: {html:?}"
+    );
+
+    let runs = count.load(Ordering::SeqCst);
+    println!("two-level nested case: body ran {runs} times");
+    // one walk per level discovered, plus the confirming walk, plus resolve
+    assert_eq!(runs, 5, "expected 5 runs in the two-level nested case");
 }
